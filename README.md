@@ -8,6 +8,8 @@ AI-built Linux experiment.
 bash scripts/install-wsl-deps.sh
 bash scripts/build-rootfs.sh
 bash scripts/run-qemu.sh --smoke
+bash scripts/build-iso.sh --smoke
+bash scripts/run-qemu.sh --iso /var/tmp/ooonana-os/build/ooonana.iso --smoke
 bash scripts/run-qemu.sh
 ```
 
@@ -22,4 +24,5 @@ Build output:
 ```text
 /var/tmp/ooonana-os/build/rootfs
 /var/tmp/ooonana-os/build/ooonana-rootfs.ext4
+/var/tmp/ooonana-os/build/ooonana.iso
 ```

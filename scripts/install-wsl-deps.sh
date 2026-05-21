@@ -11,6 +11,9 @@ Install WSL dependencies for Ooonana OS.
 
 Usage:
   scripts/install-wsl-deps.sh
+
+Installs:
+  debootstrap qemu-system-x86 xorriso isolinux syslinux-common
 USAGE
 }
 
@@ -30,10 +33,13 @@ apt-get install -y --no-install-recommends \
   ca-certificates \
   debootstrap \
   e2fsprogs \
+  isolinux \
   qemu-system-x86 \
   qemu-utils \
   rsync \
   sudo \
+  syslinux-common \
+  xorriso \
   xz-utils
 
 ooonana_log "WSL dependencies installed"

@@ -8,6 +8,8 @@ source "$ROOT/scripts/lib/common.sh"
 WORK_DIR="$(ooonana_default_build_dir)"
 ROOTFS="$WORK_DIR/rootfs"
 IMAGE="$WORK_DIR/ooonana-rootfs.ext4"
+ISO="$WORK_DIR/ooonana.iso"
+ISO_MODE=0
 KERNEL=""
 INITRD=""
 MEMORY="1024"
@@ -27,6 +29,7 @@ Usage:
 Options:
   --rootfs PATH       Rootfs directory with boot files
   --image PATH        Ext4 rootfs image
+  --iso PATH          Boot ISO path instead of rootfs image
   --kernel PATH       Kernel path
   --initrd PATH       Initrd path
   --memory MB         Memory size (default: 1024)
@@ -43,6 +46,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --rootfs) ROOTFS="$2"; shift 2 ;;
     --image) IMAGE="$2"; shift 2 ;;
+    --iso) ISO="$2"; ISO_MODE=1; shift 2 ;;
     --kernel) KERNEL="$2"; shift 2 ;;
     --initrd) INITRD="$2"; shift 2 ;;
     --memory) MEMORY="$2"; shift 2 ;;
@@ -85,8 +89,44 @@ build_command() {
   )
 }
 
+build_iso_command() {
+  QEMU_CMD=(
+    qemu-system-x86_64
+    -m "$MEMORY"
+    -smp "$CPUS"
+    -nographic
+    -no-reboot
+    -cdrom "$ISO"
+    -boot d
+  )
+}
+
 main() {
   ooonana_require_linux
+
+  if [[ "$ISO_MODE" -eq 1 ]]; then
+    [[ -f "$ISO" ]] || ooonana_die "missing ISO: $ISO"
+    build_iso_command
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      ooonana_print_command "${QEMU_CMD[@]}"
+      exit 0
+    fi
+    ooonana_require_commands qemu-system-x86_64 timeout tee grep
+    if [[ "$SMOKE" -eq 0 ]]; then
+      exec "${QEMU_CMD[@]}"
+    fi
+    mkdir -p "$(dirname "$LOG_FILE")"
+    ooonana_log "ISO smoke boot timeout: ${TIMEOUT_SECONDS}s"
+    set +e
+    timeout --foreground "$TIMEOUT_SECONDS" "${QEMU_CMD[@]}" 2>&1 | tee "$LOG_FILE"
+    qemu_status=${PIPESTATUS[0]}
+    set -e
+    if grep -q 'OOONANA_BOOT_OK' "$LOG_FILE"; then
+      ooonana_log "QEMU ISO smoke boot passed"
+      exit 0
+    fi
+    ooonana_die "QEMU ISO smoke boot failed, status $qemu_status, log: $LOG_FILE"
+  fi
 
   [[ -n "$KERNEL" ]] || KERNEL="$(pick_latest 'vmlinuz-*')"
   [[ -n "$INITRD" ]] || INITRD="$(pick_latest 'initrd.img-*')"
