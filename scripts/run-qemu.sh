@@ -10,6 +10,8 @@ ROOTFS="$WORK_DIR/rootfs"
 IMAGE="$WORK_DIR/ooonana-rootfs.ext4"
 ISO="$WORK_DIR/ooonana.iso"
 ISO_MODE=0
+DISK=""
+INSTALL=0
 KERNEL=""
 INITRD=""
 MEMORY="1024"
@@ -18,6 +20,7 @@ SMOKE=0
 DRY_RUN=0
 TIMEOUT_SECONDS="120"
 LOG_FILE="${OOONANA_QEMU_LOG:-$WORK_DIR/qemu-smoke.log}"
+SMOKE_MARKER="OOONANA_BOOT_OK"
 
 usage() {
   cat <<'USAGE'
@@ -30,6 +33,8 @@ Options:
   --rootfs PATH       Rootfs directory with boot files
   --image PATH        Ext4 rootfs image
   --iso PATH          Boot ISO path instead of rootfs image
+  --disk PATH         Attach writable raw disk or ext4 image
+  --install           Require ISO install mode and writable disk
   --kernel PATH       Kernel path
   --initrd PATH       Initrd path
   --memory MB         Memory size (default: 1024)
@@ -47,6 +52,8 @@ while [[ $# -gt 0 ]]; do
     --rootfs) ROOTFS="$2"; shift 2 ;;
     --image) IMAGE="$2"; shift 2 ;;
     --iso) ISO="$2"; ISO_MODE=1; shift 2 ;;
+    --disk) DISK="$2"; shift 2 ;;
+    --install) INSTALL=1; ISO_MODE=1; shift ;;
     --kernel) KERNEL="$2"; shift 2 ;;
     --initrd) INITRD="$2"; shift 2 ;;
     --memory) MEMORY="$2"; shift 2 ;;
@@ -99,6 +106,9 @@ build_iso_command() {
     -cdrom "$ISO"
     -boot d
   )
+  if [[ -n "$DISK" ]]; then
+    QEMU_CMD+=(-drive "file=$DISK,format=raw,if=virtio")
+  fi
 }
 
 main() {
@@ -106,6 +116,11 @@ main() {
 
   if [[ "$ISO_MODE" -eq 1 ]]; then
     [[ -f "$ISO" ]] || ooonana_die "missing ISO: $ISO"
+    if [[ "$INSTALL" -eq 1 ]]; then
+      [[ -n "$DISK" ]] || ooonana_die "--install requires --disk"
+      [[ -f "$DISK" ]] || ooonana_die "missing disk: $DISK"
+      SMOKE_MARKER="OOONANA_INSTALL_OK"
+    fi
     build_iso_command
     if [[ "$DRY_RUN" -eq 1 ]]; then
       ooonana_print_command "${QEMU_CMD[@]}"
@@ -121,7 +136,7 @@ main() {
     timeout --foreground "$TIMEOUT_SECONDS" "${QEMU_CMD[@]}" 2>&1 | tee "$LOG_FILE"
     qemu_status=${PIPESTATUS[0]}
     set -e
-    if grep -q 'OOONANA_BOOT_OK' "$LOG_FILE"; then
+    if grep -q "$SMOKE_MARKER" "$LOG_FILE"; then
       ooonana_log "QEMU ISO smoke boot passed"
       exit 0
     fi

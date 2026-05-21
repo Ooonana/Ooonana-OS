@@ -13,7 +13,7 @@ Usage:
   scripts/install-wsl-deps.sh
 
 Installs:
-  debootstrap qemu-system-x86 xorriso isolinux syslinux-common
+  debootstrap qemu-system-x86 xorriso isolinux syslinux-common rsync e2fsprogs
 USAGE
 }
 

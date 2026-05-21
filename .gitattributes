@@ -1,5 +1,6 @@
 *.sh text eol=lf
 packages/ooonana/usr/bin/ooonana text eol=lf
+packages/ooonana/usr/sbin/ooonana-install text eol=lf
 configs/packages/*.list text eol=lf
 *.md text eol=lf
 .gitignore text eol=lf

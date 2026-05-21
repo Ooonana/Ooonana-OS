@@ -83,7 +83,8 @@ EOF
   chroot "$ROOTFS" env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${packages[@]}"
   chroot "$ROOTFS" apt-get clean
 
-  install -Dm755 "$ROOT/packages/ooonana/usr/bin/ooonana" "$ROOTFS/usr/bin/ooonana"
+  cp -a "$ROOT/packages/ooonana/." "$ROOTFS/"
+  chmod 0755 "$ROOTFS/usr/bin/ooonana" "$ROOTFS/usr/sbin/ooonana-install"
 
   mkdir -p "$ROOTFS/etc/systemd/system/getty.target.wants"
   ln -sf /lib/systemd/system/serial-getty@.service "$ROOTFS/etc/systemd/system/getty.target.wants/serial-getty@ttyS0.service"
@@ -97,6 +98,19 @@ After=local-fs.target sysinit.target
 [Service]
 Type=oneshot
 ExecStart=/bin/sh -c 'echo OOONANA_BOOT_OK >/dev/console; sleep 1; systemctl poweroff --force --force'
+StandardOutput=journal+console
+StandardError=journal+console
+EOF
+
+  write_file "$ROOTFS/etc/systemd/system/ooonana-install-smoke.service" 0644 <<'EOF'
+[Unit]
+Description=Install Ooonana OS to smoke target
+DefaultDependencies=no
+After=local-fs.target sysinit.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -ec 'exec >/dev/console 2>&1; target="$(grep -o "ooonana.install.target=[^ ]*" /proc/cmdline | cut -d= -f2 || true)"; target="${target:-/dev/vda}"; /usr/sbin/ooonana-install --yes --target "$target" || { status="$?"; echo OOONANA_INSTALL_FAIL; sleep 1; systemctl poweroff --force --force; exit "$status"; }; echo OOONANA_INSTALL_OK; sleep 1; systemctl poweroff --force --force'
 StandardOutput=journal+console
 StandardError=journal+console
 EOF

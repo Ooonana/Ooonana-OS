@@ -10,6 +10,9 @@ bash scripts/build-rootfs.sh
 bash scripts/run-qemu.sh --smoke
 bash scripts/build-iso.sh --smoke
 bash scripts/run-qemu.sh --iso /var/tmp/ooonana-os/build/ooonana.iso --smoke
+truncate -s 4G /var/tmp/ooonana-os/build/install.ext4
+bash scripts/build-iso.sh --install --force
+bash scripts/run-qemu.sh --install --iso /var/tmp/ooonana-os/build/ooonana.iso --disk /var/tmp/ooonana-os/build/install.ext4 --smoke
 bash scripts/run-qemu.sh
 ```
 

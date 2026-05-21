@@ -11,6 +11,8 @@ ISO_TREE="$WORK_DIR/iso-tree"
 ISO="$WORK_DIR/ooonana.iso"
 VOLUME="OOONANA_OS"
 SMOKE=0
+INSTALL=0
+INSTALL_TARGET="/dev/vda"
 FORCE=0
 
 usage() {
@@ -27,6 +29,9 @@ Options:
   --iso PATH          ISO output path (default: WORK_DIR/ooonana.iso)
   --volume NAME       ISO volume label (default: OOONANA_OS)
   --smoke             Boot straight to smoke marker service
+  --install           Boot straight to installer smoke service
+  --install-target PATH
+                      Target device for installer mode (default: /dev/vda)
   --force             Delete existing ISO staging tree and ISO first
   -h, --help          Show help
 USAGE
@@ -40,6 +45,8 @@ while [[ $# -gt 0 ]]; do
     --iso) ISO="$2"; shift 2 ;;
     --volume) VOLUME="$2"; shift 2 ;;
     --smoke) SMOKE=1; shift ;;
+    --install) INSTALL=1; shift ;;
+    --install-target) INSTALL_TARGET="$2"; shift 2 ;;
     --force) FORCE=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) ooonana_die "unknown option: $1" ;;
@@ -67,7 +74,9 @@ first_existing() {
 
 write_isolinux_config() {
   local append="root=/dev/sr0 rootfstype=iso9660 ro console=ttyS0 panic=1"
-  if [[ "$SMOKE" -eq 1 ]]; then
+  if [[ "$INSTALL" -eq 1 ]]; then
+    append="$append systemd.unit=ooonana-install-smoke.service ooonana.install.target=$INSTALL_TARGET"
+  elif [[ "$SMOKE" -eq 1 ]]; then
     append="$append systemd.unit=ooonana-smoke.service"
   else
     append="$append systemd.unit=multi-user.target"

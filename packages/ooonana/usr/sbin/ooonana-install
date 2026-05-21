@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+TARGET=""
+SOURCE="/"
+MOUNT_POINT="/run/ooonana-target"
+YES=0
+DRY_RUN=0
+
+usage() {
+  cat <<'USAGE'
+Install Ooonana OS to a writable disk.
+
+Usage:
+  ooonana-install --target PATH --yes [options]
+
+Options:
+  --target PATH       Target disk or ext4 image
+  --source PATH       Source root (default: /)
+  --mount-point PATH  Temporary mount point (default: /run/ooonana-target)
+  --yes               Confirm destructive install
+  --dry-run           Print commands only
+  -h, --help          Show help
+USAGE
+}
+
+die() {
+  printf 'ooonana-install: %s\n' "$*" >&2
+  exit 1
+}
+
+print_cmd() {
+  local arg
+  for arg in "$@"; do
+    printf '%q ' "$arg"
+  done
+  printf '\n'
+}
+
+run_cmd() {
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    print_cmd "$@"
+  else
+    "$@"
+  fi
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --target) TARGET="$2"; shift 2 ;;
+    --source) SOURCE="$2"; shift 2 ;;
+    --mount-point) MOUNT_POINT="$2"; shift 2 ;;
+    --yes) YES=1; shift ;;
+    --dry-run) DRY_RUN=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) die "unknown option: $1" ;;
+  esac
+done
+
+[[ -n "$TARGET" ]] || die "--target required"
+[[ "$YES" -eq 1 ]] || die "--yes required because install formats target"
+
+if [[ "$DRY_RUN" -eq 0 ]]; then
+  [[ "${EUID:-$(id -u)}" -eq 0 ]] || die "run as root"
+  [[ -e "$TARGET" ]] || die "target missing: $TARGET"
+  [[ -d "$SOURCE" ]] || die "source missing: $SOURCE"
+fi
+
+cleanup() {
+  if [[ "$DRY_RUN" -eq 0 ]] && mountpoint -q "$MOUNT_POINT"; then
+    umount "$MOUNT_POINT"
+  fi
+}
+trap cleanup EXIT
+
+run_cmd mkfs.ext4 -F -L OOONANA_ROOT "$TARGET"
+run_cmd mkdir -p "$MOUNT_POINT"
+run_cmd mount "$TARGET" "$MOUNT_POINT"
+run_cmd rsync -aHAX --numeric-ids \
+  --exclude '/dev/*' \
+  --exclude '/proc/*' \
+  --exclude '/sys/*' \
+  --exclude '/run/*' \
+  --exclude '/tmp/*' \
+  --exclude '/mnt/*' \
+  --exclude '/media/*' \
+  --exclude '/lost+found' \
+  "$SOURCE"/ "$MOUNT_POINT"/
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  print_cmd mkdir -p "$MOUNT_POINT/var/lib/ooonana"
+  print_cmd sh -c "printf 'installed\n' > '$MOUNT_POINT/var/lib/ooonana/install-ok'"
+  print_cmd sh -c "printf 'LABEL=OOONANA_ROOT / ext4 defaults 0 1\nproc /proc proc defaults 0 0\n' > '$MOUNT_POINT/etc/fstab'"
+  print_cmd umount "$MOUNT_POINT"
+else
+  mkdir -p "$MOUNT_POINT/var/lib/ooonana"
+  printf 'installed\n' > "$MOUNT_POINT/var/lib/ooonana/install-ok"
+  cat > "$MOUNT_POINT/etc/fstab" <<'EOF'
+LABEL=OOONANA_ROOT / ext4 defaults 0 1
+proc /proc proc defaults 0 0
+EOF
+  umount "$MOUNT_POINT"
+fi
+
+printf 'OOONANA_INSTALL_OK\n'
