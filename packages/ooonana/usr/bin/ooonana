@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+VERSION="0.1.0"
+AI_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/ooonana/ai.env"
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  ooonana version
+  ooonana doctor
+  ooonana update
+  ooonana clean
+  ooonana ai setup
+  ooonana ai doctor
+  ooonana ai code PROMPT...
+USAGE
+}
+
+have() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+cmd_version() {
+  printf 'ooonana %s\n' "$VERSION"
+}
+
+cmd_doctor() {
+  printf 'kernel: %s\n' "$(uname -r)"
+  if have apt-get; then
+    printf 'apt: ok\n'
+  else
+    printf 'apt: missing\n'
+  fi
+  if have systemctl; then
+    printf 'systemd: present\n'
+  else
+    printf 'systemd: missing\n'
+  fi
+}
+
+cmd_update() {
+  have sudo || { printf 'sudo missing\n' >&2; exit 1; }
+  sudo apt-get update
+  sudo apt-get upgrade -y
+}
+
+cmd_clean() {
+  have sudo || { printf 'sudo missing\n' >&2; exit 1; }
+  sudo apt-get autoremove -y
+  sudo apt-get clean
+}
+
+cmd_ai_setup() {
+  mkdir -p "$(dirname "$AI_CONFIG")"
+  if [[ ! -f "$AI_CONFIG" ]]; then
+    umask 077
+    cat > "$AI_CONFIG" <<'EOF'
+# Add provider settings here.
+# OPENAI_API_KEY=sk-...
+EOF
+  fi
+  chmod 600 "$AI_CONFIG"
+  printf 'AI config: %s\n' "$AI_CONFIG"
+}
+
+cmd_ai_doctor() {
+  if [[ ! -s "$AI_CONFIG" ]]; then
+    printf 'AI config missing: run ooonana ai setup\n'
+    exit 1
+  fi
+  # shellcheck source=/dev/null
+  source "$AI_CONFIG"
+  if [[ -n "${OPENAI_API_KEY:-}" ]]; then
+    printf 'AI config: ok\n'
+  else
+    printf 'AI config missing OPENAI_API_KEY\n'
+    exit 1
+  fi
+}
+
+cmd_ai_code() {
+  [[ $# -gt 0 ]] || { printf 'prompt required\n' >&2; exit 1; }
+  cmd_ai_doctor >/dev/null
+  printf 'AI code request queued: %s\n' "$*"
+}
+
+main() {
+  local cmd="${1:-}"
+  [[ -n "$cmd" ]] || { usage; exit 0; }
+  shift || true
+
+  case "$cmd" in
+    version|--version|-v) cmd_version ;;
+    doctor) cmd_doctor ;;
+    update) cmd_update ;;
+    clean) cmd_clean ;;
+    ai)
+      case "${1:-}" in
+        setup) shift; cmd_ai_setup "$@" ;;
+        doctor) shift; cmd_ai_doctor "$@" ;;
+        code) shift; cmd_ai_code "$@" ;;
+        *) usage; exit 1 ;;
+      esac
+      ;;
+    help|--help|-h) usage ;;
+    *) usage; exit 1 ;;
+  esac
+}
+
+main "$@"

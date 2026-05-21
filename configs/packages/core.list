@@ -1,0 +1,9 @@
+# Ooonana OS core package profile
+ca-certificates
+dbus
+initramfs-tools
+linux-image-amd64
+locales
+netbase
+systemd-sysv
+udev

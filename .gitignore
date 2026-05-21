@@ -1,0 +1,6 @@
+build/
+.worktrees/
+*.log
+*.qcow2
+*.raw
+*.ext4

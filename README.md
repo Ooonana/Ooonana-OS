@@ -1,0 +1,25 @@
+# Ooonana OS
+
+AI-built Linux experiment.
+
+## WSL Rootfs Boot
+
+```bash
+bash scripts/install-wsl-deps.sh
+bash scripts/build-rootfs.sh
+bash scripts/run-qemu.sh --smoke
+bash scripts/run-qemu.sh
+```
+
+Windows root command:
+
+```powershell
+wsl.exe -u root bash -lc 'cd "/mnt/c/Users/7ryan/OneDrive/문서/Ooonana OS" && bash scripts/build-rootfs.sh'
+```
+
+Build output:
+
+```text
+/var/tmp/ooonana-os/build/rootfs
+/var/tmp/ooonana-os/build/ooonana-rootfs.ext4
+```
