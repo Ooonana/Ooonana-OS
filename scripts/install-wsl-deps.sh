@@ -13,7 +13,7 @@ Usage:
   scripts/install-wsl-deps.sh
 
 Installs:
-  debootstrap qemu-system-x86 xorriso isolinux syslinux-common rsync e2fsprogs
+  debootstrap qemu-system-x86 xorriso isolinux syslinux-common rsync e2fsprogs busybox-static
 USAGE
 }
 
@@ -31,6 +31,7 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y --no-install-recommends \
   ca-certificates \
+  busybox-static \
   debootstrap \
   e2fsprogs \
   isolinux \

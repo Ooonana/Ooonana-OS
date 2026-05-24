@@ -67,6 +67,7 @@ touch "$tmp/build/ooonana-rootfs.ext4"
 dry_run="$(bash "$ROOT/scripts/run-qemu.sh" --dry-run --smoke --rootfs "$tmp/rootfs" --image "$tmp/build/ooonana-rootfs.ext4")"
 assert_contains "$dry_run" "qemu-system-x86_64"
 assert_contains "$dry_run" "systemd.unit=ooonana-smoke.service"
+assert_contains "$dry_run" "ooonana.smoke=1"
 assert_contains "$dry_run" "root=/dev/vda"
 
 printf 'ok rootfs-qemu\n'
