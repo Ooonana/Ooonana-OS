@@ -33,6 +33,13 @@ Package metadata lives in:
 /usr/lib/ooonana/repo/hooks/*.remove
 ```
 
+Archive packages can add:
+
+```text
+OOONANA_PKG_ARCHIVE="hello.tar.gz"
+OOONANA_PKG_SHA256="..."
+```
+
 Installed package state lives in:
 
 ```text

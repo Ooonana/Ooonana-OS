@@ -12,7 +12,7 @@ fail() {
 [[ -x "$CLI" ]] || fail "missing executable CLI"
 
 version="$("$CLI" version)"
-[[ "$version" == "ooonana 0.2.0" ]] || fail "bad version: $version"
+[[ "$version" == "ooonana 0.3.0" ]] || fail "bad version: $version"
 
 doctor="$("$CLI" doctor || true)"
 [[ "$doctor" == *"kernel:"* ]] || fail "doctor missing kernel"

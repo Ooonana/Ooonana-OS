@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="0.2.0"
+VERSION="0.3.0"
 AI_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/ooonana/ai.env"
 OOONANA_ROOT="${OOONANA_ROOT:-/}"
 
@@ -57,6 +57,8 @@ reset_pkg_vars() {
   OOONANA_PKG_KIND=""
   OOONANA_PKG_COMPONENTS=""
   OOONANA_PKG_NOTES=""
+  OOONANA_PKG_ARCHIVE=""
+  OOONANA_PKG_SHA256=""
 }
 
 pkg_file() {
@@ -104,6 +106,87 @@ run_pkg_hook() {
   export OOONANA_ROOT OOONANA_REPO_DIR="$REPO_DIR" OOONANA_STATE_DIR="$STATE_DIR" OOONANA_CACHE_DIR="$CACHE_DIR"
   export OOONANA_PKG_ID OOONANA_PKG_VERSION OOONANA_PKG_KIND OOONANA_PKG_SUMMARY
   "$hook"
+}
+
+pkg_archive_path() {
+  local archive="$1"
+  if [[ "$archive" == /* ]]; then
+    printf '%s\n' "$archive"
+  else
+    printf '%s/%s\n' "$REPO_DIR" "$archive"
+  fi
+}
+
+pkg_files_dir() {
+  printf '%s/files\n' "$STATE_DIR"
+}
+
+pkg_files_manifest() {
+  printf '%s/%s.list\n' "$(pkg_files_dir)" "$1"
+}
+
+verify_pkg_archive() {
+  local id="$1"
+  local archive_path="$2"
+  [[ -f "$archive_path" ]] || die "missing archive: $OOONANA_PKG_ARCHIVE"
+  if [[ -n "$OOONANA_PKG_SHA256" ]]; then
+    have sha256sum || die "missing command: sha256sum"
+    local actual
+    actual="$(sha256sum "$archive_path" | awk '{print $1}')"
+    [[ "$actual" == "$OOONANA_PKG_SHA256" ]] || die "sha256 mismatch: $id"
+  fi
+}
+
+validate_archive_entries() {
+  local id="$1"
+  local archive_path="$2"
+  have tar || die "missing command: tar"
+  local entry clean_entry
+  tar -tzf "$archive_path" | while IFS= read -r entry; do
+    clean_entry="${entry#./}"
+    [[ -n "$clean_entry" ]] || continue
+    case "$clean_entry" in
+      /*|../*|*/../*|..)
+        die "unsafe archive path in $id: $entry"
+        ;;
+    esac
+  done
+}
+
+install_pkg_archive() {
+  local id="$1"
+  local archive_path
+  archive_path="$(pkg_archive_path "$OOONANA_PKG_ARCHIVE")"
+  verify_pkg_archive "$id" "$archive_path"
+  validate_archive_entries "$id" "$archive_path"
+  mkdir -p "$OOONANA_ROOT"
+  tar -xzf "$archive_path" -C "$OOONANA_ROOT"
+  mkdir -p "$(pkg_files_dir)"
+  tar -tzf "$archive_path" | sed -e 's#^\./##' -e '/^$/d' > "$(pkg_files_manifest "$id")"
+  printf 'unpacked %s\n' "$OOONANA_PKG_ARCHIVE"
+}
+
+remove_pkg_archive_files() {
+  local id="$1"
+  local manifest
+  manifest="$(pkg_files_manifest "$id")"
+  [[ -f "$manifest" ]] || return 0
+
+  local entry target i
+  local -a entries
+  mapfile -t entries < "$manifest"
+  for ((i=${#entries[@]} - 1; i >= 0; i--)); do
+    entry="${entries[$i]}"
+    [[ -n "$entry" ]] || continue
+    target="$(root_join "/$entry")"
+    if [[ -d "$target" && ! -L "$target" ]]; then
+      rmdir "$target" 2>/dev/null || true
+    else
+      rm -f "$target"
+    fi
+  done
+  rm -f "$manifest"
+  printf 'removed archive files %s\n' "$id"
 }
 
 pkg_state() {
@@ -199,6 +282,7 @@ cmd_info() {
   printf 'state: %s\n' "$(pkg_state "$id")"
   printf 'summary: %s\n' "$OOONANA_PKG_SUMMARY"
   [[ -n "$OOONANA_PKG_DEPS" ]] && printf 'deps: %s\n' "$OOONANA_PKG_DEPS"
+  [[ -n "$OOONANA_PKG_ARCHIVE" ]] && printf 'archive: %s\n' "$OOONANA_PKG_ARCHIVE"
   [[ -n "$OOONANA_PKG_COMPONENTS" ]] && printf 'components: %s\n' "$OOONANA_PKG_COMPONENTS"
   [[ -n "$OOONANA_PKG_NOTES" ]] && printf 'notes: %s\n' "$OOONANA_PKG_NOTES"
 }
@@ -220,11 +304,13 @@ install_one_pkg() {
 
   if [[ "$dry_run" -eq 1 ]]; then
     printf 'would install %s %s\n' "$id" "$OOONANA_PKG_VERSION"
+    [[ -n "$OOONANA_PKG_ARCHIVE" ]] && printf 'would unpack %s\n' "$OOONANA_PKG_ARCHIVE"
     [[ -e "$(pkg_hook "$id" install)" ]] && printf 'would run install hook %s\n' "$id"
     return 0
   fi
 
   ensure_pkg_dirs
+  [[ -n "$OOONANA_PKG_ARCHIVE" ]] && install_pkg_archive "$id"
   run_pkg_hook "$id" install
   cp "$(pkg_file "$id")" "$INSTALLED_DIR/$id.pkg"
   printf 'installed %s %s\n' "$id" "$OOONANA_PKG_VERSION"
@@ -265,10 +351,12 @@ cmd_remove() {
   fi
   if [[ "$dry_run" -eq 1 ]]; then
     printf 'would remove %s\n' "$id"
+    [[ -f "$(pkg_files_manifest "$id")" ]] && printf 'would remove archive files %s\n' "$id"
     [[ -e "$(pkg_hook "$id" remove)" ]] && printf 'would run remove hook %s\n' "$id"
     return 0
   fi
   run_pkg_hook "$id" remove
+  remove_pkg_archive_files "$id"
   rm -f "$INSTALLED_DIR/$id.pkg"
   printf 'removed %s\n' "$id"
 }

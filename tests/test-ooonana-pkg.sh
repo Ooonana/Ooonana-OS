@@ -110,4 +110,69 @@ assert_contains "$hook_remove" "running remove hook demo"
 assert_contains "$hook_remove" "removed demo"
 [[ ! -e "$custom_root/opt/demo/installed" ]] || fail "remove hook did not remove file"
 
+archive_repo="$tmp/archive-repo"
+archive_root="$tmp/archive-root"
+mkdir -p "$archive_repo" "$archive_root" "$tmp/payload/usr/bin" "$tmp/payload/etc/ooonana"
+cat > "$tmp/payload/usr/bin/hello-ooonana" <<'EOF'
+#!/bin/sh
+echo hello from ooonana
+EOF
+chmod +x "$tmp/payload/usr/bin/hello-ooonana"
+printf 'archive-test\n' > "$tmp/payload/etc/ooonana/archive.txt"
+tar -C "$tmp/payload" -czf "$archive_repo/hello.tar.gz" .
+archive_sha="$(sha256sum "$archive_repo/hello.tar.gz" | awk '{print $1}')"
+cat > "$archive_repo/hello.pkg" <<EOF
+OOONANA_PKG_ID="hello"
+OOONANA_PKG_VERSION="1.0.0"
+OOONANA_PKG_KIND="archive"
+OOONANA_PKG_SUMMARY="Hello archive package"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_ARCHIVE="hello.tar.gz"
+OOONANA_PKG_SHA256="$archive_sha"
+EOF
+
+archive_dry="$(OOONANA_REPO_DIR="$archive_repo" \
+  OOONANA_STATE_DIR="$tmp/archive-state" \
+  OOONANA_CACHE_DIR="$tmp/archive-cache" \
+  OOONANA_ROOT="$archive_root" \
+  "$CLI" get hello --dry-run)"
+assert_contains "$archive_dry" "would unpack hello.tar.gz"
+
+archive_install="$(OOONANA_REPO_DIR="$archive_repo" \
+  OOONANA_STATE_DIR="$tmp/archive-state" \
+  OOONANA_CACHE_DIR="$tmp/archive-cache" \
+  OOONANA_ROOT="$archive_root" \
+  "$CLI" get hello)"
+assert_contains "$archive_install" "unpacked hello.tar.gz"
+assert_contains "$archive_install" "installed hello"
+[[ -x "$archive_root/usr/bin/hello-ooonana" ]] || fail "archive did not install executable"
+[[ "$(cat "$archive_root/etc/ooonana/archive.txt")" == "archive-test" ]] || fail "archive did not install data"
+[[ -f "$tmp/archive-state/files/hello.list" ]] || fail "missing archive file manifest"
+
+archive_remove="$(OOONANA_REPO_DIR="$archive_repo" \
+  OOONANA_STATE_DIR="$tmp/archive-state" \
+  OOONANA_CACHE_DIR="$tmp/archive-cache" \
+  OOONANA_ROOT="$archive_root" \
+  "$CLI" remove hello)"
+assert_contains "$archive_remove" "removed archive files hello"
+assert_contains "$archive_remove" "removed hello"
+[[ ! -e "$archive_root/usr/bin/hello-ooonana" ]] || fail "archive remove left executable"
+[[ ! -e "$archive_root/etc/ooonana/archive.txt" ]] || fail "archive remove left data"
+
+cat > "$archive_repo/bad.pkg" <<'EOF'
+OOONANA_PKG_ID="bad"
+OOONANA_PKG_VERSION="1.0.0"
+OOONANA_PKG_KIND="archive"
+OOONANA_PKG_SUMMARY="Bad archive package"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_ARCHIVE="hello.tar.gz"
+OOONANA_PKG_SHA256="badbad"
+EOF
+bad_install="$(OOONANA_REPO_DIR="$archive_repo" \
+  OOONANA_STATE_DIR="$tmp/bad-state" \
+  OOONANA_CACHE_DIR="$tmp/bad-cache" \
+  OOONANA_ROOT="$tmp/bad-root" \
+  "$CLI" get bad 2>&1 || true)"
+assert_contains "$bad_install" "sha256 mismatch: bad"
+
 printf 'ok ooonana-pkg\n'
