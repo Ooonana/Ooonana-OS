@@ -2,6 +2,44 @@
 
 AI-built Linux experiment.
 
+## Direction
+
+Ooonana OS is moving toward a scratch-built, lightweight Linux:
+
+- Linux kernel
+- BusyBox/musl-style minimal userland target
+- Ooonana-owned package/bundle manager
+- Optional GUI, AI, developer, and security-lab bundles
+
+The current Debian-based rootfs is a bootable test shell for QEMU while the Ooonana tooling and installer grow.
+
+## Ooonana Command
+
+```bash
+ooonana update
+ooonana list
+ooonana info gui
+ooonana get gui --dry-run
+ooonana get ai
+ooonana list --installed
+ooonana remove ai
+```
+
+Package metadata lives in:
+
+```text
+/usr/lib/ooonana/repo/*.pkg
+/usr/lib/ooonana/repo/hooks/*.install
+/usr/lib/ooonana/repo/hooks/*.remove
+```
+
+Installed package state lives in:
+
+```text
+/var/lib/ooonana/packages/installed
+/var/cache/ooonana/index.tsv
+```
+
 ## WSL Rootfs Boot
 
 ```bash

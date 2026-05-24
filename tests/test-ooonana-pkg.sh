@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLI="$ROOT/packages/ooonana/usr/bin/ooonana"
 REPO="$ROOT/packages/ooonana/usr/lib/ooonana/repo"
+CLI_SRC="$(<"$CLI")"
 
 fail() {
   printf 'FAIL: %s\n' "$*" >&2
@@ -21,6 +22,8 @@ assert_not_contains() {
   local needle="$2"
   [[ "$haystack" != *"$needle"* ]] || fail "unexpected: $needle"
 }
+
+assert_not_contains "$CLI_SRC" "<("
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT

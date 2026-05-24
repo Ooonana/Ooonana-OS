@@ -141,16 +141,15 @@ cmd_doctor() {
 cmd_update() {
   ensure_pkg_dirs
   local id count tmp
-  count=0
   tmp="$CACHE_DIR/index.tsv.tmp"
   : > "$tmp"
-  while IFS= read -r id; do
+  pkg_ids | while IFS= read -r id; do
     [[ -n "$id" ]] || continue
     load_pkg "$id"
     printf '%s\t%s\t%s\n' "$OOONANA_PKG_ID" "$OOONANA_PKG_VERSION" "$OOONANA_PKG_SUMMARY" >> "$tmp"
-    count=$((count + 1))
-  done < <(pkg_ids)
+  done
   mv "$tmp" "$CACHE_DIR/index.tsv"
+  count="$(wc -l < "$CACHE_DIR/index.tsv" | tr -d ' ')"
   printf 'ooonana repo: synced %d package(s)\n' "$count"
   if [[ "${OOONANA_APT_UPDATE:-0}" == "1" ]] && have apt-get; then
     apt-get update
@@ -183,12 +182,11 @@ cmd_list() {
     return 0
   fi
 
-  local id
-  while IFS= read -r id; do
+  pkg_ids | while IFS= read -r id; do
     [[ -n "$id" ]] || continue
     load_pkg "$id"
     print_pkg_line "$id" "$(pkg_state "$id")"
-  done < <(pkg_ids)
+  done
 }
 
 cmd_info() {
