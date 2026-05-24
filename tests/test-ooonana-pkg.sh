@@ -89,20 +89,20 @@ rmdir "$OOONANA_ROOT/opt/demo" 2>/dev/null || true
 EOF
 chmod +x "$custom_repo/hooks/demo.install" "$custom_repo/hooks/demo.remove"
 
-OOONANA_REPO_DIR="$custom_repo" \
-OOONANA_STATE_DIR="$tmp/custom-state" \
-OOONANA_CACHE_DIR="$tmp/custom-cache" \
-OOONANA_ROOT="$custom_root" \
-  hook_install="$("$CLI" get demo)"
+hook_install="$(OOONANA_REPO_DIR="$custom_repo" \
+  OOONANA_STATE_DIR="$tmp/custom-state" \
+  OOONANA_CACHE_DIR="$tmp/custom-cache" \
+  OOONANA_ROOT="$custom_root" \
+  "$CLI" get demo)"
 assert_contains "$hook_install" "running install hook demo"
 assert_contains "$hook_install" "installed demo"
 [[ "$(cat "$custom_root/opt/demo/installed")" == "demo" ]] || fail "install hook did not write file"
 
-OOONANA_REPO_DIR="$custom_repo" \
-OOONANA_STATE_DIR="$tmp/custom-state" \
-OOONANA_CACHE_DIR="$tmp/custom-cache" \
-OOONANA_ROOT="$custom_root" \
-  hook_remove="$("$CLI" remove demo)"
+hook_remove="$(OOONANA_REPO_DIR="$custom_repo" \
+  OOONANA_STATE_DIR="$tmp/custom-state" \
+  OOONANA_CACHE_DIR="$tmp/custom-cache" \
+  OOONANA_ROOT="$custom_root" \
+  "$CLI" remove demo)"
 assert_contains "$hook_remove" "running remove hook demo"
 assert_contains "$hook_remove" "removed demo"
 [[ ! -e "$custom_root/opt/demo/installed" ]] || fail "remove hook did not remove file"
