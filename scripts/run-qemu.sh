@@ -78,7 +78,7 @@ pick_latest() {
 build_command() {
   local append="root=/dev/vda rw console=ttyS0 panic=1"
   if [[ "$SMOKE" -eq 1 ]]; then
-    append="$append systemd.unit=ooonana-smoke.service"
+    append="$append systemd.unit=ooonana-smoke.service ooonana.smoke=1"
   else
     append="$append systemd.unit=multi-user.target"
   fi

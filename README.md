@@ -67,3 +67,21 @@ Build output:
 /var/tmp/ooonana-os/build/ooonana-rootfs.ext4
 /var/tmp/ooonana-os/build/ooonana.iso
 ```
+
+## Scratch Rootfs
+
+```bash
+bash scripts/install-wsl-deps.sh
+bash scripts/build-scratch-rootfs.sh --force
+bash scripts/run-qemu.sh \
+  --rootfs /var/tmp/ooonana-os/build/rootfs \
+  --image /var/tmp/ooonana-os/build/ooonana-scratch.ext4 \
+  --smoke
+```
+
+Scratch output:
+
+```text
+/var/tmp/ooonana-os/build/scratch-rootfs
+/var/tmp/ooonana-os/build/ooonana-scratch.ext4
+```
