@@ -25,6 +25,32 @@ ooonana list --installed
 ooonana remove ai
 ```
 
+## Ooonana AI CLI
+
+Ooonana includes a terminal AI app inspired by the provider-gateway shape of tools like Gemini CLI and free-claude-code, but it is branded as Ooonana and talks directly to NVIDIA NIM.
+
+```bash
+ooonana ai setup
+${EDITOR:-vi} ~/.config/ooonana/ai.env
+ooonana ai doctor
+ooonana ai config
+ooonana ai ask --model code "explain this Linux environment"
+ooonana ai chat
+ooonana ai env
+ooonana ai models
+```
+
+The config file expects an NVIDIA NIM key:
+
+```text
+NVIDIA_API_KEY=nvapi-...
+OOONANA_NIM_BASE_URL=https://integrate.api.nvidia.com/v1
+OOONANA_NIM_MODEL=nvidia/nemotron-3-super-120b-a12b
+OOONANA_MODEL_CODE=qwen/qwen3-coder-480b-a35b-instruct
+```
+
+Every request includes an Ooonana identity prompt and a compact Linux environment snapshot so the assistant knows it is Ooonana running inside the current OS.
+
 Package metadata lives in:
 
 ```text

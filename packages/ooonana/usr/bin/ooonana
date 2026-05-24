@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="0.2.0"
-AI_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/ooonana/ai.env"
+VERSION="0.3.0"
+AI_CONFIG="${OOONANA_AI_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/ooonana/ai.env}"
 OOONANA_ROOT="${OOONANA_ROOT:-/}"
 
 root_join() {
@@ -13,6 +13,13 @@ root_join() {
     printf '%s/%s\n' "${OOONANA_ROOT%/}" "${path#/}"
   fi
 }
+
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+LOCAL_AI_APP="${SCRIPT_DIR%/bin}/lib/ooonana/ai/ooonana_ai.py"
+AI_APP="${OOONANA_AI_APP:-$LOCAL_AI_APP}"
+if [[ ! -f "$AI_APP" ]]; then
+  AI_APP="$(root_join /usr/lib/ooonana/ai/ooonana_ai.py)"
+fi
 
 REPO_DIR="${OOONANA_REPO_DIR:-$(root_join /usr/lib/ooonana/repo)}"
 STATE_DIR="${OOONANA_STATE_DIR:-$(root_join /var/lib/ooonana/packages)}"
@@ -32,7 +39,12 @@ Usage:
   ooonana clean
   ooonana ai setup
   ooonana ai doctor
-  ooonana ai code PROMPT...
+  ooonana ai config
+  ooonana ai ask PROMPT...
+  ooonana ai chat
+  ooonana ai env
+  ooonana ai models
+  ooonana ai status
 USAGE
 }
 
@@ -273,38 +285,10 @@ cmd_remove() {
   printf 'removed %s\n' "$id"
 }
 
-cmd_ai_setup() {
-  mkdir -p "$(dirname "$AI_CONFIG")"
-  if [[ ! -f "$AI_CONFIG" ]]; then
-    umask 077
-    cat > "$AI_CONFIG" <<'EOF'
-# Add provider settings here.
-# OPENAI_API_KEY=sk-...
-EOF
-  fi
-  chmod 600 "$AI_CONFIG"
-  printf 'AI config: %s\n' "$AI_CONFIG"
-}
-
-cmd_ai_doctor() {
-  if [[ ! -s "$AI_CONFIG" ]]; then
-    printf 'AI config missing: run ooonana ai setup\n'
-    exit 1
-  fi
-  # shellcheck source=/dev/null
-  source "$AI_CONFIG"
-  if [[ -n "${OPENAI_API_KEY:-}" ]]; then
-    printf 'AI config: ok\n'
-  else
-    printf 'AI config missing OPENAI_API_KEY\n'
-    exit 1
-  fi
-}
-
-cmd_ai_code() {
-  [[ $# -gt 0 ]] || { printf 'prompt required\n' >&2; exit 1; }
-  cmd_ai_doctor >/dev/null
-  printf 'AI code request queued: %s\n' "$*"
+cmd_ai() {
+  have python3 || die "python3 required for ooonana ai"
+  [[ -f "$AI_APP" ]] || die "missing AI app: $AI_APP"
+  python3 "$AI_APP" --config "$AI_CONFIG" "$@"
 }
 
 main() {
@@ -322,12 +306,7 @@ main() {
     remove) cmd_remove "$@" ;;
     clean) cmd_clean ;;
     ai)
-      case "${1:-}" in
-        setup) shift; cmd_ai_setup "$@" ;;
-        doctor) shift; cmd_ai_doctor "$@" ;;
-        code) shift; cmd_ai_code "$@" ;;
-        *) usage; exit 1 ;;
-      esac
+      cmd_ai "$@"
       ;;
     help|--help|-h) usage ;;
     *) usage; exit 1 ;;

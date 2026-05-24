@@ -1,6 +1,8 @@
 *.sh text eol=lf
 packages/ooonana/usr/bin/ooonana text eol=lf
+packages/ooonana/usr/bin/ooonana-ai text eol=lf
 packages/ooonana/usr/sbin/ooonana-install text eol=lf
+packages/ooonana/usr/lib/ooonana/ai/*.py text eol=lf
 packages/ooonana/usr/lib/ooonana/repo/*.pkg text eol=lf
 configs/packages/*.list text eol=lf
 *.md text eol=lf
