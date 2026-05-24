@@ -77,6 +77,11 @@ bash scripts/run-qemu.sh \
   --rootfs /var/tmp/ooonana-os/build/rootfs \
   --image /var/tmp/ooonana-os/build/ooonana-scratch.ext4 \
   --smoke
+bash scripts/build-scratch-initramfs.sh --force
+bash scripts/run-qemu.sh \
+  --initramfs-boot \
+  --rootfs /var/tmp/ooonana-os/build/rootfs \
+  --smoke
 ```
 
 Scratch output:
@@ -84,4 +89,5 @@ Scratch output:
 ```text
 /var/tmp/ooonana-os/build/scratch-rootfs
 /var/tmp/ooonana-os/build/ooonana-scratch.ext4
+/var/tmp/ooonana-os/build/ooonana-scratch-initramfs.cpio.gz
 ```

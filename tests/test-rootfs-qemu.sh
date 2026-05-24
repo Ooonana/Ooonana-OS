@@ -44,6 +44,7 @@ assert_contains "$build_help" "--force"
 
 run_help="$(bash "$ROOT/scripts/run-qemu.sh" --help)"
 assert_contains "$run_help" "Boot Ooonana rootfs with QEMU"
+assert_contains "$run_help" "--initramfs-boot"
 assert_contains "$run_help" "--smoke"
 assert_contains "$run_help" "--dry-run"
 
@@ -69,5 +70,15 @@ assert_contains "$dry_run" "qemu-system-x86_64"
 assert_contains "$dry_run" "systemd.unit=ooonana-smoke.service"
 assert_contains "$dry_run" "ooonana.smoke=1"
 assert_contains "$dry_run" "root=/dev/vda"
+
+touch "$tmp/build/ooonana-scratch-initramfs.cpio.gz"
+initramfs_dry_run="$(bash "$ROOT/scripts/run-qemu.sh" --dry-run --smoke --initramfs-boot --rootfs "$tmp/rootfs" --initrd "$tmp/build/ooonana-scratch-initramfs.cpio.gz")"
+assert_contains "$initramfs_dry_run" "qemu-system-x86_64"
+assert_contains "$initramfs_dry_run" "rdinit=/init"
+assert_contains "$initramfs_dry_run" "ooonana.smoke=1"
+assert_contains "$initramfs_dry_run" "-initrd"
+if [[ "$initramfs_dry_run" == *"root=/dev/vda"* ]]; then
+  fail "scratch initramfs boot must not use Debian root disk"
+fi
 
 printf 'ok rootfs-qemu\n'
