@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLI="$ROOT/packages/ooonana/usr/bin/ooonana"
+AI_WRAPPER="$ROOT/packages/ooonana/usr/bin/ooonana-ai"
 AI_APP="$ROOT/packages/ooonana/usr/lib/ooonana/ai/ooonana_ai.py"
 
 fail() {
@@ -23,6 +24,7 @@ assert_not_contains() {
 }
 
 [[ -x "$CLI" ]] || fail "missing executable CLI"
+[[ -x "$AI_WRAPPER" ]] || fail "missing executable AI wrapper"
 [[ -f "$AI_APP" ]] || fail "missing AI app"
 
 tmp="$(mktemp -d)"
@@ -74,5 +76,26 @@ assert_contains "$mock" "Ooonana mock response"
 
 models="$("$CLI" ai models)"
 assert_contains "$models" "qwen/qwen3-coder-480b-a35b-instruct"
+
+status="$("$AI_WRAPPER" status --model code)"
+assert_contains "$status" "Ooonana AI status"
+assert_contains "$status" "provider: NVIDIA NIM"
+assert_contains "$status" "qwen/qwen3-coder-480b-a35b-instruct"
+
+ping="$(OOONANA_AI_MOCK=1 "$AI_WRAPPER" ping --model code)"
+assert_contains "$ping" "Ooonana mock response"
+
+chat_ui="$(printf '/status\n/exit\n' | OOONANA_AI_CONFIG="$config" "$AI_WRAPPER" chat --no-stream)"
+assert_contains "$chat_ui" "Ooonana AI"
+assert_contains "$chat_ui" "mode: chat"
+assert_contains "$chat_ui" "ooonana ai>"
+
+install_out="$(OOONANA_WSL_BIN_DIR="$tmp/bin" bash "$ROOT/scripts/install-ooonana-ai-wsl.sh")"
+assert_contains "$install_out" "installed ooonana"
+[[ -L "$tmp/bin/ooonana" ]] || fail "install script missing ooonana symlink"
+[[ -L "$tmp/bin/ooonana-ai" ]] || fail "install script missing ooonana-ai symlink"
+symlink_status="$(PATH="$tmp/bin:$PATH" OOONANA_AI_CONFIG="$config" ooonana-ai status --model code)"
+assert_contains "$symlink_status" "Ooonana AI status"
+assert_contains "$symlink_status" "qwen/qwen3-coder-480b-a35b-instruct"
 
 printf 'ok ooonana-ai\n'

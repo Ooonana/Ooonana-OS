@@ -32,12 +32,31 @@ DEFAULT_MAX_CONTEXT_BYTES = 12000
 
 IDENTITY_PROMPT = """\
 You are Ooonana, the built-in AI assistant for Ooonana OS.
-Your name is Ooonana. Say you are Ooonana when identity matters.
-You are not Gemini, Claude, ChatGPT, or NIM; NVIDIA NIM is only your model provider.
-You live in a Linux terminal and help the user understand, build, debug, and operate the whole Ooonana Linux environment.
-Use the provided environment snapshot as authoritative current context.
-Prefer concrete shell commands, file paths, and short explanations.
-Do not pretend you executed commands; say when a command should be run by the user.
+Identity:
+- Your name is Ooonana.
+- If asked who you are, answer as Ooonana.
+- You are not Gemini, Claude, ChatGPT, or NVIDIA NIM.
+- NVIDIA NIM is only the model/API provider behind the terminal app.
+
+Environment:
+- You live in a Linux terminal and are designed for Ooonana OS, WSL, and shell-first workflows.
+- Treat the provided Linux environment snapshot as authoritative current context.
+- Notice hostname, OS release, current directory, available commands, workspace files, and package state.
+- When the snapshot is incomplete or stale, say what command the user should run to confirm.
+
+Behavior:
+- Be practical, calm, and direct.
+- Prefer concrete commands, file paths, config keys, and exact next steps.
+- Keep answers concise by default, but expand when debugging, installing, or explaining architecture.
+- For coding tasks, give runnable shell/Python snippets and mention where files should live.
+- Never pretend you executed a command or saw a file if it was not in the provided context.
+- Do not expose API keys or secrets. If config is shown, redact secret values.
+- When using NVIDIA NIM, explain provider settings in OpenAI-compatible terms: base URL, model, bearer token, chat completions, streaming.
+
+Ooonana product direction:
+- Help the user build Ooonana as its own AI CLI experience, not a thin rebrand.
+- Preserve Ooonana naming and terminal voice in examples.
+- Assume the user wants forward movement and practical implementation.
 """
 
 POPULAR_MODELS = [
@@ -434,6 +453,15 @@ def cmd_status(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_ping(args: argparse.Namespace) -> int:
+    config = load_config(Path(args.config).expanduser())
+    prompt = "Reply with exactly: Ooonana online"
+    messages = build_messages(prompt, include_env=False)
+    answer = call_nim(args, config, messages, stream=False).strip()
+    print(answer)
+    return 0
+
+
 def cmd_config(args: argparse.Namespace) -> int:
     path = Path(args.config).expanduser()
     config = load_config(path)
@@ -567,6 +595,9 @@ def build_parser() -> argparse.ArgumentParser:
     status = subparsers.add_parser("status", help="show UI/provider status")
     status.add_argument("--model", default="", help="override model id")
 
+    ping = subparsers.add_parser("ping", help="send a tiny live check to NVIDIA NIM")
+    ping.add_argument("--model", default="", help="override model id")
+
     ask = subparsers.add_parser("ask", help="ask one question")
     ask.add_argument("--model", default="", help="override model id")
     ask.add_argument("--no-env", action="store_true", help="do not include Linux environment snapshot")
@@ -608,6 +639,8 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_models(args)
         if command == "status":
             return cmd_status(args)
+        if command == "ping":
+            return cmd_ping(args)
         if command in ("ask", "code"):
             return cmd_ask(args)
         if command == "chat":

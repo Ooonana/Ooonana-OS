@@ -14,7 +14,16 @@ root_join() {
   fi
 }
 
-SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+while [[ -L "$SCRIPT_PATH" ]]; do
+  SCRIPT_DIR_TMP="$(CDPATH= cd -- "$(dirname -- "$SCRIPT_PATH")" && pwd)"
+  SCRIPT_TARGET="$(readlink "$SCRIPT_PATH")"
+  case "$SCRIPT_TARGET" in
+    /*) SCRIPT_PATH="$SCRIPT_TARGET" ;;
+    *) SCRIPT_PATH="$SCRIPT_DIR_TMP/$SCRIPT_TARGET" ;;
+  esac
+done
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$SCRIPT_PATH")" && pwd)"
 LOCAL_AI_APP="${SCRIPT_DIR%/bin}/lib/ooonana/ai/ooonana_ai.py"
 AI_APP="${OOONANA_AI_APP:-$LOCAL_AI_APP}"
 if [[ ! -f "$AI_APP" ]]; then
@@ -45,6 +54,7 @@ Usage:
   ooonana ai env
   ooonana ai models
   ooonana ai status
+  ooonana ai ping
 USAGE
 }
 

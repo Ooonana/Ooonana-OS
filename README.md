@@ -27,29 +27,67 @@ ooonana remove ai
 
 ## Ooonana AI CLI
 
-Ooonana includes a terminal AI app inspired by the provider-gateway shape of tools like Gemini CLI and free-claude-code, but it is branded as Ooonana and talks directly to NVIDIA NIM.
+Ooonana includes a terminal AI app inspired by the provider-gateway shape of tools like Gemini CLI and free-claude-code, but it is branded as Ooonana and talks directly to NVIDIA NIM. Full usage notes live in [docs/ooonana-ai.md](docs/ooonana-ai.md).
+
+Install the dev command in WSL:
+
+```bash
+bash scripts/install-ooonana-ai-wsl.sh
+```
+
+This creates:
+
+```text
+~/.local/bin/ooonana
+~/.local/bin/ooonana-ai
+```
+
+Quick start:
 
 ```bash
 ooonana ai setup
 ${EDITOR:-vi} ~/.config/ooonana/ai.env
 ooonana ai doctor
+ooonana ai status
 ooonana ai config
+ooonana ai ping
 ooonana ai ask --model code "explain this Linux environment"
 ooonana ai chat
 ooonana ai env
 ooonana ai models
+ooonana-ai ask "who are you?"
 ```
 
-The config file expects an NVIDIA NIM key:
+The config file expects an NVIDIA NIM API key and OpenAI-compatible settings:
 
 ```text
 NVIDIA_API_KEY=nvapi-...
 OOONANA_NIM_BASE_URL=https://integrate.api.nvidia.com/v1
 OOONANA_NIM_MODEL=nvidia/nemotron-3-super-120b-a12b
 OOONANA_MODEL_CODE=qwen/qwen3-coder-480b-a35b-instruct
+OOONANA_MODEL_FAST=qwen/qwen3-next-80b-a3b-instruct
+OOONANA_MODEL_DEEP=nvidia/nemotron-3-super-120b-a12b
+OOONANA_AI_STREAM=1
 ```
 
-Every request includes an Ooonana identity prompt and a compact Linux environment snapshot so the assistant knows it is Ooonana running inside the current OS.
+A copyable example lives at:
+
+```text
+docs/ooonana-ai.env.example
+```
+
+Useful API/config variables:
+
+```text
+NVIDIA_NIM_API_KEY        optional alternate key name
+OOONANA_AI_MAX_TOKENS     default 1024
+OOONANA_AI_TEMPERATURE    default 0.2
+OOONANA_AI_TIMEOUT        default 120
+OOONANA_ENV_CONTEXT_BYTES default 12000
+OOONANA_AI_MOCK=1         offline/mock mode
+```
+
+Every request includes a detailed Ooonana identity prompt and a compact Linux/WSL/workspace snapshot so the assistant knows it is Ooonana running inside the current OS. The direct `ooonana-ai ping` command makes a tiny live NVIDIA NIM request once a real key is configured.
 
 Package metadata lives in:
 

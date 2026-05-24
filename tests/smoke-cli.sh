@@ -39,6 +39,13 @@ env_context="$("$CLI" ai env)"
 models="$("$CLI" ai models)"
 [[ "$models" == *"nvidia/nemotron-3-super-120b-a12b"* ]] || fail "ai models missing default NIM model"
 
+status="$("$CLI" ai status)"
+[[ "$status" == *"Ooonana AI status"* ]] || fail "ai status missing title"
+[[ "$status" == *"provider: NVIDIA NIM"* ]] || fail "ai status missing provider"
+
+ping="$(OOONANA_AI_MOCK=1 "$CLI" ai ping)"
+[[ "$ping" == *"Ooonana mock response"* ]] || fail "ai ping mock did not run"
+
 mock="$(OOONANA_AI_MOCK=1 "$CLI" ai ask --no-stream "who are you?")"
 [[ "$mock" == *"Ooonana mock response"* ]] || fail "ai ask mock did not run"
 
