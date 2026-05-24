@@ -1,0 +1,7 @@
+OOONANA_PKG_ID="dev"
+OOONANA_PKG_VERSION="0.1.0"
+OOONANA_PKG_KIND="bundle"
+OOONANA_PKG_SUMMARY="Developer tools bundle"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_COMPONENTS="compiler make git editor debugger"
+OOONANA_PKG_NOTES="Scratch target will choose tiny defaults first."

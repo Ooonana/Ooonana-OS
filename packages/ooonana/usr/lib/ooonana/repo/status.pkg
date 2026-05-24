@@ -1,0 +1,7 @@
+OOONANA_PKG_ID="status"
+OOONANA_PKG_VERSION="0.1.0"
+OOONANA_PKG_KIND="tool"
+OOONANA_PKG_SUMMARY="System status command bundle"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_COMPONENTS="cpu memory disk network process-summary"
+OOONANA_PKG_NOTES="Built from Ooonana v1 status ideas."

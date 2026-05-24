@@ -1,0 +1,7 @@
+OOONANA_PKG_ID="gui"
+OOONANA_PKG_VERSION="0.1.0"
+OOONANA_PKG_KIND="bundle"
+OOONANA_PKG_SUMMARY="Minimal graphical desktop bundle"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_COMPONENTS="display-server window-manager panel terminal file-manager login-manager"
+OOONANA_PKG_NOTES="Scratch target: lightweight desktop profile. Current Debian prototype can map this to small GUI packages later."

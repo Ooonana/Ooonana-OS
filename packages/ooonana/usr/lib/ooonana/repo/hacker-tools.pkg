@@ -1,0 +1,7 @@
+OOONANA_PKG_ID="hacker-tools"
+OOONANA_PKG_VERSION="0.1.0"
+OOONANA_PKG_KIND="bundle"
+OOONANA_PKG_SUMMARY="Legal security lab tools bundle"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_COMPONENTS="network-debug crypto forensic-basics sandbox-lab"
+OOONANA_PKG_NOTES="Only authorized testing and local lab workflows. No doxxing automation."
