@@ -24,6 +24,11 @@ assert_not_contains() {
 }
 
 assert_not_contains "$CLI_SRC" "<("
+assert_not_contains "$CLI_SRC" "[["
+assert_not_contains "$CLI_SRC" "local -a"
+assert_not_contains "$CLI_SRC" "mapfile"
+assert_not_contains "$CLI_SRC" "packages=("
+assert_not_contains "$CLI_SRC" "pipefail"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -37,11 +42,18 @@ assert_contains "$help" "ooonana get PACKAGE"
 assert_contains "$help" "ooonana list"
 assert_contains "$help" "ooonana remove PACKAGE"
 
+sh_help="$(sh "$CLI" help)"
+assert_contains "$sh_help" "ooonana get PACKAGE"
+
 list="$("$CLI" list)"
 assert_contains "$list" "gui"
 assert_contains "$list" "ai"
 assert_contains "$list" "hacker-tools"
 assert_contains "$list" "available"
+
+sh_list="$(sh "$CLI" list)"
+assert_contains "$sh_list" "gui"
+assert_contains "$sh_list" "available"
 
 update="$("$CLI" update)"
 assert_contains "$update" "ooonana repo: synced"
@@ -137,6 +149,13 @@ archive_dry="$(OOONANA_REPO_DIR="$archive_repo" \
   OOONANA_ROOT="$archive_root" \
   "$CLI" get hello --dry-run)"
 assert_contains "$archive_dry" "would unpack hello.tar.gz"
+
+archive_sh_dry="$(OOONANA_REPO_DIR="$archive_repo" \
+  OOONANA_STATE_DIR="$tmp/archive-sh-state" \
+  OOONANA_CACHE_DIR="$tmp/archive-sh-cache" \
+  OOONANA_ROOT="$tmp/archive-sh-root" \
+  sh "$CLI" get hello --dry-run)"
+assert_contains "$archive_sh_dry" "would unpack hello.tar.gz"
 
 archive_install="$(OOONANA_REPO_DIR="$archive_repo" \
   OOONANA_STATE_DIR="$tmp/archive-state" \

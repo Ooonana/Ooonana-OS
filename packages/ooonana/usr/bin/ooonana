@@ -1,13 +1,18 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 VERSION="0.3.0"
-AI_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/ooonana/ai.env"
+HOME_DIR="${HOME:-/root}"
+if [ -n "${XDG_CONFIG_HOME:-}" ]; then
+  AI_CONFIG="$XDG_CONFIG_HOME/ooonana/ai.env"
+else
+  AI_CONFIG="$HOME_DIR/.config/ooonana/ai.env"
+fi
 OOONANA_ROOT="${OOONANA_ROOT:-/}"
 
 root_join() {
-  local path="$1"
-  if [[ "$OOONANA_ROOT" == "/" ]]; then
+  path="$1"
+  if [ "$OOONANA_ROOT" = "/" ]; then
     printf '%s\n' "$path"
   else
     printf '%s/%s\n' "${OOONANA_ROOT%/}" "${path#/}"
@@ -66,29 +71,26 @@ pkg_file() {
 }
 
 load_pkg() {
-  local id="$1"
-  local file
+  id="$1"
   file="$(pkg_file "$id")"
-  [[ -f "$file" ]] || die "unknown package: $id"
+  [ -f "$file" ] || die "unknown package: $id"
   reset_pkg_vars
-  # shellcheck source=/dev/null
-  source "$file"
-  [[ "$OOONANA_PKG_ID" == "$id" ]] || die "bad package metadata: $id"
-  [[ -n "$OOONANA_PKG_VERSION" ]] || die "package missing version: $id"
-  [[ -n "$OOONANA_PKG_SUMMARY" ]] || die "package missing summary: $id"
+  . "$file"
+  [ "$OOONANA_PKG_ID" = "$id" ] || die "bad package metadata: $id"
+  [ -n "$OOONANA_PKG_VERSION" ] || die "package missing version: $id"
+  [ -n "$OOONANA_PKG_SUMMARY" ] || die "package missing summary: $id"
 }
 
 pkg_ids() {
-  local file
-  [[ -d "$REPO_DIR" ]] || die "missing repo: $REPO_DIR"
+  [ -d "$REPO_DIR" ] || die "missing repo: $REPO_DIR"
   for file in "$REPO_DIR"/*.pkg; do
-    [[ -e "$file" ]] || return 0
+    [ -f "$file" ] || return 0
     basename "$file" .pkg
   done | sort
 }
 
 pkg_installed() {
-  [[ -f "$INSTALLED_DIR/$1.pkg" ]]
+  [ -f "$INSTALLED_DIR/$1.pkg" ]
 }
 
 pkg_hook() {
@@ -96,25 +98,26 @@ pkg_hook() {
 }
 
 run_pkg_hook() {
-  local id="$1"
-  local action="$2"
-  local hook
+  id="$1"
+  action="$2"
   hook="$(pkg_hook "$id" "$action")"
-  [[ -e "$hook" ]] || return 0
-  [[ -x "$hook" ]] || die "hook not executable: $hook"
+  [ -e "$hook" ] || return 0
+  [ -x "$hook" ] || die "hook not executable: $hook"
   printf 'running %s hook %s\n' "$action" "$id"
-  export OOONANA_ROOT OOONANA_REPO_DIR="$REPO_DIR" OOONANA_STATE_DIR="$STATE_DIR" OOONANA_CACHE_DIR="$CACHE_DIR"
+  export OOONANA_ROOT
+  export OOONANA_REPO_DIR="$REPO_DIR"
+  export OOONANA_STATE_DIR="$STATE_DIR"
+  export OOONANA_CACHE_DIR="$CACHE_DIR"
   export OOONANA_PKG_ID OOONANA_PKG_VERSION OOONANA_PKG_KIND OOONANA_PKG_SUMMARY
   "$hook"
 }
 
 pkg_archive_path() {
-  local archive="$1"
-  if [[ "$archive" == /* ]]; then
-    printf '%s\n' "$archive"
-  else
-    printf '%s/%s\n' "$REPO_DIR" "$archive"
-  fi
+  archive="$1"
+  case "$archive" in
+    /*) printf '%s\n' "$archive" ;;
+    *) printf '%s/%s\n' "$REPO_DIR" "$archive" ;;
+  esac
 }
 
 pkg_files_dir() {
@@ -126,25 +129,23 @@ pkg_files_manifest() {
 }
 
 verify_pkg_archive() {
-  local id="$1"
-  local archive_path="$2"
-  [[ -f "$archive_path" ]] || die "missing archive: $OOONANA_PKG_ARCHIVE"
-  if [[ -n "$OOONANA_PKG_SHA256" ]]; then
+  id="$1"
+  archive_path="$2"
+  [ -f "$archive_path" ] || die "missing archive: $OOONANA_PKG_ARCHIVE"
+  if [ -n "$OOONANA_PKG_SHA256" ]; then
     have sha256sum || die "missing command: sha256sum"
-    local actual
     actual="$(sha256sum "$archive_path" | awk '{print $1}')"
-    [[ "$actual" == "$OOONANA_PKG_SHA256" ]] || die "sha256 mismatch: $id"
+    [ "$actual" = "$OOONANA_PKG_SHA256" ] || die "sha256 mismatch: $id"
   fi
 }
 
 validate_archive_entries() {
-  local id="$1"
-  local archive_path="$2"
+  id="$1"
+  archive_path="$2"
   have tar || die "missing command: tar"
-  local entry clean_entry
   tar -tzf "$archive_path" | while IFS= read -r entry; do
     clean_entry="${entry#./}"
-    [[ -n "$clean_entry" ]] || continue
+    [ -n "$clean_entry" ] || continue
     case "$clean_entry" in
       /*|../*|*/../*|..)
         die "unsafe archive path in $id: $entry"
@@ -154,8 +155,7 @@ validate_archive_entries() {
 }
 
 install_pkg_archive() {
-  local id="$1"
-  local archive_path
+  id="$1"
   archive_path="$(pkg_archive_path "$OOONANA_PKG_ARCHIVE")"
   verify_pkg_archive "$id" "$archive_path"
   validate_archive_entries "$id" "$archive_path"
@@ -167,19 +167,14 @@ install_pkg_archive() {
 }
 
 remove_pkg_archive_files() {
-  local id="$1"
-  local manifest
+  id="$1"
   manifest="$(pkg_files_manifest "$id")"
-  [[ -f "$manifest" ]] || return 0
+  [ -f "$manifest" ] || return 0
 
-  local entry target i
-  local -a entries
-  mapfile -t entries < "$manifest"
-  for ((i=${#entries[@]} - 1; i >= 0; i--)); do
-    entry="${entries[$i]}"
-    [[ -n "$entry" ]] || continue
+  sed '1!G;h;$!d' "$manifest" | while IFS= read -r entry; do
+    [ -n "$entry" ] || continue
     target="$(root_join "/$entry")"
-    if [[ -d "$target" && ! -L "$target" ]]; then
+    if [ -d "$target" ] && [ ! -L "$target" ]; then
       rmdir "$target" 2>/dev/null || true
     else
       rm -f "$target"
@@ -198,8 +193,8 @@ pkg_state() {
 }
 
 print_pkg_line() {
-  local id="$1"
-  local state="$2"
+  id="$1"
+  state="$2"
   printf '%-14s %-8s %-10s %s\n' "$id" "$OOONANA_PKG_VERSION" "$state" "$OOONANA_PKG_SUMMARY"
 }
 
@@ -223,18 +218,17 @@ cmd_doctor() {
 
 cmd_update() {
   ensure_pkg_dirs
-  local id count tmp
   tmp="$CACHE_DIR/index.tsv.tmp"
   : > "$tmp"
   pkg_ids | while IFS= read -r id; do
-    [[ -n "$id" ]] || continue
+    [ -n "$id" ] || continue
     load_pkg "$id"
     printf '%s\t%s\t%s\n' "$OOONANA_PKG_ID" "$OOONANA_PKG_VERSION" "$OOONANA_PKG_SUMMARY" >> "$tmp"
   done
   mv "$tmp" "$CACHE_DIR/index.tsv"
   count="$(wc -l < "$CACHE_DIR/index.tsv" | tr -d ' ')"
-  printf 'ooonana repo: synced %d package(s)\n' "$count"
-  if [[ "${OOONANA_APT_UPDATE:-0}" == "1" ]] && have apt-get; then
+  printf 'ooonana repo: synced %s package(s)\n' "$count"
+  if [ "${OOONANA_APT_UPDATE:-0}" = "1" ] && have apt-get; then
     apt-get update
   fi
 }
@@ -246,18 +240,17 @@ cmd_clean() {
 }
 
 cmd_list() {
-  local installed_only=0
+  installed_only=0
   case "${1:-}" in
     --installed) installed_only=1; shift ;;
     ""|--all) ;;
     *) die "usage: ooonana list [--installed]" ;;
   esac
 
-  if [[ "$installed_only" -eq 1 ]]; then
-    [[ -d "$INSTALLED_DIR" ]] || return 0
-    local file id
+  if [ "$installed_only" -eq 1 ]; then
+    [ -d "$INSTALLED_DIR" ] || return 0
     for file in "$INSTALLED_DIR"/*.pkg; do
-      [[ -e "$file" ]] || return 0
+      [ -f "$file" ] || return 0
       id="$(basename "$file" .pkg)"
       load_pkg "$id"
       print_pkg_line "$id" "installed"
@@ -266,33 +259,32 @@ cmd_list() {
   fi
 
   pkg_ids | while IFS= read -r id; do
-    [[ -n "$id" ]] || continue
+    [ -n "$id" ] || continue
     load_pkg "$id"
     print_pkg_line "$id" "$(pkg_state "$id")"
   done
 }
 
 cmd_info() {
-  local id="${1:-}"
-  [[ -n "$id" ]] || die "usage: ooonana info PACKAGE"
+  id="${1:-}"
+  [ -n "$id" ] || die "usage: ooonana info PACKAGE"
   load_pkg "$id"
   printf 'id: %s\n' "$OOONANA_PKG_ID"
   printf 'version: %s\n' "$OOONANA_PKG_VERSION"
   printf 'kind: %s\n' "${OOONANA_PKG_KIND:-bundle}"
   printf 'state: %s\n' "$(pkg_state "$id")"
   printf 'summary: %s\n' "$OOONANA_PKG_SUMMARY"
-  [[ -n "$OOONANA_PKG_DEPS" ]] && printf 'deps: %s\n' "$OOONANA_PKG_DEPS"
-  [[ -n "$OOONANA_PKG_ARCHIVE" ]] && printf 'archive: %s\n' "$OOONANA_PKG_ARCHIVE"
-  [[ -n "$OOONANA_PKG_COMPONENTS" ]] && printf 'components: %s\n' "$OOONANA_PKG_COMPONENTS"
-  [[ -n "$OOONANA_PKG_NOTES" ]] && printf 'notes: %s\n' "$OOONANA_PKG_NOTES"
+  [ -n "$OOONANA_PKG_DEPS" ] && printf 'deps: %s\n' "$OOONANA_PKG_DEPS"
+  [ -n "$OOONANA_PKG_ARCHIVE" ] && printf 'archive: %s\n' "$OOONANA_PKG_ARCHIVE"
+  [ -n "$OOONANA_PKG_COMPONENTS" ] && printf 'components: %s\n' "$OOONANA_PKG_COMPONENTS"
+  [ -n "$OOONANA_PKG_NOTES" ] && printf 'notes: %s\n' "$OOONANA_PKG_NOTES"
 }
 
 install_one_pkg() {
-  local id="$1"
-  local dry_run="$2"
+  id="$1"
+  dry_run="$2"
   load_pkg "$id"
 
-  local dep
   for dep in $OOONANA_PKG_DEPS; do
     install_one_pkg "$dep" "$dry_run"
   done
@@ -302,57 +294,58 @@ install_one_pkg() {
     return 0
   fi
 
-  if [[ "$dry_run" -eq 1 ]]; then
+  if [ "$dry_run" -eq 1 ]; then
     printf 'would install %s %s\n' "$id" "$OOONANA_PKG_VERSION"
-    [[ -n "$OOONANA_PKG_ARCHIVE" ]] && printf 'would unpack %s\n' "$OOONANA_PKG_ARCHIVE"
-    [[ -e "$(pkg_hook "$id" install)" ]] && printf 'would run install hook %s\n' "$id"
+    [ -n "$OOONANA_PKG_ARCHIVE" ] && printf 'would unpack %s\n' "$OOONANA_PKG_ARCHIVE"
+    [ -e "$(pkg_hook "$id" install)" ] && printf 'would run install hook %s\n' "$id"
     return 0
   fi
 
   ensure_pkg_dirs
-  [[ -n "$OOONANA_PKG_ARCHIVE" ]] && install_pkg_archive "$id"
+  [ -n "$OOONANA_PKG_ARCHIVE" ] && install_pkg_archive "$id"
   run_pkg_hook "$id" install
   cp "$(pkg_file "$id")" "$INSTALLED_DIR/$id.pkg"
   printf 'installed %s %s\n' "$id" "$OOONANA_PKG_VERSION"
 }
 
 cmd_get() {
-  local dry_run=0
-  local packages=()
-  while [[ $# -gt 0 ]]; do
+  dry_run=0
+  packages=""
+  while [ "$#" -gt 0 ]; do
     case "$1" in
-      --dry-run) dry_run=1; shift ;;
-      *) packages+=("$1"); shift ;;
+      --dry-run) dry_run=1 ;;
+      *) packages="$packages ${1}" ;;
     esac
+    shift
   done
-  [[ "${#packages[@]}" -gt 0 ]] || die "usage: ooonana get PACKAGE [--dry-run]"
+  [ -n "$packages" ] || die "usage: ooonana get PACKAGE [--dry-run]"
 
-  local id
-  for id in "${packages[@]}"; do
+  for id in $packages; do
     install_one_pkg "$id" "$dry_run"
   done
 }
 
 cmd_remove() {
-  local dry_run=0
-  local id="${1:-}"
-  [[ -n "$id" ]] || die "usage: ooonana remove PACKAGE [--dry-run]"
+  dry_run=0
+  id="${1:-}"
+  [ -n "$id" ] || die "usage: ooonana remove PACKAGE [--dry-run]"
   shift || true
-  while [[ $# -gt 0 ]]; do
+  while [ "$#" -gt 0 ]; do
     case "$1" in
-      --dry-run) dry_run=1; shift ;;
+      --dry-run) dry_run=1 ;;
       *) die "usage: ooonana remove PACKAGE [--dry-run]" ;;
     esac
+    shift
   done
   load_pkg "$id"
   if ! pkg_installed "$id"; then
     printf 'not installed %s\n' "$id"
     return 0
   fi
-  if [[ "$dry_run" -eq 1 ]]; then
+  if [ "$dry_run" -eq 1 ]; then
     printf 'would remove %s\n' "$id"
-    [[ -f "$(pkg_files_manifest "$id")" ]] && printf 'would remove archive files %s\n' "$id"
-    [[ -e "$(pkg_hook "$id" remove)" ]] && printf 'would run remove hook %s\n' "$id"
+    [ -f "$(pkg_files_manifest "$id")" ] && printf 'would remove archive files %s\n' "$id"
+    [ -e "$(pkg_hook "$id" remove)" ] && printf 'would run remove hook %s\n' "$id"
     return 0
   fi
   run_pkg_hook "$id" remove
@@ -363,7 +356,7 @@ cmd_remove() {
 
 cmd_ai_setup() {
   mkdir -p "$(dirname "$AI_CONFIG")"
-  if [[ ! -f "$AI_CONFIG" ]]; then
+  if [ ! -f "$AI_CONFIG" ]; then
     umask 077
     cat > "$AI_CONFIG" <<'EOF'
 # Add provider settings here.
@@ -375,13 +368,12 @@ EOF
 }
 
 cmd_ai_doctor() {
-  if [[ ! -s "$AI_CONFIG" ]]; then
+  if [ ! -s "$AI_CONFIG" ]; then
     printf 'AI config missing: run ooonana ai setup\n'
     exit 1
   fi
-  # shellcheck source=/dev/null
-  source "$AI_CONFIG"
-  if [[ -n "${OPENAI_API_KEY:-}" ]]; then
+  . "$AI_CONFIG"
+  if [ -n "${OPENAI_API_KEY:-}" ]; then
     printf 'AI config: ok\n'
   else
     printf 'AI config missing OPENAI_API_KEY\n'
@@ -390,14 +382,14 @@ cmd_ai_doctor() {
 }
 
 cmd_ai_code() {
-  [[ $# -gt 0 ]] || { printf 'prompt required\n' >&2; exit 1; }
+  [ "$#" -gt 0 ] || { printf 'prompt required\n' >&2; exit 1; }
   cmd_ai_doctor >/dev/null
   printf 'AI code request queued: %s\n' "$*"
 }
 
 main() {
-  local cmd="${1:-}"
-  [[ -n "$cmd" ]] || { usage; exit 0; }
+  cmd="${1:-}"
+  [ -n "$cmd" ] || { usage; exit 0; }
   shift || true
 
   case "$cmd" in

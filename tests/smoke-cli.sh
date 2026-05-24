@@ -11,8 +11,14 @@ fail() {
 
 [[ -x "$CLI" ]] || fail "missing executable CLI"
 
+first_line="$(sed -n '1p' "$CLI")"
+[[ "$first_line" == "#!/bin/sh" ]] || fail "CLI must use /bin/sh shebang: $first_line"
+
 version="$("$CLI" version)"
 [[ "$version" == "ooonana 0.3.0" ]] || fail "bad version: $version"
+
+sh_version="$(sh "$CLI" version)"
+[[ "$sh_version" == "ooonana 0.3.0" ]] || fail "bad sh version: $sh_version"
 
 doctor="$("$CLI" doctor || true)"
 [[ "$doctor" == *"kernel:"* ]] || fail "doctor missing kernel"

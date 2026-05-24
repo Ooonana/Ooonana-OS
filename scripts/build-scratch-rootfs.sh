@@ -87,7 +87,7 @@ create_base_dirs() {
 
 create_busybox_links() {
   local applet
-  for applet in awk cat chmod cp cut date df dmesg echo env free grep hostname ls mkdir mount ps pwd rm rmdir sh sha256sum sleep sort sync tar touch tr umount uname; do
+  for applet in awk basename cat chmod cp cut date df dirname dmesg echo env free grep hostname ls mkdir mount mv ps pwd rm rmdir sed sh sha256sum sleep sort sync tar touch tr umount uname wc; do
     ln -sf busybox "$ROOTFS/bin/$applet"
   done
   for applet in mdev reboot; do
@@ -158,6 +158,15 @@ hostname ooonana 2>/dev/null || true
 
 echo "Ooonana scratch rootfs"
 if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
+  if /usr/bin/ooonana version | grep -q 'ooonana 0.3.0' &&
+    /usr/bin/ooonana list | grep -q 'gui'; then
+    echo "OOONANA_CLI_OK"
+  else
+    echo "OOONANA_CLI_FAIL"
+    sync
+    sleep 1
+    reboot -f
+  fi
   echo "OOONANA_BOOT_OK"
   sync
   sleep 1
