@@ -30,6 +30,8 @@ assert_not_contains() {
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 config="$tmp/ai.env"
+state="$tmp/state"
+export OOONANA_AI_STATE_DIR="$state"
 
 setup="$(OOONANA_AI_CONFIG="$config" "$CLI" ai setup)"
 assert_contains "$setup" "AI config:"
@@ -63,6 +65,7 @@ dry_run="$(OOONANA_AI_CONFIG="$config" "$CLI" ai ask --dry-run "explain this mac
 assert_contains "$dry_run" '"model": "qwen/qwen3-coder-480b-a35b-instruct"'
 assert_contains "$dry_run" "You are Ooonana"
 assert_contains "$dry_run" "Current Linux environment snapshot"
+assert_contains "$dry_run" "Ooonana local agent context (activity)"
 assert_contains "$dry_run" "assistant_name: Ooonana"
 assert_contains "$dry_run" "[workspace]"
 assert_not_contains "$dry_run" "test-key"
@@ -76,6 +79,15 @@ assert_contains "$mock" "Ooonana mock response"
 
 models="$("$CLI" ai models)"
 assert_contains "$models" "qwen/qwen3-coder-480b-a35b-instruct"
+
+agents="$("$AI_WRAPPER" agents)"
+assert_contains "$agents" "system"
+assert_contains "$agents" "activity"
+assert_contains "$agents" "summarizer"
+
+activity="$("$AI_WRAPPER" agent activity)"
+assert_contains "$activity" "recent shell history"
+assert_contains "$activity" "recent Ooonana AI history"
 
 status="$("$AI_WRAPPER" status --model code)"
 assert_contains "$status" "Ooonana AI status"
@@ -94,6 +106,9 @@ direct_message="$(OOONANA_AI_CONFIG="$config" OOONANA_AI_MOCK=1 "$AI_WRAPPER" "h
 assert_contains "$direct_message" "Ooonana mock response"
 assert_contains "$direct_message" "hello from the wrapper"
 
+history_after_direct="$("$AI_WRAPPER" --state-dir "$state" history)"
+assert_contains "$history_after_direct" "hello from the wrapper"
+
 direct_option_message="$(OOONANA_AI_CONFIG="$config" "$AI_WRAPPER" --model code --dry-run "write shell")"
 assert_contains "$direct_option_message" '"model": "qwen/qwen3-coder-480b-a35b-instruct"'
 assert_contains "$direct_option_message" '"content": "write shell"'
@@ -106,6 +121,14 @@ chat_ui="$(printf '/status\n/exit\n' | OOONANA_AI_CONFIG="$config" "$AI_WRAPPER"
 assert_contains "$chat_ui" "Ooonana AI"
 assert_contains "$chat_ui" "mode: chat"
 assert_contains "$chat_ui" "ooonana ai>"
+
+rewind_ui="$(printf 'first turn\nsecond turn\n/history\n/rewind\n/history\n/exit\n' | OOONANA_AI_CONFIG="$config" OOONANA_AI_MOCK=1 "$AI_WRAPPER" chat --session rewind-test --no-stream)"
+assert_contains "$rewind_ui" "first turn"
+assert_contains "$rewind_ui" "second turn"
+assert_contains "$rewind_ui" "rewound 1 turn(s)"
+session_json="$(cat "$state/sessions/rewind-test.jsonl")"
+assert_contains "$session_json" "first turn"
+assert_not_contains "$session_json" "second turn"
 
 default_chat_ui="$(printf '/exit\n' | OOONANA_AI_CONFIG="$config" "$AI_WRAPPER")"
 assert_contains "$default_chat_ui" "Ooonana AI"

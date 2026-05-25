@@ -53,6 +53,10 @@ Usage:
   ooonana ai chat
   ooonana ai env
   ooonana ai models
+  ooonana ai agents
+  ooonana ai agent activity
+  ooonana ai history
+  ooonana ai sessions
   ooonana ai status
   ooonana ai ping
 USAGE

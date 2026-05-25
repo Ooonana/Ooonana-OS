@@ -55,6 +55,10 @@ ooonana ai ask --model code "explain this Linux environment"
 ooonana ai chat
 ooonana ai env
 ooonana ai models
+ooonana ai history
+ooonana ai sessions
+ooonana ai agents
+ooonana ai agent activity
 ooonana-ai help
 ooonana-ai
 ooonana-ai "who are you?"
@@ -87,10 +91,11 @@ OOONANA_AI_MAX_TOKENS     default 1024
 OOONANA_AI_TEMPERATURE    default 0.2
 OOONANA_AI_TIMEOUT        default 120
 OOONANA_ENV_CONTEXT_BYTES default 12000
+OOONANA_AI_STATE_DIR      default ~/.local/state/ooonana/ai
 OOONANA_AI_MOCK=1         offline/mock mode
 ```
 
-Every request includes a detailed Ooonana identity prompt and a compact Linux/WSL/workspace snapshot so the assistant knows it is Ooonana running inside the current OS. The direct `ooonana-ai ping` command makes a tiny live NVIDIA NIM request once a real key is configured.
+Every request includes a detailed Ooonana identity prompt and a compact Linux/WSL/workspace snapshot so the assistant knows it is Ooonana running inside the current OS. One-shot asks include the local `activity` agent by default, which adds recent shell and Ooonana AI history with secrets redacted. The direct `ooonana-ai ping` command makes a tiny live NVIDIA NIM request once a real key is configured.
 
 Package metadata lives in:
 

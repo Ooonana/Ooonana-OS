@@ -9,7 +9,7 @@ Ooonana AI is the terminal assistant for Ooonana. It is currently a standalone O
 - Reads `NVIDIA_API_KEY` or `NVIDIA_NIM_API_KEY`
 - Sends a system prompt that says the assistant's name is `Ooonana`
 - Sends a Linux/WSL environment snapshot with each request
-- Supports one-shot ask, code prompt alias, interactive chat, status, model listing, and config inspection
+- Supports one-shot ask, code prompt alias, interactive chat, status, model listing, config inspection, persistent history, rewind, and local context agents
 
 ## Quick Start
 
@@ -22,6 +22,8 @@ ooonana-ai doctor
 ooonana-ai ping
 ooonana-ai ask --model code "who are you?"
 ooonana-ai chat
+ooonana-ai history
+ooonana-ai agents
 ```
 
 Use mock mode before adding an API key:
@@ -106,6 +108,7 @@ Ooonana AI talks to NVIDIA NIM using the OpenAI-compatible chat completions shap
 | `OOONANA_AI_TIMEOUT` | `120` | HTTP timeout in seconds. |
 | `OOONANA_ENV_CONTEXT_BYTES` | `12000` | Max size for injected Linux context. |
 | `OOONANA_AI_CONFIG` | `~/.config/ooonana/ai.env` | Override config path. |
+| `OOONANA_AI_STATE_DIR` | `~/.local/state/ooonana/ai` | Persistent history/session storage. |
 | `OOONANA_AI_MOCK` | unset | Set to `1` for offline/mock responses. |
 
 Check it:
@@ -155,8 +158,13 @@ Useful chat commands:
 
 ```text
 /help
+/agents
+/agent activity
 /status
 /env
+/history
+/rewind
+/rewind 2
 /model code
 /save transcript.json
 /clear
@@ -173,6 +181,10 @@ ooonana-ai --model code "write a bash script that prints Ooonana"
 ooonana-ai ask --model code "explain this repo"
 ooonana-ai chat
 ooonana-ai ping
+ooonana-ai history
+ooonana-ai sessions
+ooonana-ai agents
+ooonana-ai agent activity
 ```
 
 Direct alias behavior:
@@ -185,6 +197,101 @@ ooonana-ai --model code "message"
                            sends a one-shot ask with options
 ooonana-ai chat            explicitly opens chat
 ooonana-ai status          shows provider/UI status
+```
+
+## History And Rewind
+
+Ooonana stores local AI turns under:
+
+```text
+~/.local/state/ooonana/ai/history.jsonl
+~/.local/state/ooonana/ai/sessions/*.jsonl
+```
+
+Show recent history:
+
+```bash
+ooonana-ai history
+ooonana-ai history --limit 50
+ooonana-ai history --json
+```
+
+List chat sessions:
+
+```bash
+ooonana-ai sessions
+```
+
+Open or resume a named session:
+
+```bash
+ooonana-ai chat --session workbench
+```
+
+Inside chat:
+
+```text
+/history
+/rewind
+/rewind 3
+/clear
+```
+
+`/rewind` removes the latest turn from the active chat context and rewrites that session file. Global history remains an audit trail.
+
+To use a different state directory:
+
+```bash
+ooonana-ai --state-dir /tmp/ooonana-ai-state history
+OOONANA_AI_STATE_DIR=/tmp/ooonana-ai-state ooonana-ai chat
+```
+
+## Local Agents
+
+Ooonana has lightweight local agents that collect context for the main AI:
+
+```text
+system      OS, WSL, command, package, and workspace context
+activity    recent shell history and Ooonana AI history with secrets redacted
+summarizer  system plus activity context shaped for compact summaries
+```
+
+List them:
+
+```bash
+ooonana-ai agents
+```
+
+Inspect context without calling NVIDIA NIM:
+
+```bash
+ooonana-ai agent system
+ooonana-ai agent activity
+ooonana-ai agent summarizer
+```
+
+Ask NVIDIA NIM to summarize an agent context:
+
+```bash
+ooonana-ai agent summarizer --ask
+ooonana-ai agent activity --ask --prompt "What was I doing lately?"
+```
+
+One-shot asks include the `activity` agent by default, so Ooonana can see recent local activity. Disable that when needed:
+
+```bash
+ooonana-ai --no-agent "answer without local activity context"
+ooonana-ai --agent system "focus on the OS state"
+```
+
+Inside chat:
+
+```text
+/agents
+/agent
+/agent activity
+/agent system
+/agent none
 ```
 
 Show the Linux/WSL context Ooonana will send:
