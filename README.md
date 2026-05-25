@@ -34,6 +34,8 @@ Scratch initramfs and scratch ISO boot use this kernel first when present.
 ## Ooonana Command
 
 ```bash
+ooonana me
+ooonana wsl status
 ooonana update
 ooonana list
 ooonana info gui

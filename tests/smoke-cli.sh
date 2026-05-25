@@ -32,5 +32,16 @@ ai_doctor="$(OOONANA_AI_CONFIG="$tmp/missing-ai.env" "$CLI" ai doctor || true)"
 
 pkg_help="$("$CLI" help)"
 [[ "$pkg_help" == *"ooonana get PACKAGE"* ]] || fail "help missing package manager"
+[[ "$pkg_help" == *"ooonana me"* ]] || fail "help missing me"
+[[ "$pkg_help" == *"ooonana wsl [doctor|status]"* ]] || fail "help missing wsl"
+
+me="$("$CLI" me)"
+[[ "$me" == *"Ooonana OS"* ]] || fail "me missing label"
+[[ "$me" == *"_____________________"* ]] || fail "me missing logo"
+[[ "$me" == *"\\ ______/"* ]] || fail "me missing face"
+
+wsl="$("$CLI" wsl status)"
+[[ "$wsl" == *"wsl:"* ]] || fail "wsl missing state"
+[[ "$wsl" == *"qemu:"* ]] || fail "wsl missing qemu"
 
 printf 'ok cli\n'

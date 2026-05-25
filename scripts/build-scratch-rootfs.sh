@@ -137,6 +137,8 @@ EOF
 
   write_file "$ROOTFS/sbin/init" 0755 <<'EOF'
 #!/bin/sh
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+exec >/dev/console 2>&1 </dev/console
 /etc/init.d/rcS
 echo "Ooonana shell on console"
 exec /bin/sh </dev/console >/dev/console 2>&1
@@ -157,6 +159,9 @@ mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
 mount -t tmpfs tmpfs /run 2>/dev/null || true
 hostname ooonana 2>/dev/null || true
 
+if [ -f /usr/share/ooonana/logo.txt ]; then
+  cat /usr/share/ooonana/logo.txt
+fi
 echo "Ooonana scratch rootfs"
 if grep -q 'ooonana.install=1' /proc/cmdline 2>/dev/null; then
   target="$(grep -o 'ooonana.install.target=[^ ]*' /proc/cmdline | cut -d= -f2 || true)"
@@ -193,6 +198,7 @@ fi
 
 if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   if /usr/bin/ooonana version | grep -q 'ooonana 0.3.0' &&
+    /usr/bin/ooonana me | grep -q 'Ooonana OS' &&
     /usr/bin/ooonana list | grep -q 'gui'; then
     echo "OOONANA_CLI_OK"
   else
@@ -214,6 +220,9 @@ ID=ooonana
 PRETTY_NAME="Ooonana OS Scratch"
 VERSION_ID="0.0.1-scratch"
 EOF
+  if [[ -f "$ROOTFS/usr/share/ooonana/logo.txt" ]]; then
+    cp "$ROOTFS/usr/share/ooonana/logo.txt" "$ROOTFS/etc/motd"
+  fi
 }
 
 create_image() {

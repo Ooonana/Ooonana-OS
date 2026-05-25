@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLI="$ROOT/packages/ooonana/usr/bin/ooonana"
 REPO="$ROOT/packages/ooonana/usr/lib/ooonana/repo"
+LOGO="$ROOT/docs/logo.txt"
 CLI_SRC="$(<"$CLI")"
 
 fail() {
@@ -41,9 +42,37 @@ help="$("$CLI" help)"
 assert_contains "$help" "ooonana get PACKAGE"
 assert_contains "$help" "ooonana list"
 assert_contains "$help" "ooonana remove PACKAGE"
+assert_contains "$help" "ooonana me"
+assert_contains "$help" "ooonana wsl [doctor|status]"
 
 sh_help="$(sh "$CLI" help)"
 assert_contains "$sh_help" "ooonana get PACKAGE"
+assert_contains "$sh_help" "ooonana me"
+
+[[ -f "$LOGO" ]] || fail "missing docs/logo.txt"
+logo="$(<"$LOGO")"
+assert_contains "$logo" "Ooonana OS"
+assert_contains "$logo" "_____________________"
+assert_contains "$logo" "\\ ______/"
+
+me="$("$CLI" me)"
+assert_contains "$me" "Ooonana OS"
+assert_contains "$me" "_____________________"
+assert_contains "$me" "\\ ______/"
+
+sh_me="$(sh "$CLI" me)"
+assert_contains "$sh_me" "Ooonana OS"
+
+wsl_status="$("$CLI" wsl status)"
+assert_contains "$wsl_status" "wsl:"
+assert_contains "$wsl_status" "qemu:"
+assert_contains "$wsl_status" "build_dir:"
+
+sh_wsl="$(sh "$CLI" wsl doctor)"
+assert_contains "$sh_wsl" "wsl:"
+
+bad_wsl="$("$CLI" wsl nope 2>&1 || true)"
+assert_contains "$bad_wsl" "usage: ooonana wsl [doctor|status]"
 
 list="$("$CLI" list)"
 assert_contains "$list" "gui"

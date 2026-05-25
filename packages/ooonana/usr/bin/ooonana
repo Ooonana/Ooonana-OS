@@ -50,7 +50,9 @@ usage() {
   cat <<'USAGE'
 Usage:
   ooonana version
+  ooonana me
   ooonana doctor
+  ooonana wsl [doctor|status]
   ooonana update
   ooonana list [--installed]
   ooonana info PACKAGE
@@ -247,6 +249,55 @@ cmd_doctor() {
   else
     printf 'systemd: missing\n'
   fi
+}
+
+cmd_me() {
+  cat <<'LOGO'
+Ooonana OS
+      _____________________
+     |        __           __       |
+     |      /    \       /    \     |
+   / |                               |\
+ /   |         \ ______/         |  \
+     |_____________________|
+               |            |
+LOGO
+}
+
+is_wsl() {
+  [ -n "${WSL_DISTRO_NAME:-}" ] && return 0
+  [ -n "${WSL_INTEROP:-}" ] && return 0
+  grep -qi microsoft /proc/sys/kernel/osrelease 2>/dev/null && return 0
+  grep -qi wsl /proc/sys/kernel/osrelease 2>/dev/null && return 0
+  grep -qi microsoft /proc/version 2>/dev/null && return 0
+  grep -qi wsl /proc/version 2>/dev/null && return 0
+  return 1
+}
+
+cmd_wsl() {
+  subcmd="${1:-doctor}"
+  case "$subcmd" in
+    doctor|status)
+      if is_wsl; then
+        printf 'wsl: yes\n'
+      else
+        printf 'wsl: no\n'
+      fi
+      printf 'distro: %s\n' "${WSL_DISTRO_NAME:-unknown}"
+      printf 'build_dir: %s\n' "${OOONANA_BUILD_DIR:-/var/tmp/ooonana-os/build}"
+      if have qemu-system-x86_64; then
+        printf 'qemu: ok\n'
+      else
+        printf 'qemu: missing\n'
+      fi
+      if have wslpath; then
+        printf 'wslpath: ok\n'
+      else
+        printf 'wslpath: missing\n'
+      fi
+      ;;
+    *) die "usage: ooonana wsl [doctor|status]" ;;
+  esac
 }
 
 cmd_update() {
@@ -451,7 +502,9 @@ main() {
 
   case "$cmd" in
     version|--version|-v) cmd_version ;;
+    me) cmd_me ;;
     doctor) cmd_doctor ;;
+    wsl) cmd_wsl "$@" ;;
     update) cmd_update ;;
     list) cmd_list "$@" ;;
     info) cmd_info "$@" ;;
