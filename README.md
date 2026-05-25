@@ -49,6 +49,8 @@ ooonana ai setup
 ${EDITOR:-vi} ~/.config/ooonana/ai.env
 ooonana ai doctor
 ooonana ai status
+ooonana ai model
+ooonana ai model set code
 ooonana ai config
 ooonana ai ping
 ooonana ai ask --model code "explain this Linux environment"
@@ -60,6 +62,8 @@ ooonana ai sessions
 ooonana ai agents
 ooonana ai agent activity
 ooonana-ai help
+ooonana-ai model list
+ooonana-ai model alias tiny meta/llama-3.3-70b-instruct
 ooonana-ai
 ooonana-ai "who are you?"
 ooonana-ai --model code "write a bash script"
@@ -74,6 +78,7 @@ OOONANA_NIM_MODEL=nvidia/nemotron-3-super-120b-a12b
 OOONANA_MODEL_CODE=qwen/qwen3-coder-480b-a35b-instruct
 OOONANA_MODEL_FAST=qwen/qwen3-next-80b-a3b-instruct
 OOONANA_MODEL_DEEP=nvidia/nemotron-3-super-120b-a12b
+OOONANA_MODEL_TINY=meta/llama-3.3-70b-instruct
 OOONANA_AI_STREAM=1
 ```
 
@@ -93,6 +98,17 @@ OOONANA_AI_TIMEOUT        default 120
 OOONANA_ENV_CONTEXT_BYTES default 12000
 OOONANA_AI_STATE_DIR      default ~/.local/state/ooonana/ai
 OOONANA_AI_MOCK=1         offline/mock mode
+```
+
+Change models without editing config:
+
+```bash
+ooonana-ai model              # show active model and aliases
+ooonana-ai model list         # aliases plus useful NVIDIA NIM model ids
+ooonana-ai model set code     # make code alias the default
+ooonana-ai model set nvidia/nemotron-3-super-120b-a12b
+ooonana-ai model alias tiny meta/llama-3.3-70b-instruct
+ooonana-ai --model tiny "quick answer"
 ```
 
 Every request includes a detailed Ooonana identity prompt and a compact Linux/WSL/workspace snapshot so the assistant knows it is Ooonana running inside the current OS. One-shot asks include the local `activity` agent by default, which adds recent shell and Ooonana AI history with secrets redacted. The direct `ooonana-ai ping` command makes a tiny live NVIDIA NIM request once a real key is configured.

@@ -80,6 +80,27 @@ assert_contains "$mock" "Ooonana mock response"
 models="$("$CLI" ai models)"
 assert_contains "$models" "qwen/qwen3-coder-480b-a35b-instruct"
 
+model_show="$(OOONANA_AI_CONFIG="$config" OOONANA_AI_MOCK=1 "$AI_WRAPPER" model)"
+assert_contains "$model_show" "active: qwen/qwen3-coder-480b-a35b-instruct"
+assert_contains "$model_show" "aliases:"
+assert_contains "$model_show" "code: qwen/qwen3-coder-480b-a35b-instruct"
+
+model_set="$(OOONANA_AI_CONFIG="$config" OOONANA_AI_MOCK=1 "$AI_WRAPPER" model set fast)"
+assert_contains "$model_set" "default model: qwen/qwen3-next-80b-a3b-instruct"
+assert_contains "$(<"$config")" "OOONANA_NIM_MODEL=qwen/qwen3-next-80b-a3b-instruct"
+
+model_alias="$(OOONANA_AI_CONFIG="$config" OOONANA_AI_MOCK=1 "$AI_WRAPPER" model alias tiny meta/llama-3.3-70b-instruct)"
+assert_contains "$model_alias" "alias tiny: meta/llama-3.3-70b-instruct"
+assert_contains "$(<"$config")" "OOONANA_MODEL_TINY=meta/llama-3.3-70b-instruct"
+
+tiny_dry_run="$(OOONANA_AI_CONFIG="$config" "$AI_WRAPPER" --model tiny --dry-run "small answer")"
+assert_contains "$tiny_dry_run" '"model": "meta/llama-3.3-70b-instruct"'
+
+chat_model_ui="$(printf '/models\n/model set code\n/model\n/exit\n' | OOONANA_AI_CONFIG="$config" "$AI_WRAPPER" chat --no-stream)"
+assert_contains "$chat_model_ui" "aliases:"
+assert_contains "$chat_model_ui" "default model: qwen/qwen3-coder-480b-a35b-instruct"
+assert_contains "$chat_model_ui" "active: qwen/qwen3-coder-480b-a35b-instruct"
+
 agents="$("$AI_WRAPPER" agents)"
 assert_contains "$agents" "system"
 assert_contains "$agents" "activity"

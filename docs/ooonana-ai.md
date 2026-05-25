@@ -86,6 +86,7 @@ OOONANA_NIM_MODEL=nvidia/nemotron-3-super-120b-a12b
 OOONANA_MODEL_CODE=qwen/qwen3-coder-480b-a35b-instruct
 OOONANA_MODEL_FAST=qwen/qwen3-next-80b-a3b-instruct
 OOONANA_MODEL_DEEP=nvidia/nemotron-3-super-120b-a12b
+OOONANA_MODEL_TINY=meta/llama-3.3-70b-instruct
 OOONANA_AI_STREAM=1
 ```
 
@@ -102,6 +103,7 @@ Ooonana AI talks to NVIDIA NIM using the OpenAI-compatible chat completions shap
 | `OOONANA_MODEL_CODE` | `qwen/qwen3-coder-480b-a35b-instruct` | Model alias for coding prompts. |
 | `OOONANA_MODEL_FAST` | `qwen/qwen3-next-80b-a3b-instruct` | Model alias for quick answers. |
 | `OOONANA_MODEL_DEEP` | `nvidia/nemotron-3-super-120b-a12b` | Model alias for deeper reasoning. |
+| `OOONANA_MODEL_<ALIAS>` | empty | Custom model alias. `OOONANA_MODEL_TINY=meta/llama-3.3-70b-instruct` makes `--model tiny` work. |
 | `OOONANA_AI_MAX_TOKENS` | `1024` | Maximum generated tokens. |
 | `OOONANA_AI_TEMPERATURE` | `0.2` | Sampling temperature. |
 | `OOONANA_AI_STREAM` | `1` | Stream responses when possible. Set `0` to disable. |
@@ -148,6 +150,22 @@ Coding model alias:
 ooonana ai ask --model code "write a bash script that lists mounted filesystems"
 ```
 
+Change the default model without opening the config file:
+
+```bash
+ooonana-ai model
+ooonana-ai model list
+ooonana-ai model set code
+ooonana-ai model set qwen/qwen3-next-80b-a3b-instruct
+```
+
+Add a new alias:
+
+```bash
+ooonana-ai model alias tiny meta/llama-3.3-70b-instruct
+ooonana-ai --model tiny "answer fast"
+```
+
 Interactive chat:
 
 ```bash
@@ -165,7 +183,10 @@ Useful chat commands:
 /history
 /rewind
 /rewind 2
+/models
 /model code
+/model set deep
+/model alias tiny meta/llama-3.3-70b-instruct
 /save transcript.json
 /clear
 /exit
@@ -175,6 +196,9 @@ Direct alias:
 
 ```bash
 ooonana-ai help
+ooonana-ai model
+ooonana-ai model set code
+ooonana-ai model alias tiny meta/llama-3.3-70b-instruct
 ooonana-ai
 ooonana-ai "who are you?"
 ooonana-ai --model code "write a bash script that prints Ooonana"
@@ -195,6 +219,9 @@ ooonana-ai help            shows Ooonana AI help
 ooonana-ai "message"       sends a one-shot ask
 ooonana-ai --model code "message"
                            sends a one-shot ask with options
+ooonana-ai model           shows active model and aliases
+ooonana-ai model set code  changes default model in config
+ooonana-ai model alias N M saves alias N for model M
 ooonana-ai chat            explicitly opens chat
 ooonana-ai status          shows provider/UI status
 ```

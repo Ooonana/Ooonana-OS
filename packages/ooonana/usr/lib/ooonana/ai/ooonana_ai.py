@@ -85,6 +85,12 @@ POPULAR_MODELS = [
     "openai/gpt-oss-120b",
 ]
 
+DEFAULT_MODEL_ALIASES = {
+    "fast": "qwen/qwen3-next-80b-a3b-instruct",
+    "code": "qwen/qwen3-coder-480b-a35b-instruct",
+    "deep": "nvidia/nemotron-3-super-120b-a12b",
+}
+
 
 class OoonanaError(Exception):
     pass
@@ -150,7 +156,7 @@ def parse_env_file(path: Path) -> dict[str, str]:
 
 def load_config(path: Path) -> dict[str, str]:
     values = parse_env_file(path)
-    for key in (
+    fixed_keys = {
         "NVIDIA_API_KEY",
         "NVIDIA_NIM_API_KEY",
         "OOONANA_NIM_BASE_URL",
@@ -161,9 +167,10 @@ def load_config(path: Path) -> dict[str, str]:
         "OOONANA_AI_MAX_TOKENS",
         "OOONANA_AI_TEMPERATURE",
         "OOONANA_AI_STREAM",
-    ):
-        if os.environ.get(key):
-            values[key] = os.environ[key]
+    }
+    for key, value in os.environ.items():
+        if value and (key in fixed_keys or key.startswith("OOONANA_MODEL_")):
+            values[key] = value
     return values
 
 
@@ -203,6 +210,32 @@ def setup_config(path: Path) -> None:
             os.umask(old_umask)
     path.chmod(0o600)
     print(f"AI config: {path}")
+
+
+def write_env_updates(path: Path, updates: dict[str, str]) -> None:
+    if not path.exists():
+        setup_config(path)
+    lines = path.read_text(encoding="utf-8").splitlines()
+    remaining = dict(updates)
+    changed: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        probe = stripped[7:].lstrip() if stripped.startswith("export ") else stripped
+        if stripped.startswith("#") or "=" not in probe:
+            changed.append(line)
+            continue
+        key = probe.split("=", 1)[0].strip()
+        if key in remaining:
+            changed.append(f"{key}={shlex.quote(remaining.pop(key))}")
+        else:
+            changed.append(line)
+    if remaining:
+        if changed and changed[-1].strip():
+            changed.append("")
+        for key, value in remaining.items():
+            changed.append(f"{key}={shlex.quote(value)}")
+    path.write_text("\n".join(changed) + "\n", encoding="utf-8")
+    path.chmod(0o600)
 
 
 def now_iso() -> str:
@@ -508,20 +541,53 @@ def request_payload(args: argparse.Namespace, config: dict[str, str], messages: 
     }
 
 
+def normalize_model_alias(alias: str) -> str:
+    normalized = alias.strip().lower().replace("_", "-")
+    if not re.fullmatch(r"[a-z][a-z0-9-]{0,31}", normalized):
+        raise OoonanaError("model alias must start with a letter and use letters, numbers, or dashes")
+    return normalized
+
+
+def model_alias_env_key(alias: str) -> str:
+    normalized = normalize_model_alias(alias)
+    if normalized == "default":
+        return "OOONANA_NIM_MODEL"
+    return "OOONANA_MODEL_" + normalized.upper().replace("-", "_")
+
+
 def model_aliases(config: dict[str, str]) -> dict[str, str]:
-    aliases = {
-        "default": config_value(config, "OOONANA_NIM_MODEL", DEFAULT_MODEL),
-        "fast": config.get("OOONANA_MODEL_FAST", "qwen/qwen3-next-80b-a3b-instruct"),
-        "code": config.get("OOONANA_MODEL_CODE", "qwen/qwen3-coder-480b-a35b-instruct"),
-        "deep": config.get("OOONANA_MODEL_DEEP", "nvidia/nemotron-3-super-120b-a12b"),
-    }
+    aliases: dict[str, str] = {"default": config_value(config, "OOONANA_NIM_MODEL", DEFAULT_MODEL)}
+    for alias, default_model in DEFAULT_MODEL_ALIASES.items():
+        aliases[alias] = config.get(model_alias_env_key(alias), default_model)
+    extras: list[tuple[str, str]] = []
+    for key, value in config.items():
+        if not key.startswith("OOONANA_MODEL_") or not value:
+            continue
+        alias = key.removeprefix("OOONANA_MODEL_").lower().replace("_", "-")
+        if alias not in aliases:
+            extras.append((alias, value))
+    for alias, value in sorted(extras):
+        aliases[alias] = value
     return {key: value for key, value in aliases.items() if value}
 
 
 def resolve_model(model: str, config: dict[str, str]) -> str:
     aliases = model_aliases(config)
-    selected = model or "default"
-    return aliases.get(selected, selected)
+    selected = (model or "default").strip()
+    return aliases.get(selected.lower(), selected)
+
+
+def print_model_aliases(config: dict[str, str]) -> None:
+    print("aliases:")
+    for alias, model in model_aliases(config).items():
+        print(f"  {alias}: {model}")
+
+
+def print_model_catalog(config: dict[str, str]) -> None:
+    print_model_aliases(config)
+    print("popular:")
+    for model in POPULAR_MODELS:
+        print(f"  {model}")
 
 
 def mock_response(messages: list[dict[str, str]]) -> str:
@@ -624,11 +690,52 @@ def cmd_env(_: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_models(_: argparse.Namespace) -> int:
-    print("Popular NVIDIA NIM model ids for Ooonana:")
-    for model in POPULAR_MODELS:
-        print(f"  {model}")
+def cmd_models(args: argparse.Namespace) -> int:
+    config = load_config(Path(args.config).expanduser())
+    print("Ooonana NVIDIA NIM models:")
+    print_model_catalog(config)
     return 0
+
+
+def cmd_model(args: argparse.Namespace) -> int:
+    path = Path(args.config).expanduser()
+    config = load_config(path)
+    action = args.action
+    values = args.values
+
+    if action in ("show", ""):
+        print(f"active: {resolve_model('', config)}")
+        print(f"config: {path}")
+        print_model_aliases(config)
+        print("change default: ooonana-ai model set code")
+        return 0
+
+    if action == "list":
+        print_model_catalog(config)
+        return 0
+
+    if action in ("set", "use"):
+        if len(values) != 1:
+            raise OoonanaError("usage: ooonana-ai model set MODEL_OR_ALIAS")
+        model = resolve_model(values[0], config)
+        write_env_updates(path, {"OOONANA_NIM_MODEL": model})
+        print(f"default model: {model}")
+        print(f"config: {path}")
+        return 0
+
+    if action == "alias":
+        if len(values) != 2:
+            raise OoonanaError("usage: ooonana-ai model alias NAME MODEL_OR_ALIAS")
+        alias = normalize_model_alias(values[0])
+        if alias == "default":
+            raise OoonanaError("use model set to change default")
+        model = resolve_model(values[1], config)
+        write_env_updates(path, {model_alias_env_key(alias): model})
+        print(f"alias {alias}: {model}")
+        print(f"config: {path}")
+        return 0
+
+    raise OoonanaError("usage: ooonana-ai model [show|list|set|use|alias]")
 
 
 def cmd_agents(_: argparse.Namespace) -> int:
@@ -762,7 +869,10 @@ def print_chat_help() -> None:
             /history           Show recent Ooonana AI history
             /rewind [N]        Remove the latest N turns from this chat context
             /status            Show provider, model, config, and cwd
+            /models            List aliases and popular NIM model ids
             /model [MODEL]     Show or switch model for this chat
+            /model set MODEL   Persist default model in config
+            /model alias N M   Save alias N for model M
             /clear             Clear conversation history
             /save PATH         Save transcript as JSON
             /exit              Leave Ooonana AI
@@ -825,6 +935,9 @@ def cmd_chat(args: argparse.Namespace) -> int:
             if command == "/status":
                 print_status(model, config, state_dir(args))
                 continue
+            if command == "/models":
+                print_model_catalog(config)
+                continue
             if command == "/history":
                 cmd_history(args)
                 continue
@@ -853,10 +966,37 @@ def cmd_chat(args: argparse.Namespace) -> int:
                 continue
             if command == "/model":
                 if len(parts) == 1:
-                    print(model)
-                else:
+                    print(f"active: {model}")
+                    continue
+                if parts[1] in ("set", "use"):
+                    if len(parts) != 3:
+                        print("usage: /model set MODEL_OR_ALIAS")
+                        continue
+                    model = resolve_model(parts[2], config)
+                    write_env_updates(Path(args.config).expanduser(), {"OOONANA_NIM_MODEL": model})
+                    config = load_config(Path(args.config).expanduser())
+                    print(f"default model: {model}")
+                    continue
+                if parts[1] == "alias":
+                    if len(parts) != 4:
+                        print("usage: /model alias NAME MODEL_OR_ALIAS")
+                        continue
+                    try:
+                        alias = normalize_model_alias(parts[2])
+                        if alias == "default":
+                            raise OoonanaError("use /model set to change default")
+                        resolved = resolve_model(parts[3], config)
+                        write_env_updates(Path(args.config).expanduser(), {model_alias_env_key(alias): resolved})
+                        config = load_config(Path(args.config).expanduser())
+                        print(f"alias {alias}: {resolved}")
+                    except OoonanaError as exc:
+                        print(str(exc))
+                    continue
+                if len(parts) == 2:
                     model = resolve_model(parts[1], config)
                     print(f"model: {model}")
+                else:
+                    print("usage: /model [MODEL] | /model set MODEL | /model alias NAME MODEL")
                 continue
             if command == "/save":
                 if len(parts) != 2:
@@ -896,6 +1036,9 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("config", help="print resolved config without secrets")
     subparsers.add_parser("env", help="print Linux environment context")
     subparsers.add_parser("models", help="show useful NVIDIA NIM model ids")
+    model = subparsers.add_parser("model", help="show or change default model")
+    model.add_argument("action", nargs="?", default="show", choices=("show", "list", "set", "use", "alias"), help="model action")
+    model.add_argument("values", nargs="*", help="model id or alias values")
     subparsers.add_parser("agents", help="list local context agents")
 
     agent = subparsers.add_parser("agent", help="run or inspect a local context agent")
@@ -970,6 +1113,8 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_env(args)
         if command == "models":
             return cmd_models(args)
+        if command == "model":
+            return cmd_model(args)
         if command == "agents":
             return cmd_agents(args)
         if command == "agent":
