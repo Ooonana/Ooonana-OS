@@ -166,9 +166,25 @@ Useful chat commands:
 Direct alias:
 
 ```bash
+ooonana-ai help
+ooonana-ai
+ooonana-ai "who are you?"
+ooonana-ai --model code "write a bash script that prints Ooonana"
 ooonana-ai ask --model code "explain this repo"
 ooonana-ai chat
 ooonana-ai ping
+```
+
+Direct alias behavior:
+
+```text
+ooonana-ai                 opens interactive chat
+ooonana-ai help            shows Ooonana AI help
+ooonana-ai "message"       sends a one-shot ask
+ooonana-ai --model code "message"
+                           sends a one-shot ask with options
+ooonana-ai chat            explicitly opens chat
+ooonana-ai status          shows provider/UI status
 ```
 
 Show the Linux/WSL context Ooonana will send:

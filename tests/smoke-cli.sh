@@ -18,11 +18,12 @@ doctor="$("$CLI" doctor || true)"
 [[ "$doctor" == *"kernel:"* ]] || fail "doctor missing kernel"
 [[ "$doctor" == *"apt:"* ]] || fail "doctor missing apt"
 
-ai_doctor="$("$CLI" ai doctor || true)"
-[[ "$ai_doctor" == *"AI config missing"* ]] || fail "ai doctor missing config guard"
-
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
+
+ai_doctor="$(OOONANA_AI_CONFIG="$tmp/missing.env" "$CLI" ai doctor || true)"
+[[ "$ai_doctor" == *"AI config missing"* ]] || fail "ai doctor missing config guard"
+
 config="$tmp/ai.env"
 setup="$(OOONANA_AI_CONFIG="$config" "$CLI" ai setup)"
 [[ "$setup" == *"AI config:"* ]] || fail "ai setup did not print config path"

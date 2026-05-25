@@ -2,4 +2,36 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-exec "$SCRIPT_DIR/ooonana" ai "$@"
+GLOBAL_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --config)
+      [[ $# -ge 2 ]] || { printf 'ooonana-ai: --config requires a path\n' >&2; exit 1; }
+      GLOBAL_ARGS+=("$1" "$2")
+      shift 2
+      ;;
+    --config=*)
+      GLOBAL_ARGS+=("$1")
+      shift
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+case "${1:-}" in
+  "")
+    exec "$SCRIPT_DIR/ooonana" ai "${GLOBAL_ARGS[@]}" chat
+    ;;
+  help|--help|-h)
+    exec "$SCRIPT_DIR/ooonana" ai "${GLOBAL_ARGS[@]}" --help
+    ;;
+  setup|doctor|config|env|models|status|ping|ask|code|chat)
+    exec "$SCRIPT_DIR/ooonana" ai "${GLOBAL_ARGS[@]}" "$@"
+    ;;
+  *)
+    exec "$SCRIPT_DIR/ooonana" ai "${GLOBAL_ARGS[@]}" ask "$@"
+    ;;
+esac

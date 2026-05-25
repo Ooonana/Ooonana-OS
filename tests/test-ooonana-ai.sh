@@ -85,10 +85,31 @@ assert_contains "$status" "qwen/qwen3-coder-480b-a35b-instruct"
 ping="$(OOONANA_AI_MOCK=1 "$AI_WRAPPER" ping --model code)"
 assert_contains "$ping" "Ooonana mock response"
 
+help="$("$AI_WRAPPER" help)"
+assert_contains "$help" "Ooonana AI CLI for NVIDIA NIM"
+assert_contains "$help" "ask"
+assert_contains "$help" "chat"
+
+direct_message="$(OOONANA_AI_CONFIG="$config" OOONANA_AI_MOCK=1 "$AI_WRAPPER" "hello from the wrapper")"
+assert_contains "$direct_message" "Ooonana mock response"
+assert_contains "$direct_message" "hello from the wrapper"
+
+direct_option_message="$(OOONANA_AI_CONFIG="$config" "$AI_WRAPPER" --model code --dry-run "write shell")"
+assert_contains "$direct_option_message" '"model": "qwen/qwen3-coder-480b-a35b-instruct"'
+assert_contains "$direct_option_message" '"content": "write shell"'
+
+direct_config_message="$("$AI_WRAPPER" --config "$config" --model code --dry-run "configured shell")"
+assert_contains "$direct_config_message" '"model": "qwen/qwen3-coder-480b-a35b-instruct"'
+assert_contains "$direct_config_message" '"content": "configured shell"'
+
 chat_ui="$(printf '/status\n/exit\n' | OOONANA_AI_CONFIG="$config" "$AI_WRAPPER" chat --no-stream)"
 assert_contains "$chat_ui" "Ooonana AI"
 assert_contains "$chat_ui" "mode: chat"
 assert_contains "$chat_ui" "ooonana ai>"
+
+default_chat_ui="$(printf '/exit\n' | OOONANA_AI_CONFIG="$config" "$AI_WRAPPER")"
+assert_contains "$default_chat_ui" "Ooonana AI"
+assert_contains "$default_chat_ui" "mode: chat"
 
 install_out="$(OOONANA_WSL_BIN_DIR="$tmp/bin" bash "$ROOT/scripts/install-ooonana-ai-wsl.sh")"
 assert_contains "$install_out" "installed ooonana"

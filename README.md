@@ -55,7 +55,10 @@ ooonana ai ask --model code "explain this Linux environment"
 ooonana ai chat
 ooonana ai env
 ooonana ai models
-ooonana-ai ask "who are you?"
+ooonana-ai help
+ooonana-ai
+ooonana-ai "who are you?"
+ooonana-ai --model code "write a bash script"
 ```
 
 The config file expects an NVIDIA NIM API key and OpenAI-compatible settings:
