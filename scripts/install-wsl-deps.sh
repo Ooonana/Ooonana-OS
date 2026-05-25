@@ -13,7 +13,7 @@ Usage:
   scripts/install-wsl-deps.sh
 
 Installs:
-  debootstrap qemu-system-x86 xorriso isolinux syslinux-common rsync e2fsprogs busybox-static cpio gzip python3
+  debootstrap qemu-system-x86 xorriso isolinux syslinux-common rsync e2fsprogs busybox-static cpio gzip python3 build-essential bc bison flex libelf-dev libssl-dev make perl
 USAGE
 }
 
@@ -31,12 +31,20 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y --no-install-recommends \
   ca-certificates \
+  bc \
+  bison \
+  build-essential \
   busybox-static \
   cpio \
   debootstrap \
   e2fsprogs \
+  flex \
   gzip \
   isolinux \
+  libelf-dev \
+  libssl-dev \
+  make \
+  perl \
   python3 \
   qemu-system-x86 \
   qemu-utils \

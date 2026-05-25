@@ -32,8 +32,9 @@ assert_contains "$help" "--iso"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
-mkdir -p "$tmp/bin" "$tmp/kernel-rootfs/boot"
+mkdir -p "$tmp/bin" "$tmp/kernel-rootfs/boot" "$tmp/build/ooonana-kernel"
 touch "$tmp/kernel-rootfs/boot/vmlinuz-6.1.0-ooonana"
+printf 'own kernel\n' > "$tmp/build/ooonana-kernel/vmlinuz-ooonana"
 touch "$tmp/initramfs.cpio.gz" "$tmp/isolinux.bin" "$tmp/ldlinux.c32"
 
 cat > "$tmp/bin/xorriso" <<'EOF'
@@ -66,6 +67,7 @@ bash "$SCRIPT" \
 [[ -f "$tmp/build/scratch-iso-tree/boot/vmlinuz" ]] || fail "missing staged kernel"
 [[ -f "$tmp/build/scratch-iso-tree/boot/initramfs.cpio.gz" ]] || fail "missing staged initramfs"
 [[ -f "$tmp/build/scratch-iso-tree/isolinux/isolinux.cfg" ]] || fail "missing isolinux config"
+[[ "$(<"$tmp/build/scratch-iso-tree/boot/vmlinuz")" == "own kernel" ]] || fail "scratch ISO must prefer Ooonana kernel"
 
 cfg="$(<"$tmp/build/scratch-iso-tree/isolinux/isolinux.cfg")"
 assert_contains "$cfg" "INITRD /boot/initramfs.cpio.gz"

@@ -9,6 +9,7 @@ WORK_DIR="$(ooonana_default_build_dir)"
 ROOTFS="$WORK_DIR/rootfs"
 IMAGE="$WORK_DIR/ooonana-rootfs.ext4"
 ISO="$WORK_DIR/ooonana.iso"
+OOONANA_KERNEL="$WORK_DIR/ooonana-kernel/vmlinuz-ooonana"
 ISO_MODE=0
 INITRAMFS_BOOT=0
 DISK=""
@@ -76,6 +77,15 @@ pick_latest() {
   latest="$(find "$ROOTFS/boot" -maxdepth 1 -type f -name "$pattern" | sort -V | tail -n 1)"
   [[ -n "$latest" ]] || ooonana_die "missing boot file: $pattern in $ROOTFS/boot"
   printf '%s\n' "$latest"
+}
+
+pick_scratch_kernel() {
+  if [[ -f "$OOONANA_KERNEL" ]]; then
+    printf '%s\n' "$OOONANA_KERNEL"
+    return 0
+  fi
+
+  pick_latest 'vmlinuz-*'
 }
 
 build_command() {
@@ -165,7 +175,7 @@ main() {
   fi
 
   if [[ "$INITRAMFS_BOOT" -eq 1 ]]; then
-    [[ -n "$KERNEL" ]] || KERNEL="$(pick_latest 'vmlinuz-*')"
+    [[ -n "$KERNEL" ]] || KERNEL="$(pick_scratch_kernel)"
     [[ -n "$INITRD" ]] || INITRD="$WORK_DIR/ooonana-scratch-initramfs.cpio.gz"
     [[ -f "$KERNEL" ]] || ooonana_die "missing kernel: $KERNEL"
     [[ -f "$INITRD" ]] || ooonana_die "missing initramfs: $INITRD"

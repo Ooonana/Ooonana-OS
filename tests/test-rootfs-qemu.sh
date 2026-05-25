@@ -81,4 +81,9 @@ if [[ "$initramfs_dry_run" == *"root=/dev/vda"* ]]; then
   fail "scratch initramfs boot must not use Debian root disk"
 fi
 
+mkdir -p "$tmp/build/ooonana-kernel"
+touch "$tmp/build/ooonana-kernel/vmlinuz-ooonana"
+own_kernel_dry_run="$(OOONANA_BUILD_DIR="$tmp/build" bash "$ROOT/scripts/run-qemu.sh" --dry-run --smoke --initramfs-boot --rootfs "$tmp/rootfs" --initrd "$tmp/build/ooonana-scratch-initramfs.cpio.gz")"
+assert_contains "$own_kernel_dry_run" "$tmp/build/ooonana-kernel/vmlinuz-ooonana"
+
 printf 'ok rootfs-qemu\n'

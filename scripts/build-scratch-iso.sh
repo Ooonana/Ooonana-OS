@@ -10,6 +10,7 @@ KERNEL_ROOTFS="$WORK_DIR/rootfs"
 INITRAMFS="$WORK_DIR/ooonana-scratch-initramfs.cpio.gz"
 ISO_TREE="$WORK_DIR/scratch-iso-tree"
 ISO="$WORK_DIR/ooonana-scratch.iso"
+OOONANA_KERNEL="$WORK_DIR/ooonana-kernel/vmlinuz-ooonana"
 KERNEL=""
 VOLUME="OOONANA_SCRATCH"
 SMOKE=0
@@ -25,7 +26,7 @@ Usage:
 Options:
   --work-dir PATH       Build directory (default: /var/tmp/ooonana-os/build)
   --kernel-rootfs PATH  Rootfs with /boot/vmlinuz-* helper kernel (default: WORK_DIR/rootfs)
-  --kernel PATH         Kernel path instead of picking latest from kernel rootfs
+  --kernel PATH         Kernel path (default: WORK_DIR/ooonana-kernel/vmlinuz-ooonana, fallback helper rootfs)
   --initramfs PATH      Scratch initramfs path (default: WORK_DIR/ooonana-scratch-initramfs.cpio.gz)
   --iso-tree PATH       ISO staging directory (default: WORK_DIR/scratch-iso-tree)
   --iso PATH            ISO output path (default: WORK_DIR/ooonana-scratch.iso)
@@ -38,7 +39,7 @@ USAGE
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --work-dir) WORK_DIR="$2"; KERNEL_ROOTFS="$2/rootfs"; INITRAMFS="$2/ooonana-scratch-initramfs.cpio.gz"; ISO_TREE="$2/scratch-iso-tree"; ISO="$2/ooonana-scratch.iso"; shift 2 ;;
+    --work-dir) WORK_DIR="$2"; KERNEL_ROOTFS="$2/rootfs"; INITRAMFS="$2/ooonana-scratch-initramfs.cpio.gz"; ISO_TREE="$2/scratch-iso-tree"; ISO="$2/ooonana-scratch.iso"; OOONANA_KERNEL="$2/ooonana-kernel/vmlinuz-ooonana"; shift 2 ;;
     --kernel-rootfs) KERNEL_ROOTFS="$2"; shift 2 ;;
     --kernel) KERNEL="$2"; shift 2 ;;
     --initramfs) INITRAMFS="$2"; shift 2 ;;
@@ -57,6 +58,15 @@ pick_latest_kernel() {
   latest="$(find "$KERNEL_ROOTFS/boot" -maxdepth 1 -type f -name 'vmlinuz-*' | sort -V | tail -n 1)"
   [[ -n "$latest" ]] || ooonana_die "missing helper kernel in $KERNEL_ROOTFS/boot"
   printf '%s\n' "$latest"
+}
+
+pick_default_kernel() {
+  if [[ -f "$OOONANA_KERNEL" ]]; then
+    printf '%s\n' "$OOONANA_KERNEL"
+    return 0
+  fi
+
+  pick_latest_kernel
 }
 
 first_existing() {
@@ -93,7 +103,7 @@ EOF
 stage_iso_tree() {
   local isolinux_bin ldlinux_c32
 
-  [[ -n "$KERNEL" ]] || KERNEL="$(pick_latest_kernel)"
+  [[ -n "$KERNEL" ]] || KERNEL="$(pick_default_kernel)"
   [[ -f "$KERNEL" ]] || ooonana_die "missing kernel: $KERNEL"
   [[ -f "$INITRAMFS" ]] || ooonana_die "missing initramfs: $INITRAMFS"
 

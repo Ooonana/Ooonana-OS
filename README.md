@@ -13,6 +13,21 @@ Ooonana OS is moving toward a scratch-built, lightweight Linux:
 
 The current Debian-based rootfs is a bootable test shell for QEMU while the Ooonana tooling and installer grow.
 
+## Ooonana Kernel
+
+```bash
+bash scripts/install-wsl-deps.sh
+bash scripts/build-kernel.sh --source /path/to/linux --force
+```
+
+Default output:
+
+```text
+/var/tmp/ooonana-os/build/ooonana-kernel/vmlinuz-ooonana
+```
+
+Scratch initramfs and scratch ISO boot use this kernel first when present.
+
 ## Ooonana Command
 
 ```bash
