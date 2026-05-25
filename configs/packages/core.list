@@ -5,6 +5,7 @@ initramfs-tools
 linux-image-amd64
 locales
 netbase
+python3
 rsync
 systemd-sysv
 udev

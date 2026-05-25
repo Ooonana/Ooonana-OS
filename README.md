@@ -25,6 +25,22 @@ ooonana list --installed
 ooonana remove ai
 ```
 
+## Ooonana AI
+
+```bash
+ooonana ai setup
+ooonana ai doctor
+ooonana ai models
+ooonana ai ask "what system am I in?"
+ooonana-ai chat
+```
+
+AI uses NVIDIA NIM through an OpenAI-compatible chat API. Config lives in:
+
+```text
+~/.config/ooonana/ai.env
+```
+
 Package metadata lives in:
 
 ```text

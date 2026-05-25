@@ -87,7 +87,7 @@ create_base_dirs() {
 
 create_busybox_links() {
   local applet
-  for applet in awk basename cat chmod cp cut date df dirname dmesg echo env free grep hostname ls mkdir mount mv ps pwd rm rmdir sed sh sha256sum sleep sort sync tar touch tr umount uname wc; do
+  for applet in awk basename cat chmod cp cut date df dirname dmesg echo env free grep hostname ls mkdir mount mv ps pwd readlink rm rmdir sed sh sha256sum sleep sort sync tar touch tr umount uname wc; do
     ln -sf busybox "$ROOTFS/bin/$applet"
   done
   for applet in mdev reboot; do

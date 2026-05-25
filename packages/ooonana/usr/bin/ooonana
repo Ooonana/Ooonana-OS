@@ -3,7 +3,9 @@ set -eu
 
 VERSION="0.3.0"
 HOME_DIR="${HOME:-/root}"
-if [ -n "${XDG_CONFIG_HOME:-}" ]; then
+if [ -n "${OOONANA_AI_CONFIG:-}" ]; then
+  AI_CONFIG="$OOONANA_AI_CONFIG"
+elif [ -n "${XDG_CONFIG_HOME:-}" ]; then
   AI_CONFIG="$XDG_CONFIG_HOME/ooonana/ai.env"
 else
   AI_CONFIG="$HOME_DIR/.config/ooonana/ai.env"
@@ -18,6 +20,26 @@ root_join() {
     printf '%s/%s\n' "${OOONANA_ROOT%/}" "${path#/}"
   fi
 }
+
+script_dir() {
+  path="$0"
+  while [ -L "$path" ] && command -v readlink >/dev/null 2>&1; do
+    dir="$(CDPATH= cd -- "$(dirname -- "$path")" && pwd)"
+    target="$(readlink "$path")" || break
+    case "$target" in
+      /*) path="$target" ;;
+      *) path="$dir/$target" ;;
+    esac
+  done
+  CDPATH= cd -- "$(dirname -- "$path")" && pwd
+}
+
+SCRIPT_DIR="$(script_dir)"
+LOCAL_AI_APP="${SCRIPT_DIR%/bin}/lib/ooonana/ai/ooonana_ai.py"
+AI_APP="${OOONANA_AI_APP:-$LOCAL_AI_APP}"
+if [ ! -f "$AI_APP" ]; then
+  AI_APP="$(root_join /usr/lib/ooonana/ai/ooonana_ai.py)"
+fi
 
 REPO_DIR="${OOONANA_REPO_DIR:-$(root_join /usr/lib/ooonana/repo)}"
 STATE_DIR="${OOONANA_STATE_DIR:-$(root_join /var/lib/ooonana/packages)}"
@@ -37,7 +59,13 @@ Usage:
   ooonana clean
   ooonana ai setup
   ooonana ai doctor
-  ooonana ai code PROMPT...
+  ooonana ai config
+  ooonana ai ask PROMPT...
+  ooonana ai chat
+  ooonana ai env
+  ooonana ai models
+  ooonana ai status
+  ooonana ai ping
 USAGE
 }
 
@@ -359,8 +387,11 @@ cmd_ai_setup() {
   if [ ! -f "$AI_CONFIG" ]; then
     umask 077
     cat > "$AI_CONFIG" <<'EOF'
-# Add provider settings here.
-# OPENAI_API_KEY=sk-...
+# Ooonana AI uses NVIDIA NIM's OpenAI-compatible chat API.
+# Get a key from https://build.nvidia.com/settings/api-keys
+NVIDIA_API_KEY=
+OOONANA_NIM_BASE_URL=https://integrate.api.nvidia.com/v1
+OOONANA_NIM_MODEL=nvidia/nemotron-3-super-120b-a12b
 EOF
   fi
   chmod 600 "$AI_CONFIG"
@@ -373,10 +404,10 @@ cmd_ai_doctor() {
     exit 1
   fi
   . "$AI_CONFIG"
-  if [ -n "${OPENAI_API_KEY:-}" ]; then
+  if [ -n "${NVIDIA_API_KEY:-}" ] || [ -n "${NVIDIA_NIM_API_KEY:-}" ] || [ -n "${OPENAI_API_KEY:-}" ]; then
     printf 'AI config: ok\n'
   else
-    printf 'AI config missing OPENAI_API_KEY\n'
+    printf 'AI config missing NVIDIA_API_KEY\n'
     exit 1
   fi
 }
@@ -385,6 +416,25 @@ cmd_ai_code() {
   [ "$#" -gt 0 ] || { printf 'prompt required\n' >&2; exit 1; }
   cmd_ai_doctor >/dev/null
   printf 'AI code request queued: %s\n' "$*"
+}
+
+cmd_ai() {
+  if have python3 && [ -f "$AI_APP" ]; then
+    exec python3 "$AI_APP" --config "$AI_CONFIG" "$@"
+  fi
+
+  case "${1:-}" in
+    setup) shift; cmd_ai_setup "$@" ;;
+    doctor) shift; cmd_ai_doctor "$@" ;;
+    code|ask)
+      shift
+      cmd_ai_code "$@"
+      ;;
+    ""|chat|config|env|models|status|ping)
+      die "python3 required for ooonana ai"
+      ;;
+    *) usage; exit 1 ;;
+  esac
 }
 
 main() {
@@ -402,12 +452,7 @@ main() {
     remove) cmd_remove "$@" ;;
     clean) cmd_clean ;;
     ai)
-      case "${1:-}" in
-        setup) shift; cmd_ai_setup "$@" ;;
-        doctor) shift; cmd_ai_doctor "$@" ;;
-        code) shift; cmd_ai_code "$@" ;;
-        *) usage; exit 1 ;;
-      esac
+      cmd_ai "$@"
       ;;
     help|--help|-h) usage ;;
     *) usage; exit 1 ;;
