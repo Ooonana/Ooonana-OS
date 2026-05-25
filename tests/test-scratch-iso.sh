@@ -31,6 +31,7 @@ assert_contains "$help" "Build Ooonana scratch boot ISO"
 assert_contains "$help" "--kernel-rootfs"
 assert_contains "$help" "--initramfs"
 assert_contains "$help" "--rootfs-image"
+assert_contains "$help" "--disk-image"
 assert_contains "$help" "--install"
 assert_contains "$help" "--iso"
 
@@ -41,6 +42,7 @@ mkdir -p "$tmp/bin" "$tmp/kernel-rootfs/boot" "$tmp/build/ooonana-kernel"
 touch "$tmp/kernel-rootfs/boot/vmlinuz-6.1.0-ooonana"
 printf 'own kernel\n' > "$tmp/build/ooonana-kernel/vmlinuz-ooonana"
 printf 'rootfs image\n' > "$tmp/rootfs.ext4"
+printf 'disk image\n' > "$tmp/disk.raw"
 touch "$tmp/initramfs.cpio.gz" "$tmp/isolinux.bin" "$tmp/ldlinux.c32"
 
 cat > "$tmp/bin/xorriso" <<'EOF'
@@ -66,6 +68,7 @@ bash "$SCRIPT" \
   --kernel-rootfs "$tmp/kernel-rootfs" \
   --initramfs "$tmp/initramfs.cpio.gz" \
   --rootfs-image "$tmp/rootfs.ext4" \
+  --disk-image "$tmp/disk.raw" \
   --iso "$tmp/ooonana-scratch.iso" \
   --install \
   --smoke \
@@ -74,10 +77,10 @@ bash "$SCRIPT" \
 [[ -s "$tmp/ooonana-scratch.iso" ]] || fail "missing scratch ISO"
 [[ -f "$tmp/build/scratch-iso-tree/boot/vmlinuz" ]] || fail "missing staged kernel"
 [[ -f "$tmp/build/scratch-iso-tree/boot/initramfs.cpio.gz" ]] || fail "missing staged initramfs"
-[[ -f "$tmp/build/scratch-iso-tree/images/ooonana-scratch.ext4" ]] || fail "missing staged rootfs image"
+[[ -f "$tmp/build/scratch-iso-tree/images/ooonana-scratch-disk.raw" ]] || fail "missing staged disk image"
 [[ -f "$tmp/build/scratch-iso-tree/isolinux/isolinux.cfg" ]] || fail "missing isolinux config"
 [[ "$(<"$tmp/build/scratch-iso-tree/boot/vmlinuz")" == "own kernel" ]] || fail "scratch ISO must prefer Ooonana kernel"
-[[ "$(<"$tmp/build/scratch-iso-tree/images/ooonana-scratch.ext4")" == "rootfs image" ]] || fail "wrong staged rootfs image"
+[[ "$(<"$tmp/build/scratch-iso-tree/images/ooonana-scratch-disk.raw")" == "disk image" ]] || fail "wrong staged disk image"
 
 cfg="$(<"$tmp/build/scratch-iso-tree/isolinux/isolinux.cfg")"
 assert_contains "$cfg" "INITRD /boot/initramfs.cpio.gz"

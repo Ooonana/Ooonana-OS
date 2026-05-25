@@ -48,10 +48,15 @@ assert_contains "$build_help" "Build Ooonana rootfs"
 assert_contains "$build_help" "--suite"
 assert_contains "$build_help" "--force"
 
+deps_help="$(bash "$ROOT/scripts/install-wsl-deps.sh" --help)"
+assert_contains "$deps_help" "grub-pc"
+assert_contains "$deps_help" "parted"
+
 run_help="$(bash "$ROOT/scripts/run-qemu.sh" --help)"
 assert_contains "$run_help" "Boot Ooonana rootfs with QEMU"
 assert_contains "$run_help" "--initramfs-boot"
 assert_contains "$run_help" "--scratch-disk-boot"
+assert_contains "$run_help" "--disk-boot"
 assert_contains "$run_help" "--smoke"
 assert_contains "$run_help" "--dry-run"
 
@@ -99,5 +104,13 @@ assert_contains "$scratch_disk_dry_run" "root=/dev/vda"
 assert_contains "$scratch_disk_dry_run" "init=/sbin/init"
 assert_not_contains "$scratch_disk_dry_run" "-initrd"
 assert_not_contains "$scratch_disk_dry_run" "systemd.unit"
+
+touch "$tmp/build/ooonana-scratch-disk.raw"
+self_boot_dry_run="$(OOONANA_BUILD_DIR="$tmp/build" bash "$ROOT/scripts/run-qemu.sh" --dry-run --smoke --disk-boot --image "$tmp/build/ooonana-scratch-disk.raw")"
+assert_contains "$self_boot_dry_run" "qemu-system-x86_64"
+assert_contains "$self_boot_dry_run" "file=$tmp/build/ooonana-scratch-disk.raw\\,format=raw\\,if=virtio"
+assert_contains "$self_boot_dry_run" "-boot c"
+assert_not_contains "$self_boot_dry_run" "-kernel"
+assert_not_contains "$self_boot_dry_run" "-cdrom"
 
 printf 'ok rootfs-qemu\n'

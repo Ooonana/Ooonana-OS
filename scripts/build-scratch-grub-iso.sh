@@ -9,6 +9,7 @@ WORK_DIR="$(ooonana_default_build_dir)"
 KERNEL="$WORK_DIR/ooonana-kernel/vmlinuz-ooonana"
 INITRAMFS="$WORK_DIR/ooonana-scratch-initramfs.cpio.gz"
 ROOTFS_IMAGE="$WORK_DIR/ooonana-scratch.ext4"
+DISK_IMAGE=""
 ISO_TREE="$WORK_DIR/scratch-grub-iso-tree"
 ISO="$WORK_DIR/ooonana-scratch-grub.iso"
 VOLUME="OOONANA_GRUB"
@@ -29,6 +30,7 @@ Options:
   --kernel PATH        Kernel path (default: WORK_DIR/ooonana-kernel/vmlinuz-ooonana)
   --initramfs PATH     Scratch initramfs path (default: WORK_DIR/ooonana-scratch-initramfs.cpio.gz)
   --rootfs-image PATH  Scratch ext4 image for installer ISO (default: WORK_DIR/ooonana-scratch.ext4)
+  --disk-image PATH    Bootable raw disk image for installer ISO
   --iso-tree PATH      ISO staging directory (default: WORK_DIR/scratch-grub-iso-tree)
   --iso PATH           ISO output path (default: WORK_DIR/ooonana-scratch-grub.iso)
   --volume NAME        ISO volume label (default: OOONANA_GRUB)
@@ -46,6 +48,7 @@ while [[ $# -gt 0 ]]; do
     --kernel) KERNEL="$2"; shift 2 ;;
     --initramfs) INITRAMFS="$2"; shift 2 ;;
     --rootfs-image) ROOTFS_IMAGE="$2"; shift 2 ;;
+    --disk-image) DISK_IMAGE="$2"; shift 2 ;;
     --iso-tree) ISO_TREE="$2"; shift 2 ;;
     --iso) ISO="$2"; shift 2 ;;
     --volume) VOLUME="$2"; shift 2 ;;
@@ -84,7 +87,9 @@ EOF
 stage_iso_tree() {
   [[ -f "$KERNEL" ]] || ooonana_die "missing kernel: $KERNEL"
   [[ -f "$INITRAMFS" ]] || ooonana_die "missing initramfs: $INITRAMFS"
-  if [[ "$INSTALL" -eq 1 ]]; then
+  if [[ "$INSTALL" -eq 1 && -n "$DISK_IMAGE" ]]; then
+    [[ -f "$DISK_IMAGE" ]] || ooonana_die "missing disk image: $DISK_IMAGE"
+  elif [[ "$INSTALL" -eq 1 ]]; then
     [[ -f "$ROOTFS_IMAGE" ]] || ooonana_die "missing rootfs image: $ROOTFS_IMAGE"
   fi
 
@@ -93,7 +98,9 @@ stage_iso_tree() {
 
   install -m 0644 "$KERNEL" "$ISO_TREE/boot/vmlinuz"
   install -m 0644 "$INITRAMFS" "$ISO_TREE/boot/initramfs.cpio.gz"
-  if [[ "$INSTALL" -eq 1 ]]; then
+  if [[ "$INSTALL" -eq 1 && -n "$DISK_IMAGE" ]]; then
+    install -m 0644 "$DISK_IMAGE" "$ISO_TREE/images/ooonana-scratch-disk.raw"
+  elif [[ "$INSTALL" -eq 1 ]]; then
     install -m 0644 "$ROOTFS_IMAGE" "$ISO_TREE/images/ooonana-scratch.ext4"
   fi
   write_grub_config

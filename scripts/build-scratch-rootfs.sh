@@ -179,13 +179,17 @@ if grep -q 'ooonana.install=1' /proc/cmdline 2>/dev/null; then
     sleep 1
     reboot -f
   fi
-  if [ ! -f /mnt/install/images/ooonana-scratch.ext4 ]; then
+  install_image="/mnt/install/images/ooonana-scratch-disk.raw"
+  if [ ! -f "$install_image" ]; then
+    install_image="/mnt/install/images/ooonana-scratch.ext4"
+  fi
+  if [ ! -f "$install_image" ]; then
     echo "OOONANA_INSTALL_FAIL"
     sync
     sleep 1
     reboot -f
   fi
-  dd if=/mnt/install/images/ooonana-scratch.ext4 of="$target" bs=4M
+  dd if="$install_image" of="$target" bs=4M
   sync
   umount /mnt/install 2>/dev/null || true
   echo "OOONANA_INSTALL_OK"

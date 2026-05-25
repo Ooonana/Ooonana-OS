@@ -40,6 +40,7 @@ assert_contains "$installer_dry_run" "OOONANA_INSTALL_OK"
 run_help="$(bash "$ROOT/scripts/run-qemu.sh" --help)"
 assert_contains "$run_help" "--disk"
 assert_contains "$run_help" "--install"
+assert_contains "$run_help" "--disk-boot"
 
 iso_help="$(bash "$ROOT/scripts/build-iso.sh" --help)"
 assert_contains "$iso_help" "--install"

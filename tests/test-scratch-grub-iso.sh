@@ -25,6 +25,7 @@ assert_contains "$help" "Build Ooonana scratch GRUB ISO"
 assert_contains "$help" "--kernel"
 assert_contains "$help" "--initramfs"
 assert_contains "$help" "--rootfs-image"
+assert_contains "$help" "--disk-image"
 assert_contains "$help" "--install"
 
 tmp="$(mktemp -d)"
@@ -34,6 +35,7 @@ mkdir -p "$tmp/bin"
 printf 'kernel\n' > "$tmp/vmlinuz"
 printf 'initramfs\n' > "$tmp/initramfs.cpio.gz"
 printf 'rootfs\n' > "$tmp/rootfs.ext4"
+printf 'disk\n' > "$tmp/disk.raw"
 
 cat > "$tmp/bin/grub-mkrescue" <<'EOF'
 #!/bin/sh
@@ -55,6 +57,7 @@ PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
   --kernel "$tmp/vmlinuz" \
   --initramfs "$tmp/initramfs.cpio.gz" \
   --rootfs-image "$tmp/rootfs.ext4" \
+  --disk-image "$tmp/disk.raw" \
   --iso "$tmp/ooonana-grub.iso" \
   --install \
   --smoke \
@@ -63,8 +66,9 @@ PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
 [[ -s "$tmp/ooonana-grub.iso" ]] || fail "missing GRUB ISO"
 [[ -f "$tmp/build/scratch-grub-iso-tree/boot/vmlinuz" ]] || fail "missing staged kernel"
 [[ -f "$tmp/build/scratch-grub-iso-tree/boot/initramfs.cpio.gz" ]] || fail "missing staged initramfs"
-[[ -f "$tmp/build/scratch-grub-iso-tree/images/ooonana-scratch.ext4" ]] || fail "missing staged rootfs image"
+[[ -f "$tmp/build/scratch-grub-iso-tree/images/ooonana-scratch-disk.raw" ]] || fail "missing staged disk image"
 [[ -f "$tmp/build/scratch-grub-iso-tree/boot/grub/grub.cfg" ]] || fail "missing grub config"
+[[ "$(<"$tmp/build/scratch-grub-iso-tree/images/ooonana-scratch-disk.raw")" == "disk" ]] || fail "wrong staged disk image"
 
 cfg="$(<"$tmp/build/scratch-grub-iso-tree/boot/grub/grub.cfg")"
 assert_contains "$cfg" "menuentry 'Ooonana OS'"

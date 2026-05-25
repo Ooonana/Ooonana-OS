@@ -56,6 +56,10 @@ ooonana_reexec_as_root() {
     exec sudo -E bash "$0" "$@"
   fi
 
+  if command -v wsl.exe >/dev/null 2>&1; then
+    exec wsl.exe -u root -- bash "$0" "$@"
+  fi
+
   ooonana_die "need root. run with: wsl.exe -u root bash -lc 'cd \"$(pwd)\" && bash $0'"
 }
 

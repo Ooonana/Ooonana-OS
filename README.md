@@ -133,19 +133,28 @@ bash scripts/build-scratch-iso.sh --smoke --force
 bash scripts/run-qemu.sh \
   --iso /var/tmp/ooonana-os/build/ooonana-scratch.iso \
   --smoke
+bash scripts/build-scratch-disk.sh --smoke --force
+bash scripts/run-qemu.sh \
+  --disk-boot \
+  --image /var/tmp/ooonana-os/build/ooonana-scratch-disk.raw \
+  --smoke
 bash scripts/build-scratch-grub-iso.sh --smoke --force
 bash scripts/run-qemu.sh \
   --iso /var/tmp/ooonana-os/build/ooonana-scratch-grub.iso \
   --smoke
-truncate -s 128M /var/tmp/ooonana-os/build/install-scratch.raw
-bash scripts/build-scratch-iso.sh --install --smoke --force
+truncate -s 320M /var/tmp/ooonana-os/build/install-scratch.raw
+bash scripts/build-scratch-iso.sh \
+  --install \
+  --disk-image /var/tmp/ooonana-os/build/ooonana-scratch-disk.raw \
+  --smoke \
+  --force
 bash scripts/run-qemu.sh \
   --install \
   --iso /var/tmp/ooonana-os/build/ooonana-scratch.iso \
   --disk /var/tmp/ooonana-os/build/install-scratch.raw \
   --smoke
 bash scripts/run-qemu.sh \
-  --scratch-disk-boot \
+  --disk-boot \
   --image /var/tmp/ooonana-os/build/install-scratch.raw \
   --smoke
 ```
@@ -156,5 +165,6 @@ Scratch output:
 /var/tmp/ooonana-os/build/scratch-rootfs
 /var/tmp/ooonana-os/build/ooonana-scratch.ext4
 /var/tmp/ooonana-os/build/ooonana-scratch-initramfs.cpio.gz
+/var/tmp/ooonana-os/build/ooonana-scratch-disk.raw
 /var/tmp/ooonana-os/build/ooonana-scratch.iso
 ```

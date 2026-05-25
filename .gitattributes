@@ -9,6 +9,7 @@ docs/*.example text eol=lf
 docs/*.txt text eol=lf
 packages/ooonana/usr/share/ooonana/*.txt text eol=lf
 configs/packages/*.list text eol=lf
+configs/kernel/*.fragment text eol=lf
 *.md text eol=lf
 .gitignore text eol=lf
 .gitattributes text eol=lf
