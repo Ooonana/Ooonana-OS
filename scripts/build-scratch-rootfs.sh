@@ -218,6 +218,7 @@ main() {
   install_ooonana_payload
   write_init_files
   create_image
+  chmod -R a+rwX "$ROOTFS" 2>/dev/null || true
 
   ooonana_log "scratch rootfs ready: $ROOTFS"
   [[ "$NO_IMAGE" -eq 1 ]] || ooonana_log "scratch image ready: $IMAGE"

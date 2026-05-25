@@ -17,7 +17,10 @@ The current Debian-based rootfs is a bootable test shell for QEMU while the Ooon
 
 ```bash
 bash scripts/install-wsl-deps.sh
-bash scripts/build-kernel.sh --source /path/to/linux --force
+bash scripts/fetch-kernel-source.sh --force
+bash scripts/build-kernel.sh \
+  --config-fragment configs/kernel/ooonana-minimal-x86_64.fragment \
+  --force
 ```
 
 Default output:

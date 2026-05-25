@@ -121,6 +121,7 @@ stage_iso_tree() {
   install -m 0644 "$ldlinux_c32" "$ISO_TREE/isolinux/ldlinux.c32"
 
   write_isolinux_config
+  chmod -R a+rwX "$ISO_TREE" 2>/dev/null || true
 }
 
 build_iso() {

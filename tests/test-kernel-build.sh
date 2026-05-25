@@ -21,13 +21,43 @@ help="$(bash "$SCRIPT" --help)"
 assert_contains "$help" "Build Ooonana Linux kernel"
 assert_contains "$help" "--source"
 assert_contains "$help" "--kernel"
+assert_contains "$help" "--config-fragment"
 assert_contains "$help" "--dry-run"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
-mkdir -p "$tmp/source/arch/x86" "$tmp/bin"
+mkdir -p "$tmp/source/arch/x86" "$tmp/source/scripts/kconfig" "$tmp/bin"
 touch "$tmp/source/Makefile"
+mkdir -p "$tmp/fragment dir"
+printf 'CONFIG_DEVTMPFS=y\nCONFIG_DEVTMPFS_MOUNT=y\n' > "$tmp/fragment dir/fragment.config"
+
+cat > "$tmp/source/scripts/kconfig/merge_config.sh" <<EOF
+#!/bin/sh
+[ "\$(pwd)" = "$tmp/source" ] || exit 21
+out=""
+base=""
+while [ "\$#" -gt 0 ]; do
+  case "\$1" in
+    -O)
+      shift
+      out="\$1"
+      ;;
+    *)
+      case "\$1" in
+        *" "*) exit 22 ;;
+      esac
+      if [ -z "\$base" ]; then
+        base="\$1"
+      else
+        cat "\$1" >> "\$out/.config"
+      fi
+      ;;
+  esac
+  shift || true
+done
+EOF
+chmod +x "$tmp/source/scripts/kconfig/merge_config.sh"
 
 dry_run="$(bash "$SCRIPT" \
   --source "$tmp/source" \
@@ -65,6 +95,10 @@ while [ "$#" -gt 0 ]; do
 done
 
 [ -n "$out" ] || exit 7
+if [ "$target" = "x86_64_defconfig" ]; then
+  mkdir -p "$out"
+  printf 'CONFIG_BASE=y\n' > "$out/.config"
+fi
 if [ "$target" = "bzImage" ]; then
   mkdir -p "$out/arch/x86/boot"
   printf 'fake kernel\n' > "$out/arch/x86/boot/bzImage"
@@ -78,11 +112,13 @@ bash "$SCRIPT" \
   --build-dir "$tmp/build" \
   --out-dir "$tmp/out" \
   --kernel "$tmp/out/custom-vmlinuz" \
+  --config-fragment "$tmp/fragment dir/fragment.config" \
   --jobs 2 \
   --force >/dev/null
 
 [[ -f "$tmp/out/custom-vmlinuz" ]] || fail "missing kernel output"
 [[ "$(<"$tmp/out/custom-vmlinuz")" == "fake kernel" ]] || fail "wrong kernel payload"
+grep -q 'CONFIG_DEVTMPFS=y' "$tmp/build/.config" || fail "missing config fragment"
 [[ -f "$tmp/out/kernel.env" ]] || fail "missing kernel env"
 
 env_file="$(<"$tmp/out/kernel.env")"

@@ -26,6 +26,7 @@ assert_not_contains() {
 script_src="$(<"$SCRIPT")"
 assert_not_contains "$script_src" "debootstrap"
 assert_not_contains "$script_src" "apt-get"
+assert_contains "$script_src" 'chmod -R a+rwX "$ROOTFS"'
 
 help="$(bash "$SCRIPT" --help)"
 assert_contains "$help" "Build Ooonana scratch rootfs"

@@ -23,6 +23,9 @@ assert_not_contains() {
 
 [[ -x "$SCRIPT" ]] || fail "missing executable scratch ISO builder"
 
+script_src="$(<"$SCRIPT")"
+assert_contains "$script_src" 'chmod -R a+rwX "$ISO_TREE"'
+
 help="$(bash "$SCRIPT" --help)"
 assert_contains "$help" "Build Ooonana scratch boot ISO"
 assert_contains "$help" "--kernel-rootfs"
