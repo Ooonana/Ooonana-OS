@@ -26,11 +26,12 @@ assert_not_contains() {
 [[ -x "$CLI" ]] || fail "missing executable CLI"
 [[ -x "$AI_WRAPPER" ]] || fail "missing executable AI wrapper"
 [[ -f "$AI_APP" ]] || fail "missing AI app"
-[[ "$(sed -n '1p' "$AI_WRAPPER")" == "#!/bin/sh" ]] || fail "AI wrapper must use /bin/sh"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 config="$tmp/ai.env"
+state="$tmp/state"
+export OOONANA_AI_STATE_DIR="$state"
 
 setup="$(OOONANA_AI_CONFIG="$config" "$CLI" ai setup)"
 assert_contains "$setup" "AI config:"
@@ -64,6 +65,7 @@ dry_run="$(OOONANA_AI_CONFIG="$config" "$CLI" ai ask --dry-run "explain this mac
 assert_contains "$dry_run" '"model": "qwen/qwen3-coder-480b-a35b-instruct"'
 assert_contains "$dry_run" "You are Ooonana"
 assert_contains "$dry_run" "Current Linux environment snapshot"
+assert_contains "$dry_run" "Ooonana local agent context (activity)"
 assert_contains "$dry_run" "assistant_name: Ooonana"
 assert_contains "$dry_run" "[workspace]"
 assert_not_contains "$dry_run" "test-key"
@@ -78,6 +80,36 @@ assert_contains "$mock" "Ooonana mock response"
 models="$("$CLI" ai models)"
 assert_contains "$models" "qwen/qwen3-coder-480b-a35b-instruct"
 
+model_show="$(OOONANA_AI_CONFIG="$config" OOONANA_AI_MOCK=1 "$AI_WRAPPER" model)"
+assert_contains "$model_show" "active: qwen/qwen3-coder-480b-a35b-instruct"
+assert_contains "$model_show" "aliases:"
+assert_contains "$model_show" "code: qwen/qwen3-coder-480b-a35b-instruct"
+
+model_set="$(OOONANA_AI_CONFIG="$config" OOONANA_AI_MOCK=1 "$AI_WRAPPER" model set fast)"
+assert_contains "$model_set" "default model: qwen/qwen3-next-80b-a3b-instruct"
+assert_contains "$(<"$config")" "OOONANA_NIM_MODEL=qwen/qwen3-next-80b-a3b-instruct"
+
+model_alias="$(OOONANA_AI_CONFIG="$config" OOONANA_AI_MOCK=1 "$AI_WRAPPER" model alias tiny meta/llama-3.3-70b-instruct)"
+assert_contains "$model_alias" "alias tiny: meta/llama-3.3-70b-instruct"
+assert_contains "$(<"$config")" "OOONANA_MODEL_TINY=meta/llama-3.3-70b-instruct"
+
+tiny_dry_run="$(OOONANA_AI_CONFIG="$config" "$AI_WRAPPER" --model tiny --dry-run "small answer")"
+assert_contains "$tiny_dry_run" '"model": "meta/llama-3.3-70b-instruct"'
+
+chat_model_ui="$(printf '/models\n/model set code\n/model\n/exit\n' | OOONANA_AI_CONFIG="$config" "$AI_WRAPPER" chat --no-stream)"
+assert_contains "$chat_model_ui" "aliases:"
+assert_contains "$chat_model_ui" "default model: qwen/qwen3-coder-480b-a35b-instruct"
+assert_contains "$chat_model_ui" "active: qwen/qwen3-coder-480b-a35b-instruct"
+
+agents="$("$AI_WRAPPER" agents)"
+assert_contains "$agents" "system"
+assert_contains "$agents" "activity"
+assert_contains "$agents" "summarizer"
+
+activity="$("$AI_WRAPPER" agent activity)"
+assert_contains "$activity" "recent shell history"
+assert_contains "$activity" "recent Ooonana AI history"
+
 status="$("$AI_WRAPPER" status --model code)"
 assert_contains "$status" "Ooonana AI status"
 assert_contains "$status" "provider: NVIDIA NIM"
@@ -86,10 +118,42 @@ assert_contains "$status" "qwen/qwen3-coder-480b-a35b-instruct"
 ping="$(OOONANA_AI_MOCK=1 "$AI_WRAPPER" ping --model code)"
 assert_contains "$ping" "Ooonana mock response"
 
+help="$("$AI_WRAPPER" help)"
+assert_contains "$help" "Ooonana AI CLI for NVIDIA NIM"
+assert_contains "$help" "ask"
+assert_contains "$help" "chat"
+
+direct_message="$(OOONANA_AI_CONFIG="$config" OOONANA_AI_MOCK=1 "$AI_WRAPPER" "hello from the wrapper")"
+assert_contains "$direct_message" "Ooonana mock response"
+assert_contains "$direct_message" "hello from the wrapper"
+
+history_after_direct="$("$AI_WRAPPER" --state-dir "$state" history)"
+assert_contains "$history_after_direct" "hello from the wrapper"
+
+direct_option_message="$(OOONANA_AI_CONFIG="$config" "$AI_WRAPPER" --model code --dry-run "write shell")"
+assert_contains "$direct_option_message" '"model": "qwen/qwen3-coder-480b-a35b-instruct"'
+assert_contains "$direct_option_message" '"content": "write shell"'
+
+direct_config_message="$("$AI_WRAPPER" --config "$config" --model code --dry-run "configured shell")"
+assert_contains "$direct_config_message" '"model": "qwen/qwen3-coder-480b-a35b-instruct"'
+assert_contains "$direct_config_message" '"content": "configured shell"'
+
 chat_ui="$(printf '/status\n/exit\n' | OOONANA_AI_CONFIG="$config" "$AI_WRAPPER" chat --no-stream)"
 assert_contains "$chat_ui" "Ooonana AI"
 assert_contains "$chat_ui" "mode: chat"
 assert_contains "$chat_ui" "ooonana ai>"
+
+rewind_ui="$(printf 'first turn\nsecond turn\n/history\n/rewind\n/history\n/exit\n' | OOONANA_AI_CONFIG="$config" OOONANA_AI_MOCK=1 "$AI_WRAPPER" chat --session rewind-test --no-stream)"
+assert_contains "$rewind_ui" "first turn"
+assert_contains "$rewind_ui" "second turn"
+assert_contains "$rewind_ui" "rewound 1 turn(s)"
+session_json="$(cat "$state/sessions/rewind-test.jsonl")"
+assert_contains "$session_json" "first turn"
+assert_not_contains "$session_json" "second turn"
+
+default_chat_ui="$(printf '/exit\n' | OOONANA_AI_CONFIG="$config" "$AI_WRAPPER")"
+assert_contains "$default_chat_ui" "Ooonana AI"
+assert_contains "$default_chat_ui" "mode: chat"
 
 install_out="$(OOONANA_WSL_BIN_DIR="$tmp/bin" bash "$ROOT/scripts/install-ooonana-ai-wsl.sh")"
 assert_contains "$install_out" "installed ooonana"

@@ -12,6 +12,7 @@ ISO="$WORK_DIR/ooonana.iso"
 OOONANA_KERNEL="$WORK_DIR/ooonana-kernel/vmlinuz-ooonana"
 ISO_MODE=0
 INITRAMFS_BOOT=0
+SCRATCH_DISK_BOOT=0
 DISK=""
 INSTALL=0
 KERNEL=""
@@ -36,6 +37,7 @@ Options:
   --image PATH        Ext4 rootfs image
   --iso PATH          Boot ISO path instead of rootfs image
   --initramfs-boot    Boot scratch initramfs without a root disk
+  --scratch-disk-boot Boot scratch ext4 root disk with Ooonana kernel
   --disk PATH         Attach writable raw disk or ext4 image
   --install           Require ISO install mode and writable disk
   --kernel PATH       Kernel path
@@ -56,6 +58,7 @@ while [[ $# -gt 0 ]]; do
     --image) IMAGE="$2"; shift 2 ;;
     --iso) ISO="$2"; ISO_MODE=1; shift 2 ;;
     --initramfs-boot) INITRAMFS_BOOT=1; shift ;;
+    --scratch-disk-boot) SCRATCH_DISK_BOOT=1; shift ;;
     --disk) DISK="$2"; shift 2 ;;
     --install) INSTALL=1; ISO_MODE=1; shift ;;
     --kernel) KERNEL="$2"; shift 2 ;;
@@ -123,6 +126,24 @@ build_initramfs_command() {
     -no-reboot
     -kernel "$KERNEL"
     -initrd "$INITRD"
+    -append "$append"
+  )
+}
+
+build_scratch_disk_command() {
+  local append="root=/dev/vda rw console=ttyS0 panic=1 init=/sbin/init"
+  if [[ "$SMOKE" -eq 1 ]]; then
+    append="$append ooonana.smoke=1"
+  fi
+
+  QEMU_CMD=(
+    qemu-system-x86_64
+    -m "$MEMORY"
+    -smp "$CPUS"
+    -nographic
+    -no-reboot
+    -drive "file=$IMAGE,format=raw,if=virtio"
+    -kernel "$KERNEL"
     -append "$append"
   )
 }
@@ -206,6 +227,39 @@ main() {
     fi
 
     ooonana_die "QEMU scratch initramfs smoke boot failed, status $qemu_status, log: $LOG_FILE"
+  fi
+
+  if [[ "$SCRATCH_DISK_BOOT" -eq 1 ]]; then
+    [[ -n "$KERNEL" ]] || KERNEL="$(pick_scratch_kernel)"
+    [[ -f "$KERNEL" ]] || ooonana_die "missing kernel: $KERNEL"
+    [[ -f "$IMAGE" ]] || ooonana_die "missing image: $IMAGE"
+
+    build_scratch_disk_command
+
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      ooonana_print_command "${QEMU_CMD[@]}"
+      exit 0
+    fi
+
+    ooonana_require_commands qemu-system-x86_64 timeout tee grep
+
+    if [[ "$SMOKE" -eq 0 ]]; then
+      exec "${QEMU_CMD[@]}"
+    fi
+
+    mkdir -p "$(dirname "$LOG_FILE")"
+    ooonana_log "scratch disk smoke boot timeout: ${TIMEOUT_SECONDS}s"
+    set +e
+    timeout --foreground "$TIMEOUT_SECONDS" "${QEMU_CMD[@]}" 2>&1 | tee "$LOG_FILE"
+    qemu_status=${PIPESTATUS[0]}
+    set -e
+
+    if grep -q "$SMOKE_MARKER" "$LOG_FILE"; then
+      ooonana_log "QEMU scratch disk smoke boot passed"
+      exit 0
+    fi
+
+    ooonana_die "QEMU scratch disk smoke boot failed, status $qemu_status, log: $LOG_FILE"
   fi
 
   [[ -n "$KERNEL" ]] || KERNEL="$(pick_latest 'vmlinuz-*')"

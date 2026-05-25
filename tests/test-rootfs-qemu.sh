@@ -14,6 +14,12 @@ assert_contains() {
   [[ "$haystack" == *"$needle"* ]] || fail "missing: $needle"
 }
 
+assert_not_contains() {
+  local haystack="$1"
+  local needle="$2"
+  [[ "$haystack" != *"$needle"* ]] || fail "unexpected: $needle"
+}
+
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
@@ -45,6 +51,7 @@ assert_contains "$build_help" "--force"
 run_help="$(bash "$ROOT/scripts/run-qemu.sh" --help)"
 assert_contains "$run_help" "Boot Ooonana rootfs with QEMU"
 assert_contains "$run_help" "--initramfs-boot"
+assert_contains "$run_help" "--scratch-disk-boot"
 assert_contains "$run_help" "--smoke"
 assert_contains "$run_help" "--dry-run"
 
@@ -85,5 +92,12 @@ mkdir -p "$tmp/build/ooonana-kernel"
 touch "$tmp/build/ooonana-kernel/vmlinuz-ooonana"
 own_kernel_dry_run="$(OOONANA_BUILD_DIR="$tmp/build" bash "$ROOT/scripts/run-qemu.sh" --dry-run --smoke --initramfs-boot --rootfs "$tmp/rootfs" --initrd "$tmp/build/ooonana-scratch-initramfs.cpio.gz")"
 assert_contains "$own_kernel_dry_run" "$tmp/build/ooonana-kernel/vmlinuz-ooonana"
+
+scratch_disk_dry_run="$(OOONANA_BUILD_DIR="$tmp/build" bash "$ROOT/scripts/run-qemu.sh" --dry-run --smoke --scratch-disk-boot --image "$tmp/build/ooonana-rootfs.ext4" --rootfs "$tmp/rootfs")"
+assert_contains "$scratch_disk_dry_run" "$tmp/build/ooonana-kernel/vmlinuz-ooonana"
+assert_contains "$scratch_disk_dry_run" "root=/dev/vda"
+assert_contains "$scratch_disk_dry_run" "init=/sbin/init"
+assert_not_contains "$scratch_disk_dry_run" "-initrd"
+assert_not_contains "$scratch_disk_dry_run" "systemd.unit"
 
 printf 'ok rootfs-qemu\n'

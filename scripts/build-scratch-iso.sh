@@ -8,11 +8,14 @@ source "$ROOT/scripts/lib/common.sh"
 WORK_DIR="$(ooonana_default_build_dir)"
 KERNEL_ROOTFS="$WORK_DIR/rootfs"
 INITRAMFS="$WORK_DIR/ooonana-scratch-initramfs.cpio.gz"
+ROOTFS_IMAGE="$WORK_DIR/ooonana-scratch.ext4"
 ISO_TREE="$WORK_DIR/scratch-iso-tree"
 ISO="$WORK_DIR/ooonana-scratch.iso"
 OOONANA_KERNEL="$WORK_DIR/ooonana-kernel/vmlinuz-ooonana"
 KERNEL=""
 VOLUME="OOONANA_SCRATCH"
+INSTALL=0
+INSTALL_TARGET="/dev/vda"
 SMOKE=0
 FORCE=0
 
@@ -28,9 +31,12 @@ Options:
   --kernel-rootfs PATH  Rootfs with /boot/vmlinuz-* helper kernel (default: WORK_DIR/rootfs)
   --kernel PATH         Kernel path (default: WORK_DIR/ooonana-kernel/vmlinuz-ooonana, fallback helper rootfs)
   --initramfs PATH      Scratch initramfs path (default: WORK_DIR/ooonana-scratch-initramfs.cpio.gz)
+  --rootfs-image PATH   Scratch ext4 image for installer ISO (default: WORK_DIR/ooonana-scratch.ext4)
   --iso-tree PATH       ISO staging directory (default: WORK_DIR/scratch-iso-tree)
   --iso PATH            ISO output path (default: WORK_DIR/ooonana-scratch.iso)
   --volume NAME         ISO volume label (default: OOONANA_SCRATCH)
+  --install             Build installer ISO that writes rootfs image to target
+  --install-target DEV  Installer target device inside QEMU (default: /dev/vda)
   --smoke               Boot straight to Ooonana smoke marker
   --force               Delete existing ISO staging tree and ISO first
   -h, --help            Show help
@@ -39,13 +45,16 @@ USAGE
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --work-dir) WORK_DIR="$2"; KERNEL_ROOTFS="$2/rootfs"; INITRAMFS="$2/ooonana-scratch-initramfs.cpio.gz"; ISO_TREE="$2/scratch-iso-tree"; ISO="$2/ooonana-scratch.iso"; OOONANA_KERNEL="$2/ooonana-kernel/vmlinuz-ooonana"; shift 2 ;;
+    --work-dir) WORK_DIR="$2"; KERNEL_ROOTFS="$2/rootfs"; INITRAMFS="$2/ooonana-scratch-initramfs.cpio.gz"; ROOTFS_IMAGE="$2/ooonana-scratch.ext4"; ISO_TREE="$2/scratch-iso-tree"; ISO="$2/ooonana-scratch.iso"; OOONANA_KERNEL="$2/ooonana-kernel/vmlinuz-ooonana"; shift 2 ;;
     --kernel-rootfs) KERNEL_ROOTFS="$2"; shift 2 ;;
     --kernel) KERNEL="$2"; shift 2 ;;
     --initramfs) INITRAMFS="$2"; shift 2 ;;
+    --rootfs-image) ROOTFS_IMAGE="$2"; shift 2 ;;
     --iso-tree) ISO_TREE="$2"; shift 2 ;;
     --iso) ISO="$2"; shift 2 ;;
     --volume) VOLUME="$2"; shift 2 ;;
+    --install) INSTALL=1; shift ;;
+    --install-target) INSTALL_TARGET="$2"; shift 2 ;;
     --smoke) SMOKE=1; shift ;;
     --force) FORCE=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -82,6 +91,9 @@ first_existing() {
 
 write_isolinux_config() {
   local append="console=ttyS0 panic=1 rdinit=/init"
+  if [[ "$INSTALL" -eq 1 ]]; then
+    append="$append ooonana.install=1 ooonana.install.target=$INSTALL_TARGET"
+  fi
   if [[ "$SMOKE" -eq 1 ]]; then
     append="$append ooonana.smoke=1"
   fi
@@ -106,6 +118,9 @@ stage_iso_tree() {
   [[ -n "$KERNEL" ]] || KERNEL="$(pick_default_kernel)"
   [[ -f "$KERNEL" ]] || ooonana_die "missing kernel: $KERNEL"
   [[ -f "$INITRAMFS" ]] || ooonana_die "missing initramfs: $INITRAMFS"
+  if [[ "$INSTALL" -eq 1 ]]; then
+    [[ -f "$ROOTFS_IMAGE" ]] || ooonana_die "missing rootfs image: $ROOTFS_IMAGE"
+  fi
 
   isolinux_bin="$(first_existing "${OOONANA_ISOLINUX_BIN:-}" /usr/lib/ISOLINUX/isolinux.bin /usr/lib/syslinux/isolinux.bin)" ||
     ooonana_die "missing isolinux.bin"
@@ -113,10 +128,13 @@ stage_iso_tree() {
     ooonana_die "missing ldlinux.c32"
 
   rm -rf "$ISO_TREE"
-  mkdir -p "$ISO_TREE/boot" "$ISO_TREE/isolinux"
+  mkdir -p "$ISO_TREE/boot" "$ISO_TREE/images" "$ISO_TREE/isolinux"
 
   install -m 0644 "$KERNEL" "$ISO_TREE/boot/vmlinuz"
   install -m 0644 "$INITRAMFS" "$ISO_TREE/boot/initramfs.cpio.gz"
+  if [[ "$INSTALL" -eq 1 ]]; then
+    install -m 0644 "$ROOTFS_IMAGE" "$ISO_TREE/images/ooonana-scratch.ext4"
+  fi
   install -m 0644 "$isolinux_bin" "$ISO_TREE/isolinux/isolinux.bin"
   install -m 0644 "$ldlinux_c32" "$ISO_TREE/isolinux/ldlinux.c32"
 

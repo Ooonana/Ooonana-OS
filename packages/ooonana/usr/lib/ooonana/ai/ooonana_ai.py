@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import os
 import platform
+import re
 import shlex
 import socket
 import subprocess
@@ -15,6 +17,7 @@ import textwrap
 import time
 import urllib.error
 import urllib.request
+from uuid import uuid4
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +31,7 @@ VERSION = "0.1.0"
 DEFAULT_BASE_URL = "https://integrate.api.nvidia.com/v1"
 DEFAULT_MODEL = "nvidia/nemotron-3-super-120b-a12b"
 CONFIG_PATH = Path(os.environ.get("OOONANA_AI_CONFIG", "~/.config/ooonana/ai.env")).expanduser()
+STATE_PATH = Path(os.environ.get("OOONANA_AI_STATE_DIR", "~/.local/state/ooonana/ai")).expanduser()
 DEFAULT_MAX_CONTEXT_BYTES = 12000
 
 IDENTITY_PROMPT = """\
@@ -57,7 +61,19 @@ Ooonana product direction:
 - Help the user build Ooonana as its own AI CLI experience, not a thin rebrand.
 - Preserve Ooonana naming and terminal voice in examples.
 - Assume the user wants forward movement and practical implementation.
+
+Agent/memory behavior:
+- You may receive focused context from local Ooonana agents such as system, activity, and summarizer.
+- Treat those agents as local context collectors, not separate people.
+- Use history and activity context to understand what the user was doing lately, but do not reveal sensitive values.
+- If asked to rewind, continue from the rewound conversation state and ignore later removed turns.
 """
+
+AGENTS = {
+    "system": "Collects OS, WSL, command, package, and workspace context.",
+    "activity": "Collects recent shell and Ooonana CLI activity with secrets redacted.",
+    "summarizer": "Turns system and activity context into a compact working summary.",
+}
 
 POPULAR_MODELS = [
     "nvidia/nemotron-3-super-120b-a12b",
@@ -68,6 +84,12 @@ POPULAR_MODELS = [
     "meta/llama-3.3-70b-instruct",
     "openai/gpt-oss-120b",
 ]
+
+DEFAULT_MODEL_ALIASES = {
+    "fast": "qwen/qwen3-next-80b-a3b-instruct",
+    "code": "qwen/qwen3-coder-480b-a35b-instruct",
+    "deep": "nvidia/nemotron-3-super-120b-a12b",
+}
 
 
 class OoonanaError(Exception):
@@ -101,7 +123,7 @@ def print_banner(model: str, mode: str = "chat") -> None:
     print(heading("=" * width))
 
 
-def print_status(model: str, config: dict[str, str]) -> None:
+def print_status(model: str, config: dict[str, str], state: Path | None = None) -> None:
     print("Ooonana AI status")
     print("identity: Ooonana")
     print("provider: NVIDIA NIM")
@@ -109,6 +131,7 @@ def print_status(model: str, config: dict[str, str]) -> None:
     print(f"base_url: {config_value(config, 'OOONANA_NIM_BASE_URL', DEFAULT_BASE_URL)}")
     print(f"config_key: {'present' if api_key(config) else 'missing'}")
     print(f"cwd: {os.getcwd()}")
+    print(f"state_dir: {state or STATE_PATH}")
 
 
 def parse_env_file(path: Path) -> dict[str, str]:
@@ -133,17 +156,21 @@ def parse_env_file(path: Path) -> dict[str, str]:
 
 def load_config(path: Path) -> dict[str, str]:
     values = parse_env_file(path)
-    for key in (
+    fixed_keys = {
         "NVIDIA_API_KEY",
         "NVIDIA_NIM_API_KEY",
         "OOONANA_NIM_BASE_URL",
         "OOONANA_NIM_MODEL",
+        "OOONANA_MODEL_FAST",
+        "OOONANA_MODEL_CODE",
+        "OOONANA_MODEL_DEEP",
         "OOONANA_AI_MAX_TOKENS",
         "OOONANA_AI_TEMPERATURE",
         "OOONANA_AI_STREAM",
-    ):
-        if os.environ.get(key):
-            values[key] = os.environ[key]
+    }
+    for key, value in os.environ.items():
+        if value and (key in fixed_keys or key.startswith("OOONANA_MODEL_")):
+            values[key] = value
     return values
 
 
@@ -183,6 +210,165 @@ def setup_config(path: Path) -> None:
             os.umask(old_umask)
     path.chmod(0o600)
     print(f"AI config: {path}")
+
+
+def write_env_updates(path: Path, updates: dict[str, str]) -> None:
+    if not path.exists():
+        setup_config(path)
+    lines = path.read_text(encoding="utf-8").splitlines()
+    remaining = dict(updates)
+    changed: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        probe = stripped[7:].lstrip() if stripped.startswith("export ") else stripped
+        if stripped.startswith("#") or "=" not in probe:
+            changed.append(line)
+            continue
+        key = probe.split("=", 1)[0].strip()
+        if key in remaining:
+            changed.append(f"{key}={shlex.quote(remaining.pop(key))}")
+        else:
+            changed.append(line)
+    if remaining:
+        if changed and changed[-1].strip():
+            changed.append("")
+        for key, value in remaining.items():
+            changed.append(f"{key}={shlex.quote(value)}")
+    path.write_text("\n".join(changed) + "\n", encoding="utf-8")
+    path.chmod(0o600)
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def state_dir(args: argparse.Namespace) -> Path:
+    return Path(args.state_dir).expanduser()
+
+
+def history_path(args: argparse.Namespace) -> Path:
+    return state_dir(args) / "history.jsonl"
+
+
+def sessions_dir(args: argparse.Namespace) -> Path:
+    return state_dir(args) / "sessions"
+
+
+def session_path(args: argparse.Namespace, session_id: str) -> Path:
+    return sessions_dir(args) / f"{session_id}.jsonl"
+
+
+def append_jsonl(path: Path, record: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def read_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    records: list[dict[str, Any]] = []
+    with path.open("r", encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                records.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return records
+
+
+def write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        for record in records:
+            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def redact_secret_text(text: str) -> str:
+    text = re.sub(r"(?i)(api[_-]?key|token|secret|password)=([^ \t]+)", r"\1=REDACTED", text)
+    text = re.sub(r"(?i)(bearer)\s+[-._~+/A-Za-z0-9=]+", r"\1 REDACTED", text)
+    text = re.sub(r"nvapi-[A-Za-z0-9_.-]+", "nvapi-REDACTED", text)
+    return text
+
+
+def read_tail(path: Path, limit: int = 30) -> list[str]:
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return []
+    return [redact_secret_text(line.strip()) for line in lines if line.strip()][-limit:]
+
+
+def shell_history_snapshot(limit: int = 30) -> str:
+    candidates = [
+        Path(os.environ.get("HISTFILE", "")).expanduser() if os.environ.get("HISTFILE") else None,
+        Path("~/.bash_history").expanduser(),
+        Path("~/.zsh_history").expanduser(),
+        Path("~/.local/share/powershell/PSReadLine/ConsoleHost_history.txt").expanduser(),
+    ]
+    seen: set[Path] = set()
+    lines: list[str] = []
+    for candidate in candidates:
+        if candidate is None or candidate in seen:
+            continue
+        seen.add(candidate)
+        tail = read_tail(candidate, limit)
+        if tail:
+            lines.append(f"[{candidate}]")
+            lines.extend(tail)
+    return "\n".join(lines[-limit * 2 :]) if lines else "no shell history found"
+
+
+def ooonana_history_snapshot(args: argparse.Namespace, limit: int = 12) -> str:
+    records = read_jsonl(history_path(args))[-limit:]
+    if not records:
+        return "no Ooonana AI history yet"
+    lines: list[str] = []
+    for record in records:
+        user = str(record.get("user", "")).replace("\n", " ")[:160]
+        assistant = str(record.get("assistant", "")).replace("\n", " ")[:160]
+        lines.append(f"{record.get('time', '')} {record.get('mode', '')} user: {user}")
+        if assistant:
+            lines.append(f"{record.get('time', '')} {record.get('mode', '')} ooonana: {assistant}")
+    return "\n".join(lines)
+
+
+def record_exchange(
+    args: argparse.Namespace,
+    *,
+    session_id: str,
+    mode: str,
+    model: str,
+    user: str,
+    assistant: str,
+) -> dict[str, Any]:
+    record = {
+        "time": now_iso(),
+        "session": session_id,
+        "mode": mode,
+        "model": model,
+        "cwd": os.getcwd(),
+        "user": user,
+        "assistant": assistant,
+    }
+    append_jsonl(history_path(args), record)
+    append_jsonl(session_path(args, session_id), record)
+    return record
+
+
+def records_to_messages(records: list[dict[str, Any]]) -> list[dict[str, str]]:
+    messages: list[dict[str, str]] = []
+    for record in records:
+        user = str(record.get("user", "")).strip()
+        assistant = str(record.get("assistant", "")).strip()
+        if user:
+            messages.append({"role": "user", "content": user})
+        if assistant:
+            messages.append({"role": "assistant", "content": assistant})
+    return messages
 
 
 def run_capture(command: list[str], timeout: float = 1.5) -> str:
@@ -292,10 +478,41 @@ def environment_snapshot(max_bytes: int | None = None) -> str:
     return encoded[:max_bytes].decode("utf-8", errors="ignore") + "\n[truncated]"
 
 
-def build_messages(prompt: str, history: list[dict[str, str]] | None = None, include_env: bool = True) -> list[dict[str, str]]:
+def agent_context(agent: str, args: argparse.Namespace | None = None, max_bytes: int = 12000) -> str:
+    if agent == "system":
+        return environment_snapshot(max_bytes=max_bytes)
+    if agent == "activity":
+        activity = "[recent shell history]\n" + shell_history_snapshot()
+        if args is not None:
+            activity += "\n\n[recent Ooonana AI history]\n" + ooonana_history_snapshot(args)
+        return activity
+    if agent == "summarizer":
+        parts = [
+            "[summary task]",
+            "Summarize what the user has been doing recently and identify likely next actions.",
+            "Use only the context below. Redact secrets. Keep it compact and operational.",
+            "",
+            "[system]",
+            environment_snapshot(max_bytes=max_bytes // 2),
+        ]
+        if args is not None:
+            parts.extend(["", "[activity]", agent_context("activity", args, max_bytes=max_bytes // 2)])
+        return "\n".join(parts)
+    raise OoonanaError(f"unknown agent: {agent}")
+
+
+def build_messages(
+    prompt: str,
+    history: list[dict[str, str]] | None = None,
+    include_env: bool = True,
+    agent: str = "",
+    args: argparse.Namespace | None = None,
+) -> list[dict[str, str]]:
     messages = [{"role": "system", "content": IDENTITY_PROMPT}]
     if include_env:
         messages.append({"role": "system", "content": "Current Linux environment snapshot:\n" + environment_snapshot()})
+    if agent:
+        messages.append({"role": "system", "content": f"Ooonana local agent context ({agent}):\n" + agent_context(agent, args)})
     if history:
         messages.extend(history)
     messages.append({"role": "user", "content": prompt})
@@ -324,20 +541,53 @@ def request_payload(args: argparse.Namespace, config: dict[str, str], messages: 
     }
 
 
+def normalize_model_alias(alias: str) -> str:
+    normalized = alias.strip().lower().replace("_", "-")
+    if not re.fullmatch(r"[a-z][a-z0-9-]{0,31}", normalized):
+        raise OoonanaError("model alias must start with a letter and use letters, numbers, or dashes")
+    return normalized
+
+
+def model_alias_env_key(alias: str) -> str:
+    normalized = normalize_model_alias(alias)
+    if normalized == "default":
+        return "OOONANA_NIM_MODEL"
+    return "OOONANA_MODEL_" + normalized.upper().replace("-", "_")
+
+
 def model_aliases(config: dict[str, str]) -> dict[str, str]:
-    aliases = {
-        "default": config_value(config, "OOONANA_NIM_MODEL", DEFAULT_MODEL),
-        "fast": config.get("OOONANA_MODEL_FAST", "qwen/qwen3-next-80b-a3b-instruct"),
-        "code": config.get("OOONANA_MODEL_CODE", "qwen/qwen3-coder-480b-a35b-instruct"),
-        "deep": config.get("OOONANA_MODEL_DEEP", "nvidia/nemotron-3-super-120b-a12b"),
-    }
+    aliases: dict[str, str] = {"default": config_value(config, "OOONANA_NIM_MODEL", DEFAULT_MODEL)}
+    for alias, default_model in DEFAULT_MODEL_ALIASES.items():
+        aliases[alias] = config.get(model_alias_env_key(alias), default_model)
+    extras: list[tuple[str, str]] = []
+    for key, value in config.items():
+        if not key.startswith("OOONANA_MODEL_") or not value:
+            continue
+        alias = key.removeprefix("OOONANA_MODEL_").lower().replace("_", "-")
+        if alias not in aliases:
+            extras.append((alias, value))
+    for alias, value in sorted(extras):
+        aliases[alias] = value
     return {key: value for key, value in aliases.items() if value}
 
 
 def resolve_model(model: str, config: dict[str, str]) -> str:
     aliases = model_aliases(config)
-    selected = model or "default"
-    return aliases.get(selected, selected)
+    selected = (model or "default").strip()
+    return aliases.get(selected.lower(), selected)
+
+
+def print_model_aliases(config: dict[str, str]) -> None:
+    print("aliases:")
+    for alias, model in model_aliases(config).items():
+        print(f"  {alias}: {model}")
+
+
+def print_model_catalog(config: dict[str, str]) -> None:
+    print_model_aliases(config)
+    print("popular:")
+    for model in POPULAR_MODELS:
+        print(f"  {model}")
 
 
 def mock_response(messages: list[dict[str, str]]) -> str:
@@ -440,16 +690,123 @@ def cmd_env(_: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_models(_: argparse.Namespace) -> int:
-    print("Popular NVIDIA NIM model ids for Ooonana:")
-    for model in POPULAR_MODELS:
-        print(f"  {model}")
+def cmd_models(args: argparse.Namespace) -> int:
+    config = load_config(Path(args.config).expanduser())
+    print("Ooonana NVIDIA NIM models:")
+    print_model_catalog(config)
+    return 0
+
+
+def cmd_model(args: argparse.Namespace) -> int:
+    path = Path(args.config).expanduser()
+    config = load_config(path)
+    action = args.action
+    values = args.values
+
+    if action in ("show", ""):
+        print(f"active: {resolve_model('', config)}")
+        print(f"config: {path}")
+        print_model_aliases(config)
+        print("change default: ooonana-ai model set code")
+        return 0
+
+    if action == "list":
+        print_model_catalog(config)
+        return 0
+
+    if action in ("set", "use"):
+        if len(values) != 1:
+            raise OoonanaError("usage: ooonana-ai model set MODEL_OR_ALIAS")
+        model = resolve_model(values[0], config)
+        write_env_updates(path, {"OOONANA_NIM_MODEL": model})
+        print(f"default model: {model}")
+        print(f"config: {path}")
+        return 0
+
+    if action == "alias":
+        if len(values) != 2:
+            raise OoonanaError("usage: ooonana-ai model alias NAME MODEL_OR_ALIAS")
+        alias = normalize_model_alias(values[0])
+        if alias == "default":
+            raise OoonanaError("use model set to change default")
+        model = resolve_model(values[1], config)
+        write_env_updates(path, {model_alias_env_key(alias): model})
+        print(f"alias {alias}: {model}")
+        print(f"config: {path}")
+        return 0
+
+    raise OoonanaError("usage: ooonana-ai model [show|list|set|use|alias]")
+
+
+def cmd_agents(_: argparse.Namespace) -> int:
+    print("Ooonana local agents:")
+    for name, description in AGENTS.items():
+        print(f"  {name:<10} {description}")
+    return 0
+
+
+def cmd_agent(args: argparse.Namespace) -> int:
+    agent = args.name
+    if agent not in AGENTS:
+        raise OoonanaError(f"unknown agent: {agent}")
+    context = agent_context(agent, args, max_bytes=args.max_bytes)
+    if args.ask:
+        config = load_config(Path(args.config).expanduser())
+        prompt = args.prompt or f"Summarize the {agent} context for the user."
+        messages = build_messages(prompt, include_env=False, agent=agent, args=args)
+        answer = call_nim(args, config, messages, stream=not args.no_stream)
+        if not args.no_stream:
+            return 0
+        print(answer)
+        return 0
+    print(context)
+    return 0
+
+
+def cmd_history(args: argparse.Namespace) -> int:
+    records = read_jsonl(history_path(args))
+    if getattr(args, "clear", False):
+        history_path(args).unlink(missing_ok=True)
+        print("history cleared")
+        return 0
+    records = records[-getattr(args, "limit", 20) :]
+    if getattr(args, "json", False):
+        print(json.dumps(records, indent=2, ensure_ascii=False))
+        return 0
+    if not records:
+        print("no Ooonana AI history yet")
+        return 0
+    for index, record in enumerate(records, start=1):
+        user = str(record.get("user", "")).replace("\n", " ")[:120]
+        assistant = str(record.get("assistant", "")).replace("\n", " ")[:120]
+        print(f"{index:>2}. {record.get('time', '')} {record.get('mode', '')} {record.get('model', '')}")
+        print(f"    user: {user}")
+        if assistant:
+            print(f"    ooonana: {assistant}")
+    return 0
+
+
+def cmd_sessions(args: argparse.Namespace) -> int:
+    directory = sessions_dir(args)
+    if not directory.exists():
+        print("no Ooonana AI sessions yet")
+        return 0
+    rows: list[tuple[str, int, str]] = []
+    for path in sorted(directory.glob("*.jsonl")):
+        records = read_jsonl(path)
+        last = records[-1].get("time", "") if records else ""
+        rows.append((path.stem, len(records), str(last)))
+    if not rows:
+        print("no Ooonana AI sessions yet")
+        return 0
+    for session_id, count, last in rows[-args.limit :]:
+        print(f"{session_id} turns={count} last={last}")
     return 0
 
 
 def cmd_status(args: argparse.Namespace) -> int:
     config = load_config(Path(args.config).expanduser())
-    print_status(resolve_model(args.model, config), config)
+    print_status(resolve_model(args.model, config), config, state_dir(args))
     return 0
 
 
@@ -479,10 +836,12 @@ def cmd_ask(args: argparse.Namespace) -> int:
     prompt = " ".join(args.prompt).strip()
     if not prompt:
         raise OoonanaError("prompt required")
-    messages = build_messages(prompt, include_env=not args.no_env)
+    active_agent = "" if args.no_agent else args.agent
+    messages = build_messages(prompt, include_env=not args.no_env, agent=active_agent, args=args)
     stream_default = config_value(config, "OOONANA_AI_STREAM", "1") != "0"
     stream = stream_default and not args.no_stream and not args.json
     model = resolve_model(args.model, config)
+    session_id = args.session or f"ask-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6]}"
     if args.dry_run:
         payload = request_payload(args, config, messages, stream=stream)
         print(json.dumps(payload, indent=2))
@@ -490,6 +849,8 @@ def cmd_ask(args: argparse.Namespace) -> int:
     if sys.stdout.isatty() and not args.json:
         print_banner(model, mode="ask")
     answer = call_nim(args, config, messages, stream=stream)
+    if not args.no_history:
+        record_exchange(args, session_id=session_id, mode="ask", model=model, user=prompt, assistant=answer)
     if args.json:
         print(json.dumps({"model": model, "content": answer}))
     elif not stream:
@@ -502,9 +863,16 @@ def print_chat_help() -> None:
         textwrap.dedent(
             """\
             /help              Show commands
+            /agents            List local context agents
+            /agent [NAME|none] Show or switch active agent
             /env               Print the Linux environment snapshot
+            /history           Show recent Ooonana AI history
+            /rewind [N]        Remove the latest N turns from this chat context
             /status            Show provider, model, config, and cwd
+            /models            List aliases and popular NIM model ids
             /model [MODEL]     Show or switch model for this chat
+            /model set MODEL   Persist default model in config
+            /model alias N M   Save alias N for model M
             /clear             Clear conversation history
             /save PATH         Save transcript as JSON
             /exit              Leave Ooonana AI
@@ -516,10 +884,15 @@ def print_chat_help() -> None:
 def cmd_chat(args: argparse.Namespace) -> int:
     config = load_config(Path(args.config).expanduser())
     model = resolve_model(args.model, config)
-    history: list[dict[str, str]] = []
-    transcript: list[dict[str, str]] = []
+    session_id = args.session or f"chat-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6]}"
+    session_records = read_jsonl(session_path(args, session_id))
+    history = records_to_messages(session_records)
+    transcript = list(session_records)
+    active_agent = "" if args.no_agent else args.agent
 
     print_banner(model, mode="chat")
+    print(f"session: {session_id}")
+    print(f"agent: {active_agent or 'none'}")
     print("type /help for commands, /exit to leave")
 
     while True:
@@ -540,23 +913,90 @@ def cmd_chat(args: argparse.Namespace) -> int:
             if command == "/help":
                 print_chat_help()
                 continue
+            if command == "/agents":
+                cmd_agents(args)
+                continue
+            if command == "/agent":
+                if len(parts) == 1:
+                    print(f"active agent: {active_agent or 'none'}")
+                    print("available: " + ", ".join(AGENTS))
+                elif parts[1] == "none":
+                    active_agent = ""
+                    print("active agent: none")
+                elif parts[1] in AGENTS:
+                    active_agent = parts[1]
+                    print(f"active agent: {active_agent}")
+                else:
+                    print(f"unknown agent: {parts[1]}")
+                continue
             if command == "/env":
                 print(environment_snapshot(max_bytes=20000))
                 continue
             if command == "/status":
-                print_status(model, config)
+                print_status(model, config, state_dir(args))
+                continue
+            if command == "/models":
+                print_model_catalog(config)
+                continue
+            if command == "/history":
+                cmd_history(args)
+                continue
+            if command == "/rewind":
+                count = 1
+                if len(parts) > 1:
+                    try:
+                        count = max(1, int(parts[1]))
+                    except ValueError:
+                        print("usage: /rewind [N]")
+                        continue
+                removed = min(count, len(session_records))
+                if removed:
+                    del session_records[-removed:]
+                    history = records_to_messages(session_records)
+                    transcript = list(session_records)
+                    write_jsonl(session_path(args, session_id), session_records)
+                print(f"rewound {removed} turn(s)")
                 continue
             if command == "/clear":
                 history.clear()
                 transcript.clear()
+                session_records.clear()
+                write_jsonl(session_path(args, session_id), session_records)
                 print("history cleared")
                 continue
             if command == "/model":
                 if len(parts) == 1:
-                    print(model)
-                else:
+                    print(f"active: {model}")
+                    continue
+                if parts[1] in ("set", "use"):
+                    if len(parts) != 3:
+                        print("usage: /model set MODEL_OR_ALIAS")
+                        continue
+                    model = resolve_model(parts[2], config)
+                    write_env_updates(Path(args.config).expanduser(), {"OOONANA_NIM_MODEL": model})
+                    config = load_config(Path(args.config).expanduser())
+                    print(f"default model: {model}")
+                    continue
+                if parts[1] == "alias":
+                    if len(parts) != 4:
+                        print("usage: /model alias NAME MODEL_OR_ALIAS")
+                        continue
+                    try:
+                        alias = normalize_model_alias(parts[2])
+                        if alias == "default":
+                            raise OoonanaError("use /model set to change default")
+                        resolved = resolve_model(parts[3], config)
+                        write_env_updates(Path(args.config).expanduser(), {model_alias_env_key(alias): resolved})
+                        config = load_config(Path(args.config).expanduser())
+                        print(f"alias {alias}: {resolved}")
+                    except OoonanaError as exc:
+                        print(str(exc))
+                    continue
+                if len(parts) == 2:
                     model = resolve_model(parts[1], config)
                     print(f"model: {model}")
+                else:
+                    print("usage: /model [MODEL] | /model set MODEL | /model alias NAME MODEL")
                 continue
             if command == "/save":
                 if len(parts) != 2:
@@ -570,20 +1010,25 @@ def cmd_chat(args: argparse.Namespace) -> int:
 
         local_args = argparse.Namespace(**vars(args))
         local_args.model = model
-        messages = build_messages(stripped, history=history, include_env=True)
+        messages = build_messages(stripped, history=history, include_env=True, agent=active_agent, args=args)
         try:
             answer = call_nim(local_args, config, messages, stream=not args.no_stream)
         except OoonanaError as exc:
             print(warn(str(exc)), file=sys.stderr)
             return 1
+        if args.no_stream:
+            print(answer)
+        record = record_exchange(args, session_id=session_id, mode="chat", model=model, user=stripped, assistant=answer)
+        session_records.append(record)
         history.append({"role": "user", "content": stripped})
         history.append({"role": "assistant", "content": answer})
-        transcript.extend(history[-2:])
+        transcript.append(record)
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="ooonana ai", description="Ooonana AI CLI for NVIDIA NIM")
     parser.add_argument("--config", default=str(CONFIG_PATH), help="config env file")
+    parser.add_argument("--state-dir", default=str(STATE_PATH), help="history/session state directory")
     subparsers = parser.add_subparsers(dest="command")
 
     subparsers.add_parser("setup", help="create config file")
@@ -591,6 +1036,26 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("config", help="print resolved config without secrets")
     subparsers.add_parser("env", help="print Linux environment context")
     subparsers.add_parser("models", help="show useful NVIDIA NIM model ids")
+    model = subparsers.add_parser("model", help="show or change default model")
+    model.add_argument("action", nargs="?", default="show", choices=("show", "list", "set", "use", "alias"), help="model action")
+    model.add_argument("values", nargs="*", help="model id or alias values")
+    subparsers.add_parser("agents", help="list local context agents")
+
+    agent = subparsers.add_parser("agent", help="run or inspect a local context agent")
+    agent.add_argument("name", choices=sorted(AGENTS), help="agent name")
+    agent.add_argument("--ask", action="store_true", help="ask NIM to summarize this agent context")
+    agent.add_argument("--prompt", default="", help="custom summarization prompt")
+    agent.add_argument("--model", default="", help="override model id")
+    agent.add_argument("--no-stream", action="store_true", help="disable streaming output")
+    agent.add_argument("--max-bytes", type=int, default=12000, help="max context bytes to print/submit")
+
+    history = subparsers.add_parser("history", help="show persistent Ooonana AI history")
+    history.add_argument("--limit", type=int, default=20, help="number of turns to show")
+    history.add_argument("--json", action="store_true", help="print JSON history")
+    history.add_argument("--clear", action="store_true", help="clear global history")
+
+    sessions = subparsers.add_parser("sessions", help="list persistent chat sessions")
+    sessions.add_argument("--limit", type=int, default=20, help="number of sessions to show")
 
     status = subparsers.add_parser("status", help="show UI/provider status")
     status.add_argument("--model", default="", help="override model id")
@@ -601,6 +1066,10 @@ def build_parser() -> argparse.ArgumentParser:
     ask = subparsers.add_parser("ask", help="ask one question")
     ask.add_argument("--model", default="", help="override model id")
     ask.add_argument("--no-env", action="store_true", help="do not include Linux environment snapshot")
+    ask.add_argument("--agent", choices=sorted(AGENTS), default="activity", help="local context agent to include")
+    ask.add_argument("--no-agent", action="store_true", help="do not include local agent context")
+    ask.add_argument("--session", default="", help="session id for saved history")
+    ask.add_argument("--no-history", action="store_true", help="do not save this exchange")
     ask.add_argument("--no-stream", action="store_true", help="disable streaming output")
     ask.add_argument("--dry-run", action="store_true", help="print request JSON without calling NIM")
     ask.add_argument("--json", action="store_true", help="print JSON response")
@@ -609,6 +1078,10 @@ def build_parser() -> argparse.ArgumentParser:
     code = subparsers.add_parser("code", help="alias for ask")
     code.add_argument("--model", default="", help="override model id")
     code.add_argument("--no-env", action="store_true", help="do not include Linux environment snapshot")
+    code.add_argument("--agent", choices=sorted(AGENTS), default="activity", help="local context agent to include")
+    code.add_argument("--no-agent", action="store_true", help="do not include local agent context")
+    code.add_argument("--session", default="", help="session id for saved history")
+    code.add_argument("--no-history", action="store_true", help="do not save this exchange")
     code.add_argument("--no-stream", action="store_true", help="disable streaming output")
     code.add_argument("--dry-run", action="store_true", help="print request JSON without calling NIM")
     code.add_argument("--json", action="store_true", help="print JSON response")
@@ -616,6 +1089,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     chat = subparsers.add_parser("chat", help="start interactive chat")
     chat.add_argument("--model", default="", help="override model id")
+    chat.add_argument("--agent", choices=sorted(AGENTS), default="activity", help="local context agent to include")
+    chat.add_argument("--no-agent", action="store_true", help="do not include local agent context")
+    chat.add_argument("--session", default="", help="session id to create/resume")
     chat.add_argument("--no-stream", action="store_true", help="disable streaming output")
 
     return parser
@@ -637,6 +1113,16 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_env(args)
         if command == "models":
             return cmd_models(args)
+        if command == "model":
+            return cmd_model(args)
+        if command == "agents":
+            return cmd_agents(args)
+        if command == "agent":
+            return cmd_agent(args)
+        if command == "history":
+            return cmd_history(args)
+        if command == "sessions":
+            return cmd_sessions(args)
         if command == "status":
             return cmd_status(args)
         if command == "ping":

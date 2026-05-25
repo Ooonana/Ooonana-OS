@@ -2,4 +2,56 @@
 set -eu
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-exec "$SCRIPT_DIR/ooonana" ai "$@"
+CONFIG_VALUE=""
+CONFIG_EQ=""
+STATE_VALUE=""
+STATE_EQ=""
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --config)
+      [ "$#" -ge 2 ] || { printf 'ooonana-ai: --config requires a path\n' >&2; exit 1; }
+      CONFIG_VALUE="$2"
+      shift 2
+      ;;
+    --config=*)
+      CONFIG_EQ="$1"
+      shift
+      ;;
+    --state-dir)
+      [ "$#" -ge 2 ] || { printf 'ooonana-ai: --state-dir requires a path\n' >&2; exit 1; }
+      STATE_VALUE="$2"
+      shift 2
+      ;;
+    --state-dir=*)
+      STATE_EQ="$1"
+      shift
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+run_ai() {
+  [ -n "$STATE_VALUE" ] && set -- --state-dir "$STATE_VALUE" "$@"
+  [ -n "$STATE_EQ" ] && set -- "$STATE_EQ" "$@"
+  [ -n "$CONFIG_VALUE" ] && set -- --config "$CONFIG_VALUE" "$@"
+  [ -n "$CONFIG_EQ" ] && set -- "$CONFIG_EQ" "$@"
+  exec "$SCRIPT_DIR/ooonana" ai "$@"
+}
+
+case "${1:-}" in
+  "")
+    run_ai chat
+    ;;
+  help|--help|-h)
+    run_ai --help
+    ;;
+  setup|doctor|config|env|models|model|agents|agent|history|sessions|status|ping|ask|code|chat)
+    run_ai "$@"
+    ;;
+  *)
+    run_ai ask "$@"
+    ;;
+esac

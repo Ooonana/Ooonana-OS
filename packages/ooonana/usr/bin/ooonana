@@ -64,6 +64,11 @@ Usage:
   ooonana ai chat
   ooonana ai env
   ooonana ai models
+  ooonana ai model [show|list|set MODEL|alias NAME MODEL]
+  ooonana ai agents
+  ooonana ai agent activity
+  ooonana ai history
+  ooonana ai sessions
   ooonana ai status
   ooonana ai ping
 USAGE
@@ -392,6 +397,8 @@ cmd_ai_setup() {
 NVIDIA_API_KEY=
 OOONANA_NIM_BASE_URL=https://integrate.api.nvidia.com/v1
 OOONANA_NIM_MODEL=nvidia/nemotron-3-super-120b-a12b
+OOONANA_MODEL_CODE=qwen/qwen3-coder-480b-a35b-instruct
+OOONANA_MODEL_FAST=qwen/qwen3-next-80b-a3b-instruct
 EOF
   fi
   chmod 600 "$AI_CONFIG"

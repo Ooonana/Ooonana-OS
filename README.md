@@ -49,7 +49,11 @@ ooonana remove ai
 ooonana ai setup
 ooonana ai doctor
 ooonana ai models
+ooonana ai model
+ooonana ai agents
+ooonana ai history
 ooonana ai ask "what system am I in?"
+ooonana-ai --model code "write a shell script"
 ooonana-ai chat
 ```
 
@@ -115,7 +119,7 @@ Build output:
 bash scripts/install-wsl-deps.sh
 bash scripts/build-scratch-rootfs.sh --force
 bash scripts/run-qemu.sh \
-  --rootfs /var/tmp/ooonana-os/build/rootfs \
+  --scratch-disk-boot \
   --image /var/tmp/ooonana-os/build/ooonana-scratch.ext4 \
   --smoke
 bash scripts/build-scratch-initramfs.sh --force
@@ -126,6 +130,21 @@ bash scripts/run-qemu.sh \
 bash scripts/build-scratch-iso.sh --smoke --force
 bash scripts/run-qemu.sh \
   --iso /var/tmp/ooonana-os/build/ooonana-scratch.iso \
+  --smoke
+bash scripts/build-scratch-grub-iso.sh --smoke --force
+bash scripts/run-qemu.sh \
+  --iso /var/tmp/ooonana-os/build/ooonana-scratch-grub.iso \
+  --smoke
+truncate -s 128M /var/tmp/ooonana-os/build/install-scratch.raw
+bash scripts/build-scratch-iso.sh --install --smoke --force
+bash scripts/run-qemu.sh \
+  --install \
+  --iso /var/tmp/ooonana-os/build/ooonana-scratch.iso \
+  --disk /var/tmp/ooonana-os/build/install-scratch.raw \
+  --smoke
+bash scripts/run-qemu.sh \
+  --scratch-disk-boot \
+  --image /var/tmp/ooonana-os/build/install-scratch.raw \
   --smoke
 ```
 

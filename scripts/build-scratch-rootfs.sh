@@ -72,6 +72,7 @@ create_base_dirs() {
     "$ROOTFS/bin" \
     "$ROOTFS/dev" \
     "$ROOTFS/etc/init.d" \
+    "$ROOTFS/mnt/install" \
     "$ROOTFS/proc" \
     "$ROOTFS/root" \
     "$ROOTFS/run" \
@@ -87,7 +88,7 @@ create_base_dirs() {
 
 create_busybox_links() {
   local applet
-  for applet in awk basename cat chmod cp cut date df dirname dmesg echo env free grep hostname ls mkdir mount mv ps pwd readlink rm rmdir sed sh sha256sum sleep sort sync tar touch tr umount uname wc; do
+  for applet in awk basename cat chmod cp cut date dd df dirname dmesg echo env free grep hostname ls mkdir mount mv ps pwd readlink rm rmdir sed sh sha256sum sleep sort sync tar touch tr umount uname wc; do
     ln -sf busybox "$ROOTFS/bin/$applet"
   done
   for applet in mdev reboot; do
@@ -157,6 +158,39 @@ mount -t tmpfs tmpfs /run 2>/dev/null || true
 hostname ooonana 2>/dev/null || true
 
 echo "Ooonana scratch rootfs"
+if grep -q 'ooonana.install=1' /proc/cmdline 2>/dev/null; then
+  target="$(grep -o 'ooonana.install.target=[^ ]*' /proc/cmdline | cut -d= -f2 || true)"
+  target="${target:-/dev/vda}"
+  mkdir -p /mnt/install
+  if [ ! -b "$target" ]; then
+    echo "OOONANA_INSTALL_FAIL"
+    sync
+    sleep 1
+    reboot -f
+  fi
+  if ! mount -t iso9660 /dev/sr0 /mnt/install 2>/dev/null; then
+    echo "OOONANA_INSTALL_FAIL"
+    sync
+    sleep 1
+    reboot -f
+  fi
+  if [ ! -f /mnt/install/images/ooonana-scratch.ext4 ]; then
+    echo "OOONANA_INSTALL_FAIL"
+    sync
+    sleep 1
+    reboot -f
+  fi
+  dd if=/mnt/install/images/ooonana-scratch.ext4 of="$target" bs=4M
+  sync
+  umount /mnt/install 2>/dev/null || true
+  echo "OOONANA_INSTALL_OK"
+  if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
+    sync
+    sleep 1
+    reboot -f
+  fi
+fi
+
 if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   if /usr/bin/ooonana version | grep -q 'ooonana 0.3.0' &&
     /usr/bin/ooonana list | grep -q 'gui'; then
