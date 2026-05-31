@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT="$ROOT/scripts/build-kernel.sh"
+FRAGMENT="$ROOT/configs/kernel/ooonana-minimal-x86_64.fragment"
 
 fail() {
   printf 'FAIL: %s\n' "$*" >&2
@@ -16,6 +17,18 @@ assert_contains() {
 }
 
 [[ -x "$SCRIPT" ]] || fail "missing executable kernel builder"
+[[ -f "$FRAGMENT" ]] || fail "missing minimal kernel fragment"
+
+fragment_src="$(<"$FRAGMENT")"
+assert_contains "$fragment_src" "CONFIG_EMBEDDED=y"
+assert_contains "$fragment_src" "CONFIG_EXPERT=y"
+assert_contains "$fragment_src" "# CONFIG_MODULES is not set"
+assert_contains "$fragment_src" "# CONFIG_DEBUG_KERNEL is not set"
+assert_contains "$fragment_src" "# CONFIG_KALLSYMS is not set"
+assert_contains "$fragment_src" "# CONFIG_BPF is not set"
+assert_contains "$fragment_src" "# CONFIG_SOUND is not set"
+assert_contains "$fragment_src" "# CONFIG_DRM is not set"
+assert_contains "$fragment_src" "# CONFIG_USB_SUPPORT is not set"
 
 help="$(bash "$SCRIPT" --help)"
 assert_contains "$help" "Build Ooonana Linux kernel"
