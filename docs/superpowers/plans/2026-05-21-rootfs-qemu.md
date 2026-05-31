@@ -26,7 +26,7 @@ Create `tests/smoke-cli.sh` expecting `packages/ooonana/usr/bin/ooonana` to run 
 
 - [ ] **Step 3: Run tests to verify failure**
 
-Run: `wsl.exe bash -lc 'cd "/mnt/c/Users/7ryan/OneDrive/문서/Ooonana OS" && bash tests/test-rootfs-qemu.sh'`
+Run: `wsl.exe bash -lc 'cd "/mnt/c/Users/<windows-user>/path/to/Ooonana OS" && bash tests/test-rootfs-qemu.sh'`
 
 Expected: fails because `scripts/lib/common.sh` does not exist.
 
@@ -58,7 +58,7 @@ Find kernel/initrd under rootfs, boot ext4 through virtio, support `--smoke` and
 
 - [ ] **Step 5: Run tests to verify pass**
 
-Run: `wsl.exe bash -lc 'cd "/mnt/c/Users/7ryan/OneDrive/문서/Ooonana OS" && bash tests/test-rootfs-qemu.sh && bash tests/smoke-cli.sh'`
+Run: `wsl.exe bash -lc 'cd "/mnt/c/Users/<windows-user>/path/to/Ooonana OS" && bash tests/test-rootfs-qemu.sh && bash tests/smoke-cli.sh'`
 
 Expected: both pass.
 
@@ -69,14 +69,14 @@ Expected: both pass.
 
 - [ ] **Step 1: Install missing WSL deps as root**
 
-Run: `wsl.exe -u root bash -lc 'cd "/mnt/c/Users/7ryan/OneDrive/문서/Ooonana OS" && bash scripts/install-wsl-deps.sh'`
+Run: `wsl.exe -u root bash -lc 'cd "/mnt/c/Users/<windows-user>/path/to/Ooonana OS" && bash scripts/install-wsl-deps.sh'`
 
 - [ ] **Step 2: Build rootfs**
 
-Run: `wsl.exe -u root bash -lc 'cd "/mnt/c/Users/7ryan/OneDrive/문서/Ooonana OS" && bash scripts/build-rootfs.sh'`
+Run: `wsl.exe -u root bash -lc 'cd "/mnt/c/Users/<windows-user>/path/to/Ooonana OS" && bash scripts/build-rootfs.sh'`
 
 - [ ] **Step 3: Smoke boot QEMU**
 
-Run: `wsl.exe bash -lc 'cd "/mnt/c/Users/7ryan/OneDrive/문서/Ooonana OS" && bash scripts/run-qemu.sh --smoke'`
+Run: `wsl.exe bash -lc 'cd "/mnt/c/Users/<windows-user>/path/to/Ooonana OS" && bash scripts/run-qemu.sh --smoke'`
 
 Expected: QEMU log contains `OOONANA_BOOT_OK`.

@@ -15,7 +15,7 @@ Ooonana AI is the terminal assistant for Ooonana. It is currently a standalone O
 ## Quick Start
 
 ```bash
-cd "/mnt/c/Users/7ryan/.codex/worktrees/e5f2/Ooonana OS"
+cd "/mnt/c/Users/<windows-user>/path/to/Ooonana OS"
 bash scripts/install-ooonana-ai-wsl.sh
 ooonana-ai setup
 nano ~/.config/ooonana/ai.env
@@ -38,7 +38,7 @@ OOONANA_AI_MOCK=1 ooonana-ai ask --no-stream "who are you?"
 From this repo inside WSL:
 
 ```bash
-cd "/mnt/c/Users/7ryan/.codex/worktrees/e5f2/Ooonana OS"
+cd "/mnt/c/Users/<windows-user>/path/to/Ooonana OS"
 bash scripts/install-ooonana-ai-wsl.sh
 ```
 

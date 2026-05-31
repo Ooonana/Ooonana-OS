@@ -29,6 +29,8 @@ ooonana remove ai
 
 Ooonana includes a terminal AI app inspired by the provider-gateway shape of tools like Gemini CLI, free-claude-code, and Jarvis-style system agents, but it is branded as Ooonana and stays CLI-first. It supports NVIDIA NIM and Google Gemini. Full usage notes live in [docs/ooonana-ai.md](docs/ooonana-ai.md), with Jarvis notes in [docs/jarvis-agi-research.md](docs/jarvis-agi-research.md).
 
+Usernames and device names are local. Examples must not assume `7ryan`, `ryan`, or any other name containing `ryan`; those are personal Windows/WSL account names from one machine. On another device, replace paths like `/mnt/c/Users/<windows-user>/...` with that device's real user directory, or run commands from the repo checkout and use `$PWD`.
+
 Install the dev command in WSL:
 
 ```bash
@@ -41,6 +43,22 @@ This creates:
 ~/.local/bin/ooonana
 ~/.local/bin/ooonana-ai
 ```
+
+Features:
+
+- CLI-first UI: `ooonana ai ...`, direct `ooonana-ai`, interactive chat, slash commands, compact status output, and JSON options.
+- One-shot prompts: `ooonana-ai "message"`, `ooonana-ai ask ...`, and `ooonana-ai code ...`.
+- Providers: NVIDIA NIM and Google Gemini, with `ooonana-ai provider`, `provider set nim`, `provider set gemini`, and `--provider`.
+- Model switching: aliases for `fast`, `code`, `deep`, custom aliases, persistent default changes, and provider-specific model lists.
+- Config: `~/.config/ooonana/ai.env`, secret redaction, `doctor`, `config`, `ping`, mock mode, timeout, max token, temperature, and streaming settings.
+- Ooonana identity: system prompt names assistant `Ooonana`, keeps provider identity separate, and stays terminal focused.
+- Linux awareness: current OS, WSL, hostname, cwd, commands, storage, path, package hints, and workspace snapshot.
+- Local agents: `system`, `activity`, `summarizer`, and `tools`.
+- History and sessions: persistent JSONL history, named chat sessions, `/history`, `/rewind`, `/clear`, and transcript save.
+- Jarvis-style CLI tools: read-only `system`, `processes`, `packages`, `files`, and `activity` tools.
+- Guarded shell: `tool shell` blocks by default, requires `--yes`, blocks dangerous patterns, and writes audit entries.
+- Tasks and audit: `task add`, `tasks`, `task done`, `task plan`, and `audit`.
+- WSL install: symlinks `ooonana` and `ooonana-ai` into `~/.local/bin`.
 
 Quick start:
 
@@ -184,10 +202,10 @@ bash scripts/run-qemu.sh --install --iso /var/tmp/ooonana-os/build/ooonana.iso -
 bash scripts/run-qemu.sh
 ```
 
-Windows root command:
+Windows root command from any checkout:
 
 ```powershell
-wsl.exe -u root bash -lc 'cd "/mnt/c/Users/7ryan/OneDrive/문서/Ooonana OS" && bash scripts/build-rootfs.sh'
+wsl.exe -u root bash -lc 'cd "/mnt/c/Users/<windows-user>/path/to/Ooonana OS" && bash scripts/build-rootfs.sh'
 ```
 
 Build output:
