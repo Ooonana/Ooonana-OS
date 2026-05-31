@@ -61,14 +61,19 @@ ooonana wsl status
 ooonana update
 ooonana sources
 ooonana list
+ooonana list --upgradeable
 ooonana search graphical
 ooonana info base
 ooonana info gui
 ooonana show gui
+ooonana depends gui
 ooonana get gui --dry-run
 ooonana install gui --dry-run
 ooonana get ai
 ooonana list --installed
+ooonana files ai
+ooonana verify ai
+ooonana upgrade --dry-run
 ooonana remove ai
 ```
 
@@ -119,6 +124,10 @@ Archive packages can add:
 OOONANA_PKG_ARCHIVE="hello.tar.gz"
 OOONANA_PKG_SHA256="..."
 ```
+
+Installed archive packages get file manifests, so `ooonana files PACKAGE`,
+`ooonana verify PACKAGE`, and `ooonana upgrade` can inspect and replace package
+payloads.
 
 Installed package state lives in:
 

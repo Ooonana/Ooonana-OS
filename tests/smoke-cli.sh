@@ -15,10 +15,10 @@ first_line="$(sed -n '1p' "$CLI")"
 [[ "$first_line" == "#!/bin/sh" ]] || fail "CLI must use /bin/sh shebang: $first_line"
 
 version="$("$CLI" version)"
-[[ "$version" == "ooonana 0.4.0" ]] || fail "bad version: $version"
+[[ "$version" == "ooonana 0.5.0" ]] || fail "bad version: $version"
 
 sh_version="$(sh "$CLI" version)"
-[[ "$sh_version" == "ooonana 0.4.0" ]] || fail "bad sh version: $sh_version"
+[[ "$sh_version" == "ooonana 0.5.0" ]] || fail "bad sh version: $sh_version"
 
 doctor="$("$CLI" doctor || true)"
 [[ "$doctor" == *"kernel:"* ]] || fail "doctor missing kernel"
@@ -33,6 +33,8 @@ ai_doctor="$(OOONANA_AI_CONFIG="$tmp/missing-ai.env" "$CLI" ai doctor || true)"
 pkg_help="$("$CLI" help)"
 [[ "$pkg_help" == *"ooonana get PACKAGE"* ]] || fail "help missing package manager"
 [[ "$pkg_help" == *"ooonana search QUERY"* ]] || fail "help missing search"
+[[ "$pkg_help" == *"ooonana upgrade [PACKAGE...]"* ]] || fail "help missing upgrade"
+[[ "$pkg_help" == *"ooonana verify PACKAGE"* ]] || fail "help missing verify"
 [[ "$pkg_help" == *"ooonana me"* ]] || fail "help missing me"
 [[ "$pkg_help" == *"ooonana wsl [doctor|status]"* ]] || fail "help missing wsl"
 

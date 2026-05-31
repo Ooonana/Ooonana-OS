@@ -44,6 +44,10 @@ assert_contains "$help" "ooonana install PACKAGE"
 assert_contains "$help" "ooonana list"
 assert_contains "$help" "ooonana search QUERY"
 assert_contains "$help" "ooonana show PACKAGE"
+assert_contains "$help" "ooonana depends PACKAGE"
+assert_contains "$help" "ooonana files PACKAGE"
+assert_contains "$help" "ooonana verify PACKAGE"
+assert_contains "$help" "ooonana upgrade [PACKAGE...]"
 assert_contains "$help" "ooonana sources"
 assert_contains "$help" "ooonana remove PACKAGE"
 assert_contains "$help" "ooonana me"
@@ -167,6 +171,27 @@ assert_contains "$multi_show" "source: extra"
 multi_install="$(OOONANA_SOURCES_DIR="$sources_dir" "$CLI" install editor --dry-run)"
 assert_contains "$multi_install" "would install editor 1.2.0"
 
+dep_repo="$tmp/dep-repo"
+mkdir -p "$dep_repo"
+cat > "$dep_repo/libthing.pkg" <<'EOF'
+OOONANA_PKG_ID="libthing"
+OOONANA_PKG_VERSION="1.0.0"
+OOONANA_PKG_KIND="lib"
+OOONANA_PKG_SUMMARY="Shared thing library"
+OOONANA_PKG_DEPS=""
+EOF
+cat > "$dep_repo/appthing.pkg" <<'EOF'
+OOONANA_PKG_ID="appthing"
+OOONANA_PKG_VERSION="1.0.0"
+OOONANA_PKG_KIND="tool"
+OOONANA_PKG_SUMMARY="App using thing library"
+OOONANA_PKG_DEPS="libthing"
+EOF
+depends="$(OOONANA_REPO_DIR="$dep_repo" "$CLI" depends appthing)"
+assert_contains "$depends" "appthing depends: libthing"
+nodeps="$(OOONANA_REPO_DIR="$dep_repo" "$CLI" depends libthing)"
+assert_contains "$nodeps" "libthing has no dependencies"
+
 custom_repo="$tmp/custom-repo"
 custom_root="$tmp/custom-root"
 mkdir -p "$custom_repo/hooks" "$custom_root"
@@ -257,6 +282,29 @@ assert_contains "$archive_install" "installed hello"
 [[ "$(cat "$archive_root/etc/ooonana/archive.txt")" == "archive-test" ]] || fail "archive did not install data"
 [[ -f "$tmp/archive-state/files/hello.list" ]] || fail "missing archive file manifest"
 
+archive_files="$(OOONANA_REPO_DIR="$archive_repo" \
+  OOONANA_STATE_DIR="$tmp/archive-state" \
+  OOONANA_CACHE_DIR="$tmp/archive-cache" \
+  OOONANA_ROOT="$archive_root" \
+  "$CLI" files hello)"
+assert_contains "$archive_files" "/usr/bin/hello-ooonana"
+assert_contains "$archive_files" "/etc/ooonana/archive.txt"
+
+archive_verify="$(OOONANA_REPO_DIR="$archive_repo" \
+  OOONANA_STATE_DIR="$tmp/archive-state" \
+  OOONANA_CACHE_DIR="$tmp/archive-cache" \
+  OOONANA_ROOT="$archive_root" \
+  "$CLI" verify hello)"
+assert_contains "$archive_verify" "verify ok hello"
+
+rm -f "$archive_root/usr/bin/hello-ooonana"
+archive_verify_bad="$(OOONANA_REPO_DIR="$archive_repo" \
+  OOONANA_STATE_DIR="$tmp/archive-state" \
+  OOONANA_CACHE_DIR="$tmp/archive-cache" \
+  OOONANA_ROOT="$archive_root" \
+  "$CLI" verify hello 2>&1 || true)"
+assert_contains "$archive_verify_bad" "missing /usr/bin/hello-ooonana"
+
 archive_remove="$(OOONANA_REPO_DIR="$archive_repo" \
   OOONANA_STATE_DIR="$tmp/archive-state" \
   OOONANA_CACHE_DIR="$tmp/archive-cache" \
@@ -282,5 +330,84 @@ bad_install="$(OOONANA_REPO_DIR="$archive_repo" \
   OOONANA_ROOT="$tmp/bad-root" \
   "$CLI" get bad 2>&1 || true)"
 assert_contains "$bad_install" "sha256 mismatch: bad"
+
+upgrade_repo="$tmp/upgrade-repo"
+upgrade_root="$tmp/upgrade-root"
+upgrade_state="$tmp/upgrade-state"
+upgrade_cache="$tmp/upgrade-cache"
+mkdir -p "$upgrade_repo" "$upgrade_root" "$tmp/upgrade-payload/usr/share/updemo"
+printf 'one\n' > "$tmp/upgrade-payload/usr/share/updemo/version.txt"
+tar -C "$tmp/upgrade-payload" -czf "$upgrade_repo/updemo.tar.gz" .
+upgrade_sha="$(sha256sum "$upgrade_repo/updemo.tar.gz" | awk '{print $1}')"
+cat > "$upgrade_repo/updemo.pkg" <<EOF
+OOONANA_PKG_ID="updemo"
+OOONANA_PKG_VERSION="1.0.0"
+OOONANA_PKG_KIND="archive"
+OOONANA_PKG_SUMMARY="Upgrade demo package"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_ARCHIVE="updemo.tar.gz"
+OOONANA_PKG_SHA256="$upgrade_sha"
+EOF
+OOONANA_REPO_DIR="$upgrade_repo" \
+  OOONANA_STATE_DIR="$upgrade_state" \
+  OOONANA_CACHE_DIR="$upgrade_cache" \
+  OOONANA_ROOT="$upgrade_root" \
+  "$CLI" get updemo >/dev/null
+
+rm -rf "$tmp/upgrade-payload"
+mkdir -p "$tmp/upgrade-payload/usr/share/updemo"
+printf 'two\n' > "$tmp/upgrade-payload/usr/share/updemo/version.txt"
+tar -C "$tmp/upgrade-payload" -czf "$upgrade_repo/updemo.tar.gz" .
+upgrade_sha="$(sha256sum "$upgrade_repo/updemo.tar.gz" | awk '{print $1}')"
+cat > "$upgrade_repo/updemo.pkg" <<EOF
+OOONANA_PKG_ID="updemo"
+OOONANA_PKG_VERSION="2.0.0"
+OOONANA_PKG_KIND="archive"
+OOONANA_PKG_SUMMARY="Upgrade demo package"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_ARCHIVE="updemo.tar.gz"
+OOONANA_PKG_SHA256="$upgrade_sha"
+EOF
+
+upgradeable="$(OOONANA_REPO_DIR="$upgrade_repo" \
+  OOONANA_STATE_DIR="$upgrade_state" \
+  OOONANA_CACHE_DIR="$upgrade_cache" \
+  OOONANA_ROOT="$upgrade_root" \
+  "$CLI" list --upgradeable)"
+assert_contains "$upgradeable" "updemo 1.0.0 -> 2.0.0"
+
+upgrade_dry="$(OOONANA_REPO_DIR="$upgrade_repo" \
+  OOONANA_STATE_DIR="$upgrade_state" \
+  OOONANA_CACHE_DIR="$upgrade_cache" \
+  OOONANA_ROOT="$upgrade_root" \
+  "$CLI" upgrade --dry-run)"
+assert_contains "$upgrade_dry" "would upgrade updemo 1.0.0 -> 2.0.0"
+
+upgrade_run="$(OOONANA_REPO_DIR="$upgrade_repo" \
+  OOONANA_STATE_DIR="$upgrade_state" \
+  OOONANA_CACHE_DIR="$upgrade_cache" \
+  OOONANA_ROOT="$upgrade_root" \
+  "$CLI" upgrade)"
+assert_contains "$upgrade_run" "upgraded updemo 1.0.0 -> 2.0.0"
+[[ "$(cat "$upgrade_root/usr/share/updemo/version.txt")" == "two" ]] || fail "upgrade did not replace package files"
+assert_contains "$(<"$upgrade_state/installed/updemo.pkg")" 'OOONANA_PKG_VERSION="2.0.0"'
+
+cat > "$upgrade_repo/updemo.pkg" <<'EOF'
+OOONANA_PKG_ID="updemo"
+OOONANA_PKG_VERSION="3.0.0"
+OOONANA_PKG_KIND="archive"
+OOONANA_PKG_SUMMARY="Upgrade demo package"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_ARCHIVE="updemo.tar.gz"
+OOONANA_PKG_SHA256="badbad"
+EOF
+upgrade_bad="$(OOONANA_REPO_DIR="$upgrade_repo" \
+  OOONANA_STATE_DIR="$upgrade_state" \
+  OOONANA_CACHE_DIR="$upgrade_cache" \
+  OOONANA_ROOT="$upgrade_root" \
+  "$CLI" upgrade updemo 2>&1 || true)"
+assert_contains "$upgrade_bad" "sha256 mismatch: updemo"
+[[ "$(cat "$upgrade_root/usr/share/updemo/version.txt")" == "two" ]] || fail "failed upgrade damaged installed files"
+assert_contains "$(<"$upgrade_state/installed/updemo.pkg")" 'OOONANA_PKG_VERSION="2.0.0"'
 
 printf 'ok ooonana-pkg\n'
