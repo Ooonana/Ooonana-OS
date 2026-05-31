@@ -24,6 +24,15 @@ while [[ $# -gt 0 ]]; do
       GLOBAL_ARGS+=("$1")
       shift
       ;;
+    --provider)
+      [[ $# -ge 2 ]] || { printf 'ooonana-ai: --provider requires nim, gemini, or auto\n' >&2; exit 1; }
+      GLOBAL_ARGS+=("$1" "$2")
+      shift 2
+      ;;
+    --provider=*)
+      GLOBAL_ARGS+=("$1")
+      shift
+      ;;
     *)
       break
       ;;
@@ -37,7 +46,7 @@ case "${1:-}" in
   help|--help|-h)
     exec "$SCRIPT_DIR/ooonana" ai "${GLOBAL_ARGS[@]}" --help
     ;;
-  setup|doctor|config|env|models|model|agents|agent|history|sessions|status|ping|ask|code|chat)
+  setup|doctor|config|env|models|provider|model|agents|agent|history|sessions|status|ping|ask|code|chat)
     exec "$SCRIPT_DIR/ooonana" ai "${GLOBAL_ARGS[@]}" "$@"
     ;;
   *)

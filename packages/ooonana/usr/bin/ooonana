@@ -53,6 +53,7 @@ Usage:
   ooonana ai chat
   ooonana ai env
   ooonana ai models
+  ooonana ai provider [show|set nim|set gemini]
   ooonana ai model [show|list|set MODEL|alias NAME MODEL]
   ooonana ai agents
   ooonana ai agent activity

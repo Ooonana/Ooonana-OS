@@ -27,7 +27,7 @@ ooonana remove ai
 
 ## Ooonana AI CLI
 
-Ooonana includes a terminal AI app inspired by the provider-gateway shape of tools like Gemini CLI and free-claude-code, but it is branded as Ooonana and talks directly to NVIDIA NIM. Full usage notes live in [docs/ooonana-ai.md](docs/ooonana-ai.md).
+Ooonana includes a terminal AI app inspired by the provider-gateway shape of tools like Gemini CLI, free-claude-code, and Jarvis-style desktop agents, but it is branded as Ooonana. It supports NVIDIA NIM and Google Gemini. Full usage notes live in [docs/ooonana-ai.md](docs/ooonana-ai.md), with Jarvis notes in [docs/jarvis-agi-research.md](docs/jarvis-agi-research.md).
 
 Install the dev command in WSL:
 
@@ -49,6 +49,8 @@ ooonana ai setup
 ${EDITOR:-vi} ~/.config/ooonana/ai.env
 ooonana ai doctor
 ooonana ai status
+ooonana ai provider
+ooonana ai provider set gemini
 ooonana ai model
 ooonana ai model set code
 ooonana ai config
@@ -69,12 +71,16 @@ ooonana-ai "who are you?"
 ooonana-ai --model code "write a bash script"
 ```
 
-The config file expects an NVIDIA NIM API key and OpenAI-compatible settings:
+The config file expects at least one provider key:
 
 ```text
+OOONANA_AI_PROVIDER=nim
 NVIDIA_API_KEY=nvapi-...
+GEMINI_API_KEY=...
 OOONANA_NIM_BASE_URL=https://integrate.api.nvidia.com/v1
 OOONANA_NIM_MODEL=nvidia/nemotron-3-super-120b-a12b
+OOONANA_GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
+OOONANA_GEMINI_MODEL=gemini-2.5-flash
 OOONANA_MODEL_CODE=qwen/qwen3-coder-480b-a35b-instruct
 OOONANA_MODEL_FAST=qwen/qwen3-next-80b-a3b-instruct
 OOONANA_MODEL_DEEP=nvidia/nemotron-3-super-120b-a12b
@@ -92,6 +98,9 @@ Useful API/config variables:
 
 ```text
 NVIDIA_NIM_API_KEY        optional alternate key name
+GEMINI_API_KEY            Gemini API key
+GOOGLE_API_KEY            alternate Gemini API key, takes precedence
+OOONANA_AI_PROVIDER       nim, gemini, or auto
 OOONANA_AI_MAX_TOKENS     default 1024
 OOONANA_AI_TEMPERATURE    default 0.2
 OOONANA_AI_TIMEOUT        default 120
@@ -100,18 +109,29 @@ OOONANA_AI_STATE_DIR      default ~/.local/state/ooonana/ai
 OOONANA_AI_MOCK=1         offline/mock mode
 ```
 
+Switch providers:
+
+```bash
+ooonana-ai provider
+ooonana-ai provider set gemini
+ooonana-ai model list
+ooonana-ai model set deep
+ooonana-ai --provider gemini "who are you?"
+ooonana-ai provider set nim
+```
+
 Change models without editing config:
 
 ```bash
 ooonana-ai model              # show active model and aliases
-ooonana-ai model list         # aliases plus useful NVIDIA NIM model ids
+ooonana-ai model list         # aliases plus useful active-provider model ids
 ooonana-ai model set code     # make code alias the default
 ooonana-ai model set nvidia/nemotron-3-super-120b-a12b
 ooonana-ai model alias tiny meta/llama-3.3-70b-instruct
 ooonana-ai --model tiny "quick answer"
 ```
 
-Every request includes a detailed Ooonana identity prompt and a compact Linux/WSL/workspace snapshot so the assistant knows it is Ooonana running inside the current OS. One-shot asks include the local `activity` agent by default, which adds recent shell and Ooonana AI history with secrets redacted. The direct `ooonana-ai ping` command makes a tiny live NVIDIA NIM request once a real key is configured.
+Every request includes a detailed Ooonana identity prompt and a compact Linux/WSL/workspace snapshot so the assistant knows it is Ooonana running inside the current OS. One-shot asks include the local `activity` agent by default, which adds recent shell and Ooonana AI history with secrets redacted. The direct `ooonana-ai ping` command makes a tiny live provider request once a real key is configured.
 
 Package metadata lives in:
 

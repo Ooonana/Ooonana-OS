@@ -36,6 +36,8 @@ export OOONANA_AI_STATE_DIR="$state"
 setup="$(OOONANA_AI_CONFIG="$config" "$CLI" ai setup)"
 assert_contains "$setup" "AI config:"
 assert_contains "$(<"$config")" "NVIDIA_API_KEY="
+assert_contains "$(<"$config")" "GEMINI_API_KEY="
+assert_contains "$(<"$config")" "OOONANA_AI_PROVIDER=nim"
 assert_contains "$(<"$config")" "OOONANA_NIM_MODEL=nvidia/nemotron-3-super-120b-a12b"
 assert_contains "$(<"$config")" "OOONANA_MODEL_CODE=qwen/qwen3-coder-480b-a35b-instruct"
 
@@ -100,6 +102,59 @@ chat_model_ui="$(printf '/models\n/model set code\n/model\n/exit\n' | OOONANA_AI
 assert_contains "$chat_model_ui" "aliases:"
 assert_contains "$chat_model_ui" "default model: qwen/qwen3-coder-480b-a35b-instruct"
 assert_contains "$chat_model_ui" "active: qwen/qwen3-coder-480b-a35b-instruct"
+
+gemini_config="$tmp/gemini.env"
+cat > "$gemini_config" <<'EOF'
+GEMINI_API_KEY=gemini-test-key
+OOONANA_AI_PROVIDER=gemini
+OOONANA_GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
+OOONANA_GEMINI_MODEL=gemini-2.5-flash
+OOONANA_GEMINI_MODEL_DEEP=gemini-2.5-pro
+OOONANA_AI_MAX_TOKENS=256
+OOONANA_AI_TEMPERATURE=0.1
+OOONANA_AI_STREAM=0
+EOF
+
+gemini_doctor="$(OOONANA_AI_CONFIG="$gemini_config" "$CLI" ai doctor)"
+assert_contains "$gemini_doctor" "AI config: ok"
+assert_contains "$gemini_doctor" "provider: Google Gemini"
+assert_contains "$gemini_doctor" "model: gemini-2.5-flash"
+assert_contains "$gemini_doctor" "deep: gemini-2.5-pro"
+
+gemini_config_out="$(OOONANA_AI_CONFIG="$gemini_config" "$CLI" ai config)"
+assert_contains "$gemini_config_out" "redacted"
+assert_not_contains "$gemini_config_out" "gemini-test-key"
+
+provider_show="$(OOONANA_AI_CONFIG="$gemini_config" "$AI_WRAPPER" provider)"
+assert_contains "$provider_show" "active: gemini"
+assert_contains "$provider_show" "key: present"
+
+provider_set="$(OOONANA_AI_CONFIG="$gemini_config" "$AI_WRAPPER" provider set nim)"
+assert_contains "$provider_set" "provider: nim"
+assert_contains "$(<"$gemini_config")" "OOONANA_AI_PROVIDER=nim"
+OOONANA_AI_CONFIG="$gemini_config" "$AI_WRAPPER" provider set gemini >/dev/null
+
+gemini_model_set="$(OOONANA_AI_CONFIG="$gemini_config" "$AI_WRAPPER" model set deep)"
+assert_contains "$gemini_model_set" "default model: gemini-2.5-pro"
+assert_contains "$(<"$gemini_config")" "OOONANA_GEMINI_MODEL=gemini-2.5-pro"
+
+gemini_dry_run="$(OOONANA_AI_CONFIG="$gemini_config" "$AI_WRAPPER" --provider gemini --dry-run "hello gemini")"
+assert_contains "$gemini_dry_run" '"provider": "gemini"'
+assert_contains "$gemini_dry_run" '"model": "gemini-2.5-pro"'
+assert_contains "$gemini_dry_run" '"system_instruction"'
+assert_contains "$gemini_dry_run" '"contents"'
+assert_contains "$gemini_dry_run" "Current Linux environment snapshot"
+assert_contains "$gemini_dry_run" "hello gemini"
+assert_not_contains "$gemini_dry_run" "gemini-test-key"
+
+gemini_mock="$(OOONANA_AI_CONFIG="$gemini_config" OOONANA_AI_MOCK=1 "$AI_WRAPPER" --provider gemini --no-stream "mock gemini")"
+assert_contains "$gemini_mock" "Ooonana mock response"
+
+gemini_chat_ui="$(printf '/provider\n/provider set nim\n/provider set gemini\n/models\n/model\n/exit\n' | OOONANA_AI_CONFIG="$gemini_config" "$AI_WRAPPER" chat --no-stream)"
+assert_contains "$gemini_chat_ui" "active provider: gemini"
+assert_contains "$gemini_chat_ui" "provider: nim"
+assert_contains "$gemini_chat_ui" "provider: gemini"
+assert_contains "$gemini_chat_ui" "gemini-2.5-flash"
 
 agents="$("$AI_WRAPPER" agents)"
 assert_contains "$agents" "system"
