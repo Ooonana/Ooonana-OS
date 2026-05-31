@@ -38,6 +38,7 @@ ooonana me
 ooonana wsl status
 ooonana update
 ooonana list
+ooonana info base
 ooonana info gui
 ooonana get gui --dry-run
 ooonana get ai

@@ -1,0 +1,7 @@
+OOONANA_PKG_ID="base"
+OOONANA_PKG_VERSION="0.1.0"
+OOONANA_PKG_KIND="system"
+OOONANA_PKG_SUMMARY="Ooonana scratch base system"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_COMPONENTS="linux busybox init ooonana-cli package-state boot-banner"
+OOONANA_PKG_NOTES="Seed package for scratch rootfs identity and first-boot package state."

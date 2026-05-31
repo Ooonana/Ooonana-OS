@@ -112,6 +112,7 @@ create_device_nodes() {
 install_ooonana_payload() {
   cp -a "$ROOT/packages/ooonana/." "$ROOTFS/"
   chmod 0755 "$ROOTFS/usr/bin/ooonana" "$ROOTFS/usr/sbin/ooonana-install"
+  cp "$ROOTFS/usr/lib/ooonana/repo/base.pkg" "$ROOTFS/var/lib/ooonana/packages/installed/base.pkg"
 }
 
 copy_busybox_deps() {
@@ -203,7 +204,8 @@ fi
 if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   if /usr/bin/ooonana version | grep -q 'ooonana 0.3.0' &&
     /usr/bin/ooonana me | grep -q 'Ooonana OS' &&
-    /usr/bin/ooonana list | grep -q 'gui'; then
+    /usr/bin/ooonana list | grep -q 'gui' &&
+    /usr/bin/ooonana list --installed | grep -q 'base'; then
     echo "OOONANA_CLI_OK"
   else
     echo "OOONANA_CLI_FAIL"

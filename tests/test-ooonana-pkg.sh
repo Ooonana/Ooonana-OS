@@ -75,12 +75,14 @@ bad_wsl="$("$CLI" wsl nope 2>&1 || true)"
 assert_contains "$bad_wsl" "usage: ooonana wsl [doctor|status]"
 
 list="$("$CLI" list)"
+assert_contains "$list" "base"
 assert_contains "$list" "gui"
 assert_contains "$list" "ai"
 assert_contains "$list" "hacker-tools"
 assert_contains "$list" "available"
 
 sh_list="$(sh "$CLI" list)"
+assert_contains "$sh_list" "base"
 assert_contains "$sh_list" "gui"
 assert_contains "$sh_list" "available"
 
