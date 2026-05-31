@@ -207,6 +207,38 @@ indexed_bad="$(OOONANA_REPO_DIR="$index_repo" \
   "$CLI" update 2>&1 || true)"
 assert_contains "$indexed_bad" "sha256 mismatch: indexed.pkg"
 
+indexed_get_bad="$(OOONANA_REPO_DIR="$index_repo" \
+  OOONANA_STATE_DIR="$tmp/index-bad-state" \
+  OOONANA_CACHE_DIR="$tmp/index-bad-install-cache" \
+  OOONANA_ROOT="$tmp/index-bad-root" \
+  "$CLI" get indexed 2>&1 || true)"
+assert_contains "$indexed_get_bad" "sha256 mismatch: indexed.pkg"
+
+archive_only_repo="$tmp/archive-only-repo"
+archive_only_payload="$tmp/archive-only-payload"
+mkdir -p "$archive_only_repo" "$archive_only_payload/usr/share/archiveonly"
+printf 'before\n' > "$archive_only_payload/usr/share/archiveonly/value.txt"
+tar -C "$archive_only_payload" -czf "$archive_only_repo/archiveonly.tar.gz" .
+cat > "$archive_only_repo/archiveonly.pkg" <<'EOF'
+OOONANA_PKG_ID="archiveonly"
+OOONANA_PKG_VERSION="1.0.0"
+OOONANA_PKG_KIND="archive"
+OOONANA_PKG_SUMMARY="Archive checksum only package"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_ARCHIVE="archiveonly.tar.gz"
+EOF
+"$CLI" repo index "$archive_only_repo" >/dev/null
+rm -rf "$archive_only_payload"
+mkdir -p "$archive_only_payload/usr/share/archiveonly"
+printf 'after\n' > "$archive_only_payload/usr/share/archiveonly/value.txt"
+tar -C "$archive_only_payload" -czf "$archive_only_repo/archiveonly.tar.gz" .
+archive_only_bad="$(OOONANA_REPO_DIR="$archive_only_repo" \
+  OOONANA_STATE_DIR="$tmp/archive-only-state" \
+  OOONANA_CACHE_DIR="$tmp/archive-only-cache" \
+  OOONANA_ROOT="$tmp/archive-only-root" \
+  "$CLI" get archiveonly 2>&1 || true)"
+assert_contains "$archive_only_bad" "sha256 mismatch: archiveonly.tar.gz"
+
 dep_repo="$tmp/dep-repo"
 mkdir -p "$dep_repo"
 cat > "$dep_repo/libthing.pkg" <<'EOF'

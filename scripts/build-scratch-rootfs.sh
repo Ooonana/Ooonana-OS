@@ -203,7 +203,7 @@ if grep -q 'ooonana.install=1' /proc/cmdline 2>/dev/null; then
 fi
 
 if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
-  if /usr/bin/ooonana version | grep -q 'ooonana 0.6.0' &&
+  if /usr/bin/ooonana version | grep -q 'ooonana 0.7.0' &&
     /usr/bin/ooonana me | grep -q 'Ooonana OS' &&
     /usr/bin/ooonana list | grep -q 'gui' &&
     /usr/bin/ooonana list --installed | grep -q 'base'; then

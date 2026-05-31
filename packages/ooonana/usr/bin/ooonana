@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-VERSION="0.6.0"
+VERSION="0.7.0"
 HOME_DIR="${HOME:-/root}"
 if [ -n "${OOONANA_AI_CONFIG:-}" ]; then
   AI_CONFIG="$OOONANA_AI_CONFIG"
@@ -178,6 +178,7 @@ load_pkg() {
   id="$1"
   reset_pkg_vars
   find_pkg_file "$id" || die "unknown package: $id"
+  verify_loaded_pkg_file
   . "$LOADED_PKG_FILE"
   [ "$OOONANA_PKG_ID" = "$id" ] || die "bad package metadata: $id"
   [ -n "$OOONANA_PKG_VERSION" ] || die "package missing version: $id"
@@ -226,6 +227,22 @@ verify_repo_checksum() {
   [ -n "$expected" ] || die "missing checksum: $rel_path"
   actual="$(sha256_file "$target")"
   [ "$actual" = "$expected" ] || die "sha256 mismatch: $rel_path"
+}
+
+verify_loaded_pkg_file() {
+  [ -n "${LOADED_REPO_DIR:-}" ] || return 0
+  [ -n "${LOADED_PKG_FILE:-}" ] || return 0
+  rel_path="$(basename "$LOADED_PKG_FILE")"
+  verify_repo_checksum "$LOADED_REPO_DIR" "$rel_path"
+}
+
+verify_loaded_archive_file() {
+  [ -n "${LOADED_REPO_DIR:-}" ] || return 0
+  [ -n "${OOONANA_PKG_ARCHIVE:-}" ] || return 0
+  case "$OOONANA_PKG_ARCHIVE" in
+    /*) return 0 ;;
+    *) verify_repo_checksum "$LOADED_REPO_DIR" "$OOONANA_PKG_ARCHIVE" ;;
+  esac
 }
 
 write_repo_index_entry() {
@@ -378,6 +395,7 @@ validate_archive_entries() {
 install_pkg_archive() {
   id="$1"
   archive_path="$(pkg_archive_path "$OOONANA_PKG_ARCHIVE")"
+  verify_loaded_archive_file
   verify_pkg_archive "$id" "$archive_path"
   validate_archive_entries "$id" "$archive_path"
   mkdir -p "$OOONANA_ROOT"

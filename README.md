@@ -134,7 +134,8 @@ payloads.
 
 Repositories can be indexed with `ooonana repo index PATH`. `ooonana update`
 uses `index.tsv` and validates `SHA256SUMS` when present before trusting package
-metadata.
+metadata. `ooonana get`, `ooonana install`, and `ooonana upgrade` also validate
+indexed package and archive checksums before changing installed files.
 
 Installed package state lives in:
 
