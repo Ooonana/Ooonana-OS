@@ -48,6 +48,7 @@ assert_contains "$help" "ooonana depends PACKAGE"
 assert_contains "$help" "ooonana files PACKAGE"
 assert_contains "$help" "ooonana verify PACKAGE"
 assert_contains "$help" "ooonana upgrade [PACKAGE...]"
+assert_contains "$help" "ooonana repo index [PATH]"
 assert_contains "$help" "ooonana sources"
 assert_contains "$help" "ooonana remove PACKAGE"
 assert_contains "$help" "ooonana me"
@@ -170,6 +171,41 @@ assert_contains "$multi_show" "source: extra"
 
 multi_install="$(OOONANA_SOURCES_DIR="$sources_dir" "$CLI" install editor --dry-run)"
 assert_contains "$multi_install" "would install editor 1.2.0"
+
+index_repo="$tmp/index-repo"
+index_payload="$tmp/index-payload"
+mkdir -p "$index_repo" "$index_payload/usr/share/indexed"
+printf 'indexed payload\n' > "$index_payload/usr/share/indexed/payload.txt"
+tar -C "$index_payload" -czf "$index_repo/indexed.tar.gz" .
+index_archive_sha="$(sha256sum "$index_repo/indexed.tar.gz" | awk '{print $1}')"
+cat > "$index_repo/indexed.pkg" <<EOF
+OOONANA_PKG_ID="indexed"
+OOONANA_PKG_VERSION="2.1.0"
+OOONANA_PKG_KIND="archive"
+OOONANA_PKG_SUMMARY="Indexed repo package"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_ARCHIVE="indexed.tar.gz"
+OOONANA_PKG_SHA256="$index_archive_sha"
+EOF
+repo_index="$("$CLI" repo index "$index_repo")"
+assert_contains "$repo_index" "indexed 1 package(s)"
+[[ -f "$index_repo/index.tsv" ]] || fail "missing repo index"
+[[ -f "$index_repo/SHA256SUMS" ]] || fail "missing repo checksums"
+assert_contains "$(<"$index_repo/index.tsv")" $'indexed\t2.1.0\tarchive\tIndexed repo package'
+assert_contains "$(<"$index_repo/SHA256SUMS")" "indexed.pkg"
+assert_contains "$(<"$index_repo/SHA256SUMS")" "indexed.tar.gz"
+
+indexed_update="$(OOONANA_REPO_DIR="$index_repo" \
+  OOONANA_CACHE_DIR="$tmp/index-cache" \
+  "$CLI" update)"
+assert_contains "$indexed_update" "synced 1 package(s)"
+assert_contains "$(<"$tmp/index-cache/index.tsv")" "indexed"
+
+printf '# tamper\n' >> "$index_repo/indexed.pkg"
+indexed_bad="$(OOONANA_REPO_DIR="$index_repo" \
+  OOONANA_CACHE_DIR="$tmp/index-bad-cache" \
+  "$CLI" update 2>&1 || true)"
+assert_contains "$indexed_bad" "sha256 mismatch: indexed.pkg"
 
 dep_repo="$tmp/dep-repo"
 mkdir -p "$dep_repo"

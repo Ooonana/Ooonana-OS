@@ -74,6 +74,7 @@ ooonana list --installed
 ooonana files ai
 ooonana verify ai
 ooonana upgrade --dry-run
+ooonana repo index /usr/lib/ooonana/repo
 ooonana remove ai
 ```
 
@@ -103,6 +104,8 @@ Package metadata lives in:
 /usr/lib/ooonana/repo/*.pkg
 /usr/lib/ooonana/repo/hooks/*.install
 /usr/lib/ooonana/repo/hooks/*.remove
+/usr/lib/ooonana/repo/index.tsv
+/usr/lib/ooonana/repo/SHA256SUMS
 ```
 
 Extra package sources live in:
@@ -128,6 +131,10 @@ OOONANA_PKG_SHA256="..."
 Installed archive packages get file manifests, so `ooonana files PACKAGE`,
 `ooonana verify PACKAGE`, and `ooonana upgrade` can inspect and replace package
 payloads.
+
+Repositories can be indexed with `ooonana repo index PATH`. `ooonana update`
+uses `index.tsv` and validates `SHA256SUMS` when present before trusting package
+metadata.
 
 Installed package state lives in:
 

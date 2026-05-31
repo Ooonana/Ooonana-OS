@@ -1,0 +1,6 @@
+ai	0.2.0	bundle	Ooonana AI CLI with NVIDIA NIM provider	-	-	592aceff310e3c7178d071da433090a2698086540d01874ab6df734441f25bb0
+base	0.1.0	system	Ooonana scratch base system	-	-	fca88b4d661552bfd9591f9826bd5c03bd69671da680df8136ddaeab084c57be
+dev	0.1.0	bundle	Developer tools bundle	-	-	847ad5e76f139876d1c27d42081ed39c383c1fea7078f2d5b9e4c085c5f61485
+gui	0.1.0	bundle	Minimal graphical desktop bundle	-	-	0490c96cba30ab7ef4000c01e33c1038450cb1b43467a10ab3a4d4d72d1c5f0d
+hacker-tools	0.1.0	bundle	Legal security lab tools bundle	-	-	ca3ace2d5f91ce2cc902ab8594b33d356764945a0a8483cfac8b031f54e87d74
+status	0.1.0	tool	System status command bundle	-	-	3819e6ef25efda4751e69c9a279ea274e445e8e8f55a14f2914e5fa5625480d0
