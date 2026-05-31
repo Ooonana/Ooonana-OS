@@ -27,6 +27,7 @@ script_src="$(<"$SCRIPT")"
 assert_not_contains "$script_src" "debootstrap"
 assert_not_contains "$script_src" "apt-get"
 assert_contains "$script_src" 'chmod -R a+rwX "$ROOTFS"'
+assert_contains "$script_src" 'mknod -m 600 "$ROOTFS/dev/console" c 5 1 || : > "$ROOTFS/dev/console"'
 
 help="$(bash "$SCRIPT" --help)"
 assert_contains "$help" "Build Ooonana scratch rootfs"

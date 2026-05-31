@@ -100,9 +100,9 @@ create_busybox_links() {
 
 create_device_nodes() {
   if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
-    [[ -e "$ROOTFS/dev/console" ]] || mknod -m 600 "$ROOTFS/dev/console" c 5 1
-    [[ -e "$ROOTFS/dev/null" ]] || mknod -m 666 "$ROOTFS/dev/null" c 1 3
-    [[ -e "$ROOTFS/dev/tty" ]] || mknod -m 666 "$ROOTFS/dev/tty" c 5 0
+    [[ -e "$ROOTFS/dev/console" ]] || mknod -m 600 "$ROOTFS/dev/console" c 5 1 || : > "$ROOTFS/dev/console"
+    [[ -e "$ROOTFS/dev/null" ]] || mknod -m 666 "$ROOTFS/dev/null" c 1 3 || : > "$ROOTFS/dev/null"
+    [[ -e "$ROOTFS/dev/tty" ]] || mknod -m 666 "$ROOTFS/dev/tty" c 5 0 || : > "$ROOTFS/dev/tty"
   else
     : > "$ROOTFS/dev/console"
     : > "$ROOTFS/dev/null"

@@ -31,6 +31,28 @@ Default output:
 
 Scratch initramfs and scratch ISO boot use this kernel first when present.
 
+## Build Cleanup
+
+Default build output goes to:
+
+```text
+/var/tmp/ooonana-os/build
+```
+
+Clean generated images, rootfs trees, logs, ISO trees, and kernel build output:
+
+```bash
+bash scripts/clean-build-artifacts.sh --yes
+```
+
+Keep kernel source/cache while cleaning images:
+
+```bash
+bash scripts/clean-build-artifacts.sh --keep-source --yes
+```
+
+`OOONANA_BUILD_DIR` can point somewhere else, but build rootfs trees on a Linux filesystem. Windows drives under `/mnt/c` or `/mnt/f` are useful for storing copied artifacts, but they do not fully support Linux device nodes and permissions.
+
 ## Ooonana Command
 
 ```bash
