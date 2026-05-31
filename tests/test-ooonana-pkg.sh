@@ -40,7 +40,11 @@ export OOONANA_CACHE_DIR="$tmp/cache"
 
 help="$("$CLI" help)"
 assert_contains "$help" "ooonana get PACKAGE"
+assert_contains "$help" "ooonana install PACKAGE"
 assert_contains "$help" "ooonana list"
+assert_contains "$help" "ooonana search QUERY"
+assert_contains "$help" "ooonana show PACKAGE"
+assert_contains "$help" "ooonana sources"
 assert_contains "$help" "ooonana remove PACKAGE"
 assert_contains "$help" "ooonana me"
 assert_contains "$help" "ooonana wsl [doctor|status]"
@@ -88,11 +92,28 @@ assert_contains "$sh_list" "available"
 
 update="$("$CLI" update)"
 assert_contains "$update" "ooonana repo: synced"
+assert_contains "$update" "source(s)"
 [[ -f "$OOONANA_CACHE_DIR/index.tsv" ]] || fail "missing synced index"
+[[ -f "$OOONANA_CACHE_DIR/sources.tsv" ]] || fail "missing synced sources"
+
+sources="$("$CLI" sources)"
+assert_contains "$sources" "builtin"
+assert_contains "$sources" "$REPO"
+
+search="$("$CLI" search graphical)"
+assert_contains "$search" "gui"
+assert_contains "$search" "graphical"
+
+show="$("$CLI" show gui)"
+assert_contains "$show" "id: gui"
+assert_contains "$show" "source: builtin"
 
 dry_run="$("$CLI" get gui --dry-run)"
 assert_contains "$dry_run" "would install gui"
 assert_not_contains "$("$CLI" list --installed)" "gui"
+
+install_alias="$("$CLI" install gui --dry-run)"
+assert_contains "$install_alias" "would install gui"
 
 install="$("$CLI" get ai)"
 assert_contains "$install" "installed ai"
@@ -108,6 +129,43 @@ assert_not_contains "$("$CLI" list --installed)" "ai"
 
 missing="$("$CLI" get missing-package 2>&1 || true)"
 assert_contains "$missing" "unknown package: missing-package"
+
+sources_dir="$tmp/sources.d"
+extra_repo="$tmp/extra-repo"
+mkdir -p "$sources_dir" "$extra_repo"
+cat > "$extra_repo/editor.pkg" <<'EOF'
+OOONANA_PKG_ID="editor"
+OOONANA_PKG_VERSION="1.2.0"
+OOONANA_PKG_KIND="tool"
+OOONANA_PKG_SUMMARY="Tiny text editor"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_COMPONENTS="edit"
+OOONANA_PKG_NOTES="Local test repo package"
+EOF
+cat > "$sources_dir/extra.repo" <<EOF
+OOONANA_REPO_NAME="extra"
+OOONANA_REPO_URI="$extra_repo"
+EOF
+
+multi_update="$(OOONANA_SOURCES_DIR="$sources_dir" "$CLI" update)"
+assert_contains "$multi_update" "from 2 source(s)"
+assert_contains "$(<"$OOONANA_CACHE_DIR/index.tsv")" "extra"
+assert_contains "$(<"$OOONANA_CACHE_DIR/index.tsv")" "editor"
+
+multi_sources="$(OOONANA_SOURCES_DIR="$sources_dir" "$CLI" sources)"
+assert_contains "$multi_sources" "extra"
+assert_contains "$multi_sources" "$extra_repo"
+
+multi_search="$(OOONANA_SOURCES_DIR="$sources_dir" "$CLI" search tiny)"
+assert_contains "$multi_search" "editor"
+assert_contains "$multi_search" "Tiny text editor"
+
+multi_show="$(OOONANA_SOURCES_DIR="$sources_dir" "$CLI" show editor)"
+assert_contains "$multi_show" "id: editor"
+assert_contains "$multi_show" "source: extra"
+
+multi_install="$(OOONANA_SOURCES_DIR="$sources_dir" "$CLI" install editor --dry-run)"
+assert_contains "$multi_install" "would install editor 1.2.0"
 
 custom_repo="$tmp/custom-repo"
 custom_root="$tmp/custom-root"

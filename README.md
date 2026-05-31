@@ -37,10 +37,14 @@ Scratch initramfs and scratch ISO boot use this kernel first when present.
 ooonana me
 ooonana wsl status
 ooonana update
+ooonana sources
 ooonana list
+ooonana search graphical
 ooonana info base
 ooonana info gui
+ooonana show gui
 ooonana get gui --dry-run
+ooonana install gui --dry-run
 ooonana get ai
 ooonana list --installed
 ooonana remove ai
@@ -72,6 +76,19 @@ Package metadata lives in:
 /usr/lib/ooonana/repo/*.pkg
 /usr/lib/ooonana/repo/hooks/*.install
 /usr/lib/ooonana/repo/hooks/*.remove
+```
+
+Extra package sources live in:
+
+```text
+/etc/ooonana/sources.d/*.repo
+```
+
+Example source:
+
+```sh
+OOONANA_REPO_NAME="main"
+OOONANA_REPO_URI="/usr/lib/ooonana/repo"
 ```
 
 Archive packages can add:
