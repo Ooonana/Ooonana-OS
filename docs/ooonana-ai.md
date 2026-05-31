@@ -212,6 +212,11 @@ Useful chat commands:
 /help
 /agents
 /agent activity
+/tools
+/tool processes
+/tasks
+/task plan inspect-system
+/audit
 /status
 /env
 /history
@@ -247,6 +252,10 @@ ooonana-ai history
 ooonana-ai sessions
 ooonana-ai agents
 ooonana-ai agent activity
+ooonana-ai tools
+ooonana-ai tool processes
+ooonana-ai tasks
+ooonana-ai audit
 ```
 
 Direct alias behavior:
@@ -263,6 +272,10 @@ ooonana-ai provider set gemini
 ooonana-ai model           shows active model and aliases
 ooonana-ai model set code  changes default model in config
 ooonana-ai model alias N M saves alias N for model M
+ooonana-ai tools           lists local CLI tools
+ooonana-ai tool processes  reads process table
+ooonana-ai task add TEXT   records a CLI task
+ooonana-ai audit           shows permissioned action log
 ooonana-ai chat            explicitly opens chat
 ooonana-ai status          shows provider/UI status
 ```
@@ -322,6 +335,7 @@ Ooonana has lightweight local agents that collect context for the main AI:
 system      OS, WSL, command, package, and workspace context
 activity    recent shell history and Ooonana AI history with secrets redacted
 summarizer  system plus activity context shaped for compact summaries
+tools       CLI tool registry, permission gates, and recent audit context
 ```
 
 List them:
@@ -336,6 +350,7 @@ Inspect context without calling provider:
 ooonana-ai agent system
 ooonana-ai agent activity
 ooonana-ai agent summarizer
+ooonana-ai agent tools
 ```
 
 Ask active provider to summarize agent context:
@@ -360,6 +375,52 @@ Inside chat:
 /agent activity
 /agent system
 /agent none
+```
+
+## CLI Tools And Tasks
+
+Ooonana applies the Jarvis research as CLI-first system integration, not voice or GUI. Tools default to read-only inspection. Shell execution is permission-gated and audited.
+
+List tools:
+
+```bash
+ooonana-ai tools
+```
+
+Read-only tools:
+
+```bash
+ooonana-ai tool system
+ooonana-ai tool processes
+ooonana-ai tool packages
+ooonana-ai tool files .
+ooonana-ai tool activity
+```
+
+Guarded shell tool:
+
+```bash
+ooonana-ai tool shell echo hi
+ooonana-ai tool shell --yes 'echo hi'
+ooonana-ai audit
+```
+
+The first command is blocked and audited. The `--yes` form executes and writes an audit entry. Destructive patterns such as `mkfs`, unsafe `dd`, reboot, shutdown, and recursive root removal are blocked.
+
+Task runner:
+
+```bash
+ooonana-ai task add "inspect boot state"
+ooonana-ai tasks
+ooonana-ai task done TASK_ID
+ooonana-ai task plan "repair provider config"
+```
+
+Tasks live under:
+
+```text
+~/.local/state/ooonana/ai/tasks.jsonl
+~/.local/state/ooonana/ai/audit.jsonl
 ```
 
 Show the Linux/WSL context Ooonana will send:

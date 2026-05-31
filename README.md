@@ -63,6 +63,12 @@ ooonana ai history
 ooonana ai sessions
 ooonana ai agents
 ooonana ai agent activity
+ooonana ai tools
+ooonana ai tool processes
+ooonana ai tool files .
+ooonana ai task add "inspect system"
+ooonana ai tasks
+ooonana ai audit
 ooonana-ai help
 ooonana-ai model list
 ooonana-ai model alias tiny meta/llama-3.3-70b-instruct
@@ -132,6 +138,22 @@ ooonana-ai --model tiny "quick answer"
 ```
 
 Every request includes a detailed Ooonana identity prompt and a compact Linux/WSL/workspace snapshot so the assistant knows it is Ooonana running inside the current OS. One-shot asks include the local `activity` agent by default, which adds recent shell and Ooonana AI history with secrets redacted. The direct `ooonana-ai ping` command makes a tiny live provider request once a real key is configured.
+
+Jarvis-style CLI tools:
+
+```bash
+ooonana-ai tools
+ooonana-ai tool system
+ooonana-ai tool processes
+ooonana-ai tool packages
+ooonana-ai tool files /etc
+ooonana-ai tool shell echo hi          # blocked, audited
+ooonana-ai tool shell --yes 'echo hi'  # executes, audited
+ooonana-ai audit
+ooonana-ai task add "inspect packages"
+ooonana-ai tasks
+ooonana-ai task plan "fix boot issue"
+```
 
 Package metadata lives in:
 

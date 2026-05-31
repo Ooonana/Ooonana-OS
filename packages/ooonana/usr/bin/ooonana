@@ -57,6 +57,11 @@ Usage:
   ooonana ai model [show|list|set MODEL|alias NAME MODEL]
   ooonana ai agents
   ooonana ai agent activity
+  ooonana ai tools
+  ooonana ai tool processes
+  ooonana ai task add "inspect system"
+  ooonana ai tasks
+  ooonana ai audit
   ooonana ai history
   ooonana ai sessions
   ooonana ai status

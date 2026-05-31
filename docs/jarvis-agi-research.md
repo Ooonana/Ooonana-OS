@@ -64,12 +64,14 @@ Phase 2:
 - Read-only system tools: process list, package state, recent files, browser history import by permission
 - Memory summarizer and pruning
 - Tool registry
+- Implemented now: `tools`, `tool system`, `tool processes`, `tool packages`, `tool files`, and `tool activity`
 
 Phase 3:
 
 - Permissioned shell/file actions
 - Audit history
 - Rewindable task plans
+- Implemented now: permission-gated `tool shell`, `audit`, `task add`, `tasks`, `task done`, and `task plan`
 
 Phase 4:
 

@@ -77,6 +77,8 @@ Agent/memory behavior:
 
 Jarvis-class direction:
 - Aim for a local-first personal AI with a CLI-first terminal interface: provider router, memory, tool execution, permission gates, and system awareness.
+- Use the Ooonana CLI tool registry for system knowledge: tools, tool, audit, tasks, and task.
+- Prefer read-only inspection first, then permission-gated shell/file actions with audit logs.
 - Do not claim to be AGI. Be honest about capabilities and ask before risky system actions.
 - Never rename yourself Jarvis; Ooonana is the assistant identity.
 """
@@ -85,6 +87,16 @@ AGENTS = {
     "system": "Collects OS, WSL, command, package, and workspace context.",
     "activity": "Collects recent shell and Ooonana CLI activity with secrets redacted.",
     "summarizer": "Turns system and activity context into a compact working summary.",
+    "tools": "Lists local CLI tools, permission gates, and audit state.",
+}
+
+TOOLS = {
+    "system": ("read", "Full Linux, WSL, workspace, command, and package context."),
+    "processes": ("read", "Recent process table for system awareness."),
+    "packages": ("read", "Package manager and installed-package hints."),
+    "files": ("read", "Directory listing for a target path."),
+    "activity": ("read", "Recent shell and Ooonana AI history."),
+    "shell": ("guarded", "Run a shell command only with --yes and audit log."),
 }
 
 POPULAR_MODELS = [
@@ -342,6 +354,14 @@ def session_path(args: argparse.Namespace, session_id: str) -> Path:
     return sessions_dir(args) / f"{session_id}.jsonl"
 
 
+def audit_path(args: argparse.Namespace) -> Path:
+    return state_dir(args) / "audit.jsonl"
+
+
+def tasks_path(args: argparse.Namespace) -> Path:
+    return state_dir(args) / "tasks.jsonl"
+
+
 def append_jsonl(path: Path, record: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
@@ -493,6 +513,95 @@ def command_status(names: list[str]) -> str:
     return "\n".join(lines)
 
 
+def tool_registry_snapshot() -> str:
+    lines = ["Ooonana CLI tool registry:"]
+    for name, (mode, description) in TOOLS.items():
+        lines.append(f"  {name:<10} {mode:<7} {description}")
+    lines.append("permission-gated shell/file actions: shell execution requires --yes and writes audit.jsonl")
+    lines.append("CLI-first terminal interface: inspect, propose, execute, audit")
+    return "\n".join(lines)
+
+
+def process_snapshot() -> str:
+    output = run_capture(["sh", "-lc", "ps -eo pid,ppid,stat,comm,args --sort=-%mem | head -n 25"], timeout=2.0)
+    return output or "PID PPID STAT COMMAND ARGS\nprocess table unavailable"
+
+
+def package_snapshot() -> str:
+    lines = ["[package commands]"]
+    lines.append(command_status(["apt-get", "dpkg", "systemctl", "snap", "flatpak"]))
+    dpkg = run_capture(["sh", "-lc", "dpkg-query -W -f='${Package} ${Version}\\n' 2>/dev/null | head -n 30"], timeout=2.0)
+    if dpkg:
+        lines.extend(["", "[dpkg sample]", dpkg])
+    services = run_capture(["sh", "-lc", "systemctl list-units --type=service --state=running --no-pager --no-legend 2>/dev/null | head -n 20"], timeout=2.0)
+    if services:
+        lines.extend(["", "[running services]", services])
+    return "\n".join(lines)
+
+
+def files_snapshot(path: str) -> str:
+    target = Path(path).expanduser()
+    try:
+        resolved = target.resolve()
+    except OSError:
+        resolved = target
+    if not target.exists():
+        return f"path missing: {target}"
+    if target.is_file():
+        return f"file: {resolved}\nsize: {target.stat().st_size}"
+    lines = [f"path: {resolved}"]
+    try:
+        entries = sorted(target.iterdir(), key=lambda item: (not item.is_dir(), item.name.lower()))[:80]
+    except OSError as exc:
+        return f"cannot list {target}: {exc}"
+    for entry in entries:
+        kind = "dir " if entry.is_dir() else "file"
+        try:
+            size = entry.stat().st_size
+        except OSError:
+            size = 0
+        lines.append(f"{kind:<4} {size:>10} {entry.name}")
+    return "\n".join(lines)
+
+
+def unsafe_shell_command(command: str) -> bool:
+    lowered = command.lower()
+    patterns = [
+        r"\brm\s+-[^\n]*r[^\n]*\s+/",
+        r"\bmkfs\b",
+        r"\bdd\s+.*\bof=/dev/",
+        r":\s*\(\)\s*\{",
+        r"\bshutdown\b",
+        r"\breboot\b",
+    ]
+    return any(re.search(pattern, lowered) for pattern in patterns)
+
+
+def record_audit(args: argparse.Namespace, action: str, target: str, outcome: str, detail: str = "") -> None:
+    append_jsonl(
+        audit_path(args),
+        {
+            "time": now_iso(),
+            "cwd": os.getcwd(),
+            "action": action,
+            "target": target,
+            "outcome": outcome,
+            "detail": redact_secret_text(detail)[:1000],
+        },
+    )
+
+
+def task_latest(records: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    latest: dict[str, dict[str, Any]] = {}
+    for record in records:
+        task_id = str(record.get("id", ""))
+        if task_id:
+            merged = dict(latest.get(task_id, {}))
+            merged.update(record)
+            latest[task_id] = merged
+    return latest
+
+
 def workspace_snapshot(root: str, max_files: int = 80) -> str:
     root_path = Path(root)
     lines = [f"cwd: {root_path}"]
@@ -581,6 +690,14 @@ def agent_context(agent: str, args: argparse.Namespace | None = None, max_bytes:
         ]
         if args is not None:
             parts.extend(["", "[activity]", agent_context("activity", args, max_bytes=max_bytes // 2)])
+        return "\n".join(parts)
+    if agent == "tools":
+        parts = [tool_registry_snapshot()]
+        if args is not None:
+            records = read_jsonl(audit_path(args))[-8:]
+            if records:
+                parts.append("\n[recent audit]")
+                parts.extend(f"{record.get('time', '')} {record.get('action', '')} {record.get('target', '')} {record.get('outcome', '')}" for record in records)
         return "\n".join(parts)
     raise OoonanaError(f"unknown agent: {agent}")
 
@@ -1037,6 +1154,127 @@ def cmd_agent(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_tools(_: argparse.Namespace) -> int:
+    print(tool_registry_snapshot())
+    return 0
+
+
+def cmd_tool(args: argparse.Namespace) -> int:
+    name = args.name
+    values = list(args.values)
+    yes = False
+    if "--yes" in values:
+        yes = True
+        values = [value for value in values if value != "--yes"]
+    if name == "system":
+        print(environment_snapshot(max_bytes=20000))
+        record_audit(args, "tool system", "environment", "read")
+        return 0
+    if name == "processes":
+        print(process_snapshot())
+        record_audit(args, "tool processes", "ps", "read")
+        return 0
+    if name == "packages":
+        print(package_snapshot())
+        record_audit(args, "tool packages", "package state", "read")
+        return 0
+    if name == "files":
+        target = values[0] if values else "."
+        print(files_snapshot(target))
+        record_audit(args, "tool files", target, "read")
+        return 0
+    if name == "activity":
+        print(agent_context("activity", args))
+        record_audit(args, "tool activity", "history", "read")
+        return 0
+    if name == "shell":
+        command = " ".join(values).strip()
+        if not command:
+            raise OoonanaError("usage: ooonana-ai tool shell [--yes] COMMAND...")
+        if unsafe_shell_command(command):
+            print("blocked: unsafe shell command")
+            record_audit(args, "tool shell", command, "blocked", "unsafe pattern")
+            return 1
+        if not yes:
+            print("blocked: add --yes to execute")
+            print(f"command: {command}")
+            record_audit(args, "tool shell", command, "blocked", "missing --yes")
+            return 0
+        output = run_capture(["sh", "-lc", command], timeout=10.0)
+        print(output)
+        record_audit(args, "tool shell", command, "executed", output)
+        return 0
+    raise OoonanaError(f"unknown tool: {name}")
+
+
+def cmd_audit(args: argparse.Namespace) -> int:
+    records = read_jsonl(audit_path(args))[-args.limit :]
+    if args.json:
+        print(json.dumps(records, indent=2, ensure_ascii=False))
+        return 0
+    if not records:
+        print("no Ooonana AI audit entries yet")
+        return 0
+    for record in records:
+        print(f"{record.get('time', '')} {record.get('action', '')} {record.get('target', '')} {record.get('outcome', '')}")
+    return 0
+
+
+def cmd_tasks(args: argparse.Namespace) -> int:
+    latest = task_latest(read_jsonl(tasks_path(args)))
+    rows = list(latest.values())[-args.limit :]
+    if args.json:
+        print(json.dumps(rows, indent=2, ensure_ascii=False))
+        return 0
+    if not rows:
+        print("no Ooonana tasks yet")
+        return 0
+    for record in rows:
+        print(f"{record.get('id', '')} {record.get('status', '')} {record.get('text', '')}")
+    return 0
+
+
+def cmd_task(args: argparse.Namespace) -> int:
+    action = args.action
+    values = args.values
+    if action == "list":
+        list_args = argparse.Namespace(**vars(args))
+        list_args.limit = 50
+        list_args.json = False
+        return cmd_tasks(list_args)
+    if action == "add":
+        text = " ".join(values).strip()
+        if not text:
+            raise OoonanaError("usage: ooonana-ai task add DESCRIPTION")
+        task_id = f"t-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{uuid4().hex[:4]}"
+        record = {"time": now_iso(), "id": task_id, "status": "open", "text": text}
+        append_jsonl(tasks_path(args), record)
+        record_audit(args, "task add", task_id, "open", text)
+        print(f"task: {task_id} open {text}")
+        return 0
+    if action == "done":
+        if len(values) != 1:
+            raise OoonanaError("usage: ooonana-ai task done TASK_ID")
+        task_id = values[0]
+        latest = task_latest(read_jsonl(tasks_path(args)))
+        if task_id not in latest:
+            raise OoonanaError(f"unknown task: {task_id}")
+        record = {"time": now_iso(), "id": task_id, "status": "done"}
+        append_jsonl(tasks_path(args), record)
+        record_audit(args, "task done", task_id, "done")
+        print(f"done: {task_id}")
+        return 0
+    if action == "plan":
+        goal = " ".join(values).strip() or "system task"
+        print(f"goal: {goal}")
+        print("1. inspect: use read-only tools first")
+        print("2. propose: show command plan and risk")
+        print("3. execute: require --yes for shell action")
+        print("4. audit: record action in audit.jsonl")
+        return 0
+    raise OoonanaError("usage: ooonana-ai task [add|done|plan|list]")
+
+
 def cmd_history(args: argparse.Namespace) -> int:
     records = read_jsonl(history_path(args))
     if getattr(args, "clear", False):
@@ -1141,6 +1379,11 @@ def print_chat_help() -> None:
             /help              Show commands
             /agents            List local context agents
             /agent [NAME|none] Show or switch active agent
+            /tools             List local CLI tools
+            /tool NAME ARGS    Run local CLI tool
+            /tasks             Show CLI tasks
+            /task ACTION ARGS  Add, finish, or plan CLI tasks
+            /audit             Show permissioned action audit log
             /env               Print the Linux environment snapshot
             /history           Show recent Ooonana AI history
             /rewind [N]        Remove the latest N turns from this chat context
@@ -1193,6 +1436,45 @@ def cmd_chat(args: argparse.Namespace) -> int:
                 continue
             if command == "/agents":
                 cmd_agents(args)
+                continue
+            if command == "/tools":
+                cmd_tools(args)
+                continue
+            if command == "/tool":
+                if len(parts) < 2:
+                    print("usage: /tool NAME ARGS")
+                    continue
+                local_tool_args = argparse.Namespace(**vars(args))
+                local_tool_args.name = parts[1]
+                local_tool_args.values = parts[2:]
+                try:
+                    cmd_tool(local_tool_args)
+                except OoonanaError as exc:
+                    print(str(exc))
+                continue
+            if command == "/tasks":
+                local_tasks_args = argparse.Namespace(**vars(args))
+                local_tasks_args.limit = 20
+                local_tasks_args.json = False
+                cmd_tasks(local_tasks_args)
+                continue
+            if command == "/task":
+                if len(parts) < 2:
+                    print("usage: /task ACTION ARGS")
+                    continue
+                local_task_args = argparse.Namespace(**vars(args))
+                local_task_args.action = parts[1]
+                local_task_args.values = parts[2:]
+                try:
+                    cmd_task(local_task_args)
+                except OoonanaError as exc:
+                    print(str(exc))
+                continue
+            if command == "/audit":
+                local_audit_args = argparse.Namespace(**vars(args))
+                local_audit_args.limit = 20
+                local_audit_args.json = False
+                cmd_audit(local_audit_args)
                 continue
             if command == "/agent":
                 if len(parts) == 1:
@@ -1340,6 +1622,11 @@ def build_parser() -> argparse.ArgumentParser:
     model.add_argument("action", nargs="?", default="show", choices=("show", "list", "set", "use", "alias"), help="model action")
     model.add_argument("values", nargs="*", help="model id or alias values")
     subparsers.add_parser("agents", help="list local context agents")
+    subparsers.add_parser("tools", help="list local CLI tools")
+
+    tool = subparsers.add_parser("tool", help="run a local CLI tool")
+    tool.add_argument("name", choices=sorted(TOOLS), help="tool name")
+    tool.add_argument("values", nargs=argparse.REMAINDER, help="tool args")
 
     agent = subparsers.add_parser("agent", help="run or inspect a local context agent")
     agent.add_argument("name", choices=sorted(AGENTS), help="agent name")
@@ -1356,6 +1643,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     sessions = subparsers.add_parser("sessions", help="list persistent chat sessions")
     sessions.add_argument("--limit", type=int, default=20, help="number of sessions to show")
+
+    audit = subparsers.add_parser("audit", help="show permissioned action audit log")
+    audit.add_argument("--limit", type=int, default=30, help="number of audit entries to show")
+    audit.add_argument("--json", action="store_true", help="print JSON audit")
+
+    tasks = subparsers.add_parser("tasks", help="show Ooonana CLI tasks")
+    tasks.add_argument("--limit", type=int, default=50, help="number of tasks to show")
+    tasks.add_argument("--json", action="store_true", help="print JSON tasks")
+
+    task = subparsers.add_parser("task", help="add, finish, or plan CLI tasks")
+    task.add_argument("action", choices=("add", "done", "plan", "list"), help="task action")
+    task.add_argument("values", nargs=argparse.REMAINDER, help="task args")
 
     status = subparsers.add_parser("status", help="show UI/provider status")
     status.add_argument("--model", default="", help="override model id")
@@ -1419,12 +1718,22 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_model(args)
         if command == "agents":
             return cmd_agents(args)
+        if command == "tools":
+            return cmd_tools(args)
+        if command == "tool":
+            return cmd_tool(args)
         if command == "agent":
             return cmd_agent(args)
         if command == "history":
             return cmd_history(args)
         if command == "sessions":
             return cmd_sessions(args)
+        if command == "audit":
+            return cmd_audit(args)
+        if command == "tasks":
+            return cmd_tasks(args)
+        if command == "task":
+            return cmd_task(args)
         if command == "status":
             return cmd_status(args)
         if command == "ping":

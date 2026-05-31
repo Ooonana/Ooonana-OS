@@ -46,7 +46,7 @@ case "${1:-}" in
   help|--help|-h)
     exec "$SCRIPT_DIR/ooonana" ai "${GLOBAL_ARGS[@]}" --help
     ;;
-  setup|doctor|config|env|models|provider|model|agents|agent|history|sessions|status|ping|ask|code|chat)
+  setup|doctor|config|env|models|provider|model|agents|agent|tools|tool|audit|tasks|task|history|sessions|status|ping|ask|code|chat)
     exec "$SCRIPT_DIR/ooonana" ai "${GLOBAL_ARGS[@]}" "$@"
     ;;
   *)
