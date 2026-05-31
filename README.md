@@ -167,4 +167,15 @@ Scratch output:
 /var/tmp/ooonana-os/build/ooonana-scratch-initramfs.cpio.gz
 /var/tmp/ooonana-os/build/ooonana-scratch-disk.raw
 /var/tmp/ooonana-os/build/ooonana-scratch.iso
+/var/tmp/ooonana-os/build/ooonana-wsl-rootfs.tar.gz
+```
+
+## WSL Distro Install
+
+```bash
+bash scripts/build-scratch-rootfs.sh --force
+bash scripts/build-wsl-rootfs.sh --force
+bash scripts/install-wsl-distro.sh --distro Ooonana --force
+wsl.exe -d Ooonana -- /usr/bin/ooonana me
+wsl.exe -d Ooonana -- /usr/bin/ooonana wsl status
 ```

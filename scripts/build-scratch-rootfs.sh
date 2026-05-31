@@ -224,6 +224,25 @@ ID=ooonana
 PRETTY_NAME="Ooonana OS Scratch"
 VERSION_ID="0.0.1-scratch"
 EOF
+  write_file "$ROOTFS/etc/passwd" 0644 <<'EOF'
+root:x:0:0:root:/root:/bin/sh
+EOF
+  write_file "$ROOTFS/etc/group" 0644 <<'EOF'
+root:x:0:
+EOF
+  write_file "$ROOTFS/etc/wsl.conf" 0644 <<'EOF'
+[boot]
+systemd=false
+
+[automount]
+mountFsTab=false
+
+[user]
+default=root
+
+[interop]
+appendWindowsPath=false
+EOF
   if [[ -f "$ROOTFS/usr/share/ooonana/logo.txt" ]]; then
     cp "$ROOTFS/usr/share/ooonana/logo.txt" "$ROOTFS/etc/motd"
   fi

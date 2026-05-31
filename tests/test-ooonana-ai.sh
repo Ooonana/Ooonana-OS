@@ -155,8 +155,9 @@ default_chat_ui="$(printf '/exit\n' | OOONANA_AI_CONFIG="$config" "$AI_WRAPPER")
 assert_contains "$default_chat_ui" "Ooonana AI"
 assert_contains "$default_chat_ui" "mode: chat"
 
-install_out="$(OOONANA_WSL_BIN_DIR="$tmp/bin" bash "$ROOT/scripts/install-ooonana-ai-wsl.sh")"
+install_out="$(OOONANA_WSL_BIN_DIR="$tmp/bin" bash "$ROOT/scripts/install-ooonana-ai-wsl.sh" 2>&1)"
 assert_contains "$install_out" "installed ooonana"
+assert_contains "$install_out" "warning: $tmp/bin is not in PATH"
 [[ -L "$tmp/bin/ooonana" ]] || fail "install script missing ooonana symlink"
 [[ -L "$tmp/bin/ooonana-ai" ]] || fail "install script missing ooonana-ai symlink"
 symlink_status="$(PATH="$tmp/bin:$PATH" OOONANA_AI_CONFIG="$config" ooonana-ai status --model code)"
