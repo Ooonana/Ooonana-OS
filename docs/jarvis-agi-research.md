@@ -8,13 +8,13 @@ Search target: `jarvis-agi`.
 
 Useful concepts:
 
-- Always-on autonomous daemon
-- Desktop awareness through sidecars
+- Optional background daemon with CLI control
+- System awareness through local sidecars
 - Screen capture loop
 - Native app control
 - Shell and filesystem access
 - Multi-agent specialist hierarchy
-- Visual workflow builder
+- CLI workflow builder and task runner
 - Goal pursuit
 - Provider support for Anthropic, OpenAI, Google Gemini, and local Ollama
 - Linux, macOS, WSL, and Docker install paths
@@ -25,15 +25,16 @@ Ooonana fit:
 - Keep `ooonana-ai` as current user-facing CLI.
 - Add daemon later as `ooonana-ai daemon`.
 - Add sidecar later as `ooonana-ai sidecar`.
+- Keep user-facing UI in terminal: slash commands, tables, status lines, JSON, and copyable commands.
 - Put all system actions behind permission gates and audit logs.
 
-## Local-First Voice Reference
+## Local-First Assistant Reference
 
 [isair/jarvis](https://github.com/isair/jarvis)
 
 Useful concepts:
 
-- Private local voice assistant
+- Private local assistant
 - Offline-capable processing
 - Memory with secret redaction
 - Tool selection instead of dumping every tool into context
@@ -47,7 +48,8 @@ Ooonana fit:
 
 - Keep current redaction and history.
 - Add tool registry before broad system control.
-- Add voice after daemon, memory pruning, and permissions.
+- Skip voice input and voice recognition.
+- Prefer CLI commands for every feature.
 
 ## Ooonana Roadmap
 
@@ -71,11 +73,12 @@ Phase 3:
 
 Phase 4:
 
-- Always-on daemon
-- Desktop sidecar
-- Voice input/output
-- Visual context
+- Optional background daemon
+- Local system sidecar
+- CLI task monitor
+- Text-first visual context summaries
 
 Rule:
 
 - Ooonana may be Jarvis-class, but must not claim AGI.
+- Ooonana stays CLI-first.

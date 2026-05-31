@@ -401,28 +401,30 @@ Ooonana's built-in system prompt is intentionally explicit:
 - It should not pretend it executed commands or saw files outside the supplied context.
 - It should redact secrets and avoid exposing API keys.
 - It should help make Ooonana feel like its own AI CLI, not a thin rebrand.
-- It should aim toward Jarvis-class local-first assistance without claiming AGI.
+- It should keep UI CLI-first: commands, slash commands, compact tables, status lines, JSON when requested, and copyable shell snippets.
+- It should not design voice input, voice recognition, GUI dashboards, or web-first flows unless explicitly requested.
+- It should aim toward Jarvis-class local-first system integration without claiming AGI.
 
 ## Jarvis-AGI Direction
 
 The closest GitHub repo matching `jarvis-agi` is [vierisid/jarvis](https://github.com/vierisid/jarvis). Its useful ideas for Ooonana:
 
-- Always-on daemon with desktop awareness
+- Optional background daemon with CLI control
 - Multi-machine sidecars for screen, app, shell, and filesystem access
 - Multi-agent hierarchy with specialist roles
-- Visual workflow builder
+- CLI workflow builder and task runner
 - Provider flexibility across Anthropic, OpenAI, Google Gemini, and local Ollama
 - WSL/Linux install path
 
-Another useful local-first reference is [isair/jarvis](https://github.com/isair/jarvis), which emphasizes private local voice assistance, memory, tool selection, screenshot OCR, web search, file access, location/time awareness, and MCP expansion.
+Another useful local-first reference is [isair/jarvis](https://github.com/isair/jarvis), which has useful memory, tool selection, screenshot OCR, web search, file access, location/time awareness, and MCP expansion ideas. Ooonana will not copy the voice-assistant direction.
 
 Ooonana should borrow direction, not identity:
 
 - Keep assistant name `Ooonana`.
-- Keep CLI first.
+- Keep CLI first. No voice recognition or voice UI.
 - Add provider router first: NIM, Gemini, later Ollama/OpenAI-compatible.
 - Add permissioned system tools next: read-only inspect, then guarded shell/file actions.
-- Add background daemon later, after safety gates and audit history exist.
+- Add optional background daemon later, controlled from CLI, after safety gates and audit history exist.
 - Avoid claiming AGI; call it Jarvis-class system integration.
 
 The source prompt lives in:

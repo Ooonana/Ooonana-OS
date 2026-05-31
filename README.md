@@ -27,7 +27,7 @@ ooonana remove ai
 
 ## Ooonana AI CLI
 
-Ooonana includes a terminal AI app inspired by the provider-gateway shape of tools like Gemini CLI, free-claude-code, and Jarvis-style desktop agents, but it is branded as Ooonana. It supports NVIDIA NIM and Google Gemini. Full usage notes live in [docs/ooonana-ai.md](docs/ooonana-ai.md), with Jarvis notes in [docs/jarvis-agi-research.md](docs/jarvis-agi-research.md).
+Ooonana includes a terminal AI app inspired by the provider-gateway shape of tools like Gemini CLI, free-claude-code, and Jarvis-style system agents, but it is branded as Ooonana and stays CLI-first. It supports NVIDIA NIM and Google Gemini. Full usage notes live in [docs/ooonana-ai.md](docs/ooonana-ai.md), with Jarvis notes in [docs/jarvis-agi-research.md](docs/jarvis-agi-research.md).
 
 Install the dev command in WSL:
 

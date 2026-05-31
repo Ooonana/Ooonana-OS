@@ -70,6 +70,8 @@ assert_contains "$dry_run" "Current Linux environment snapshot"
 assert_contains "$dry_run" "Ooonana local agent context (activity)"
 assert_contains "$dry_run" "assistant_name: Ooonana"
 assert_contains "$dry_run" "[workspace]"
+assert_contains "$dry_run" "CLI-first terminal interface"
+assert_not_contains "$dry_run" "voice readiness"
 assert_not_contains "$dry_run" "test-key"
 
 alias_dry_run="$(OOONANA_AI_CONFIG="$config" "$CLI" ai ask --model code --dry-run "write shell")"
