@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/common.sh
+source "$ROOT/scripts/lib/common.sh"
+
+WORK_DIR="$(ooonana_default_build_dir)"
+SCRATCH_ROOTFS="$WORK_DIR/scratch-rootfs"
+ROOTFS="$WORK_DIR/full-i3-rootfs"
+TARBALL="$WORK_DIR/ooonana-full-i3-rootfs.tar.gz"
+REPO="$WORK_DIR/full-i3-repo"
+FORCE=0
+
+usage() {
+  cat <<'USAGE'
+Build Ooonana full-i3 rootfs skeleton.
+
+Usage:
+  scripts/build-full-i3-rootfs.sh [options]
+
+Options:
+  --work-dir PATH       Build directory (default: /var/tmp/ooonana-os/build)
+  --scratch-rootfs PATH Existing minimal scratch rootfs
+  --rootfs PATH         Full i3 rootfs output path
+  --tarball PATH        Full i3 rootfs tarball output path
+  --repo PATH           Ooonana repo containing branding/i3/full-i3 package metadata
+  --force               Delete existing rootfs and tarball first
+  -h, --help            Show help
+USAGE
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --work-dir) WORK_DIR="$2"; SCRATCH_ROOTFS="$2/scratch-rootfs"; ROOTFS="$2/full-i3-rootfs"; TARBALL="$2/ooonana-full-i3-rootfs.tar.gz"; REPO="$2/full-i3-repo"; shift 2 ;;
+    --scratch-rootfs) SCRATCH_ROOTFS="$2"; shift 2 ;;
+    --rootfs) ROOTFS="$2"; shift 2 ;;
+    --tarball) TARBALL="$2"; shift 2 ;;
+    --repo) REPO="$2"; shift 2 ;;
+    --force) FORCE=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) ooonana_die "unknown option: $1" ;;
+  esac
+done
+
+copy_pkg_marker() {
+  local id="$1"
+  local src="$REPO/$id.pkg"
+  local dest="$ROOTFS/var/lib/ooonana/packages/installed/$id.pkg"
+  [[ -f "$src" ]] || return 0
+  install -D -m 0644 "$src" "$dest"
+}
+
+write_start_script() {
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/start-ooonana-i3" <<'EOF'
+#!/bin/sh
+set -eu
+
+export HOME="${HOME:-/root}"
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+
+if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
+  echo "OOONANA_FULL_I3_OK"
+  exit 0
+fi
+
+if command -v startx >/dev/null 2>&1 && command -v i3 >/dev/null 2>&1; then
+  exec startx /usr/bin/i3
+fi
+
+echo "Ooonana full-i3 skeleton"
+echo "Missing startx or i3. Build/publish the full-i3 package repo, then run: ooonana get full-i3"
+exec /bin/sh
+EOF
+}
+
+install_branding() {
+  install -D -m 0644 "$ROOT/branding/logo.svg" "$ROOTFS/usr/share/ooonana/logo.svg"
+  install -D -m 0644 "$ROOT/branding/logo.png" "$ROOTFS/usr/share/ooonana/logo.png"
+  install -D -m 0644 "$ROOT/branding/wallpaper.svg" "$ROOTFS/usr/share/ooonana/wallpapers/ooonana-wallpaper.svg"
+  install -D -m 0644 "$ROOT/branding/wallpaper.png" "$ROOTFS/usr/share/ooonana/wallpapers/ooonana-wallpaper.png"
+  install -D -m 0644 "$ROOT/branding/i3/config" "$ROOTFS/etc/i3/config"
+}
+
+write_tarball() {
+  mkdir -p "$(dirname "$TARBALL")"
+  rm -f "$TARBALL"
+  tar \
+    --sort=name \
+    --mtime='UTC 1970-01-01' \
+    --numeric-owner \
+    --owner=0 \
+    --group=0 \
+    --pax-option=delete=atime,delete=ctime \
+    --exclude='./dev/*' \
+    --exclude='./proc/*' \
+    --exclude='./sys/*' \
+    --exclude='./run/*' \
+    --exclude='./tmp/*' \
+    -C "$ROOTFS" \
+    -cf - \
+    . | gzip -n > "$TARBALL"
+  chmod a+rw "$TARBALL"
+}
+
+main() {
+  ooonana_require_linux
+  ooonana_require_commands chmod cp gzip install mkdir rm tar
+  [[ -d "$SCRATCH_ROOTFS" ]] || ooonana_die "missing scratch rootfs: $SCRATCH_ROOTFS"
+  [[ -x "$SCRATCH_ROOTFS/bin/sh" ]] || ooonana_die "invalid scratch rootfs: missing /bin/sh"
+  [[ -f "$ROOT/branding/logo.svg" ]] || ooonana_die "missing branding/logo.svg"
+  [[ -f "$ROOT/branding/logo.png" ]] || ooonana_die "missing branding/logo.png"
+  [[ -f "$ROOT/branding/wallpaper.svg" ]] || ooonana_die "missing branding/wallpaper.svg"
+  [[ -f "$ROOT/branding/wallpaper.png" ]] || ooonana_die "missing branding/wallpaper.png"
+  [[ -f "$ROOT/branding/i3/config" ]] || ooonana_die "missing branding/i3/config"
+
+  if [[ "$FORCE" -eq 1 ]]; then
+    rm -rf "$ROOTFS"
+    rm -f "$TARBALL"
+  elif [[ -e "$ROOTFS" || -e "$TARBALL" ]]; then
+    ooonana_die "full-i3 rootfs or tarball exists (use --force)"
+  fi
+
+  mkdir -p "$(dirname "$ROOTFS")"
+  cp -a "$SCRATCH_ROOTFS" "$ROOTFS"
+  mkdir -p "$ROOTFS/etc/ooonana" "$ROOTFS/var/lib/ooonana/packages/installed"
+  printf 'full-i3\n' > "$ROOTFS/etc/ooonana/edition"
+  printf 'skeleton\n' > "$ROOTFS/etc/ooonana/edition-state"
+  install_branding
+  write_start_script
+  copy_pkg_marker branding
+  copy_pkg_marker i3
+  copy_pkg_marker full-i3
+  write_tarball
+  chmod -R a+rwX "$ROOTFS" 2>/dev/null || true
+
+  ooonana_log "full-i3 rootfs ready: $ROOTFS"
+  ooonana_log "full-i3 rootfs tarball ready: $TARBALL"
+}
+
+main "$@"

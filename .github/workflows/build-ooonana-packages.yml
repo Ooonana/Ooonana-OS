@@ -20,6 +20,11 @@ on:
         required: true
         type: boolean
         default: false
+      full_i3_profile:
+        description: "Build Ooonana full-i3 wrapper packages and branding archive"
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -45,8 +50,13 @@ jobs:
           for repo in $ALPINE_REPOS; do
             repo_args="$repo_args --repo-url $repo"
           done
-          # shellcheck disable=SC2086
-          bash scripts/import-apk-package.sh $repo_args --out-dir "$out" $PACKAGES
+          if [ "${{ inputs.full_i3_profile }}" = "true" ]; then
+            # shellcheck disable=SC2086
+            bash scripts/import-i3-package-set.sh $repo_args --out-dir "$out" --packages "$PACKAGES"
+          else
+            # shellcheck disable=SC2086
+            bash scripts/import-apk-package.sh $repo_args --out-dir "$out" $PACKAGES
+          fi
           find "$out" -maxdepth 3 -type f -print | sort
 
       - name: Pack repo backup

@@ -1,0 +1,36 @@
+set $mod Mod4
+font pango:monospace 10
+
+exec_always --no-startup-id feh --bg-fill /usr/share/ooonana/wallpapers/ooonana-wallpaper.png
+exec --no-startup-id xsetroot -name "Ooonana OS"
+
+bindsym $mod+Return exec xterm
+bindsym $mod+d exec dmenu_run
+bindsym $mod+Shift+r restart
+bindsym $mod+Shift+q kill
+bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'Exit Ooonana i3?' -b 'Exit' 'i3-msg exit'"
+
+bindsym $mod+h focus left
+bindsym $mod+j focus down
+bindsym $mod+k focus up
+bindsym $mod+l focus right
+
+bindsym $mod+Shift+h move left
+bindsym $mod+Shift+j move down
+bindsym $mod+Shift+k move up
+bindsym $mod+Shift+l move right
+
+bindsym $mod+f fullscreen toggle
+bindsym $mod+s layout stacking
+bindsym $mod+w layout tabbed
+bindsym $mod+e layout toggle split
+
+bar {
+    status_command i3status
+    colors {
+        background #0b1012
+        statusline #f3f5ef
+        focused_workspace #6fd6c5 #102124 #f3f5ef
+        inactive_workspace #102124 #102124 #9edfd5
+    }
+}

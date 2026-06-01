@@ -786,12 +786,13 @@ cmd_verify() {
 }
 
 install_one_pkg() {
+  local id dry_run deps dep
   id="$1"
   dry_run="$2"
   load_pkg "$id"
 
   deps="$OOONANA_PKG_DEPS"
-  for dep in $OOONANA_PKG_DEPS; do
+  for dep in $deps; do
     install_one_pkg "$dep" "$dry_run"
   done
   load_pkg "$id"
@@ -834,6 +835,7 @@ cmd_get() {
 }
 
 upgrade_one_pkg() {
+  local id dry_run old_version new_version deps dep archive_path
   id="$1"
   dry_run="$2"
   pkg_installed "$id" || die "package not installed: $id"

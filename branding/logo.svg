@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
+  <title id="title">Ooonana OS</title>
+  <desc id="desc">Ooonana OS face logo based on the project ASCII art.</desc>
+  <rect width="640" height="360" rx="0" fill="#0b1012"/>
+  <g id="ooonana-face" fill="none" stroke="#f3f5ef" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M172 88h296v148H172z"/>
+    <path d="M172 154h-38c-28 0-50 24-50 54"/>
+    <path d="M468 154h38c28 0 50 24 50 54"/>
+    <path d="M238 132c16-30 58-30 74 0"/>
+    <path d="M328 132c16-30 58-30 74 0"/>
+    <path d="M252 176c30 38 106 38 136 0"/>
+    <path d="M284 236v50"/>
+    <path d="M356 236v50"/>
+  </g>
+  <text x="320" y="330" text-anchor="middle" fill="#f3f5ef" font-family="monospace" font-size="38" font-weight="700">Ooonana OS</text>
+</svg>

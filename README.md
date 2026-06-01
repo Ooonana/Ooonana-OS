@@ -21,6 +21,7 @@ Lightweight scratch-built Linux for QEMU, WSL, installer experiments, and AI-fir
 - [Install And Test](#install-and-test)
 - [Ooonana Command](#ooonana-command)
 - [Package Factory](#package-factory)
+- [Full I3 Edition](#full-i3-edition)
 - [Ooonana AI](#ooonana-ai)
 - [Build From Source](#build-from-source)
 - [Project Files](#project-files)
@@ -45,6 +46,7 @@ Release files:
 ooonana-scratch.iso          bootable GRUB installer ISO
 ooonana-scratch-disk.raw     bootable installed raw disk image
 ooonana-rootfs.tar.gz        generic chroot/container rootfs tarball
+ooonana-full-i3-rootfs.tar.gz full-i3 rootfs skeleton tarball
 ooonana-wsl-rootfs.tar.gz    WSL import rootfs
 vmlinuz-ooonana              Ooonana Linux kernel
 SHA256SUMS                   checksums for release artifacts
@@ -89,14 +91,15 @@ Working now:
 - `ooonana` package manager has repo index, checksums, install, remove, upgrade, files, verify
 - `ooonana update` can sync local and HTTP package repos into cache
 - Alpine `.apk` packages can be imported into Ooonana `.pkg` repos
+- Full-i3 branding assets and rootfs skeleton exist as a separate edition path
 - `ooonana-ai` supports NVIDIA NIM, Google Gemini, tools, tasks, audit, and shell fallback for scratch WSL
 
 Next work:
 
-- Graphical installer UI
+- Real full-i3 GUI boot with Xorg/i3 packages installed
+- Graphical installer UI on top of full-i3
 - More first-party packages
 - Users, networking, services, security defaults
-- Optional GUI bundle
 
 ## Install And Test
 
@@ -213,6 +216,54 @@ This creates:
 ```
 
 The GitHub Actions workflow `Build Ooonana Packages` can run the same importer in cloud, upload the generated repo as artifacts, publish a tarball to GitHub Releases, and optionally deploy the repo to GitHub Pages. GitHub Pages is the direct HTTP repo path for `ooonana update`; Releases are backup storage for the repo tarball.
+
+## Full I3 Edition
+
+Minimal and full are separate.
+
+```text
+minimal   ooonana-scratch.iso, ooonana-rootfs.tar.gz
+full-i3   ooonana-full-i3-rootfs.tar.gz, later ooonana-full-i3.iso
+```
+
+The full-i3 first pass adds branding, i3 config, package automation, and a rootfs skeleton. It does not replace the minimal release.
+
+Build full-i3 package repo locally:
+
+```bash
+bash scripts/import-i3-package-set.sh \
+  --out-dir /var/tmp/ooonana-os/build/full-i3-repo
+```
+
+Build full-i3 rootfs skeleton:
+
+```bash
+bash scripts/build-scratch-rootfs.sh --force
+bash scripts/build-full-i3-rootfs.sh \
+  --repo /var/tmp/ooonana-os/build/full-i3-repo \
+  --force
+```
+
+Output:
+
+```text
+/var/tmp/ooonana-os/build/full-i3-rootfs
+/var/tmp/ooonana-os/build/ooonana-full-i3-rootfs.tar.gz
+```
+
+Cloud package build:
+
+```text
+GitHub Actions -> Build Ooonana Packages -> full_i3_profile=true
+```
+
+After the generated repo is published to GitHub Pages and added to `/etc/ooonana/sources.d/cloud.repo`, this path is intended to work:
+
+```bash
+ooonana update
+ooonana get full-i3
+start-ooonana-i3
+```
 
 ## Ooonana AI
 
@@ -369,6 +420,8 @@ scripts/install-wsl-distro.sh
 scripts/run-qemu.sh
 scripts/clean-build-artifacts.sh
 scripts/import-apk-package.sh
+scripts/import-i3-package-set.sh
+scripts/build-full-i3-rootfs.sh
 scripts/lib/common.sh
 ```
 
@@ -379,6 +432,9 @@ tests/test-ooonana-pkg.sh
 tests/test-ooonana-ai.sh
 tests/test-import-apk-package.sh
 tests/test-package-factory.sh
+tests/test-i3-package-set.sh
+tests/test-branding-assets.sh
+tests/test-full-i3-rootfs.sh
 tests/test-logo-sync.sh
 tests/test-rootfs-tarball.sh
 tests/test-scratch-rootfs.sh
