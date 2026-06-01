@@ -1,0 +1,8 @@
+# Ooonana full-i3 cloud package repo seed.
+xorg-server
+xinit
+i3wm
+i3status
+dmenu
+feh
+xterm

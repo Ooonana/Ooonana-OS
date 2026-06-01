@@ -3,28 +3,28 @@
   <desc id="desc">Dark Ooonana OS wallpaper with face logo for the full i3 edition.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#071012"/>
-      <stop offset="0.48" stop-color="#102124"/>
-      <stop offset="1" stop-color="#15170f"/>
+      <stop offset="0" stop-color="#0d0b08"/>
+      <stop offset="0.48" stop-color="#1d1207"/>
+      <stop offset="1" stop-color="#281604"/>
     </linearGradient>
     <radialGradient id="glow" cx="50%" cy="48%" r="55%">
-      <stop offset="0" stop-color="#6fd6c5" stop-opacity="0.22"/>
-      <stop offset="0.55" stop-color="#6fd6c5" stop-opacity="0.08"/>
-      <stop offset="1" stop-color="#6fd6c5" stop-opacity="0"/>
+      <stop offset="0" stop-color="#ffb21a" stop-opacity="0.25"/>
+      <stop offset="0.55" stop-color="#ffb21a" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#ffb21a" stop-opacity="0"/>
     </radialGradient>
   </defs>
   <rect id="ooonana-wallpaper" width="1920" height="1080" fill="url(#bg)"/>
   <rect width="1920" height="1080" fill="url(#glow)"/>
-  <g transform="translate(525 258) scale(1.36)" fill="none" stroke="#f3f5ef" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" opacity="0.96">
+  <g transform="translate(525 258) scale(1.36)" fill="none" stroke="#ffb21a" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" opacity="0.96">
     <path d="M172 88h296v148H172z"/>
-    <path d="M172 154h-38c-28 0-50 24-50 54"/>
-    <path d="M468 154h38c28 0 50 24 50 54"/>
+    <path d="M172 154h-38L84 208"/>
+    <path d="M468 154h38l50 54"/>
     <path d="M238 132c16-30 58-30 74 0"/>
     <path d="M328 132c16-30 58-30 74 0"/>
     <path d="M252 176c30 38 106 38 136 0"/>
     <path d="M284 236v50"/>
     <path d="M356 236v50"/>
   </g>
-  <text x="960" y="785" text-anchor="middle" fill="#f3f5ef" font-family="monospace" font-size="82" font-weight="700">Ooonana OS</text>
-  <text x="960" y="850" text-anchor="middle" fill="#9edfd5" font-family="monospace" font-size="28">full i3 edition</text>
+  <text x="960" y="785" text-anchor="middle" fill="#ffb21a" font-family="monospace" font-size="82" font-weight="700">Ooonana OS</text>
+  <text x="960" y="850" text-anchor="middle" fill="#ffd37a" font-family="monospace" font-size="28">full i3 edition</text>
 </svg>

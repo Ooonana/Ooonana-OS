@@ -1,0 +1,7 @@
+# Default Ooonana cloud package repo seed.
+# GitHub Actions imports these packages plus dependencies.
+nano
+bash
+curl
+wget
+ca-certificates

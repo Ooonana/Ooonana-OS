@@ -41,7 +41,7 @@ pkg_help="$("$CLI" help)"
 
 me="$("$CLI" me)"
 [[ "$me" == *"Ooonana OS"* ]] || fail "me missing label"
-[[ "$me" == *"_____________________"* ]] || fail "me missing logo"
+[[ "$me" == *"__________________"* ]] || fail "me missing logo"
 [[ "$me" == *"\\______/"* ]] || fail "me missing face"
 
 wsl="$("$CLI" wsl status)"

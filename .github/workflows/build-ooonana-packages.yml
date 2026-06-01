@@ -4,9 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       packages:
-        description: "Space-separated Alpine package names to import"
-        required: true
-        default: "nano"
+        description: "Extra space-separated Alpine package names to import"
+        required: false
+        default: ""
+      package_profile:
+        description: "Repo package profile file to import"
+        required: false
+        default: "configs/packages/ooonana-repo.list"
       alpine_repo:
         description: "Space-separated Alpine APK repository URLs"
         required: true
@@ -41,6 +45,7 @@ jobs:
       - name: Build package repo
         env:
           PACKAGES: ${{ inputs.packages }}
+          PACKAGE_PROFILE: ${{ inputs.package_profile }}
           ALPINE_REPOS: ${{ inputs.alpine_repo }}
         run: |
           set -euo pipefail
@@ -50,12 +55,30 @@ jobs:
           for repo in $ALPINE_REPOS; do
             repo_args="$repo_args --repo-url $repo"
           done
+          profile="$PACKAGE_PROFILE"
+          if [ "${{ inputs.full_i3_profile }}" = "true" ] && [ "$profile" = "configs/packages/ooonana-repo.list" ]; then
+            profile="configs/packages/full-i3.list"
+          fi
+          package_list=""
+          if [ -n "$profile" ]; then
+            if [ ! -f "$profile" ]; then
+              echo "::error::missing package profile: $profile"
+              exit 1
+            fi
+            package_list="$(sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$profile" | tr '\n' ' ')"
+          fi
+          package_list="$package_list $PACKAGES"
+          package_list="$(printf '%s\n' "$package_list" | tr ' ' '\n' | awk 'NF && !seen[$0]++ { print }' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+          if [ -z "$package_list" ]; then
+            echo "::error::no packages requested; set packages or package_profile"
+            exit 1
+          fi
           if [ "${{ inputs.full_i3_profile }}" = "true" ]; then
             # shellcheck disable=SC2086
-            bash scripts/import-i3-package-set.sh $repo_args --out-dir "$out" --packages "$PACKAGES"
+            bash scripts/import-i3-package-set.sh $repo_args --out-dir "$out" --packages "$package_list"
           else
             # shellcheck disable=SC2086
-            bash scripts/import-apk-package.sh $repo_args --out-dir "$out" $PACKAGES
+            bash scripts/import-apk-package.sh $repo_args --out-dir "$out" $package_list
           fi
           find "$out" -maxdepth 3 -type f -print | sort
 

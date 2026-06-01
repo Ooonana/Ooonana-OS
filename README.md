@@ -206,6 +206,12 @@ bash scripts/import-apk-package.sh \
   nano
 ```
 
+Default cloud package profile:
+
+```text
+configs/packages/ooonana-repo.list
+```
+
 This creates:
 
 ```text
@@ -215,7 +221,16 @@ This creates:
 /tmp/ooonana-repo/SHA256SUMS
 ```
 
-The GitHub Actions workflow `Build Ooonana Packages` can run the same importer in cloud, upload the generated repo as artifacts, publish a tarball to GitHub Releases, and optionally deploy the repo to GitHub Pages. GitHub Pages is the direct HTTP repo path for `ooonana update`; Releases are backup storage for the repo tarball.
+The GitHub Actions workflow `Build Ooonana Packages` can run the same importer in cloud from a package profile, upload the generated repo as artifacts, publish a tarball to GitHub Releases, and optionally deploy the repo to GitHub Pages. GitHub Pages is the direct HTTP repo path for `ooonana update`; Releases are backup storage for the repo tarball.
+
+Cloud build defaults are repo-wide seed packages, not nano-only:
+
+```text
+package_profile=configs/packages/ooonana-repo.list
+packages="" for optional extras
+```
+
+Use `packages` for quick extras or change `package_profile` to another `.list` file. The importer builds requested packages plus dependencies; it does not mirror all Alpine packages.
 
 ## Full I3 Edition
 
@@ -255,6 +270,12 @@ Cloud package build:
 
 ```text
 GitHub Actions -> Build Ooonana Packages -> full_i3_profile=true
+```
+
+When `full_i3_profile=true`, the cloud build uses:
+
+```text
+configs/packages/full-i3.list
 ```
 
 After the generated repo is published to GitHub Pages and added to `/etc/ooonana/sources.d/cloud.repo`, this path is intended to work:
@@ -389,6 +410,8 @@ Kernel and package config:
 ```text
 configs/kernel/ooonana-minimal-x86_64.fragment
 configs/packages/core.list
+configs/packages/ooonana-repo.list
+configs/packages/full-i3.list
 ```
 
 Ooonana package:

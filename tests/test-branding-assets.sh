@@ -38,9 +38,17 @@ config="$(<"$i3_config")"
 assert_contains "$logo" "<svg"
 assert_contains "$logo" "Ooonana OS"
 assert_contains "$logo" "ooonana-face"
+assert_contains "$logo" "#ffb21a"
+assert_contains "$logo" 'd="M172 154h-38L84 208"'
+assert_contains "$logo" 'd="M468 154h38l50 54"'
+[[ "$logo" != *'M172 154h-38c'* ]] || fail "left arm must be straight"
+[[ "$logo" != *'M468 154h38c'* ]] || fail "right arm must be straight"
 assert_contains "$wallpaper" 'viewBox="0 0 1920 1080"'
 assert_contains "$wallpaper" "Ooonana OS"
 assert_contains "$wallpaper" "ooonana-wallpaper"
+assert_contains "$wallpaper" "#ffb21a"
+assert_contains "$wallpaper" 'd="M172 154h-38L84 208"'
+assert_contains "$wallpaper" 'd="M468 154h38l50 54"'
 assert_contains "$config" 'set $mod Mod4'
 assert_contains "$config" "ooonana-wallpaper.png"
 assert_contains "$config" 'bindsym $mod+Return exec xterm'

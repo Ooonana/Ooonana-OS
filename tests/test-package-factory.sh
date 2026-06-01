@@ -5,6 +5,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKFLOW="$ROOT/.github/workflows/build-ooonana-packages.yml"
 IMPORTER="$ROOT/scripts/import-apk-package.sh"
 README="$ROOT/README.md"
+DEFAULT_PROFILE="$ROOT/configs/packages/ooonana-repo.list"
+FULL_I3_PROFILE="$ROOT/configs/packages/full-i3.list"
 
 fail() {
   printf 'FAIL: %s\n' "$*" >&2
@@ -19,10 +21,20 @@ assert_contains() {
 
 [[ -x "$IMPORTER" ]] || fail "missing executable importer"
 [[ -f "$WORKFLOW" ]] || fail "missing package workflow"
+[[ -f "$DEFAULT_PROFILE" ]] || fail "missing default package profile"
+[[ -f "$FULL_I3_PROFILE" ]] || fail "missing full-i3 package profile"
+
+default_profile="$(<"$DEFAULT_PROFILE")"
+full_i3_profile="$(<"$FULL_I3_PROFILE")"
+assert_contains "$default_profile" "nano"
+assert_contains "$default_profile" "curl"
+assert_contains "$full_i3_profile" "i3wm"
+assert_contains "$full_i3_profile" "xorg-server"
 
 workflow="$(<"$WORKFLOW")"
 assert_contains "$workflow" "workflow_dispatch:"
 assert_contains "$workflow" "packages:"
+assert_contains "$workflow" "package_profile:"
 assert_contains "$workflow" "alpine_repo:"
 assert_contains "$workflow" "full_i3_profile:"
 assert_contains "$workflow" "publish_pages:"
@@ -32,10 +44,14 @@ assert_contains "$workflow" "actions/upload-artifact"
 assert_contains "$workflow" "actions/upload-pages-artifact"
 assert_contains "$workflow" "actions/deploy-pages"
 assert_contains "$workflow" "gh release upload"
+[[ "$workflow" != *'default: "nano"'* ]] || fail "workflow default must not be nano-only"
+assert_contains "$workflow" "configs/packages/ooonana-repo.list"
+assert_contains "$workflow" "configs/packages/full-i3.list"
 
 readme="$(<"$README")"
 assert_contains "$readme" "Package Factory"
 assert_contains "$readme" "scripts/import-apk-package.sh"
+assert_contains "$readme" "configs/packages/ooonana-repo.list"
 assert_contains "$readme" "ooonana get nano"
 assert_contains "$readme" "GitHub Pages"
 
