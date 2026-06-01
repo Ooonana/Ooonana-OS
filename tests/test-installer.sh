@@ -62,6 +62,7 @@ assert_contains "$dry_run" "file=$tmp/install.ext4\\,format=raw\\,if=virtio"
 assert_not_contains "$dry_run" "-kernel"
 
 grep -q 'OOONANA_INSTALL_OK' "$ROOT/scripts/run-qemu.sh" || fail "run-qemu install smoke must check install marker"
+grep -q 'ooonana.smoke=1' "$ROOT/scripts/build-scratch-grub-iso.sh" || fail "installer smoke ISO must bypass text prompt"
 grep -q '/bin/sh -ec' "$ROOT/scripts/build-rootfs.sh" || fail "install service must stop before marker on failure"
 grep -q 'exec >/dev/console 2>&1' "$ROOT/scripts/build-rootfs.sh" || fail "install service must print installer errors to console"
 grep -q 'grep -o "ooonana.install.target=' "$ROOT/scripts/build-rootfs.sh" || fail "install service must parse target without systemd escape warnings"

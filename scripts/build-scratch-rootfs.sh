@@ -165,12 +165,41 @@ if [ -f /usr/share/ooonana/logo.txt ]; then
   cat /usr/share/ooonana/logo.txt
 fi
 echo "Ooonana scratch rootfs"
+
+confirm_install() {
+  target="$1"
+  if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
+    return 0
+  fi
+  clear 2>/dev/null || true
+  if [ -f /usr/share/ooonana/logo.txt ]; then
+    cat /usr/share/ooonana/logo.txt
+  fi
+  echo
+  echo "Ooonana installer"
+  echo "Target disk: $target"
+  echo
+  echo "Type INSTALL to erase $target and install Ooonana OS."
+  printf 'Confirm: '
+  read -r confirm
+  if [ "$confirm" != "INSTALL" ]; then
+    echo "OOONANA_INSTALL_CANCELLED"
+    return 1
+  fi
+  return 0
+}
+
 if grep -q 'ooonana.install=1' /proc/cmdline 2>/dev/null; then
   target="$(grep -o 'ooonana.install.target=[^ ]*' /proc/cmdline | cut -d= -f2 || true)"
   target="${target:-/dev/vda}"
   mkdir -p /mnt/install
   if [ ! -b "$target" ]; then
     echo "OOONANA_INSTALL_FAIL"
+    sync
+    sleep 1
+    reboot -f
+  fi
+  if ! confirm_install "$target"; then
     sync
     sleep 1
     reboot -f
@@ -248,6 +277,7 @@ appendWindowsPath=false
 EOF
   if [[ -f "$ROOTFS/usr/share/ooonana/logo.txt" ]]; then
     cp "$ROOTFS/usr/share/ooonana/logo.txt" "$ROOTFS/etc/motd"
+    cp "$ROOTFS/usr/share/ooonana/logo.txt" "$ROOTFS/etc/issue"
   fi
 }
 

@@ -43,6 +43,7 @@ Release files:
 ```text
 ooonana-scratch.iso          bootable GRUB installer ISO
 ooonana-scratch-disk.raw     bootable installed raw disk image
+ooonana-rootfs.tar.gz        generic chroot/container rootfs tarball
 ooonana-wsl-rootfs.tar.gz    WSL import rootfs
 vmlinuz-ooonana              Ooonana Linux kernel
 SHA256SUMS                   checksums for release artifacts
@@ -80,14 +81,16 @@ Working now:
 - Scratch rootfs boots in QEMU
 - GRUB raw disk boots in QEMU
 - Installer ISO writes Ooonana to blank disk
+- Installer has a serial-safe text UI with logo, target disk, and confirmation
 - Installed disk boots in QEMU
+- Generic `ooonana-rootfs.tar.gz` can be unpacked for chroot/container-style use
 - WSL distro import works
 - `ooonana` package manager has repo index, checksums, install, remove, upgrade, files, verify
 - `ooonana-ai` supports NVIDIA NIM, Google Gemini, tools, tasks, audit, and shell fallback for scratch WSL
 
 Next work:
 
-- Installer UI
+- Graphical installer UI
 - Real package repository publishing flow
 - More first-party packages
 - Users, networking, services, security defaults
@@ -117,6 +120,17 @@ bash scripts/run-qemu.sh \
   --disk-boot \
   --image /var/tmp/ooonana-os/release/ooonana-scratch-disk.raw \
   --smoke
+```
+
+Use the generic rootfs tarball:
+
+```bash
+mkdir -p /tmp/ooonana-rootfs
+sudo tar -xzf /var/tmp/ooonana-os/release/ooonana-rootfs.tar.gz -C /tmp/ooonana-rootfs
+sudo mount -t proc proc /tmp/ooonana-rootfs/proc
+sudo mount --rbind /sys /tmp/ooonana-rootfs/sys
+sudo mount --rbind /dev /tmp/ooonana-rootfs/dev
+sudo chroot /tmp/ooonana-rootfs /bin/sh
 ```
 
 Import WSL rootfs:
@@ -223,6 +237,7 @@ Build scratch rootfs, WSL tarball, disk, and installer ISO:
 ```bash
 bash scripts/build-scratch-rootfs.sh --force
 bash scripts/build-scratch-initramfs.sh --force
+bash scripts/build-rootfs-tarball.sh --force
 bash scripts/build-wsl-rootfs.sh --force
 bash scripts/build-scratch-disk.sh --smoke --force
 bash scripts/build-scratch-grub-iso.sh \
@@ -308,6 +323,7 @@ scripts/fetch-kernel-source.sh
 scripts/build-kernel.sh
 scripts/build-scratch-rootfs.sh
 scripts/build-scratch-initramfs.sh
+scripts/build-rootfs-tarball.sh
 scripts/build-wsl-rootfs.sh
 scripts/build-scratch-disk.sh
 scripts/build-scratch-grub-iso.sh
@@ -322,6 +338,8 @@ Tests:
 ```text
 tests/test-ooonana-pkg.sh
 tests/test-ooonana-ai.sh
+tests/test-logo-sync.sh
+tests/test-rootfs-tarball.sh
 tests/test-scratch-rootfs.sh
 tests/test-scratch-initramfs.sh
 tests/test-scratch-disk.sh
