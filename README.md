@@ -3,12 +3,12 @@
 ```
 Ooonana OS
       _____________________
-     |        __           __       |
-     |      /    \       /    \     |
-   / |                               |\
- /   |         \ ______/         |  \
+     |     __       __     |
+     |   /    \   /    \   |
+   / |                     |\
+ /   |      \______/       |  \
      |_____________________|
-               |            |
+          |            |
 ```
 
 Lightweight scratch-built Linux for QEMU, WSL, installer experiments, and AI-first terminal work.
