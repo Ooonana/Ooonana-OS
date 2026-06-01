@@ -2,13 +2,13 @@
 
 ```
 Ooonana OS
-      _____________________
-     |     __       __     |
-     |   /    \   /    \   |
-   / |                     |\
- /   |      \______/       |  \
-     |_____________________|
-          |            |
+      __________________
+     |    __      __    |
+     |   /  \    /  \   |
+   / |                  |\
+  /  |     \______/     | \
+     |__________________|
+          |        |
 ```
 
 Lightweight scratch-built Linux for QEMU, WSL, installer experiments, and AI-first terminal work.
