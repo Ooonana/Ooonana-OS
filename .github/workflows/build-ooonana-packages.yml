@@ -1,0 +1,92 @@
+name: Build Ooonana Packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: "Space-separated Alpine package names to import"
+        required: true
+        default: "nano"
+      alpine_repo:
+        description: "Space-separated Alpine APK repository URLs"
+        required: true
+        default: "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64 https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64"
+      release_tag:
+        description: "GitHub Release tag for tarball backup"
+        required: true
+        default: "packages-latest"
+      publish_pages:
+        description: "Deploy generated package repo to GitHub Pages"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build-packages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build package repo
+        env:
+          PACKAGES: ${{ inputs.packages }}
+          ALPINE_REPOS: ${{ inputs.alpine_repo }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/ooonana-repo"
+          mkdir -p "$out"
+          repo_args=""
+          for repo in $ALPINE_REPOS; do
+            repo_args="$repo_args --repo-url $repo"
+          done
+          # shellcheck disable=SC2086
+          bash scripts/import-apk-package.sh $repo_args --out-dir "$out" $PACKAGES
+          find "$out" -maxdepth 3 -type f -print | sort
+
+      - name: Pack repo backup
+        run: |
+          set -euo pipefail
+          tar -C "$RUNNER_TEMP/ooonana-repo" -czf "$RUNNER_TEMP/ooonana-package-repo.tar.gz" .
+
+      - name: Upload package repo artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ooonana-package-repo
+          path: ${{ runner.temp }}/ooonana-repo
+
+      - name: Upload package repo tarball artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ooonana-package-repo-tarball
+          path: ${{ runner.temp }}/ooonana-package-repo.tar.gz
+
+      - name: Publish tarball to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --title "Ooonana package repo" --notes "Generated Ooonana package repo backup."
+          fi
+          gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/ooonana-package-repo.tar.gz" --clobber
+
+      - name: Configure Pages
+        if: ${{ inputs.publish_pages }}
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        if: ${{ inputs.publish_pages }}
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/ooonana-repo
+
+      - name: Deploy Pages
+        if: ${{ inputs.publish_pages }}
+        uses: actions/deploy-pages@v4

@@ -13,5 +13,7 @@ packages/ooonana/usr/share/ooonana/*.txt text eol=lf
 configs/packages/*.list text eol=lf
 configs/kernel/*.fragment text eol=lf
 *.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
 .gitignore text eol=lf
 .gitattributes text eol=lf

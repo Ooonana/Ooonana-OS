@@ -20,6 +20,7 @@ Lightweight scratch-built Linux for QEMU, WSL, installer experiments, and AI-fir
 - [Current Status](#current-status)
 - [Install And Test](#install-and-test)
 - [Ooonana Command](#ooonana-command)
+- [Package Factory](#package-factory)
 - [Ooonana AI](#ooonana-ai)
 - [Build From Source](#build-from-source)
 - [Project Files](#project-files)
@@ -86,12 +87,13 @@ Working now:
 - Generic `ooonana-rootfs.tar.gz` can be unpacked for chroot/container-style use
 - WSL distro import works
 - `ooonana` package manager has repo index, checksums, install, remove, upgrade, files, verify
+- `ooonana update` can sync local and HTTP package repos into cache
+- Alpine `.apk` packages can be imported into Ooonana `.pkg` repos
 - `ooonana-ai` supports NVIDIA NIM, Google Gemini, tools, tasks, audit, and shell fallback for scratch WSL
 
 Next work:
 
 - Graphical installer UI
-- Real package repository publishing flow
 - More first-party packages
 - Users, networking, services, security defaults
 - Optional GUI bundle
@@ -174,7 +176,43 @@ Package metadata lives inside Ooonana:
 /etc/ooonana/sources.d/*.repo
 /var/lib/ooonana/packages/installed
 /var/cache/ooonana/index.tsv
+/var/cache/ooonana/repos/NAME
 ```
+
+Remote repo source example:
+
+```sh
+cat >/etc/ooonana/sources.d/cloud.repo <<'EOF'
+OOONANA_REPO_NAME="cloud"
+OOONANA_REPO_URI="https://YOUR.github.io/Ooonana-OS"
+EOF
+
+ooonana update
+ooonana get nano
+```
+
+## Package Factory
+
+Import Alpine packages into an Ooonana repo:
+
+```bash
+bash scripts/import-apk-package.sh \
+  --repo-url https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64 \
+  --repo-url https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64 \
+  --out-dir /tmp/ooonana-repo \
+  nano
+```
+
+This creates:
+
+```text
+/tmp/ooonana-repo/nano.pkg
+/tmp/ooonana-repo/archives/*.tar.gz
+/tmp/ooonana-repo/index.tsv
+/tmp/ooonana-repo/SHA256SUMS
+```
+
+The GitHub Actions workflow `Build Ooonana Packages` can run the same importer in cloud, upload the generated repo as artifacts, publish a tarball to GitHub Releases, and optionally deploy the repo to GitHub Pages. GitHub Pages is the direct HTTP repo path for `ooonana update`; Releases are backup storage for the repo tarball.
 
 ## Ooonana AI
 
@@ -330,6 +368,7 @@ scripts/build-scratch-grub-iso.sh
 scripts/install-wsl-distro.sh
 scripts/run-qemu.sh
 scripts/clean-build-artifacts.sh
+scripts/import-apk-package.sh
 scripts/lib/common.sh
 ```
 
@@ -338,6 +377,8 @@ Tests:
 ```text
 tests/test-ooonana-pkg.sh
 tests/test-ooonana-ai.sh
+tests/test-import-apk-package.sh
+tests/test-package-factory.sh
 tests/test-logo-sync.sh
 tests/test-rootfs-tarball.sh
 tests/test-scratch-rootfs.sh

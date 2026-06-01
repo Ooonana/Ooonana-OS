@@ -32,7 +32,14 @@ assert_not_contains "$CLI_SRC" "packages=("
 assert_not_contains "$CLI_SRC" "pipefail"
 
 tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
+server_pid=""
+cleanup() {
+  if [[ -n "$server_pid" ]]; then
+    kill "$server_pid" 2>/dev/null || true
+  fi
+  rm -rf "$tmp"
+}
+trap cleanup EXIT
 
 export OOONANA_REPO_DIR="$REPO"
 export OOONANA_STATE_DIR="$tmp/state"
@@ -175,6 +182,83 @@ assert_contains "$multi_show" "source: extra"
 
 multi_install="$(OOONANA_SOURCES_DIR="$sources_dir" "$CLI" install editor --dry-run)"
 assert_contains "$multi_install" "would install editor 1.2.0"
+
+http_root="$tmp/http-root"
+http_repo="$http_root/repo"
+http_payload="$tmp/http-payload"
+http_sources="$tmp/http-sources"
+http_state="$tmp/http-state"
+http_cache="$tmp/http-cache"
+http_install_root="$tmp/http-install-root"
+mkdir -p "$http_repo/archives" "$http_payload/usr/bin" "$http_sources" "$http_install_root"
+cat > "$http_payload/usr/bin/nano" <<'EOF'
+#!/bin/sh
+echo fake nano
+EOF
+chmod +x "$http_payload/usr/bin/nano"
+tar -C "$http_payload" -czf "$http_repo/archives/nano-1.0-r0.tar.gz" .
+http_archive_sha="$(sha256sum "$http_repo/archives/nano-1.0-r0.tar.gz" | awk '{print $1}')"
+cat > "$http_repo/nano.pkg" <<EOF
+OOONANA_PKG_ID="nano"
+OOONANA_PKG_VERSION="1.0-r0"
+OOONANA_PKG_KIND="apk"
+OOONANA_PKG_SUMMARY="Remote nano package"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_ARCHIVE="archives/nano-1.0-r0.tar.gz"
+OOONANA_PKG_SHA256="$http_archive_sha"
+EOF
+"$CLI" repo index "$http_repo" >/dev/null
+http_port="$(python3 - <<'PY'
+import socket
+s = socket.socket()
+s.bind(("127.0.0.1", 0))
+print(s.getsockname()[1])
+s.close()
+PY
+)"
+python3 -m http.server "$http_port" --bind 127.0.0.1 --directory "$http_root" > "$tmp/http.log" 2>&1 &
+server_pid="$!"
+sleep 1
+cat > "$http_sources/cloud.repo" <<EOF
+OOONANA_REPO_NAME="cloud"
+OOONANA_REPO_URI="http://127.0.0.1:$http_port/repo"
+EOF
+
+http_update="$(OOONANA_SOURCES_DIR="$http_sources" \
+  OOONANA_STATE_DIR="$http_state" \
+  OOONANA_CACHE_DIR="$http_cache" \
+  "$CLI" update)"
+assert_contains "$http_update" "from 2 source(s)"
+[[ -f "$http_cache/repos/cloud/index.tsv" ]] || fail "missing remote cached index"
+[[ -f "$http_cache/repos/cloud/SHA256SUMS" ]] || fail "missing remote cached checksums"
+assert_contains "$(<"$http_cache/index.tsv")" "cloud"
+assert_contains "$(<"$http_cache/index.tsv")" "nano"
+
+http_dry="$(OOONANA_SOURCES_DIR="$http_sources" \
+  OOONANA_STATE_DIR="$http_state" \
+  OOONANA_CACHE_DIR="$http_cache" \
+  OOONANA_ROOT="$http_install_root" \
+  "$CLI" get nano --dry-run)"
+assert_contains "$http_dry" "would install nano 1.0-r0"
+assert_contains "$http_dry" "would unpack archives/nano-1.0-r0.tar.gz"
+
+http_install="$(OOONANA_SOURCES_DIR="$http_sources" \
+  OOONANA_STATE_DIR="$http_state" \
+  OOONANA_CACHE_DIR="$http_cache" \
+  OOONANA_ROOT="$http_install_root" \
+  "$CLI" get nano)"
+assert_contains "$http_install" "unpacked archives/nano-1.0-r0.tar.gz"
+assert_contains "$http_install" "installed nano"
+[[ -x "$http_install_root/usr/bin/nano" ]] || fail "remote package did not install executable"
+[[ -f "$http_cache/repos/cloud/nano.pkg" ]] || fail "missing remote cached pkg"
+[[ -f "$http_cache/repos/cloud/archives/nano-1.0-r0.tar.gz" ]] || fail "missing remote cached archive"
+
+http_verify="$(OOONANA_SOURCES_DIR="$http_sources" \
+  OOONANA_STATE_DIR="$http_state" \
+  OOONANA_CACHE_DIR="$http_cache" \
+  OOONANA_ROOT="$http_install_root" \
+  "$CLI" verify nano)"
+assert_contains "$http_verify" "verify ok nano"
 
 index_repo="$tmp/index-repo"
 index_payload="$tmp/index-payload"

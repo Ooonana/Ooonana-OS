@@ -118,6 +118,7 @@ reset_pkg_vars() {
   LOADED_PKG_FILE=""
   LOADED_REPO_DIR=""
   LOADED_REPO_NAME=""
+  LOADED_REPO_URI=""
 }
 
 reset_repo_vars() {
@@ -129,9 +130,69 @@ repo_uri_path() {
   uri="$1"
   case "$uri" in
     file://*) printf '%s\n' "${uri#file://}" ;;
-    http://*|https://*) die "remote repo uri not supported yet: $uri" ;;
+    http://*|https://*) printf '%s\n' "$uri" ;;
     *) printf '%s\n' "$uri" ;;
   esac
+}
+
+repo_is_remote() {
+  case "$1" in
+    http://*|https://*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+repo_cache_dir() {
+  printf '%s/repos/%s\n' "$CACHE_DIR" "$1"
+}
+
+download_file() {
+  url="$1"
+  out="$2"
+  mkdir -p "$(dirname "$out")"
+  if have curl; then
+    curl -fsSL "$url" -o "$out"
+  elif have wget; then
+    wget -q -O "$out" "$url"
+  else
+    die "missing downloader: curl or wget"
+  fi
+}
+
+remote_repo_url() {
+  uri="$1"
+  rel="$2"
+  printf '%s/%s\n' "${uri%/}" "$rel"
+}
+
+remote_repo_cache_file() {
+  repo_name="$1"
+  repo_uri="$2"
+  rel="$3"
+  cache_dir="$(repo_cache_dir "$repo_name")"
+  target="$cache_dir/$rel"
+  download_file "$(remote_repo_url "$repo_uri" "$rel")" "$target"
+  printf '%s\n' "$target"
+}
+
+sync_remote_repo() {
+  repo_name="$1"
+  repo_uri="$2"
+  cache_dir="$(repo_cache_dir "$repo_name")"
+  mkdir -p "$cache_dir"
+  download_file "$(remote_repo_url "$repo_uri" index.tsv)" "$cache_dir/index.tsv"
+  download_file "$(remote_repo_url "$repo_uri" SHA256SUMS)" "$cache_dir/SHA256SUMS"
+  printf '%s\n' "$cache_dir"
+}
+
+remote_repo_cached_dir() {
+  repo_name="$1"
+  repo_uri="$2"
+  cache_dir="$(repo_cache_dir "$repo_name")"
+  if [ ! -f "$cache_dir/index.tsv" ] || [ ! -f "$cache_dir/SHA256SUMS" ]; then
+    sync_remote_repo "$repo_name" "$repo_uri" >/dev/null
+  fi
+  printf '%s\n' "$cache_dir"
 }
 
 load_repo_source_file() {
@@ -169,12 +230,24 @@ find_pkg_file() {
   for source_file in "$SOURCES_DIR"/*.repo; do
     [ -f "$source_file" ] || continue
     load_repo_source_file "$source_file"
-    [ -d "$OOONANA_REPO_URI" ] || die "missing repo source: $OOONANA_REPO_NAME $OOONANA_REPO_URI"
-    if [ -f "$OOONANA_REPO_URI/$id.pkg" ]; then
-      LOADED_PKG_FILE="$OOONANA_REPO_URI/$id.pkg"
-      LOADED_REPO_DIR="$OOONANA_REPO_URI"
-      LOADED_REPO_NAME="$OOONANA_REPO_NAME"
-      return 0
+    if repo_is_remote "$OOONANA_REPO_URI"; then
+      remote_dir="$(remote_repo_cached_dir "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI")"
+      if [ -f "$remote_dir/index.tsv" ] && awk -v id="$id" 'BEGIN { FS = "\t" } $1 == id { found = 1 } END { exit found ? 0 : 1 }' "$remote_dir/index.tsv"; then
+        remote_repo_cache_file "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI" "$id.pkg" >/dev/null
+        LOADED_PKG_FILE="$remote_dir/$id.pkg"
+        LOADED_REPO_DIR="$remote_dir"
+        LOADED_REPO_NAME="$OOONANA_REPO_NAME"
+        LOADED_REPO_URI="$OOONANA_REPO_URI"
+        return 0
+      fi
+    else
+      [ -d "$OOONANA_REPO_URI" ] || die "missing repo source: $OOONANA_REPO_NAME $OOONANA_REPO_URI"
+      if [ -f "$OOONANA_REPO_URI/$id.pkg" ]; then
+        LOADED_PKG_FILE="$OOONANA_REPO_URI/$id.pkg"
+        LOADED_REPO_DIR="$OOONANA_REPO_URI"
+        LOADED_REPO_NAME="$OOONANA_REPO_NAME"
+        return 0
+      fi
     fi
   done
   return 1
@@ -323,11 +396,18 @@ pkg_ids() {
       for source_file in "$SOURCES_DIR"/*.repo; do
         [ -f "$source_file" ] || continue
         load_repo_source_file "$source_file"
-        [ -d "$OOONANA_REPO_URI" ] || die "missing repo source: $OOONANA_REPO_NAME $OOONANA_REPO_URI"
-        for file in "$OOONANA_REPO_URI"/*.pkg; do
-          [ -f "$file" ] || continue
-          basename "$file" .pkg
-        done
+        if repo_is_remote "$OOONANA_REPO_URI"; then
+          repo_path="$(remote_repo_cached_dir "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI")"
+          if [ -f "$repo_path/index.tsv" ]; then
+            awk 'BEGIN { FS = "\t" } NF { print $1 }' "$repo_path/index.tsv"
+          fi
+        else
+          [ -d "$OOONANA_REPO_URI" ] || die "missing repo source: $OOONANA_REPO_NAME $OOONANA_REPO_URI"
+          for file in "$OOONANA_REPO_URI"/*.pkg; do
+            [ -f "$file" ] || continue
+            basename "$file" .pkg
+          done
+        fi
       done
     fi
   } | sort -u
@@ -400,6 +480,12 @@ validate_archive_entries() {
 
 install_pkg_archive() {
   id="$1"
+  if [ -n "${LOADED_REPO_URI:-}" ]; then
+    case "$OOONANA_PKG_ARCHIVE" in
+      /*) ;;
+      *) remote_repo_cache_file "$LOADED_REPO_NAME" "$LOADED_REPO_URI" "$OOONANA_PKG_ARCHIVE" >/dev/null ;;
+    esac
+  fi
   archive_path="$(pkg_archive_path "$OOONANA_PKG_ARCHIVE")"
   verify_loaded_archive_file
   verify_pkg_archive "$id" "$archive_path"
@@ -520,6 +606,11 @@ cmd_update() {
   while IFS='	' read -r repo_name repo_path; do
     [ -n "$repo_name" ] || continue
     repo_count=$((repo_count + 1))
+    repo_remote=0
+    if repo_is_remote "$repo_path"; then
+      repo_remote=1
+      repo_path="$(sync_remote_repo "$repo_name" "$repo_path")"
+    fi
     [ -d "$repo_path" ] || die "missing repo source: $repo_name $repo_path"
     if [ -f "$repo_path/index.tsv" ]; then
       while IFS='	' read -r pkg_id pkg_version pkg_kind pkg_summary pkg_deps pkg_archive pkg_sha; do
@@ -528,8 +619,10 @@ cmd_update() {
         [ -n "$pkg_summary" ] || die "repo index missing summary: $repo_path"
         [ "$pkg_deps" = "-" ] && pkg_deps=""
         [ "$pkg_archive" = "-" ] && pkg_archive=""
-        verify_repo_checksum "$repo_path" "$pkg_id.pkg"
-        [ -z "$pkg_archive" ] || verify_repo_checksum "$repo_path" "$pkg_archive"
+        if [ "$repo_remote" -eq 0 ]; then
+          verify_repo_checksum "$repo_path" "$pkg_id.pkg"
+          [ -z "$pkg_archive" ] || verify_repo_checksum "$repo_path" "$pkg_archive"
+        fi
         printf '%s\t%s\t%s\t%s\t%s\n' "$repo_name" "$pkg_id" "$pkg_version" "${pkg_kind:-bundle}" "$pkg_summary" >> "$tmp"
       done < "$repo_path/index.tsv"
     else
