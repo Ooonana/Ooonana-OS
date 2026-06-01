@@ -25,6 +25,7 @@ mkdir -p \
   "$scratch/bin" \
   "$scratch/etc/ooonana" \
   "$scratch/usr/bin" \
+  "$scratch/usr/lib/ooonana/repo" \
   "$scratch/usr/share/ooonana" \
   "$scratch/var/lib/ooonana/packages/installed" \
   "$repo"
@@ -39,15 +40,55 @@ echo ooonana 0.7.0
 EOF
 chmod +x "$scratch/usr/bin/ooonana"
 printf 'OOONANA_PKG_ID="base"\nOOONANA_PKG_VERSION="0.1.0"\nOOONANA_PKG_SUMMARY="Base"\n' > "$scratch/var/lib/ooonana/packages/installed/base.pkg"
-for pkg in branding i3 full-i3; do
-  cat > "$repo/$pkg.pkg" <<EOF
-OOONANA_PKG_ID="$pkg"
+cp "$scratch/var/lib/ooonana/packages/installed/base.pkg" "$scratch/usr/lib/ooonana/repo/base.pkg"
+
+make_archive_pkg() {
+  local id="$1"
+  local payload_file="$2"
+  local payload_text="$3"
+  local payload_dir="$tmp/payload-$id"
+  local archive="$repo/$id.tar.gz"
+  rm -rf "$payload_dir"
+  mkdir -p "$payload_dir/$(dirname "$payload_file")"
+  printf '%s\n' "$payload_text" > "$payload_dir/$payload_file"
+  tar -C "$payload_dir" -czf "$archive" .
+  local archive_sha
+  archive_sha="$(sha256sum "$archive" | awk '{print $1}')"
+  cat > "$repo/$id.pkg" <<EOF
+OOONANA_PKG_ID="$id"
+OOONANA_PKG_VERSION="0.1.0"
+OOONANA_PKG_KIND="archive"
+OOONANA_PKG_SUMMARY="$id payload"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_ARCHIVE="$id.tar.gz"
+OOONANA_PKG_SHA256="$archive_sha"
+EOF
+}
+
+make_archive_pkg branding usr/share/ooonana/pkg-branding.txt branding-installed
+make_archive_pkg fake-i3-bin usr/bin/fake-i3-bin fake-i3-installed
+chmod +x "$tmp/payload-fake-i3-bin/usr/bin/fake-i3-bin" 2>/dev/null || true
+tar -C "$tmp/payload-fake-i3-bin" -czf "$repo/fake-i3-bin.tar.gz" .
+fake_i3_sha="$(sha256sum "$repo/fake-i3-bin.tar.gz" | awk '{print $1}')"
+sed -i "s/^OOONANA_PKG_SHA256=.*/OOONANA_PKG_SHA256=\"$fake_i3_sha\"/" "$repo/fake-i3-bin.pkg"
+
+cat > "$repo/i3.pkg" <<'EOF'
+OOONANA_PKG_ID="i3"
 OOONANA_PKG_VERSION="0.1.0"
 OOONANA_PKG_KIND="profile"
-OOONANA_PKG_SUMMARY="$pkg profile"
-OOONANA_PKG_DEPS=""
+OOONANA_PKG_SUMMARY="i3 profile"
+OOONANA_PKG_DEPS="fake-i3-bin"
 EOF
-done
+
+cat > "$repo/full-i3.pkg" <<'EOF'
+OOONANA_PKG_ID="full-i3"
+OOONANA_PKG_VERSION="0.1.0"
+OOONANA_PKG_KIND="profile"
+OOONANA_PKG_SUMMARY="full i3 profile"
+OOONANA_PKG_DEPS="base branding i3"
+EOF
+
+"$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$repo" >/dev/null
 
 bash "$SCRIPT" \
   --scratch-rootfs "$scratch" \
@@ -68,12 +109,23 @@ rootfs="$tmp/full-rootfs"
 [[ -f "$rootfs/var/lib/ooonana/packages/installed/branding.pkg" ]] || fail "missing branding installed marker"
 [[ -f "$rootfs/var/lib/ooonana/packages/installed/i3.pkg" ]] || fail "missing i3 installed marker"
 [[ -f "$rootfs/var/lib/ooonana/packages/installed/full-i3.pkg" ]] || fail "missing full-i3 installed marker"
+[[ -f "$rootfs/var/lib/ooonana/packages/installed/fake-i3-bin.pkg" ]] || fail "missing fake i3 installed marker"
+[[ -f "$rootfs/usr/share/ooonana/pkg-branding.txt" ]] || fail "branding package payload not installed"
+[[ -x "$rootfs/usr/bin/fake-i3-bin" ]] || fail "i3 package payload not installed"
+[[ -f "$rootfs/var/lib/ooonana/packages/files/branding.list" ]] || fail "missing branding file manifest"
+[[ "$(<"$rootfs/etc/ooonana/edition-state")" == "packages-installed" ]] || fail "full-i3 packages not installed through package manager"
 
 start_script="$(<"$rootfs/usr/bin/start-ooonana-i3")"
 assert_contains "$start_script" "OOONANA_FULL_I3_OK"
 assert_contains "$start_script" "startx"
 
+rcs="$(<"$rootfs/etc/init.d/rcS")"
+assert_contains "$rcs" "Ooonana full i3 rootfs"
+assert_contains "$rcs" "/usr/bin/start-ooonana-i3"
+assert_contains "$rcs" "OOONANA_BOOT_OK"
+
 contents="$(tar -tzf "$tmp/ooonana-full-i3-rootfs.tar.gz" | sort)"
+assert_contains "$contents" "./etc/init.d/rcS"
 assert_contains "$contents" "./etc/ooonana/edition"
 assert_contains "$contents" "./usr/bin/start-ooonana-i3"
 assert_contains "$contents" "./usr/share/ooonana/wallpapers/ooonana-wallpaper.png"

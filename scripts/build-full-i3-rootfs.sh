@@ -14,7 +14,7 @@ FORCE=0
 
 usage() {
   cat <<'USAGE'
-Build Ooonana full-i3 rootfs skeleton.
+Build Ooonana full-i3 rootfs.
 
 Usage:
   scripts/build-full-i3-rootfs.sh [options]
@@ -43,14 +43,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-copy_pkg_marker() {
-  local id="$1"
-  local src="$REPO/$id.pkg"
-  local dest="$ROOTFS/var/lib/ooonana/packages/installed/$id.pkg"
-  [[ -f "$src" ]] || return 0
-  install -D -m 0644 "$src" "$dest"
-}
-
 write_start_script() {
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/start-ooonana-i3" <<'EOF'
 #!/bin/sh
@@ -68,9 +60,48 @@ if command -v startx >/dev/null 2>&1 && command -v i3 >/dev/null 2>&1; then
   exec startx /usr/bin/i3
 fi
 
-echo "Ooonana full-i3 skeleton"
+echo "Ooonana full-i3"
 echo "Missing startx or i3. Build/publish the full-i3 package repo, then run: ooonana get full-i3"
 exec /bin/sh
+EOF
+}
+
+write_full_init_script() {
+  install -D -m 0755 /dev/stdin "$ROOTFS/etc/init.d/rcS" <<'EOF'
+#!/bin/sh
+mount -t proc proc /proc 2>/dev/null || true
+mount -t sysfs sysfs /sys 2>/dev/null || true
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+mount -t tmpfs tmpfs /run 2>/dev/null || true
+hostname ooonana 2>/dev/null || true
+
+if [ -f /usr/share/ooonana/logo.txt ]; then
+  cat /usr/share/ooonana/logo.txt
+fi
+echo "Ooonana full i3 rootfs"
+
+if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
+  if /usr/bin/ooonana version | grep -q 'ooonana 0.7.0' &&
+    /usr/bin/ooonana list --installed | grep -q 'full-i3'; then
+    echo "OOONANA_CLI_OK"
+  else
+    echo "OOONANA_CLI_FAIL"
+    sync
+    sleep 1
+    reboot -f
+  fi
+  /usr/bin/start-ooonana-i3
+  echo "OOONANA_BOOT_OK"
+  sync
+  sleep 1
+  reboot -f
+fi
+
+if [ -x /usr/bin/start-ooonana-i3 ]; then
+  /usr/bin/start-ooonana-i3 || true
+fi
+
+echo "Ooonana full i3 fallback shell"
 EOF
 }
 
@@ -80,6 +111,31 @@ install_branding() {
   install -D -m 0644 "$ROOT/branding/wallpaper.svg" "$ROOTFS/usr/share/ooonana/wallpapers/ooonana-wallpaper.svg"
   install -D -m 0644 "$ROOT/branding/wallpaper.png" "$ROOTFS/usr/share/ooonana/wallpapers/ooonana-wallpaper.png"
   install -D -m 0644 "$ROOT/branding/i3/config" "$ROOTFS/etc/i3/config"
+}
+
+shell_escape() {
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+install_full_i3_packages() {
+  local sources_dir="$WORK_DIR/full-i3-build-sources"
+  [[ -d "$REPO" ]] || ooonana_die "missing full-i3 repo: $REPO"
+  [[ -f "$REPO/full-i3.pkg" ]] || ooonana_die "missing full-i3 package metadata: $REPO/full-i3.pkg"
+  [[ -d "$ROOTFS/usr/lib/ooonana/repo" ]] || ooonana_die "missing rootfs builtin repo: $ROOTFS/usr/lib/ooonana/repo"
+
+  rm -rf "$sources_dir"
+  mkdir -p "$sources_dir" "$ROOTFS/var/cache/ooonana" "$ROOTFS/var/lib/ooonana/packages/installed"
+  {
+    printf 'OOONANA_REPO_NAME="full-i3-build"\n'
+    printf 'OOONANA_REPO_URI="%s"\n' "$(shell_escape "$REPO")"
+  } > "$sources_dir/full-i3.repo"
+
+  OOONANA_ROOT="$ROOTFS" \
+    OOONANA_REPO_DIR="$ROOTFS/usr/lib/ooonana/repo" \
+    OOONANA_SOURCES_DIR="$sources_dir" \
+    OOONANA_STATE_DIR="$ROOTFS/var/lib/ooonana/packages" \
+    OOONANA_CACHE_DIR="$ROOTFS/var/cache/ooonana" \
+    "$ROOT/packages/ooonana/usr/bin/ooonana" get full-i3 >/dev/null
 }
 
 write_tarball() {
@@ -105,7 +161,7 @@ write_tarball() {
 
 main() {
   ooonana_require_linux
-  ooonana_require_commands chmod cp gzip install mkdir rm tar
+  ooonana_require_commands awk chmod cp gzip install mkdir rm sed sha256sum tar
   [[ -d "$SCRATCH_ROOTFS" ]] || ooonana_die "missing scratch rootfs: $SCRATCH_ROOTFS"
   [[ -x "$SCRATCH_ROOTFS/bin/sh" ]] || ooonana_die "invalid scratch rootfs: missing /bin/sh"
   [[ -f "$ROOT/branding/logo.svg" ]] || ooonana_die "missing branding/logo.svg"
@@ -125,12 +181,11 @@ main() {
   cp -a "$SCRATCH_ROOTFS" "$ROOTFS"
   mkdir -p "$ROOTFS/etc/ooonana" "$ROOTFS/var/lib/ooonana/packages/installed"
   printf 'full-i3\n' > "$ROOTFS/etc/ooonana/edition"
-  printf 'skeleton\n' > "$ROOTFS/etc/ooonana/edition-state"
+  install_full_i3_packages
   install_branding
   write_start_script
-  copy_pkg_marker branding
-  copy_pkg_marker i3
-  copy_pkg_marker full-i3
+  write_full_init_script
+  printf 'packages-installed\n' > "$ROOTFS/etc/ooonana/edition-state"
   write_tarball
   chmod -R a+rwX "$ROOTFS" 2>/dev/null || true
 

@@ -46,7 +46,7 @@ Release files:
 ooonana-scratch.iso          bootable GRUB installer ISO
 ooonana-scratch-disk.raw     bootable installed raw disk image
 ooonana-rootfs.tar.gz        generic chroot/container rootfs tarball
-ooonana-full-i3-rootfs.tar.gz full-i3 rootfs skeleton tarball
+ooonana-full-i3-rootfs.tar.gz full-i3 package-installed rootfs tarball
 ooonana-wsl-rootfs.tar.gz    WSL import rootfs
 vmlinuz-ooonana              Ooonana Linux kernel
 SHA256SUMS                   checksums for release artifacts
@@ -91,7 +91,7 @@ Working now:
 - `ooonana` package manager has repo index, checksums, install, remove, upgrade, files, verify
 - `ooonana update` can sync local and HTTP package repos into cache
 - Alpine `.apk` packages can be imported into Ooonana `.pkg` repos
-- Full-i3 branding assets and rootfs skeleton exist as a separate edition path
+- Full-i3 branding assets, package profiles, and package-installed rootfs path exist as a separate edition path
 - `ooonana-ai` supports NVIDIA NIM, Google Gemini, tools, tasks, audit, and shell fallback for scratch WSL
 
 Next work:
@@ -241,7 +241,7 @@ minimal   ooonana-scratch.iso, ooonana-rootfs.tar.gz
 full-i3   ooonana-full-i3-rootfs.tar.gz, later ooonana-full-i3.iso
 ```
 
-The full-i3 first pass adds branding, i3 config, package automation, and a rootfs skeleton. It does not replace the minimal release.
+The full-i3 path adds branding, i3 config, package automation, and a package-installed rootfs. It does not replace the minimal release.
 
 Build full-i3 package repo locally:
 
@@ -250,7 +250,7 @@ bash scripts/import-i3-package-set.sh \
   --out-dir /var/tmp/ooonana-os/build/full-i3-repo
 ```
 
-Build full-i3 rootfs skeleton:
+Build full-i3 rootfs:
 
 ```bash
 bash scripts/build-scratch-rootfs.sh --force
