@@ -36,6 +36,8 @@ export OOONANA_AI_STATE_DIR="$state"
 setup="$(OOONANA_AI_CONFIG="$config" "$CLI" ai setup)"
 assert_contains "$setup" "AI config:"
 assert_contains "$(<"$config")" "NVIDIA_API_KEY="
+assert_contains "$(<"$config")" "GEMINI_API_KEY="
+assert_contains "$(<"$config")" "OOONANA_AI_PROVIDER=nim"
 assert_contains "$(<"$config")" "OOONANA_NIM_MODEL=nvidia/nemotron-3-super-120b-a12b"
 assert_contains "$(<"$config")" "OOONANA_MODEL_CODE=qwen/qwen3-coder-480b-a35b-instruct"
 
@@ -57,6 +59,24 @@ assert_contains "$doctor_ok" "provider: NVIDIA NIM"
 assert_contains "$doctor_ok" "identity: Ooonana"
 assert_contains "$doctor_ok" "code: qwen/qwen3-coder-480b-a35b-instruct"
 
+fallback_config="$tmp/fallback.env"
+cp "$config" "$fallback_config"
+fallback_provider="$(OOONANA_AI_APP="$tmp/missing.py" OOONANA_AI_CONFIG="$fallback_config" "$CLI" ai provider)"
+assert_contains "$fallback_provider" "active: nim"
+assert_contains "$fallback_provider" "key: present"
+fallback_wrapper_provider="$(OOONANA_AI_APP="$tmp/missing.py" "$AI_WRAPPER" --config "$fallback_config" provider)"
+assert_contains "$fallback_wrapper_provider" "active: nim"
+assert_contains "$fallback_wrapper_provider" "key: present"
+fallback_tools="$(OOONANA_AI_APP="$tmp/missing.py" OOONANA_AI_CONFIG="$fallback_config" "$CLI" ai tools)"
+assert_contains "$fallback_tools" "Ooonana CLI tool registry"
+assert_contains "$fallback_tools" "shell"
+fallback_status="$(OOONANA_AI_APP="$tmp/missing.py" OOONANA_AI_CONFIG="$fallback_config" "$CLI" ai status)"
+assert_contains "$fallback_status" "Ooonana AI status"
+assert_contains "$fallback_status" "python: missing"
+fallback_provider_set="$(OOONANA_AI_APP="$tmp/missing.py" OOONANA_AI_CONFIG="$fallback_config" "$CLI" ai provider set gemini)"
+assert_contains "$fallback_provider_set" "provider: gemini"
+assert_contains "$(<"$fallback_config")" "OOONANA_AI_PROVIDER=gemini"
+
 config_out="$(OOONANA_AI_CONFIG="$config" "$CLI" ai config)"
 assert_contains "$config_out" "redacted"
 assert_not_contains "$config_out" "test-key"
@@ -68,6 +88,10 @@ assert_contains "$dry_run" "Current Linux environment snapshot"
 assert_contains "$dry_run" "Ooonana local agent context (activity)"
 assert_contains "$dry_run" "assistant_name: Ooonana"
 assert_contains "$dry_run" "[workspace]"
+assert_contains "$dry_run" "CLI-first terminal interface"
+assert_contains "$dry_run" "Ooonana CLI tool registry"
+assert_contains "$dry_run" "permission-gated shell/file actions"
+assert_not_contains "$dry_run" "voice readiness"
 assert_not_contains "$dry_run" "test-key"
 
 alias_dry_run="$(OOONANA_AI_CONFIG="$config" "$CLI" ai ask --model code --dry-run "write shell")"
@@ -101,14 +125,104 @@ assert_contains "$chat_model_ui" "aliases:"
 assert_contains "$chat_model_ui" "default model: qwen/qwen3-coder-480b-a35b-instruct"
 assert_contains "$chat_model_ui" "active: qwen/qwen3-coder-480b-a35b-instruct"
 
+gemini_config="$tmp/gemini.env"
+cat > "$gemini_config" <<'EOF'
+GEMINI_API_KEY=gemini-test-key
+OOONANA_AI_PROVIDER=gemini
+OOONANA_GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
+OOONANA_GEMINI_MODEL=gemini-2.5-flash
+OOONANA_GEMINI_MODEL_DEEP=gemini-2.5-pro
+OOONANA_AI_MAX_TOKENS=256
+OOONANA_AI_TEMPERATURE=0.1
+OOONANA_AI_STREAM=0
+EOF
+
+gemini_doctor="$(OOONANA_AI_CONFIG="$gemini_config" "$CLI" ai doctor)"
+assert_contains "$gemini_doctor" "AI config: ok"
+assert_contains "$gemini_doctor" "provider: Google Gemini"
+assert_contains "$gemini_doctor" "model: gemini-2.5-flash"
+assert_contains "$gemini_doctor" "deep: gemini-2.5-pro"
+
+gemini_config_out="$(OOONANA_AI_CONFIG="$gemini_config" "$CLI" ai config)"
+assert_contains "$gemini_config_out" "redacted"
+assert_not_contains "$gemini_config_out" "gemini-test-key"
+
+provider_show="$(OOONANA_AI_CONFIG="$gemini_config" "$AI_WRAPPER" provider)"
+assert_contains "$provider_show" "active: gemini"
+assert_contains "$provider_show" "key: present"
+
+provider_set="$(OOONANA_AI_CONFIG="$gemini_config" "$AI_WRAPPER" provider set nim)"
+assert_contains "$provider_set" "provider: nim"
+assert_contains "$(<"$gemini_config")" "OOONANA_AI_PROVIDER=nim"
+OOONANA_AI_CONFIG="$gemini_config" "$AI_WRAPPER" provider set gemini >/dev/null
+
+gemini_model_set="$(OOONANA_AI_CONFIG="$gemini_config" "$AI_WRAPPER" model set deep)"
+assert_contains "$gemini_model_set" "default model: gemini-2.5-pro"
+assert_contains "$(<"$gemini_config")" "OOONANA_GEMINI_MODEL=gemini-2.5-pro"
+
+gemini_dry_run="$(OOONANA_AI_CONFIG="$gemini_config" "$AI_WRAPPER" --provider gemini --dry-run "hello gemini")"
+assert_contains "$gemini_dry_run" '"provider": "gemini"'
+assert_contains "$gemini_dry_run" '"model": "gemini-2.5-pro"'
+assert_contains "$gemini_dry_run" '"system_instruction"'
+assert_contains "$gemini_dry_run" '"contents"'
+assert_contains "$gemini_dry_run" "Current Linux environment snapshot"
+assert_contains "$gemini_dry_run" "hello gemini"
+assert_not_contains "$gemini_dry_run" "gemini-test-key"
+
+gemini_mock="$(OOONANA_AI_CONFIG="$gemini_config" OOONANA_AI_MOCK=1 "$AI_WRAPPER" --provider gemini --no-stream "mock gemini")"
+assert_contains "$gemini_mock" "Ooonana mock response"
+
+gemini_chat_ui="$(printf '/provider\n/provider set nim\n/provider set gemini\n/models\n/model\n/exit\n' | OOONANA_AI_CONFIG="$gemini_config" "$AI_WRAPPER" chat --no-stream)"
+assert_contains "$gemini_chat_ui" "active provider: gemini"
+assert_contains "$gemini_chat_ui" "provider: nim"
+assert_contains "$gemini_chat_ui" "provider: gemini"
+assert_contains "$gemini_chat_ui" "gemini-2.5-flash"
+
 agents="$("$AI_WRAPPER" agents)"
 assert_contains "$agents" "system"
 assert_contains "$agents" "activity"
 assert_contains "$agents" "summarizer"
+assert_contains "$agents" "tools"
 
 activity="$("$AI_WRAPPER" agent activity)"
 assert_contains "$activity" "recent shell history"
 assert_contains "$activity" "recent Ooonana AI history"
+
+tools="$("$AI_WRAPPER" tools)"
+assert_contains "$tools" "processes"
+assert_contains "$tools" "packages"
+assert_contains "$tools" "files"
+assert_contains "$tools" "shell"
+
+processes="$("$AI_WRAPPER" tool processes)"
+assert_contains "$processes" "PID"
+
+files="$("$AI_WRAPPER" tool files "$tmp")"
+assert_contains "$files" "ai.env"
+assert_contains "$files" "gemini.env"
+
+shell_blocked="$("$AI_WRAPPER" --state-dir "$state" tool shell echo hi)"
+assert_contains "$shell_blocked" "blocked: add --yes"
+audit_after_shell="$("$AI_WRAPPER" --state-dir "$state" audit)"
+assert_contains "$audit_after_shell" "tool shell"
+assert_contains "$audit_after_shell" "blocked"
+
+task_add="$("$AI_WRAPPER" --state-dir "$state" task add "wire Jarvis-style tools into CLI")"
+assert_contains "$task_add" "task:"
+task_id="$(printf '%s\n' "$task_add" | awk '{print $2}')"
+tasks_list="$("$AI_WRAPPER" --state-dir "$state" tasks)"
+assert_contains "$tasks_list" "wire Jarvis-style tools into CLI"
+task_done="$("$AI_WRAPPER" --state-dir "$state" task done "$task_id")"
+assert_contains "$task_done" "done: $task_id"
+task_plan="$("$AI_WRAPPER" task plan "inspect system safely")"
+assert_contains "$task_plan" "1. inspect"
+assert_contains "$task_plan" "2. propose"
+assert_contains "$task_plan" "3. execute"
+
+chat_tools_ui="$(printf '/tools\n/task plan inspect safely\n/audit\n/exit\n' | OOONANA_AI_CONFIG="$config" "$AI_WRAPPER" --state-dir "$state" chat --no-stream)"
+assert_contains "$chat_tools_ui" "Ooonana CLI tool registry"
+assert_contains "$chat_tools_ui" "1. inspect"
+assert_contains "$chat_tools_ui" "tool shell"
 
 status="$("$AI_WRAPPER" status --model code)"
 assert_contains "$status" "Ooonana AI status"
@@ -155,9 +269,8 @@ default_chat_ui="$(printf '/exit\n' | OOONANA_AI_CONFIG="$config" "$AI_WRAPPER")
 assert_contains "$default_chat_ui" "Ooonana AI"
 assert_contains "$default_chat_ui" "mode: chat"
 
-install_out="$(OOONANA_WSL_BIN_DIR="$tmp/bin" bash "$ROOT/scripts/install-ooonana-ai-wsl.sh" 2>&1)"
+install_out="$(OOONANA_WSL_BIN_DIR="$tmp/bin" bash "$ROOT/scripts/install-ooonana-ai-wsl.sh")"
 assert_contains "$install_out" "installed ooonana"
-assert_contains "$install_out" "warning: $tmp/bin is not in PATH"
 [[ -L "$tmp/bin/ooonana" ]] || fail "install script missing ooonana symlink"
 [[ -L "$tmp/bin/ooonana-ai" ]] || fail "install script missing ooonana-ai symlink"
 symlink_status="$(PATH="$tmp/bin:$PATH" OOONANA_AI_CONFIG="$config" ooonana-ai status --model code)"

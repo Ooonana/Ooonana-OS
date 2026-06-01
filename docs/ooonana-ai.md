@@ -6,15 +6,17 @@ Ooonana AI is the terminal assistant for Ooonana. It is currently a standalone O
 
 - Runs as `ooonana ai ...` or `ooonana-ai ...`
 - Uses NVIDIA NIM's OpenAI-compatible chat completions API
-- Reads `NVIDIA_API_KEY` or `NVIDIA_NIM_API_KEY`
+- Uses Google Gemini's `generateContent` and `streamGenerateContent` REST API
+- Reads `NVIDIA_API_KEY`, `NVIDIA_NIM_API_KEY`, `GEMINI_API_KEY`, or `GOOGLE_API_KEY`
 - Sends a system prompt that says the assistant's name is `Ooonana`
 - Sends a Linux/WSL environment snapshot with each request
 - Supports one-shot ask, code prompt alias, interactive chat, status, model listing, config inspection, persistent history, rewind, and local context agents
+- Keeps a BusyBox/scratch shell fallback for `provider`, `status`, `tools`, and basic inspection when `python3` is not present
 
 ## Quick Start
 
 ```bash
-cd "/mnt/c/Users/7ryan/.codex/worktrees/e5f2/Ooonana OS"
+cd "/mnt/c/Users/<windows-user>/path/to/Ooonana OS"
 bash scripts/install-ooonana-ai-wsl.sh
 ooonana-ai setup
 nano ~/.config/ooonana/ai.env
@@ -37,7 +39,7 @@ OOONANA_AI_MOCK=1 ooonana-ai ask --no-stream "who are you?"
 From this repo inside WSL:
 
 ```bash
-cd "/mnt/c/Users/7ryan/.codex/worktrees/e5f2/Ooonana OS"
+cd "/mnt/c/Users/<windows-user>/path/to/Ooonana OS"
 bash scripts/install-ooonana-ai-wsl.sh
 ```
 
@@ -54,7 +56,20 @@ If `~/.local/bin` is not in `PATH`, add this to `~/.profile` or `~/.bashrc`:
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-## Configure NVIDIA NIM
+In scratch Ooonana WSL, `python3` is intentionally absent for now. These still
+work through the shell fallback:
+
+```bash
+ooonana ai provider
+ooonana ai status
+ooonana ai tools
+ooonana ai tool processes
+ooonana-ai provider
+```
+
+Full chat, live provider calls, persistent sessions, and rewind need `python3`.
+
+## Configure Providers
 
 Create the config:
 
@@ -80,30 +95,46 @@ chmod 600 ~/.config/ooonana/ai.env
 Minimum config:
 
 ```text
+OOONANA_AI_PROVIDER=nim
 NVIDIA_API_KEY=nvapi-your-key
+GEMINI_API_KEY=your-gemini-key
 OOONANA_NIM_BASE_URL=https://integrate.api.nvidia.com/v1
 OOONANA_NIM_MODEL=nvidia/nemotron-3-super-120b-a12b
+OOONANA_GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
+OOONANA_GEMINI_MODEL=gemini-2.5-flash
 OOONANA_MODEL_CODE=qwen/qwen3-coder-480b-a35b-instruct
 OOONANA_MODEL_FAST=qwen/qwen3-next-80b-a3b-instruct
 OOONANA_MODEL_DEEP=nvidia/nemotron-3-super-120b-a12b
+OOONANA_GEMINI_MODEL_CODE=gemini-2.5-flash
+OOONANA_GEMINI_MODEL_FAST=gemini-2.5-flash-lite
+OOONANA_GEMINI_MODEL_DEEP=gemini-2.5-pro
 OOONANA_MODEL_TINY=meta/llama-3.3-70b-instruct
 OOONANA_AI_STREAM=1
 ```
 
 ### API Settings
 
-Ooonana AI talks to NVIDIA NIM using the OpenAI-compatible chat completions shape.
+Ooonana AI talks to NVIDIA NIM using OpenAI-compatible chat completions. It talks to Gemini using the REST `generateContent` shape with `x-goog-api-key`, `system_instruction`, and `contents`.
 
 | Setting | Default | Purpose |
 | --- | --- | --- |
 | `NVIDIA_API_KEY` | empty | NVIDIA NIM API key. Used as `Authorization: Bearer ...`. |
 | `NVIDIA_NIM_API_KEY` | empty | Alternative key name. Takes precedence if both are set. |
+| `GEMINI_API_KEY` | empty | Gemini API key. |
+| `GOOGLE_API_KEY` | empty | Alternative Gemini key name. Takes precedence if both are set. |
+| `OOONANA_AI_PROVIDER` | `nim` | `nim`, `gemini`, or `auto`. |
 | `OOONANA_NIM_BASE_URL` | `https://integrate.api.nvidia.com/v1` | API base URL. Ooonana appends `/chat/completions` when needed. |
 | `OOONANA_NIM_MODEL` | `nvidia/nemotron-3-super-120b-a12b` | Default chat model. |
+| `OOONANA_GEMINI_BASE_URL` | `https://generativelanguage.googleapis.com/v1beta` | Gemini API base URL. |
+| `OOONANA_GEMINI_MODEL` | `gemini-2.5-flash` | Default Gemini chat model. |
 | `OOONANA_MODEL_CODE` | `qwen/qwen3-coder-480b-a35b-instruct` | Model alias for coding prompts. |
 | `OOONANA_MODEL_FAST` | `qwen/qwen3-next-80b-a3b-instruct` | Model alias for quick answers. |
 | `OOONANA_MODEL_DEEP` | `nvidia/nemotron-3-super-120b-a12b` | Model alias for deeper reasoning. |
 | `OOONANA_MODEL_<ALIAS>` | empty | Custom model alias. `OOONANA_MODEL_TINY=meta/llama-3.3-70b-instruct` makes `--model tiny` work. |
+| `OOONANA_GEMINI_MODEL_CODE` | `gemini-2.5-flash` | Gemini model alias for coding prompts. |
+| `OOONANA_GEMINI_MODEL_FAST` | `gemini-2.5-flash-lite` | Gemini model alias for quick answers. |
+| `OOONANA_GEMINI_MODEL_DEEP` | `gemini-2.5-pro` | Gemini model alias for deeper reasoning. |
+| `OOONANA_GEMINI_MODEL_<ALIAS>` | empty | Custom Gemini model alias. |
 | `OOONANA_AI_MAX_TOKENS` | `1024` | Maximum generated tokens. |
 | `OOONANA_AI_TEMPERATURE` | `0.2` | Sampling temperature. |
 | `OOONANA_AI_STREAM` | `1` | Stream responses when possible. Set `0` to disable. |
@@ -122,7 +153,7 @@ ooonana ai ping
 ```
 
 `ooonana ai config` redacts API keys.
-`ooonana ai ping` makes a tiny live NVIDIA NIM request, so it requires a real API key.
+`ooonana ai ping` makes a tiny live provider request, so it requires a real API key.
 
 The live request is intentionally small:
 
@@ -148,6 +179,23 @@ Coding model alias:
 
 ```bash
 ooonana ai ask --model code "write a bash script that lists mounted filesystems"
+```
+
+Switch to Gemini:
+
+```bash
+ooonana-ai provider set gemini
+ooonana-ai doctor
+ooonana-ai model list
+ooonana-ai model set deep
+ooonana-ai "who are you?"
+```
+
+One-shot provider override:
+
+```bash
+ooonana-ai --provider gemini "summarize this Linux system"
+ooonana-ai --provider nim "summarize this Linux system"
 ```
 
 Change the default model without opening the config file:
@@ -178,11 +226,18 @@ Useful chat commands:
 /help
 /agents
 /agent activity
+/tools
+/tool processes
+/tasks
+/task plan inspect-system
+/audit
 /status
 /env
 /history
 /rewind
 /rewind 2
+/provider
+/provider set gemini
 /models
 /model code
 /model set deep
@@ -196,6 +251,8 @@ Direct alias:
 
 ```bash
 ooonana-ai help
+ooonana-ai provider
+ooonana-ai provider set gemini
 ooonana-ai model
 ooonana-ai model set code
 ooonana-ai model alias tiny meta/llama-3.3-70b-instruct
@@ -209,6 +266,10 @@ ooonana-ai history
 ooonana-ai sessions
 ooonana-ai agents
 ooonana-ai agent activity
+ooonana-ai tools
+ooonana-ai tool processes
+ooonana-ai tasks
+ooonana-ai audit
 ```
 
 Direct alias behavior:
@@ -219,9 +280,16 @@ ooonana-ai help            shows Ooonana AI help
 ooonana-ai "message"       sends a one-shot ask
 ooonana-ai --model code "message"
                            sends a one-shot ask with options
+ooonana-ai provider        shows active provider
+ooonana-ai provider set gemini
+                           switches default provider
 ooonana-ai model           shows active model and aliases
 ooonana-ai model set code  changes default model in config
 ooonana-ai model alias N M saves alias N for model M
+ooonana-ai tools           lists local CLI tools
+ooonana-ai tool processes  reads process table
+ooonana-ai task add TEXT   records a CLI task
+ooonana-ai audit           shows permissioned action log
 ooonana-ai chat            explicitly opens chat
 ooonana-ai status          shows provider/UI status
 ```
@@ -281,6 +349,7 @@ Ooonana has lightweight local agents that collect context for the main AI:
 system      OS, WSL, command, package, and workspace context
 activity    recent shell history and Ooonana AI history with secrets redacted
 summarizer  system plus activity context shaped for compact summaries
+tools       CLI tool registry, permission gates, and recent audit context
 ```
 
 List them:
@@ -289,15 +358,16 @@ List them:
 ooonana-ai agents
 ```
 
-Inspect context without calling NVIDIA NIM:
+Inspect context without calling provider:
 
 ```bash
 ooonana-ai agent system
 ooonana-ai agent activity
 ooonana-ai agent summarizer
+ooonana-ai agent tools
 ```
 
-Ask NVIDIA NIM to summarize an agent context:
+Ask active provider to summarize agent context:
 
 ```bash
 ooonana-ai agent summarizer --ask
@@ -321,6 +391,52 @@ Inside chat:
 /agent none
 ```
 
+## CLI Tools And Tasks
+
+Ooonana applies the Jarvis research as CLI-first system integration, not voice or GUI. Tools default to read-only inspection. Shell execution is permission-gated and audited.
+
+List tools:
+
+```bash
+ooonana-ai tools
+```
+
+Read-only tools:
+
+```bash
+ooonana-ai tool system
+ooonana-ai tool processes
+ooonana-ai tool packages
+ooonana-ai tool files .
+ooonana-ai tool activity
+```
+
+Guarded shell tool:
+
+```bash
+ooonana-ai tool shell echo hi
+ooonana-ai tool shell --yes 'echo hi'
+ooonana-ai audit
+```
+
+The first command is blocked and audited. The `--yes` form executes and writes an audit entry. Destructive patterns such as `mkfs`, unsafe `dd`, reboot, shutdown, and recursive root removal are blocked.
+
+Task runner:
+
+```bash
+ooonana-ai task add "inspect boot state"
+ooonana-ai tasks
+ooonana-ai task done TASK_ID
+ooonana-ai task plan "repair provider config"
+```
+
+Tasks live under:
+
+```text
+~/.local/state/ooonana/ai/tasks.jsonl
+~/.local/state/ooonana/ai/audit.jsonl
+```
+
 Show the Linux/WSL context Ooonana will send:
 
 ```bash
@@ -341,7 +457,7 @@ Use mock mode:
 OOONANA_AI_MOCK=1 ooonana ai ask --no-stream "who are you?"
 ```
 
-Inspect the exact payload without calling NVIDIA NIM:
+Inspect exact payload without calling active provider:
 
 ```bash
 ooonana ai ask --dry-run --model code "what environment am I in?"
@@ -352,14 +468,39 @@ ooonana ai ask --dry-run --model code "what environment am I in?"
 Ooonana's built-in system prompt is intentionally explicit:
 
 - The assistant's name is `Ooonana`.
-- It must not claim to be Gemini, Claude, ChatGPT, or NVIDIA NIM.
-- NVIDIA NIM is described only as the model/API provider.
+- It must not claim to be Gemini, Claude, ChatGPT, Google, or NVIDIA NIM.
+- NVIDIA NIM and Google Gemini are described only as model/API providers.
 - It should treat the provided Linux environment snapshot as authoritative context.
 - It should notice hostname, OS release, current directory, available commands, workspace files, and package state.
 - It should give concrete commands, paths, config keys, and exact next steps.
 - It should not pretend it executed commands or saw files outside the supplied context.
 - It should redact secrets and avoid exposing API keys.
 - It should help make Ooonana feel like its own AI CLI, not a thin rebrand.
+- It should keep UI CLI-first: commands, slash commands, compact tables, status lines, JSON when requested, and copyable shell snippets.
+- It should not design voice input, voice recognition, GUI dashboards, or web-first flows unless explicitly requested.
+- It should aim toward Jarvis-class local-first system integration without claiming AGI.
+
+## Jarvis-AGI Direction
+
+The closest GitHub repo matching `jarvis-agi` is [vierisid/jarvis](https://github.com/vierisid/jarvis). Its useful ideas for Ooonana:
+
+- Optional background daemon with CLI control
+- Multi-machine sidecars for screen, app, shell, and filesystem access
+- Multi-agent hierarchy with specialist roles
+- CLI workflow builder and task runner
+- Provider flexibility across Anthropic, OpenAI, Google Gemini, and local Ollama
+- WSL/Linux install path
+
+Another useful local-first reference is [isair/jarvis](https://github.com/isair/jarvis), which has useful memory, tool selection, screenshot OCR, web search, file access, location/time awareness, and MCP expansion ideas. Ooonana will not copy the voice-assistant direction.
+
+Ooonana should borrow direction, not identity:
+
+- Keep assistant name `Ooonana`.
+- Keep CLI first. No voice recognition or voice UI.
+- Add provider router first: NIM, Gemini, later Ollama/OpenAI-compatible.
+- Add permissioned system tools next: read-only inspect, then guarded shell/file actions.
+- Add optional background daemon later, controlled from CLI, after safety gates and audit history exist.
+- Avoid claiming AGI; call it Jarvis-class system integration.
 
 The source prompt lives in:
 
@@ -388,4 +529,4 @@ bash tests/test-scratch-rootfs.sh
 
 ## Current Gap
 
-This is not yet a full Gemini CLI source fork. To become a literal Gemini fork, the next step is to import Gemini CLI source or add it as an upstream subtree, then replace its Gemini provider with the Ooonana NVIDIA NIM provider and port this Ooonana prompt/UI layer into that codebase.
+This is not yet a full Gemini CLI source fork. To become a literal Gemini fork, next step is to import Gemini CLI source or add it as an upstream subtree, then port this Ooonana prompt/UI/provider-router layer into that codebase.

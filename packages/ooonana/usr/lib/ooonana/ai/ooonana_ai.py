@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Ooonana AI terminal client backed by NVIDIA NIM."""
+"""Ooonana AI terminal client backed by NVIDIA NIM or Google Gemini."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ import sys
 import textwrap
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from uuid import uuid4
 from pathlib import Path
@@ -30,6 +31,9 @@ except ImportError:
 VERSION = "0.1.0"
 DEFAULT_BASE_URL = "https://integrate.api.nvidia.com/v1"
 DEFAULT_MODEL = "nvidia/nemotron-3-super-120b-a12b"
+DEFAULT_PROVIDER = "nim"
+DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 CONFIG_PATH = Path(os.environ.get("OOONANA_AI_CONFIG", "~/.config/ooonana/ai.env")).expanduser()
 STATE_PATH = Path(os.environ.get("OOONANA_AI_STATE_DIR", "~/.local/state/ooonana/ai")).expanduser()
 DEFAULT_MAX_CONTEXT_BYTES = 12000
@@ -39,8 +43,8 @@ You are Ooonana, the built-in AI assistant for Ooonana OS.
 Identity:
 - Your name is Ooonana.
 - If asked who you are, answer as Ooonana.
-- You are not Gemini, Claude, ChatGPT, or NVIDIA NIM.
-- NVIDIA NIM is only the model/API provider behind the terminal app.
+- You are not Gemini, Claude, ChatGPT, Google, or NVIDIA NIM.
+- NVIDIA NIM and Google Gemini are only model/API providers behind the terminal app.
 
 Environment:
 - You live in a Linux terminal and are designed for Ooonana OS, WSL, and shell-first workflows.
@@ -56,10 +60,13 @@ Behavior:
 - Never pretend you executed a command or saw a file if it was not in the provided context.
 - Do not expose API keys or secrets. If config is shown, redact secret values.
 - When using NVIDIA NIM, explain provider settings in OpenAI-compatible terms: base URL, model, bearer token, chat completions, streaming.
+- When using Gemini, explain provider settings as Gemini API terms: API key, model, generateContent, streamGenerateContent, system instruction, contents.
 
 Ooonana product direction:
 - Help the user build Ooonana as its own AI CLI experience, not a thin rebrand.
-- Preserve Ooonana naming and terminal voice in examples.
+- Preserve Ooonana naming and terminal style in examples.
+- Keep the user interface CLI-first: commands, slash commands, compact tables, status lines, JSON when requested, and copyable shell snippets.
+- Do not design for voice input, voice recognition, GUI dashboards, or web-first flows unless the user explicitly asks.
 - Assume the user wants forward movement and practical implementation.
 
 Agent/memory behavior:
@@ -67,12 +74,29 @@ Agent/memory behavior:
 - Treat those agents as local context collectors, not separate people.
 - Use history and activity context to understand what the user was doing lately, but do not reveal sensitive values.
 - If asked to rewind, continue from the rewound conversation state and ignore later removed turns.
+
+Jarvis-class direction:
+- Aim for a local-first personal AI with a CLI-first terminal interface: provider router, memory, tool execution, permission gates, and system awareness.
+- Use the Ooonana CLI tool registry for system knowledge: tools, tool, audit, tasks, and task.
+- Prefer read-only inspection first, then permission-gated shell/file actions with audit logs.
+- Do not claim to be AGI. Be honest about capabilities and ask before risky system actions.
+- Never rename yourself Jarvis; Ooonana is the assistant identity.
 """
 
 AGENTS = {
     "system": "Collects OS, WSL, command, package, and workspace context.",
     "activity": "Collects recent shell and Ooonana CLI activity with secrets redacted.",
     "summarizer": "Turns system and activity context into a compact working summary.",
+    "tools": "Lists local CLI tools, permission gates, and audit state.",
+}
+
+TOOLS = {
+    "system": ("read", "Full Linux, WSL, workspace, command, and package context."),
+    "processes": ("read", "Recent process table for system awareness."),
+    "packages": ("read", "Package manager and installed-package hints."),
+    "files": ("read", "Directory listing for a target path."),
+    "activity": ("read", "Recent shell and Ooonana AI history."),
+    "shell": ("guarded", "Run a shell command only with --yes and audit log."),
 }
 
 POPULAR_MODELS = [
@@ -85,10 +109,29 @@ POPULAR_MODELS = [
     "openai/gpt-oss-120b",
 ]
 
+GEMINI_POPULAR_MODELS = [
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash-lite",
+    "gemini-2.0-flash",
+]
+
+PROVIDER_LABELS = {
+    "nim": "NVIDIA NIM",
+    "gemini": "Google Gemini",
+}
+
 DEFAULT_MODEL_ALIASES = {
-    "fast": "qwen/qwen3-next-80b-a3b-instruct",
-    "code": "qwen/qwen3-coder-480b-a35b-instruct",
-    "deep": "nvidia/nemotron-3-super-120b-a12b",
+    "nim": {
+        "fast": "qwen/qwen3-next-80b-a3b-instruct",
+        "code": "qwen/qwen3-coder-480b-a35b-instruct",
+        "deep": "nvidia/nemotron-3-super-120b-a12b",
+    },
+    "gemini": {
+        "fast": "gemini-2.5-flash-lite",
+        "code": "gemini-2.5-flash",
+        "deep": "gemini-2.5-pro",
+    },
 }
 
 
@@ -114,22 +157,22 @@ def faint(text: str) -> str:
     return color(text, "2")
 
 
-def print_banner(model: str, mode: str = "chat") -> None:
+def print_banner(model: str, provider: str = DEFAULT_PROVIDER, mode: str = "chat") -> None:
     width = 64
     print(heading("=" * width))
     print(heading("Ooonana AI").ljust(width))
-    print(f"mode: {mode} | provider: NVIDIA NIM | model: {model}")
+    print(f"mode: {mode} | provider: {provider_label(provider)} | model: {model}")
     print(faint("identity: Ooonana | context: Linux + workspace"))
     print(heading("=" * width))
 
 
-def print_status(model: str, config: dict[str, str], state: Path | None = None) -> None:
+def print_status(model: str, provider: str, config: dict[str, str], state: Path | None = None) -> None:
     print("Ooonana AI status")
     print("identity: Ooonana")
-    print("provider: NVIDIA NIM")
+    print(f"provider: {provider_label(provider)}")
     print(f"model: {model}")
-    print(f"base_url: {config_value(config, 'OOONANA_NIM_BASE_URL', DEFAULT_BASE_URL)}")
-    print(f"config_key: {'present' if api_key(config) else 'missing'}")
+    print(f"base_url: {provider_base_url(config, provider)}")
+    print(f"config_key: {'present' if provider_api_key(config, provider) else 'missing'}")
     print(f"cwd: {os.getcwd()}")
     print(f"state_dir: {state or STATE_PATH}")
 
@@ -159,17 +202,25 @@ def load_config(path: Path) -> dict[str, str]:
     fixed_keys = {
         "NVIDIA_API_KEY",
         "NVIDIA_NIM_API_KEY",
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+        "OOONANA_AI_PROVIDER",
         "OOONANA_NIM_BASE_URL",
         "OOONANA_NIM_MODEL",
+        "OOONANA_GEMINI_BASE_URL",
+        "OOONANA_GEMINI_MODEL",
         "OOONANA_MODEL_FAST",
         "OOONANA_MODEL_CODE",
         "OOONANA_MODEL_DEEP",
+        "OOONANA_GEMINI_MODEL_FAST",
+        "OOONANA_GEMINI_MODEL_CODE",
+        "OOONANA_GEMINI_MODEL_DEEP",
         "OOONANA_AI_MAX_TOKENS",
         "OOONANA_AI_TEMPERATURE",
         "OOONANA_AI_STREAM",
     }
     for key, value in os.environ.items():
-        if value and (key in fixed_keys or key.startswith("OOONANA_MODEL_")):
+        if value and (key in fixed_keys or key.startswith("OOONANA_MODEL_") or key.startswith("OOONANA_GEMINI_MODEL_")):
             values[key] = value
     return values
 
@@ -183,6 +234,43 @@ def api_key(config: dict[str, str]) -> str:
     return config.get("NVIDIA_NIM_API_KEY") or config.get("NVIDIA_API_KEY") or ""
 
 
+def gemini_api_key(config: dict[str, str]) -> str:
+    return config.get("GOOGLE_API_KEY") or config.get("GEMINI_API_KEY") or ""
+
+
+def provider_label(provider: str) -> str:
+    return PROVIDER_LABELS.get(provider, provider)
+
+
+def selected_provider(config: dict[str, str], override: str = "") -> str:
+    provider = (override or config.get("OOONANA_AI_PROVIDER") or DEFAULT_PROVIDER).strip().lower()
+    if provider == "auto":
+        if gemini_api_key(config) and not api_key(config):
+            return "gemini"
+        return DEFAULT_PROVIDER
+    if provider not in PROVIDER_LABELS:
+        raise OoonanaError("provider must be nim, gemini, or auto")
+    return provider
+
+
+def provider_api_key(config: dict[str, str], provider: str) -> str:
+    if provider == "gemini":
+        return gemini_api_key(config)
+    return api_key(config)
+
+
+def provider_base_url(config: dict[str, str], provider: str) -> str:
+    if provider == "gemini":
+        return config_value(config, "OOONANA_GEMINI_BASE_URL", DEFAULT_GEMINI_BASE_URL)
+    return config_value(config, "OOONANA_NIM_BASE_URL", DEFAULT_BASE_URL)
+
+
+def missing_key_message(provider: str) -> str:
+    if provider == "gemini":
+        return "AI config missing GEMINI_API_KEY or GOOGLE_API_KEY"
+    return "AI config missing NVIDIA_API_KEY"
+
+
 def setup_config(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if not path.exists():
@@ -191,14 +279,22 @@ def setup_config(path: Path) -> None:
             path.write_text(
                 textwrap.dedent(
                     f"""\
-                    # Ooonana AI uses NVIDIA NIM's OpenAI-compatible chat API.
+                    # Ooonana AI uses NVIDIA NIM or Google Gemini.
                     # Get a key from https://build.nvidia.com/settings/api-keys
+                    # Get a Gemini key from https://aistudio.google.com/app/apikey
+                    OOONANA_AI_PROVIDER=nim
                     NVIDIA_API_KEY=
+                    GEMINI_API_KEY=
                     OOONANA_NIM_BASE_URL={DEFAULT_BASE_URL}
                     OOONANA_NIM_MODEL={DEFAULT_MODEL}
+                    OOONANA_GEMINI_BASE_URL={DEFAULT_GEMINI_BASE_URL}
+                    OOONANA_GEMINI_MODEL={DEFAULT_GEMINI_MODEL}
                     OOONANA_MODEL_FAST=qwen/qwen3-next-80b-a3b-instruct
                     OOONANA_MODEL_CODE=qwen/qwen3-coder-480b-a35b-instruct
                     OOONANA_MODEL_DEEP=nvidia/nemotron-3-super-120b-a12b
+                    OOONANA_GEMINI_MODEL_FAST=gemini-2.5-flash-lite
+                    OOONANA_GEMINI_MODEL_CODE=gemini-2.5-flash
+                    OOONANA_GEMINI_MODEL_DEEP=gemini-2.5-pro
                     OOONANA_AI_MAX_TOKENS=1024
                     OOONANA_AI_TEMPERATURE=0.2
                     OOONANA_AI_STREAM=1
@@ -256,6 +352,14 @@ def sessions_dir(args: argparse.Namespace) -> Path:
 
 def session_path(args: argparse.Namespace, session_id: str) -> Path:
     return sessions_dir(args) / f"{session_id}.jsonl"
+
+
+def audit_path(args: argparse.Namespace) -> Path:
+    return state_dir(args) / "audit.jsonl"
+
+
+def tasks_path(args: argparse.Namespace) -> Path:
+    return state_dir(args) / "tasks.jsonl"
 
 
 def append_jsonl(path: Path, record: dict[str, Any]) -> None:
@@ -409,6 +513,95 @@ def command_status(names: list[str]) -> str:
     return "\n".join(lines)
 
 
+def tool_registry_snapshot() -> str:
+    lines = ["Ooonana CLI tool registry:"]
+    for name, (mode, description) in TOOLS.items():
+        lines.append(f"  {name:<10} {mode:<7} {description}")
+    lines.append("permission-gated shell/file actions: shell execution requires --yes and writes audit.jsonl")
+    lines.append("CLI-first terminal interface: inspect, propose, execute, audit")
+    return "\n".join(lines)
+
+
+def process_snapshot() -> str:
+    output = run_capture(["sh", "-lc", "ps -eo pid,ppid,stat,comm,args --sort=-%mem | head -n 25"], timeout=2.0)
+    return output or "PID PPID STAT COMMAND ARGS\nprocess table unavailable"
+
+
+def package_snapshot() -> str:
+    lines = ["[package commands]"]
+    lines.append(command_status(["apt-get", "dpkg", "systemctl", "snap", "flatpak"]))
+    dpkg = run_capture(["sh", "-lc", "dpkg-query -W -f='${Package} ${Version}\\n' 2>/dev/null | head -n 30"], timeout=2.0)
+    if dpkg:
+        lines.extend(["", "[dpkg sample]", dpkg])
+    services = run_capture(["sh", "-lc", "systemctl list-units --type=service --state=running --no-pager --no-legend 2>/dev/null | head -n 20"], timeout=2.0)
+    if services:
+        lines.extend(["", "[running services]", services])
+    return "\n".join(lines)
+
+
+def files_snapshot(path: str) -> str:
+    target = Path(path).expanduser()
+    try:
+        resolved = target.resolve()
+    except OSError:
+        resolved = target
+    if not target.exists():
+        return f"path missing: {target}"
+    if target.is_file():
+        return f"file: {resolved}\nsize: {target.stat().st_size}"
+    lines = [f"path: {resolved}"]
+    try:
+        entries = sorted(target.iterdir(), key=lambda item: (not item.is_dir(), item.name.lower()))[:80]
+    except OSError as exc:
+        return f"cannot list {target}: {exc}"
+    for entry in entries:
+        kind = "dir " if entry.is_dir() else "file"
+        try:
+            size = entry.stat().st_size
+        except OSError:
+            size = 0
+        lines.append(f"{kind:<4} {size:>10} {entry.name}")
+    return "\n".join(lines)
+
+
+def unsafe_shell_command(command: str) -> bool:
+    lowered = command.lower()
+    patterns = [
+        r"\brm\s+-[^\n]*r[^\n]*\s+/",
+        r"\bmkfs\b",
+        r"\bdd\s+.*\bof=/dev/",
+        r":\s*\(\)\s*\{",
+        r"\bshutdown\b",
+        r"\breboot\b",
+    ]
+    return any(re.search(pattern, lowered) for pattern in patterns)
+
+
+def record_audit(args: argparse.Namespace, action: str, target: str, outcome: str, detail: str = "") -> None:
+    append_jsonl(
+        audit_path(args),
+        {
+            "time": now_iso(),
+            "cwd": os.getcwd(),
+            "action": action,
+            "target": target,
+            "outcome": outcome,
+            "detail": redact_secret_text(detail)[:1000],
+        },
+    )
+
+
+def task_latest(records: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    latest: dict[str, dict[str, Any]] = {}
+    for record in records:
+        task_id = str(record.get("id", ""))
+        if task_id:
+            merged = dict(latest.get(task_id, {}))
+            merged.update(record)
+            latest[task_id] = merged
+    return latest
+
+
 def workspace_snapshot(root: str, max_files: int = 80) -> str:
     root_path = Path(root)
     lines = [f"cwd: {root_path}"]
@@ -498,6 +691,14 @@ def agent_context(agent: str, args: argparse.Namespace | None = None, max_bytes:
         if args is not None:
             parts.extend(["", "[activity]", agent_context("activity", args, max_bytes=max_bytes // 2)])
         return "\n".join(parts)
+    if agent == "tools":
+        parts = [tool_registry_snapshot()]
+        if args is not None:
+            records = read_jsonl(audit_path(args))[-8:]
+            if records:
+                parts.append("\n[recent audit]")
+                parts.extend(f"{record.get('time', '')} {record.get('action', '')} {record.get('target', '')} {record.get('outcome', '')}" for record in records)
+        return "\n".join(parts)
     raise OoonanaError(f"unknown agent: {agent}")
 
 
@@ -528,42 +729,109 @@ def completions_url(base_url: str) -> str:
     return base + "/v1/chat/completions"
 
 
+def active_provider(args: argparse.Namespace, config: dict[str, str]) -> str:
+    return selected_provider(config, getattr(args, "provider", ""))
+
+
+def max_tokens(config: dict[str, str]) -> int:
+    return int(config_value(config, "OOONANA_AI_MAX_TOKENS", "1024"))
+
+
+def temperature(config: dict[str, str]) -> float:
+    return float(config_value(config, "OOONANA_AI_TEMPERATURE", "0.2"))
+
+
 def request_payload(args: argparse.Namespace, config: dict[str, str], messages: list[dict[str, str]], stream: bool) -> dict[str, Any]:
-    model = resolve_model(args.model, config)
-    max_tokens = int(config_value(config, "OOONANA_AI_MAX_TOKENS", "1024"))
-    temperature = float(config_value(config, "OOONANA_AI_TEMPERATURE", "0.2"))
-    return {
+    provider = active_provider(args, config)
+    if provider == "gemini":
+        return gemini_request_payload(args, config, messages, stream=stream, include_meta=True)
+    return nim_request_payload(args, config, messages, stream=stream, include_meta=True)
+
+
+def nim_request_payload(
+    args: argparse.Namespace,
+    config: dict[str, str],
+    messages: list[dict[str, str]],
+    stream: bool,
+    include_meta: bool = False,
+) -> dict[str, Any]:
+    model = resolve_model(args.model, config, "nim")
+    payload: dict[str, Any] = {
         "model": model,
         "messages": messages,
-        "max_tokens": max_tokens,
-        "temperature": temperature,
+        "max_tokens": max_tokens(config),
+        "temperature": temperature(config),
         "stream": stream,
     }
+    if include_meta:
+        payload = {"provider": "nim", **payload}
+    return payload
 
 
-def normalize_model_alias(alias: str) -> str:
-    normalized = alias.strip().lower().replace("_", "-")
-    if not re.fullmatch(r"[a-z][a-z0-9-]{0,31}", normalized):
-        raise OoonanaError("model alias must start with a letter and use letters, numbers, or dashes")
-    return normalized
+def gemini_role(role: str) -> str:
+    return "model" if role == "assistant" else "user"
 
 
-def model_alias_env_key(alias: str) -> str:
+def gemini_request_payload(
+    args: argparse.Namespace,
+    config: dict[str, str],
+    messages: list[dict[str, str]],
+    stream: bool,
+    include_meta: bool = False,
+) -> dict[str, Any]:
+    model = resolve_model(args.model, config, "gemini")
+    system_parts: list[str] = []
+    contents: list[dict[str, Any]] = []
+    for message in messages:
+        role = message.get("role", "user")
+        content = message.get("content", "")
+        if role == "system":
+            system_parts.append(content)
+            continue
+        contents.append({"role": gemini_role(role), "parts": [{"text": content}]})
+    payload: dict[str, Any] = {
+        "system_instruction": {"parts": [{"text": "\n\n".join(system_parts)}]},
+        "contents": contents,
+        "generationConfig": {
+            "maxOutputTokens": max_tokens(config),
+            "temperature": temperature(config),
+        },
+    }
+    if include_meta:
+        payload = {"provider": "gemini", "model": model, **payload}
+    return payload
+
+
+def model_default_env_key(provider: str) -> str:
+    if provider == "gemini":
+        return "OOONANA_GEMINI_MODEL"
+    return "OOONANA_NIM_MODEL"
+
+
+def model_default(config: dict[str, str], provider: str) -> str:
+    if provider == "gemini":
+        return config_value(config, "OOONANA_GEMINI_MODEL", DEFAULT_GEMINI_MODEL)
+    return config_value(config, "OOONANA_NIM_MODEL", DEFAULT_MODEL)
+
+
+def model_alias_env_key(alias: str, provider: str = "nim") -> str:
     normalized = normalize_model_alias(alias)
     if normalized == "default":
-        return "OOONANA_NIM_MODEL"
-    return "OOONANA_MODEL_" + normalized.upper().replace("-", "_")
+        return model_default_env_key(provider)
+    prefix = "OOONANA_GEMINI_MODEL_" if provider == "gemini" else "OOONANA_MODEL_"
+    return prefix + normalized.upper().replace("-", "_")
 
 
-def model_aliases(config: dict[str, str]) -> dict[str, str]:
-    aliases: dict[str, str] = {"default": config_value(config, "OOONANA_NIM_MODEL", DEFAULT_MODEL)}
-    for alias, default_model in DEFAULT_MODEL_ALIASES.items():
-        aliases[alias] = config.get(model_alias_env_key(alias), default_model)
+def model_aliases(config: dict[str, str], provider: str = "nim") -> dict[str, str]:
+    aliases: dict[str, str] = {"default": model_default(config, provider)}
+    for alias, default_model in DEFAULT_MODEL_ALIASES[provider].items():
+        aliases[alias] = config.get(model_alias_env_key(alias, provider), default_model)
+    prefix = "OOONANA_GEMINI_MODEL_" if provider == "gemini" else "OOONANA_MODEL_"
     extras: list[tuple[str, str]] = []
     for key, value in config.items():
-        if not key.startswith("OOONANA_MODEL_") or not value:
+        if not key.startswith(prefix) or not value:
             continue
-        alias = key.removeprefix("OOONANA_MODEL_").lower().replace("_", "-")
+        alias = key.removeprefix(prefix).lower().replace("_", "-")
         if alias not in aliases:
             extras.append((alias, value))
     for alias, value in sorted(extras):
@@ -571,23 +839,118 @@ def model_aliases(config: dict[str, str]) -> dict[str, str]:
     return {key: value for key, value in aliases.items() if value}
 
 
-def resolve_model(model: str, config: dict[str, str]) -> str:
-    aliases = model_aliases(config)
+def resolve_model(model: str, config: dict[str, str], provider: str = "nim") -> str:
+    aliases = model_aliases(config, provider)
     selected = (model or "default").strip()
     return aliases.get(selected.lower(), selected)
 
 
-def print_model_aliases(config: dict[str, str]) -> None:
+def print_model_aliases(config: dict[str, str], provider: str) -> None:
     print("aliases:")
-    for alias, model in model_aliases(config).items():
+    for alias, model in model_aliases(config, provider).items():
         print(f"  {alias}: {model}")
 
 
-def print_model_catalog(config: dict[str, str]) -> None:
-    print_model_aliases(config)
+def print_model_catalog(config: dict[str, str], provider: str) -> None:
+    print_model_aliases(config, provider)
     print("popular:")
-    for model in POPULAR_MODELS:
+    models = GEMINI_POPULAR_MODELS if provider == "gemini" else POPULAR_MODELS
+    for model in models:
         print(f"  {model}")
+
+
+def gemini_url(base_url: str, model: str, stream: bool) -> str:
+    base = base_url.rstrip("/")
+    suffix = "streamGenerateContent?alt=sse" if stream else "generateContent"
+    if model.startswith("models/"):
+        model = model.split("/", 1)[1]
+    quoted_model = urllib.parse.quote(model, safe="")
+    return f"{base}/models/{quoted_model}:{suffix}"
+
+
+def extract_gemini_text(data: dict[str, Any]) -> str:
+    chunks: list[str] = []
+    for part in data.get("candidates", [{}])[0].get("content", {}).get("parts", []):
+        text = part.get("text")
+        if text:
+            chunks.append(text)
+    return "".join(chunks)
+
+
+def read_gemini_streaming_response(response: Any) -> str:
+    chunks: list[str] = []
+    for raw_line in response:
+        line = raw_line.decode("utf-8", errors="replace").strip()
+        if not line or not line.startswith("data:"):
+            continue
+        try:
+            event = json.loads(line[5:].strip())
+        except json.JSONDecodeError:
+            continue
+        text = extract_gemini_text(event)
+        if text:
+            chunks.append(text)
+            print(text, end="", flush=True)
+    print()
+    return "".join(chunks)
+
+
+def call_model(args: argparse.Namespace, config: dict[str, str], messages: list[dict[str, str]], stream: bool) -> str:
+    provider = active_provider(args, config)
+    if os.environ.get("OOONANA_AI_MOCK") == "1":
+        response = mock_response(messages)
+        if stream:
+            for char in response:
+                print(char, end="", flush=True)
+                time.sleep(0.001)
+            print()
+        return response
+    if provider == "gemini":
+        return call_gemini(args, config, messages, stream)
+    return call_nim(args, config, messages, stream)
+
+
+def call_gemini(args: argparse.Namespace, config: dict[str, str], messages: list[dict[str, str]], stream: bool) -> str:
+    key = gemini_api_key(config)
+    if not key:
+        raise OoonanaError("AI config missing GEMINI_API_KEY or GOOGLE_API_KEY: run ooonana ai setup")
+    model = resolve_model(args.model, config, "gemini")
+    payload = gemini_request_payload(args, config, messages, stream=stream, include_meta=False)
+    body = json.dumps(payload).encode("utf-8")
+    request = urllib.request.Request(
+        gemini_url(provider_base_url(config, "gemini"), model, stream),
+        data=body,
+        headers={
+            "x-goog-api-key": key,
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream" if stream else "application/json",
+            "User-Agent": f"ooonana-ai/{VERSION}",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=float(os.environ.get("OOONANA_AI_TIMEOUT", "120"))) as response:
+            if stream:
+                return read_gemini_streaming_response(response)
+            data = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise OoonanaError(f"Google Gemini HTTP {exc.code}: {detail}") from exc
+    except urllib.error.URLError as exc:
+        raise OoonanaError(f"Google Gemini connection failed: {exc.reason}") from exc
+
+    text = extract_gemini_text(data)
+    if not text:
+        raise OoonanaError("Google Gemini response did not include text content")
+    return text
+
+
+def normalize_model_alias(alias: str) -> str:
+    normalized = alias.strip().lower().replace("_", "-")
+    if not re.fullmatch(r"[a-z][a-z0-9-]{0,31}", normalized):
+        raise OoonanaError("model alias must start with a letter and use letters, numbers, or dashes")
+    return normalized
 
 
 def mock_response(messages: list[dict[str, str]]) -> str:
@@ -610,7 +973,7 @@ def call_nim(args: argparse.Namespace, config: dict[str, str], messages: list[di
         raise OoonanaError("AI config missing NVIDIA_API_KEY: run ooonana ai setup")
 
     base_url = config_value(config, "OOONANA_NIM_BASE_URL", DEFAULT_BASE_URL)
-    payload = request_payload(args, config, messages, stream=stream)
+    payload = nim_request_payload(args, config, messages, stream=stream, include_meta=False)
     body = json.dumps(payload).encode("utf-8")
     request = urllib.request.Request(
         completions_url(base_url),
@@ -666,20 +1029,22 @@ def read_streaming_response(response: Any) -> str:
 def cmd_doctor(args: argparse.Namespace) -> int:
     path = Path(args.config).expanduser()
     config = load_config(path)
+    provider = active_provider(args, config)
     if not path.exists():
         print("AI config missing: run ooonana ai setup")
         return 1
-    if not api_key(config):
-        print("AI config missing NVIDIA_API_KEY")
+    if not provider_api_key(config, provider):
+        print(missing_key_message(provider))
         print(f"config: {path}")
-        print(f"model: {resolve_model('', config)}")
+        print(f"provider: {provider_label(provider)}")
+        print(f"model: {resolve_model('', config, provider)}")
         return 1
     print("AI config: ok")
-    print("provider: NVIDIA NIM")
-    print(f"base_url: {config_value(config, 'OOONANA_NIM_BASE_URL', DEFAULT_BASE_URL)}")
-    print(f"model: {resolve_model('', config)}")
+    print(f"provider: {provider_label(provider)}")
+    print(f"base_url: {provider_base_url(config, provider)}")
+    print(f"model: {resolve_model('', config, provider)}")
     print("aliases:")
-    for alias, model in model_aliases(config).items():
+    for alias, model in model_aliases(config, provider).items():
         print(f"  {alias}: {model}")
     print("identity: Ooonana")
     return 0
@@ -692,33 +1057,59 @@ def cmd_env(_: argparse.Namespace) -> int:
 
 def cmd_models(args: argparse.Namespace) -> int:
     config = load_config(Path(args.config).expanduser())
-    print("Ooonana NVIDIA NIM models:")
-    print_model_catalog(config)
+    provider = active_provider(args, config)
+    print(f"Ooonana {provider_label(provider)} models:")
+    print_model_catalog(config, provider)
+    return 0
+
+
+def cmd_provider(args: argparse.Namespace) -> int:
+    path = Path(args.config).expanduser()
+    config = load_config(path)
+    action = args.action
+    if action == "show":
+        provider = active_provider(args, config)
+        print(f"active: {provider}")
+        print(f"label: {provider_label(provider)}")
+        print(f"base_url: {provider_base_url(config, provider)}")
+        print(f"key: {'present' if provider_api_key(config, provider) else 'missing'}")
+        print(f"config: {path}")
+        return 0
+    if action == "set":
+        if args.value not in PROVIDER_LABELS:
+            raise OoonanaError("provider must be nim or gemini")
+        write_env_updates(path, {"OOONANA_AI_PROVIDER": args.value})
+        print(f"provider: {args.value}")
+        print(f"config: {path}")
+        return 0
+    raise OoonanaError("usage: ooonana-ai provider [show|set nim|set gemini]")
     return 0
 
 
 def cmd_model(args: argparse.Namespace) -> int:
     path = Path(args.config).expanduser()
     config = load_config(path)
+    provider = active_provider(args, config)
     action = args.action
     values = args.values
 
     if action in ("show", ""):
-        print(f"active: {resolve_model('', config)}")
+        print(f"provider: {provider}")
+        print(f"active: {resolve_model('', config, provider)}")
         print(f"config: {path}")
-        print_model_aliases(config)
+        print_model_aliases(config, provider)
         print("change default: ooonana-ai model set code")
         return 0
 
     if action == "list":
-        print_model_catalog(config)
+        print_model_catalog(config, provider)
         return 0
 
     if action in ("set", "use"):
         if len(values) != 1:
             raise OoonanaError("usage: ooonana-ai model set MODEL_OR_ALIAS")
-        model = resolve_model(values[0], config)
-        write_env_updates(path, {"OOONANA_NIM_MODEL": model})
+        model = resolve_model(values[0], config, provider)
+        write_env_updates(path, {model_default_env_key(provider): model})
         print(f"default model: {model}")
         print(f"config: {path}")
         return 0
@@ -729,8 +1120,8 @@ def cmd_model(args: argparse.Namespace) -> int:
         alias = normalize_model_alias(values[0])
         if alias == "default":
             raise OoonanaError("use model set to change default")
-        model = resolve_model(values[1], config)
-        write_env_updates(path, {model_alias_env_key(alias): model})
+        model = resolve_model(values[1], config, provider)
+        write_env_updates(path, {model_alias_env_key(alias, provider): model})
         print(f"alias {alias}: {model}")
         print(f"config: {path}")
         return 0
@@ -754,13 +1145,134 @@ def cmd_agent(args: argparse.Namespace) -> int:
         config = load_config(Path(args.config).expanduser())
         prompt = args.prompt or f"Summarize the {agent} context for the user."
         messages = build_messages(prompt, include_env=False, agent=agent, args=args)
-        answer = call_nim(args, config, messages, stream=not args.no_stream)
+        answer = call_model(args, config, messages, stream=not args.no_stream)
         if not args.no_stream:
             return 0
         print(answer)
         return 0
     print(context)
     return 0
+
+
+def cmd_tools(_: argparse.Namespace) -> int:
+    print(tool_registry_snapshot())
+    return 0
+
+
+def cmd_tool(args: argparse.Namespace) -> int:
+    name = args.name
+    values = list(args.values)
+    yes = False
+    if "--yes" in values:
+        yes = True
+        values = [value for value in values if value != "--yes"]
+    if name == "system":
+        print(environment_snapshot(max_bytes=20000))
+        record_audit(args, "tool system", "environment", "read")
+        return 0
+    if name == "processes":
+        print(process_snapshot())
+        record_audit(args, "tool processes", "ps", "read")
+        return 0
+    if name == "packages":
+        print(package_snapshot())
+        record_audit(args, "tool packages", "package state", "read")
+        return 0
+    if name == "files":
+        target = values[0] if values else "."
+        print(files_snapshot(target))
+        record_audit(args, "tool files", target, "read")
+        return 0
+    if name == "activity":
+        print(agent_context("activity", args))
+        record_audit(args, "tool activity", "history", "read")
+        return 0
+    if name == "shell":
+        command = " ".join(values).strip()
+        if not command:
+            raise OoonanaError("usage: ooonana-ai tool shell [--yes] COMMAND...")
+        if unsafe_shell_command(command):
+            print("blocked: unsafe shell command")
+            record_audit(args, "tool shell", command, "blocked", "unsafe pattern")
+            return 1
+        if not yes:
+            print("blocked: add --yes to execute")
+            print(f"command: {command}")
+            record_audit(args, "tool shell", command, "blocked", "missing --yes")
+            return 0
+        output = run_capture(["sh", "-lc", command], timeout=10.0)
+        print(output)
+        record_audit(args, "tool shell", command, "executed", output)
+        return 0
+    raise OoonanaError(f"unknown tool: {name}")
+
+
+def cmd_audit(args: argparse.Namespace) -> int:
+    records = read_jsonl(audit_path(args))[-args.limit :]
+    if args.json:
+        print(json.dumps(records, indent=2, ensure_ascii=False))
+        return 0
+    if not records:
+        print("no Ooonana AI audit entries yet")
+        return 0
+    for record in records:
+        print(f"{record.get('time', '')} {record.get('action', '')} {record.get('target', '')} {record.get('outcome', '')}")
+    return 0
+
+
+def cmd_tasks(args: argparse.Namespace) -> int:
+    latest = task_latest(read_jsonl(tasks_path(args)))
+    rows = list(latest.values())[-args.limit :]
+    if args.json:
+        print(json.dumps(rows, indent=2, ensure_ascii=False))
+        return 0
+    if not rows:
+        print("no Ooonana tasks yet")
+        return 0
+    for record in rows:
+        print(f"{record.get('id', '')} {record.get('status', '')} {record.get('text', '')}")
+    return 0
+
+
+def cmd_task(args: argparse.Namespace) -> int:
+    action = args.action
+    values = args.values
+    if action == "list":
+        list_args = argparse.Namespace(**vars(args))
+        list_args.limit = 50
+        list_args.json = False
+        return cmd_tasks(list_args)
+    if action == "add":
+        text = " ".join(values).strip()
+        if not text:
+            raise OoonanaError("usage: ooonana-ai task add DESCRIPTION")
+        task_id = f"t-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{uuid4().hex[:4]}"
+        record = {"time": now_iso(), "id": task_id, "status": "open", "text": text}
+        append_jsonl(tasks_path(args), record)
+        record_audit(args, "task add", task_id, "open", text)
+        print(f"task: {task_id} open {text}")
+        return 0
+    if action == "done":
+        if len(values) != 1:
+            raise OoonanaError("usage: ooonana-ai task done TASK_ID")
+        task_id = values[0]
+        latest = task_latest(read_jsonl(tasks_path(args)))
+        if task_id not in latest:
+            raise OoonanaError(f"unknown task: {task_id}")
+        record = {"time": now_iso(), "id": task_id, "status": "done"}
+        append_jsonl(tasks_path(args), record)
+        record_audit(args, "task done", task_id, "done")
+        print(f"done: {task_id}")
+        return 0
+    if action == "plan":
+        goal = " ".join(values).strip() or "system task"
+        print(f"goal: {goal}")
+        print("1. inspect: use read-only tools first")
+        print("2. propose: show command plan and risk")
+        print("3. execute: require --yes for shell action")
+        print("4. audit: record action in audit.jsonl")
+        return 0
+    raise OoonanaError("usage: ooonana-ai task [add|done|plan|list]")
 
 
 def cmd_history(args: argparse.Namespace) -> int:
@@ -806,7 +1318,8 @@ def cmd_sessions(args: argparse.Namespace) -> int:
 
 def cmd_status(args: argparse.Namespace) -> int:
     config = load_config(Path(args.config).expanduser())
-    print_status(resolve_model(args.model, config), config, state_dir(args))
+    provider = active_provider(args, config)
+    print_status(resolve_model(args.model, config, provider), provider, config, state_dir(args))
     return 0
 
 
@@ -814,7 +1327,7 @@ def cmd_ping(args: argparse.Namespace) -> int:
     config = load_config(Path(args.config).expanduser())
     prompt = "Reply with exactly: Ooonana online"
     messages = build_messages(prompt, include_env=False)
-    answer = call_nim(args, config, messages, stream=False).strip()
+    answer = call_model(args, config, messages, stream=False).strip()
     print(answer)
     return 0
 
@@ -823,7 +1336,7 @@ def cmd_config(args: argparse.Namespace) -> int:
     path = Path(args.config).expanduser()
     config = load_config(path)
     safe = dict(config)
-    for key in ("NVIDIA_API_KEY", "NVIDIA_NIM_API_KEY"):
+    for key in ("NVIDIA_API_KEY", "NVIDIA_NIM_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"):
         if key in safe and safe[key]:
             safe[key] = (safe[key][:8] + "...redacted") if len(safe[key]) > 12 else "...redacted"
     print(f"config: {path}")
@@ -833,6 +1346,7 @@ def cmd_config(args: argparse.Namespace) -> int:
 
 def cmd_ask(args: argparse.Namespace) -> int:
     config = load_config(Path(args.config).expanduser())
+    provider = active_provider(args, config)
     prompt = " ".join(args.prompt).strip()
     if not prompt:
         raise OoonanaError("prompt required")
@@ -840,15 +1354,15 @@ def cmd_ask(args: argparse.Namespace) -> int:
     messages = build_messages(prompt, include_env=not args.no_env, agent=active_agent, args=args)
     stream_default = config_value(config, "OOONANA_AI_STREAM", "1") != "0"
     stream = stream_default and not args.no_stream and not args.json
-    model = resolve_model(args.model, config)
+    model = resolve_model(args.model, config, provider)
     session_id = args.session or f"ask-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6]}"
     if args.dry_run:
         payload = request_payload(args, config, messages, stream=stream)
         print(json.dumps(payload, indent=2))
         return 0
     if sys.stdout.isatty() and not args.json:
-        print_banner(model, mode="ask")
-    answer = call_nim(args, config, messages, stream=stream)
+        print_banner(model, provider, mode="ask")
+    answer = call_model(args, config, messages, stream=stream)
     if not args.no_history:
         record_exchange(args, session_id=session_id, mode="ask", model=model, user=prompt, assistant=answer)
     if args.json:
@@ -865,11 +1379,17 @@ def print_chat_help() -> None:
             /help              Show commands
             /agents            List local context agents
             /agent [NAME|none] Show or switch active agent
+            /tools             List local CLI tools
+            /tool NAME ARGS    Run local CLI tool
+            /tasks             Show CLI tasks
+            /task ACTION ARGS  Add, finish, or plan CLI tasks
+            /audit             Show permissioned action audit log
             /env               Print the Linux environment snapshot
             /history           Show recent Ooonana AI history
             /rewind [N]        Remove the latest N turns from this chat context
             /status            Show provider, model, config, and cwd
-            /models            List aliases and popular NIM model ids
+            /provider          Show or switch provider
+            /models            List aliases and popular model ids
             /model [MODEL]     Show or switch model for this chat
             /model set MODEL   Persist default model in config
             /model alias N M   Save alias N for model M
@@ -883,14 +1403,15 @@ def print_chat_help() -> None:
 
 def cmd_chat(args: argparse.Namespace) -> int:
     config = load_config(Path(args.config).expanduser())
-    model = resolve_model(args.model, config)
+    provider = active_provider(args, config)
+    model = resolve_model(args.model, config, provider)
     session_id = args.session or f"chat-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6]}"
     session_records = read_jsonl(session_path(args, session_id))
     history = records_to_messages(session_records)
     transcript = list(session_records)
     active_agent = "" if args.no_agent else args.agent
 
-    print_banner(model, mode="chat")
+    print_banner(model, provider, mode="chat")
     print(f"session: {session_id}")
     print(f"agent: {active_agent or 'none'}")
     print("type /help for commands, /exit to leave")
@@ -916,6 +1437,45 @@ def cmd_chat(args: argparse.Namespace) -> int:
             if command == "/agents":
                 cmd_agents(args)
                 continue
+            if command == "/tools":
+                cmd_tools(args)
+                continue
+            if command == "/tool":
+                if len(parts) < 2:
+                    print("usage: /tool NAME ARGS")
+                    continue
+                local_tool_args = argparse.Namespace(**vars(args))
+                local_tool_args.name = parts[1]
+                local_tool_args.values = parts[2:]
+                try:
+                    cmd_tool(local_tool_args)
+                except OoonanaError as exc:
+                    print(str(exc))
+                continue
+            if command == "/tasks":
+                local_tasks_args = argparse.Namespace(**vars(args))
+                local_tasks_args.limit = 20
+                local_tasks_args.json = False
+                cmd_tasks(local_tasks_args)
+                continue
+            if command == "/task":
+                if len(parts) < 2:
+                    print("usage: /task ACTION ARGS")
+                    continue
+                local_task_args = argparse.Namespace(**vars(args))
+                local_task_args.action = parts[1]
+                local_task_args.values = parts[2:]
+                try:
+                    cmd_task(local_task_args)
+                except OoonanaError as exc:
+                    print(str(exc))
+                continue
+            if command == "/audit":
+                local_audit_args = argparse.Namespace(**vars(args))
+                local_audit_args.limit = 20
+                local_audit_args.json = False
+                cmd_audit(local_audit_args)
+                continue
             if command == "/agent":
                 if len(parts) == 1:
                     print(f"active agent: {active_agent or 'none'}")
@@ -933,10 +1493,27 @@ def cmd_chat(args: argparse.Namespace) -> int:
                 print(environment_snapshot(max_bytes=20000))
                 continue
             if command == "/status":
-                print_status(model, config, state_dir(args))
+                print_status(model, provider, config, state_dir(args))
+                continue
+            if command == "/provider":
+                if len(parts) == 1:
+                    print(f"active provider: {provider}")
+                    print("available: nim, gemini")
+                    continue
+                if len(parts) == 3 and parts[1] == "set":
+                    if parts[2] not in PROVIDER_LABELS:
+                        print("usage: /provider set nim|gemini")
+                        continue
+                    provider = parts[2]
+                    write_env_updates(Path(args.config).expanduser(), {"OOONANA_AI_PROVIDER": provider})
+                    config = load_config(Path(args.config).expanduser())
+                    model = resolve_model("", config, provider)
+                    print(f"provider: {provider}")
+                    continue
+                print("usage: /provider [set nim|gemini]")
                 continue
             if command == "/models":
-                print_model_catalog(config)
+                print_model_catalog(config, provider)
                 continue
             if command == "/history":
                 cmd_history(args)
@@ -972,8 +1549,8 @@ def cmd_chat(args: argparse.Namespace) -> int:
                     if len(parts) != 3:
                         print("usage: /model set MODEL_OR_ALIAS")
                         continue
-                    model = resolve_model(parts[2], config)
-                    write_env_updates(Path(args.config).expanduser(), {"OOONANA_NIM_MODEL": model})
+                    model = resolve_model(parts[2], config, provider)
+                    write_env_updates(Path(args.config).expanduser(), {model_default_env_key(provider): model})
                     config = load_config(Path(args.config).expanduser())
                     print(f"default model: {model}")
                     continue
@@ -985,15 +1562,15 @@ def cmd_chat(args: argparse.Namespace) -> int:
                         alias = normalize_model_alias(parts[2])
                         if alias == "default":
                             raise OoonanaError("use /model set to change default")
-                        resolved = resolve_model(parts[3], config)
-                        write_env_updates(Path(args.config).expanduser(), {model_alias_env_key(alias): resolved})
+                        resolved = resolve_model(parts[3], config, provider)
+                        write_env_updates(Path(args.config).expanduser(), {model_alias_env_key(alias, provider): resolved})
                         config = load_config(Path(args.config).expanduser())
                         print(f"alias {alias}: {resolved}")
                     except OoonanaError as exc:
                         print(str(exc))
                     continue
                 if len(parts) == 2:
-                    model = resolve_model(parts[1], config)
+                    model = resolve_model(parts[1], config, provider)
                     print(f"model: {model}")
                 else:
                     print("usage: /model [MODEL] | /model set MODEL | /model alias NAME MODEL")
@@ -1010,9 +1587,10 @@ def cmd_chat(args: argparse.Namespace) -> int:
 
         local_args = argparse.Namespace(**vars(args))
         local_args.model = model
+        local_args.provider = provider
         messages = build_messages(stripped, history=history, include_env=True, agent=active_agent, args=args)
         try:
-            answer = call_nim(local_args, config, messages, stream=not args.no_stream)
+            answer = call_model(local_args, config, messages, stream=not args.no_stream)
         except OoonanaError as exc:
             print(warn(str(exc)), file=sys.stderr)
             return 1
@@ -1026,24 +1604,33 @@ def cmd_chat(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="ooonana ai", description="Ooonana AI CLI for NVIDIA NIM")
+    parser = argparse.ArgumentParser(prog="ooonana ai", description="Ooonana AI CLI for NVIDIA NIM and Google Gemini")
     parser.add_argument("--config", default=str(CONFIG_PATH), help="config env file")
     parser.add_argument("--state-dir", default=str(STATE_PATH), help="history/session state directory")
+    parser.add_argument("--provider", default="", choices=("nim", "gemini", "auto", ""), help="provider override")
     subparsers = parser.add_subparsers(dest="command")
 
     subparsers.add_parser("setup", help="create config file")
     subparsers.add_parser("doctor", help="check AI config")
     subparsers.add_parser("config", help="print resolved config without secrets")
     subparsers.add_parser("env", help="print Linux environment context")
-    subparsers.add_parser("models", help="show useful NVIDIA NIM model ids")
+    subparsers.add_parser("models", help="show useful provider model ids")
+    provider = subparsers.add_parser("provider", help="show or change provider")
+    provider.add_argument("action", nargs="?", default="show", choices=("show", "set"), help="provider action")
+    provider.add_argument("value", nargs="?", default="", choices=("nim", "gemini", ""), help="provider name")
     model = subparsers.add_parser("model", help="show or change default model")
     model.add_argument("action", nargs="?", default="show", choices=("show", "list", "set", "use", "alias"), help="model action")
     model.add_argument("values", nargs="*", help="model id or alias values")
     subparsers.add_parser("agents", help="list local context agents")
+    subparsers.add_parser("tools", help="list local CLI tools")
+
+    tool = subparsers.add_parser("tool", help="run a local CLI tool")
+    tool.add_argument("name", choices=sorted(TOOLS), help="tool name")
+    tool.add_argument("values", nargs=argparse.REMAINDER, help="tool args")
 
     agent = subparsers.add_parser("agent", help="run or inspect a local context agent")
     agent.add_argument("name", choices=sorted(AGENTS), help="agent name")
-    agent.add_argument("--ask", action="store_true", help="ask NIM to summarize this agent context")
+    agent.add_argument("--ask", action="store_true", help="ask provider to summarize this agent context")
     agent.add_argument("--prompt", default="", help="custom summarization prompt")
     agent.add_argument("--model", default="", help="override model id")
     agent.add_argument("--no-stream", action="store_true", help="disable streaming output")
@@ -1057,10 +1644,22 @@ def build_parser() -> argparse.ArgumentParser:
     sessions = subparsers.add_parser("sessions", help="list persistent chat sessions")
     sessions.add_argument("--limit", type=int, default=20, help="number of sessions to show")
 
+    audit = subparsers.add_parser("audit", help="show permissioned action audit log")
+    audit.add_argument("--limit", type=int, default=30, help="number of audit entries to show")
+    audit.add_argument("--json", action="store_true", help="print JSON audit")
+
+    tasks = subparsers.add_parser("tasks", help="show Ooonana CLI tasks")
+    tasks.add_argument("--limit", type=int, default=50, help="number of tasks to show")
+    tasks.add_argument("--json", action="store_true", help="print JSON tasks")
+
+    task = subparsers.add_parser("task", help="add, finish, or plan CLI tasks")
+    task.add_argument("action", choices=("add", "done", "plan", "list"), help="task action")
+    task.add_argument("values", nargs=argparse.REMAINDER, help="task args")
+
     status = subparsers.add_parser("status", help="show UI/provider status")
     status.add_argument("--model", default="", help="override model id")
 
-    ping = subparsers.add_parser("ping", help="send a tiny live check to NVIDIA NIM")
+    ping = subparsers.add_parser("ping", help="send a tiny live check to active provider")
     ping.add_argument("--model", default="", help="override model id")
 
     ask = subparsers.add_parser("ask", help="ask one question")
@@ -1071,7 +1670,7 @@ def build_parser() -> argparse.ArgumentParser:
     ask.add_argument("--session", default="", help="session id for saved history")
     ask.add_argument("--no-history", action="store_true", help="do not save this exchange")
     ask.add_argument("--no-stream", action="store_true", help="disable streaming output")
-    ask.add_argument("--dry-run", action="store_true", help="print request JSON without calling NIM")
+    ask.add_argument("--dry-run", action="store_true", help="print request JSON without calling provider")
     ask.add_argument("--json", action="store_true", help="print JSON response")
     ask.add_argument("prompt", nargs=argparse.REMAINDER)
 
@@ -1083,7 +1682,7 @@ def build_parser() -> argparse.ArgumentParser:
     code.add_argument("--session", default="", help="session id for saved history")
     code.add_argument("--no-history", action="store_true", help="do not save this exchange")
     code.add_argument("--no-stream", action="store_true", help="disable streaming output")
-    code.add_argument("--dry-run", action="store_true", help="print request JSON without calling NIM")
+    code.add_argument("--dry-run", action="store_true", help="print request JSON without calling provider")
     code.add_argument("--json", action="store_true", help="print JSON response")
     code.add_argument("prompt", nargs=argparse.REMAINDER)
 
@@ -1113,16 +1712,28 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_env(args)
         if command == "models":
             return cmd_models(args)
+        if command == "provider":
+            return cmd_provider(args)
         if command == "model":
             return cmd_model(args)
         if command == "agents":
             return cmd_agents(args)
+        if command == "tools":
+            return cmd_tools(args)
+        if command == "tool":
+            return cmd_tool(args)
         if command == "agent":
             return cmd_agent(args)
         if command == "history":
             return cmd_history(args)
         if command == "sessions":
             return cmd_sessions(args)
+        if command == "audit":
+            return cmd_audit(args)
+        if command == "tasks":
+            return cmd_tasks(args)
+        if command == "task":
+            return cmd_task(args)
         if command == "status":
             return cmd_status(args)
         if command == "ping":

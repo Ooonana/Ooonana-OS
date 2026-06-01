@@ -1,30 +1,60 @@
 #!/bin/sh
 set -eu
 
-SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-CONFIG_VALUE=""
-CONFIG_EQ=""
-STATE_VALUE=""
-STATE_EQ=""
+script_dir() {
+  path="$0"
+  while [ -L "$path" ] && command -v readlink >/dev/null 2>&1; do
+    dir="$(CDPATH= cd -- "$(dirname -- "$path")" && pwd)"
+    target="$(readlink "$path")" || break
+    case "$target" in
+      /*) path="$target" ;;
+      *) path="$dir/$target" ;;
+    esac
+  done
+  CDPATH= cd -- "$(dirname -- "$path")" && pwd
+}
+
+SCRIPT_DIR="$(script_dir)"
+CONFIG_OPT=""
+CONFIG_VAL=""
+STATE_OPT=""
+STATE_VAL=""
+PROVIDER_OPT=""
+PROVIDER_VAL=""
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --config)
       [ "$#" -ge 2 ] || { printf 'ooonana-ai: --config requires a path\n' >&2; exit 1; }
-      CONFIG_VALUE="$2"
+      CONFIG_OPT="--config"
+      CONFIG_VAL="$2"
       shift 2
       ;;
     --config=*)
-      CONFIG_EQ="$1"
+      CONFIG_OPT="$1"
+      CONFIG_VAL=""
       shift
       ;;
     --state-dir)
       [ "$#" -ge 2 ] || { printf 'ooonana-ai: --state-dir requires a path\n' >&2; exit 1; }
-      STATE_VALUE="$2"
+      STATE_OPT="--state-dir"
+      STATE_VAL="$2"
       shift 2
       ;;
     --state-dir=*)
-      STATE_EQ="$1"
+      STATE_OPT="$1"
+      STATE_VAL=""
+      shift
+      ;;
+    --provider)
+      [ "$#" -ge 2 ] || { printf 'ooonana-ai: --provider requires nim, gemini, or auto\n' >&2; exit 1; }
+      PROVIDER_OPT="--provider"
+      PROVIDER_VAL="$2"
+      shift 2
+      ;;
+    --provider=*)
+      PROVIDER_OPT="$1"
+      PROVIDER_VAL=""
       shift
       ;;
     *)
@@ -34,10 +64,27 @@ while [ "$#" -gt 0 ]; do
 done
 
 run_ai() {
-  [ -n "$STATE_VALUE" ] && set -- --state-dir "$STATE_VALUE" "$@"
-  [ -n "$STATE_EQ" ] && set -- "$STATE_EQ" "$@"
-  [ -n "$CONFIG_VALUE" ] && set -- --config "$CONFIG_VALUE" "$@"
-  [ -n "$CONFIG_EQ" ] && set -- "$CONFIG_EQ" "$@"
+  if [ -n "$PROVIDER_OPT" ]; then
+    if [ -n "$PROVIDER_VAL" ]; then
+      set -- "$PROVIDER_OPT" "$PROVIDER_VAL" "$@"
+    else
+      set -- "$PROVIDER_OPT" "$@"
+    fi
+  fi
+  if [ -n "$STATE_OPT" ]; then
+    if [ -n "$STATE_VAL" ]; then
+      set -- "$STATE_OPT" "$STATE_VAL" "$@"
+    else
+      set -- "$STATE_OPT" "$@"
+    fi
+  fi
+  if [ -n "$CONFIG_OPT" ]; then
+    if [ -n "$CONFIG_VAL" ]; then
+      set -- "$CONFIG_OPT" "$CONFIG_VAL" "$@"
+    else
+      set -- "$CONFIG_OPT" "$@"
+    fi
+  fi
   exec "$SCRIPT_DIR/ooonana" ai "$@"
 }
 
@@ -46,9 +93,10 @@ case "${1:-}" in
     run_ai chat
     ;;
   help|--help|-h)
-    run_ai --help
+    shift || true
+    run_ai --help "$@"
     ;;
-  setup|doctor|config|env|models|model|agents|agent|history|sessions|status|ping|ask|code|chat)
+  setup|doctor|config|env|models|provider|model|agents|agent|tools|tool|audit|tasks|task|history|sessions|status|ping|ask|code|chat)
     run_ai "$@"
     ;;
   *)

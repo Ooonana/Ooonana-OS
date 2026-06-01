@@ -113,6 +113,10 @@ show="$("$CLI" show gui)"
 assert_contains "$show" "id: gui"
 assert_contains "$show" "source: builtin"
 
+show_ai="$("$CLI" show ai)"
+assert_contains "$show_ai" "Google Gemini"
+assert_contains "$show_ai" "Jarvis-style"
+
 dry_run="$("$CLI" get gui --dry-run)"
 assert_contains "$dry_run" "would install gui"
 assert_not_contains "$("$CLI" list --installed)" "gui"

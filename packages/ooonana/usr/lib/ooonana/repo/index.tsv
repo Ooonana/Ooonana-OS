@@ -1,4 +1,4 @@
-ai	0.2.0	bundle	Ooonana AI CLI with NVIDIA NIM provider	-	-	592aceff310e3c7178d071da433090a2698086540d01874ab6df734441f25bb0
+ai	0.3.0	bundle	Ooonana AI CLI with NVIDIA NIM and Google Gemini providers	-	-	0c7f51e4501b145705d048621290bfacb347af21084df2711b9188542b4dce09
 base	0.1.0	system	Ooonana scratch base system	-	-	fca88b4d661552bfd9591f9826bd5c03bd69671da680df8136ddaeab084c57be
 dev	0.1.0	bundle	Developer tools bundle	-	-	847ad5e76f139876d1c27d42081ed39c383c1fea7078f2d5b9e4c085c5f61485
 gui	0.1.0	bundle	Minimal graphical desktop bundle	-	-	0490c96cba30ab7ef4000c01e33c1038450cb1b43467a10ab3a4d4d72d1c5f0d

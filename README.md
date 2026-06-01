@@ -78,24 +78,45 @@ ooonana repo index /usr/lib/ooonana/repo
 ooonana remove ai
 ```
 
-## Ooonana AI
+## Ooonana AI CLI
+
+Ooonana includes a CLI-first AI app with NVIDIA NIM and Google Gemini providers.
+Full usage lives in [docs/ooonana-ai.md](docs/ooonana-ai.md). Jarvis-style tool
+notes live in [docs/jarvis-agi-research.md](docs/jarvis-agi-research.md).
 
 ```bash
 ooonana ai setup
 ooonana ai doctor
+ooonana ai status
+ooonana ai provider
+ooonana ai provider set gemini
 ooonana ai models
 ooonana ai model
 ooonana ai agents
+ooonana ai tools
+ooonana ai tool processes
+ooonana ai task add "inspect system"
+ooonana ai tasks
+ooonana ai audit
 ooonana ai history
 ooonana ai ask "what system am I in?"
 ooonana-ai --model code "write a shell script"
 ooonana-ai chat
 ```
 
-AI uses NVIDIA NIM through an OpenAI-compatible chat API. Config lives in:
+Config lives in:
 
 ```text
 ~/.config/ooonana/ai.env
+```
+
+Scratch WSL has no `python3` yet, so `provider`, `status`, and `tools` use a
+shell fallback. Full chat and live provider calls need `python3`.
+
+Copyable config example:
+
+```text
+docs/ooonana-ai.env.example
 ```
 
 Package metadata lives in:
@@ -161,7 +182,7 @@ bash scripts/run-qemu.sh
 Windows root command:
 
 ```powershell
-wsl.exe -u root bash -lc 'cd "/mnt/c/Users/7ryan/OneDrive/문서/Ooonana OS" && bash scripts/build-rootfs.sh'
+wsl.exe -u root bash -lc 'cd "/mnt/c/Users/<windows-user>/path/to/Ooonana OS" && bash scripts/build-rootfs.sh'
 ```
 
 Build output:

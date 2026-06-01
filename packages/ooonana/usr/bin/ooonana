@@ -76,9 +76,15 @@ Usage:
   ooonana ai chat
   ooonana ai env
   ooonana ai models
+  ooonana ai provider [show|set nim|set gemini]
   ooonana ai model [show|list|set MODEL|alias NAME MODEL]
   ooonana ai agents
   ooonana ai agent activity
+  ooonana ai tools
+  ooonana ai tool NAME [ARGS...]
+  ooonana ai audit
+  ooonana ai tasks
+  ooonana ai task [add|done|plan] ...
   ooonana ai history
   ooonana ai sessions
   ooonana ai status
@@ -856,13 +862,19 @@ cmd_ai_setup() {
   if [ ! -f "$AI_CONFIG" ]; then
     umask 077
     cat > "$AI_CONFIG" <<'EOF'
-# Ooonana AI uses NVIDIA NIM's OpenAI-compatible chat API.
+# Ooonana AI uses NVIDIA NIM or Google Gemini.
 # Get a key from https://build.nvidia.com/settings/api-keys
+# Get a Gemini key from https://aistudio.google.com/app/apikey
+OOONANA_AI_PROVIDER=nim
 NVIDIA_API_KEY=
+GEMINI_API_KEY=
 OOONANA_NIM_BASE_URL=https://integrate.api.nvidia.com/v1
 OOONANA_NIM_MODEL=nvidia/nemotron-3-super-120b-a12b
+OOONANA_GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
+OOONANA_GEMINI_MODEL=gemini-2.5-flash
 OOONANA_MODEL_CODE=qwen/qwen3-coder-480b-a35b-instruct
 OOONANA_MODEL_FAST=qwen/qwen3-next-80b-a3b-instruct
+OOONANA_MODEL_DEEP=nvidia/nemotron-3-super-120b-a12b
 EOF
   fi
   chmod 600 "$AI_CONFIG"
@@ -875,8 +887,14 @@ cmd_ai_doctor() {
     exit 1
   fi
   . "$AI_CONFIG"
-  if [ -n "${NVIDIA_API_KEY:-}" ] || [ -n "${NVIDIA_NIM_API_KEY:-}" ] || [ -n "${OPENAI_API_KEY:-}" ]; then
+  provider="${AI_PROVIDER_OVERRIDE:-${OOONANA_AI_PROVIDER:-nim}}"
+  if { [ "$provider" = "gemini" ] || [ "$provider" = "auto" ]; } && { [ -n "${GEMINI_API_KEY:-}" ] || [ -n "${GOOGLE_API_KEY:-}" ]; }; then
     printf 'AI config: ok\n'
+  elif [ -n "${NVIDIA_API_KEY:-}" ] || [ -n "${NVIDIA_NIM_API_KEY:-}" ] || [ -n "${OPENAI_API_KEY:-}" ]; then
+    printf 'AI config: ok\n'
+  elif [ "$provider" = "gemini" ]; then
+    printf 'AI config missing GEMINI_API_KEY or GOOGLE_API_KEY\n'
+    exit 1
   else
     printf 'AI config missing NVIDIA_API_KEY\n'
     exit 1
@@ -889,19 +907,245 @@ cmd_ai_code() {
   printf 'AI code request queued: %s\n' "$*"
 }
 
+cmd_ai_config_load() {
+  [ -f "$AI_CONFIG" ] && . "$AI_CONFIG"
+  return 0
+}
+
+cmd_ai_provider_key_present() {
+  provider="$1"
+  if [ "$provider" = "gemini" ]; then
+    [ -n "${GEMINI_API_KEY:-}" ] || [ -n "${GOOGLE_API_KEY:-}" ]
+  else
+    [ -n "${NVIDIA_API_KEY:-}" ] || [ -n "${NVIDIA_NIM_API_KEY:-}" ] || [ -n "${OPENAI_API_KEY:-}" ]
+  fi
+}
+
+cmd_ai_provider_model() {
+  provider="$1"
+  if [ "$provider" = "gemini" ]; then
+    printf '%s\n' "${OOONANA_GEMINI_MODEL:-gemini-2.5-flash}"
+  else
+    printf '%s\n' "${OOONANA_NIM_MODEL:-nvidia/nemotron-3-super-120b-a12b}"
+  fi
+}
+
+cmd_ai_provider_label() {
+  case "$1" in
+    gemini) printf 'Google Gemini\n' ;;
+    *) printf 'NVIDIA NIM\n' ;;
+  esac
+}
+
+cmd_ai_env_set() {
+  key="$1"
+  value="$2"
+  mkdir -p "$(dirname "$AI_CONFIG")"
+  [ -f "$AI_CONFIG" ] || cmd_ai_setup >/dev/null
+  tmp="$AI_CONFIG.tmp.$$"
+  found=0
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      "$key="*) printf '%s=%s\n' "$key" "$value"; found=1 ;;
+      *) printf '%s\n' "$line" ;;
+    esac
+  done < "$AI_CONFIG" > "$tmp"
+  if [ "$found" -eq 0 ]; then
+    printf '%s=%s\n' "$key" "$value" >> "$tmp"
+  fi
+  mv "$tmp" "$AI_CONFIG"
+  chmod 600 "$AI_CONFIG"
+}
+
+cmd_ai_provider() {
+  subcmd="${1:-show}"
+  case "$subcmd" in
+    ""|show)
+      cmd_ai_config_load
+      provider="${AI_PROVIDER_OVERRIDE:-${OOONANA_AI_PROVIDER:-nim}}"
+      [ "$provider" = "auto" ] && provider="nim"
+      key_state="missing"
+      cmd_ai_provider_key_present "$provider" && key_state="present"
+      printf 'active: %s\n' "$provider"
+      printf 'provider: %s\n' "$(cmd_ai_provider_label "$provider")"
+      printf 'model: %s\n' "$(cmd_ai_provider_model "$provider")"
+      printf 'key: %s\n' "$key_state"
+      ;;
+    set)
+      value="${2:-}"
+      [ "$value" = "nim" ] || [ "$value" = "gemini" ] || die "usage: ooonana ai provider [show|set nim|set gemini]"
+      cmd_ai_env_set OOONANA_AI_PROVIDER "$value"
+      printf 'provider: %s\n' "$value"
+      printf 'config: %s\n' "$AI_CONFIG"
+      ;;
+    *) die "usage: ooonana ai provider [show|set nim|set gemini]" ;;
+  esac
+}
+
+cmd_ai_tools() {
+  cat <<'TOOLS'
+Ooonana CLI tool registry
+system     show kernel, host, cwd, and storage basics
+processes  list running processes
+packages   list Ooonana packages
+files      list files under a path
+activity   show recent local activity hints
+shell      guarded shell command, blocks unless --yes
+TOOLS
+}
+
+cmd_ai_status() {
+  cmd_ai_config_load
+  provider="${AI_PROVIDER_OVERRIDE:-${OOONANA_AI_PROVIDER:-nim}}"
+  [ "$provider" = "auto" ] && provider="nim"
+  key_state="missing"
+  cmd_ai_provider_key_present "$provider" && key_state="present"
+  printf 'Ooonana AI status\n'
+  printf 'provider: %s\n' "$(cmd_ai_provider_label "$provider")"
+  printf 'model: %s\n' "$(cmd_ai_provider_model "$provider")"
+  printf 'key: %s\n' "$key_state"
+  printf 'config: %s\n' "$AI_CONFIG"
+  printf 'python: missing\n'
+}
+
+cmd_ai_models() {
+  cat <<'MODELS'
+nim default: nvidia/nemotron-3-super-120b-a12b
+code: qwen/qwen3-coder-480b-a35b-instruct
+fast: qwen/qwen3-next-80b-a3b-instruct
+gemini default: gemini-2.5-flash
+deep: gemini-2.5-pro
+MODELS
+}
+
+cmd_ai_config_print() {
+  [ -f "$AI_CONFIG" ] || die "AI config missing: run ooonana ai setup"
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      NVIDIA_API_KEY=*|NVIDIA_NIM_API_KEY=*|OPENAI_API_KEY=*|GEMINI_API_KEY=*|GOOGLE_API_KEY=*)
+        printf '%s=...redacted\n' "${line%%=*}"
+        ;;
+      *) printf '%s\n' "$line" ;;
+    esac
+  done < "$AI_CONFIG"
+}
+
+cmd_ai_env() {
+  printf 'kernel: %s\n' "$(uname -r)"
+  printf 'host: %s\n' "$(hostname 2>/dev/null || printf unknown)"
+  printf 'cwd: %s\n' "$(pwd)"
+  df -h / 2>/dev/null | sed -n '1,2p' || true
+}
+
+cmd_ai_agents() {
+  printf 'system\nactivity\nsummarizer\ntools\n'
+}
+
+cmd_ai_agent() {
+  case "${1:-}" in
+    activity)
+      printf 'recent shell history: unavailable in shell fallback\n'
+      printf 'recent Ooonana AI history: unavailable in shell fallback\n'
+      ;;
+    ""|list) cmd_ai_agents ;;
+    *) die "usage: ooonana ai agent activity" ;;
+  esac
+}
+
+cmd_ai_tool() {
+  tool="${1:-}"
+  shift || true
+  case "$tool" in
+    system) cmd_ai_env ;;
+    processes) ps ;;
+    packages) cmd_list ;;
+    files) ls -la "${1:-.}" ;;
+    activity) cmd_ai_agent activity ;;
+    shell)
+      if [ "${1:-}" != "--yes" ]; then
+        printf 'blocked: add --yes\n'
+        return 0
+      fi
+      shift
+      [ "$#" -gt 0 ] || die "usage: ooonana ai tool shell --yes COMMAND..."
+      "$@"
+      ;;
+    ""|list) cmd_ai_tools ;;
+    *) die "usage: ooonana ai tool NAME [ARGS...]" ;;
+  esac
+}
+
+cmd_ai_tasks() {
+  printf 'tasks: python required for persistent task state\n'
+}
+
+cmd_ai_audit() {
+  printf 'audit: python required for persistent audit log\n'
+}
+
 cmd_ai() {
   if have python3 && [ -f "$AI_APP" ]; then
     exec python3 "$AI_APP" --config "$AI_CONFIG" "$@"
   fi
 
+  AI_PROVIDER_OVERRIDE=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --config)
+        [ "$#" -ge 2 ] || die "ooonana ai --config requires a path"
+        AI_CONFIG="$2"
+        shift 2
+        ;;
+      --config=*)
+        AI_CONFIG="${1#--config=}"
+        shift
+        ;;
+      --state-dir)
+        [ "$#" -ge 2 ] || die "ooonana ai --state-dir requires a path"
+        OOONANA_AI_STATE_DIR="$2"
+        shift 2
+        ;;
+      --state-dir=*)
+        OOONANA_AI_STATE_DIR="${1#--state-dir=}"
+        shift
+        ;;
+      --provider)
+        [ "$#" -ge 2 ] || die "ooonana ai --provider requires nim, gemini, or auto"
+        AI_PROVIDER_OVERRIDE="$2"
+        shift 2
+        ;;
+      --provider=*)
+        AI_PROVIDER_OVERRIDE="${1#--provider=}"
+        shift
+        ;;
+      *) break ;;
+    esac
+  done
+
   case "${1:-}" in
     setup) shift; cmd_ai_setup "$@" ;;
     doctor) shift; cmd_ai_doctor "$@" ;;
+    config) shift; cmd_ai_config_print "$@" ;;
+    env) shift; cmd_ai_env "$@" ;;
+    models|model) shift; cmd_ai_models "$@" ;;
+    provider) shift; cmd_ai_provider "$@" ;;
+    agents) shift; cmd_ai_agents "$@" ;;
+    agent) shift; cmd_ai_agent "$@" ;;
+    tools) shift; cmd_ai_tools "$@" ;;
+    tool) shift; cmd_ai_tool "$@" ;;
+    status) shift; cmd_ai_status "$@" ;;
+    audit) shift; cmd_ai_audit "$@" ;;
+    tasks|task) shift; cmd_ai_tasks "$@" ;;
+    history|sessions)
+      history_cmd="$1"
+      shift
+      printf '%s: python required for session history\n' "$history_cmd"
+      ;;
     code|ask)
       shift
       cmd_ai_code "$@"
       ;;
-    ""|chat|config|env|models|status|ping)
+    ""|chat|ping)
       die "python3 required for ooonana ai"
       ;;
     *) usage; exit 1 ;;
