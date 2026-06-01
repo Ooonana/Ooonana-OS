@@ -1,88 +1,170 @@
 # Ooonana OS
 
-AI-built Linux experiment.
+```
+Ooonana OS
+      _____________________
+     |        __           __       |
+     |      /    \       /    \     |
+   / |                               |\
+ /   |         \ ______/         |  \
+     |_____________________|
+               |            |
+```
 
-## Direction
+Lightweight scratch-built Linux for QEMU, WSL, installer experiments, and AI-first terminal work.
 
-Ooonana OS is moving toward a scratch-built, lightweight Linux:
+## Quick Links
+
+- [Download / Release Files](#download--release-files)
+- [What Ooonana Is](#what-ooonana-is)
+- [Current Status](#current-status)
+- [Install And Test](#install-and-test)
+- [Ooonana Command](#ooonana-command)
+- [Ooonana AI](#ooonana-ai)
+- [Build From Source](#build-from-source)
+- [Project Files](#project-files)
+
+## Download / Release Files
+
+Current release artifacts live in:
+
+```text
+/var/tmp/ooonana-os/release
+```
+
+Main installer ISO:
+
+```text
+/var/tmp/ooonana-os/release/ooonana-scratch.iso
+```
+
+Release files:
+
+```text
+ooonana-scratch.iso          bootable GRUB installer ISO
+ooonana-scratch-disk.raw     bootable installed raw disk image
+ooonana-wsl-rootfs.tar.gz    WSL import rootfs
+vmlinuz-ooonana              Ooonana Linux kernel
+SHA256SUMS                   checksums for release artifacts
+qemu-rootfs-boot.log         direct rootfs QEMU boot proof
+qemu-disk-boot.log           GRUB disk QEMU boot proof
+qemu-installer.log           installer ISO QEMU proof
+qemu-installed-boot.log      installed disk QEMU proof
+```
+
+Verify files:
+
+```bash
+cd /var/tmp/ooonana-os/release
+sha256sum -c SHA256SUMS
+```
+
+## What Ooonana Is
+
+Ooonana OS is a small scratch-built Linux project. Target system is not Debian or Alpine. Debian/Ubuntu packages are only host build tools used from WSL while Ooonana grows its own userspace and package manager.
+
+Core pieces:
 
 - Linux kernel
-- BusyBox/musl-style minimal userland target
-- Ooonana-owned package/bundle manager
-- Optional GUI, AI, developer, and security-lab bundles
+- BusyBox-style minimal userspace
+- Custom `ooonana` package manager
+- GRUB boot disk and installer ISO
+- WSL rootfs export
+- QEMU verification flow
+- Optional AI CLI with provider routing
 
-The current Debian-based rootfs is a bootable test shell for QEMU while the Ooonana tooling and installer grow.
+## Current Status
 
-## Ooonana Kernel
+Working now:
 
-```bash
-bash scripts/install-wsl-deps.sh
-bash scripts/fetch-kernel-source.sh --force
-bash scripts/build-kernel.sh \
-  --config-fragment configs/kernel/ooonana-minimal-x86_64.fragment \
-  --force
-```
+- Scratch rootfs boots in QEMU
+- GRUB raw disk boots in QEMU
+- Installer ISO writes Ooonana to blank disk
+- Installed disk boots in QEMU
+- WSL distro import works
+- `ooonana` package manager has repo index, checksums, install, remove, upgrade, files, verify
+- `ooonana-ai` supports NVIDIA NIM, Google Gemini, tools, tasks, audit, and shell fallback for scratch WSL
 
-Default output:
+Next work:
 
-```text
-/var/tmp/ooonana-os/build/ooonana-kernel/vmlinuz-ooonana
-```
+- Installer UI
+- Real package repository publishing flow
+- More first-party packages
+- Users, networking, services, security defaults
+- Optional GUI bundle
 
-Scratch initramfs and scratch ISO boot use this kernel first when present.
+## Install And Test
 
-## Build Cleanup
-
-Default build output goes to:
-
-```text
-/var/tmp/ooonana-os/build
-```
-
-Clean generated images, rootfs trees, logs, ISO trees, and kernel build output:
+Run QEMU installer from repo root:
 
 ```bash
-bash scripts/clean-build-artifacts.sh --yes
+truncate -s 512M /var/tmp/ooonana-os/install-target.raw
+bash scripts/run-qemu.sh \
+  --install \
+  --iso /var/tmp/ooonana-os/release/ooonana-scratch.iso \
+  --disk /var/tmp/ooonana-os/install-target.raw \
+  --smoke
+bash scripts/run-qemu.sh \
+  --disk-boot \
+  --image /var/tmp/ooonana-os/install-target.raw \
+  --smoke
 ```
 
-Keep kernel source/cache while cleaning images:
+Boot release disk directly:
 
 ```bash
-bash scripts/clean-build-artifacts.sh --keep-source --yes
+bash scripts/run-qemu.sh \
+  --disk-boot \
+  --image /var/tmp/ooonana-os/release/ooonana-scratch-disk.raw \
+  --smoke
 ```
 
-`OOONANA_BUILD_DIR` can point somewhere else, but build rootfs trees on a Linux filesystem. Windows drives under `/mnt/c` or `/mnt/f` are useful for storing copied artifacts, but they do not fully support Linux device nodes and permissions.
+Import WSL rootfs:
+
+```bash
+bash scripts/install-wsl-distro.sh --distro Ooonana --force \
+  --tarball /var/tmp/ooonana-os/release/ooonana-wsl-rootfs.tar.gz
+wsl.exe -d Ooonana -- /usr/bin/ooonana me
+wsl.exe -d Ooonana -- /usr/bin/ooonana ai tools
+```
 
 ## Ooonana Command
 
 ```bash
 ooonana me
+ooonana version
 ooonana wsl status
 ooonana update
 ooonana sources
 ooonana list
+ooonana list --installed
 ooonana list --upgradeable
-ooonana search graphical
-ooonana info base
-ooonana info gui
-ooonana show gui
+ooonana search gui
+ooonana info ai
 ooonana depends gui
 ooonana get gui --dry-run
-ooonana install gui --dry-run
-ooonana get ai
-ooonana list --installed
+ooonana install ai
 ooonana files ai
 ooonana verify ai
 ooonana upgrade --dry-run
-ooonana repo index /usr/lib/ooonana/repo
 ooonana remove ai
+ooonana repo index /usr/lib/ooonana/repo
 ```
 
-## Ooonana AI CLI
+Package metadata lives inside Ooonana:
 
-Ooonana includes a CLI-first AI app with NVIDIA NIM and Google Gemini providers.
-Full usage lives in [docs/ooonana-ai.md](docs/ooonana-ai.md). Jarvis-style tool
-notes live in [docs/jarvis-agi-research.md](docs/jarvis-agi-research.md).
+```text
+/usr/lib/ooonana/repo/*.pkg
+/usr/lib/ooonana/repo/index.tsv
+/usr/lib/ooonana/repo/SHA256SUMS
+/etc/ooonana/sources.d/*.repo
+/var/lib/ooonana/packages/installed
+/var/cache/ooonana/index.tsv
+```
+
+## Ooonana AI
+
+Ooonana AI is CLI-first. It can run as `ooonana ai ...` or direct `ooonana-ai ...`.
 
 ```bash
 ooonana ai setup
@@ -98,162 +180,165 @@ ooonana ai tool processes
 ooonana ai task add "inspect system"
 ooonana ai tasks
 ooonana ai audit
-ooonana ai history
 ooonana ai ask "what system am I in?"
 ooonana-ai --model code "write a shell script"
 ooonana-ai chat
 ```
 
-Config lives in:
+Config:
 
 ```text
 ~/.config/ooonana/ai.env
-```
-
-Scratch WSL has no `python3` yet, so `provider`, `status`, and `tools` use a
-shell fallback. Full chat and live provider calls need `python3`.
-
-Copyable config example:
-
-```text
 docs/ooonana-ai.env.example
 ```
 
-Package metadata lives in:
+Scratch WSL does not include `python3` yet. `provider`, `status`, and `tools` still work through shell fallback. Full chat and live provider calls need `python3`.
+
+More:
 
 ```text
-/usr/lib/ooonana/repo/*.pkg
-/usr/lib/ooonana/repo/hooks/*.install
-/usr/lib/ooonana/repo/hooks/*.remove
-/usr/lib/ooonana/repo/index.tsv
-/usr/lib/ooonana/repo/SHA256SUMS
+docs/ooonana-ai.md
+docs/jarvis-agi-research.md
 ```
 
-Extra package sources live in:
+## Build From Source
 
-```text
-/etc/ooonana/sources.d/*.repo
-```
-
-Example source:
-
-```sh
-OOONANA_REPO_NAME="main"
-OOONANA_REPO_URI="/usr/lib/ooonana/repo"
-```
-
-Archive packages can add:
-
-```text
-OOONANA_PKG_ARCHIVE="hello.tar.gz"
-OOONANA_PKG_SHA256="..."
-```
-
-Installed archive packages get file manifests, so `ooonana files PACKAGE`,
-`ooonana verify PACKAGE`, and `ooonana upgrade` can inspect and replace package
-payloads.
-
-Repositories can be indexed with `ooonana repo index PATH`. `ooonana update`
-uses `index.tsv` and validates `SHA256SUMS` when present before trusting package
-metadata. `ooonana get`, `ooonana install`, and `ooonana upgrade` also validate
-indexed package and archive checksums before changing installed files.
-
-Installed package state lives in:
-
-```text
-/var/lib/ooonana/packages/installed
-/var/cache/ooonana/index.tsv
-```
-
-## WSL Rootfs Boot
+Install host tools in WSL:
 
 ```bash
 bash scripts/install-wsl-deps.sh
-bash scripts/build-rootfs.sh
-bash scripts/run-qemu.sh --smoke
-bash scripts/build-iso.sh --smoke
-bash scripts/run-qemu.sh --iso /var/tmp/ooonana-os/build/ooonana.iso --smoke
-truncate -s 4G /var/tmp/ooonana-os/build/install.ext4
-bash scripts/build-iso.sh --install --force
-bash scripts/run-qemu.sh --install --iso /var/tmp/ooonana-os/build/ooonana.iso --disk /var/tmp/ooonana-os/build/install.ext4 --smoke
-bash scripts/run-qemu.sh
 ```
 
-Windows root command:
+Build kernel:
 
-```powershell
-wsl.exe -u root bash -lc 'cd "/mnt/c/Users/<windows-user>/path/to/Ooonana OS" && bash scripts/build-rootfs.sh'
+```bash
+bash scripts/fetch-kernel-source.sh --force
+bash scripts/build-kernel.sh \
+  --config-fragment configs/kernel/ooonana-minimal-x86_64.fragment \
+  --force
+```
+
+Build scratch rootfs, WSL tarball, disk, and installer ISO:
+
+```bash
+bash scripts/build-scratch-rootfs.sh --force
+bash scripts/build-scratch-initramfs.sh --force
+bash scripts/build-wsl-rootfs.sh --force
+bash scripts/build-scratch-disk.sh --smoke --force
+bash scripts/build-scratch-grub-iso.sh \
+  --install \
+  --disk-image /var/tmp/ooonana-os/build/ooonana-scratch-disk.raw \
+  --iso /var/tmp/ooonana-os/build/ooonana-scratch.iso \
+  --force
 ```
 
 Build output:
 
 ```text
-/var/tmp/ooonana-os/build/rootfs
-/var/tmp/ooonana-os/build/ooonana-rootfs.ext4
-/var/tmp/ooonana-os/build/ooonana.iso
+/var/tmp/ooonana-os/build
 ```
 
-## Scratch Rootfs
+Clean generated build files:
 
 ```bash
-bash scripts/install-wsl-deps.sh
-bash scripts/build-scratch-rootfs.sh --force
-bash scripts/run-qemu.sh \
-  --scratch-disk-boot \
-  --image /var/tmp/ooonana-os/build/ooonana-scratch.ext4 \
-  --smoke
-bash scripts/build-scratch-initramfs.sh --force
-bash scripts/run-qemu.sh \
-  --initramfs-boot \
-  --rootfs /var/tmp/ooonana-os/build/rootfs \
-  --smoke
-bash scripts/build-scratch-iso.sh --smoke --force
-bash scripts/run-qemu.sh \
-  --iso /var/tmp/ooonana-os/build/ooonana-scratch.iso \
-  --smoke
-bash scripts/build-scratch-disk.sh --smoke --force
-bash scripts/run-qemu.sh \
-  --disk-boot \
-  --image /var/tmp/ooonana-os/build/ooonana-scratch-disk.raw \
-  --smoke
-bash scripts/build-scratch-grub-iso.sh --smoke --force
-bash scripts/run-qemu.sh \
-  --iso /var/tmp/ooonana-os/build/ooonana-scratch-grub.iso \
-  --smoke
-truncate -s 320M /var/tmp/ooonana-os/build/install-scratch.raw
-bash scripts/build-scratch-iso.sh \
-  --install \
-  --disk-image /var/tmp/ooonana-os/build/ooonana-scratch-disk.raw \
-  --smoke \
-  --force
-bash scripts/run-qemu.sh \
-  --install \
-  --iso /var/tmp/ooonana-os/build/ooonana-scratch.iso \
-  --disk /var/tmp/ooonana-os/build/install-scratch.raw \
-  --smoke
-bash scripts/run-qemu.sh \
-  --disk-boot \
-  --image /var/tmp/ooonana-os/build/install-scratch.raw \
-  --smoke
+bash scripts/clean-build-artifacts.sh --yes
 ```
 
-Scratch output:
+Keep kernel source/cache while cleaning images:
+
+```bash
+bash scripts/clean-build-artifacts.sh --keep-source --yes
+```
+
+## Verification
+
+Fast tests:
+
+```bash
+bash tests/test-ooonana-pkg.sh
+bash tests/test-ooonana-ai.sh
+bash tests/test-scratch-rootfs.sh
+bash tests/test-installer.sh
+```
+
+QEMU proof markers:
 
 ```text
-/var/tmp/ooonana-os/build/scratch-rootfs
-/var/tmp/ooonana-os/build/ooonana-scratch.ext4
-/var/tmp/ooonana-os/build/ooonana-scratch-initramfs.cpio.gz
-/var/tmp/ooonana-os/build/ooonana-scratch-disk.raw
-/var/tmp/ooonana-os/build/ooonana-scratch.iso
-/var/tmp/ooonana-os/build/ooonana-wsl-rootfs.tar.gz
+OOONANA_CLI_OK
+OOONANA_BOOT_OK
+OOONANA_INSTALL_OK
 ```
 
-## WSL Distro Install
+## Project Files
 
-```bash
-bash scripts/build-scratch-rootfs.sh --force
-bash scripts/build-wsl-rootfs.sh --force
-bash scripts/install-wsl-distro.sh --distro Ooonana --force
-wsl.exe -d Ooonana -- /usr/bin/ooonana me
-wsl.exe -d Ooonana -- /usr/bin/ooonana wsl status
+Top-level files:
+
+```text
+README.md                         project homepage
+.gitignore                        generated artifact ignores
+.gitattributes                    repo text/binary rules
+AGENTS.md                         local Codex instruction file
+```
+
+Kernel and package config:
+
+```text
+configs/kernel/ooonana-minimal-x86_64.fragment
+configs/packages/core.list
+```
+
+Ooonana package:
+
+```text
+packages/ooonana/usr/bin/ooonana
+packages/ooonana/usr/bin/ooonana-ai
+packages/ooonana/usr/lib/ooonana/ai/ooonana_ai.py
+packages/ooonana/usr/lib/ooonana/repo/*.pkg
+packages/ooonana/usr/lib/ooonana/repo/index.tsv
+packages/ooonana/usr/lib/ooonana/repo/SHA256SUMS
+packages/ooonana/usr/sbin/ooonana-install
+packages/ooonana/usr/share/ooonana/logo.txt
+```
+
+Build scripts:
+
+```text
+scripts/install-wsl-deps.sh
+scripts/fetch-kernel-source.sh
+scripts/build-kernel.sh
+scripts/build-scratch-rootfs.sh
+scripts/build-scratch-initramfs.sh
+scripts/build-wsl-rootfs.sh
+scripts/build-scratch-disk.sh
+scripts/build-scratch-grub-iso.sh
+scripts/install-wsl-distro.sh
+scripts/run-qemu.sh
+scripts/clean-build-artifacts.sh
+scripts/lib/common.sh
+```
+
+Tests:
+
+```text
+tests/test-ooonana-pkg.sh
+tests/test-ooonana-ai.sh
+tests/test-scratch-rootfs.sh
+tests/test-scratch-initramfs.sh
+tests/test-scratch-disk.sh
+tests/test-scratch-grub-iso.sh
+tests/test-wsl-distro.sh
+tests/test-rootfs-qemu.sh
+tests/test-iso.sh
+tests/test-installer.sh
+tests/smoke-cli.sh
+```
+
+Docs:
+
+```text
+docs/logo.txt
+docs/ooonana-ai.md
+docs/ooonana-ai.env.example
+docs/jarvis-agi-research.md
+docs/superpowers/plans/2026-05-21-rootfs-qemu.md
 ```
