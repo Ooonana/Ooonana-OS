@@ -70,7 +70,7 @@ write_file() {
 create_base_dirs() {
   mkdir -p \
     "$ROOTFS/bin" \
-    "$ROOTFS/dev" \
+    "$ROOTFS/dev/pts" \
     "$ROOTFS/etc/ooonana/sources.d" \
     "$ROOTFS/etc/init.d" \
     "$ROOTFS/mnt/install" \
@@ -89,7 +89,7 @@ create_base_dirs() {
 
 create_busybox_links() {
   local applet
-  for applet in awk basename cat chmod cp cut date dd df dirname dmesg echo env free grep hostname ls mkdir mount mv ps pwd readlink rm rmdir sed sh sha256sum sleep sort sync tar touch tr umount uname wc wget; do
+  for applet in adduser awk basename cat chmod cp cut date dd df dirname dmesg echo env free grep hostname ifconfig ip ls mkdir mount mv passwd ps pwd readlink rm rmdir route sed sh sha256sum sleep sort sync tar touch tr udhcpc umount uname wc wget; do
     ln -sf busybox "$ROOTFS/bin/$applet"
   done
   for applet in mdev reboot; do
@@ -112,7 +112,7 @@ create_device_nodes() {
 
 install_ooonana_payload() {
   cp -a "$ROOT/packages/ooonana/." "$ROOTFS/"
-  chmod 0755 "$ROOTFS/usr/bin/ooonana" "$ROOTFS/usr/sbin/ooonana-install"
+  chmod 0755 "$ROOTFS/usr/bin/ooonana" "$ROOTFS/usr/bin/ooonana-setup" "$ROOTFS/usr/sbin/ooonana-install"
   cp "$ROOTFS/usr/lib/ooonana/repo/base.pkg" "$ROOTFS/var/lib/ooonana/packages/installed/base.pkg"
 }
 
@@ -140,6 +140,8 @@ EOF
   write_file "$ROOTFS/sbin/init" 0755 <<'EOF'
 #!/bin/sh
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+mkdir -p /dev/pts
+mount -t devpts devpts /dev/pts 2>/dev/null || true
 exec >/dev/console 2>&1 </dev/console
 /etc/init.d/rcS
 echo "Ooonana shell on console"
@@ -158,6 +160,8 @@ EOF
 mount -t proc proc /proc 2>/dev/null || true
 mount -t sysfs sysfs /sys 2>/dev/null || true
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+mkdir -p /dev/pts
+mount -t devpts devpts /dev/pts 2>/dev/null || true
 mount -t tmpfs tmpfs /run 2>/dev/null || true
 hostname ooonana 2>/dev/null || true
 
@@ -178,6 +182,7 @@ confirm_install() {
   echo
   echo "Ooonana installer"
   echo "Target disk: $target"
+  echo "Source image: installer media"
   echo
   echo "Type INSTALL to erase $target and install Ooonana OS."
   printf 'Confirm: '
@@ -234,6 +239,8 @@ if grep -q 'ooonana.install=1' /proc/cmdline 2>/dev/null; then
     sleep 1
     reboot -f
   fi
+  echo "Source image: $install_image"
+  echo "Writing image to target"
   dd if="$install_image" of="$target" bs=4M
   sync
   umount /mnt/install 2>/dev/null || true

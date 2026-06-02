@@ -54,6 +54,7 @@ Usage:
   ooonana me
   ooonana doctor
   ooonana wsl [doctor|status]
+  ooonana setup [options]
   ooonana update
   ooonana sources
   ooonana list [--installed|--upgradeable]
@@ -594,6 +595,15 @@ cmd_wsl() {
       ;;
     *) die "usage: ooonana wsl [doctor|status]" ;;
   esac
+}
+
+cmd_setup() {
+  setup_bin="${SCRIPT_DIR}/ooonana-setup"
+  if [ ! -x "$setup_bin" ]; then
+    setup_bin="$(root_join /usr/bin/ooonana-setup)"
+  fi
+  [ -x "$setup_bin" ] || die "missing setup command: $setup_bin"
+  exec "$setup_bin" "$@"
 }
 
 cmd_update() {
@@ -1257,6 +1267,7 @@ main() {
     me) cmd_me ;;
     doctor) cmd_doctor ;;
     wsl) cmd_wsl "$@" ;;
+    setup) cmd_setup "$@" ;;
     update) cmd_update ;;
     sources) cmd_sources ;;
     list) cmd_list "$@" ;;

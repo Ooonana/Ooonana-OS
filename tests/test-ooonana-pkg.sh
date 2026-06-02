@@ -59,6 +59,7 @@ assert_contains "$help" "ooonana repo index [PATH]"
 assert_contains "$help" "ooonana sources"
 assert_contains "$help" "ooonana remove PACKAGE"
 assert_contains "$help" "ooonana me"
+assert_contains "$help" "ooonana setup"
 assert_contains "$help" "ooonana wsl [doctor|status]"
 
 sh_help="$(sh "$CLI" help)"

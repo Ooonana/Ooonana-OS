@@ -1,0 +1,276 @@
+#!/bin/sh
+set -eu
+
+OOONANA_ROOT="${OOONANA_ROOT:-/}"
+DRY_RUN=0
+FIRST_BOOT=0
+GUI=0
+DONE=0
+USER_NAME=""
+PASSWORD_SETUP=0
+NETWORK_MODE=""
+ADDRESS=""
+GATEWAY=""
+DNS_SERVERS=""
+CLOUD_REPO=""
+
+usage() {
+  cat <<'USAGE'
+Ooonana first-boot setup.
+
+Usage:
+  ooonana-setup [options]
+
+Options:
+  --first-boot          Skip when setup marker already exists
+  --gui                 Open setup in xterm when DISPLAY is available
+  --user NAME           Create user
+  --password            Prompt for created user password
+  --network dhcp|static Configure eth0 network
+  --address CIDR        Static address, for example 10.0.2.15/24
+  --gateway IP          Static gateway
+  --dns LIST            Comma-separated DNS servers
+  --cloud-repo URI      Add Ooonana cloud package repo
+  --done                Mark setup complete
+  --dry-run             Print actions only
+  -h, --help            Show help
+USAGE
+}
+
+die() {
+  printf 'ooonana-setup: %s\n' "$*" >&2
+  exit 1
+}
+
+have() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+root_join() {
+  path="$1"
+  if [ "$OOONANA_ROOT" = "/" ]; then
+    printf '%s\n' "$path"
+  else
+    printf '%s/%s\n' "${OOONANA_ROOT%/}" "${path#/}"
+  fi
+}
+
+shell_escape() {
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+valid_user() {
+  case "$1" in
+    ""|*[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-]*|[0123456789-]*)
+      return 1
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+}
+
+setup_marker() {
+  root_join /var/lib/ooonana/setup.done
+}
+
+user_exists() {
+  passwd_file="$(root_join /etc/passwd)"
+  [ -f "$passwd_file" ] || return 1
+  grep -q "^$1:" "$passwd_file"
+}
+
+next_uid() {
+  passwd_file="$(root_join /etc/passwd)"
+  if [ -f "$passwd_file" ] && have awk; then
+    awk -F: 'BEGIN { uid = 999 } $3 >= 1000 && $3 < 60000 && $3 > uid { uid = $3 } END { print uid + 1 }' "$passwd_file"
+  else
+    printf '1000\n'
+  fi
+}
+
+write_user() {
+  [ -n "$USER_NAME" ] || return 0
+  valid_user "$USER_NAME" || die "bad user name: $USER_NAME"
+  if [ "$DRY_RUN" -eq 1 ]; then
+    printf 'would create user %s\n' "$USER_NAME"
+    return 0
+  fi
+  if user_exists "$USER_NAME"; then
+    printf 'user: %s already exists\n' "$USER_NAME"
+    return 0
+  fi
+
+  passwd_file="$(root_join /etc/passwd)"
+  group_file="$(root_join /etc/group)"
+  home_dir="$(root_join "/home/$USER_NAME")"
+  mkdir -p "$(dirname "$passwd_file")" "$(dirname "$group_file")" "$home_dir"
+  [ -f "$passwd_file" ] || printf 'root:x:0:0:root:/root:/bin/sh\n' > "$passwd_file"
+  [ -f "$group_file" ] || printf 'root:x:0:\n' > "$group_file"
+  uid="$(next_uid)"
+  printf '%s:x:%s:%s:Ooonana User:/home/%s:/bin/sh\n' "$USER_NAME" "$uid" "$uid" "$USER_NAME" >> "$passwd_file"
+  printf '%s:x:%s:\n' "$USER_NAME" "$uid" >> "$group_file"
+  chmod 755 "$home_dir" 2>/dev/null || true
+  printf 'user: %s\n' "$USER_NAME"
+}
+
+write_network() {
+  [ -n "$NETWORK_MODE" ] || return 0
+  case "$NETWORK_MODE" in
+    dhcp|static) ;;
+    *) die "network must be dhcp or static" ;;
+  esac
+  if [ "$NETWORK_MODE" = "static" ]; then
+    [ -n "$ADDRESS" ] || die "--address required for static network"
+    [ -n "$GATEWAY" ] || die "--gateway required for static network"
+  fi
+  if [ "$DRY_RUN" -eq 1 ]; then
+    printf 'would configure %s network\n' "$NETWORK_MODE"
+    return 0
+  fi
+
+  interfaces="$(root_join /etc/network/interfaces)"
+  network_conf="$(root_join /etc/ooonana/network.conf)"
+  mkdir -p "$(dirname "$interfaces")" "$(dirname "$network_conf")"
+  {
+    printf 'auto lo\n'
+    printf 'iface lo inet loopback\n\n'
+    printf 'auto eth0\n'
+    if [ "$NETWORK_MODE" = "dhcp" ]; then
+      printf 'iface eth0 inet dhcp\n'
+    else
+      printf 'iface eth0 inet static\n'
+      printf '    address %s\n' "$ADDRESS"
+      printf '    gateway %s\n' "$GATEWAY"
+      if [ -n "$DNS_SERVERS" ]; then
+        printf '    dns-nameservers %s\n' "$(printf '%s' "$DNS_SERVERS" | tr ',' ' ')"
+      fi
+    fi
+  } > "$interfaces"
+  {
+    printf 'OOONANA_NETWORK_MODE="%s"\n' "$NETWORK_MODE"
+    [ -n "$ADDRESS" ] && printf 'OOONANA_NETWORK_ADDRESS="%s"\n' "$(shell_escape "$ADDRESS")"
+    [ -n "$GATEWAY" ] && printf 'OOONANA_NETWORK_GATEWAY="%s"\n' "$(shell_escape "$GATEWAY")"
+    [ -n "$DNS_SERVERS" ] && printf 'OOONANA_NETWORK_DNS="%s"\n' "$(shell_escape "$DNS_SERVERS")"
+  } > "$network_conf"
+  printf 'network: %s\n' "$NETWORK_MODE"
+}
+
+set_password() {
+  [ "$PASSWORD_SETUP" -eq 1 ] || return 0
+  [ -n "$USER_NAME" ] || die "--password requires --user NAME"
+  if [ "$DRY_RUN" -eq 1 ]; then
+    printf 'would set password for %s\n' "$USER_NAME"
+    return 0
+  fi
+  if [ "$OOONANA_ROOT" != "/" ]; then
+    printf 'password: skipped outside live root\n'
+    return 0
+  fi
+  if have passwd; then
+    printf 'Set password for %s\n' "$USER_NAME"
+    passwd "$USER_NAME"
+    printf 'password: %s\n' "$USER_NAME"
+  else
+    printf 'password: passwd missing\n'
+  fi
+}
+
+write_cloud_repo() {
+  [ -n "$CLOUD_REPO" ] || return 0
+  case "$CLOUD_REPO" in
+    http://*|https://*|file://*|/*) ;;
+    *) die "bad cloud repo URI: $CLOUD_REPO" ;;
+  esac
+  if [ "$DRY_RUN" -eq 1 ]; then
+    printf 'would add cloud repo %s\n' "$CLOUD_REPO"
+    return 0
+  fi
+  source_file="$(root_join /etc/ooonana/sources.d/cloud.repo)"
+  mkdir -p "$(dirname "$source_file")"
+  {
+    printf 'OOONANA_REPO_NAME="cloud"\n'
+    printf 'OOONANA_REPO_URI="%s"\n' "$(shell_escape "$CLOUD_REPO")"
+  } > "$source_file"
+  printf 'cloud repo: %s\n' "$CLOUD_REPO"
+}
+
+mark_done() {
+  [ "$DONE" -eq 1 ] || return 0
+  if [ "$DRY_RUN" -eq 1 ]; then
+    printf 'would mark setup done\n'
+    return 0
+  fi
+  marker="$(setup_marker)"
+  mkdir -p "$(dirname "$marker")"
+  date > "$marker" 2>/dev/null || printf 'done\n' > "$marker"
+  printf 'setup: complete\n'
+}
+
+prompt_first_boot() {
+  [ "$FIRST_BOOT" -eq 1 ] || return 0
+  if [ -z "$USER_NAME" ]; then
+    printf 'User name [ooonana]: '
+    read -r answer
+    USER_NAME="${answer:-ooonana}"
+  fi
+  if [ "$PASSWORD_SETUP" -eq 0 ]; then
+    printf 'Set password now? [Y/n]: '
+    read -r answer
+    case "$answer" in
+      n|N|no|NO) PASSWORD_SETUP=0 ;;
+      *) PASSWORD_SETUP=1 ;;
+    esac
+  fi
+  if [ -z "$NETWORK_MODE" ]; then
+    printf 'Network mode dhcp/static [dhcp]: '
+    read -r answer
+    NETWORK_MODE="${answer:-dhcp}"
+  fi
+  if [ "$NETWORK_MODE" = "static" ]; then
+    [ -n "$ADDRESS" ] || { printf 'Static address CIDR: '; read -r ADDRESS; }
+    [ -n "$GATEWAY" ] || { printf 'Gateway IP: '; read -r GATEWAY; }
+    [ -n "$DNS_SERVERS" ] || { printf 'DNS servers comma-separated [1.1.1.1]: '; read -r answer; DNS_SERVERS="${answer:-1.1.1.1}"; }
+  fi
+  if [ -z "$CLOUD_REPO" ]; then
+    printf 'Cloud repo URI blank to skip: '
+    read -r CLOUD_REPO
+  fi
+  DONE=1
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --first-boot) FIRST_BOOT=1; shift ;;
+    --gui) GUI=1; shift ;;
+    --user) USER_NAME="$2"; shift 2 ;;
+    --password) PASSWORD_SETUP=1; shift ;;
+    --network) NETWORK_MODE="$2"; shift 2 ;;
+    --address) ADDRESS="$2"; shift 2 ;;
+    --gateway) GATEWAY="$2"; shift 2 ;;
+    --dns) DNS_SERVERS="$2"; shift 2 ;;
+    --cloud-repo) CLOUD_REPO="$2"; shift 2 ;;
+    --done) DONE=1; shift ;;
+    --dry-run) DRY_RUN=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) die "unknown option: $1" ;;
+  esac
+done
+
+if [ "$FIRST_BOOT" -eq 1 ] && [ -f "$(setup_marker)" ]; then
+  printf 'setup: already complete\n'
+  exit 0
+fi
+
+if [ "$GUI" -eq 1 ] && [ -n "${DISPLAY:-}" ] && [ -z "${OOONANA_SETUP_IN_TERMINAL:-}" ] && have xterm; then
+  exec env OOONANA_SETUP_IN_TERMINAL=1 OOONANA_ROOT="$OOONANA_ROOT" \
+    xterm -title "Ooonana Setup" -bg "#ffb21a" -fg "#1b1202" -e "$0" --first-boot
+fi
+
+prompt_first_boot
+write_user
+set_password
+write_network
+write_cloud_repo
+mark_done
+printf 'OOONANA_SETUP_OK\n'

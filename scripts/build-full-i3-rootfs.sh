@@ -62,7 +62,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
 fi
 
 if command -v startx >/dev/null 2>&1 && command -v i3 >/dev/null 2>&1; then
-  exec startx /usr/bin/i3
+  exec startx /usr/bin/ooonana-i3-session
 fi
 
 echo "Ooonana full-i3"
@@ -107,6 +107,7 @@ EOF
 set -eu
 
 if command -v feh >/dev/null 2>&1 && [ -f /usr/share/ooonana/wallpapers/ooonana-wallpaper.png ]; then
+  xsetroot -solid "#ffb21a" 2>/dev/null || true
   feh --bg-fill /usr/share/ooonana/wallpapers/ooonana-wallpaper.png || true
 fi
 
@@ -116,11 +117,36 @@ echo "OOONANA_FULL_I3_OK" >/dev/console
 sleep 1
 EOF
 
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-i3-session" <<'EOF'
+#!/bin/sh
+set -eu
+
+if command -v feh >/dev/null 2>&1 && [ -f /usr/share/ooonana/wallpapers/ooonana-wallpaper.png ]; then
+  xsetroot -solid "#ffb21a" 2>/dev/null || true
+  feh --bg-fill /usr/share/ooonana/wallpapers/ooonana-wallpaper.png || true
+fi
+
+if command -v ooonana-setup >/dev/null 2>&1; then
+  ooonana-setup --first-boot --gui >/var/log/ooonana-setup.log 2>&1 &
+fi
+
+exec i3
+EOF
+
   install -D -m 0644 /dev/stdin "$ROOTFS/usr/share/applications/ooonana-installer.desktop" <<'EOF'
 [Desktop Entry]
 Type=Application
 Name=Install Ooonana OS
 Exec=ooonana-gui-installer
+Terminal=false
+Categories=System;
+EOF
+
+  install -D -m 0644 /dev/stdin "$ROOTFS/usr/share/applications/ooonana-setup.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Ooonana Setup
+Exec=ooonana-setup --gui
 Terminal=false
 Categories=System;
 EOF
@@ -132,6 +158,8 @@ write_full_init_script() {
 mount -t proc proc /proc 2>/dev/null || true
 mount -t sysfs sysfs /sys 2>/dev/null || true
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+mkdir -p /dev/pts
+mount -t devpts devpts /dev/pts 2>/dev/null || true
 mount -t tmpfs tmpfs /run 2>/dev/null || true
 hostname ooonana 2>/dev/null || true
 
@@ -183,7 +211,8 @@ shell_escape() {
 }
 
 install_full_i3_packages() {
-  local sources_dir="$WORK_DIR/full-i3-build-sources"
+  local sources_dir
+  sources_dir="$(dirname "$ROOTFS")/full-i3-build-sources"
   [[ -d "$REPO" ]] || ooonana_die "missing full-i3 repo: $REPO"
   [[ -f "$REPO/full-i3.pkg" ]] || ooonana_die "missing full-i3 package metadata: $REPO/full-i3.pkg"
   [[ -d "$ROOTFS/usr/lib/ooonana/repo" ]] || ooonana_die "missing rootfs builtin repo: $ROOTFS/usr/lib/ooonana/repo"

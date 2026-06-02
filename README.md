@@ -98,11 +98,12 @@ Working now:
 - `ooonana update` can sync local and HTTP package repos into cache
 - Alpine `.apk` packages can be imported into Ooonana `.pkg` repos
 - Full-i3 branding assets, package profiles, package-installed rootfs, boot disk, installer ISO, GUI installer launcher, and real QEMU VNC boot proof exist as a separate edition path
+- First-boot setup can create a user, prompt for password, write basic network config, and add a cloud package repo
 - `ooonana-ai` supports NVIDIA NIM, Google Gemini, tools, tasks, audit, and shell fallback for scratch WSL
 
 Next work:
 
-- First-boot GUI setup wizard
+- Setup UI polish beyond shell/xterm
 - More first-party packages
 - Users, networking, services, security defaults
 
@@ -156,6 +157,9 @@ wsl.exe -d Ooonana -- /usr/bin/ooonana ai tools
 
 ```bash
 ooonana me
+ooonana setup
+ooonana setup --first-boot --gui
+ooonana setup --user ryan --password --network dhcp --cloud-repo https://ooonana.github.io/Ooonana-OS --done
 ooonana version
 ooonana wsl status
 ooonana update
@@ -311,6 +315,14 @@ Inside full-i3, the GUI installer launcher is:
 ```bash
 ooonana-gui-installer
 ```
+
+First-boot setup launches from the full-i3 session through xterm when possible:
+
+```bash
+ooonana setup --first-boot --gui
+```
+
+It can create a user, prompt for a password, write `/etc/network/interfaces`, and add `/etc/ooonana/sources.d/cloud.repo` so `ooonana update` can use a published cloud package repo.
 
 Cloud package build:
 

@@ -37,6 +37,8 @@ EOF
 }
 
 [[ -x "$SCRIPT" ]] || fail "missing executable i3 package-set importer"
+script_src="$(<"$SCRIPT")"
+assert_contains "$script_src" "xsetroot"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
