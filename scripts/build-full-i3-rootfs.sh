@@ -76,29 +76,197 @@ write_gui_installer() {
 #!/bin/sh
 set -eu
 
-target="${1:-/dev/vda}"
-
 if [ "${1:-}" = "--dry-run" ]; then
-  echo "xmessage Ooonana installer"
-  echo "/usr/sbin/ooonana-install --target $target --source / --yes"
+  echo "xterm -title Ooonana Installer"
+  echo "ooonana-install-wizard --dry-run"
   echo "OOONANA_GUI_INSTALLER_OK"
   exit 0
 fi
 
-confirm_text="Install Ooonana OS full i3 to $target? This erases the target."
-if [ -n "${DISPLAY:-}" ] && command -v xmessage >/dev/null 2>&1; then
-  if ! xmessage -center -buttons Install:0,Cancel:1 "$confirm_text"; then
-    exit 1
-  fi
-else
-  printf '%s\nType INSTALL to continue: ' "$confirm_text"
-  read -r answer
-  [ "$answer" = "INSTALL" ] || exit 1
+wizard="/usr/bin/ooonana-install-wizard"
+if [ ! -x "$wizard" ]; then
+  echo "missing installer wizard: $wizard" >&2
+  exit 1
 fi
 
-/usr/sbin/ooonana-install --target "$target" --source / --yes
-if [ -n "${DISPLAY:-}" ] && command -v xmessage >/dev/null 2>&1; then
-  xmessage -center "Ooonana install complete. Reboot now."
+if [ -n "${DISPLAY:-}" ] && [ -z "${OOONANA_INSTALL_WIZARD_IN_TERMINAL:-}" ] && command -v xterm >/dev/null 2>&1; then
+  exec env OOONANA_INSTALL_WIZARD_IN_TERMINAL=1 \
+    xterm -title "Ooonana Installer" -bg "#ffb21a" -fg "#1b1202" -e "$wizard" "$@"
+else
+  exec "$wizard" "$@"
+fi
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-install-wizard" <<'EOF'
+#!/bin/sh
+set -eu
+
+TARGET=""
+SOURCE="/"
+YES=0
+DRY_RUN=0
+LOG_FILE="/var/log/ooonana-install-wizard.log"
+
+usage() {
+  cat <<'USAGE'
+Ooonana graphical installer wizard.
+
+Usage:
+  ooonana-install-wizard [TARGET] [options]
+
+Options:
+  --target PATH  Target disk or ext4 image
+  --source PATH  Source root (default: /)
+  --yes          Skip wizard prompts
+  --dry-run      Print installer command only
+  -h, --help     Show help
+USAGE
+}
+
+die() {
+  printf 'ooonana-install-wizard: %s\n' "$*" >&2
+  exit 1
+}
+
+logo() {
+  if [ -f /usr/share/ooonana/logo.txt ]; then
+    cat /usr/share/ooonana/logo.txt
+  else
+    printf 'Ooonana OS\n'
+  fi
+}
+
+screen() {
+  clear 2>/dev/null || true
+  logo
+  printf '\n%s\n\n' "$1"
+}
+
+list_targets() {
+  for dev in /dev/vd[a-z] /dev/sd[a-z] /dev/xvd[a-z] /dev/nvme[0-9]n[0-9]; do
+    [ -b "$dev" ] && printf '%s\n' "$dev"
+  done
+}
+
+parent_disk() {
+  case "$1" in
+    /dev/nvme*n*p[0-9]*) printf '%s\n' "${1%p[0-9]*}" ;;
+    /dev/*[0-9]) printf '%s\n' "${1%[0-9]*}" ;;
+    *) printf '%s\n' "$1" ;;
+  esac
+}
+
+root_disk() {
+  root_dev="$(awk '$2 == "/" { print $1; exit }' /proc/mounts 2>/dev/null || true)"
+  case "$root_dev" in
+    /dev/*) parent_disk "$root_dev" ;;
+    *) return 0 ;;
+  esac
+}
+
+is_root_target() {
+  root="$(root_disk)"
+  [ -n "$root" ] || return 1
+  [ "$1" = "$root" ] || [ "$(parent_disk "$1")" = "$root" ]
+}
+
+suggest_target() {
+  for dev in /dev/vdb /dev/sdb /dev/xvdb /dev/nvme0n2; do
+    if [ -b "$dev" ] && ! is_root_target "$dev"; then
+      printf '%s\n' "$dev"
+      return 0
+    fi
+  done
+  for dev in /dev/vd[a-z] /dev/sd[a-z] /dev/xvd[a-z] /dev/nvme[0-9]n[0-9]; do
+    if [ -b "$dev" ] && ! is_root_target "$dev"; then
+      printf '%s\n' "$dev"
+      return 0
+    fi
+  done
+  printf '/dev/vdb\n'
+}
+
+confirm_root_target() {
+  if is_root_target "$TARGET" && [ "${OOONANA_INSTALL_ALLOW_ROOT_TARGET:-0}" != "1" ]; then
+    die "target looks like current root disk: $TARGET"
+  fi
+}
+
+run_installer() {
+  mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
+  printf 'Installing to %s from %s\n' "$TARGET" "$SOURCE"
+  printf 'Log: %s\n\n' "$LOG_FILE"
+  if /usr/sbin/ooonana-install --target "$TARGET" --source "$SOURCE" --yes >"$LOG_FILE" 2>&1; then
+    cat "$LOG_FILE"
+  else
+    status="$?"
+    cat "$LOG_FILE" 2>/dev/null || true
+    return "$status"
+  fi
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --target) TARGET="$2"; shift 2 ;;
+    --source) SOURCE="$2"; shift 2 ;;
+    --yes) YES=1; shift ;;
+    --dry-run) DRY_RUN=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    -* ) die "unknown option: $1" ;;
+    *)
+      [ -z "$TARGET" ] || die "target already set: $TARGET"
+      TARGET="$1"
+      shift
+      ;;
+  esac
+done
+
+if [ "$DRY_RUN" -eq 1 ]; then
+  target="${TARGET:-/dev/vdb}"
+  printf 'Ooonana installer wizard\n'
+  printf 'Step 1/4 target: %s\n' "$target"
+  printf 'Step 2/4 source: %s\n' "$SOURCE"
+  printf 'Step 3/4 confirm: INSTALL\n'
+  printf '/usr/sbin/ooonana-install --target %s --source %s --yes\n' "$target" "$SOURCE"
+  printf 'OOONANA_INSTALL_WIZARD_OK\n'
+  exit 0
+fi
+
+if [ "$YES" -eq 0 ]; then
+  screen "Step 1/4: Target disk"
+  printf 'Known target disks:\n'
+  list_targets || true
+  default_target="$(suggest_target)"
+  printf '\nTarget disk [%s]: ' "$default_target"
+  read -r answer
+  TARGET="${answer:-$default_target}"
+
+  screen "Step 2/4: Source root"
+  printf 'Source root [%s]: ' "$SOURCE"
+  read -r answer
+  SOURCE="${answer:-$SOURCE}"
+fi
+
+[ -n "$TARGET" ] || die "target required"
+[ -n "$SOURCE" ] || die "source required"
+confirm_root_target
+
+if [ "$YES" -eq 0 ]; then
+  screen "Step 3/4: Confirm install"
+  printf 'Target: %s\n' "$TARGET"
+  printf 'Source: %s\n' "$SOURCE"
+  printf '\nThis erases target. Type INSTALL to continue: '
+  read -r answer
+  [ "$answer" = "INSTALL" ] || die "install cancelled"
+fi
+
+screen "Step 4/4: Installing"
+run_installer
+printf '\nOOONANA_INSTALL_WIZARD_OK\n'
+
+if [ "$YES" -eq 0 ]; then
+  printf '\nInstall complete. Press Enter to close.'
+  read -r _answer
 fi
 EOF
 

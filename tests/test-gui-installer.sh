@@ -21,8 +21,11 @@ full_test="$(<"$FULL_TEST")"
 
 assert_contains "$builder" "write_gui_installer"
 assert_contains "$builder" "/usr/bin/ooonana-gui-installer"
+assert_contains "$builder" "/usr/bin/ooonana-install-wizard"
 assert_contains "$builder" "/usr/share/applications/ooonana-installer.desktop"
-assert_contains "$builder" "xmessage"
+assert_contains "$builder" 'xterm -title "Ooonana Installer"'
+assert_contains "$builder" "Step 1/4: Target disk"
+assert_contains "$builder" "/var/log/ooonana-install-wizard.log"
 assert_contains "$builder" "/usr/sbin/ooonana-install"
 assert_contains "$i3_config" 'bindsym $mod+Shift+i exec ooonana-gui-installer'
 assert_contains "$full_test" "ooonana-gui-installer"

@@ -97,13 +97,13 @@ Working now:
 - `ooonana` package manager has repo index, checksums, install, remove, upgrade, files, verify
 - `ooonana update` can sync local and HTTP package repos into cache
 - Alpine `.apk` packages can be imported into Ooonana `.pkg` repos
-- Full-i3 branding assets, package profiles, package-installed rootfs, boot disk, installer ISO, GUI installer launcher, and real QEMU VNC boot proof exist as a separate edition path
+- Full-i3 branding assets, package profiles, package-installed rootfs, boot disk, installer ISO, GUI installer wizard, and real QEMU VNC boot proof exist as a separate edition path
 - First-boot setup can create a user, prompt for password, write basic network config, and add a cloud package repo
 - `ooonana-ai` supports NVIDIA NIM, Google Gemini, tools, tasks, audit, and shell fallback for scratch WSL
 
 Next work:
 
-- Setup UI polish beyond shell/xterm
+- Cloud repo publishing polish
 - More first-party packages
 - Users, networking, services, security defaults
 
@@ -314,7 +314,10 @@ Inside full-i3, the GUI installer launcher is:
 
 ```bash
 ooonana-gui-installer
+ooonana-install-wizard
 ```
+
+The wizard opens in an orange xterm under i3, walks target/source/confirmation/install steps, logs to `/var/log/ooonana-install-wizard.log`, and blocks installing over the current root disk unless `OOONANA_INSTALL_ALLOW_ROOT_TARGET=1` is set.
 
 First-boot setup launches from the full-i3 session through xterm when possible:
 
