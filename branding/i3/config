@@ -1,11 +1,10 @@
 set $mod Mod4
 font pango:monospace 10
 
-exec_always --no-startup-id xsetroot -solid "#050505"
-exec_always --no-startup-id feh --bg-fill /usr/share/ooonana/wallpapers/ooonana-wallpaper.png
+exec_always --no-startup-id ooonana-theme-env apply
 exec --no-startup-id xsetroot -name "Ooonana OS"
 
-bindsym $mod+Return exec xterm -bg "#050505" -fg "#ffb21a" -cr "#ffb21a"
+bindsym $mod+Return exec ooonana-theme-env xterm
 bindsym $mod+d exec dmenu_run
 bindsym $mod+Shift+i exec ooonana-gui-installer
 bindsym $mod+Shift+r restart

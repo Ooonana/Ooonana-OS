@@ -6,6 +6,11 @@ SOURCE="/"
 MOUNT_POINT="/run/ooonana-target"
 YES=0
 DRY_RUN=0
+HOSTNAME_VALUE=""
+USER_NAME=""
+THEME=""
+PASSWORD_STDIN=0
+PASSWORD_VALUE=""
 
 usage() {
   cat <<'USAGE'
@@ -18,6 +23,10 @@ Options:
   --target PATH       Target disk or ext4 image
   --source PATH       Source root (default: /)
   --mount-point PATH  Temporary mount point (default: /run/ooonana-target)
+  --hostname NAME     Write installed hostname
+  --user NAME         Create installed user
+  --theme dark|light  Write installed UI theme
+  --password-stdin    Read password for --user from stdin
   --yes               Confirm destructive install
   --dry-run           Print commands only
   -h, --help          Show help
@@ -45,11 +54,132 @@ run_cmd() {
   fi
 }
 
+valid_user() {
+  [[ "$1" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]]
+}
+
+valid_hostname() {
+  [[ "$1" =~ ^[A-Za-z0-9][A-Za-z0-9-]*$ ]]
+}
+
+next_uid() {
+  local passwd_file="$1"
+  if [[ -f "$passwd_file" ]]; then
+    awk -F: 'BEGIN { uid = 999 } $3 >= 1000 && $3 < 60000 && $3 > uid { uid = $3 } END { print uid + 1 }' "$passwd_file"
+  else
+    printf '1000\n'
+  fi
+}
+
+create_user() {
+  local root="$1"
+  local passwd_file="$root/etc/passwd"
+  local group_file="$root/etc/group"
+  local home_dir="$root/home/$USER_NAME"
+  local uid
+
+  [[ -n "$USER_NAME" ]] || return 0
+  valid_user "$USER_NAME" || die "bad user name: $USER_NAME"
+
+  mkdir -p "$(dirname "$passwd_file")" "$(dirname "$group_file")" "$home_dir"
+  [[ -f "$passwd_file" ]] || printf 'root:x:0:0:root:/root:/bin/sh\n' > "$passwd_file"
+  [[ -f "$group_file" ]] || printf 'root:x:0:\n' > "$group_file"
+  if grep -q "^$USER_NAME:" "$passwd_file"; then
+    printf 'user exists: %s\n' "$USER_NAME"
+    return 0
+  fi
+
+  uid="$(next_uid "$passwd_file")"
+  printf '%s:x:%s:%s:Ooonana User:/home/%s:/bin/sh\n' "$USER_NAME" "$uid" "$uid" "$USER_NAME" >> "$passwd_file"
+  printf '%s:x:%s:\n' "$USER_NAME" "$uid" >> "$group_file"
+  chmod 755 "$home_dir" 2>/dev/null || true
+  printf 'user created: %s\n' "$USER_NAME"
+}
+
+hash_password() {
+  local password="$1"
+  if command -v openssl >/dev/null 2>&1; then
+    printf '%s\n' "$password" | openssl passwd -6 -stdin
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    printf '%s\n' "$password" | python3 -c 'import crypt, sys; pw = sys.stdin.readline().rstrip("\n"); print(crypt.crypt(pw, crypt.mksalt(crypt.METHOD_SHA512)))'
+    return 0
+  fi
+  return 1
+}
+
+write_password() {
+  local root="$1"
+  local shadow_file="$root/etc/shadow"
+  local tmp_file
+  local hash
+  local day
+
+  [[ "$PASSWORD_STDIN" -eq 1 ]] || return 0
+  [[ -n "$USER_NAME" ]] || die "--password-stdin requires --user NAME"
+  [[ -n "$PASSWORD_VALUE" ]] || return 0
+
+  hash="$(hash_password "$PASSWORD_VALUE")" || die "password hashing requires openssl or python3 crypt"
+  day="$(($(date +%s) / 86400))"
+  mkdir -p "$(dirname "$shadow_file")"
+  [[ -f "$shadow_file" ]] || printf 'root:*:%s:0:99999:7:::\n' "$day" > "$shadow_file"
+  tmp_file="$shadow_file.tmp.$$"
+  if grep -q "^$USER_NAME:" "$shadow_file"; then
+    awk -F: -v user="$USER_NAME" -v hash="$hash" -v day="$day" 'BEGIN { OFS = FS } $1 == user { $2 = hash; $3 = day } { print }' "$shadow_file" > "$tmp_file"
+  else
+    cat "$shadow_file" > "$tmp_file"
+    printf '%s:%s:%s:0:99999:7:::\n' "$USER_NAME" "$hash" "$day" >> "$tmp_file"
+  fi
+  mv "$tmp_file" "$shadow_file"
+  chmod 600 "$shadow_file" 2>/dev/null || true
+  printf 'password set: %s\n' "$USER_NAME"
+}
+
+write_hostname() {
+  local root="$1"
+  [[ -n "$HOSTNAME_VALUE" ]] || return 0
+  valid_hostname "$HOSTNAME_VALUE" || die "bad hostname: $HOSTNAME_VALUE"
+  printf '%s\n' "$HOSTNAME_VALUE" > "$root/etc/hostname"
+  cat > "$root/etc/hosts" <<EOF
+127.0.0.1 localhost $HOSTNAME_VALUE
+::1 localhost ip6-localhost ip6-loopback
+EOF
+  printf 'hostname: %s\n' "$HOSTNAME_VALUE"
+}
+
+write_theme() {
+  local root="$1"
+  [[ -n "$THEME" ]] || return 0
+  case "$THEME" in
+    dark|light) ;;
+    *) die "theme must be dark or light" ;;
+  esac
+  mkdir -p "$root/etc/ooonana"
+  printf '%s\n' "$THEME" > "$root/etc/ooonana/theme"
+  cat > "$root/etc/ooonana/theme.conf" <<EOF
+OOONANA_THEME="$THEME"
+EOF
+  printf 'theme: %s\n' "$THEME"
+}
+
+apply_install_config() {
+  local root="$1"
+  create_user "$root"
+  write_password "$root"
+  write_hostname "$root"
+  write_theme "$root"
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --target) TARGET="$2"; shift 2 ;;
     --source) SOURCE="$2"; shift 2 ;;
     --mount-point) MOUNT_POINT="$2"; shift 2 ;;
+    --hostname) HOSTNAME_VALUE="$2"; shift 2 ;;
+    --user) USER_NAME="$2"; shift 2 ;;
+    --theme) THEME="$2"; shift 2 ;;
+    --password-stdin) PASSWORD_STDIN=1; shift ;;
     --yes) YES=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -59,6 +189,9 @@ done
 
 [[ -n "$TARGET" ]] || die "--target required"
 [[ "$YES" -eq 1 ]] || die "--yes required because install formats target"
+if [[ "$PASSWORD_STDIN" -eq 1 && "$DRY_RUN" -eq 0 ]]; then
+  IFS= read -r PASSWORD_VALUE || true
+fi
 
 if [[ "$DRY_RUN" -eq 0 ]]; then
   [[ "${EUID:-$(id -u)}" -eq 0 ]] || die "run as root"
@@ -88,11 +221,16 @@ run_cmd rsync -aHAX --numeric-ids \
   "$SOURCE"/ "$MOUNT_POINT"/
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
+  [[ -z "$USER_NAME" ]] || printf 'create user %s\n' "$USER_NAME"
+  [[ -z "$HOSTNAME_VALUE" ]] || printf 'write hostname %s\n' "$HOSTNAME_VALUE"
+  [[ -z "$THEME" ]] || printf 'write theme %s\n' "$THEME"
+  [[ "$PASSWORD_STDIN" -eq 0 ]] || printf 'read password from stdin\n'
   print_cmd mkdir -p "$MOUNT_POINT/var/lib/ooonana"
   print_cmd sh -c "printf 'installed\n' > '$MOUNT_POINT/var/lib/ooonana/install-ok'"
   print_cmd sh -c "printf 'LABEL=OOONANA_ROOT / ext4 defaults 0 1\nproc /proc proc defaults 0 0\n' > '$MOUNT_POINT/etc/fstab'"
   print_cmd umount "$MOUNT_POINT"
 else
+  apply_install_config "$MOUNT_POINT"
   mkdir -p "$MOUNT_POINT/var/lib/ooonana"
   printf 'installed\n' > "$MOUNT_POINT/var/lib/ooonana/install-ok"
   cat > "$MOUNT_POINT/etc/fstab" <<'EOF'

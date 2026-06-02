@@ -71,6 +71,60 @@ exec /bin/sh
 EOF
 }
 
+write_theme_helpers() {
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-theme-env" <<'EOF'
+#!/bin/sh
+set -eu
+
+load_theme() {
+  theme="${OOONANA_THEME:-}"
+  if [ -z "$theme" ] && [ -f /etc/ooonana/theme ]; then
+    IFS= read -r theme </etc/ooonana/theme || theme=""
+  fi
+
+  case "$theme" in
+    light)
+      OOONANA_THEME="light"
+      OOONANA_BG="#ffb21a"
+      OOONANA_FG="#1b1202"
+      ;;
+    *)
+      OOONANA_THEME="dark"
+      OOONANA_BG="#050505"
+      OOONANA_FG="#ffb21a"
+      ;;
+  esac
+  OOONANA_CURSOR="#ffb21a"
+  export OOONANA_THEME OOONANA_BG OOONANA_FG OOONANA_CURSOR
+}
+
+load_theme
+
+case "${1:-env}" in
+  env)
+    printf 'OOONANA_THEME="%s"\n' "$OOONANA_THEME"
+    printf 'OOONANA_BG="%s"\n' "$OOONANA_BG"
+    printf 'OOONANA_FG="%s"\n' "$OOONANA_FG"
+    printf 'OOONANA_CURSOR="%s"\n' "$OOONANA_CURSOR"
+    ;;
+  apply)
+    xsetroot -solid "$OOONANA_BG" 2>/dev/null || true
+    if command -v feh >/dev/null 2>&1 && [ -f /usr/share/ooonana/wallpapers/ooonana-wallpaper.png ]; then
+      feh --bg-fill /usr/share/ooonana/wallpapers/ooonana-wallpaper.png || true
+    fi
+    ;;
+  xterm)
+    shift
+    exec xterm -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR" "$@"
+    ;;
+  *)
+    echo "usage: ooonana-theme-env [env|apply|xterm]" >&2
+    exit 1
+    ;;
+esac
+EOF
+}
+
 write_gui_installer() {
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-gui-installer" <<'EOF'
 #!/bin/sh
@@ -119,6 +173,10 @@ set -eu
 
 TARGET=""
 SOURCE="/"
+USER_NAME="ooonana"
+HOSTNAME_VALUE="ooonana"
+THEME="${OOONANA_THEME:-dark}"
+PASSWORD_VALUE=""
 YES=0
 DRY_RUN=0
 LOG_FILE="/var/log/ooonana-install-wizard.log"
@@ -131,11 +189,14 @@ Usage:
   ooonana-install-wizard [TARGET] [options]
 
 Options:
-  --target PATH  Target disk or ext4 image
-  --source PATH  Source root (default: /)
-  --yes          Skip wizard prompts
-  --dry-run      Print installer command only
-  -h, --help     Show help
+  --target PATH   Target disk or ext4 image
+  --source PATH   Source root (default: /)
+  --user NAME     Installed user (default: ooonana)
+  --hostname NAME Installed hostname (default: ooonana)
+  --theme dark|light
+  --yes           Skip wizard prompts
+  --dry-run       Print installer command only
+  -h, --help      Show help
 USAGE
 }
 
@@ -156,6 +217,27 @@ screen() {
   clear 2>/dev/null || true
   logo
   printf '\n%s\n\n' "$1"
+}
+
+read_hidden() {
+  prompt="$1"
+  printf '%s' "$prompt" >&2
+  if command -v stty >/dev/null 2>&1; then
+    stty -echo 2>/dev/null || true
+    read -r answer || answer=""
+    stty echo 2>/dev/null || true
+    printf '\n'
+  else
+    read -r answer || answer=""
+  fi
+  printf '%s\n' "$answer"
+}
+
+valid_theme() {
+  case "$1" in
+    dark|light) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 list_targets() {
@@ -211,8 +293,24 @@ confirm_root_target() {
 run_installer() {
   mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
   printf 'Installing to %s from %s\n' "$TARGET" "$SOURCE"
+  printf 'User: %s\n' "$USER_NAME"
+  printf 'Hostname: %s\n' "$HOSTNAME_VALUE"
+  printf 'Theme: %s\n' "$THEME"
   printf 'Log: %s\n\n' "$LOG_FILE"
-  if /usr/sbin/ooonana-install --target "$TARGET" --source "$SOURCE" --yes >"$LOG_FILE" 2>&1; then
+  printf '[1/5] format target\n'
+  printf '[2/5] copy Ooonana files\n'
+  printf '[3/5] write user, hostname, theme\n'
+  printf '[4/5] write fstab/install marker\n'
+  printf '[5/5] finish\n\n'
+  if [ -n "$PASSWORD_VALUE" ]; then
+    if printf '%s\n' "$PASSWORD_VALUE" | /usr/sbin/ooonana-install --target "$TARGET" --source "$SOURCE" --hostname "$HOSTNAME_VALUE" --user "$USER_NAME" --theme "$THEME" --password-stdin --yes >"$LOG_FILE" 2>&1; then
+      cat "$LOG_FILE"
+    else
+      status="$?"
+      cat "$LOG_FILE" 2>/dev/null || true
+      return "$status"
+    fi
+  elif /usr/sbin/ooonana-install --target "$TARGET" --source "$SOURCE" --hostname "$HOSTNAME_VALUE" --user "$USER_NAME" --theme "$THEME" --yes >"$LOG_FILE" 2>&1; then
     cat "$LOG_FILE"
   else
     status="$?"
@@ -221,10 +319,25 @@ run_installer() {
   fi
 }
 
+finish_prompt() {
+  [ "$YES" -eq 0 ] || return 0
+  printf '\nInstall complete. Press Enter to reboot, type shell to close: '
+  read -r answer || answer=""
+  case "$answer" in
+    shell|SHELL|no|NO|n|N) return 0 ;;
+    *)
+      reboot -f 2>/dev/null || poweroff -f 2>/dev/null || true
+      ;;
+  esac
+}
+
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --target) TARGET="$2"; shift 2 ;;
     --source) SOURCE="$2"; shift 2 ;;
+    --user) USER_NAME="$2"; shift 2 ;;
+    --hostname) HOSTNAME_VALUE="$2"; shift 2 ;;
+    --theme) THEME="$2"; shift 2 ;;
     --yes) YES=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -240,16 +353,19 @@ done
 if [ "$DRY_RUN" -eq 1 ]; then
   target="${TARGET:-/dev/vdb}"
   printf 'Ooonana installer wizard\n'
-  printf 'Step 1/4 target: %s\n' "$target"
-  printf 'Step 2/4 source: %s\n' "$SOURCE"
-  printf 'Step 3/4 confirm: INSTALL\n'
-  printf '/usr/sbin/ooonana-install --target %s --source %s --yes\n' "$target" "$SOURCE"
+  printf 'Step 1/6 target: %s\n' "$target"
+  printf 'Step 2/6 user: %s\n' "$USER_NAME"
+  printf 'Step 3/6 hostname: %s\n' "$HOSTNAME_VALUE"
+  printf 'Step 4/6 theme: %s\n' "$THEME"
+  printf 'Step 5/6 confirm: INSTALL\n'
+  printf 'Step 6/6 reboot: optional\n'
+  printf '/usr/sbin/ooonana-install --target %s --source %s --hostname %s --user %s --theme %s --yes\n' "$target" "$SOURCE" "$HOSTNAME_VALUE" "$USER_NAME" "$THEME"
   printf 'OOONANA_INSTALL_WIZARD_OK\n'
   exit 0
 fi
 
 if [ "$YES" -eq 0 ]; then
-  screen "Step 1/4: Target disk"
+  screen "Step 1/6: Target disk"
   printf 'Known target disks:\n'
   list_targets || true
   default_target="$(suggest_target)"
@@ -257,7 +373,29 @@ if [ "$YES" -eq 0 ]; then
   read -r answer
   TARGET="${answer:-$default_target}"
 
-  screen "Step 2/4: Source root"
+  screen "Step 2/6: User account"
+  printf 'User name [%s]: ' "$USER_NAME"
+  read -r answer
+  USER_NAME="${answer:-$USER_NAME}"
+  password_one="$(read_hidden 'Password blank to set later: ')"
+  if [ -n "$password_one" ]; then
+    password_two="$(read_hidden 'Password again: ')"
+    [ "$password_one" = "$password_two" ] || die "password mismatch"
+    PASSWORD_VALUE="$password_one"
+  fi
+
+  screen "Step 3/6: Hostname"
+  printf 'Hostname [%s]: ' "$HOSTNAME_VALUE"
+  read -r answer
+  HOSTNAME_VALUE="${answer:-$HOSTNAME_VALUE}"
+
+  screen "Step 4/6: Theme"
+  printf 'Theme dark/light [%s]: ' "$THEME"
+  read -r answer
+  THEME="${answer:-$THEME}"
+  valid_theme "$THEME" || die "theme must be dark or light"
+
+  screen "Source root"
   printf 'Source root [%s]: ' "$SOURCE"
   read -r answer
   SOURCE="${answer:-$SOURCE}"
@@ -265,34 +403,36 @@ fi
 
 [ -n "$TARGET" ] || die "target required"
 [ -n "$SOURCE" ] || die "source required"
+[ -n "$USER_NAME" ] || die "user required"
+[ -n "$HOSTNAME_VALUE" ] || die "hostname required"
+valid_theme "$THEME" || die "theme must be dark or light"
 confirm_root_target
 
 if [ "$YES" -eq 0 ]; then
-  screen "Step 3/4: Confirm install"
+  screen "Step 5/6: Confirm install"
   printf 'Target: %s\n' "$TARGET"
   printf 'Source: %s\n' "$SOURCE"
+  printf 'User: %s\n' "$USER_NAME"
+  printf 'Hostname: %s\n' "$HOSTNAME_VALUE"
+  printf 'Theme: %s\n' "$THEME"
   printf '\nThis erases target. Type INSTALL to continue: '
   read -r answer
   [ "$answer" = "INSTALL" ] || die "install cancelled"
 fi
 
-screen "Step 4/4: Installing"
+screen "Step 6/6: Installing"
 run_installer
 printf '\nOOONANA_INSTALL_WIZARD_OK\n'
-
-if [ "$YES" -eq 0 ]; then
-  printf '\nInstall complete. Press Enter to close.'
-  read -r _answer
-fi
+finish_prompt
 EOF
 
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-i3-smoke-session" <<'EOF'
 #!/bin/sh
 set -eu
 
-if command -v feh >/dev/null 2>&1 && [ -f /usr/share/ooonana/wallpapers/ooonana-wallpaper.png ]; then
-  xsetroot -solid "#050505" 2>/dev/null || true
-  feh --bg-fill /usr/share/ooonana/wallpapers/ooonana-wallpaper.png || true
+if [ -x /usr/bin/ooonana-theme-env ]; then
+  eval "$(/usr/bin/ooonana-theme-env env)"
+  ooonana-theme-env apply
 fi
 
 i3 &
@@ -305,9 +445,9 @@ EOF
 #!/bin/sh
 set -eu
 
-if command -v feh >/dev/null 2>&1 && [ -f /usr/share/ooonana/wallpapers/ooonana-wallpaper.png ]; then
-  xsetroot -solid "#050505" 2>/dev/null || true
-  feh --bg-fill /usr/share/ooonana/wallpapers/ooonana-wallpaper.png || true
+if [ -x /usr/bin/ooonana-theme-env ]; then
+  eval "$(/usr/bin/ooonana-theme-env env)"
+  ooonana-theme-env apply
 fi
 
 if command -v ooonana-setup >/dev/null 2>&1; then
@@ -463,6 +603,7 @@ main() {
   install_full_i3_packages
   install_branding
   write_start_script
+  write_theme_helpers
   write_gui_installer
   write_full_init_script
   printf 'packages-installed\n' > "$ROOTFS/etc/ooonana/edition-state"

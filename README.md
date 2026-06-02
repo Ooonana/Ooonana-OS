@@ -90,7 +90,7 @@ Working now:
 - Scratch rootfs boots in QEMU
 - GRUB raw disk boots in QEMU
 - Installer ISO writes Ooonana to blank disk
-- Installer has a serial-safe text UI with logo, target disk, and confirmation
+- Installer has a serial-safe xterm UI with logo, disk picker, user/password, hostname, theme, progress, and reboot prompt
 - Installed disk boots in QEMU
 - Generic `ooonana-rootfs.tar.gz` can be unpacked for chroot/container-style use
 - WSL distro import works
@@ -317,13 +317,15 @@ ooonana-gui-installer
 ooonana-install-wizard
 ```
 
-The wizard opens in a themed xterm under i3, walks target/source/confirmation/install steps, logs to `/var/log/ooonana-install-wizard.log`, and blocks installing over the current root disk unless `OOONANA_INSTALL_ALLOW_ROOT_TARGET=1` is set.
+The wizard opens in a themed xterm under i3, walks disk picker, user/password, hostname, theme, confirmation, install progress, and reboot prompt steps, logs to `/var/log/ooonana-install-wizard.log`, and blocks installing over the current root disk unless `OOONANA_INSTALL_ALLOW_ROOT_TARGET=1` is set.
 Default full-i3 UI is dark: black background, orange text/cursor. The old sunset look is light mode:
 
 ```bash
 OOONANA_THEME=light ooonana-gui-installer
 OOONANA_THEME=light ooonana setup --first-boot --gui
 ```
+
+The installer persists the chosen theme in `/etc/ooonana/theme`; i3 reads it through `ooonana-theme-env` on boot.
 
 First-boot setup launches from the full-i3 session through xterm when possible:
 
