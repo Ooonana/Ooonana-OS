@@ -39,6 +39,11 @@ EOF
 [[ -x "$SCRIPT" ]] || fail "missing executable i3 package-set importer"
 script_src="$(<"$SCRIPT")"
 assert_contains "$script_src" "xsetroot"
+assert_contains "$script_src" "parted"
+assert_contains "$script_src" "grub-bios"
+assert_contains "$script_src" "rsync"
+assert_contains "$script_src" "e2fsprogs"
+assert_contains "$script_src" "coreutils"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT

@@ -69,6 +69,16 @@ partition_path() {
   printf '%sp1\n' "$1"
 }
 
+wait_for_block() {
+  local path="$1"
+  local i
+  for i in $(seq 1 50); do
+    [[ -b "$path" ]] && return 0
+    sleep 0.1
+  done
+  return 1
+}
+
 kernel_append() {
   local append="root=/dev/vda1 rw console=ttyS0 panic=1 init=/sbin/init ooonana.edition=full-i3"
   if [[ "$SMOKE" -eq 1 ]]; then
@@ -159,8 +169,9 @@ main() {
   parted -s "$DISK_IMAGE" mklabel msdos mkpart primary ext4 1MiB 100% set 1 boot on
 
   LOOP_DEV="$(losetup --find --show --partscan "$DISK_IMAGE")"
+  partprobe "$LOOP_DEV" 2>/dev/null || true
   part="$(partition_path "$LOOP_DEV")"
-  [[ -b "$part" ]] || ooonana_die "missing loop partition: $part"
+  wait_for_block "$part" || ooonana_die "missing loop partition: $part"
 
   mkfs.ext4 -F -L OOONANA_ROOT "$part"
   mount "$part" "$MOUNT_POINT"

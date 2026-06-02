@@ -135,6 +135,14 @@ assert_contains "$start_script" "OOONANA_FULL_I3_OK"
 assert_contains "$start_script" "startx"
 assert_contains "$start_script" "ooonana.gui-smoke=1"
 assert_contains "$start_script" "ooonana-i3-session"
+assert_contains "$start_script" 'HOME="/root"'
+assert_contains "$start_script" 'touch "$HOME/.Xauthority"'
+
+i3_smoke_session="$(<"$rootfs/usr/bin/ooonana-i3-smoke-session")"
+assert_contains "$i3_smoke_session" "i3-msg exit"
+assert_contains "$i3_smoke_session" "OOONANA_FULL_I3_OK"
+assert_contains "$i3_smoke_session" "# i3 config file (v4)"
+assert_contains "$i3_smoke_session" "exec i3"
 
 i3_session="$(<"$rootfs/usr/bin/ooonana-i3-session")"
 assert_contains "$i3_session" "ooonana-setup --first-boot --gui"
@@ -188,6 +196,7 @@ assert_contains "$gui_dry" "OOONANA_GUI_INSTALLER_OK"
 rcs="$(<"$rootfs/etc/init.d/rcS")"
 assert_contains "$rcs" "Ooonana full i3 rootfs"
 assert_contains "$rcs" "mount -t devpts devpts /dev/pts"
+assert_contains "$rcs" "read -r host </etc/hostname"
 assert_contains "$rcs" "/usr/bin/start-ooonana-i3"
 assert_contains "$rcs" "OOONANA_FULL_I3_FAIL"
 assert_contains "$rcs" "OOONANA_BOOT_OK"

@@ -49,6 +49,7 @@ assert_contains "$wallpaper" "ooonana-wallpaper"
 assert_contains "$wallpaper" "#ffb21a"
 assert_contains "$wallpaper" 'd="M172 154h-38L84 208"'
 assert_contains "$wallpaper" 'd="M468 154h38l50 54"'
+assert_contains "$config" '# i3 config file (v4)'
 assert_contains "$config" 'set $mod Mod4'
 assert_contains "$config" 'bindsym $mod+Return exec ooonana-theme-env xterm'
 assert_contains "$config" 'exec_always --no-startup-id ooonana-theme-env apply'

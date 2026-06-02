@@ -34,7 +34,13 @@ Current release artifacts live in:
 /var/tmp/ooonana-os/release
 ```
 
-Main installer ISO:
+Main full-i3 installer ISO:
+
+```text
+/var/tmp/ooonana-os/release/ooonana-full-i3.iso
+```
+
+Minimal scratch installer ISO:
 
 ```text
 /var/tmp/ooonana-os/release/ooonana-scratch.iso
@@ -52,12 +58,14 @@ ooonana-full-i3.iso          full-i3 installer ISO
 ooonana-wsl-rootfs.tar.gz    WSL import rootfs
 vmlinuz-ooonana              Ooonana Linux kernel
 SHA256SUMS                   checksums for release artifacts
+SHA256SUMS.full-i3           checksums for full-i3 artifacts
 qemu-rootfs-boot.log         direct rootfs QEMU boot proof
 qemu-disk-boot.log           GRUB disk QEMU boot proof
 qemu-installer.log           installer ISO QEMU proof
 qemu-installed-boot.log      installed disk QEMU proof
 qemu-full-i3-gui-smoke.log   full-i3 Xorg/i3 serial proof
 qemu-full-i3-installer.log   full-i3 installer ISO proof
+qemu-full-i3-installed-boot.log full-i3 installed disk boot proof
 qemu-full-i3-vnc.log         full-i3 VNC boot proof
 qemu-full-i3-vnc.png         full-i3 VNC screenshot proof
 ```
@@ -67,6 +75,7 @@ Verify files:
 ```bash
 cd /var/tmp/ooonana-os/release
 sha256sum -c SHA256SUMS
+sha256sum -c SHA256SUMS.full-i3
 ```
 
 ## What Ooonana Is
@@ -92,12 +101,13 @@ Working now:
 - Installer ISO writes Ooonana to blank disk
 - Installer has a serial-safe xterm UI with logo, disk picker, user/password, hostname, theme, progress, and reboot prompt
 - Installed disk boots in QEMU
+- `ooonana-install` can partition a raw/whole disk, format ext4, copy rootfs, install kernel, write GRUB, and persist user, hostname, and theme
 - Generic `ooonana-rootfs.tar.gz` can be unpacked for chroot/container-style use
 - WSL distro import works
 - `ooonana` package manager has repo index, checksums, install, remove, upgrade, files, verify
 - `ooonana update` can sync local and HTTP package repos into cache
 - Alpine `.apk` packages can be imported into Ooonana `.pkg` repos
-- Full-i3 branding assets, package profiles, package-installed rootfs, boot disk, installer ISO, GUI installer wizard, and real QEMU VNC boot proof exist as a separate edition path
+- Full-i3 branding assets, package profiles, package-installed rootfs, boot disk, installer ISO, GUI installer wizard, and real QEMU boot proof exist as a separate edition path
 - First-boot setup can create a user, prompt for password, write basic network config, and add a cloud package repo
 - `ooonana-ai` supports NVIDIA NIM, Google Gemini, tools, tasks, audit, and shell fallback for scratch WSL
 
@@ -304,8 +314,10 @@ bash scripts/run-qemu.sh \
 Current full-i3 release proof files:
 
 ```text
+/var/tmp/ooonana-os/release/SHA256SUMS.full-i3
 /var/tmp/ooonana-os/release/qemu-full-i3-gui-smoke.log
 /var/tmp/ooonana-os/release/qemu-full-i3-installer.log
+/var/tmp/ooonana-os/release/qemu-full-i3-installed-boot.log
 /var/tmp/ooonana-os/release/qemu-full-i3-vnc.log
 /var/tmp/ooonana-os/release/qemu-full-i3-vnc.png
 ```
@@ -326,6 +338,27 @@ OOONANA_THEME=light ooonana setup --first-boot --gui
 ```
 
 The installer persists the chosen theme in `/etc/ooonana/theme`; i3 reads it through `ooonana-theme-env` on boot.
+
+Non-interactive installed-disk proof path:
+
+```bash
+truncate -s 900M /var/tmp/ooonana-os/build/ooonana-installer-created.raw
+sudo packages/ooonana/usr/sbin/ooonana-install \
+  --target /var/tmp/ooonana-os/build/ooonana-installer-created.raw \
+  --source /var/tmp/ooonana-os/build/full-i3-rootfs \
+  --kernel /var/tmp/ooonana-os/release/vmlinuz-ooonana \
+  --hostname ooonana-lab \
+  --user ryan \
+  --theme light \
+  --smoke \
+  --gui-smoke \
+  --yes
+bash scripts/run-qemu.sh \
+  --disk-boot \
+  --image /var/tmp/ooonana-os/build/ooonana-installer-created.raw \
+  --smoke \
+  --vnc :8
+```
 
 First-boot setup launches from the full-i3 session through xterm when possible:
 

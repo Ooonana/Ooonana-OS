@@ -11,6 +11,14 @@ USER_NAME=""
 THEME=""
 PASSWORD_STDIN=0
 PASSWORD_VALUE=""
+KERNEL_PATH=""
+BOOTLOADER="auto"
+SMOKE=0
+GUI_SMOKE=0
+LOOP_DEV=""
+TARGET_PART=""
+INSTALL_DEVICE=""
+TARGET_MODE=""
 
 usage() {
   cat <<'USAGE'
@@ -27,6 +35,10 @@ Options:
   --user NAME         Create installed user
   --theme dark|light  Write installed UI theme
   --password-stdin    Read password for --user from stdin
+  --kernel PATH       Kernel to install as /boot/vmlinuz
+  --bootloader auto|grub|none
+  --smoke             Add smoke boot argument
+  --gui-smoke         Add GUI smoke boot argument
   --yes               Confirm destructive install
   --dry-run           Print commands only
   -h, --help          Show help
@@ -52,6 +64,120 @@ run_cmd() {
   else
     "$@"
   fi
+}
+
+require_commands() {
+  local cmd
+  [[ "$DRY_RUN" -eq 0 ]] || return 0
+  for cmd in "$@"; do
+    command -v "$cmd" >/dev/null 2>&1 || die "missing command: $cmd"
+  done
+}
+
+partition_path() {
+  case "$1" in
+    /dev/nvme*n[0-9]|/dev/mmcblk[0-9]*|/dev/loop[0-9]*) printf '%sp1\n' "$1" ;;
+    *) printf '%s1\n' "$1" ;;
+  esac
+}
+
+wait_for_block() {
+  local path="$1"
+  local i
+  for i in $(seq 1 50); do
+    [[ -b "$path" ]] && return 0
+    sleep 0.1
+  done
+  return 1
+}
+
+looks_like_partition() {
+  case "$1" in
+    /dev/nvme*n*p[0-9]*|/dev/mmcblk*p[0-9]*|/dev/loop*p[0-9]*|/dev/*[0-9]) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+detect_target_mode() {
+  if [[ "$BOOTLOADER" == "none" ]]; then
+    printf 'partition\n'
+    return 0
+  fi
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    case "$TARGET" in
+      /dev/*)
+        if looks_like_partition "$TARGET"; then
+          printf 'partition\n'
+        else
+          printf 'disk\n'
+        fi
+        ;;
+      *) printf 'disk\n' ;;
+    esac
+    return 0
+  fi
+  if [[ -f "$TARGET" ]]; then
+    printf 'disk\n'
+    return 0
+  fi
+  if [[ -b "$TARGET" ]]; then
+    if command -v lsblk >/dev/null 2>&1; then
+      case "$(lsblk -dn -o TYPE "$TARGET" 2>/dev/null || true)" in
+        disk|loop) printf 'disk\n'; return 0 ;;
+        part) printf 'partition\n'; return 0 ;;
+      esac
+    fi
+    if looks_like_partition "$TARGET"; then
+      printf 'partition\n'
+    else
+      printf 'disk\n'
+    fi
+    return 0
+  fi
+  die "target must be block device or existing raw file: $TARGET"
+}
+
+kernel_append() {
+  local append="root=/dev/vda1 rw console=ttyS0 panic=1 init=/sbin/init ooonana.edition=full-i3"
+  if [[ "$SMOKE" -eq 1 ]]; then
+    append="$append ooonana.smoke=1"
+  fi
+  if [[ "$GUI_SMOKE" -eq 1 ]]; then
+    append="$append ooonana.gui-smoke=1"
+  fi
+  printf '%s\n' "$append"
+}
+
+write_grub_config() {
+  local root="$1"
+  local append
+  append="$(kernel_append)"
+  mkdir -p "$root/boot/grub"
+  cat > "$root/boot/grub/grub.cfg" <<EOF
+serial --unit=0 --speed=115200
+terminal_input serial
+terminal_output serial
+set timeout=1
+set default=0
+
+menuentry 'Ooonana OS Full i3' {
+  linux /boot/vmlinuz $append
+}
+EOF
+}
+
+install_kernel() {
+  local root="$1"
+  run_cmd mkdir -p "$root/boot"
+  if [[ -n "$KERNEL_PATH" ]]; then
+    run_cmd install -m 0644 "$KERNEL_PATH" "$root/boot/vmlinuz"
+    return 0
+  fi
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'use existing %s/boot/vmlinuz\n' "$root"
+    return 0
+  fi
+  [[ -f "$root/boot/vmlinuz" ]] || die "missing /boot/vmlinuz; pass --kernel PATH"
 }
 
 valid_user() {
@@ -171,6 +297,71 @@ apply_install_config() {
   write_theme "$root"
 }
 
+prepare_target() {
+  TARGET_MODE="$(detect_target_mode)"
+  case "$TARGET_MODE" in
+    disk)
+      require_commands parted mkfs.ext4 mount rsync grub-install install
+      if [[ "$DRY_RUN" -eq 1 ]]; then
+        run_cmd parted -s "$TARGET" mklabel msdos mkpart primary ext4 1MiB 100% set 1 boot on
+        run_cmd losetup --find --show --partscan "$TARGET"
+        INSTALL_DEVICE="LOOP_DEVICE"
+        TARGET_PART="LOOP_PARTITION"
+      else
+        parted -s "$TARGET" mklabel msdos mkpart primary ext4 1MiB 100% set 1 boot on
+        if [[ -f "$TARGET" ]]; then
+          require_commands losetup
+          LOOP_DEV="$(losetup --find --show --partscan "$TARGET")"
+          partprobe "$LOOP_DEV" 2>/dev/null || true
+          INSTALL_DEVICE="$LOOP_DEV"
+          TARGET_PART="$(partition_path "$LOOP_DEV")"
+        else
+          INSTALL_DEVICE="$TARGET"
+          partprobe "$TARGET" 2>/dev/null || true
+          TARGET_PART="$(partition_path "$TARGET")"
+        fi
+        wait_for_block "$TARGET_PART" || die "missing target partition: $TARGET_PART"
+      fi
+      ;;
+    partition)
+      require_commands mkfs.ext4 mount rsync
+      INSTALL_DEVICE=""
+      TARGET_PART="$TARGET"
+      if [[ "$BOOTLOADER" == "grub" ]]; then
+        die "--bootloader grub requires whole disk target"
+      fi
+      ;;
+    *) die "unknown target mode: $TARGET_MODE" ;;
+  esac
+
+  run_cmd mkfs.ext4 -F -L OOONANA_ROOT "$TARGET_PART"
+  run_cmd mkdir -p "$MOUNT_POINT"
+  run_cmd mount "$TARGET_PART" "$MOUNT_POINT"
+}
+
+install_bootloader() {
+  local append
+  case "$BOOTLOADER" in
+    none) return 0 ;;
+    auto)
+      [[ "$TARGET_MODE" == "disk" ]] || return 0
+      ;;
+    grub)
+      [[ "$TARGET_MODE" == "disk" ]] || die "--bootloader grub requires whole disk target"
+      ;;
+    *) die "bootloader must be auto, grub, or none" ;;
+  esac
+
+  install_kernel "$MOUNT_POINT"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    append="$(kernel_append)"
+    printf 'grub.cfg: linux /boot/vmlinuz %s\n' "$append"
+  else
+    write_grub_config "$MOUNT_POINT"
+  fi
+  run_cmd grub-install --target=i386-pc --boot-directory="$MOUNT_POINT/boot" --modules="part_msdos ext2" --no-floppy "$INSTALL_DEVICE"
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --target) TARGET="$2"; shift 2 ;;
@@ -180,6 +371,10 @@ while [[ $# -gt 0 ]]; do
     --user) USER_NAME="$2"; shift 2 ;;
     --theme) THEME="$2"; shift 2 ;;
     --password-stdin) PASSWORD_STDIN=1; shift ;;
+    --kernel) KERNEL_PATH="$2"; shift 2 ;;
+    --bootloader) BOOTLOADER="$2"; shift 2 ;;
+    --smoke) SMOKE=1; shift ;;
+    --gui-smoke) GUI_SMOKE=1; shift ;;
     --yes) YES=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -189,6 +384,10 @@ done
 
 [[ -n "$TARGET" ]] || die "--target required"
 [[ "$YES" -eq 1 ]] || die "--yes required because install formats target"
+case "$BOOTLOADER" in
+  auto|grub|none) ;;
+  *) die "bootloader must be auto, grub, or none" ;;
+esac
 if [[ "$PASSWORD_STDIN" -eq 1 && "$DRY_RUN" -eq 0 ]]; then
   IFS= read -r PASSWORD_VALUE || true
 fi
@@ -197,18 +396,20 @@ if [[ "$DRY_RUN" -eq 0 ]]; then
   [[ "${EUID:-$(id -u)}" -eq 0 ]] || die "run as root"
   [[ -e "$TARGET" ]] || die "target missing: $TARGET"
   [[ -d "$SOURCE" ]] || die "source missing: $SOURCE"
+  [[ -z "$KERNEL_PATH" || -f "$KERNEL_PATH" ]] || die "kernel missing: $KERNEL_PATH"
 fi
 
 cleanup() {
   if [[ "$DRY_RUN" -eq 0 ]] && mountpoint -q "$MOUNT_POINT"; then
     umount "$MOUNT_POINT"
   fi
+  if [[ "$DRY_RUN" -eq 0 && -n "$LOOP_DEV" ]]; then
+    losetup -d "$LOOP_DEV" 2>/dev/null || true
+  fi
 }
 trap cleanup EXIT
 
-run_cmd mkfs.ext4 -F -L OOONANA_ROOT "$TARGET"
-run_cmd mkdir -p "$MOUNT_POINT"
-run_cmd mount "$TARGET" "$MOUNT_POINT"
+prepare_target
 run_cmd rsync -aHAX --numeric-ids \
   --exclude '/dev/*' \
   --exclude '/proc/*' \
@@ -225,12 +426,14 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   [[ -z "$HOSTNAME_VALUE" ]] || printf 'write hostname %s\n' "$HOSTNAME_VALUE"
   [[ -z "$THEME" ]] || printf 'write theme %s\n' "$THEME"
   [[ "$PASSWORD_STDIN" -eq 0 ]] || printf 'read password from stdin\n'
+  install_bootloader
   print_cmd mkdir -p "$MOUNT_POINT/var/lib/ooonana"
   print_cmd sh -c "printf 'installed\n' > '$MOUNT_POINT/var/lib/ooonana/install-ok'"
   print_cmd sh -c "printf 'LABEL=OOONANA_ROOT / ext4 defaults 0 1\nproc /proc proc defaults 0 0\n' > '$MOUNT_POINT/etc/fstab'"
   print_cmd umount "$MOUNT_POINT"
 else
   apply_install_config "$MOUNT_POINT"
+  install_bootloader
   mkdir -p "$MOUNT_POINT/var/lib/ooonana"
   printf 'installed\n' > "$MOUNT_POINT/var/lib/ooonana/install-ok"
   cat > "$MOUNT_POINT/etc/fstab" <<'EOF'

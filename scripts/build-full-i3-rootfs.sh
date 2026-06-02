@@ -48,7 +48,12 @@ write_start_script() {
 #!/bin/sh
 set -eu
 
-export HOME="${HOME:-/root}"
+case "${HOME:-}" in
+  ""|/) export HOME="/root" ;;
+  *) export HOME ;;
+esac
+mkdir -p "$HOME" /tmp
+touch "$HOME/.Xauthority" 2>/dev/null || true
 export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 
 if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
@@ -435,10 +440,13 @@ if [ -x /usr/bin/ooonana-theme-env ]; then
   ooonana-theme-env apply
 fi
 
-i3 &
-sleep 3
-echo "OOONANA_FULL_I3_OK" >/dev/console
-sleep 1
+smoke_config="${TMPDIR:-/tmp}/ooonana-i3-smoke.config"
+cat > "$smoke_config" <<'I3CONFIG'
+# i3 config file (v4)
+font pango:monospace 10
+exec --no-startup-id sh -c 'sleep 2; echo "OOONANA_FULL_I3_OK" >/dev/console; i3-msg exit >/dev/null 2>&1 || true'
+I3CONFIG
+exec i3 -c "$smoke_config"
 EOF
 
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-i3-session" <<'EOF'
@@ -485,7 +493,12 @@ mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
 mkdir -p /dev/pts
 mount -t devpts devpts /dev/pts 2>/dev/null || true
 mount -t tmpfs tmpfs /run 2>/dev/null || true
-hostname ooonana 2>/dev/null || true
+host="ooonana"
+if [ -f /etc/hostname ]; then
+  read -r host </etc/hostname || host="ooonana"
+fi
+[ -n "$host" ] || host="ooonana"
+hostname "$host" 2>/dev/null || true
 
 if [ -f /usr/share/ooonana/logo.txt ]; then
   cat /usr/share/ooonana/logo.txt

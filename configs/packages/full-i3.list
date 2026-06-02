@@ -8,3 +8,9 @@ i3status
 dmenu
 feh
 xterm
+coreutils
+parted
+grub-bios
+e2fsprogs
+rsync
+util-linux
