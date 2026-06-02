@@ -47,6 +47,8 @@ ooonana-scratch.iso          bootable GRUB installer ISO
 ooonana-scratch-disk.raw     bootable installed raw disk image
 ooonana-rootfs.tar.gz        generic chroot/container rootfs tarball
 ooonana-full-i3-rootfs.tar.gz full-i3 package-installed rootfs tarball
+ooonana-full-i3-disk.raw     bootable full-i3 raw disk image
+ooonana-full-i3.iso          full-i3 installer ISO
 ooonana-wsl-rootfs.tar.gz    WSL import rootfs
 vmlinuz-ooonana              Ooonana Linux kernel
 SHA256SUMS                   checksums for release artifacts
@@ -54,6 +56,10 @@ qemu-rootfs-boot.log         direct rootfs QEMU boot proof
 qemu-disk-boot.log           GRUB disk QEMU boot proof
 qemu-installer.log           installer ISO QEMU proof
 qemu-installed-boot.log      installed disk QEMU proof
+qemu-full-i3-gui-smoke.log   full-i3 Xorg/i3 serial proof
+qemu-full-i3-installer.log   full-i3 installer ISO proof
+qemu-full-i3-vnc.log         full-i3 VNC boot proof
+qemu-full-i3-vnc.png         full-i3 VNC screenshot proof
 ```
 
 Verify files:
@@ -91,13 +97,12 @@ Working now:
 - `ooonana` package manager has repo index, checksums, install, remove, upgrade, files, verify
 - `ooonana update` can sync local and HTTP package repos into cache
 - Alpine `.apk` packages can be imported into Ooonana `.pkg` repos
-- Full-i3 branding assets, package profiles, and package-installed rootfs path exist as a separate edition path
+- Full-i3 branding assets, package profiles, package-installed rootfs, boot disk, installer ISO, GUI installer launcher, and real QEMU VNC boot proof exist as a separate edition path
 - `ooonana-ai` supports NVIDIA NIM, Google Gemini, tools, tasks, audit, and shell fallback for scratch WSL
 
 Next work:
 
-- Real full-i3 GUI boot with Xorg/i3 packages installed
-- Graphical installer UI on top of full-i3
+- First-boot GUI setup wizard
 - More first-party packages
 - Users, networking, services, security defaults
 
@@ -238,7 +243,7 @@ Minimal and full are separate.
 
 ```text
 minimal   ooonana-scratch.iso, ooonana-rootfs.tar.gz
-full-i3   ooonana-full-i3-rootfs.tar.gz, later ooonana-full-i3.iso
+full-i3   ooonana-full-i3-rootfs.tar.gz, ooonana-full-i3-disk.raw, ooonana-full-i3.iso
 ```
 
 The full-i3 path adds branding, i3 config, package automation, and a package-installed rootfs. It does not replace the minimal release.
@@ -264,6 +269,47 @@ Output:
 ```text
 /var/tmp/ooonana-os/build/full-i3-rootfs
 /var/tmp/ooonana-os/build/ooonana-full-i3-rootfs.tar.gz
+```
+
+Build full-i3 disk and installer ISO:
+
+```bash
+bash scripts/build-full-i3-disk.sh \
+  --rootfs /var/tmp/ooonana-os/build/full-i3-rootfs \
+  --disk-image /var/tmp/ooonana-os/build/ooonana-full-i3-disk.raw \
+  --smoke \
+  --force
+bash scripts/build-full-i3-iso.sh \
+  --disk-image /var/tmp/ooonana-os/build/ooonana-full-i3-disk.raw \
+  --iso /var/tmp/ooonana-os/build/ooonana-full-i3.iso \
+  --smoke \
+  --force
+```
+
+Headless GUI-capable QEMU smoke path:
+
+```bash
+bash scripts/build-full-i3-disk.sh --smoke --gui-smoke --force
+bash scripts/run-qemu.sh \
+  --disk-boot \
+  --image /var/tmp/ooonana-os/build/ooonana-full-i3-disk.raw \
+  --smoke \
+  --vnc :7
+```
+
+Current full-i3 release proof files:
+
+```text
+/var/tmp/ooonana-os/release/qemu-full-i3-gui-smoke.log
+/var/tmp/ooonana-os/release/qemu-full-i3-installer.log
+/var/tmp/ooonana-os/release/qemu-full-i3-vnc.log
+/var/tmp/ooonana-os/release/qemu-full-i3-vnc.png
+```
+
+Inside full-i3, the GUI installer launcher is:
+
+```bash
+ooonana-gui-installer
 ```
 
 Cloud package build:
@@ -445,6 +491,8 @@ scripts/clean-build-artifacts.sh
 scripts/import-apk-package.sh
 scripts/import-i3-package-set.sh
 scripts/build-full-i3-rootfs.sh
+scripts/build-full-i3-disk.sh
+scripts/build-full-i3-iso.sh
 scripts/lib/common.sh
 ```
 
@@ -458,6 +506,10 @@ tests/test-package-factory.sh
 tests/test-i3-package-set.sh
 tests/test-branding-assets.sh
 tests/test-full-i3-rootfs.sh
+tests/test-full-i3-disk.sh
+tests/test-full-i3-iso.sh
+tests/test-gui-installer.sh
+tests/test-qemu-gui.sh
 tests/test-logo-sync.sh
 tests/test-rootfs-tarball.sh
 tests/test-scratch-rootfs.sh

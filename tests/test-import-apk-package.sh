@@ -56,13 +56,15 @@ mkdir -p "$repo" "$repo_extra" "$out"
 
 make_fake_apk "$repo/nano-1.0-r0.apk" nano 1.0-r0 libncurses "$tmp"
 make_fake_apk "$repo_extra/libncurses-1.0-r0.apk" libncurses 1.0-r0 "" "$tmp"
+make_fake_apk "$repo_extra/libfoo-1.0-r0.apk" libfoo 1.0-r0 "" "$tmp"
+make_fake_apk "$repo_extra/pkgconf-1.0-r0.apk" pkgconf 1.0-r0 "" "$tmp"
 
 cat > "$tmp/APKINDEX" <<'EOF'
 P:nano
 V:1.0-r0
 A:x86_64
 S:123
-D:libncurses so:libc.musl-x86_64.so.1
+D:libncurses so:libfoo.so.1 so:libc.musl-x86_64.so.1 pkgconfig /bin/sh
 o:nano
 
 P:libncurses
@@ -71,10 +73,27 @@ A:x86_64
 S:123
 D:
 o:libncurses
+p:so:libncursesw.so.6=6.4
+
+P:libfoo
+V:1.0-r0
+A:x86_64
+S:123
+D:
+o:libfoo
+p:so:libfoo.so.1=1.0
+
+P:pkgconf
+V:1.0-r0
+A:x86_64
+S:123
+D:
+o:pkgconf
+p:pkgconfig
 
 EOF
 awk 'BEGIN { RS = ""; ORS = "\n\n" } /P:nano/ { print }' "$tmp/APKINDEX" > "$tmp/APKINDEX.main"
-awk 'BEGIN { RS = ""; ORS = "\n\n" } /P:libncurses/ { print }' "$tmp/APKINDEX" > "$tmp/APKINDEX.extra"
+awk 'BEGIN { RS = ""; ORS = "\n\n" } /P:libncurses|P:libfoo|P:pkgconf/ { print }' "$tmp/APKINDEX" > "$tmp/APKINDEX.extra"
 mv "$tmp/APKINDEX.main" "$tmp/APKINDEX"
 tar -C "$tmp" -czf "$repo/APKINDEX.tar.gz" APKINDEX
 mv "$tmp/APKINDEX.extra" "$tmp/APKINDEX"
@@ -84,18 +103,22 @@ bash "$SCRIPT" --repo-url "file://$repo" --repo-url "file://$repo_extra" --out-d
 
 [[ -f "$out/nano.pkg" ]] || fail "missing nano.pkg"
 [[ -f "$out/libncurses.pkg" ]] || fail "missing libncurses.pkg"
+[[ -f "$out/libfoo.pkg" ]] || fail "missing libfoo.pkg from provider dependency"
+[[ -f "$out/pkgconf.pkg" ]] || fail "missing pkgconf.pkg from plain provider dependency"
 [[ -f "$out/archives/nano-1.0-r0.tar.gz" ]] || fail "missing nano archive"
 [[ -f "$out/archives/libncurses-1.0-r0.tar.gz" ]] || fail "missing libncurses archive"
+[[ -f "$out/archives/libfoo-1.0-r0.tar.gz" ]] || fail "missing libfoo archive"
 [[ -f "$out/index.tsv" ]] || fail "missing index"
 [[ -f "$out/SHA256SUMS" ]] || fail "missing checksums"
 
 nano_pkg="$(<"$out/nano.pkg")"
 assert_contains "$nano_pkg" 'OOONANA_PKG_ID="nano"'
 assert_contains "$nano_pkg" 'OOONANA_PKG_VERSION="1.0-r0"'
-assert_contains "$nano_pkg" 'OOONANA_PKG_DEPS="libncurses"'
+assert_contains "$nano_pkg" 'OOONANA_PKG_DEPS="libfoo libncurses pkgconf"'
 assert_contains "$nano_pkg" 'OOONANA_PKG_ARCHIVE="archives/nano-1.0-r0.tar.gz"'
 assert_contains "$nano_pkg" 'OOONANA_PKG_COMPONENTS="apk-import alpine x86_64"'
 assert_not_contains "$nano_pkg" 'so:libc'
+assert_not_contains "$nano_pkg" '/bin/sh'
 
 contents="$(tar -tzf "$out/archives/nano-1.0-r0.tar.gz" | sort)"
 assert_contains "$contents" "./usr/bin/nano"
@@ -105,6 +128,8 @@ assert_not_contains "$contents" "./.PKGINFO"
 index="$(<"$out/index.tsv")"
 assert_contains "$index" $'nano\t1.0-r0\tapk'
 assert_contains "$index" $'libncurses\t1.0-r0\tapk'
+assert_contains "$index" $'libfoo\t1.0-r0\tapk'
+assert_contains "$index" $'pkgconf\t1.0-r0\tapk'
 grep -q 'archives/nano-1.0-r0.tar.gz' "$out/SHA256SUMS" || fail "missing archive checksum"
 
 printf 'ok import-apk-package\n'

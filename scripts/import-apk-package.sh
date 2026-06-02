@@ -102,13 +102,72 @@ normalize_deps() {
   local dep
   for dep in $1; do
     case "$dep" in
-      ""|!*) continue ;;
-      so:*|cmd:*|pc:*|pkgconfig:*|provider_priority=*) continue ;;
+      ""|!*|/*) continue ;;
+      provider_priority=*) continue ;;
     esac
     dep="${dep%%[<>=~]*}"
     [[ -n "$dep" ]] || continue
+    case "$dep" in
+      so:*|cmd:*|pc:*|pkgconfig:*)
+        dep="$(provider_pkg "$dep")"
+        [[ -n "$dep" ]] || continue
+        ;;
+      *)
+        if ! apk_pkg_exists "$dep"; then
+          dep="$(provider_pkg "$dep")"
+          [[ -n "$dep" ]] || continue
+        fi
+        ;;
+    esac
     printf '%s\n' "$dep"
   done | sort -u
+}
+
+apk_pkg_exists() {
+  local name="$1"
+  awk -v pkg="$name" '
+    BEGIN { RS = ""; FS = "\n" }
+    {
+      for (i = 1; i <= NF; i++) {
+        if ($i == "P:" pkg) {
+          found = 1
+          exit
+        }
+      }
+    }
+    END { exit found ? 0 : 1 }
+  ' "$APKINDEX"
+}
+
+provider_pkg() {
+  local provider="$1"
+  awk -v provider="$provider" '
+    BEGIN { RS = ""; FS = "\n" }
+    {
+      pkg = ""
+      matched = 0
+      for (i = 1; i <= NF; i++) {
+        if (index($i, "P:") == 1) {
+          pkg = substr($i, 3)
+        }
+        if (index($i, "p:") == 1) {
+          provides = substr($i, 3)
+          n = split(provides, fields, /[[:space:]]+/)
+          for (j = 1; j <= n; j++) {
+            candidate = fields[j]
+            sub(/[<>=~].*$/, "", candidate)
+            if (candidate == provider) {
+              matched = 1
+            }
+          }
+        }
+      }
+      if (matched && pkg != "") {
+        print pkg
+        exit
+      }
+    }
+  ' "$APKINDEX"
 }
 
 write_pkg_metadata() {
@@ -177,7 +236,9 @@ import_one() {
   chmod a+rw "$archive_path"
   archive_sha="$(sha256sum "$archive_path" | awk '{print $1}')"
   write_pkg_metadata "$name" "$version" "$summary" "$deps" "$archive_rel" "$archive_sha" "$origin"
-  printf '%s\n' "$deps"
+  for dep in $deps; do
+    printf '%s\n' "$dep"
+  done
 }
 
 main() {

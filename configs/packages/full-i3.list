@@ -1,6 +1,8 @@
 # Ooonana full-i3 cloud package repo seed.
 xorg-server
 xinit
+xf86-video-vesa
+xf86-video-fbdev
 i3wm
 i3status
 dmenu

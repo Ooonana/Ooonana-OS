@@ -21,6 +21,7 @@ KERNEL=""
 INITRD=""
 MEMORY="1024"
 CPUS="2"
+VNC_DISPLAY=""
 SMOKE=0
 DRY_RUN=0
 TIMEOUT_SECONDS="120"
@@ -47,6 +48,7 @@ Options:
   --initrd PATH       Initrd path
   --memory MB         Memory size (default: 1024)
   --cpus N            CPU count (default: 2)
+  --vnc DISPLAY       Enable VGA with headless VNC display, e.g. :7
   --smoke             Boot smoke service and expect OOONANA_BOOT_OK
   --timeout SECONDS   Smoke timeout (default: 120)
   --log PATH          Smoke log path
@@ -69,6 +71,7 @@ while [[ $# -gt 0 ]]; do
     --initrd) INITRD="$2"; shift 2 ;;
     --memory) MEMORY="$2"; shift 2 ;;
     --cpus) CPUS="$2"; shift 2 ;;
+    --vnc) VNC_DISPLAY="$2"; shift 2 ;;
     --smoke) SMOKE=1; shift ;;
     --timeout) TIMEOUT_SECONDS="$2"; shift 2 ;;
     --log) LOG_FILE="$2"; shift 2 ;;
@@ -77,6 +80,14 @@ while [[ $# -gt 0 ]]; do
     *) ooonana_die "unknown option: $1" ;;
   esac
 done
+
+qemu_console_args() {
+  if [[ -n "$VNC_DISPLAY" ]]; then
+    QEMU_CONSOLE_ARGS=(-display none -vnc "$VNC_DISPLAY" -serial stdio -monitor none)
+  else
+    QEMU_CONSOLE_ARGS=(-nographic)
+  fi
+}
 
 pick_latest() {
   local pattern="$1"
@@ -97,6 +108,7 @@ pick_scratch_kernel() {
 
 build_command() {
   local append="root=/dev/vda rw console=ttyS0 panic=1"
+  qemu_console_args
   if [[ "$SMOKE" -eq 1 ]]; then
     append="$append systemd.unit=ooonana-smoke.service ooonana.smoke=1"
   else
@@ -107,7 +119,7 @@ build_command() {
     qemu-system-x86_64
     -m "$MEMORY"
     -smp "$CPUS"
-    -nographic
+    "${QEMU_CONSOLE_ARGS[@]}"
     -no-reboot
     -drive "file=$IMAGE,format=raw,if=virtio"
     -kernel "$KERNEL"
@@ -118,6 +130,7 @@ build_command() {
 
 build_initramfs_command() {
   local append="console=ttyS0 panic=1 rdinit=/init"
+  qemu_console_args
   if [[ "$SMOKE" -eq 1 ]]; then
     append="$append ooonana.smoke=1"
   fi
@@ -126,7 +139,7 @@ build_initramfs_command() {
     qemu-system-x86_64
     -m "$MEMORY"
     -smp "$CPUS"
-    -nographic
+    "${QEMU_CONSOLE_ARGS[@]}"
     -no-reboot
     -kernel "$KERNEL"
     -initrd "$INITRD"
@@ -136,6 +149,7 @@ build_initramfs_command() {
 
 build_scratch_disk_command() {
   local append="root=/dev/vda rw console=ttyS0 panic=1 init=/sbin/init"
+  qemu_console_args
   if [[ "$SMOKE" -eq 1 ]]; then
     append="$append ooonana.smoke=1"
   fi
@@ -144,7 +158,7 @@ build_scratch_disk_command() {
     qemu-system-x86_64
     -m "$MEMORY"
     -smp "$CPUS"
-    -nographic
+    "${QEMU_CONSOLE_ARGS[@]}"
     -no-reboot
     -drive "file=$IMAGE,format=raw,if=virtio"
     -kernel "$KERNEL"
@@ -153,11 +167,12 @@ build_scratch_disk_command() {
 }
 
 build_iso_command() {
+  qemu_console_args
   QEMU_CMD=(
     qemu-system-x86_64
     -m "$MEMORY"
     -smp "$CPUS"
-    -nographic
+    "${QEMU_CONSOLE_ARGS[@]}"
     -no-reboot
     -cdrom "$ISO"
     -boot d
@@ -168,11 +183,12 @@ build_iso_command() {
 }
 
 build_disk_boot_command() {
+  qemu_console_args
   QEMU_CMD=(
     qemu-system-x86_64
     -m "$MEMORY"
     -smp "$CPUS"
-    -nographic
+    "${QEMU_CONSOLE_ARGS[@]}"
     -no-reboot
     -drive "file=$IMAGE,format=raw,if=virtio"
     -boot c

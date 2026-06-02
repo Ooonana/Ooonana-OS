@@ -52,6 +52,11 @@ export HOME="${HOME:-/root}"
 export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 
 if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
+  if grep -q 'ooonana.gui-smoke=1' /proc/cmdline 2>/dev/null &&
+    command -v startx >/dev/null 2>&1 &&
+    command -v i3 >/dev/null 2>&1; then
+    exec startx /usr/bin/ooonana-i3-smoke-session
+  fi
   echo "OOONANA_FULL_I3_OK"
   exit 0
 fi
@@ -63,6 +68,61 @@ fi
 echo "Ooonana full-i3"
 echo "Missing startx or i3. Build/publish the full-i3 package repo, then run: ooonana get full-i3"
 exec /bin/sh
+EOF
+}
+
+write_gui_installer() {
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-gui-installer" <<'EOF'
+#!/bin/sh
+set -eu
+
+target="${1:-/dev/vda}"
+
+if [ "${1:-}" = "--dry-run" ]; then
+  echo "xmessage Ooonana installer"
+  echo "/usr/sbin/ooonana-install --target $target --source / --yes"
+  echo "OOONANA_GUI_INSTALLER_OK"
+  exit 0
+fi
+
+confirm_text="Install Ooonana OS full i3 to $target? This erases the target."
+if [ -n "${DISPLAY:-}" ] && command -v xmessage >/dev/null 2>&1; then
+  if ! xmessage -center -buttons Install:0,Cancel:1 "$confirm_text"; then
+    exit 1
+  fi
+else
+  printf '%s\nType INSTALL to continue: ' "$confirm_text"
+  read -r answer
+  [ "$answer" = "INSTALL" ] || exit 1
+fi
+
+/usr/sbin/ooonana-install --target "$target" --source / --yes
+if [ -n "${DISPLAY:-}" ] && command -v xmessage >/dev/null 2>&1; then
+  xmessage -center "Ooonana install complete. Reboot now."
+fi
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-i3-smoke-session" <<'EOF'
+#!/bin/sh
+set -eu
+
+if command -v feh >/dev/null 2>&1 && [ -f /usr/share/ooonana/wallpapers/ooonana-wallpaper.png ]; then
+  feh --bg-fill /usr/share/ooonana/wallpapers/ooonana-wallpaper.png || true
+fi
+
+i3 &
+sleep 3
+echo "OOONANA_FULL_I3_OK" >/dev/console
+sleep 1
+EOF
+
+  install -D -m 0644 /dev/stdin "$ROOTFS/usr/share/applications/ooonana-installer.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Install Ooonana OS
+Exec=ooonana-gui-installer
+Terminal=false
+Categories=System;
 EOF
 }
 
@@ -90,7 +150,12 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
     sleep 1
     reboot -f
   fi
-  /usr/bin/start-ooonana-i3
+  if ! /usr/bin/start-ooonana-i3; then
+    echo "OOONANA_FULL_I3_FAIL"
+    sync
+    sleep 1
+    reboot -f
+  fi
   echo "OOONANA_BOOT_OK"
   sync
   sleep 1
@@ -179,11 +244,13 @@ main() {
 
   mkdir -p "$(dirname "$ROOTFS")"
   cp -a "$SCRATCH_ROOTFS" "$ROOTFS"
-  mkdir -p "$ROOTFS/etc/ooonana" "$ROOTFS/var/lib/ooonana/packages/installed"
+  mkdir -p "$ROOTFS/etc/ooonana" "$ROOTFS/var/lib/ooonana/packages/installed" "$ROOTFS/var/log"
+  printf '127.0.0.1 localhost ooonana\n' > "$ROOTFS/etc/hosts"
   printf 'full-i3\n' > "$ROOTFS/etc/ooonana/edition"
   install_full_i3_packages
   install_branding
   write_start_script
+  write_gui_installer
   write_full_init_script
   printf 'packages-installed\n' > "$ROOTFS/etc/ooonana/edition-state"
   write_tarball

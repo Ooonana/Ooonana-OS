@@ -189,8 +189,21 @@ confirm_install() {
   return 0
 }
 
+cmdline_value() {
+  key="$1"
+  for arg in $(cat /proc/cmdline 2>/dev/null); do
+    case "$arg" in
+      "$key"=*)
+        printf '%s\n' "${arg#*=}"
+        return 0
+        ;;
+    esac
+  done
+  return 0
+}
+
 if grep -q 'ooonana.install=1' /proc/cmdline 2>/dev/null; then
-  target="$(grep -o 'ooonana.install.target=[^ ]*' /proc/cmdline | cut -d= -f2 || true)"
+  target="$(cmdline_value 'ooonana.install.target')"
   target="${target:-/dev/vda}"
   mkdir -p /mnt/install
   if [ ! -b "$target" ]; then
@@ -210,7 +223,8 @@ if grep -q 'ooonana.install=1' /proc/cmdline 2>/dev/null; then
     sleep 1
     reboot -f
   fi
-  install_image="/mnt/install/images/ooonana-scratch-disk.raw"
+  install_image="$(cmdline_value 'ooonana.install.image')"
+  install_image="${install_image:-/mnt/install/images/ooonana-scratch-disk.raw}"
   if [ ! -f "$install_image" ]; then
     install_image="/mnt/install/images/ooonana-scratch.ext4"
   fi

@@ -6,6 +6,7 @@ exec --no-startup-id xsetroot -name "Ooonana OS"
 
 bindsym $mod+Return exec xterm
 bindsym $mod+d exec dmenu_run
+bindsym $mod+Shift+i exec ooonana-gui-installer
 bindsym $mod+Shift+r restart
 bindsym $mod+Shift+q kill
 bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'Exit Ooonana i3?' -b 'Exit' 'i3-msg exit'"
@@ -29,8 +30,8 @@ bar {
     status_command i3status
     colors {
         background #0b1012
-        statusline #f3f5ef
-        focused_workspace #6fd6c5 #102124 #f3f5ef
-        inactive_workspace #102124 #102124 #9edfd5
+        statusline #ffb21a
+        focused_workspace #ffb21a #281604 #fff0c7
+        inactive_workspace #1d1207 #1d1207 #ffd37a
     }
 }
