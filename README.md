@@ -103,7 +103,6 @@ Working now:
 
 Next work:
 
-- Cloud repo publishing polish
 - More first-party packages
 - Users, networking, services, security defaults
 
@@ -231,6 +230,7 @@ This creates:
 ```
 
 The GitHub Actions workflow `Build Ooonana Packages` can run the same importer in cloud from a package profile, upload the generated repo as artifacts, publish a tarball to GitHub Releases, and optionally deploy the repo to GitHub Pages. GitHub Pages is the direct HTTP repo path for `ooonana update`; Releases are backup storage for the repo tarball.
+When Pages publishing is enabled, the generated repo includes `cloud.repo` and `README.txt` so the repo source can be copied straight into `/etc/ooonana/sources.d/cloud.repo`.
 
 Cloud build defaults are repo-wide seed packages, not nano-only:
 
@@ -317,7 +317,13 @@ ooonana-gui-installer
 ooonana-install-wizard
 ```
 
-The wizard opens in an orange xterm under i3, walks target/source/confirmation/install steps, logs to `/var/log/ooonana-install-wizard.log`, and blocks installing over the current root disk unless `OOONANA_INSTALL_ALLOW_ROOT_TARGET=1` is set.
+The wizard opens in a themed xterm under i3, walks target/source/confirmation/install steps, logs to `/var/log/ooonana-install-wizard.log`, and blocks installing over the current root disk unless `OOONANA_INSTALL_ALLOW_ROOT_TARGET=1` is set.
+Default full-i3 UI is dark: black background, orange text/cursor. The old sunset look is light mode:
+
+```bash
+OOONANA_THEME=light ooonana-gui-installer
+OOONANA_THEME=light ooonana setup --first-boot --gui
+```
 
 First-boot setup launches from the full-i3 session through xterm when possible:
 

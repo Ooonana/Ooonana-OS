@@ -82,6 +82,36 @@ jobs:
           fi
           find "$out" -maxdepth 3 -type f -print | sort
 
+      - name: Write cloud repo hints
+        env:
+          REPO_NAME: ${{ github.event.repository.name }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/ooonana-repo"
+          pages_url="https://${OWNER}.github.io/${REPO_NAME}"
+          cat > "$out/cloud.repo" <<EOF
+          OOONANA_REPO_NAME="cloud"
+          OOONANA_REPO_URI="$pages_url"
+          EOF
+          cat > "$out/README.txt" <<EOF
+          Ooonana cloud package repo
+
+          Add repo source:
+
+          install -D -m 0644 /dev/stdin /etc/ooonana/sources.d/cloud.repo <<'REPO'
+          OOONANA_REPO_NAME="cloud"
+          OOONANA_REPO_URI="$pages_url"
+          REPO
+
+          Then run:
+
+          ooonana update
+          ooonana list
+          ooonana get nano
+          EOF
+          cat "$out/cloud.repo"
+
       - name: Pack repo backup
         run: |
           set -euo pipefail

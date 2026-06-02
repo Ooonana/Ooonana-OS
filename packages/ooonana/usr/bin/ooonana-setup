@@ -59,6 +59,20 @@ shell_escape() {
   printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
 
+xterm_theme() {
+  case "${OOONANA_THEME:-dark}" in
+    light)
+      XTERM_BG="#ffb21a"
+      XTERM_FG="#1b1202"
+      ;;
+    *)
+      XTERM_BG="#050505"
+      XTERM_FG="#ffb21a"
+      ;;
+  esac
+  XTERM_CURSOR="#ffb21a"
+}
+
 valid_user() {
   case "$1" in
     ""|*[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-]*|[0123456789-]*)
@@ -263,8 +277,9 @@ if [ "$FIRST_BOOT" -eq 1 ] && [ -f "$(setup_marker)" ]; then
 fi
 
 if [ "$GUI" -eq 1 ] && [ -n "${DISPLAY:-}" ] && [ -z "${OOONANA_SETUP_IN_TERMINAL:-}" ] && have xterm; then
+  xterm_theme
   exec env OOONANA_SETUP_IN_TERMINAL=1 OOONANA_ROOT="$OOONANA_ROOT" \
-    xterm -title "Ooonana Setup" -bg "#ffb21a" -fg "#1b1202" -e "$0" --first-boot
+    xterm -title "Ooonana Setup" -bg "$XTERM_BG" -fg "$XTERM_FG" -cr "$XTERM_CURSOR" -e "$0" --first-boot
 fi
 
 prompt_first_boot

@@ -138,12 +138,15 @@ assert_contains "$start_script" "ooonana-i3-session"
 i3_session="$(<"$rootfs/usr/bin/ooonana-i3-session")"
 assert_contains "$i3_session" "ooonana-setup --first-boot --gui"
 assert_contains "$i3_session" "/var/log/ooonana-setup.log"
-assert_contains "$i3_session" 'xsetroot -solid "#ffb21a"'
+assert_contains "$i3_session" 'xsetroot -solid "#050505"'
 assert_contains "$i3_session" "exec i3"
 
 gui_installer="$(<"$rootfs/usr/bin/ooonana-gui-installer")"
 assert_contains "$gui_installer" "OOONANA_INSTALL_WIZARD_IN_TERMINAL"
 assert_contains "$gui_installer" 'xterm -title "Ooonana Installer"'
+assert_contains "$gui_installer" 'OOONANA_THEME:-dark'
+assert_contains "$gui_installer" 'XTERM_BG="#050505"'
+assert_contains "$gui_installer" '-cr "$XTERM_CURSOR"'
 assert_contains "$gui_installer" "ooonana-install-wizard --dry-run"
 
 install_wizard="$(<"$rootfs/usr/bin/ooonana-install-wizard")"
@@ -163,6 +166,7 @@ assert_contains "$wizard_dry" "OOONANA_INSTALL_WIZARD_OK"
 
 gui_dry="$("$rootfs/usr/bin/ooonana-gui-installer" --dry-run)"
 assert_contains "$gui_dry" "xterm -title Ooonana Installer"
+assert_contains "$gui_dry" "default theme: dark background, orange cursor"
 assert_contains "$gui_dry" "ooonana-install-wizard --dry-run"
 assert_contains "$gui_dry" "OOONANA_GUI_INSTALLER_OK"
 

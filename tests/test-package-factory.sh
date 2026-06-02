@@ -46,6 +46,10 @@ assert_contains "$workflow" "actions/upload-artifact"
 assert_contains "$workflow" "actions/upload-pages-artifact"
 assert_contains "$workflow" "actions/deploy-pages"
 assert_contains "$workflow" "gh release upload"
+assert_contains "$workflow" "Write cloud repo hints"
+assert_contains "$workflow" '$out/cloud.repo'
+assert_contains "$workflow" 'pages_url="https://${OWNER}.github.io/${REPO_NAME}"'
+assert_contains "$workflow" 'OOONANA_REPO_URI="$pages_url"'
 [[ "$workflow" != *'default: "nano"'* ]] || fail "workflow default must not be nano-only"
 assert_contains "$workflow" "configs/packages/ooonana-repo.list"
 assert_contains "$workflow" "configs/packages/full-i3.list"

@@ -78,10 +78,25 @@ set -eu
 
 if [ "${1:-}" = "--dry-run" ]; then
   echo "xterm -title Ooonana Installer"
+  echo "default theme: dark background, orange cursor"
   echo "ooonana-install-wizard --dry-run"
   echo "OOONANA_GUI_INSTALLER_OK"
   exit 0
 fi
+
+xterm_theme() {
+  case "${OOONANA_THEME:-dark}" in
+    light)
+      XTERM_BG="#ffb21a"
+      XTERM_FG="#1b1202"
+      ;;
+    *)
+      XTERM_BG="#050505"
+      XTERM_FG="#ffb21a"
+      ;;
+  esac
+  XTERM_CURSOR="#ffb21a"
+}
 
 wizard="/usr/bin/ooonana-install-wizard"
 if [ ! -x "$wizard" ]; then
@@ -90,8 +105,9 @@ if [ ! -x "$wizard" ]; then
 fi
 
 if [ -n "${DISPLAY:-}" ] && [ -z "${OOONANA_INSTALL_WIZARD_IN_TERMINAL:-}" ] && command -v xterm >/dev/null 2>&1; then
+  xterm_theme
   exec env OOONANA_INSTALL_WIZARD_IN_TERMINAL=1 \
-    xterm -title "Ooonana Installer" -bg "#ffb21a" -fg "#1b1202" -e "$wizard" "$@"
+    xterm -title "Ooonana Installer" -bg "$XTERM_BG" -fg "$XTERM_FG" -cr "$XTERM_CURSOR" -e "$wizard" "$@"
 else
   exec "$wizard" "$@"
 fi
@@ -275,7 +291,7 @@ EOF
 set -eu
 
 if command -v feh >/dev/null 2>&1 && [ -f /usr/share/ooonana/wallpapers/ooonana-wallpaper.png ]; then
-  xsetroot -solid "#ffb21a" 2>/dev/null || true
+  xsetroot -solid "#050505" 2>/dev/null || true
   feh --bg-fill /usr/share/ooonana/wallpapers/ooonana-wallpaper.png || true
 fi
 
@@ -290,7 +306,7 @@ EOF
 set -eu
 
 if command -v feh >/dev/null 2>&1 && [ -f /usr/share/ooonana/wallpapers/ooonana-wallpaper.png ]; then
-  xsetroot -solid "#ffb21a" 2>/dev/null || true
+  xsetroot -solid "#050505" 2>/dev/null || true
   feh --bg-fill /usr/share/ooonana/wallpapers/ooonana-wallpaper.png || true
 fi
 

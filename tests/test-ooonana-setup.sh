@@ -19,7 +19,10 @@ assert_contains() {
 [[ -x "$SETUP" ]] || fail "missing executable setup command"
 setup_src="$(<"$SETUP")"
 assert_contains "$setup_src" 'xterm -title "Ooonana Setup"'
-assert_contains "$setup_src" '-bg "#ffb21a"'
+assert_contains "$setup_src" 'OOONANA_THEME:-dark'
+assert_contains "$setup_src" 'XTERM_BG="#050505"'
+assert_contains "$setup_src" 'XTERM_BG="#ffb21a"'
+assert_contains "$setup_src" '-cr "$XTERM_CURSOR"'
 
 help="$("$SETUP" --help)"
 assert_contains "$help" "Ooonana first-boot setup"

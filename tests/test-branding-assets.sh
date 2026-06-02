@@ -51,8 +51,8 @@ assert_contains "$wallpaper" 'd="M172 154h-38L84 208"'
 assert_contains "$wallpaper" 'd="M468 154h38l50 54"'
 assert_contains "$config" 'set $mod Mod4'
 assert_contains "$config" "ooonana-wallpaper.png"
-assert_contains "$config" 'bindsym $mod+Return exec xterm'
-assert_contains "$config" 'xsetroot -solid "#ffb21a"'
+assert_contains "$config" 'bindsym $mod+Return exec xterm -bg "#050505" -fg "#ffb21a" -cr "#ffb21a"'
+assert_contains "$config" 'xsetroot -solid "#050505"'
 assert_contains "$config" "exec_always --no-startup-id feh --bg-fill"
 
 printf 'ok branding-assets\n'
