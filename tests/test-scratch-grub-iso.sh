@@ -73,7 +73,7 @@ PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
 cfg="$(<"$tmp/build/scratch-grub-iso-tree/boot/grub/grub.cfg")"
 assert_contains "$cfg" "menuentry 'Ooonana OS'"
 assert_contains "$cfg" "linux /boot/vmlinuz"
-assert_contains "$cfg" "console=ttyS0"
+assert_contains "$cfg" "console=tty0 console=ttyS0"
 assert_contains "$cfg" "rdinit=/init"
 assert_contains "$cfg" "ooonana.install=1"
 assert_contains "$cfg" "ooonana.install.target=/dev/vda"

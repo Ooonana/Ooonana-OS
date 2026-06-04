@@ -62,7 +62,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 write_grub_config() {
-  local append="console=ttyS0 panic=1 rdinit=/init"
+  local append="console=tty0 console=ttyS0 panic=1 rdinit=/init"
   if [[ "$INSTALL" -eq 1 ]]; then
     append="$append ooonana.install=1 ooonana.install.target=$INSTALL_TARGET"
   fi

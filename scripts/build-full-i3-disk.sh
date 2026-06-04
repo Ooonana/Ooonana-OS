@@ -80,7 +80,7 @@ wait_for_block() {
 }
 
 kernel_append() {
-  local append="root=/dev/vda1 rw console=ttyS0 panic=1 init=/sbin/init ooonana.edition=full-i3"
+  local append="root=/dev/vda1 rw console=tty0 console=ttyS0 panic=1 init=/sbin/init ooonana.edition=full-i3"
   if [[ "$SMOKE" -eq 1 ]]; then
     append="$append ooonana.smoke=1"
   fi

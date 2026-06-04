@@ -60,6 +60,19 @@ PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
   --kernel "$tmp/vmlinuz" \
   --initramfs "$tmp/initramfs.cpio.gz" \
   --disk-image "$tmp/full.raw" \
+  --iso "$tmp/ooonana-full-i3-normal.iso" \
+  --install-target /dev/vdb \
+  --force >/dev/null
+
+normal_cfg="$(<"$tmp/build/full-i3-iso-tree/boot/grub/grub.cfg")"
+assert_contains "$normal_cfg" "console=tty0 console=ttyS0"
+[[ "$normal_cfg" != *"ooonana.smoke=1"* ]] || fail "normal full-i3 ISO must not auto-smoke/reboot"
+
+PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
+  --work-dir "$tmp/build" \
+  --kernel "$tmp/vmlinuz" \
+  --initramfs "$tmp/initramfs.cpio.gz" \
+  --disk-image "$tmp/full.raw" \
   --iso "$tmp/ooonana-full-i3.iso" \
   --install-target /dev/vdb \
   --smoke \
@@ -76,6 +89,7 @@ assert_contains "$cfg" "menuentry 'Ooonana OS Full i3 Installer'"
 assert_contains "$cfg" "ooonana.install=1"
 assert_contains "$cfg" "ooonana.install.target=/dev/vdb"
 assert_contains "$cfg" "ooonana.install.image=/mnt/install/images/ooonana-full-i3-disk.raw"
+assert_contains "$cfg" "console=tty0 console=ttyS0"
 assert_contains "$cfg" "ooonana.smoke=1"
 
 printf 'ok full-i3-iso\n'

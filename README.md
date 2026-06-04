@@ -291,12 +291,10 @@ Build full-i3 disk and installer ISO:
 bash scripts/build-full-i3-disk.sh \
   --rootfs /var/tmp/ooonana-os/build/full-i3-rootfs \
   --disk-image /var/tmp/ooonana-os/build/ooonana-full-i3-disk.raw \
-  --smoke \
   --force
 bash scripts/build-full-i3-iso.sh \
   --disk-image /var/tmp/ooonana-os/build/ooonana-full-i3-disk.raw \
   --iso /var/tmp/ooonana-os/build/ooonana-full-i3.iso \
-  --smoke \
   --force
 ```
 
@@ -304,6 +302,7 @@ Headless GUI-capable QEMU smoke path:
 
 ```bash
 bash scripts/build-full-i3-disk.sh --smoke --gui-smoke --force
+bash scripts/build-full-i3-iso.sh --smoke --force
 bash scripts/run-qemu.sh \
   --disk-boot \
   --image /var/tmp/ooonana-os/build/ooonana-full-i3-disk.raw \
@@ -338,6 +337,14 @@ OOONANA_THEME=light ooonana setup --first-boot --gui
 ```
 
 The installer persists the chosen theme in `/etc/ooonana/theme`; i3 reads it through `ooonana-theme-env` on boot.
+
+VMware note:
+
+```text
+No EFI environment detected
+```
+
+This line is a harmless kernel message when the ISO boots through legacy BIOS mode. The release ISO should not include `ooonana.smoke=1`; smoke ISOs are only for automated QEMU proof and will reboot after markers.
 
 Non-interactive installed-disk proof path:
 

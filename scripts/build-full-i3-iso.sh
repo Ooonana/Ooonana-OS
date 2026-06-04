@@ -56,7 +56,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 write_grub_config() {
-  local append="console=ttyS0 panic=1 rdinit=/init ooonana.install=1 ooonana.install.target=$INSTALL_TARGET ooonana.install.image=/mnt/install/images/ooonana-full-i3-disk.raw"
+  local append="console=tty0 console=ttyS0 panic=1 rdinit=/init ooonana.install=1 ooonana.install.target=$INSTALL_TARGET ooonana.install.image=/mnt/install/images/ooonana-full-i3-disk.raw"
   if [[ "$SMOKE" -eq 1 ]]; then
     append="$append ooonana.smoke=1"
   fi
