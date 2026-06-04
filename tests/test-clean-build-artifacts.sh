@@ -35,7 +35,7 @@ assert_contains "$unsafe_out" "refusing unsafe build dir"
 
 work="$tmp/ooonana-os/build"
 mkdir -p "$work/rootfs" "$work/scratch-rootfs" "$work/linux" "$work/kernel-build" "$work/ooonana-kernel"
-mkdir -p "$work/full-i3-rootfs" "$work/full-i3-repo" "$work/full-i3-iso-tree"
+mkdir -p "$work/full-i3-rootfs" "$work/release-full-i3-rootfs" "$work/full-i3-repo" "$work/full-i3-iso-tree"
 touch \
   "$work/keep.txt" \
   "$work/ooonana.iso" \
@@ -62,6 +62,7 @@ bash "$SCRIPT" --work-dir "$work" --keep-source --yes >/dev/null
 [[ ! -e "$work/rootfs" ]] || fail "rootfs not removed"
 [[ ! -e "$work/ooonana.iso" ]] || fail "iso not removed"
 [[ ! -e "$work/full-i3-rootfs" ]] || fail "full-i3 rootfs not removed"
+[[ ! -e "$work/release-full-i3-rootfs" ]] || fail "release full-i3 rootfs not removed"
 [[ ! -e "$work/full-i3-repo" ]] || fail "full-i3 repo not removed"
 [[ ! -e "$work/full-i3-iso-tree" ]] || fail "full-i3 ISO tree not removed"
 [[ ! -e "$work/ooonana-full-i3.iso" ]] || fail "full-i3 iso not removed"

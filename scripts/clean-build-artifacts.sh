@@ -98,6 +98,7 @@ main() {
     scratch-disk-mnt
     ooonana-wsl-rootfs.tar.gz
     full-i3-rootfs
+    release-full-i3-rootfs
     full-i3-repo
     full-i3-build-sources
     full-i3-iso-tree
