@@ -46,28 +46,38 @@ Minimal scratch installer ISO:
 /var/tmp/ooonana-os/release/ooonana-scratch.iso
 ```
 
+Live environment status:
+
+```text
+current ISOs     installer-only
+live desktop ISO not built yet
+ISO installer UI text/serial prompt
+installed full-i3 GUI installer available inside full-i3 system
+```
+
 Release files:
 
 ```text
-ooonana-scratch.iso          bootable GRUB installer ISO
-ooonana-scratch-disk.raw     bootable installed raw disk image
-ooonana-rootfs.tar.gz        generic chroot/container rootfs tarball
-ooonana-full-i3-rootfs.tar.gz full-i3 package-installed rootfs tarball
-ooonana-full-i3-disk.raw     bootable full-i3 raw disk image
-ooonana-full-i3.iso          full-i3 installer ISO
-ooonana-wsl-rootfs.tar.gz    WSL import rootfs
-vmlinuz-ooonana              Ooonana Linux kernel
-SHA256SUMS                   checksums for release artifacts
-SHA256SUMS.full-i3           checksums for full-i3 artifacts
-qemu-rootfs-boot.log         direct rootfs QEMU boot proof
-qemu-disk-boot.log           GRUB disk QEMU boot proof
-qemu-installer.log           installer ISO QEMU proof
-qemu-installed-boot.log      installed disk QEMU proof
-qemu-full-i3-gui-smoke.log   full-i3 Xorg/i3 serial proof
-qemu-full-i3-installer.log   full-i3 installer ISO proof
-qemu-full-i3-installed-boot.log full-i3 installed disk boot proof
-qemu-full-i3-vnc.log         full-i3 VNC boot proof
-qemu-full-i3-vnc.png         full-i3 VNC screenshot proof
+ooonana-scratch.iso                minimal installer-only GRUB ISO
+ooonana-scratch-disk.raw           minimal installed raw disk image
+ooonana-rootfs.tar.gz              minimal chroot/container rootfs tarball
+ooonana-wsl-rootfs.tar.gz          minimal WSL import rootfs
+ooonana-full-i3-rootfs.tar.gz      full-i3 package-installed rootfs tarball
+ooonana-full-i3-disk.raw           full-i3 installed raw disk image
+ooonana-full-i3.iso                full-i3 installer-only ISO
+ooonana-full-i3-wsl-rootfs.tar.gz  full-i3 WSL import rootfs
+vmlinuz-ooonana                    Ooonana Linux kernel
+SHA256SUMS                         checksums for release artifacts
+SHA256SUMS.full-i3                 checksums for full-i3 artifacts
+qemu-rootfs-boot.log               direct rootfs QEMU boot proof
+qemu-disk-boot.log                 GRUB disk QEMU boot proof
+qemu-installer.log                 installer ISO QEMU proof
+qemu-installed-boot.log            installed disk QEMU proof
+qemu-full-i3-gui-smoke.log         full-i3 Xorg/i3 serial proof
+qemu-full-i3-installer.log         full-i3 installer ISO proof
+qemu-full-i3-installed-boot.log    full-i3 installed disk boot proof
+qemu-full-i3-vnc.log               full-i3 VNC boot proof
+qemu-full-i3-vnc.png               full-i3 VNC screenshot proof
 ```
 
 Verify files:
@@ -103,7 +113,7 @@ Working now:
 - Installed disk boots in QEMU
 - `ooonana-install` can partition a raw/whole disk, format ext4, copy rootfs, install kernel, write GRUB, and persist user, hostname, and theme
 - Generic `ooonana-rootfs.tar.gz` can be unpacked for chroot/container-style use
-- WSL distro import works
+- Minimal and full-i3 WSL distro exports can be imported
 - `ooonana` package manager has repo index, checksums, install, remove, upgrade, files, verify
 - `ooonana update` can sync local and HTTP package repos into cache
 - Alpine `.apk` packages can be imported into Ooonana `.pkg` repos
@@ -113,6 +123,8 @@ Working now:
 
 Next work:
 
+- Full live desktop ISO
+- GUI installer launched from ISO boot environment
 - More first-party packages
 - Users, networking, services, security defaults
 
@@ -153,7 +165,7 @@ sudo mount --rbind /dev /tmp/ooonana-rootfs/dev
 sudo chroot /tmp/ooonana-rootfs /bin/sh
 ```
 
-Import WSL rootfs:
+Import minimal WSL rootfs:
 
 ```bash
 bash scripts/install-wsl-distro.sh --distro Ooonana --force \
@@ -161,6 +173,17 @@ bash scripts/install-wsl-distro.sh --distro Ooonana --force \
 wsl.exe -d Ooonana -- /usr/bin/ooonana me
 wsl.exe -d Ooonana -- /usr/bin/ooonana ai tools
 ```
+
+Import full-i3 WSL rootfs:
+
+```bash
+bash scripts/install-wsl-distro.sh --distro OoonanaFull --force \
+  --tarball /var/tmp/ooonana-os/release/ooonana-full-i3-wsl-rootfs.tar.gz
+wsl.exe -d OoonanaFull -- /usr/bin/ooonana me
+wsl.exe -d OoonanaFull -- /usr/bin/start-ooonana-i3
+```
+
+Full-i3 WSL GUI launch needs WSLg or an X server with `DISPLAY` set.
 
 ## Ooonana Command
 
@@ -256,11 +279,12 @@ Use `packages` for quick extras or change `package_profile` to another `.list` f
 Minimal and full are separate.
 
 ```text
-minimal   ooonana-scratch.iso, ooonana-rootfs.tar.gz
-full-i3   ooonana-full-i3-rootfs.tar.gz, ooonana-full-i3-disk.raw, ooonana-full-i3.iso
+minimal   ooonana-scratch.iso, ooonana-rootfs.tar.gz, ooonana-wsl-rootfs.tar.gz
+full-i3   ooonana-full-i3.iso, ooonana-full-i3-disk.raw, ooonana-full-i3-rootfs.tar.gz, ooonana-full-i3-wsl-rootfs.tar.gz
 ```
 
 The full-i3 path adds branding, i3 config, package automation, and a package-installed rootfs. It does not replace the minimal release.
+Both installer ISOs are currently installer-only. Full-i3 has GUI tools inside the installed desktop, but the ISO boot installer itself is still text/serial-safe.
 
 Build full-i3 package repo locally:
 
@@ -425,7 +449,7 @@ Config:
 docs/ooonana-ai.env.example
 ```
 
-Scratch WSL does not include `python3` yet. `provider`, `status`, and `tools` still work through shell fallback. Full chat and live provider calls need `python3`.
+Minimal WSL does not include `python3` yet. `provider`, `status`, and `tools` still work through shell fallback. Full-i3 WSL carries the full package-installed rootfs; full chat and live provider calls still need `python3` present in that package set.
 
 More:
 
@@ -463,6 +487,16 @@ bash scripts/build-scratch-grub-iso.sh \
   --install \
   --disk-image /var/tmp/ooonana-os/build/ooonana-scratch-disk.raw \
   --iso /var/tmp/ooonana-os/build/ooonana-scratch.iso \
+  --force
+```
+
+Build full-i3 WSL tarball:
+
+```bash
+bash scripts/build-wsl-rootfs.sh \
+  --edition full-i3 \
+  --rootfs /var/tmp/ooonana-os/build/full-i3-rootfs \
+  --tarball /var/tmp/ooonana-os/build/ooonana-full-i3-wsl-rootfs.tar.gz \
   --force
 ```
 

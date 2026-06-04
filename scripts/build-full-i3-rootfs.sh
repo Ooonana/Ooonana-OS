@@ -66,6 +66,21 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   exit 0
 fi
 
+is_wsl_session() {
+  [ -n "${WSL_DISTRO_NAME:-}" ] && return 0
+  [ -n "${WSL_INTEROP:-}" ] && return 0
+  grep -qi microsoft /proc/version 2>/dev/null && return 0
+  grep -qi wsl /proc/sys/kernel/osrelease 2>/dev/null && return 0
+  return 1
+}
+
+if is_wsl_session &&
+  [ -n "${DISPLAY:-}" ] &&
+  command -v i3 >/dev/null 2>&1 &&
+  [ -x /usr/bin/ooonana-i3-session ]; then
+  exec /usr/bin/ooonana-i3-session
+fi
+
 if command -v startx >/dev/null 2>&1 && command -v i3 >/dev/null 2>&1; then
   exec startx /usr/bin/ooonana-i3-session
 fi

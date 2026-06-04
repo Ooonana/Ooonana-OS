@@ -135,6 +135,9 @@ assert_contains "$start_script" "OOONANA_FULL_I3_OK"
 assert_contains "$start_script" "startx"
 assert_contains "$start_script" "ooonana.gui-smoke=1"
 assert_contains "$start_script" "ooonana-i3-session"
+assert_contains "$start_script" "WSL_DISTRO_NAME"
+assert_contains "$start_script" "grep -qi microsoft /proc/version"
+assert_contains "$start_script" 'exec /usr/bin/ooonana-i3-session'
 assert_contains "$start_script" 'HOME="/root"'
 assert_contains "$start_script" 'touch "$HOME/.Xauthority"'
 

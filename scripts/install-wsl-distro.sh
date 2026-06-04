@@ -12,6 +12,7 @@ TARBALL="$WORK_DIR/ooonana-wsl-rootfs.tar.gz"
 FORCE=0
 SET_DEFAULT=0
 DRY_RUN=0
+SHOULD_UNREGISTER=0
 
 usage() {
   cat <<'USAGE'
@@ -56,10 +57,10 @@ default_install_dir() {
   local local_appdata
   local_appdata="$(cmd.exe /C echo %LOCALAPPDATA% 2>/dev/null | tr -d '\r' | tail -n 1 || true)"
   if [[ -n "$local_appdata" && "$local_appdata" != "%LOCALAPPDATA%" ]]; then
-    printf '%s\\OoonanaWSL\n' "$local_appdata"
+    printf '%s\\%sWSL\n' "$local_appdata" "$DISTRO"
     return 0
   fi
-  printf '%s\n' "$WORK_DIR/OoonanaWSL"
+  printf '%s/%sWSL\n' "$WORK_DIR" "$DISTRO"
 }
 
 for_wsl_exe() {
@@ -92,7 +93,13 @@ main() {
     ooonana_die "distro exists: $DISTRO (use --force)"
   fi
 
-  if [[ "$FORCE" -eq 1 && ( "$DRY_RUN" -eq 1 || distro_exists ) ]]; then
+  if [[ "$FORCE" -eq 1 ]]; then
+    if [[ "$DRY_RUN" -eq 1 ]] || distro_exists; then
+      SHOULD_UNREGISTER=1
+    fi
+  fi
+
+  if [[ "$SHOULD_UNREGISTER" -eq 1 ]]; then
     run_cmd wsl.exe --unregister "$DISTRO"
   fi
   run_cmd wsl.exe --import "$DISTRO" "$import_dir" "$import_tarball" --version 2

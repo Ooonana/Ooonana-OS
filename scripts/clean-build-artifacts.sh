@@ -100,9 +100,11 @@ main() {
     full-i3-rootfs
     release-full-i3-rootfs
     full-i3-repo
+    full-i3-refresh-repo
     full-i3-build-sources
     full-i3-iso-tree
     ooonana-full-i3-rootfs.tar.gz
+    ooonana-full-i3-wsl-rootfs.tar.gz
     ooonana-full-i3-disk.raw
     ooonana-full-i3.iso
     ooonana-installer-created.raw

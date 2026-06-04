@@ -23,6 +23,7 @@ build_help="$(bash "$BUILD_SCRIPT" --help)"
 assert_contains "$build_help" "Build Ooonana WSL rootfs tarball"
 assert_contains "$build_help" "--rootfs"
 assert_contains "$build_help" "--tarball"
+assert_contains "$build_help" "--edition minimal|full-i3"
 assert_contains "$build_help" "--force"
 
 install_help="$(bash "$INSTALL_SCRIPT" --help)"
@@ -66,5 +67,63 @@ assert_contains "$dry_run" "wsl.exe --import OoonanaTest"
 assert_contains "$dry_run" "ooonana-wsl.tar.gz"
 assert_contains "$dry_run" "wsl.exe -d OoonanaTest -- /usr/bin/ooonana me"
 assert_contains "$dry_run" "wsl.exe -d OoonanaTest -- /usr/bin/ooonana wsl status"
+
+full_default_dir="$(bash "$INSTALL_SCRIPT" \
+  --distro OoonanaFull \
+  --tarball "$tmp/ooonana-wsl.tar.gz" \
+  --force \
+  --dry-run)"
+assert_contains "$full_default_dir" "OoonanaFullWSL"
+
+mkdir -p "$tmp/fakebin"
+cat > "$tmp/fakebin/wsl.exe" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" >> "$OOONANA_FAKE_WSL_LOG"
+case "$1" in
+  --list) printf 'Ubuntu\r\n'; exit 0 ;;
+  --unregister) exit 0 ;;
+  *) exit 0 ;;
+esac
+EOF
+chmod +x "$tmp/fakebin/wsl.exe"
+
+OOONANA_FAKE_WSL_LOG="$tmp/fake-wsl.log" \
+  PATH="$tmp/fakebin:$PATH" \
+  bash "$INSTALL_SCRIPT" \
+    --distro OoonanaFull \
+    --install-dir "$tmp/install-full" \
+    --tarball "$tmp/ooonana-wsl.tar.gz" \
+    --force >/dev/null
+fake_wsl="$(<"$tmp/fake-wsl.log")"
+assert_contains "$fake_wsl" "--import OoonanaFull"
+if [[ "$fake_wsl" == *"--unregister OoonanaFull"* ]]; then
+  fail "force unregistered absent distro"
+fi
+
+mkdir -p "$tmp/full-rootfs/bin" "$tmp/full-rootfs/etc/ooonana" "$tmp/full-rootfs/usr/bin"
+printf 'busybox\n' > "$tmp/full-rootfs/bin/busybox"
+ln -s busybox "$tmp/full-rootfs/bin/sh"
+chmod +x "$tmp/full-rootfs/bin/busybox"
+printf 'root:x:0:0:root:/root:/bin/sh\n' > "$tmp/full-rootfs/etc/passwd"
+printf '[boot]\nsystemd=false\n[user]\ndefault=root\n' > "$tmp/full-rootfs/etc/wsl.conf"
+printf 'full-i3\n' > "$tmp/full-rootfs/etc/ooonana/edition"
+for bin in start-ooonana-i3 ooonana-gui-installer ooonana-install-wizard; do
+  printf '#!/bin/sh\necho %s\n' "$bin" > "$tmp/full-rootfs/usr/bin/$bin"
+  chmod +x "$tmp/full-rootfs/usr/bin/$bin"
+done
+
+bash "$BUILD_SCRIPT" \
+  --edition full-i3 \
+  --rootfs "$tmp/full-rootfs" \
+  --tarball "$tmp/ooonana-full-i3-wsl-rootfs.tar.gz" \
+  --force >/dev/null
+
+[[ -s "$tmp/ooonana-full-i3-wsl-rootfs.tar.gz" ]] || fail "missing full-i3 WSL tarball"
+full_listing="$(tar -tzf "$tmp/ooonana-full-i3-wsl-rootfs.tar.gz")"
+assert_contains "$full_listing" "./etc/ooonana/edition"
+assert_contains "$full_listing" "./usr/bin/start-ooonana-i3"
+assert_contains "$full_listing" "./usr/bin/ooonana-gui-installer"
+assert_contains "$full_listing" "./usr/bin/ooonana-install-wizard"
+assert_contains "$(bash "$BUILD_SCRIPT" --work-dir "$tmp" --edition full-i3 --help)" "ooonana-full-i3-wsl-rootfs.tar.gz"
 
 printf 'ok wsl-distro\n'
