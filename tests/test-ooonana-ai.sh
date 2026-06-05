@@ -39,6 +39,32 @@ config="$tmp/ai.env"
 state="$tmp/state"
 export OOONANA_AI_STATE_DIR="$state"
 
+fake_app_bin="$tmp/fake-app-bin"
+mkdir -p "$fake_app_bin"
+cat > "$fake_app_bin/ooonana-ai" <<'EOF'
+#!/bin/sh
+printf 'FAKE_AI %s\n' "$*"
+case "${1:-}" in
+  status) printf 'Ooonana AI status\nprovider: fake\n' ;;
+  tools) printf 'Ooonana CLI tool registry\n' ;;
+  tasks) printf 'No tasks\n' ;;
+  sessions) printf 'No sessions\n' ;;
+  chat) printf 'fake chat opened\n' ;;
+esac
+EOF
+chmod +x "$fake_app_bin/ooonana-ai"
+
+app_oneshot="$(PATH="$fake_app_bin:$PATH" OOONANA_AI_APP_NO_X=1 OOONANA_AI_APP_ONESHOT=1 "$AI_DESKTOP_APP")"
+assert_contains "$app_oneshot" "Ooonana AI native app"
+assert_contains "$app_oneshot" "FAKE_AI status"
+assert_contains "$app_oneshot" "Quick actions"
+assert_contains "$app_oneshot" "1 chat"
+assert_contains "$app_oneshot" "6 setup"
+
+app_tools="$(PATH="$fake_app_bin:$PATH" OOONANA_AI_APP_NO_X=1 OOONANA_AI_APP_COMMAND=tools "$AI_DESKTOP_APP")"
+assert_contains "$app_tools" "Ooonana CLI tool registry"
+assert_contains "$app_tools" "FAKE_AI tools"
+
 setup="$(OOONANA_AI_CONFIG="$config" "$CLI" ai setup)"
 assert_contains "$setup" "AI config:"
 assert_contains "$(<"$config")" "NVIDIA_API_KEY="

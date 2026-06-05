@@ -10,7 +10,7 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Courier >>
 endobj
 4 0 obj
-<< /Length 2115 >>
+<< /Length 2069 >>
 stream
 BT
 /F1 10 Tf
@@ -102,6 +102,10 @@ T*
 T*
 (update extracts it into /var/cache/ooonana/repos/NAME.) Tj
 T*
+(Private GitHub repos need OOONANA_REPO_TOKEN or OOONANA_GITHUB_TOKEN for release) Tj
+T*
+(tarball sync.) Tj
+T*
 () Tj
 T*
 (Installer) Tj
@@ -116,10 +120,6 @@ T*
 T*
 (First boot) Tj
 T*
-(ooonana setup --first-boot --gui can create user, set password, write network config,) Tj
-T*
-(choose theme, add cloud repo, and mark setup complete.) Tj
-T*
 ET
 endstream
 endobj
@@ -127,12 +127,16 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>
 endobj
 6 0 obj
-<< /Length 810 >>
+<< /Length 1118 >>
 stream
 BT
 /F1 10 Tf
 13 TL
 54 744 Td
+(ooonana setup --first-boot --gui can create user, set password, write network config,) Tj
+T*
+(choose theme, add cloud repo, and mark setup complete.) Tj
+T*
 () Tj
 T*
 (WSL) Tj
@@ -154,6 +158,10 @@ T*
 (aliases, ask/chat, tools, tasks, audit, history, status, and the full-i3 ooonana-ai-) Tj
 T*
 (app launcher.) Tj
+T*
+(ooonana-ai-app is now a native terminal dashboard with quick actions for chat, ask,) Tj
+T*
+(tools, tasks, sessions, setup, and shell fallback.) Tj
 T*
 () Tj
 T*
@@ -184,11 +192,11 @@ xref
 0000000064 00000 n 
 0000000127 00000 n 
 0000000195 00000 n 
-0000002362 00000 n 
-0000002488 00000 n 
-0000003349 00000 n 
+0000002316 00000 n 
+0000002442 00000 n 
+0000003612 00000 n 
 trailer
 << /Size 8 /Root 1 0 R >>
 startxref
-3475
+3738
 %%EOF

@@ -276,6 +276,12 @@ ooonana update
 ooonana get nano
 ```
 
+Private GitHub release repos need a token while the repo stays private:
+
+```bash
+OOONANA_REPO_TOKEN="$(gh auth token)" ooonana update
+```
+
 Direct HTTP directory repos also work when the URL contains `index.tsv`,
 `SHA256SUMS`, `*.pkg`, and `archives/` as normal files.
 
@@ -536,6 +542,14 @@ Full-i3 includes an Ooonana AI app launcher:
 /usr/bin/ooonana-ai-app
 /usr/share/applications/ooonana-ai.desktop
 i3 shortcut: Mod+Shift+a
+```
+
+The launcher opens a native terminal dashboard with status, chat, ask, tools,
+tasks, sessions, setup, and shell actions. For terminal-only launch:
+
+```bash
+OOONANA_AI_APP_NO_X=1 ooonana-ai-app
+OOONANA_AI_APP_NO_X=1 OOONANA_AI_APP_COMMAND=tools ooonana-ai-app
 ```
 
 Config:

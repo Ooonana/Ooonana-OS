@@ -251,6 +251,10 @@ GitHub Releases tarball source:
 
 Ooonana can sync direct HTTP repos or a release tarball that contains index.tsv,
 SHA256SUMS, *.pkg files, and archives/.
+
+Private GitHub release repos:
+  OOONANA_REPO_TOKEN=github_pat_or_token ooonana update
+  OOONANA_GITHUB_TOKEN=github_pat_or_token ooonana update
 USAGE
 }
 
@@ -400,10 +404,105 @@ assert_repo_cache_path() {
   esac
 }
 
+github_token() {
+  token="${OOONANA_REPO_TOKEN:-}"
+  [ -n "$token" ] || token="${OOONANA_GITHUB_TOKEN:-}"
+  [ -n "$token" ] || token="${GITHUB_TOKEN:-}"
+  [ -n "$token" ] || return 1
+  printf '%s\n' "$token"
+}
+
+github_release_parts() {
+  url="$1"
+  case "$url" in
+    https://github.com/*/releases/download/*) ;;
+    *) return 1 ;;
+  esac
+  rest="${url#https://github.com/}"
+  owner="${rest%%/*}"
+  rest="${rest#*/}"
+  repo="${rest%%/*}"
+  rest="${rest#*/releases/download/}"
+  tag="${rest%%/*}"
+  asset="${rest#*/}"
+  [ -n "$owner" ] && [ -n "$repo" ] && [ -n "$tag" ] && [ -n "$asset" ] || return 1
+  printf '%s\t%s\t%s\t%s\n' "$owner" "$repo" "$tag" "$asset"
+}
+
+extract_github_asset_api_url() {
+  wanted="$1"
+  meta="$2"
+  tr ',' '\n' < "$meta" | awk -v wanted="$wanted" '
+    /"url"[ ]*:[ ]*"https:\/\/api.github.com\/repos\/.*\/releases\/assets\// {
+      line = $0
+      sub(/^.*"url"[ ]*:[ ]*"/, "", line)
+      sub(/".*$/, "", line)
+      url = line
+      if (name == wanted) {
+        print url
+        exit
+      }
+    }
+    /"name"[ ]*:[ ]*"/ {
+      line = $0
+      sub(/^.*"name"[ ]*:[ ]*"/, "", line)
+      sub(/".*$/, "", line)
+      name = line
+      if (line == wanted && url != "") {
+        print url
+        exit
+      }
+    }
+  '
+}
+
+download_github_release_asset() {
+  url="$1"
+  out="$2"
+  parts="$(github_release_parts "$url" 2>/dev/null || true)"
+  [ -n "$parts" ] || return 1
+  token="$(github_token 2>/dev/null || true)"
+  [ -n "$token" ] || return 1
+  have curl || die "private GitHub release repo needs curl"
+
+  old_ifs="$IFS"
+  IFS='	'
+  set -- $parts
+  IFS="$old_ifs"
+  owner="$1"
+  repo="$2"
+  tag="$3"
+  asset="$4"
+  meta="$out.github-release.$$"
+  api_url="https://api.github.com/repos/$owner/$repo/releases/tags/$tag"
+
+  curl -fsSL \
+    -H "Authorization: Bearer $token" \
+    -H "Accept: application/vnd.github+json" \
+    -H "User-Agent: ooonana" \
+    "$api_url" \
+    -o "$meta" || {
+      rm -f "$meta"
+      return 1
+    }
+  asset_api_url="$(extract_github_asset_api_url "$asset" "$meta")"
+  rm -f "$meta"
+  [ -n "$asset_api_url" ] || die "GitHub release asset missing: $owner/$repo $tag $asset"
+  curl -fsSL \
+    -H "Authorization: Bearer $token" \
+    -H "Accept: application/octet-stream" \
+    -H "User-Agent: ooonana" \
+    "$asset_api_url" \
+    -o "$out"
+}
+
 download_file() {
   url="$1"
   out="$2"
   mkdir -p "$(dirname "$out")"
+  if download_github_release_asset "$url" "$out"; then
+    return 0
+  fi
   if have curl; then
     curl -fsSL "$url" -o "$out"
   elif have wget; then

@@ -100,6 +100,7 @@ repo_help="$("$CLI" help repo)"
 assert_contains "$repo_help" "Repo commands:"
 assert_contains "$repo_help" "OOONANA_REPO_URI="
 assert_contains "$repo_help" "release tarball"
+assert_contains "$repo_help" "OOONANA_REPO_TOKEN"
 
 [[ -f "$LOGO" ]] || fail "missing docs/logo.txt"
 logo="$(<"$LOGO")"
@@ -352,6 +353,73 @@ release_install="$(OOONANA_SOURCES_DIR="$release_sources" \
 assert_contains "$release_install" "unpacked archives/nano-1.0-r0.tar.gz"
 assert_contains "$release_install" "installed nano"
 [[ -x "$release_root/usr/bin/nano" ]] || fail "release tarball package did not install executable"
+
+private_sources="$tmp/private-release-sources"
+private_state="$tmp/private-release-state"
+private_cache="$tmp/private-release-cache"
+fake_bin="$tmp/fake-bin"
+fake_curl_log="$tmp/fake-curl.log"
+mkdir -p "$private_sources" "$fake_bin"
+cat > "$private_sources/private.repo" <<'EOF'
+OOONANA_REPO_NAME="private"
+OOONANA_REPO_URI="https://github.com/acme/lab/releases/download/packages-latest/ooonana-package-repo.tar.gz"
+EOF
+cat > "$fake_bin/curl" <<'EOF'
+#!/bin/sh
+set -eu
+out=""
+url=""
+auth=0
+accept_json=0
+accept_octet=0
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -o) out="$2"; shift 2 ;;
+    -H)
+      case "$2" in
+        "Authorization: Bearer fake-token") auth=1 ;;
+        "Accept: application/vnd.github+json") accept_json=1 ;;
+        "Accept: application/octet-stream") accept_octet=1 ;;
+      esac
+      shift 2
+      ;;
+    -*) shift ;;
+    *) url="$1"; shift ;;
+  esac
+done
+: "${OOONANA_FAKE_CURL_LOG:?}"
+: "${OOONANA_FAKE_RELEASE_TARBALL:?}"
+printf '%s auth=%s json=%s octet=%s out=%s\n' "$url" "$auth" "$accept_json" "$accept_octet" "$out" >> "$OOONANA_FAKE_CURL_LOG"
+[ "$auth" -eq 1 ] || exit 22
+case "$url" in
+  https://api.github.com/repos/acme/lab/releases/tags/packages-latest)
+    [ "$accept_json" -eq 1 ] || exit 23
+    printf '%s\n' '{"assets":[{"url":"https://api.github.com/repos/acme/lab/releases/assets/42","name":"ooonana-package-repo.tar.gz","uploader":{"url":"https://api.github.com/users/bot"}}]}'> "$out"
+    ;;
+  https://api.github.com/repos/acme/lab/releases/assets/42)
+    [ "$accept_octet" -eq 1 ] || exit 24
+    cp "$OOONANA_FAKE_RELEASE_TARBALL" "$out"
+    ;;
+  *)
+    exit 25
+    ;;
+esac
+EOF
+chmod +x "$fake_bin/curl"
+
+private_update="$(PATH="$fake_bin:$PATH" \
+  OOONANA_REPO_TOKEN="fake-token" \
+  OOONANA_FAKE_CURL_LOG="$fake_curl_log" \
+  OOONANA_FAKE_RELEASE_TARBALL="$http_root/ooonana-package-repo.tar.gz" \
+  OOONANA_SOURCES_DIR="$private_sources" \
+  OOONANA_STATE_DIR="$private_state" \
+  OOONANA_CACHE_DIR="$private_cache" \
+  "$CLI" update 2>&1 || true)"
+assert_contains "$private_update" "from 2 source(s)"
+assert_contains "$(<"$fake_curl_log")" "https://api.github.com/repos/acme/lab/releases/tags/packages-latest auth=1 json=1"
+assert_contains "$(<"$fake_curl_log")" "https://api.github.com/repos/acme/lab/releases/assets/42 auth=1"
+[[ -f "$private_cache/repos/private/index.tsv" ]] || fail "missing private release cached index"
+[[ -f "$private_cache/repos/private/nano.pkg" ]] || fail "missing private release cached pkg"
 
 index_repo="$tmp/index-repo"
 index_payload="$tmp/index-payload"
