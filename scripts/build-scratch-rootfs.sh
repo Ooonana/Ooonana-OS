@@ -272,8 +272,12 @@ if grep -q 'ooonana.install=1' /proc/cmdline 2>/dev/null; then
   fi
   echo "Source image: $install_image"
   echo "Writing image to target"
-  dd if="$install_image" of="$target" bs=4M
-  sync
+  if ! dd if="$install_image" of="$target" bs=4M; then
+    install_fail
+  fi
+  if ! sync; then
+    install_fail
+  fi
   umount /mnt/install 2>/dev/null || true
   echo "OOONANA_INSTALL_OK"
   if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then

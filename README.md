@@ -72,6 +72,7 @@ SHA256SUMS.full-i3                 checksums for full-i3 artifacts
 qemu-rootfs-boot.log               direct rootfs QEMU boot proof
 qemu-disk-boot.log                 GRUB disk QEMU boot proof
 qemu-installer.log                 installer ISO QEMU proof
+qemu-iso-fallback-shell.log        installer failure shell proof
 qemu-installed-boot.log            installed disk QEMU proof
 qemu-full-i3-gui-smoke.log         full-i3 Xorg/i3 serial proof
 qemu-full-i3-live.log              full-i3 live ISO boot proof
@@ -110,6 +111,7 @@ Working now:
 - Scratch rootfs boots in QEMU
 - GRUB raw disk boots in QEMU
 - Installer ISO writes Ooonana to blank disk
+- Installer ISO opens a fallback shell on install failure or cancel
 - Installer has a serial-safe xterm UI with logo, disk picker, user/password, hostname, theme, progress, and reboot prompt
 - Installed disk boots in QEMU
 - `ooonana-install` can partition a raw/whole disk, format ext4, copy rootfs, install kernel, write GRUB, and persist user, hostname, and theme
@@ -378,7 +380,7 @@ VMware note:
 No EFI environment detected
 ```
 
-This line is a harmless kernel message when the ISO boots through legacy BIOS mode. The full-i3 installer now auto-detects `/dev/vd*`, `/dev/sd*`, `/dev/xvd*`, and `/dev/nvme*` targets, then installed GRUB boots by `PARTUUID` instead of hardcoding `/dev/vda1`. The release ISO should not include `ooonana.smoke=1`; smoke ISOs are only for automated QEMU proof and reboot after markers.
+This line is a harmless kernel message when the ISO boots through legacy BIOS mode. The full-i3 installer now auto-detects `/dev/vd*`, `/dev/sd*`, `/dev/xvd*`, and `/dev/nvme*` targets, then installed GRUB boots by `PARTUUID` instead of hardcoding `/dev/vda1`. If install fails or is cancelled outside smoke mode, the ISO opens a BusyBox shell instead of rebooting. The release ISO should not include `ooonana.smoke=1`; smoke ISOs are only for automated QEMU proof and reboot after markers.
 
 Non-interactive installed-disk proof path:
 

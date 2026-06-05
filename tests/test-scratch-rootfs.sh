@@ -118,7 +118,8 @@ assert_contains "$rcs" "Install failed. Shell open."
 assert_contains "$rcs" "cat /usr/share/ooonana/logo.txt"
 assert_contains "$rcs" "ooonana-scratch-disk.raw"
 assert_contains "$rcs" "ooonana-scratch.ext4"
-assert_contains "$rcs" 'dd if="$install_image" of="$target" bs=4M'
+assert_contains "$rcs" 'if ! dd if="$install_image" of="$target" bs=4M; then'
+assert_contains "$rcs" "install_fail"
 assert_not_contains "$rcs" "grep -o"
 assert_contains "$rcs" "/usr/bin/ooonana version"
 assert_contains "$rcs" "/usr/bin/ooonana me"
