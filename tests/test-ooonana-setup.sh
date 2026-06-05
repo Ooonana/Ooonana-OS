@@ -31,14 +31,16 @@ assert_contains "$help" "--cloud-repo URI"
 assert_contains "$help" "--network dhcp|static"
 assert_contains "$help" "--user NAME"
 assert_contains "$help" "--password"
+assert_contains "$help" "--theme dark|light"
 
 cli_help="$("$CLI" help)"
 assert_contains "$cli_help" "ooonana setup"
 
-dry="$("$CLI" setup --dry-run --user ryan --password --network dhcp --cloud-repo https://example.test/repo --done)"
+dry="$("$CLI" setup --dry-run --user ryan --password --network dhcp --theme dark --cloud-repo https://example.test/repo --done)"
 assert_contains "$dry" "would create user ryan"
 assert_contains "$dry" "would set password for ryan"
 assert_contains "$dry" "would configure dhcp network"
+assert_contains "$dry" "would write theme dark"
 assert_contains "$dry" "would add cloud repo https://example.test/repo"
 assert_contains "$dry" "would mark setup done"
 assert_contains "$dry" "OOONANA_SETUP_OK"
@@ -60,10 +62,12 @@ real_run="$(OOONANA_ROOT="$rootfs" "$SETUP" \
   --address 10.0.2.15/24 \
   --gateway 10.0.2.2 \
   --dns 1.1.1.1,8.8.8.8 \
+  --theme light \
   --cloud-repo http://127.0.0.1/repo \
   --done)"
 assert_contains "$real_run" "user: ryan"
 assert_contains "$real_run" "network: static"
+assert_contains "$real_run" "theme: light"
 assert_contains "$real_run" "cloud repo: http://127.0.0.1/repo"
 assert_contains "$real_run" "OOONANA_SETUP_OK"
 
@@ -74,6 +78,8 @@ assert_contains "$(<"$rootfs/etc/network/interfaces")" "iface eth0 inet static"
 assert_contains "$(<"$rootfs/etc/network/interfaces")" "address 10.0.2.15/24"
 assert_contains "$(<"$rootfs/etc/network/interfaces")" "gateway 10.0.2.2"
 assert_contains "$(<"$rootfs/etc/network/interfaces")" "dns-nameservers 1.1.1.1 8.8.8.8"
+[[ "$(<"$rootfs/etc/ooonana/theme")" == "light" ]] || fail "wrong setup theme"
+assert_contains "$(<"$rootfs/etc/ooonana/theme.conf")" 'OOONANA_THEME="light"'
 assert_contains "$(<"$rootfs/etc/ooonana/sources.d/cloud.repo")" 'OOONANA_REPO_NAME="cloud"'
 assert_contains "$(<"$rootfs/etc/ooonana/sources.d/cloud.repo")" 'OOONANA_REPO_URI="http://127.0.0.1/repo"'
 [[ -f "$rootfs/var/lib/ooonana/setup.done" ]] || fail "missing setup marker"

@@ -17,6 +17,7 @@ INSTALL=0
 INSTALL_TARGET="/dev/vda"
 SMOKE=0
 FORCE=0
+UEFI_MODE="auto"
 
 usage() {
   cat <<'USAGE'
@@ -37,6 +38,7 @@ Options:
   --install            Build installer ISO that writes rootfs image to target
   --install-target DEV Installer target device inside QEMU (default: /dev/vda)
   --smoke              Boot straight to Ooonana smoke marker
+  --uefi               Require GRUB x86_64 EFI modules for UEFI boot
   --force              Delete existing ISO staging tree and ISO first
   -h, --help           Show help
 USAGE
@@ -55,6 +57,7 @@ while [[ $# -gt 0 ]]; do
     --install) INSTALL=1; shift ;;
     --install-target) INSTALL_TARGET="$2"; shift 2 ;;
     --smoke) SMOKE=1; shift ;;
+    --uefi) UEFI_MODE="on"; shift ;;
     --force) FORCE=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) ooonana_die "unknown option: $1" ;;
@@ -113,10 +116,21 @@ build_iso() {
   grub-mkrescue -volid "$VOLUME" -o "$ISO" "$ISO_TREE"
 }
 
+validate_grub_modules() {
+  [[ -d /usr/lib/grub/i386-pc ]] || ooonana_die "missing GRUB BIOS modules: install grub-pc-bin"
+  if [[ -d /usr/lib/grub/x86_64-efi ]]; then
+    ooonana_log "GRUB EFI modules found: building hybrid BIOS/UEFI ISO"
+  elif [[ "$UEFI_MODE" == "on" ]]; then
+    ooonana_die "missing GRUB EFI modules: install grub-efi-amd64-bin"
+  else
+    ooonana_log "GRUB EFI modules missing: building BIOS-only ISO"
+  fi
+}
+
 main() {
   ooonana_require_linux
   ooonana_require_commands grub-mkrescue install
-  [[ -d /usr/lib/grub/i386-pc ]] || ooonana_die "missing GRUB BIOS modules: install grub-pc-bin"
+  validate_grub_modules
 
   if [[ "$FORCE" -eq 1 ]]; then
     rm -rf "$ISO_TREE" "$ISO"

@@ -41,11 +41,13 @@ touch \
   "$work/ooonana.iso" \
   "$work/ooonana-scratch.iso" \
   "$work/ooonana-full-i3.iso" \
+  "$work/ooonana-full-i3-smoke.iso" \
   "$work/ooonana-full-i3-live-initramfs.cpio.gz" \
   "$work/ooonana-full-i3-disk.raw" \
   "$work/ooonana-full-i3-rootfs.tar.gz" \
   "$work/ooonana-full-i3-wsl-rootfs.tar.gz" \
   "$work/ooonana-installer-created.raw" \
+  "$work/qemu-full-i3-uefi-target.raw" \
   "$work/ooonana-wsl-rootfs.tar.gz" \
   "$work/linux-6.6.32.tar.xz" \
   "$work/qemu-smoke.log" \
@@ -69,11 +71,13 @@ bash "$SCRIPT" --work-dir "$work" --keep-source --yes >/dev/null
 [[ ! -e "$work/full-i3-refresh-repo" ]] || fail "full-i3 refresh repo not removed"
 [[ ! -e "$work/full-i3-iso-tree" ]] || fail "full-i3 ISO tree not removed"
 [[ ! -e "$work/ooonana-full-i3.iso" ]] || fail "full-i3 iso not removed"
+[[ ! -e "$work/ooonana-full-i3-smoke.iso" ]] || fail "full-i3 smoke iso not removed"
 [[ ! -e "$work/ooonana-full-i3-live-initramfs.cpio.gz" ]] || fail "full-i3 live initramfs not removed"
 [[ ! -e "$work/ooonana-full-i3-disk.raw" ]] || fail "full-i3 disk not removed"
 [[ ! -e "$work/ooonana-full-i3-rootfs.tar.gz" ]] || fail "full-i3 tarball not removed"
 [[ ! -e "$work/ooonana-full-i3-wsl-rootfs.tar.gz" ]] || fail "full-i3 WSL tarball not removed"
 [[ ! -e "$work/ooonana-installer-created.raw" ]] || fail "installer-created disk not removed"
+[[ ! -e "$work/qemu-full-i3-uefi-target.raw" ]] || fail "qemu raw target not removed"
 [[ ! -e "$work/qemu-rootfs-smoke.log" ]] || fail "extra qemu log not removed"
 [[ -e "$work/linux" ]] || fail "keep-source removed linux"
 [[ -e "$work/linux-6.6.32.tar.xz" ]] || fail "keep-source removed archive"

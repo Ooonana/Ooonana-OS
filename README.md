@@ -240,20 +240,20 @@ ooonana get nano
 
 ## Package Factory
 
-Import Alpine packages into an Ooonana repo:
+Build an Ooonana repo from Alpine packages:
 
 ```bash
-bash scripts/import-apk-package.sh \
-  --repo-url https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64 \
-  --repo-url https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64 \
+bash scripts/build-package-repo.sh \
   --out-dir /tmp/ooonana-repo \
-  nano
+  --package-profile configs/packages/ooonana-cloud.list \
+  --cloud-url https://YOUR.github.io/Ooonana-OS \
+  --clean
 ```
 
 Default cloud package profile:
 
 ```text
-configs/packages/ooonana-repo.list
+configs/packages/ooonana-cloud.list
 ```
 
 This creates:
@@ -263,6 +263,15 @@ This creates:
 /tmp/ooonana-repo/archives/*.tar.gz
 /tmp/ooonana-repo/index.tsv
 /tmp/ooonana-repo/SHA256SUMS
+/tmp/ooonana-repo/cloud.repo
+```
+
+`scripts/import-apk-package.sh` is the low-level APK importer. `scripts/build-package-repo.sh` is the normal repo builder. It loads a profile, adds extra package names, imports dependencies, writes indexes and checksums, and can write cloud repo hints.
+
+CLI dry run:
+
+```bash
+OOONANA_SOURCE_ROOT="$PWD" ooonana repo build --dry-run nano
 ```
 
 The GitHub Actions workflow `Build Ooonana Packages` can run the same importer in cloud from a package profile, upload the generated repo as artifacts, publish a tarball to GitHub Releases, and optionally deploy the repo to GitHub Pages. GitHub Pages is the direct HTTP repo path for `ooonana update`; Releases are backup storage for the repo tarball.
@@ -271,11 +280,17 @@ When Pages publishing is enabled, the generated repo includes `cloud.repo` and `
 Cloud build defaults are repo-wide seed packages, not nano-only:
 
 ```text
-package_profile=configs/packages/ooonana-repo.list
+package_profile=configs/packages/ooonana-cloud.list
 packages="" for optional extras
 ```
 
-Use `packages` for quick extras or change `package_profile` to another `.list` file. The importer builds requested packages plus dependencies; it does not mirror all Alpine packages.
+Use `packages` for quick extras or change `package_profile` to another `.list` file. The builder imports requested packages plus dependencies; it does not mirror all Alpine packages. `ooonana get PACKAGE` installs from configured Ooonana repos. It does not live-fetch Alpine APKs on the target OS.
+
+Older seed profile:
+
+```text
+configs/packages/ooonana-repo.list
+```
 
 ## Full I3 Edition
 
@@ -330,6 +345,15 @@ bash scripts/build-full-i3-iso.sh \
   --force
 ```
 
+UEFI support:
+
+```bash
+bash scripts/install-wsl-deps.sh
+bash scripts/build-full-i3-iso.sh --uefi --force
+```
+
+`grub-mkrescue` builds BIOS boot support always. When `grub-efi-amd64-bin` provides `/usr/lib/grub/x86_64-efi` and `mtools` provides `mformat`, the ISO becomes hybrid BIOS/UEFI. `ovmf` is only needed for local UEFI QEMU proof.
+
 Headless GUI-capable QEMU smoke path:
 
 ```bash
@@ -364,7 +388,7 @@ ooonana-gui-installer
 ooonana-install-wizard
 ```
 
-The wizard opens in a themed xterm under i3, walks disk picker, user/password, hostname, theme, confirmation, install progress, and reboot prompt steps, logs to `/var/log/ooonana-install-wizard.log`, and blocks installing over the current root disk unless `OOONANA_INSTALL_ALLOW_ROOT_TARGET=1` is set.
+The wizard opens in a themed xterm under i3, walks disk picker, user/password, hostname, theme, cloud repo picker, source root, confirmation, install progress, and reboot prompt steps, logs to `/var/log/ooonana-install-wizard.log`, and blocks installing over the current root disk unless `OOONANA_INSTALL_ALLOW_ROOT_TARGET=1` is set. If install fails, it prints `OOONANA_INSTALL_WIZARD_FAIL` and drops to a fallback shell.
 Default full-i3 UI is dark: black background, orange text/cursor. The old sunset look is light mode:
 
 ```bash
@@ -380,7 +404,7 @@ VMware note:
 No EFI environment detected
 ```
 
-This line is a harmless kernel message when the ISO boots through legacy BIOS mode. The full-i3 installer now auto-detects `/dev/vd*`, `/dev/sd*`, `/dev/xvd*`, and `/dev/nvme*` targets, then installed GRUB boots by `PARTUUID` instead of hardcoding `/dev/vda1`. If install fails or is cancelled outside smoke mode, the ISO opens a BusyBox shell instead of rebooting. The release ISO should not include `ooonana.smoke=1`; smoke ISOs are only for automated QEMU proof and reboot after markers.
+This line is harmless only for legacy BIOS boot. Hybrid BIOS/UEFI ISO support needs `grub-efi-amd64-bin` installed before `grub-mkrescue`. The full-i3 installer auto-detects `/dev/vd*`, `/dev/sd*`, `/dev/xvd*`, and `/dev/nvme*` targets, then installed GRUB boots by `PARTUUID` instead of hardcoding `/dev/vda1`. If install fails or is cancelled outside smoke mode, the ISO opens a BusyBox shell instead of rebooting. The release ISO should not include `ooonana.smoke=1`; smoke ISOs are only for automated QEMU proof and reboot after markers.
 
 Non-interactive installed-disk proof path:
 
@@ -409,7 +433,7 @@ First-boot setup launches from the full-i3 session through xterm when possible:
 ooonana setup --first-boot --gui
 ```
 
-It can create a user, prompt for a password, write `/etc/network/interfaces`, and add `/etc/ooonana/sources.d/cloud.repo` so `ooonana update` can use a published cloud package repo.
+It can create a user, prompt for a password, write `/etc/network/interfaces`, write `/etc/ooonana/theme`, and add `/etc/ooonana/sources.d/cloud.repo` so `ooonana update` can use a published cloud package repo.
 
 Cloud package build:
 

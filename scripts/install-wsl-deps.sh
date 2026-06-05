@@ -13,7 +13,7 @@ Usage:
   scripts/install-wsl-deps.sh
 
 Installs:
-  debootstrap qemu-system-x86 xorriso isolinux syslinux-common grub-pc grub-pc-bin grub-common parted rsync e2fsprogs busybox-static cpio gzip python3 build-essential bc bison curl flex libelf-dev libssl-dev make perl tar util-linux
+  debootstrap qemu-system-x86 xorriso isolinux syslinux-common grub-pc grub-pc-bin grub-common grub-efi-amd64-bin mtools ovmf parted rsync e2fsprogs busybox-static cpio gzip python3 build-essential bc bison curl flex libelf-dev libssl-dev make perl tar util-linux
 USAGE
 }
 
@@ -42,12 +42,15 @@ apt-get install -y --no-install-recommends \
   flex \
   gzip \
   grub-common \
+  grub-efi-amd64-bin \
   grub-pc \
   grub-pc-bin \
   isolinux \
   libelf-dev \
   libssl-dev \
   make \
+  mtools \
+  ovmf \
   parted \
   perl \
   python3 \

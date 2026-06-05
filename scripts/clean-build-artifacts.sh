@@ -108,7 +108,9 @@ main() {
     ooonana-full-i3-live-initramfs.cpio.gz
     ooonana-full-i3-disk.raw
     ooonana-full-i3.iso
+    ooonana-full-i3-smoke.iso
     ooonana-installer-created.raw
+    qemu-*.raw
     qemu-iso-install-target.raw
     ooonana-install-mnt
     qemu-smoke.log

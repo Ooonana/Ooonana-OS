@@ -9,6 +9,7 @@ DRY_RUN=0
 HOSTNAME_VALUE=""
 USER_NAME=""
 THEME=""
+CLOUD_REPO=""
 PASSWORD_STDIN=0
 PASSWORD_VALUE=""
 KERNEL_PATH=""
@@ -35,6 +36,7 @@ Options:
   --hostname NAME     Write installed hostname
   --user NAME         Create installed user
   --theme dark|light  Write installed UI theme
+  --cloud-repo URI    Write Ooonana cloud package repo
   --password-stdin    Read password for --user from stdin
   --kernel PATH       Kernel to install as /boot/vmlinuz
   --bootloader auto|grub|none
@@ -191,6 +193,13 @@ valid_hostname() {
   [[ "$1" =~ ^[A-Za-z0-9][A-Za-z0-9-]*$ ]]
 }
 
+valid_repo_uri() {
+  case "$1" in
+    http://*|https://*|file://*|/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 next_uid() {
   local passwd_file="$1"
   if [[ -f "$passwd_file" ]]; then
@@ -292,12 +301,26 @@ EOF
   printf 'theme: %s\n' "$THEME"
 }
 
+write_cloud_repo() {
+  local root="$1"
+  local source_file="$root/etc/ooonana/sources.d/cloud.repo"
+  [[ -n "$CLOUD_REPO" ]] || return 0
+  valid_repo_uri "$CLOUD_REPO" || die "bad cloud repo URI: $CLOUD_REPO"
+  mkdir -p "$(dirname "$source_file")"
+  cat > "$source_file" <<EOF
+OOONANA_REPO_NAME="cloud"
+OOONANA_REPO_URI="$CLOUD_REPO"
+EOF
+  printf 'cloud repo: %s\n' "$CLOUD_REPO"
+}
+
 apply_install_config() {
   local root="$1"
   create_user "$root"
   write_password "$root"
   write_hostname "$root"
   write_theme "$root"
+  write_cloud_repo "$root"
 }
 
 prepare_target() {
@@ -380,6 +403,7 @@ while [[ $# -gt 0 ]]; do
     --hostname) HOSTNAME_VALUE="$2"; shift 2 ;;
     --user) USER_NAME="$2"; shift 2 ;;
     --theme) THEME="$2"; shift 2 ;;
+    --cloud-repo) CLOUD_REPO="$2"; shift 2 ;;
     --password-stdin) PASSWORD_STDIN=1; shift ;;
     --kernel) KERNEL_PATH="$2"; shift 2 ;;
     --bootloader) BOOTLOADER="$2"; shift 2 ;;
@@ -398,6 +422,7 @@ case "$BOOTLOADER" in
   auto|grub|none) ;;
   *) die "bootloader must be auto, grub, or none" ;;
 esac
+[[ -z "$CLOUD_REPO" ]] || valid_repo_uri "$CLOUD_REPO" || die "bad cloud repo URI: $CLOUD_REPO"
 if [[ "$PASSWORD_STDIN" -eq 1 && "$DRY_RUN" -eq 0 ]]; then
   IFS= read -r PASSWORD_VALUE || true
 fi
@@ -435,6 +460,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   [[ -z "$USER_NAME" ]] || printf 'create user %s\n' "$USER_NAME"
   [[ -z "$HOSTNAME_VALUE" ]] || printf 'write hostname %s\n' "$HOSTNAME_VALUE"
   [[ -z "$THEME" ]] || printf 'write theme %s\n' "$THEME"
+  [[ -z "$CLOUD_REPO" ]] || printf 'write cloud repo %s\n' "$CLOUD_REPO"
   [[ "$PASSWORD_STDIN" -eq 0 ]] || printf 'read password from stdin\n'
   install_bootloader
   print_cmd mkdir -p "$MOUNT_POINT/var/lib/ooonana"

@@ -22,6 +22,8 @@ assert_contains "$script_src" "ooonana.install.image=/mnt/install/images/ooonana
 assert_contains "$script_src" "Ooonana OS Full i3 Live"
 assert_contains "$script_src" "OOONANA_FULL_I3"
 assert_contains "$script_src" "grub-mkrescue"
+assert_contains "$script_src" "/usr/lib/grub/x86_64-efi"
+assert_contains "$script_src" "hybrid BIOS/UEFI ISO"
 
 installer_src="$(<"$ROOT/scripts/build-scratch-rootfs.sh")"
 assert_contains "$installer_src" "cmdline_value 'ooonana.install.image'"
@@ -33,6 +35,7 @@ assert_contains "$help" "--disk-image"
 assert_contains "$help" "--live-initramfs"
 assert_contains "$help" "--iso"
 assert_contains "$help" "--install-target"
+assert_contains "$help" "--uefi"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT

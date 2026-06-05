@@ -196,6 +196,8 @@ SOURCE="/"
 USER_NAME="ooonana"
 HOSTNAME_VALUE="ooonana"
 THEME="${OOONANA_THEME:-dark}"
+CLOUD_REPO="${OOONANA_CLOUD_REPO:-}"
+DEFAULT_CLOUD_REPO="${OOONANA_DEFAULT_CLOUD_REPO:-https://ooonana.github.io/Ooonana-OS}"
 PASSWORD_VALUE=""
 YES=0
 DRY_RUN=0
@@ -214,6 +216,7 @@ Options:
   --user NAME     Installed user (default: ooonana)
   --hostname NAME Installed hostname (default: ooonana)
   --theme dark|light
+  --cloud-repo URI
   --yes           Skip wizard prompts
   --dry-run       Print installer command only
   -h, --help      Show help
@@ -256,6 +259,13 @@ read_hidden() {
 valid_theme() {
   case "$1" in
     dark|light) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+valid_repo_uri() {
+  case "$1" in
+    ""|http://*|https://*|file://*|/*) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -312,25 +322,36 @@ confirm_root_target() {
 
 run_installer() {
   mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
-  printf 'Installing to %s from %s\n' "$TARGET" "$SOURCE"
+  set -- /usr/sbin/ooonana-install --target "$TARGET" --source "$SOURCE" --hostname "$HOSTNAME_VALUE" --user "$USER_NAME" --theme "$THEME" --yes
+  if [ -n "$CLOUD_REPO" ]; then
+    set -- "$@" --cloud-repo "$CLOUD_REPO"
+  fi
+  if [ -n "$PASSWORD_VALUE" ]; then
+    set -- "$@" --password-stdin
+  fi
+
+  printf 'Target disk: %s\n' "$TARGET"
+  printf 'Source root: %s\n' "$SOURCE"
   printf 'User: %s\n' "$USER_NAME"
   printf 'Hostname: %s\n' "$HOSTNAME_VALUE"
   printf 'Theme: %s\n' "$THEME"
-  printf 'Log: %s\n\n' "$LOG_FILE"
-  printf '[1/5] format target\n'
-  printf '[2/5] copy Ooonana files\n'
-  printf '[3/5] write user, hostname, theme\n'
-  printf '[4/5] write fstab/install marker\n'
-  printf '[5/5] finish\n\n'
+  printf 'Package repo: %s\n' "${CLOUD_REPO:-none}"
+  printf 'Installer log: %s\n\n' "$LOG_FILE"
+  printf '[1/6] format target\n'
+  printf '[2/6] copy Ooonana files\n'
+  printf '[3/6] write user, hostname, theme\n'
+  printf '[4/6] write package repo source\n'
+  printf '[5/6] write fstab/install marker\n'
+  printf '[6/6] finish\n\n'
   if [ -n "$PASSWORD_VALUE" ]; then
-    if printf '%s\n' "$PASSWORD_VALUE" | /usr/sbin/ooonana-install --target "$TARGET" --source "$SOURCE" --hostname "$HOSTNAME_VALUE" --user "$USER_NAME" --theme "$THEME" --password-stdin --yes >"$LOG_FILE" 2>&1; then
+    if printf '%s\n' "$PASSWORD_VALUE" | "$@" >"$LOG_FILE" 2>&1; then
       cat "$LOG_FILE"
     else
       status="$?"
       cat "$LOG_FILE" 2>/dev/null || true
       return "$status"
     fi
-  elif /usr/sbin/ooonana-install --target "$TARGET" --source "$SOURCE" --hostname "$HOSTNAME_VALUE" --user "$USER_NAME" --theme "$THEME" --yes >"$LOG_FILE" 2>&1; then
+  elif "$@" >"$LOG_FILE" 2>&1; then
     cat "$LOG_FILE"
   else
     status="$?"
@@ -358,6 +379,7 @@ while [ "$#" -gt 0 ]; do
     --user) USER_NAME="$2"; shift 2 ;;
     --hostname) HOSTNAME_VALUE="$2"; shift 2 ;;
     --theme) THEME="$2"; shift 2 ;;
+    --cloud-repo) CLOUD_REPO="$2"; shift 2 ;;
     --yes) YES=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -373,19 +395,23 @@ done
 if [ "$DRY_RUN" -eq 1 ]; then
   target="${TARGET:-/dev/vdb}"
   printf 'Ooonana installer wizard\n'
-  printf 'Step 1/6 target: %s\n' "$target"
-  printf 'Step 2/6 user: %s\n' "$USER_NAME"
-  printf 'Step 3/6 hostname: %s\n' "$HOSTNAME_VALUE"
-  printf 'Step 4/6 theme: %s\n' "$THEME"
-  printf 'Step 5/6 confirm: INSTALL\n'
-  printf 'Step 6/6 reboot: optional\n'
-  printf '/usr/sbin/ooonana-install --target %s --source %s --hostname %s --user %s --theme %s --yes\n' "$target" "$SOURCE" "$HOSTNAME_VALUE" "$USER_NAME" "$THEME"
+  printf 'Step 1/8 target: %s\n' "$target"
+  printf 'Step 2/8 user: %s\n' "$USER_NAME"
+  printf 'Step 3/8 hostname: %s\n' "$HOSTNAME_VALUE"
+  printf 'Step 4/8 theme: %s\n' "$THEME"
+  printf 'Step 5/8 cloud repo: %s\n' "${CLOUD_REPO:-none}"
+  printf 'Step 6/8 source root: %s\n' "$SOURCE"
+  printf 'Step 7/8 confirm: INSTALL\n'
+  printf 'Step 8/8 reboot: optional\n'
+  printf '/usr/sbin/ooonana-install --target %s --source %s --hostname %s --user %s --theme %s' "$target" "$SOURCE" "$HOSTNAME_VALUE" "$USER_NAME" "$THEME"
+  [ -z "$CLOUD_REPO" ] || printf ' --cloud-repo %s' "$CLOUD_REPO"
+  printf ' --yes\n'
   printf 'OOONANA_INSTALL_WIZARD_OK\n'
   exit 0
 fi
 
 if [ "$YES" -eq 0 ]; then
-  screen "Step 1/6: Target disk"
+  screen "Step 1/8: Target disk"
   printf 'Known target disks:\n'
   list_targets || true
   default_target="$(suggest_target)"
@@ -393,7 +419,7 @@ if [ "$YES" -eq 0 ]; then
   read -r answer
   TARGET="${answer:-$default_target}"
 
-  screen "Step 2/6: User account"
+  screen "Step 2/8: User account"
   printf 'User name [%s]: ' "$USER_NAME"
   read -r answer
   USER_NAME="${answer:-$USER_NAME}"
@@ -404,18 +430,33 @@ if [ "$YES" -eq 0 ]; then
     PASSWORD_VALUE="$password_one"
   fi
 
-  screen "Step 3/6: Hostname"
+  screen "Step 3/8: Hostname"
   printf 'Hostname [%s]: ' "$HOSTNAME_VALUE"
   read -r answer
   HOSTNAME_VALUE="${answer:-$HOSTNAME_VALUE}"
 
-  screen "Step 4/6: Theme"
+  screen "Step 4/8: Theme"
   printf 'Theme dark/light [%s]: ' "$THEME"
   read -r answer
   THEME="${answer:-$THEME}"
   valid_theme "$THEME" || die "theme must be dark or light"
 
-  screen "Source root"
+  screen "Step 5/8: Package repo"
+  printf 'Repo picker:\n'
+  printf '  blank: skip cloud repo\n'
+  printf '  cloud: %s\n' "$DEFAULT_CLOUD_REPO"
+  printf '  file:///path: local repo\n\n'
+  printf 'Cloud repo URI [%s]: ' "${CLOUD_REPO:-skip}"
+  read -r answer
+  case "$answer" in
+    "") ;;
+    skip|none|NONE|no|NO) CLOUD_REPO="" ;;
+    cloud) CLOUD_REPO="$DEFAULT_CLOUD_REPO" ;;
+    *) CLOUD_REPO="$answer" ;;
+  esac
+  valid_repo_uri "$CLOUD_REPO" || die "bad cloud repo URI: $CLOUD_REPO"
+
+  screen "Step 6/8: Source root"
   printf 'Source root [%s]: ' "$SOURCE"
   read -r answer
   SOURCE="${answer:-$SOURCE}"
@@ -426,22 +467,32 @@ fi
 [ -n "$USER_NAME" ] || die "user required"
 [ -n "$HOSTNAME_VALUE" ] || die "hostname required"
 valid_theme "$THEME" || die "theme must be dark or light"
+valid_repo_uri "$CLOUD_REPO" || die "bad cloud repo URI: $CLOUD_REPO"
 confirm_root_target
 
 if [ "$YES" -eq 0 ]; then
-  screen "Step 5/6: Confirm install"
-  printf 'Target: %s\n' "$TARGET"
-  printf 'Source: %s\n' "$SOURCE"
+  screen "Step 7/8: Confirm install"
+  printf 'Target disk: %s\n' "$TARGET"
+  printf 'Source root: %s\n' "$SOURCE"
   printf 'User: %s\n' "$USER_NAME"
   printf 'Hostname: %s\n' "$HOSTNAME_VALUE"
   printf 'Theme: %s\n' "$THEME"
+  printf 'Package repo: %s\n' "${CLOUD_REPO:-none}"
   printf '\nThis erases target. Type INSTALL to continue: '
   read -r answer
   [ "$answer" = "INSTALL" ] || die "install cancelled"
 fi
 
-screen "Step 6/6: Installing"
-run_installer
+screen "Step 8/8: Installing"
+if ! run_installer; then
+  printf '\nOOONANA_INSTALL_WIZARD_FAIL\n'
+  printf 'Install failed. Log: %s\n' "$LOG_FILE"
+  if [ "$YES" -eq 0 ]; then
+    printf 'Fallback shell. Type exit to close.\n'
+    exec /bin/sh
+  fi
+  exit 1
+fi
 printf '\nOOONANA_INSTALL_WIZARD_OK\n'
 finish_prompt
 EOF

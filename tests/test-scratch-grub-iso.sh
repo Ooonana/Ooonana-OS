@@ -19,6 +19,8 @@ assert_contains() {
 
 script_src="$(<"$SCRIPT")"
 assert_contains "$script_src" "/usr/lib/grub/i386-pc"
+assert_contains "$script_src" "/usr/lib/grub/x86_64-efi"
+assert_contains "$script_src" "hybrid BIOS/UEFI ISO"
 
 help="$(bash "$SCRIPT" --help)"
 assert_contains "$help" "Build Ooonana scratch GRUB ISO"
@@ -27,6 +29,7 @@ assert_contains "$help" "--initramfs"
 assert_contains "$help" "--rootfs-image"
 assert_contains "$help" "--disk-image"
 assert_contains "$help" "--install"
+assert_contains "$help" "--uefi"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT

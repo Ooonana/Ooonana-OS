@@ -69,6 +69,7 @@ Usage:
   ooonana upgrade [PACKAGE...] [--dry-run]
   ooonana remove PACKAGE [--dry-run]
   ooonana repo index [PATH]
+  ooonana repo build [options] [PACKAGE...]
   ooonana clean
   ooonana ai setup
   ooonana ai doctor
@@ -958,8 +959,38 @@ cmd_repo() {
       shift
       cmd_repo_index "$@"
       ;;
-    *) die "usage: ooonana repo index [PATH]" ;;
+    build)
+      shift
+      cmd_repo_build "$@"
+      ;;
+    *) die "usage: ooonana repo [index|build]" ;;
   esac
+}
+
+find_repo_build_script() {
+  if [ -n "${OOONANA_SOURCE_ROOT:-}" ] && [ -x "$OOONANA_SOURCE_ROOT/scripts/build-package-repo.sh" ]; then
+    printf '%s\n' "$OOONANA_SOURCE_ROOT/scripts/build-package-repo.sh"
+    return 0
+  fi
+  repo_root="$(CDPATH= cd "$SCRIPT_DIR/../../../.." 2>/dev/null && pwd || true)"
+  if [ -n "$repo_root" ] && [ -x "$repo_root/scripts/build-package-repo.sh" ]; then
+    printf '%s\n' "$repo_root/scripts/build-package-repo.sh"
+    return 0
+  fi
+  if [ -x /usr/share/ooonana/scripts/build-package-repo.sh ]; then
+    printf '%s\n' /usr/share/ooonana/scripts/build-package-repo.sh
+    return 0
+  fi
+  return 1
+}
+
+cmd_repo_build() {
+  script="$(find_repo_build_script || true)"
+  [ -n "$script" ] || die "repo build needs Ooonana source checkout: set OOONANA_SOURCE_ROOT"
+  if have bash; then
+    exec bash "$script" "$@"
+  fi
+  die "repo build needs bash"
 }
 
 cmd_ai_setup() {
