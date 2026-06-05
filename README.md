@@ -399,6 +399,7 @@ UEFI support:
 ```bash
 bash scripts/install-wsl-deps.sh
 bash scripts/build-full-i3-iso.sh --uefi --force
+bash scripts/verify-vmware-uefi-input.sh
 ```
 
 `grub-mkrescue` builds BIOS boot support always. When `grub-efi-amd64-bin` provides `/usr/lib/grub/x86_64-efi` and `mtools` provides `mformat`, the ISO becomes hybrid BIOS/UEFI. `ovmf` is only needed for local UEFI QEMU proof.
