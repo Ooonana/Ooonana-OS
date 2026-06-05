@@ -705,6 +705,8 @@ scripts/build-full-i3-live-initramfs.sh
 scripts/build-full-i3-disk.sh
 scripts/build-full-i3-iso.sh
 scripts/generate-ooonana-pdf.py
+scripts/build-ooonana-pdf-os.sh
+scripts/inject-ooonana-pdf-root.sh
 scripts/lib/common.sh
 ```
 
@@ -725,6 +727,7 @@ tests/test-gui-installer.sh
 tests/test-qemu-gui.sh
 tests/test-logo-sync.sh
 tests/test-ooonana-pdf.sh
+tests/test-ooonana-pdf-os.sh
 tests/test-rootfs-tarball.sh
 tests/test-scratch-rootfs.sh
 tests/test-scratch-initramfs.sh
@@ -741,7 +744,9 @@ Docs:
 
 ```text
 docs/logo.txt
-docs/ooonana.pdf
+docs/ooonana.pdf                bootable Ooonana OS PDF target
+docs/ooonana-guide.pdf          docs-only field guide PDF
+docs/ooonana-pdf-os.md
 docs/ooonana-ai.md
 docs/ooonana-ai.env.example
 docs/jarvis-agi-research.md

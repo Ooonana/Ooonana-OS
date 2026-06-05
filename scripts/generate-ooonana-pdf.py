@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate docs/ooonana.pdf without external PDF packages."""
+"""Generate docs/ooonana-guide.pdf without external PDF packages."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "docs" / "ooonana.pdf"
+OUT = ROOT / "docs" / "ooonana-guide.pdf"
 LOGO = ROOT / "docs" / "logo.txt"
 
 

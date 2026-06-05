@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GENERATOR="$ROOT/scripts/generate-ooonana-pdf.py"
-PDF="$ROOT/docs/ooonana.pdf"
+PDF="$ROOT/docs/ooonana-guide.pdf"
 
 fail() {
   printf 'FAIL: %s\n' "$*" >&2
