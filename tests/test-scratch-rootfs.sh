@@ -88,7 +88,11 @@ rcs="$(<"$rootfs/etc/init.d/rcS")"
 init_script="$(<"$rootfs/sbin/init")"
 wsl_conf="$(<"$rootfs/etc/wsl.conf")"
 passwd="$(<"$rootfs/etc/passwd")"
-assert_contains "$init_script" "exec >/dev/console 2>&1 </dev/console"
+assert_contains "$init_script" 'console_device="/dev/tty1"'
+assert_contains "$init_script" "mount -t proc proc /proc"
+assert_contains "$init_script" "ooonana.smoke=1"
+assert_contains "$init_script" 'console_device="/dev/ttyS0"'
+assert_contains "$init_script" 'exec <"$console_device" >"$console_device" 2>&1'
 assert_contains "$init_script" "/etc/init.d/rcS"
 assert_contains "$wsl_conf" "[boot]"
 assert_contains "$wsl_conf" "systemd=false"
@@ -113,6 +117,8 @@ assert_contains "$rcs" "cmdline_value 'ooonana.install.target'"
 assert_contains "$rcs" "cmdline_value 'ooonana.install.image'"
 assert_contains "$rcs" "detect_install_target()"
 assert_contains "$rcs" '/dev/vd[a-z] /dev/sd[a-z] /dev/xvd[a-z] /dev/nvme[0-9]n[0-9]'
+assert_contains "$rcs" "fallback_shell()"
+assert_contains "$rcs" 'exec /bin/sh <"$console_device" >"$console_device" 2>&1'
 assert_contains "$rcs" "OOONANA_INSTALL_WAIT"
 assert_contains "$rcs" "Install failed. Shell open."
 assert_contains "$rcs" "cat /usr/share/ooonana/logo.txt"

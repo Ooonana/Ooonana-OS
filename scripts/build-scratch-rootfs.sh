@@ -139,13 +139,20 @@ EOF
 
   write_file "$ROOTFS/sbin/init" 0755 <<'EOF'
 #!/bin/sh
+mount -t proc proc /proc 2>/dev/null || true
+mount -t sysfs sysfs /sys 2>/dev/null || true
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
 mkdir -p /dev/pts
 mount -t devpts devpts /dev/pts 2>/dev/null || true
-exec >/dev/console 2>&1 </dev/console
+console_device="/dev/tty1"
+if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
+  console_device="/dev/ttyS0"
+fi
+[ -e "$console_device" ] || console_device="/dev/console"
+exec <"$console_device" >"$console_device" 2>&1
 /etc/init.d/rcS
 echo "Ooonana shell on console"
-exec /bin/sh </dev/console >/dev/console 2>&1
+exec /bin/sh <"$console_device" >"$console_device" 2>&1
 EOF
 
   write_file "$ROOTFS/etc/inittab" 0644 <<'EOF'
@@ -198,6 +205,15 @@ smoke_mode() {
   grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null
 }
 
+fallback_shell() {
+  console_device="/dev/tty1"
+  if smoke_mode; then
+    console_device="/dev/ttyS0"
+  fi
+  [ -e "$console_device" ] || console_device="/dev/console"
+  exec /bin/sh <"$console_device" >"$console_device" 2>&1
+}
+
 install_fail() {
   echo "OOONANA_INSTALL_FAIL"
   if smoke_mode; then
@@ -206,7 +222,7 @@ install_fail() {
     reboot -f
   fi
   echo "Install failed. Shell open."
-  exec /bin/sh </dev/console >/dev/console 2>&1
+  fallback_shell
 }
 
 install_cancel() {
@@ -217,7 +233,7 @@ install_cancel() {
     reboot -f
   fi
   echo "Install cancelled. Shell open."
-  exec /bin/sh </dev/console >/dev/console 2>&1
+  fallback_shell
 }
 
 cmdline_value() {

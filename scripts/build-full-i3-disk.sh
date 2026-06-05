@@ -81,7 +81,11 @@ wait_for_block() {
 
 kernel_append() {
   local root_spec="${1:-PARTUUID=TARGET_PARTUUID}"
-  local append="root=$root_spec rw console=tty0 console=ttyS0 panic=1 init=/sbin/init ooonana.edition=full-i3"
+  local console_args="console=ttyS0 console=tty0"
+  if [[ "$SMOKE" -eq 1 ]]; then
+    console_args="console=tty0 console=ttyS0"
+  fi
+  local append="root=$root_spec rw $console_args panic=1 init=/sbin/init ooonana.edition=full-i3"
   if [[ "$SMOKE" -eq 1 ]]; then
     append="$append ooonana.smoke=1"
   fi
@@ -99,8 +103,8 @@ write_grub_config() {
   mkdir -p "$target/boot/grub"
   cat > "$target/boot/grub/grub.cfg" <<EOF
 serial --unit=0 --speed=115200
-terminal_input serial
-terminal_output serial
+terminal_input console serial
+terminal_output console serial
 set timeout=1
 set default=0
 

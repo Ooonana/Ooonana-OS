@@ -7,7 +7,7 @@ source "$ROOT/scripts/lib/common.sh"
 
 OUT_DIR="$ROOT/packages/ooonana/usr/lib/ooonana/repo"
 REPO_ARGS=()
-I3_PACKAGES="xorg-server xinit xf86-video-vesa xf86-video-fbdev xf86-input-libinput xf86-input-evdev i3wm i3status dmenu feh xterm xsetroot xinput coreutils parted grub-bios e2fsprogs rsync util-linux"
+I3_PACKAGES="xorg-server xinit xf86-video-vesa xf86-video-fbdev xf86-input-libinput xf86-input-evdev eudev i3wm i3status dmenu feh xterm xsetroot xinput coreutils parted grub-bios e2fsprogs rsync util-linux"
 BRANDING_VERSION="0.1.0"
 
 usage() {

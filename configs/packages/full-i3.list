@@ -12,6 +12,7 @@ xsetroot
 xinput
 xf86-input-libinput
 xf86-input-evdev
+eudev
 coreutils
 parted
 grub-bios

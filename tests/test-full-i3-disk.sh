@@ -61,4 +61,15 @@ assert_contains "$dry_run" "root=PARTUUID=TARGET_PARTUUID rw console=tty0 consol
 assert_contains "$dry_run" "OOONANA_FULL_I3_DISK_OK"
 assert_not_contains "$dry_run" "systemd.unit"
 
+dry_run_normal="$(bash "$SCRIPT" \
+  --rootfs "$tmp/rootfs" \
+  --kernel "$tmp/vmlinuz" \
+  --disk-image "$tmp/ooonana-full-i3-disk.raw" \
+  --size 768M \
+  --force \
+  --dry-run)"
+assert_contains "$dry_run_normal" "root=PARTUUID=TARGET_PARTUUID rw console=ttyS0 console=tty0 panic=1 init=/sbin/init ooonana.edition=full-i3"
+assert_contains "$script_src" "terminal_input console serial"
+assert_contains "$script_src" "terminal_output console serial"
+
 printf 'ok full-i3-disk\n'

@@ -72,7 +72,9 @@ PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
   --force >/dev/null
 
 normal_cfg="$(<"$tmp/build/full-i3-iso-tree/boot/grub/grub.cfg")"
-assert_contains "$normal_cfg" "console=tty0 console=ttyS0"
+assert_contains "$normal_cfg" "terminal_input console serial"
+assert_contains "$normal_cfg" "terminal_output console serial"
+assert_contains "$normal_cfg" "console=ttyS0 console=tty0"
 assert_contains "$normal_cfg" "set default=0"
 assert_contains "$normal_cfg" "menuentry 'Ooonana OS Full i3 Live'"
 assert_contains "$normal_cfg" "menuentry 'Install Ooonana OS Full i3'"
@@ -109,6 +111,8 @@ assert_contains "$cfg" "ooonana.install.image=/mnt/install/images/ooonana-full-i
 assert_contains "$cfg" "initrd /boot/live-initramfs.cpio.gz"
 assert_contains "$cfg" "initrd /boot/install-initramfs.cpio.gz"
 assert_contains "$cfg" "console=tty0 console=ttyS0"
+assert_contains "$cfg" "terminal_input console serial"
+assert_contains "$cfg" "terminal_output console serial"
 assert_contains "$cfg" "ooonana.smoke=1"
 
 PATH="$tmp/bin:$PATH" bash "$SCRIPT" \

@@ -56,8 +56,10 @@ assert_contains "$dry_run" "truncate -s 128M $tmp/ooonana-scratch-disk.raw"
 assert_contains "$dry_run" "parted -s $tmp/ooonana-scratch-disk.raw mklabel msdos"
 assert_contains "$dry_run" "mkfs.ext4 -F -L OOONANA_ROOT"
 assert_contains "$dry_run" "grub-install --target=i386-pc"
-assert_contains "$dry_run" "root=/dev/vda1 rw console=ttyS0 panic=1 init=/sbin/init ooonana.smoke=1"
+assert_contains "$dry_run" "root=/dev/vda1 rw console=tty0 console=ttyS0 panic=1 init=/sbin/init ooonana.smoke=1"
 assert_contains "$dry_run" "OOONANA_DISK_OK"
 assert_not_contains "$dry_run" "systemd.unit"
+assert_contains "$script_src" "terminal_input console serial"
+assert_contains "$script_src" "terminal_output console serial"
 
 printf 'ok scratch-disk\n'

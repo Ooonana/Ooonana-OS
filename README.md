@@ -52,7 +52,7 @@ Live environment status:
 ooonana-full-i3.iso    live desktop by default, install menu second
 ooonana-scratch.iso    minimal installer-only
 full-i3 live desktop   i3, wallpaper, GUI installer launcher
-full-i3 install menu   text/serial-safe image installer
+full-i3 install menu   VGA-first, serial-safe image installer
 ```
 
 Release files:
@@ -115,6 +115,8 @@ Working now:
 - Installer ISO writes Ooonana to blank disk
 - Installer ISO opens a fallback shell on install failure or cancel
 - Installer has a serial-safe xterm UI with logo, disk picker, user/password, hostname, theme, cloud repo picker, progress, logs, fail shell, and reboot prompt
+- Live/install ISO keeps interactive prompts on the VGA console for VMware while smoke tests log through serial
+- Full-i3 live starts eudev before Xorg and ships libinput config for PS/2 keyboard and mouse discovery
 - Installed disk boots in QEMU
 - `ooonana-install` can partition a raw/whole disk, format ext4, copy rootfs, install kernel, write GRUB, and persist user, hostname, and theme
 - Generic `ooonana-rootfs.tar.gz` can be unpacked for chroot/container-style use
@@ -460,7 +462,7 @@ VMware note:
 No EFI environment detected
 ```
 
-This line is harmless only for legacy BIOS boot. Hybrid BIOS/UEFI ISO support needs `grub-efi-amd64-bin` installed before `grub-mkrescue`. The full-i3 installer auto-detects `/dev/vd*`, `/dev/sd*`, `/dev/xvd*`, and `/dev/nvme*` targets, then installed GRUB boots by `PARTUUID` instead of hardcoding `/dev/vda1`. If install fails or is cancelled outside smoke mode, the ISO opens a BusyBox shell instead of rebooting. The release ISO should not include `ooonana.smoke=1`; smoke ISOs are only for automated QEMU proof and reboot after markers.
+This line is harmless only for legacy BIOS boot. Hybrid BIOS/UEFI ISO support needs `grub-efi-amd64-bin` installed before `grub-mkrescue`. If live boot reaches `Run /init` and then looks stuck, rebuild with the latest console fix; interactive init now mounts `/proc` before choosing `tty1`, and smoke logs use `ttyS0` directly. If i3 starts but input is dead, rebuild the full-i3 package repo/rootfs; the profile now includes eudev and starts it before Xorg. The full-i3 installer auto-detects `/dev/vd*`, `/dev/sd*`, `/dev/xvd*`, and `/dev/nvme*` targets, then installed GRUB boots by `PARTUUID` instead of hardcoding `/dev/vda1`. If install fails or is cancelled outside smoke mode, the ISO opens a BusyBox shell instead of rebooting. The release ISO should not include `ooonana.smoke=1`; smoke ISOs are only for automated QEMU proof and reboot after markers.
 
 Non-interactive installed-disk proof path:
 

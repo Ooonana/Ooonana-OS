@@ -120,6 +120,7 @@ rootfs="$tmp/full-rootfs"
 [[ -f "$rootfs/usr/share/ooonana/logo.png" ]] || fail "missing rootfs logo png"
 [[ -f "$rootfs/usr/share/ooonana/wallpapers/ooonana-wallpaper.png" ]] || fail "missing rootfs wallpaper"
 [[ -f "$rootfs/etc/i3/config" ]] || fail "missing rootfs i3 config"
+[[ -f "$rootfs/etc/X11/xorg.conf.d/10-ooonana-input.conf" ]] || fail "missing Xorg input config"
 [[ -f "$rootfs/usr/share/applications/ooonana-installer.desktop" ]] || fail "missing GUI installer desktop entry"
 [[ -f "$rootfs/usr/share/applications/ooonana-ai.desktop" ]] || fail "missing AI app desktop entry"
 [[ -f "$rootfs/usr/share/applications/ooonana-setup.desktop" ]] || fail "missing setup desktop entry"
@@ -149,6 +150,7 @@ assert_contains "$start_script" 'touch "$HOME/.Xauthority"'
 i3_smoke_session="$(<"$rootfs/usr/bin/ooonana-i3-smoke-session")"
 assert_contains "$i3_smoke_session" "i3-msg exit"
 assert_contains "$i3_smoke_session" "OOONANA_FULL_I3_OK"
+assert_contains "$i3_smoke_session" "/dev/ttyS0"
 assert_contains "$i3_smoke_session" "# i3 config file (v4)"
 assert_contains "$i3_smoke_session" "exec i3"
 
@@ -160,6 +162,12 @@ assert_contains "$i3_session" "exec i3"
 
 i3_config="$(<"$rootfs/etc/i3/config")"
 assert_contains "$i3_config" 'bindsym $mod+Shift+a exec ooonana-ai-app'
+
+xorg_input="$(<"$rootfs/etc/X11/xorg.conf.d/10-ooonana-input.conf")"
+assert_contains "$xorg_input" 'Option "AutoAddDevices" "true"'
+assert_contains "$xorg_input" 'MatchIsKeyboard "on"'
+assert_contains "$xorg_input" 'MatchIsPointer "on"'
+assert_contains "$xorg_input" 'Driver "libinput"'
 
 theme_helper="$(<"$rootfs/usr/bin/ooonana-theme-env")"
 assert_contains "$theme_helper" 'OOONANA_BG="#050505"'
@@ -220,6 +228,11 @@ rcs="$(<"$rootfs/etc/init.d/rcS")"
 assert_contains "$rcs" "Ooonana full i3 rootfs"
 assert_contains "$rcs" "mount -t devpts devpts /dev/pts"
 assert_contains "$rcs" "read -r host </etc/hostname"
+assert_contains "$rcs" "start_device_manager()"
+assert_contains "$rcs" "udevd --daemon"
+assert_contains "$rcs" "udevadm trigger"
+assert_contains "$rcs" "udevadm settle"
+assert_contains "$rcs" "mdev -s"
 assert_contains "$rcs" "/usr/bin/start-ooonana-i3"
 assert_contains "$rcs" "OOONANA_FULL_I3_FAIL"
 assert_contains "$rcs" "OOONANA_BOOT_OK"

@@ -77,10 +77,25 @@ cfg="$(<"$tmp/build/scratch-grub-iso-tree/boot/grub/grub.cfg")"
 assert_contains "$cfg" "menuentry 'Ooonana OS'"
 assert_contains "$cfg" "linux /boot/vmlinuz"
 assert_contains "$cfg" "console=tty0 console=ttyS0"
+assert_contains "$cfg" "terminal_input console serial"
+assert_contains "$cfg" "terminal_output console serial"
 assert_contains "$cfg" "rdinit=/init"
 assert_contains "$cfg" "ooonana.install=1"
 assert_contains "$cfg" "ooonana.install.target=/dev/vda"
 assert_contains "$cfg" "ooonana.smoke=1"
 assert_contains "$cfg" "initrd /boot/initramfs.cpio.gz"
+
+PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
+  --work-dir "$tmp/build" \
+  --kernel "$tmp/vmlinuz" \
+  --initramfs "$tmp/initramfs.cpio.gz" \
+  --rootfs-image "$tmp/rootfs.ext4" \
+  --iso "$tmp/ooonana-grub-normal.iso" \
+  --force >/dev/null
+
+normal_cfg="$(<"$tmp/build/scratch-grub-iso-tree/boot/grub/grub.cfg")"
+assert_contains "$normal_cfg" "console=ttyS0 console=tty0"
+assert_contains "$normal_cfg" "terminal_input console serial"
+assert_contains "$normal_cfg" "terminal_output console serial"
 
 printf 'ok scratch-grub-iso\n'

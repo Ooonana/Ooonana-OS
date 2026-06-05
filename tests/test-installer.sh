@@ -56,6 +56,13 @@ assert_contains "$installer_dry_run" "write cloud repo https://example.test/repo
 assert_not_contains "$installer_dry_run" "/dev/null"
 assert_contains "$installer_dry_run" "OOONANA_INSTALL_OK"
 
+installer_dry_run_normal="$(bash "$INSTALLER" --dry-run --yes --target /tmp/ooonana-test-disk.raw --source /tmp/ooonana-source --kernel /tmp/vmlinuz-ooonana)"
+assert_contains "$installer_dry_run_normal" "grub.cfg: linux /boot/vmlinuz root=PARTUUID=TARGET_PARTUUID rw console=ttyS0 console=tty0 panic=1 init=/sbin/init ooonana.edition=full-i3"
+
+installer_src="$(<"$INSTALLER")"
+assert_contains "$installer_src" "terminal_input console serial"
+assert_contains "$installer_src" "terminal_output console serial"
+
 run_help="$(bash "$ROOT/scripts/run-qemu.sh" --help)"
 assert_contains "$run_help" "--disk"
 assert_contains "$run_help" "--install"

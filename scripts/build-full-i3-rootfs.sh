@@ -532,7 +532,7 @@ smoke_config="${TMPDIR:-/tmp}/ooonana-i3-smoke.config"
 cat > "$smoke_config" <<'I3CONFIG'
 # i3 config file (v4)
 font pango:monospace 10
-exec --no-startup-id sh -c 'sleep 2; echo "OOONANA_FULL_I3_OK" >/dev/console; i3-msg exit >/dev/null 2>&1 || true'
+exec --no-startup-id sh -c 'sleep 2; for dev in /dev/ttyS0 /dev/console; do [ -e "$dev" ] && echo "OOONANA_FULL_I3_OK" >"$dev"; done; i3-msg exit >/dev/null 2>&1 || true'
 I3CONFIG
 exec i3 -c "$smoke_config"
 EOF
@@ -572,15 +572,55 @@ Categories=System;
 EOF
 }
 
+write_xorg_input_config() {
+  install -D -m 0644 /dev/stdin "$ROOTFS/etc/X11/xorg.conf.d/10-ooonana-input.conf" <<'EOF'
+Section "ServerFlags"
+    Option "AutoAddDevices" "true"
+    Option "AutoEnableDevices" "true"
+EndSection
+
+Section "InputClass"
+    Identifier "Ooonana keyboard"
+    MatchIsKeyboard "on"
+    Driver "libinput"
+EndSection
+
+Section "InputClass"
+    Identifier "Ooonana pointer"
+    MatchIsPointer "on"
+    Driver "libinput"
+EndSection
+EOF
+}
+
 write_full_init_script() {
   install -D -m 0755 /dev/stdin "$ROOTFS/etc/init.d/rcS" <<'EOF'
 #!/bin/sh
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+export PATH
 mount -t proc proc /proc 2>/dev/null || true
 mount -t sysfs sysfs /sys 2>/dev/null || true
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
 mkdir -p /dev/pts
 mount -t devpts devpts /dev/pts 2>/dev/null || true
 mount -t tmpfs tmpfs /run 2>/dev/null || true
+
+start_device_manager() {
+  mkdir -p /run/udev
+  if command -v udevd >/dev/null 2>&1 && command -v udevadm >/dev/null 2>&1; then
+    udevd --daemon 2>/dev/null || true
+    udevadm trigger --action=add 2>/dev/null || true
+    udevadm settle --timeout=5 2>/dev/null || true
+    return 0
+  fi
+  if command -v mdev >/dev/null 2>&1; then
+    printf '%s\n' /sbin/mdev >/proc/sys/kernel/hotplug 2>/dev/null || true
+    mdev -s 2>/dev/null || true
+  fi
+}
+
+start_device_manager
+
 host="ooonana"
 if [ -f /etc/hostname ]; then
   read -r host </etc/hostname || host="ooonana"
@@ -708,6 +748,7 @@ main() {
   write_start_script
   write_theme_helpers
   write_gui_installer
+  write_xorg_input_config
   write_full_init_script
   printf 'packages-installed\n' > "$ROOTFS/etc/ooonana/edition-state"
   write_tarball

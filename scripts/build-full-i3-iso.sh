@@ -66,8 +66,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 write_grub_config() {
-  local live_append="console=tty0 console=ttyS0 panic=1 rdinit=/init ooonana.live=1 ooonana.edition=full-i3"
-  local install_append="console=tty0 console=ttyS0 panic=1 rdinit=/init ooonana.install=1 ooonana.install.target=$INSTALL_TARGET ooonana.install.image=/mnt/install/images/ooonana-full-i3-disk.raw"
+  local console_args="console=ttyS0 console=tty0"
+  if [[ "$SMOKE" -eq 1 ]]; then
+    console_args="console=tty0 console=ttyS0"
+  fi
+  local live_append="$console_args panic=1 rdinit=/init ooonana.live=1 ooonana.edition=full-i3"
+  local install_append="$console_args panic=1 rdinit=/init ooonana.install=1 ooonana.install.target=$INSTALL_TARGET ooonana.install.image=/mnt/install/images/ooonana-full-i3-disk.raw"
   local default_entry=0
   if [[ "$SMOKE" -eq 1 && "$LIVE_SMOKE" -eq 1 ]]; then
     live_append="$live_append ooonana.smoke=1 ooonana.gui-smoke=1"
@@ -78,8 +82,8 @@ write_grub_config() {
 
   cat > "$ISO_TREE/boot/grub/grub.cfg" <<EOF
 serial --unit=0 --speed=115200
-terminal_input serial
-terminal_output serial
+terminal_input console serial
+terminal_output console serial
 set timeout=1
 set default=$default_entry
 
