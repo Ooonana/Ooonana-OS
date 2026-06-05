@@ -171,19 +171,19 @@ sudo chroot /tmp/ooonana-rootfs /bin/sh
 Import minimal WSL rootfs, optional:
 
 ```bash
-bash scripts/install-wsl-distro.sh --distro Ooonana --force \
+bash scripts/install-wsl-distro.sh --distro OoonanaMinimal --force \
   --tarball /var/tmp/ooonana-os/release/ooonana-wsl-rootfs.tar.gz
-wsl.exe -d Ooonana -- /usr/bin/ooonana me
-wsl.exe -d Ooonana -- /usr/bin/ooonana ai tools
+wsl.exe -d OoonanaMinimal -- /usr/bin/ooonana me
+wsl.exe -d OoonanaMinimal -- /usr/bin/ooonana ai tools
 ```
 
-Import full-i3 WSL rootfs, recommended:
+Import full-i3 WSL rootfs as `Ooonana`, recommended:
 
 ```bash
-bash scripts/install-wsl-distro.sh --distro OoonanaFull --force \
+bash scripts/install-wsl-distro.sh --distro Ooonana --force \
   --tarball /var/tmp/ooonana-os/release/ooonana-full-i3-wsl-rootfs.tar.gz
-wsl.exe -d OoonanaFull -- /usr/bin/ooonana me
-wsl.exe -d OoonanaFull -- /usr/bin/start-ooonana-i3
+wsl.exe -d Ooonana -- /usr/bin/ooonana me
+wsl.exe -d Ooonana -- /usr/bin/start-ooonana-i3
 ```
 
 Full-i3 WSL GUI launch needs WSLg or an X server with `DISPLAY` set.

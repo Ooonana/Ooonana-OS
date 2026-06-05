@@ -69,11 +69,11 @@ assert_contains "$dry_run" "wsl.exe -d OoonanaTest -- /usr/bin/ooonana me"
 assert_contains "$dry_run" "wsl.exe -d OoonanaTest -- /usr/bin/ooonana wsl status"
 
 full_default_dir="$(bash "$INSTALL_SCRIPT" \
-  --distro OoonanaFull \
+  --distro Ooonana \
   --tarball "$tmp/ooonana-wsl.tar.gz" \
   --force \
   --dry-run)"
-assert_contains "$full_default_dir" "OoonanaFullWSL"
+assert_contains "$full_default_dir" "OoonanaWSL"
 
 mkdir -p "$tmp/fakebin"
 cat > "$tmp/fakebin/wsl.exe" <<'EOF'
@@ -90,13 +90,13 @@ chmod +x "$tmp/fakebin/wsl.exe"
 OOONANA_FAKE_WSL_LOG="$tmp/fake-wsl.log" \
   PATH="$tmp/fakebin:$PATH" \
   bash "$INSTALL_SCRIPT" \
-    --distro OoonanaFull \
-    --install-dir "$tmp/install-full" \
+    --distro Ooonana \
+    --install-dir "$tmp/install" \
     --tarball "$tmp/ooonana-wsl.tar.gz" \
     --force >/dev/null
 fake_wsl="$(<"$tmp/fake-wsl.log")"
-assert_contains "$fake_wsl" "--import OoonanaFull"
-if [[ "$fake_wsl" == *"--unregister OoonanaFull"* ]]; then
+assert_contains "$fake_wsl" "--import Ooonana"
+if [[ "$fake_wsl" == *"--unregister Ooonana"* ]]; then
   fail "force unregistered absent distro"
 fi
 
