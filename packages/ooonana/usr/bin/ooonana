@@ -47,7 +47,7 @@ STATE_DIR="${OOONANA_STATE_DIR:-$(root_join /var/lib/ooonana/packages)}"
 CACHE_DIR="${OOONANA_CACHE_DIR:-$(root_join /var/cache/ooonana)}"
 INSTALLED_DIR="$STATE_DIR/installed"
 
-usage() {
+usage_main() {
   cat <<'USAGE'
 Ooonana command center.
 
@@ -77,6 +77,15 @@ Packages:
   ooonana repo index [PATH]
   ooonana repo build [options] [PACKAGE...]
   ooonana clean
+
+Need more help:
+  ooonana help packages
+  ooonana help get
+  ooonana help upgrade
+  ooonana help remove
+  ooonana help repo
+  ooonana help ai
+  ooonana help ui
 
 AI:
   ooonana ai setup
@@ -114,6 +123,201 @@ Paths:
   state: /var/lib/ooonana/packages
   cache: /var/cache/ooonana
 USAGE
+}
+
+usage_packages() {
+  cat <<'USAGE'
+Package flow:
+  1. ooonana update
+     Sync Ooonana repo indexes into local cache.
+  2. ooonana search QUERY
+     Find package names and summaries.
+  3. ooonana get PACKAGE
+     Install package plus Ooonana dependencies.
+  4. ooonana verify PACKAGE
+     Check installed file list still exists.
+
+Check before install:
+  ooonana show nano
+  ooonana depends full-i3
+
+Install:
+  ooonana get nano
+  ooonana install nano --dry-run
+  ooonana files nano
+
+Fix/removal:
+  ooonana upgrade --dry-run
+  ooonana upgrade nano
+  ooonana fix nano --reinstall
+  ooonana remove nano
+  ooonana purge nano
+
+Repos:
+  ooonana sources
+  ooonana repo index /usr/lib/ooonana/repo
+  ooonana repo build nano
+
+Only Ooonana repos are used on target OS. Alpine APKs are imported by repo build automation before install.
+USAGE
+}
+
+usage_get() {
+  cat <<'USAGE'
+Install package:
+  ooonana update
+  ooonana search nano
+  ooonana show nano
+  ooonana get nano
+
+Dry run:
+  ooonana get nano --dry-run
+
+What happens:
+  - reads /etc/ooonana/sources.d/*.repo and /usr/lib/ooonana/repo
+  - downloads/caches remote repo metadata when needed
+  - resolves Ooonana package dependencies
+  - verifies package archive checksums
+  - unpacks package archive into /
+  - records installed metadata under /var/lib/ooonana/packages
+
+Only Ooonana repos are fetched. Target OS does not live-fetch Alpine APKs.
+USAGE
+}
+
+usage_upgrade() {
+  cat <<'USAGE'
+Upgrade packages:
+  ooonana update
+  ooonana upgrade --dry-run
+  ooonana upgrade
+  ooonana upgrade nano
+
+Meaning:
+  - no package names: check every installed package
+  - package names: upgrade only those packages
+  - --dry-run: show changes, install nothing
+
+Repair:
+  ooonana fix
+  ooonana fix nano --reinstall
+USAGE
+}
+
+usage_remove() {
+  cat <<'USAGE'
+Remove packages:
+  ooonana remove nano
+  ooonana remove nano editor --dry-run
+
+Purge packages:
+  ooonana purge nano
+
+Meaning:
+  remove: run package remove hook, remove installed package files, keep config/state
+  purge: remove package and Ooonana config directories for that package
+
+Check before removing:
+  ooonana files nano
+  ooonana verify nano
+USAGE
+}
+
+usage_repo_help() {
+  cat <<'USAGE'
+Repo commands:
+  ooonana sources
+  ooonana repo index [PATH]
+  ooonana repo build [options] [PACKAGE...]
+
+Build examples:
+  OOONANA_SOURCE_ROOT=/path/to/Ooonana-OS ooonana repo build nano
+  ooonana repo build --dry-run nano
+  ooonana repo build --out-dir /var/tmp/ooonana-repo nano
+
+Repo source file:
+  /etc/ooonana/sources.d/cloud.repo
+
+Source format:
+  OOONANA_REPO_NAME="cloud"
+  OOONANA_REPO_URI="https://ooonana.github.io/Ooonana-OS"
+USAGE
+}
+
+usage_ai_help() {
+  cat <<'USAGE'
+AI flow:
+  ooonana ai setup
+  ooonana ai doctor
+  ooonana ai provider show
+  ooonana ai model list
+  ooonana ai ask "fix this command"
+  ooonana ai chat
+
+Full i3 app:
+  ooonana-ai-app
+  Mod+Shift+A
+
+Useful:
+  ooonana ai status
+  ooonana ai tools
+  ooonana ai agents
+  ooonana ai tasks
+  ooonana ai history
+  ooonana ai ping
+
+Config:
+  ~/.config/ooonana/ai.env
+USAGE
+}
+
+usage_ui_help() {
+  cat <<'USAGE'
+Full i3 UI:
+  Mod+Enter     terminal
+  Mod+d         app launcher
+  Mod+Shift+A   Ooonana AI app
+  Mod+Shift+I   installer
+  Mod+Shift+T   toggle dark/light theme
+  Mod+Shift+R   restart i3
+  Mod+Shift+E   exit i3
+
+Theme:
+  default: black background, orange cursor/text
+  OOONANA_THEME=light ooonana-gui-installer
+  OOONANA_THEME=light ooonana setup --first-boot --gui
+  ooonana-theme-env env
+  ooonana-theme-env toggle
+USAGE
+}
+
+usage() {
+  usage_main
+}
+
+cmd_help() {
+  topic="${1:-}"
+  case "$topic" in
+    ""|main|overview) usage_main ;;
+    packages|pkg|package) usage_packages ;;
+    get|install) usage_get ;;
+    upgrade) usage_upgrade ;;
+    remove|purge|uninstall) usage_remove ;;
+    fix|repair) usage_upgrade ;;
+    repo|repos|sources) usage_repo_help ;;
+    ai|agent|agents) usage_ai_help ;;
+    ui|gui|i3|theme|desktop) usage_ui_help ;;
+    all)
+      usage_main
+      printf '\n'
+      usage_packages
+      printf '\n'
+      usage_ai_help
+      printf '\n'
+      usage_ui_help
+      ;;
+    *) die "unknown help topic: $topic" ;;
+  esac
 }
 
 have() {
@@ -1489,7 +1693,7 @@ main() {
     ai)
       cmd_ai "$@"
       ;;
-    help|--help|-h) usage ;;
+    help|--help|-h) cmd_help "$@" ;;
     *) usage; exit 1 ;;
   esac
 }

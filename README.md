@@ -233,6 +233,18 @@ ooonana purge nano             # remove files, marker, and Ooonana config dirs
 ooonana fix nano --reinstall   # resync repo and reinstall package
 ```
 
+Help is split by task so new users do not have to read one huge page:
+
+```bash
+ooonana help packages
+ooonana help get
+ooonana help upgrade
+ooonana help remove
+ooonana help repo
+ooonana help ai
+ooonana help ui
+```
+
 `ooonana get` installs from Ooonana repos only. To bring an Alpine package into Ooonana, build or publish an Ooonana repo first with `ooonana repo build` or `scripts/build-package-repo.sh`.
 
 Package metadata lives inside Ooonana:
@@ -418,11 +430,13 @@ The wizard opens in a themed xterm under i3, walks disk picker, user/password, h
 Default full-i3 UI is dark: black background, orange text/cursor. The old sunset look is light mode:
 
 ```bash
+ooonana help ui
+ooonana-theme-env toggle
 OOONANA_THEME=light ooonana-gui-installer
 OOONANA_THEME=light ooonana setup --first-boot --gui
 ```
 
-The installer persists the chosen theme in `/etc/ooonana/theme`; i3 reads it through `ooonana-theme-env` on boot.
+The installer persists the chosen theme in `/etc/ooonana/theme`; i3 reads it through `ooonana-theme-env` on boot. Inside i3, `Mod+Shift+T` toggles dark/light, `Mod+Shift+A` opens the Ooonana AI app, and `Mod+Shift+I` opens the installer.
 
 VMware note:
 

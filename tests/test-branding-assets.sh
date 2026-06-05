@@ -46,7 +46,9 @@ assert_contains "$logo" '  /  |     \______/     | \'
 assert_contains "$wallpaper" 'viewBox="0 0 1920 1080"'
 assert_contains "$wallpaper" "Ooonana OS"
 assert_contains "$wallpaper" "ooonana-wallpaper"
+assert_contains "$wallpaper" 'id="ooonana-horizon"'
 assert_contains "$wallpaper" "ooonana-ascii"
+assert_contains "$wallpaper" "default dark mode"
 assert_contains "$wallpaper" "#ffb21a"
 assert_contains "$wallpaper" '      __________________'
 assert_contains "$wallpaper" '  /  |     \______/     | \'
@@ -54,6 +56,7 @@ assert_contains "$config" '# i3 config file (v4)'
 assert_contains "$config" 'set $mod Mod4'
 assert_contains "$config" 'bindsym $mod+Return exec ooonana-theme-env xterm'
 assert_contains "$config" 'bindsym $mod+Shift+a exec ooonana-ai-app'
+assert_contains "$config" 'bindsym $mod+Shift+t exec ooonana-theme-env toggle'
 assert_contains "$config" 'exec_always --no-startup-id ooonana-theme-env apply'
 
 printf 'ok branding-assets\n'

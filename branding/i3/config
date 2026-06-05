@@ -9,6 +9,7 @@ bindsym $mod+Return exec ooonana-theme-env xterm
 bindsym $mod+d exec dmenu_run
 bindsym $mod+Shift+a exec ooonana-ai-app
 bindsym $mod+Shift+i exec ooonana-gui-installer
+bindsym $mod+Shift+t exec ooonana-theme-env toggle
 bindsym $mod+Shift+r restart
 bindsym $mod+Shift+q kill
 bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'Exit Ooonana i3?' -b 'Exit' 'i3-msg exit'"
@@ -28,12 +29,20 @@ bindsym $mod+s layout stacking
 bindsym $mod+w layout tabbed
 bindsym $mod+e layout toggle split
 
+client.focused #ffb21a #1d1207 #fff0c7 #ffb21a #ffb21a
+client.unfocused #1d1207 #050505 #ffd37a #1d1207 #1d1207
+client.focused_inactive #281604 #0b1012 #ffd37a #281604 #281604
+client.urgent #ff4d2e #281604 #fff0c7 #ff4d2e #ff4d2e
+
 bar {
     status_command i3status
     colors {
         background #0b1012
         statusline #ffb21a
+        separator #ffb21a
         focused_workspace #ffb21a #281604 #fff0c7
+        active_workspace #281604 #1d1207 #ffd37a
         inactive_workspace #1d1207 #1d1207 #ffd37a
+        urgent_workspace #ff4d2e #281604 #fff0c7
     }
 }

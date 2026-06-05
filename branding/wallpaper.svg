@@ -1,15 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc">
   <title id="title">Ooonana OS Wallpaper</title>
-  <desc id="desc">Dark Ooonana OS wallpaper rendered from the project ASCII art.</desc>
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#050505"/>
-      <stop offset="0.64" stop-color="#111111"/>
-      <stop offset="1" stop-color="#1d1207"/>
-    </linearGradient>
-  </defs>
-  <rect id="ooonana-wallpaper" width="1920" height="1080" fill="url(#bg)"/>
-  <rect x="0" y="918" width="1920" height="162" fill="#ffb21a" opacity="0.12"/>
+  <desc id="desc">Default dark mode Ooonana OS wallpaper rendered from the project ASCII art.</desc>
+  <rect id="ooonana-wallpaper" width="1920" height="1080" fill="#050505"/>
+  <rect id="ooonana-horizon" x="0" y="912" width="1920" height="168" fill="#ffb21a" opacity="0.13"/>
+  <rect x="0" y="906" width="1920" height="2" fill="#ffb21a" opacity="0.72"/>
   <g id="ooonana-face" fill="#ffb21a" font-family="monospace" font-size="72" font-weight="700" xml:space="preserve">
     <text class="ooonana-ascii" x="446" y="216">
       <tspan x="446" dy="0">Ooonana OS</tspan>
@@ -22,5 +16,6 @@
       <tspan x="446" dy="108">          |        |</tspan>
     </text>
   </g>
-  <text x="960" y="1012" text-anchor="middle" fill="#ffd37a" font-family="monospace" font-size="32">full i3 edition</text>
+  <text x="960" y="1002" text-anchor="middle" fill="#ffd37a" font-family="monospace" font-size="32">full i3 edition</text>
+  <text x="960" y="1044" text-anchor="middle" fill="#ffb21a" font-family="monospace" font-size="24">default dark mode</text>
 </svg>

@@ -33,8 +33,12 @@ assert_contains "$builder" "Fallback shell"
 assert_contains "$builder" "Press Enter to reboot"
 assert_contains "$builder" "/var/log/ooonana-install-wizard.log"
 assert_contains "$builder" "/usr/sbin/ooonana-install"
+assert_contains "$builder" "toggle)"
 assert_contains "$i3_config" 'bindsym $mod+Shift+i exec ooonana-gui-installer'
 assert_contains "$i3_config" 'bindsym $mod+Shift+a exec ooonana-ai-app'
+assert_contains "$i3_config" 'bindsym $mod+Shift+t exec ooonana-theme-env toggle'
+assert_contains "$i3_config" "client.focused"
+assert_contains "$i3_config" "separator #ffb21a"
 assert_contains "$full_test" "ooonana-gui-installer"
 assert_contains "$full_test" "ooonana-ai.desktop"
 

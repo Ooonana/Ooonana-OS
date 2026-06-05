@@ -98,6 +98,9 @@ set -eu
 
 load_theme() {
   theme="${OOONANA_THEME:-}"
+  if [ -z "$theme" ] && [ -n "${HOME:-}" ] && [ -f "$HOME/.config/ooonana/theme" ]; then
+    IFS= read -r theme <"$HOME/.config/ooonana/theme" || theme=""
+  fi
   if [ -z "$theme" ] && [ -f /etc/ooonana/theme ]; then
     IFS= read -r theme </etc/ooonana/theme || theme=""
   fi
@@ -120,6 +123,17 @@ load_theme() {
 
 load_theme
 
+write_theme() {
+  new_theme="$1"
+  if [ "$(id -u 2>/dev/null || echo 1)" = "0" ]; then
+    mkdir -p /etc/ooonana
+    printf '%s\n' "$new_theme" >/etc/ooonana/theme
+  else
+    mkdir -p "${HOME:-/tmp}/.config/ooonana"
+    printf '%s\n' "$new_theme" >"${HOME:-/tmp}/.config/ooonana/theme"
+  fi
+}
+
 case "${1:-env}" in
   env)
     printf 'OOONANA_THEME="%s"\n' "$OOONANA_THEME"
@@ -133,12 +147,19 @@ case "${1:-env}" in
       feh --bg-fill /usr/share/ooonana/wallpapers/ooonana-wallpaper.png || true
     fi
     ;;
+  toggle)
+    case "$OOONANA_THEME" in
+      dark) write_theme light ;;
+      *) write_theme dark ;;
+    esac
+    exec "$0" apply
+    ;;
   xterm)
     shift
     exec xterm -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR" "$@"
     ;;
   *)
-    echo "usage: ooonana-theme-env [env|apply|xterm]" >&2
+    echo "usage: ooonana-theme-env [env|apply|toggle|xterm]" >&2
     exit 1
     ;;
 esac
