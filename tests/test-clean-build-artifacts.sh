@@ -42,6 +42,7 @@ touch \
   "$work/ooonana-scratch.iso" \
   "$work/ooonana-full-i3.iso" \
   "$work/ooonana-full-i3-smoke.iso" \
+  "$work/ooonana-full-i3-live-smoke.iso" \
   "$work/ooonana-full-i3-live-initramfs.cpio.gz" \
   "$work/ooonana-full-i3-disk.raw" \
   "$work/ooonana-full-i3-rootfs.tar.gz" \
@@ -72,6 +73,7 @@ bash "$SCRIPT" --work-dir "$work" --keep-source --yes >/dev/null
 [[ ! -e "$work/full-i3-iso-tree" ]] || fail "full-i3 ISO tree not removed"
 [[ ! -e "$work/ooonana-full-i3.iso" ]] || fail "full-i3 iso not removed"
 [[ ! -e "$work/ooonana-full-i3-smoke.iso" ]] || fail "full-i3 smoke iso not removed"
+[[ ! -e "$work/ooonana-full-i3-live-smoke.iso" ]] || fail "full-i3 live smoke iso not removed"
 [[ ! -e "$work/ooonana-full-i3-live-initramfs.cpio.gz" ]] || fail "full-i3 live initramfs not removed"
 [[ ! -e "$work/ooonana-full-i3-disk.raw" ]] || fail "full-i3 disk not removed"
 [[ ! -e "$work/ooonana-full-i3-rootfs.tar.gz" ]] || fail "full-i3 tarball not removed"

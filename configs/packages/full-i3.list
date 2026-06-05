@@ -8,6 +8,10 @@ i3status
 dmenu
 feh
 xterm
+xsetroot
+xinput
+xf86-input-libinput
+xf86-input-evdev
 coreutils
 parted
 grub-bios

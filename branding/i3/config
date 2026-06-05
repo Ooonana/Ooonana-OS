@@ -7,6 +7,7 @@ exec --no-startup-id xsetroot -name "Ooonana OS"
 
 bindsym $mod+Return exec ooonana-theme-env xterm
 bindsym $mod+d exec dmenu_run
+bindsym $mod+Shift+a exec ooonana-ai-app
 bindsym $mod+Shift+i exec ooonana-gui-installer
 bindsym $mod+Shift+r restart
 bindsym $mod+Shift+q kill

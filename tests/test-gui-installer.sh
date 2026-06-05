@@ -34,6 +34,8 @@ assert_contains "$builder" "Press Enter to reboot"
 assert_contains "$builder" "/var/log/ooonana-install-wizard.log"
 assert_contains "$builder" "/usr/sbin/ooonana-install"
 assert_contains "$i3_config" 'bindsym $mod+Shift+i exec ooonana-gui-installer'
+assert_contains "$i3_config" 'bindsym $mod+Shift+a exec ooonana-ai-app'
 assert_contains "$full_test" "ooonana-gui-installer"
+assert_contains "$full_test" "ooonana-ai.desktop"
 
 printf 'ok gui-installer\n'

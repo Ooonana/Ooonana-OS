@@ -38,20 +38,22 @@ config="$(<"$i3_config")"
 assert_contains "$logo" "<svg"
 assert_contains "$logo" "Ooonana OS"
 assert_contains "$logo" "ooonana-face"
+assert_contains "$logo" "ooonana-ascii"
 assert_contains "$logo" "#ffb21a"
-assert_contains "$logo" 'd="M172 154h-38L84 208"'
-assert_contains "$logo" 'd="M468 154h38l50 54"'
-[[ "$logo" != *'M172 154h-38c'* ]] || fail "left arm must be straight"
-[[ "$logo" != *'M468 154h38c'* ]] || fail "right arm must be straight"
+assert_contains "$logo" '      __________________'
+assert_contains "$logo" '  /  |     \______/     | \'
+[[ "$logo" != *'<path'* ]] || fail "logo must be ASCII rendered, not vector face"
 assert_contains "$wallpaper" 'viewBox="0 0 1920 1080"'
 assert_contains "$wallpaper" "Ooonana OS"
 assert_contains "$wallpaper" "ooonana-wallpaper"
+assert_contains "$wallpaper" "ooonana-ascii"
 assert_contains "$wallpaper" "#ffb21a"
-assert_contains "$wallpaper" 'd="M172 154h-38L84 208"'
-assert_contains "$wallpaper" 'd="M468 154h38l50 54"'
+assert_contains "$wallpaper" '      __________________'
+assert_contains "$wallpaper" '  /  |     \______/     | \'
 assert_contains "$config" '# i3 config file (v4)'
 assert_contains "$config" 'set $mod Mod4'
 assert_contains "$config" 'bindsym $mod+Return exec ooonana-theme-env xterm'
+assert_contains "$config" 'bindsym $mod+Shift+a exec ooonana-ai-app'
 assert_contains "$config" 'exec_always --no-startup-id ooonana-theme-env apply'
 
 printf 'ok branding-assets\n'

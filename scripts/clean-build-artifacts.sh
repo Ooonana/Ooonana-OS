@@ -109,6 +109,7 @@ main() {
     ooonana-full-i3-disk.raw
     ooonana-full-i3.iso
     ooonana-full-i3-smoke.iso
+    ooonana-full-i3-live-smoke.iso
     ooonana-installer-created.raw
     qemu-*.raw
     qemu-iso-install-target.raw

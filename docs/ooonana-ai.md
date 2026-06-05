@@ -5,6 +5,7 @@ Ooonana AI is the terminal assistant for Ooonana. It is currently a standalone O
 ## What It Does
 
 - Runs as `ooonana ai ...` or `ooonana-ai ...`
+- Opens as a full-i3 terminal app through `ooonana-ai-app`
 - Uses NVIDIA NIM's OpenAI-compatible chat completions API
 - Uses Google Gemini's `generateContent` and `streamGenerateContent` REST API
 - Reads `NVIDIA_API_KEY`, `NVIDIA_NIM_API_KEY`, `GEMINI_API_KEY`, or `GOOGLE_API_KEY`
@@ -26,6 +27,7 @@ ooonana-ai ask --model code "who are you?"
 ooonana-ai chat
 ooonana-ai history
 ooonana-ai agents
+ooonana-ai-app
 ```
 
 Use mock mode before adding an API key:
@@ -250,6 +252,7 @@ Useful chat commands:
 Direct alias:
 
 ```bash
+ooonana-ai-app
 ooonana-ai help
 ooonana-ai provider
 ooonana-ai provider set gemini
@@ -292,6 +295,14 @@ ooonana-ai task add TEXT   records a CLI task
 ooonana-ai audit           shows permissioned action log
 ooonana-ai chat            explicitly opens chat
 ooonana-ai status          shows provider/UI status
+```
+
+Full-i3 app launcher:
+
+```text
+ooonana-ai-app             opens a themed xterm for Ooonana AI
+Mod+Shift+a                i3 shortcut
+/usr/share/applications/ooonana-ai.desktop
 ```
 
 ## History And Rewind

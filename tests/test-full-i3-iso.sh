@@ -35,6 +35,7 @@ assert_contains "$help" "--disk-image"
 assert_contains "$help" "--live-initramfs"
 assert_contains "$help" "--iso"
 assert_contains "$help" "--install-target"
+assert_contains "$help" "--live-smoke"
 assert_contains "$help" "--uefi"
 
 tmp="$(mktemp -d)"
@@ -109,5 +110,22 @@ assert_contains "$cfg" "initrd /boot/live-initramfs.cpio.gz"
 assert_contains "$cfg" "initrd /boot/install-initramfs.cpio.gz"
 assert_contains "$cfg" "console=tty0 console=ttyS0"
 assert_contains "$cfg" "ooonana.smoke=1"
+
+PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
+  --work-dir "$tmp/build" \
+  --kernel "$tmp/vmlinuz" \
+  --initramfs "$tmp/initramfs.cpio.gz" \
+  --live-initramfs "$tmp/live-initramfs.cpio.gz" \
+  --disk-image "$tmp/full.raw" \
+  --iso "$tmp/ooonana-full-i3-live-smoke.iso" \
+  --smoke \
+  --live-smoke \
+  --force >/dev/null
+
+live_smoke_cfg="$(<"$tmp/build/full-i3-iso-tree/boot/grub/grub.cfg")"
+assert_contains "$live_smoke_cfg" "set default=0"
+assert_contains "$live_smoke_cfg" "ooonana.live=1"
+assert_contains "$live_smoke_cfg" "ooonana.smoke=1 ooonana.gui-smoke=1"
+[[ "$live_smoke_cfg" != *"ooonana.install=1"*"ooonana.smoke=1"* ]] || fail "live smoke must not auto-install"
 
 printf 'ok full-i3-iso\n'

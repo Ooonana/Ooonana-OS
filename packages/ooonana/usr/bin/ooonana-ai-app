@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+
+launcher="ooonana-ai status; printf '\n'; printf 'Commands: ooonana-ai chat | ooonana-ai ask TEXT | ooonana-ai tools\n'; printf '\n'; if command -v python3 >/dev/null 2>&1; then ooonana-ai chat; else printf 'python3 missing for chat. Shell fallback stays open.\n'; exec /bin/sh; fi"
+
+if command -v ooonana-theme-env >/dev/null 2>&1 && command -v xterm >/dev/null 2>&1; then
+  exec ooonana-theme-env xterm -title "Ooonana AI" -e sh -lc "$launcher"
+fi
+
+if command -v xterm >/dev/null 2>&1; then
+  exec xterm -title "Ooonana AI" -e sh -lc "$launcher"
+fi
+
+exec sh -lc "$launcher"

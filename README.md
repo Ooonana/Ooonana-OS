@@ -112,24 +112,24 @@ Working now:
 - GRUB raw disk boots in QEMU
 - Installer ISO writes Ooonana to blank disk
 - Installer ISO opens a fallback shell on install failure or cancel
-- Installer has a serial-safe xterm UI with logo, disk picker, user/password, hostname, theme, progress, and reboot prompt
+- Installer has a serial-safe xterm UI with logo, disk picker, user/password, hostname, theme, cloud repo picker, progress, logs, fail shell, and reboot prompt
 - Installed disk boots in QEMU
 - `ooonana-install` can partition a raw/whole disk, format ext4, copy rootfs, install kernel, write GRUB, and persist user, hostname, and theme
 - Generic `ooonana-rootfs.tar.gz` can be unpacked for chroot/container-style use
 - Minimal and full-i3 WSL distro exports can be imported
-- `ooonana` package manager has repo index, checksums, install, remove, upgrade, files, verify
+- `ooonana` package manager has repo index, checksums, install, remove, purge, upgrade, fix, files, verify
 - `ooonana update` can sync local and HTTP package repos into cache
 - Alpine `.apk` packages can be imported into Ooonana `.pkg` repos
-- Full-i3 branding assets, package profiles, package-installed rootfs, boot disk, live/install ISO, GUI installer wizard, and real QEMU boot proof exist as a separate edition path
+- Full-i3 branding assets, package profiles, input drivers, package-installed rootfs, boot disk, live/install ISO, GUI installer wizard, AI desktop launcher, and real QEMU boot proof exist as a separate edition path
 - First-boot setup can create a user, prompt for password, write basic network config, and add a cloud package repo
 - `ooonana-ai` supports NVIDIA NIM, Google Gemini, tools, tasks, audit, and shell fallback for scratch WSL
 
 Next work:
 
-- GUI installer polish inside live desktop
+- Better graphical installer layout inside live desktop
 - Full ISO export/install polish for VMware and other hypervisors
 - More first-party packages
-- Users, networking, services, security defaults
+- Service manager, login defaults, security hardening
 
 ## Install And Test
 
@@ -211,8 +211,29 @@ ooonana files ai
 ooonana verify ai
 ooonana upgrade --dry-run
 ooonana remove ai
+ooonana purge ai
+ooonana fix ai --reinstall
 ooonana repo index /usr/lib/ooonana/repo
 ```
+
+Install package flow:
+
+```bash
+ooonana update                 # sync builtin and cloud repo indexes
+ooonana search nano            # find package
+ooonana show nano              # inspect metadata, deps, archive
+ooonana get nano --dry-run     # preview install
+ooonana get nano               # install package and deps
+ooonana files nano             # list owned files
+ooonana verify nano            # check owned files still exist
+ooonana upgrade nano           # upgrade one package
+ooonana upgrade                # upgrade all installed packages
+ooonana remove nano            # remove files and installed marker
+ooonana purge nano             # remove files, marker, and Ooonana config dirs
+ooonana fix nano --reinstall   # resync repo and reinstall package
+```
+
+`ooonana get` installs from Ooonana repos only. To bring an Alpine package into Ooonana, build or publish an Ooonana repo first with `ooonana repo build` or `scripts/build-package-repo.sh`.
 
 Package metadata lives inside Ooonana:
 
@@ -301,7 +322,7 @@ minimal   ooonana-scratch.iso, ooonana-rootfs.tar.gz, ooonana-wsl-rootfs.tar.gz
 full-i3   ooonana-full-i3.iso, ooonana-full-i3-disk.raw, ooonana-full-i3-rootfs.tar.gz, ooonana-full-i3-wsl-rootfs.tar.gz
 ```
 
-The full-i3 path adds branding, i3 config, package automation, live desktop, GUI installer tools, and a package-installed rootfs. It does not replace the minimal release.
+The full-i3 path adds branding, i3 config, X input drivers, package automation, live desktop, GUI installer tools, Ooonana AI app launcher, and a package-installed rootfs. It does not replace the minimal release.
 The full-i3 ISO boots live i3 by default. Its second GRUB entry runs the serial-safe installer. From the live desktop, launch `ooonana-gui-installer` to install through the graphical wizard.
 
 Build full-i3 package repo locally:
@@ -359,12 +380,17 @@ Headless GUI-capable QEMU smoke path:
 ```bash
 bash scripts/build-full-i3-disk.sh --smoke --gui-smoke --force
 bash scripts/build-full-i3-live-initramfs.sh --force
-bash scripts/build-full-i3-iso.sh --smoke --force
+bash scripts/build-full-i3-iso.sh --smoke --live-smoke \
+  --iso /var/tmp/ooonana-os/build/ooonana-full-i3-live-smoke.iso \
+  --force
 bash scripts/run-qemu.sh \
   --disk-boot \
   --image /var/tmp/ooonana-os/build/ooonana-full-i3-disk.raw \
   --smoke \
   --vnc :7
+bash scripts/run-qemu.sh \
+  --iso /var/tmp/ooonana-os/build/ooonana-full-i3-live-smoke.iso \
+  --smoke
 ```
 
 Current full-i3 release proof files:
@@ -460,6 +486,7 @@ start-ooonana-i3
 Ooonana AI is CLI-first. It can run as `ooonana ai ...` or direct `ooonana-ai ...`.
 
 ```bash
+ooonana-ai-app
 ooonana ai setup
 ooonana ai doctor
 ooonana ai status
@@ -477,6 +504,14 @@ ooonana ai audit
 ooonana ai ask "what system am I in?"
 ooonana-ai --model code "write a shell script"
 ooonana-ai chat
+```
+
+Full-i3 includes an Ooonana AI app launcher:
+
+```text
+/usr/bin/ooonana-ai-app
+/usr/share/applications/ooonana-ai.desktop
+i3 shortcut: Mod+Shift+a
 ```
 
 Config:

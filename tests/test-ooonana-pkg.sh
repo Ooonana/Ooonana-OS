@@ -59,6 +59,9 @@ assert_contains "$help" "ooonana repo index [PATH]"
 assert_contains "$help" "ooonana repo build [options] [PACKAGE...]"
 assert_contains "$help" "ooonana sources"
 assert_contains "$help" "ooonana remove PACKAGE"
+assert_contains "$help" "ooonana purge PACKAGE"
+assert_contains "$help" "ooonana fix [PACKAGE...]"
+assert_contains "$help" "Examples:"
 assert_contains "$help" "ooonana me"
 assert_contains "$help" "ooonana setup"
 assert_contains "$help" "ooonana wsl [doctor|status]"
@@ -144,6 +147,18 @@ assert_contains "$repeat" "already installed ai"
 remove="$("$CLI" remove ai)"
 assert_contains "$remove" "removed ai"
 assert_not_contains "$("$CLI" list --installed)" "ai"
+
+purge_root="$tmp/purge-root"
+mkdir -p "$purge_root/etc/ooonana/packages/ai" "$purge_root/var/lib/ooonana/packages/config/ai"
+OOONANA_ROOT="$purge_root" "$CLI" get ai >/dev/null
+purge_dry="$(OOONANA_ROOT="$purge_root" "$CLI" purge ai --dry-run)"
+assert_contains "$purge_dry" "would purge ai"
+assert_contains "$purge_dry" "would purge config ai"
+purge_run="$(OOONANA_ROOT="$purge_root" "$CLI" purge ai)"
+assert_contains "$purge_run" "purged config ai"
+assert_contains "$purge_run" "purged ai"
+[[ ! -e "$purge_root/etc/ooonana/packages/ai" ]] || fail "purge left etc config"
+[[ ! -e "$purge_root/var/lib/ooonana/packages/config/ai" ]] || fail "purge left state config"
 
 missing="$("$CLI" get missing-package 2>&1 || true)"
 assert_contains "$missing" "unknown package: missing-package"
@@ -462,6 +477,24 @@ archive_verify_bad="$(OOONANA_REPO_DIR="$archive_repo" \
   OOONANA_ROOT="$archive_root" \
   "$CLI" verify hello 2>&1 || true)"
 assert_contains "$archive_verify_bad" "missing /usr/bin/hello-ooonana"
+
+archive_fix_dry="$(OOONANA_REPO_DIR="$archive_repo" \
+  OOONANA_STATE_DIR="$tmp/archive-state" \
+  OOONANA_CACHE_DIR="$tmp/archive-cache" \
+  OOONANA_ROOT="$archive_root" \
+  "$CLI" fix hello --dry-run 2>&1)"
+assert_contains "$archive_fix_dry" "would update repos"
+assert_contains "$archive_fix_dry" "missing /usr/bin/hello-ooonana"
+assert_contains "$archive_fix_dry" "would reinstall hello"
+
+archive_fix="$(OOONANA_REPO_DIR="$archive_repo" \
+  OOONANA_STATE_DIR="$tmp/archive-state" \
+  OOONANA_CACHE_DIR="$tmp/archive-cache" \
+  OOONANA_ROOT="$archive_root" \
+  "$CLI" fix hello 2>&1)"
+assert_contains "$archive_fix" "ooonana repo: synced"
+assert_contains "$archive_fix" "fixed hello"
+[[ -x "$archive_root/usr/bin/hello-ooonana" ]] || fail "fix did not reinstall executable"
 
 archive_remove="$(OOONANA_REPO_DIR="$archive_repo" \
   OOONANA_STATE_DIR="$tmp/archive-state" \

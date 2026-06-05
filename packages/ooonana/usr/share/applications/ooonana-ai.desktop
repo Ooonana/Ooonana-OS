@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Ooonana AI
+Comment=Open Ooonana AI terminal app
+Exec=ooonana-ai-app
+Terminal=false
+Categories=Utility;System;

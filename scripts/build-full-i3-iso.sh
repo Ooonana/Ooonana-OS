@@ -15,6 +15,7 @@ ISO="$WORK_DIR/ooonana-full-i3.iso"
 VOLUME="OOONANA_FULL_I3"
 INSTALL_TARGET="auto"
 SMOKE=0
+LIVE_SMOKE=0
 FORCE=0
 UEFI_MODE="auto"
 
@@ -37,6 +38,7 @@ Options:
   --volume NAME        ISO volume label (default: OOONANA_FULL_I3)
   --install-target DEV Installer target device, or auto (default: auto)
   --smoke              Add smoke boot kernel argument
+  --live-smoke         Smoke-test live i3 path instead of installer path
   --uefi               Require GRUB x86_64 EFI modules for UEFI boot
   --force              Delete existing ISO staging tree and ISO first
   -h, --help           Show help
@@ -55,6 +57,7 @@ while [[ $# -gt 0 ]]; do
     --volume) VOLUME="$2"; shift 2 ;;
     --install-target) INSTALL_TARGET="$2"; shift 2 ;;
     --smoke) SMOKE=1; shift ;;
+    --live-smoke) LIVE_SMOKE=1; shift ;;
     --uefi) UEFI_MODE="on"; shift ;;
     --force) FORCE=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -66,7 +69,9 @@ write_grub_config() {
   local live_append="console=tty0 console=ttyS0 panic=1 rdinit=/init ooonana.live=1 ooonana.edition=full-i3"
   local install_append="console=tty0 console=ttyS0 panic=1 rdinit=/init ooonana.install=1 ooonana.install.target=$INSTALL_TARGET ooonana.install.image=/mnt/install/images/ooonana-full-i3-disk.raw"
   local default_entry=0
-  if [[ "$SMOKE" -eq 1 ]]; then
+  if [[ "$SMOKE" -eq 1 && "$LIVE_SMOKE" -eq 1 ]]; then
+    live_append="$live_append ooonana.smoke=1 ooonana.gui-smoke=1"
+  elif [[ "$SMOKE" -eq 1 ]]; then
     default_entry=1
     install_append="$install_append ooonana.smoke=1"
   fi

@@ -49,12 +49,16 @@ INSTALLED_DIR="$STATE_DIR/installed"
 
 usage() {
   cat <<'USAGE'
+Ooonana command center.
+
 Usage:
   ooonana version
   ooonana me
   ooonana doctor
   ooonana wsl [doctor|status]
   ooonana setup [options]
+
+Packages:
   ooonana update
   ooonana sources
   ooonana list [--installed|--upgradeable]
@@ -67,10 +71,14 @@ Usage:
   ooonana get PACKAGE [--dry-run]
   ooonana install PACKAGE [--dry-run]
   ooonana upgrade [PACKAGE...] [--dry-run]
-  ooonana remove PACKAGE [--dry-run]
+  ooonana remove PACKAGE... [--dry-run]
+  ooonana purge PACKAGE... [--dry-run]
+  ooonana fix [PACKAGE...] [--dry-run] [--reinstall]
   ooonana repo index [PATH]
   ooonana repo build [options] [PACKAGE...]
   ooonana clean
+
+AI:
   ooonana ai setup
   ooonana ai doctor
   ooonana ai config
@@ -91,6 +99,20 @@ Usage:
   ooonana ai sessions
   ooonana ai status
   ooonana ai ping
+
+Examples:
+  ooonana update
+  ooonana search editor
+  ooonana get nano
+  ooonana upgrade --dry-run
+  ooonana fix nano --reinstall
+  ooonana purge nano
+  ooonana repo build --dry-run nano
+
+Paths:
+  repos: /usr/lib/ooonana/repo, /etc/ooonana/sources.d/*.repo
+  state: /var/lib/ooonana/packages
+  cache: /var/cache/ooonana
 USAGE
 }
 
@@ -550,6 +572,11 @@ cmd_doctor() {
 }
 
 cmd_me() {
+  logo_file="$(root_join /usr/share/ooonana/logo.txt)"
+  if [ -f "$logo_file" ]; then
+    cat "$logo_file"
+    return 0
+  fi
   cat <<'LOGO'
 Ooonana OS
       __________________
@@ -774,11 +801,8 @@ cmd_files() {
   done < "$manifest"
 }
 
-cmd_verify() {
-  id="${1:-}"
-  [ -n "$id" ] || die "usage: ooonana verify PACKAGE"
-  shift || true
-  [ "$#" -eq 0 ] || die "usage: ooonana verify PACKAGE"
+verify_pkg_files() {
+  id="$1"
   pkg_installed "$id" || die "package not installed: $id"
   manifest="$(pkg_files_manifest "$id")"
   missing=0
@@ -792,7 +816,15 @@ cmd_verify() {
       fi
     done < "$manifest"
   fi
-  [ "$missing" -eq 0 ] || exit 1
+  [ "$missing" -eq 0 ]
+}
+
+cmd_verify() {
+  id="${1:-}"
+  [ -n "$id" ] || die "usage: ooonana verify PACKAGE"
+  shift || true
+  [ "$#" -eq 0 ] || die "usage: ooonana verify PACKAGE"
+  verify_pkg_files "$id" || exit 1
   printf 'verify ok %s\n' "$id"
 }
 
@@ -923,25 +955,32 @@ cmd_upgrade() {
   done
 }
 
-cmd_remove() {
-  dry_run=0
-  id="${1:-}"
-  [ -n "$id" ] || die "usage: ooonana remove PACKAGE [--dry-run]"
-  shift || true
-  while [ "$#" -gt 0 ]; do
-    case "$1" in
-      --dry-run) dry_run=1 ;;
-      *) die "usage: ooonana remove PACKAGE [--dry-run]" ;;
-    esac
-    shift
-  done
-  load_pkg "$id"
+purge_pkg_config() {
+  id="$1"
+  rm -rf "$(root_join "/etc/ooonana/packages/$id")" "$(root_join "/var/lib/ooonana/packages/config/$id")"
+  printf 'purged config %s\n' "$id"
+}
+
+remove_one_pkg() {
+  id="$1"
+  dry_run="$2"
+  purge="$3"
   if ! pkg_installed "$id"; then
     printf 'not installed %s\n' "$id"
     return 0
   fi
+  if find_pkg_file "$id"; then
+    load_pkg "$id"
+  else
+    load_installed_pkg "$id"
+  fi
   if [ "$dry_run" -eq 1 ]; then
-    printf 'would remove %s\n' "$id"
+    if [ "$purge" -eq 1 ]; then
+      printf 'would purge %s\n' "$id"
+      printf 'would purge config %s\n' "$id"
+    else
+      printf 'would remove %s\n' "$id"
+    fi
     [ -f "$(pkg_files_manifest "$id")" ] && printf 'would remove archive files %s\n' "$id"
     [ -e "$(pkg_hook "$id" remove)" ] && printf 'would run remove hook %s\n' "$id"
     return 0
@@ -949,7 +988,117 @@ cmd_remove() {
   run_pkg_hook "$id" remove
   remove_pkg_archive_files "$id"
   rm -f "$INSTALLED_DIR/$id.pkg"
-  printf 'removed %s\n' "$id"
+  if [ "$purge" -eq 1 ]; then
+    purge_pkg_config "$id"
+    printf 'purged %s\n' "$id"
+  else
+    printf 'removed %s\n' "$id"
+  fi
+}
+
+cmd_remove() {
+  dry_run=0
+  packages=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dry-run) dry_run=1 ;;
+      *) packages="$packages ${1}" ;;
+    esac
+    shift
+  done
+  [ -n "$packages" ] || die "usage: ooonana remove PACKAGE... [--dry-run]"
+  for id in $packages; do
+    remove_one_pkg "$id" "$dry_run" 0
+  done
+}
+
+cmd_purge() {
+  dry_run=0
+  packages=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dry-run) dry_run=1 ;;
+      *) packages="$packages ${1}" ;;
+    esac
+    shift
+  done
+  [ -n "$packages" ] || die "usage: ooonana purge PACKAGE... [--dry-run]"
+  for id in $packages; do
+    remove_one_pkg "$id" "$dry_run" 1
+  done
+}
+
+fix_one_pkg() {
+  id="$1"
+  dry_run="$2"
+  reinstall="$3"
+  if ! pkg_installed "$id"; then
+    if [ "$dry_run" -eq 1 ]; then
+      printf 'would install missing %s\n' "$id"
+    else
+      install_one_pkg "$id" 0
+      printf 'fixed missing %s\n' "$id"
+    fi
+    return 0
+  fi
+
+  broken=0
+  if [ "$reinstall" -eq 1 ]; then
+    broken=1
+  elif ! verify_pkg_files "$id"; then
+    broken=1
+  fi
+
+  if [ "$broken" -eq 0 ]; then
+    printf 'fix ok %s\n' "$id"
+    return 0
+  fi
+
+  if [ "$dry_run" -eq 1 ]; then
+    printf 'would reinstall %s\n' "$id"
+    return 0
+  fi
+
+  load_pkg "$id"
+  remove_pkg_archive_files "$id"
+  rm -f "$INSTALLED_DIR/$id.pkg"
+  install_one_pkg "$id" 0
+  printf 'fixed %s\n' "$id"
+}
+
+cmd_fix() {
+  dry_run=0
+  reinstall=0
+  packages=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dry-run) dry_run=1 ;;
+      --reinstall) reinstall=1 ;;
+      *) packages="$packages ${1}" ;;
+    esac
+    shift
+  done
+
+  ensure_pkg_dirs
+  if [ "$dry_run" -eq 1 ]; then
+    printf 'would update repos\n'
+  else
+    cmd_update
+  fi
+
+  if [ -z "$packages" ]; then
+    for file in "$INSTALLED_DIR"/*.pkg; do
+      [ -f "$file" ] || continue
+      packages="$packages $(basename "$file" .pkg)"
+    done
+  fi
+  if [ -z "$packages" ]; then
+    printf 'fix ok: no packages installed\n'
+    return 0
+  fi
+  for id in $packages; do
+    fix_one_pkg "$id" "$dry_run" "$reinstall"
+  done
 }
 
 cmd_repo() {
@@ -1333,6 +1482,8 @@ main() {
     get|install) cmd_get "$@" ;;
     upgrade) cmd_upgrade "$@" ;;
     remove) cmd_remove "$@" ;;
+    purge) cmd_purge "$@" ;;
+    fix) cmd_fix "$@" ;;
     repo) cmd_repo "$@" ;;
     clean) cmd_clean ;;
     ai)

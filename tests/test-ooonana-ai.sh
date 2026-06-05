@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLI="$ROOT/packages/ooonana/usr/bin/ooonana"
 AI_WRAPPER="$ROOT/packages/ooonana/usr/bin/ooonana-ai"
+AI_DESKTOP_APP="$ROOT/packages/ooonana/usr/bin/ooonana-ai-app"
+AI_DESKTOP_FILE="$ROOT/packages/ooonana/usr/share/applications/ooonana-ai.desktop"
 AI_APP="$ROOT/packages/ooonana/usr/lib/ooonana/ai/ooonana_ai.py"
 
 fail() {
@@ -25,7 +27,11 @@ assert_not_contains() {
 
 [[ -x "$CLI" ]] || fail "missing executable CLI"
 [[ -x "$AI_WRAPPER" ]] || fail "missing executable AI wrapper"
+[[ -x "$AI_DESKTOP_APP" ]] || fail "missing executable AI desktop app"
+[[ -f "$AI_DESKTOP_FILE" ]] || fail "missing AI desktop file"
 [[ -f "$AI_APP" ]] || fail "missing AI app"
+assert_contains "$(<"$AI_DESKTOP_APP")" 'xterm -title "Ooonana AI"'
+assert_contains "$(<"$AI_DESKTOP_FILE")" "Exec=ooonana-ai-app"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
