@@ -105,6 +105,7 @@ main() {
     full-i3-iso-tree
     ooonana-full-i3-rootfs.tar.gz
     ooonana-full-i3-wsl-rootfs.tar.gz
+    ooonana-full-i3-live-initramfs.cpio.gz
     ooonana-full-i3-disk.raw
     ooonana-full-i3.iso
     ooonana-installer-created.raw

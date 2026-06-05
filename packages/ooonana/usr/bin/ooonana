@@ -1094,9 +1094,30 @@ system     show kernel, host, cwd, and storage basics
 processes  list running processes
 packages   list Ooonana packages
 files      list files under a path
+desktop    show display, i3, xterm, and opener hints
 activity   show recent local activity hints
 shell      guarded shell command, blocks unless --yes
 TOOLS
+}
+
+cmd_ai_desktop() {
+  printf '[desktop]\n'
+  printf 'display: %s\n' "${DISPLAY:-missing}"
+  printf 'wayland: %s\n' "${WAYLAND_DISPLAY:-missing}"
+  printf 'desktop_session: %s\n' "${XDG_CURRENT_DESKTOP:-${DESKTOP_SESSION:-unknown}}"
+  for cmd in i3 i3-msg xterm xsetroot feh xdg-open grim import; do
+    if have "$cmd"; then
+      printf '%s: present\n' "$cmd"
+    else
+      printf '%s: missing\n' "$cmd"
+    fi
+  done
+  if have i3-msg; then
+    sample="$(i3-msg -t get_tree 2>/dev/null | head -c 1200 || true)"
+    if [ -n "$sample" ]; then
+      printf '\n[i3 tree sample]\n%s\n' "$sample"
+    fi
+  fi
 }
 
 cmd_ai_status() {
@@ -1165,6 +1186,7 @@ cmd_ai_tool() {
     processes) ps ;;
     packages) cmd_list ;;
     files) ls -la "${1:-.}" ;;
+    desktop) cmd_ai_desktop ;;
     activity) cmd_ai_agent activity ;;
     shell)
       if [ "${1:-}" != "--yes" ]; then

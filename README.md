@@ -34,7 +34,7 @@ Current release artifacts live in:
 /var/tmp/ooonana-os/release
 ```
 
-Main full-i3 installer ISO:
+Main full-i3 live/install ISO:
 
 ```text
 /var/tmp/ooonana-os/release/ooonana-full-i3.iso
@@ -49,10 +49,10 @@ Minimal scratch installer ISO:
 Live environment status:
 
 ```text
-current ISOs     installer-only
-live desktop ISO not built yet
-ISO installer UI text/serial prompt
-installed full-i3 GUI installer available inside full-i3 system
+ooonana-full-i3.iso    live desktop by default, install menu second
+ooonana-scratch.iso    minimal installer-only
+full-i3 live desktop   i3, wallpaper, GUI installer launcher
+full-i3 install menu   text/serial-safe image installer
 ```
 
 Release files:
@@ -64,7 +64,7 @@ ooonana-rootfs.tar.gz              minimal chroot/container rootfs tarball
 ooonana-wsl-rootfs.tar.gz          minimal WSL import rootfs
 ooonana-full-i3-rootfs.tar.gz      full-i3 package-installed rootfs tarball
 ooonana-full-i3-disk.raw           full-i3 installed raw disk image
-ooonana-full-i3.iso                full-i3 installer-only ISO
+ooonana-full-i3.iso                full-i3 live/install ISO
 ooonana-full-i3-wsl-rootfs.tar.gz  full-i3 WSL import rootfs
 vmlinuz-ooonana                    Ooonana Linux kernel
 SHA256SUMS                         checksums for release artifacts
@@ -74,8 +74,9 @@ qemu-disk-boot.log                 GRUB disk QEMU boot proof
 qemu-installer.log                 installer ISO QEMU proof
 qemu-installed-boot.log            installed disk QEMU proof
 qemu-full-i3-gui-smoke.log         full-i3 Xorg/i3 serial proof
-qemu-full-i3-installer.log         full-i3 installer ISO proof
-qemu-full-i3-installed-boot.log    full-i3 installed disk boot proof
+qemu-full-i3-live.log              full-i3 live ISO boot proof
+qemu-full-i3-installer-vmware.log  full-i3 VMware-style installer proof
+qemu-full-i3-installed-sata.log    full-i3 VMware-style installed boot proof
 qemu-full-i3-vnc.log               full-i3 VNC boot proof
 qemu-full-i3-vnc.png               full-i3 VNC screenshot proof
 ```
@@ -117,14 +118,14 @@ Working now:
 - `ooonana` package manager has repo index, checksums, install, remove, upgrade, files, verify
 - `ooonana update` can sync local and HTTP package repos into cache
 - Alpine `.apk` packages can be imported into Ooonana `.pkg` repos
-- Full-i3 branding assets, package profiles, package-installed rootfs, boot disk, installer ISO, GUI installer wizard, and real QEMU boot proof exist as a separate edition path
+- Full-i3 branding assets, package profiles, package-installed rootfs, boot disk, live/install ISO, GUI installer wizard, and real QEMU boot proof exist as a separate edition path
 - First-boot setup can create a user, prompt for password, write basic network config, and add a cloud package repo
 - `ooonana-ai` supports NVIDIA NIM, Google Gemini, tools, tasks, audit, and shell fallback for scratch WSL
 
 Next work:
 
-- Full live desktop ISO
-- GUI installer launched from ISO boot environment
+- GUI installer polish inside live desktop
+- Full ISO export/install polish for VMware and other hypervisors
 - More first-party packages
 - Users, networking, services, security defaults
 
@@ -165,7 +166,7 @@ sudo mount --rbind /dev /tmp/ooonana-rootfs/dev
 sudo chroot /tmp/ooonana-rootfs /bin/sh
 ```
 
-Import minimal WSL rootfs:
+Import minimal WSL rootfs, optional:
 
 ```bash
 bash scripts/install-wsl-distro.sh --distro Ooonana --force \
@@ -174,7 +175,7 @@ wsl.exe -d Ooonana -- /usr/bin/ooonana me
 wsl.exe -d Ooonana -- /usr/bin/ooonana ai tools
 ```
 
-Import full-i3 WSL rootfs:
+Import full-i3 WSL rootfs, recommended:
 
 ```bash
 bash scripts/install-wsl-distro.sh --distro OoonanaFull --force \
@@ -283,8 +284,8 @@ minimal   ooonana-scratch.iso, ooonana-rootfs.tar.gz, ooonana-wsl-rootfs.tar.gz
 full-i3   ooonana-full-i3.iso, ooonana-full-i3-disk.raw, ooonana-full-i3-rootfs.tar.gz, ooonana-full-i3-wsl-rootfs.tar.gz
 ```
 
-The full-i3 path adds branding, i3 config, package automation, and a package-installed rootfs. It does not replace the minimal release.
-Both installer ISOs are currently installer-only. Full-i3 has GUI tools inside the installed desktop, but the ISO boot installer itself is still text/serial-safe.
+The full-i3 path adds branding, i3 config, package automation, live desktop, GUI installer tools, and a package-installed rootfs. It does not replace the minimal release.
+The full-i3 ISO boots live i3 by default. Its second GRUB entry runs the serial-safe installer. From the live desktop, launch `ooonana-gui-installer` to install through the graphical wizard.
 
 Build full-i3 package repo locally:
 
@@ -309,15 +310,20 @@ Output:
 /var/tmp/ooonana-os/build/ooonana-full-i3-rootfs.tar.gz
 ```
 
-Build full-i3 disk and installer ISO:
+Build full-i3 disk and live/install ISO:
 
 ```bash
 bash scripts/build-full-i3-disk.sh \
   --rootfs /var/tmp/ooonana-os/build/full-i3-rootfs \
   --disk-image /var/tmp/ooonana-os/build/ooonana-full-i3-disk.raw \
   --force
+bash scripts/build-full-i3-live-initramfs.sh \
+  --rootfs /var/tmp/ooonana-os/build/full-i3-rootfs \
+  --initramfs /var/tmp/ooonana-os/build/ooonana-full-i3-live-initramfs.cpio.gz \
+  --force
 bash scripts/build-full-i3-iso.sh \
   --disk-image /var/tmp/ooonana-os/build/ooonana-full-i3-disk.raw \
+  --live-initramfs /var/tmp/ooonana-os/build/ooonana-full-i3-live-initramfs.cpio.gz \
   --iso /var/tmp/ooonana-os/build/ooonana-full-i3.iso \
   --force
 ```
@@ -326,6 +332,7 @@ Headless GUI-capable QEMU smoke path:
 
 ```bash
 bash scripts/build-full-i3-disk.sh --smoke --gui-smoke --force
+bash scripts/build-full-i3-live-initramfs.sh --force
 bash scripts/build-full-i3-iso.sh --smoke --force
 bash scripts/run-qemu.sh \
   --disk-boot \
@@ -338,6 +345,9 @@ Current full-i3 release proof files:
 
 ```text
 /var/tmp/ooonana-os/release/SHA256SUMS.full-i3
+/var/tmp/ooonana-os/release/qemu-full-i3-live.log
+/var/tmp/ooonana-os/release/qemu-full-i3-installer-vmware.log
+/var/tmp/ooonana-os/release/qemu-full-i3-installed-sata.log
 /var/tmp/ooonana-os/release/qemu-full-i3-gui-smoke.log
 /var/tmp/ooonana-os/release/qemu-full-i3-installer.log
 /var/tmp/ooonana-os/release/qemu-full-i3-installed-boot.log
@@ -368,7 +378,7 @@ VMware note:
 No EFI environment detected
 ```
 
-This line is a harmless kernel message when the ISO boots through legacy BIOS mode. The release ISO should not include `ooonana.smoke=1`; smoke ISOs are only for automated QEMU proof and will reboot after markers.
+This line is a harmless kernel message when the ISO boots through legacy BIOS mode. The full-i3 installer now auto-detects `/dev/vd*`, `/dev/sd*`, `/dev/xvd*`, and `/dev/nvme*` targets, then installed GRUB boots by `PARTUUID` instead of hardcoding `/dev/vda1`. The release ISO should not include `ooonana.smoke=1`; smoke ISOs are only for automated QEMU proof and reboot after markers.
 
 Non-interactive installed-disk proof path:
 
@@ -434,6 +444,7 @@ ooonana ai model
 ooonana ai agents
 ooonana ai tools
 ooonana ai tool processes
+ooonana ai tool desktop
 ooonana ai task add "inspect system"
 ooonana ai tasks
 ooonana ai audit
@@ -449,7 +460,7 @@ Config:
 docs/ooonana-ai.env.example
 ```
 
-Minimal WSL does not include `python3` yet. `provider`, `status`, and `tools` still work through shell fallback. Full-i3 WSL carries the full package-installed rootfs; full chat and live provider calls still need `python3` present in that package set.
+Minimal WSL does not include `python3` yet. `provider`, `status`, and `tools` still work through shell fallback. Full-i3 WSL carries the full package-installed rootfs, GUI scripts, wallpaper, and current `ooonana-ai` desktop context tool; full chat and live provider calls still need `python3` present in that package set.
 
 More:
 
@@ -588,6 +599,7 @@ scripts/clean-build-artifacts.sh
 scripts/import-apk-package.sh
 scripts/import-i3-package-set.sh
 scripts/build-full-i3-rootfs.sh
+scripts/build-full-i3-live-initramfs.sh
 scripts/build-full-i3-disk.sh
 scripts/build-full-i3-iso.sh
 scripts/lib/common.sh
@@ -603,6 +615,7 @@ tests/test-package-factory.sh
 tests/test-i3-package-set.sh
 tests/test-branding-assets.sh
 tests/test-full-i3-rootfs.sh
+tests/test-full-i3-live-initramfs.sh
 tests/test-full-i3-disk.sh
 tests/test-full-i3-iso.sh
 tests/test-gui-installer.sh

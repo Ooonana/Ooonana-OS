@@ -394,6 +394,7 @@ Inside chat:
 ## CLI Tools And Tasks
 
 Ooonana applies the Jarvis research as CLI-first system integration, not voice or GUI. Tools default to read-only inspection. Shell execution is permission-gated and audited.
+Full Ooonana adds a desktop read tool for i3/WSLg/Xorg context, so the assistant can see display/session state before helping with GUI work.
 
 List tools:
 
@@ -408,6 +409,7 @@ ooonana-ai tool system
 ooonana-ai tool processes
 ooonana-ai tool packages
 ooonana-ai tool files .
+ooonana-ai tool desktop
 ooonana-ai tool activity
 ```
 

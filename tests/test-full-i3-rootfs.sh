@@ -16,6 +16,8 @@ assert_contains() {
 }
 
 [[ -x "$SCRIPT" ]] || fail "missing executable full-i3 rootfs builder"
+script_src="$(<"$SCRIPT")"
+assert_contains "$script_src" 'cp -a "$ROOT/packages/ooonana/." "$ROOTFS/"'
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT

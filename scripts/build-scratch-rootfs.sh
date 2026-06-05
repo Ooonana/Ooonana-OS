@@ -194,6 +194,32 @@ confirm_install() {
   return 0
 }
 
+smoke_mode() {
+  grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null
+}
+
+install_fail() {
+  echo "OOONANA_INSTALL_FAIL"
+  if smoke_mode; then
+    sync
+    sleep 1
+    reboot -f
+  fi
+  echo "Install failed. Shell open."
+  exec /bin/sh </dev/console >/dev/console 2>&1
+}
+
+install_cancel() {
+  echo "OOONANA_INSTALL_CANCELLED"
+  if smoke_mode; then
+    sync
+    sleep 1
+    reboot -f
+  fi
+  echo "Install cancelled. Shell open."
+  exec /bin/sh </dev/console >/dev/console 2>&1
+}
+
 cmdline_value() {
   key="$1"
   for arg in $(cat /proc/cmdline 2>/dev/null); do
@@ -207,26 +233,34 @@ cmdline_value() {
   return 0
 }
 
+detect_install_target() {
+  for i in 1 2 3 4 5; do
+    for candidate in /dev/vd[a-z] /dev/sd[a-z] /dev/xvd[a-z] /dev/nvme[0-9]n[0-9]; do
+      [ -b "$candidate" ] || continue
+      printf '%s\n' "$candidate"
+      return 0
+    done
+    echo "OOONANA_INSTALL_WAIT"
+    sleep 1
+  done
+  return 1
+}
+
 if grep -q 'ooonana.install=1' /proc/cmdline 2>/dev/null; then
   target="$(cmdline_value 'ooonana.install.target')"
-  target="${target:-/dev/vda}"
+  target="${target:-auto}"
+  if [ "$target" = "auto" ] || [ ! -b "$target" ]; then
+    target="$(detect_install_target || true)"
+  fi
   mkdir -p /mnt/install
   if [ ! -b "$target" ]; then
-    echo "OOONANA_INSTALL_FAIL"
-    sync
-    sleep 1
-    reboot -f
+    install_fail
   fi
   if ! confirm_install "$target"; then
-    sync
-    sleep 1
-    reboot -f
+    install_cancel
   fi
   if ! mount -t iso9660 /dev/sr0 /mnt/install 2>/dev/null; then
-    echo "OOONANA_INSTALL_FAIL"
-    sync
-    sleep 1
-    reboot -f
+    install_fail
   fi
   install_image="$(cmdline_value 'ooonana.install.image')"
   install_image="${install_image:-/mnt/install/images/ooonana-scratch-disk.raw}"
@@ -234,10 +268,7 @@ if grep -q 'ooonana.install=1' /proc/cmdline 2>/dev/null; then
     install_image="/mnt/install/images/ooonana-scratch.ext4"
   fi
   if [ ! -f "$install_image" ]; then
-    echo "OOONANA_INSTALL_FAIL"
-    sync
-    sleep 1
-    reboot -f
+    install_fail
   fi
   echo "Source image: $install_image"
   echo "Writing image to target"

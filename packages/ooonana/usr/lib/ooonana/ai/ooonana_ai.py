@@ -95,6 +95,7 @@ TOOLS = {
     "processes": ("read", "Recent process table for system awareness."),
     "packages": ("read", "Package manager and installed-package hints."),
     "files": ("read", "Directory listing for a target path."),
+    "desktop": ("read", "GUI session, i3, xterm, display, and opener hints for full Ooonana."),
     "activity": ("read", "Recent shell and Ooonana AI history."),
     "shell": ("guarded", "Run a shell command only with --yes and audit log."),
 }
@@ -536,6 +537,18 @@ def package_snapshot() -> str:
     services = run_capture(["sh", "-lc", "systemctl list-units --type=service --state=running --no-pager --no-legend 2>/dev/null | head -n 20"], timeout=2.0)
     if services:
         lines.extend(["", "[running services]", services])
+    return "\n".join(lines)
+
+
+def desktop_snapshot() -> str:
+    lines = ["[desktop]"]
+    lines.append(f"display: {os.environ.get('DISPLAY') or 'missing'}")
+    lines.append(f"wayland: {os.environ.get('WAYLAND_DISPLAY') or 'missing'}")
+    lines.append(f"desktop_session: {os.environ.get('XDG_CURRENT_DESKTOP') or os.environ.get('DESKTOP_SESSION') or 'unknown'}")
+    lines.append(command_status(["i3", "i3-msg", "xterm", "xsetroot", "feh", "xdg-open", "grim", "import"]))
+    windows = run_capture(["sh", "-lc", "i3-msg -t get_tree 2>/dev/null | head -c 1200 || true"], timeout=2.0)
+    if windows:
+        lines.extend(["", "[i3 tree sample]", windows])
     return "\n".join(lines)
 
 
@@ -1177,6 +1190,10 @@ def cmd_tool(args: argparse.Namespace) -> int:
     if name == "packages":
         print(package_snapshot())
         record_audit(args, "tool packages", "package state", "read")
+        return 0
+    if name == "desktop":
+        print(desktop_snapshot())
+        record_audit(args, "tool desktop", "gui session", "read")
         return 0
     if name == "files":
         target = values[0] if values else "."

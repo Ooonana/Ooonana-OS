@@ -80,7 +80,8 @@ wait_for_block() {
 }
 
 kernel_append() {
-  local append="root=/dev/vda1 rw console=tty0 console=ttyS0 panic=1 init=/sbin/init ooonana.edition=full-i3"
+  local root_spec="${1:-PARTUUID=TARGET_PARTUUID}"
+  local append="root=$root_spec rw console=tty0 console=ttyS0 panic=1 init=/sbin/init ooonana.edition=full-i3"
   if [[ "$SMOKE" -eq 1 ]]; then
     append="$append ooonana.smoke=1"
   fi
@@ -92,8 +93,9 @@ kernel_append() {
 
 write_grub_config() {
   local target="$1"
+  local root_spec="$2"
   local append
-  append="$(kernel_append)"
+  append="$(kernel_append "$root_spec")"
   mkdir -p "$target/boot/grub"
   cat > "$target/boot/grub/grub.cfg" <<EOF
 serial --unit=0 --speed=115200
@@ -145,14 +147,14 @@ main() {
     run_cmd mount LOOP_PARTITION "$MOUNT_POINT"
     run_cmd cp -a "$ROOTFS/." "$MOUNT_POINT/"
     run_cmd install -m 0644 "$KERNEL" "$MOUNT_POINT/boot/vmlinuz"
-    printf 'grub.cfg: linux /boot/vmlinuz %s\n' "$(kernel_append)"
+    printf 'grub.cfg: linux /boot/vmlinuz %s\n' "$(kernel_append "PARTUUID=TARGET_PARTUUID")"
     run_cmd grub-install --target=i386-pc --boot-directory="$MOUNT_POINT/boot" --modules="part_msdos ext2" --no-floppy LOOP_DEVICE
     printf 'OOONANA_FULL_I3_DISK_OK\n'
     return 0
   fi
 
   ooonana_reexec_as_root "${ORIGINAL_ARGS[@]}"
-  ooonana_require_commands truncate parted losetup mkfs.ext4 mount umount grub-install cp grep install sync
+  ooonana_require_commands truncate parted losetup mkfs.ext4 mount umount grub-install cp grep install sync blkid
 
   if [[ -e "$DISK_IMAGE" && "$FORCE" -ne 1 ]]; then
     ooonana_die "disk image exists: $DISK_IMAGE (use --force)"
@@ -174,12 +176,14 @@ main() {
   wait_for_block "$part" || ooonana_die "missing loop partition: $part"
 
   mkfs.ext4 -F -L OOONANA_ROOT "$part"
+  partuuid="$(blkid -s PARTUUID -o value "$part" 2>/dev/null || true)"
+  [[ -n "$partuuid" ]] || ooonana_die "missing PARTUUID for $part"
   mount "$part" "$MOUNT_POINT"
   cp -a "$ROOTFS/." "$MOUNT_POINT/"
   mkdir -p "$MOUNT_POINT/boot"
   install -m 0644 "$KERNEL" "$MOUNT_POINT/boot/vmlinuz"
   write_disk_metadata
-  write_grub_config "$MOUNT_POINT"
+  write_grub_config "$MOUNT_POINT" "PARTUUID=$partuuid"
   grub-install --target=i386-pc --boot-directory="$MOUNT_POINT/boot" --modules="part_msdos ext2" --no-floppy "$LOOP_DEV"
   sync
   umount "$MOUNT_POINT"

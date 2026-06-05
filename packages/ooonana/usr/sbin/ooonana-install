@@ -19,6 +19,7 @@ LOOP_DEV=""
 TARGET_PART=""
 INSTALL_DEVICE=""
 TARGET_MODE=""
+TARGET_PARTUUID=""
 
 usage() {
   cat <<'USAGE'
@@ -138,7 +139,8 @@ detect_target_mode() {
 }
 
 kernel_append() {
-  local append="root=/dev/vda1 rw console=tty0 console=ttyS0 panic=1 init=/sbin/init ooonana.edition=full-i3"
+  local root_spec="${1:-PARTUUID=TARGET_PARTUUID}"
+  local append="root=$root_spec rw console=tty0 console=ttyS0 panic=1 init=/sbin/init ooonana.edition=full-i3"
   if [[ "$SMOKE" -eq 1 ]]; then
     append="$append ooonana.smoke=1"
   fi
@@ -150,8 +152,9 @@ kernel_append() {
 
 write_grub_config() {
   local root="$1"
+  local root_spec="$2"
   local append
-  append="$(kernel_append)"
+  append="$(kernel_append "$root_spec")"
   mkdir -p "$root/boot/grub"
   cat > "$root/boot/grub/grub.cfg" <<EOF
 serial --unit=0 --speed=115200
@@ -335,6 +338,13 @@ prepare_target() {
   esac
 
   run_cmd mkfs.ext4 -F -L OOONANA_ROOT "$TARGET_PART"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    TARGET_PARTUUID="TARGET_PARTUUID"
+  elif [[ "$TARGET_MODE" == "disk" ]]; then
+    require_commands blkid
+    TARGET_PARTUUID="$(blkid -s PARTUUID -o value "$TARGET_PART" 2>/dev/null || true)"
+    [[ -n "$TARGET_PARTUUID" ]] || die "missing PARTUUID for $TARGET_PART"
+  fi
   run_cmd mkdir -p "$MOUNT_POINT"
   run_cmd mount "$TARGET_PART" "$MOUNT_POINT"
 }
@@ -354,10 +364,10 @@ install_bootloader() {
 
   install_kernel "$MOUNT_POINT"
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    append="$(kernel_append)"
+    append="$(kernel_append "PARTUUID=TARGET_PARTUUID")"
     printf 'grub.cfg: linux /boot/vmlinuz %s\n' "$append"
   else
-    write_grub_config "$MOUNT_POINT"
+    write_grub_config "$MOUNT_POINT" "PARTUUID=$TARGET_PARTUUID"
   fi
   run_cmd grub-install --target=i386-pc --boot-directory="$MOUNT_POINT/boot" --modules="part_msdos ext2" --no-floppy "$INSTALL_DEVICE"
 }
