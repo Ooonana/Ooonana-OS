@@ -18,6 +18,7 @@ configs/kernel/*.fragment text eol=lf
 *.yaml text eol=lf
 *.svg text eol=lf
 *.png binary
+*.pdf binary
 branding/i3/config text eol=lf
 .gitignore text eol=lf
 .gitattributes text eol=lf

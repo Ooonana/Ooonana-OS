@@ -152,6 +152,7 @@ Fix/removal:
   ooonana fix nano --reinstall
   ooonana remove nano
   ooonana purge nano
+  ooonana clean
 
 Repos:
   ooonana sources
@@ -209,6 +210,7 @@ usage_remove() {
 Remove packages:
   ooonana remove nano
   ooonana remove nano editor --dry-run
+  ooonana remove libfoo --force
 
 Purge packages:
   ooonana purge nano
@@ -216,6 +218,7 @@ Purge packages:
 Meaning:
   remove: run package remove hook, remove installed package files, keep config/state
   purge: remove package and Ooonana config directories for that package
+  --force: ignore installed packages that still depend on the target
 
 Check before removing:
   ooonana files nano
@@ -240,7 +243,14 @@ Repo source file:
 
 Source format:
   OOONANA_REPO_NAME="cloud"
-  OOONANA_REPO_URI="https://ooonana.github.io/Ooonana-OS"
+  OOONANA_REPO_URI="https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-package-repo.tar.gz"
+
+GitHub Releases tarball source:
+  OOONANA_REPO_NAME="release"
+  OOONANA_REPO_URI="https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-package-repo.tar.gz"
+
+Ooonana can sync direct HTTP repos or a release tarball that contains index.tsv,
+SHA256SUMS, *.pkg files, and archives/.
 USAGE
 }
 
@@ -338,6 +348,7 @@ reset_pkg_vars() {
   OOONANA_PKG_VERSION=""
   OOONANA_PKG_SUMMARY=""
   OOONANA_PKG_DEPS=""
+  OOONANA_PKG_CONFLICTS=""
   OOONANA_PKG_KIND=""
   OOONANA_PKG_COMPONENTS=""
   OOONANA_PKG_NOTES=""
@@ -370,8 +381,23 @@ repo_is_remote() {
   esac
 }
 
+repo_is_tarball() {
+  case "$1" in
+    *.tar.gz|*.tgz) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 repo_cache_dir() {
   printf '%s/repos/%s\n' "$CACHE_DIR" "$1"
+}
+
+assert_repo_cache_path() {
+  path="$1"
+  case "$path" in
+    "$CACHE_DIR"/repos/*) return 0 ;;
+    *) die "unsafe repo cache path: $path" ;;
+  esac
 }
 
 download_file() {
@@ -413,12 +439,75 @@ sync_remote_repo() {
   printf '%s\n' "$cache_dir"
 }
 
+validate_repo_tarball_entries() {
+  repo_name="$1"
+  tarball="$2"
+  have tar || die "missing command: tar"
+  tar -tzf "$tarball" | while IFS= read -r entry; do
+    clean_entry="${entry#./}"
+    [ -n "$clean_entry" ] || continue
+    case "$clean_entry" in
+      /*|../*|*/../*|..)
+        die "unsafe repo tarball path in $repo_name: $entry"
+        ;;
+    esac
+  done
+}
+
+sync_tarball_repo() {
+  repo_name="$1"
+  repo_uri="$2"
+  cache_dir="$(repo_cache_dir "$repo_name")"
+  parent_dir="$(dirname "$cache_dir")"
+  tmp_dir="$parent_dir/$repo_name.tmp.$$"
+  tarball="$tmp_dir/repo.tar.gz"
+
+  assert_repo_cache_path "$cache_dir"
+  assert_repo_cache_path "$tmp_dir"
+  rm -rf "$tmp_dir"
+  mkdir -p "$tmp_dir/root" "$parent_dir"
+
+  if repo_is_remote "$repo_uri"; then
+    download_file "$repo_uri" "$tarball"
+  else
+    [ -f "$repo_uri" ] || die "missing repo tarball: $repo_name $repo_uri"
+    cp "$repo_uri" "$tarball"
+  fi
+  validate_repo_tarball_entries "$repo_name" "$tarball"
+  tar -xzf "$tarball" -C "$tmp_dir/root"
+
+  repo_root="$tmp_dir/root"
+  if [ ! -f "$repo_root/index.tsv" ]; then
+    first_dir="$(find "$repo_root" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sed -n '1p')"
+    if [ -n "$first_dir" ] && [ -f "$first_dir/index.tsv" ]; then
+      repo_root="$first_dir"
+    fi
+  fi
+  [ -f "$repo_root/index.tsv" ] || die "repo tarball missing index.tsv: $repo_name"
+  [ -f "$repo_root/SHA256SUMS" ] || die "repo tarball missing SHA256SUMS: $repo_name"
+
+  rm -rf "$cache_dir"
+  mv "$repo_root" "$cache_dir"
+  rm -rf "$tmp_dir"
+  printf '%s\n' "$cache_dir"
+}
+
 remote_repo_cached_dir() {
   repo_name="$1"
   repo_uri="$2"
   cache_dir="$(repo_cache_dir "$repo_name")"
   if [ ! -f "$cache_dir/index.tsv" ] || [ ! -f "$cache_dir/SHA256SUMS" ]; then
     sync_remote_repo "$repo_name" "$repo_uri" >/dev/null
+  fi
+  printf '%s\n' "$cache_dir"
+}
+
+tarball_repo_cached_dir() {
+  repo_name="$1"
+  repo_uri="$2"
+  cache_dir="$(repo_cache_dir "$repo_name")"
+  if [ ! -f "$cache_dir/index.tsv" ] || [ ! -f "$cache_dir/SHA256SUMS" ]; then
+    sync_tarball_repo "$repo_name" "$repo_uri" >/dev/null
   fi
   printf '%s\n' "$cache_dir"
 }
@@ -458,7 +547,16 @@ find_pkg_file() {
   for source_file in "$SOURCES_DIR"/*.repo; do
     [ -f "$source_file" ] || continue
     load_repo_source_file "$source_file"
-    if repo_is_remote "$OOONANA_REPO_URI"; then
+    if repo_is_tarball "$OOONANA_REPO_URI"; then
+      remote_dir="$(tarball_repo_cached_dir "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI")"
+      if [ -f "$remote_dir/index.tsv" ] && awk -v id="$id" 'BEGIN { FS = "\t" } $1 == id { found = 1 } END { exit found ? 0 : 1 }' "$remote_dir/index.tsv"; then
+        [ -f "$remote_dir/$id.pkg" ] || die "missing repo file: $id.pkg"
+        LOADED_PKG_FILE="$remote_dir/$id.pkg"
+        LOADED_REPO_DIR="$remote_dir"
+        LOADED_REPO_NAME="$OOONANA_REPO_NAME"
+        return 0
+      fi
+    elif repo_is_remote "$OOONANA_REPO_URI"; then
       remote_dir="$(remote_repo_cached_dir "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI")"
       if [ -f "$remote_dir/index.tsv" ] && awk -v id="$id" 'BEGIN { FS = "\t" } $1 == id { found = 1 } END { exit found ? 0 : 1 }' "$remote_dir/index.tsv"; then
         remote_repo_cache_file "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI" "$id.pkg" >/dev/null
@@ -624,7 +722,12 @@ pkg_ids() {
       for source_file in "$SOURCES_DIR"/*.repo; do
         [ -f "$source_file" ] || continue
         load_repo_source_file "$source_file"
-        if repo_is_remote "$OOONANA_REPO_URI"; then
+        if repo_is_tarball "$OOONANA_REPO_URI"; then
+          repo_path="$(tarball_repo_cached_dir "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI")"
+          if [ -f "$repo_path/index.tsv" ]; then
+            awk 'BEGIN { FS = "\t" } NF { print $1 }' "$repo_path/index.tsv"
+          fi
+        elif repo_is_remote "$OOONANA_REPO_URI"; then
           repo_path="$(remote_repo_cached_dir "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI")"
           if [ -f "$repo_path/index.tsv" ]; then
             awk 'BEGIN { FS = "\t" } NF { print $1 }' "$repo_path/index.tsv"
@@ -849,7 +952,9 @@ cmd_update() {
     [ -n "$repo_name" ] || continue
     repo_count=$((repo_count + 1))
     repo_remote=0
-    if repo_is_remote "$repo_path"; then
+    if repo_is_tarball "$repo_path"; then
+      repo_path="$(sync_tarball_repo "$repo_name" "$repo_path")"
+    elif repo_is_remote "$repo_path"; then
       repo_remote=1
       repo_path="$(sync_remote_repo "$repo_name" "$repo_path")"
     fi
@@ -896,9 +1001,39 @@ cmd_sources() {
 }
 
 cmd_clean() {
-  have sudo || { printf 'sudo missing\n' >&2; exit 1; }
-  sudo apt-get autoremove -y
-  sudo apt-get clean
+  dry_run=0
+  apt_clean=0
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dry-run) dry_run=1 ;;
+      --apt) apt_clean=1 ;;
+      *) die "usage: ooonana clean [--dry-run] [--apt]" ;;
+    esac
+    shift
+  done
+
+  case "$CACHE_DIR" in
+    ""|"/"|"/.") die "unsafe cache dir: $CACHE_DIR" ;;
+  esac
+
+  if [ "$dry_run" -eq 1 ]; then
+    printf 'would clean ooonana cache %s\n' "$CACHE_DIR"
+  else
+    rm -rf "$CACHE_DIR/repos" "$CACHE_DIR/index.tsv" "$CACHE_DIR/sources.tsv"
+    mkdir -p "$CACHE_DIR"
+    printf 'ooonana cache cleaned: %s\n' "$CACHE_DIR"
+  fi
+
+  if [ "$apt_clean" -eq 1 ]; then
+    have sudo || die "sudo missing"
+    if [ "$dry_run" -eq 1 ]; then
+      printf 'would run sudo apt-get autoremove -y\n'
+      printf 'would run sudo apt-get clean\n'
+    else
+      sudo apt-get autoremove -y
+      sudo apt-get clean
+    fi
+  fi
 }
 
 cmd_list() {
@@ -954,9 +1089,11 @@ cmd_info() {
   printf 'state: %s\n' "$(pkg_state "$id")"
   printf 'summary: %s\n' "$OOONANA_PKG_SUMMARY"
   [ -n "$OOONANA_PKG_DEPS" ] && printf 'deps: %s\n' "$OOONANA_PKG_DEPS"
+  [ -n "$OOONANA_PKG_CONFLICTS" ] && printf 'conflicts: %s\n' "$OOONANA_PKG_CONFLICTS"
   [ -n "$OOONANA_PKG_ARCHIVE" ] && printf 'archive: %s\n' "$OOONANA_PKG_ARCHIVE"
   [ -n "$OOONANA_PKG_COMPONENTS" ] && printf 'components: %s\n' "$OOONANA_PKG_COMPONENTS"
   [ -n "$OOONANA_PKG_NOTES" ] && printf 'notes: %s\n' "$OOONANA_PKG_NOTES"
+  return 0
 }
 
 cmd_search() {
@@ -1032,23 +1169,63 @@ cmd_verify() {
   printf 'verify ok %s\n' "$id"
 }
 
+check_pkg_conflicts() {
+  id="$1"
+  for conflict in $OOONANA_PKG_CONFLICTS; do
+    [ "$conflict" = "$id" ] && die "$id conflicts with itself"
+    if pkg_installed "$conflict"; then
+      die "$id conflicts with installed package: $conflict"
+    fi
+  done
+}
+
+installed_dependent_of() {
+  target="$1"
+  [ -d "$INSTALLED_DIR" ] || return 0
+  for file in "$INSTALLED_DIR"/*.pkg; do
+    [ -f "$file" ] || continue
+    dep_id="$(basename "$file" .pkg)"
+    [ "$dep_id" = "$target" ] && continue
+    reset_pkg_vars
+    . "$file"
+    for dep in $OOONANA_PKG_DEPS; do
+      if [ "$dep" = "$target" ]; then
+        printf '%s\n' "$dep_id"
+        return 0
+      fi
+    done
+  done
+  return 0
+}
+
+check_reverse_dependencies() {
+  id="$1"
+  force="$2"
+  [ "$force" -eq 1 ] && return 0
+  dependent="$(installed_dependent_of "$id" | sed -n '1p')"
+  [ -z "$dependent" ] || die "$id required by installed package: $dependent"
+}
+
 install_one_pkg() {
-  local id dry_run deps dep
+  local id dry_run deps conflicts dep
   id="$1"
   dry_run="$2"
   load_pkg "$id"
 
   deps="$OOONANA_PKG_DEPS"
+  conflicts="$OOONANA_PKG_CONFLICTS"
   for dep in $deps; do
     install_one_pkg "$dep" "$dry_run"
   done
   load_pkg "$id"
   OOONANA_PKG_DEPS="$deps"
+  OOONANA_PKG_CONFLICTS="$conflicts"
 
   if pkg_installed "$id"; then
     printf 'already installed %s\n' "$id"
     return 0
   fi
+  check_pkg_conflicts "$id"
 
   if [ "$dry_run" -eq 1 ]; then
     printf 'would install %s %s\n' "$id" "$OOONANA_PKG_VERSION"
@@ -1169,10 +1346,12 @@ remove_one_pkg() {
   id="$1"
   dry_run="$2"
   purge="$3"
+  force="$4"
   if ! pkg_installed "$id"; then
     printf 'not installed %s\n' "$id"
     return 0
   fi
+  check_reverse_dependencies "$id" "$force"
   if find_pkg_file "$id"; then
     load_pkg "$id"
   else
@@ -1202,33 +1381,37 @@ remove_one_pkg() {
 
 cmd_remove() {
   dry_run=0
+  force=0
   packages=""
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --dry-run) dry_run=1 ;;
+      --force) force=1 ;;
       *) packages="$packages ${1}" ;;
     esac
     shift
   done
-  [ -n "$packages" ] || die "usage: ooonana remove PACKAGE... [--dry-run]"
+  [ -n "$packages" ] || die "usage: ooonana remove PACKAGE... [--dry-run] [--force]"
   for id in $packages; do
-    remove_one_pkg "$id" "$dry_run" 0
+    remove_one_pkg "$id" "$dry_run" 0 "$force"
   done
 }
 
 cmd_purge() {
   dry_run=0
+  force=0
   packages=""
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --dry-run) dry_run=1 ;;
+      --force) force=1 ;;
       *) packages="$packages ${1}" ;;
     esac
     shift
   done
-  [ -n "$packages" ] || die "usage: ooonana purge PACKAGE... [--dry-run]"
+  [ -n "$packages" ] || die "usage: ooonana purge PACKAGE... [--dry-run] [--force]"
   for id in $packages; do
-    remove_one_pkg "$id" "$dry_run" 1
+    remove_one_pkg "$id" "$dry_run" 1 "$force"
   done
 }
 
@@ -1689,7 +1872,7 @@ main() {
     purge) cmd_purge "$@" ;;
     fix) cmd_fix "$@" ;;
     repo) cmd_repo "$@" ;;
-    clean) cmd_clean ;;
+    clean) cmd_clean "$@" ;;
     ai)
       cmd_ai "$@"
       ;;

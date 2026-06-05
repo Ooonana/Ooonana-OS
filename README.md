@@ -70,12 +70,14 @@ vmlinuz-ooonana                    Ooonana Linux kernel
 SHA256SUMS                         checksums for release artifacts
 SHA256SUMS.full-i3                 checksums for full-i3 artifacts
 qemu-rootfs-boot.log               direct rootfs QEMU boot proof
-qemu-disk-boot.log                 GRUB disk QEMU boot proof
+qemu-scratch-ext4-boot.log         minimal ext4 disk QEMU boot proof
 qemu-installer.log                 installer ISO QEMU proof
 qemu-iso-fallback-shell.log        installer failure shell proof
 qemu-installed-boot.log            installed disk QEMU proof
 qemu-full-i3-gui-smoke.log         full-i3 Xorg/i3 serial proof
 qemu-full-i3-live.log              full-i3 live ISO boot proof
+qemu-full-i3-live-iso.log          full-i3 live ISO boot proof
+qemu-full-i3-uefi-installer.log    full-i3 UEFI installer proof
 qemu-full-i3-installer-vmware.log  full-i3 VMware-style installer proof
 qemu-full-i3-installed-sata.log    full-i3 VMware-style installed boot proof
 qemu-full-i3-vnc.log               full-i3 VNC boot proof
@@ -118,7 +120,7 @@ Working now:
 - Generic `ooonana-rootfs.tar.gz` can be unpacked for chroot/container-style use
 - Minimal and full-i3 WSL distro exports can be imported
 - `ooonana` package manager has repo index, checksums, install, remove, purge, upgrade, fix, files, verify
-- `ooonana update` can sync local and HTTP package repos into cache
+- `ooonana update` can sync local repos, HTTP repos, and GitHub Release repo tarballs into cache
 - Alpine `.apk` packages can be imported into Ooonana `.pkg` repos
 - Full-i3 branding assets, package profiles, input drivers, package-installed rootfs, boot disk, live/install ISO, GUI installer wizard, AI desktop launcher, and real QEMU boot proof exist as a separate edition path
 - First-boot setup can create a user, prompt for password, write basic network config, and add a cloud package repo
@@ -194,7 +196,7 @@ Full-i3 WSL GUI launch needs WSLg or an X server with `DISPLAY` set.
 ooonana me
 ooonana setup
 ooonana setup --first-boot --gui
-ooonana setup --user ryan --password --network dhcp --cloud-repo https://ooonana.github.io/Ooonana-OS --done
+ooonana setup --user ryan --password --network dhcp --cloud-repo https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-package-repo.tar.gz --done
 ooonana version
 ooonana wsl status
 ooonana update
@@ -213,6 +215,8 @@ ooonana upgrade --dry-run
 ooonana remove ai
 ooonana purge ai
 ooonana fix ai --reinstall
+ooonana clean --dry-run
+ooonana clean
 ooonana repo index /usr/lib/ooonana/repo
 ```
 
@@ -231,6 +235,7 @@ ooonana upgrade                # upgrade all installed packages
 ooonana remove nano            # remove files and installed marker
 ooonana purge nano             # remove files, marker, and Ooonana config dirs
 ooonana fix nano --reinstall   # resync repo and reinstall package
+ooonana clean                  # remove cached repo indexes and tarball extracts
 ```
 
 Help is split by task so new users do not have to read one huge page:
@@ -259,17 +264,20 @@ Package metadata lives inside Ooonana:
 /var/cache/ooonana/repos/NAME
 ```
 
-Remote repo source example:
+Release tarball repo source example:
 
 ```sh
 cat >/etc/ooonana/sources.d/cloud.repo <<'EOF'
 OOONANA_REPO_NAME="cloud"
-OOONANA_REPO_URI="https://YOUR.github.io/Ooonana-OS"
+OOONANA_REPO_URI="https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-package-repo.tar.gz"
 EOF
 
 ooonana update
 ooonana get nano
 ```
+
+Direct HTTP directory repos also work when the URL contains `index.tsv`,
+`SHA256SUMS`, `*.pkg`, and `archives/` as normal files.
 
 ## Package Factory
 
@@ -279,7 +287,7 @@ Build an Ooonana repo from Alpine packages:
 bash scripts/build-package-repo.sh \
   --out-dir /tmp/ooonana-repo \
   --package-profile configs/packages/ooonana-cloud.list \
-  --cloud-url https://YOUR.github.io/Ooonana-OS \
+  --cloud-url https://github.com/YOUR/YOUR_REPO/releases/download/packages-latest/ooonana-package-repo.tar.gz \
   --clean
 ```
 
@@ -307,8 +315,8 @@ CLI dry run:
 OOONANA_SOURCE_ROOT="$PWD" ooonana repo build --dry-run nano
 ```
 
-The GitHub Actions workflow `Build Ooonana Packages` can run the same importer in cloud from a package profile, upload the generated repo as artifacts, publish a tarball to GitHub Releases, and optionally deploy the repo to GitHub Pages. GitHub Pages is the direct HTTP repo path for `ooonana update`; Releases are backup storage for the repo tarball.
-When Pages publishing is enabled, the generated repo includes `cloud.repo` and `README.txt` so the repo source can be copied straight into `/etc/ooonana/sources.d/cloud.repo`.
+The GitHub Actions workflow `Build Ooonana Packages` can run the same importer in cloud from a package profile, upload the generated repo as artifacts, publish `ooonana-package-repo.tar.gz` to GitHub Releases, and optionally deploy the repo to GitHub Pages. Release tarball repos are the default cloud path because free/private GitHub Pages can be blocked by account plan. Pages still works as a direct HTTP repo when enabled.
+The generated repo includes `cloud.repo` and `README.txt` so the repo source can be copied straight into `/etc/ooonana/sources.d/cloud.repo`.
 
 Cloud build defaults are repo-wide seed packages, not nano-only:
 
@@ -410,6 +418,8 @@ Current full-i3 release proof files:
 ```text
 /var/tmp/ooonana-os/release/SHA256SUMS.full-i3
 /var/tmp/ooonana-os/release/qemu-full-i3-live.log
+/var/tmp/ooonana-os/release/qemu-full-i3-live-iso.log
+/var/tmp/ooonana-os/release/qemu-full-i3-uefi-installer.log
 /var/tmp/ooonana-os/release/qemu-full-i3-installer-vmware.log
 /var/tmp/ooonana-os/release/qemu-full-i3-installed-sata.log
 /var/tmp/ooonana-os/release/qemu-full-i3-gui-smoke.log
@@ -487,7 +497,7 @@ When `full_i3_profile=true`, the cloud build uses:
 configs/packages/full-i3.list
 ```
 
-After the generated repo is published to GitHub Pages and added to `/etc/ooonana/sources.d/cloud.repo`, this path is intended to work:
+After the generated repo tarball is published to GitHub Releases and added to `/etc/ooonana/sources.d/cloud.repo`, this path is intended to work:
 
 ```bash
 ooonana update
@@ -677,6 +687,7 @@ scripts/build-full-i3-rootfs.sh
 scripts/build-full-i3-live-initramfs.sh
 scripts/build-full-i3-disk.sh
 scripts/build-full-i3-iso.sh
+scripts/generate-ooonana-pdf.py
 scripts/lib/common.sh
 ```
 
@@ -696,6 +707,7 @@ tests/test-full-i3-iso.sh
 tests/test-gui-installer.sh
 tests/test-qemu-gui.sh
 tests/test-logo-sync.sh
+tests/test-ooonana-pdf.sh
 tests/test-rootfs-tarball.sh
 tests/test-scratch-rootfs.sh
 tests/test-scratch-initramfs.sh
@@ -712,6 +724,7 @@ Docs:
 
 ```text
 docs/logo.txt
+docs/ooonana.pdf
 docs/ooonana-ai.md
 docs/ooonana-ai.env.example
 docs/jarvis-agi-research.md

@@ -57,6 +57,8 @@ assert_contains "$workflow" "actions/upload-pages-artifact"
 assert_contains "$workflow" "actions/deploy-pages"
 assert_contains "$workflow" "gh release upload"
 assert_contains "$workflow" 'pages_url="https://${OWNER}.github.io/${REPO_NAME}"'
+assert_contains "$workflow" 'release_url="https://github.com/${OWNER}/${REPO_NAME}/releases/download/${RELEASE_TAG}/ooonana-package-repo.tar.gz"'
+assert_contains "$workflow" 'cloud_url="$release_url"'
 [[ "$workflow" != *'default: "nano"'* ]] || fail "workflow default must not be nano-only"
 assert_contains "$workflow" "configs/packages/ooonana-cloud.list"
 assert_contains "$workflow" "configs/packages/full-i3.list"
@@ -118,5 +120,6 @@ assert_contains "$readme" "configs/packages/ooonana-cloud.list"
 assert_contains "$readme" "configs/packages/ooonana-repo.list"
 assert_contains "$readme" "ooonana get nano"
 assert_contains "$readme" "GitHub Pages"
+assert_contains "$readme" "ooonana-package-repo.tar.gz"
 
 printf 'ok package-factory\n'

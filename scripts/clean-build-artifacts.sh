@@ -82,6 +82,7 @@ main() {
   local generated_items=(
     rootfs
     ooonana-rootfs.ext4
+    ooonana-rootfs.tar.gz
     ooonana.iso
     iso-tree
     install.ext4
@@ -90,6 +91,7 @@ main() {
     ooonana-scratch-initramfs.cpio.gz
     scratch-iso-tree
     ooonana-scratch.iso
+    ooonana-scratch-smoke.iso
     scratch-grub-iso-tree
     ooonana-scratch-grub.iso
     ooonana-scratch-disk.raw
@@ -103,6 +105,7 @@ main() {
     full-i3-refresh-repo
     full-i3-build-sources
     full-i3-iso-tree
+    full-i3-disk-mnt
     ooonana-full-i3-rootfs.tar.gz
     ooonana-full-i3-wsl-rootfs.tar.gz
     ooonana-full-i3-live-initramfs.cpio.gz
@@ -110,7 +113,9 @@ main() {
     ooonana-full-i3.iso
     ooonana-full-i3-smoke.iso
     ooonana-full-i3-live-smoke.iso
+    ooonana-full-i3-installer-smoke.iso
     ooonana-installer-created.raw
+    OVMF_VARS_*.fd
     qemu-*.raw
     qemu-iso-install-target.raw
     ooonana-install-mnt

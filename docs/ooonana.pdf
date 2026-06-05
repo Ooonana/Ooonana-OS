@@ -1,0 +1,194 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [5 0 R 7 0 R] /Count 2 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+4 0 obj
+<< /Length 2115 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+54 744 Td
+(Ooonana OS) Tj
+T*
+(      __________________) Tj
+T*
+(     |    __      __    |) Tj
+T*
+(     |   /  \\    /  \\   |) Tj
+T*
+(   / |                  |\\) Tj
+T*
+(  /  |     \\______/     | \\) Tj
+T*
+(     |__________________|) Tj
+T*
+(          |        |) Tj
+T*
+() Tj
+T*
+(Ooonana OS v1 field guide) Tj
+T*
+() Tj
+T*
+(What it is) Tj
+T*
+(Ooonana OS is a scratch-built Linux project with its own rootfs, boot flow, installer) Tj
+T*
+(experiments, WSL export, and custom ooonana package manager.) Tj
+T*
+(Debian or Ubuntu are host build tools only. Alpine APKs are imported into Ooonana .pkg) Tj
+T*
+(repos; the target OS installs Ooonana packages, not live Alpine APKs.) Tj
+T*
+() Tj
+T*
+(Editions) Tj
+T*
+(minimal: BusyBox-style rootfs, kernel, GRUB disk, installer ISO, WSL rootfs, command) Tj
+T*
+(line AI.) Tj
+T*
+(full-i3: minimal plus i3, Xorg package set, wallpaper, logo assets, GUI installer) Tj
+T*
+(wizard, AI desktop app, full WSL rootfs.) Tj
+T*
+() Tj
+T*
+(Package install) Tj
+T*
+(ooonana update) Tj
+T*
+(ooonana search nano) Tj
+T*
+(ooonana show nano) Tj
+T*
+(ooonana get nano --dry-run) Tj
+T*
+(ooonana get nano) Tj
+T*
+(ooonana files nano) Tj
+T*
+(ooonana verify nano) Tj
+T*
+(ooonana upgrade) Tj
+T*
+(ooonana remove nano) Tj
+T*
+(ooonana purge nano) Tj
+T*
+(ooonana fix nano --reinstall) Tj
+T*
+() Tj
+T*
+(Cloud repo) Tj
+T*
+(Default cloud path is GitHub Releases:) Tj
+T*
+(ooonana-package-repo.tar.gz) Tj
+T*
+(https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-) Tj
+T*
+(package-repo.tar.gz) Tj
+T*
+(A repo tarball contains index.tsv, SHA256SUMS, *.pkg files, and archives/. ooonana) Tj
+T*
+(update extracts it into /var/cache/ooonana/repos/NAME.) Tj
+T*
+() Tj
+T*
+(Installer) Tj
+T*
+(Full-i3 live ISO boots i3 by default. The installer wizard has disk picker,) Tj
+T*
+(user/password, hostname, theme picker, package repo picker, progress log, failure) Tj
+T*
+(shell, and reboot prompt.) Tj
+T*
+() Tj
+T*
+(First boot) Tj
+T*
+(ooonana setup --first-boot --gui can create user, set password, write network config,) Tj
+T*
+(choose theme, add cloud repo, and mark setup complete.) Tj
+T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>
+endobj
+6 0 obj
+<< /Length 810 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+54 744 Td
+() Tj
+T*
+(WSL) Tj
+T*
+(Import full-i3 with scripts/install-wsl-distro.sh --distro Ooonana --tarball) Tj
+T*
+(/var/tmp/ooonana-os/release/ooonana-full-i3-wsl-rootfs.tar.gz --force) Tj
+T*
+(Launch with: wsl.exe -d Ooonana -- /usr/bin/start-ooonana-i3) Tj
+T*
+(WSL GUI needs WSLg or an X server with DISPLAY set.) Tj
+T*
+() Tj
+T*
+(AI) Tj
+T*
+(Ooonana AI runs as ooonana ai ... or ooonana-ai. It supports provider setup, model) Tj
+T*
+(aliases, ask/chat, tools, tasks, audit, history, status, and the full-i3 ooonana-ai-) Tj
+T*
+(app launcher.) Tj
+T*
+() Tj
+T*
+(Build proof markers) Tj
+T*
+(OOONANA_CLI_OK) Tj
+T*
+(OOONANA_BOOT_OK) Tj
+T*
+(OOONANA_INSTALL_OK) Tj
+T*
+(OOONANA_FULL_I3_OK) Tj
+T*
+() Tj
+T*
+(More detail lives in README.md, docs/ooonana-ai.md, and docs/jarvis-agi-research.md.) Tj
+T*
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 6 0 R >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000127 00000 n 
+0000000195 00000 n 
+0000002362 00000 n 
+0000002488 00000 n 
+0000003349 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R >>
+startxref
+3475
+%%EOF

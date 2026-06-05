@@ -96,6 +96,11 @@ assert_contains "$ui_help" "Full i3 UI:"
 assert_contains "$ui_help" "Mod+Shift+A"
 assert_contains "$ui_help" "OOONANA_THEME=light"
 
+repo_help="$("$CLI" help repo)"
+assert_contains "$repo_help" "Repo commands:"
+assert_contains "$repo_help" "OOONANA_REPO_URI="
+assert_contains "$repo_help" "release tarball"
+
 [[ -f "$LOGO" ]] || fail "missing docs/logo.txt"
 logo="$(<"$LOGO")"
 assert_contains "$logo" "Ooonana OS"
@@ -138,6 +143,13 @@ assert_contains "$update" "ooonana repo: synced"
 assert_contains "$update" "source(s)"
 [[ -f "$OOONANA_CACHE_DIR/index.tsv" ]] || fail "missing synced index"
 [[ -f "$OOONANA_CACHE_DIR/sources.tsv" ]] || fail "missing synced sources"
+
+clean_dry="$("$CLI" clean --dry-run)"
+assert_contains "$clean_dry" "would clean ooonana cache"
+clean_run="$("$CLI" clean)"
+assert_contains "$clean_run" "ooonana cache cleaned"
+[[ ! -e "$OOONANA_CACHE_DIR/index.tsv" ]] || fail "clean left index"
+[[ ! -e "$OOONANA_CACHE_DIR/sources.tsv" ]] || fail "clean left sources"
 
 sources="$("$CLI" sources)"
 assert_contains "$sources" "builtin"
@@ -303,6 +315,44 @@ http_verify="$(OOONANA_SOURCES_DIR="$http_sources" \
   "$CLI" verify nano)"
 assert_contains "$http_verify" "verify ok nano"
 
+release_sources="$tmp/release-sources"
+release_state="$tmp/release-state"
+release_cache="$tmp/release-cache"
+release_root="$tmp/release-root"
+mkdir -p "$release_sources" "$release_root"
+tar -C "$http_repo" -czf "$http_root/ooonana-package-repo.tar.gz" .
+cat > "$release_sources/release.repo" <<EOF
+OOONANA_REPO_NAME="release"
+OOONANA_REPO_URI="http://127.0.0.1:$http_port/ooonana-package-repo.tar.gz"
+EOF
+
+release_update="$(OOONANA_SOURCES_DIR="$release_sources" \
+  OOONANA_STATE_DIR="$release_state" \
+  OOONANA_CACHE_DIR="$release_cache" \
+  "$CLI" update)"
+assert_contains "$release_update" "from 2 source(s)"
+[[ -f "$release_cache/repos/release/index.tsv" ]] || fail "missing release cached index"
+[[ -f "$release_cache/repos/release/SHA256SUMS" ]] || fail "missing release cached checksums"
+[[ -f "$release_cache/repos/release/nano.pkg" ]] || fail "missing release cached pkg"
+[[ -f "$release_cache/repos/release/archives/nano-1.0-r0.tar.gz" ]] || fail "missing release cached archive"
+
+release_dry="$(OOONANA_SOURCES_DIR="$release_sources" \
+  OOONANA_STATE_DIR="$release_state" \
+  OOONANA_CACHE_DIR="$release_cache" \
+  OOONANA_ROOT="$release_root" \
+  "$CLI" get nano --dry-run)"
+assert_contains "$release_dry" "would install nano 1.0-r0"
+assert_contains "$release_dry" "would unpack archives/nano-1.0-r0.tar.gz"
+
+release_install="$(OOONANA_SOURCES_DIR="$release_sources" \
+  OOONANA_STATE_DIR="$release_state" \
+  OOONANA_CACHE_DIR="$release_cache" \
+  OOONANA_ROOT="$release_root" \
+  "$CLI" get nano)"
+assert_contains "$release_install" "unpacked archives/nano-1.0-r0.tar.gz"
+assert_contains "$release_install" "installed nano"
+[[ -x "$release_root/usr/bin/nano" ]] || fail "release tarball package did not install executable"
+
 index_repo="$tmp/index-repo"
 index_payload="$tmp/index-payload"
 mkdir -p "$index_repo" "$index_payload/usr/share/indexed"
@@ -386,10 +436,57 @@ OOONANA_PKG_KIND="tool"
 OOONANA_PKG_SUMMARY="App using thing library"
 OOONANA_PKG_DEPS="libthing"
 EOF
+cat > "$dep_repo/left.pkg" <<'EOF'
+OOONANA_PKG_ID="left"
+OOONANA_PKG_VERSION="1.0.0"
+OOONANA_PKG_KIND="tool"
+OOONANA_PKG_SUMMARY="Left side package"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_CONFLICTS="right"
+EOF
+cat > "$dep_repo/right.pkg" <<'EOF'
+OOONANA_PKG_ID="right"
+OOONANA_PKG_VERSION="1.0.0"
+OOONANA_PKG_KIND="tool"
+OOONANA_PKG_SUMMARY="Right side package"
+OOONANA_PKG_DEPS=""
+EOF
 depends="$(OOONANA_REPO_DIR="$dep_repo" "$CLI" depends appthing)"
 assert_contains "$depends" "appthing depends: libthing"
 nodeps="$(OOONANA_REPO_DIR="$dep_repo" "$CLI" depends libthing)"
 assert_contains "$nodeps" "libthing has no dependencies"
+left_info="$(OOONANA_REPO_DIR="$dep_repo" "$CLI" show left)"
+assert_contains "$left_info" "conflicts: right"
+
+OOONANA_REPO_DIR="$dep_repo" \
+  OOONANA_STATE_DIR="$tmp/dep-state" \
+  OOONANA_CACHE_DIR="$tmp/dep-cache" \
+  OOONANA_ROOT="$tmp/dep-root" \
+  "$CLI" get appthing >/dev/null
+dep_remove_blocked="$(OOONANA_REPO_DIR="$dep_repo" \
+  OOONANA_STATE_DIR="$tmp/dep-state" \
+  OOONANA_CACHE_DIR="$tmp/dep-cache" \
+  OOONANA_ROOT="$tmp/dep-root" \
+  "$CLI" remove libthing --dry-run 2>&1 || true)"
+assert_contains "$dep_remove_blocked" "required by installed package: appthing"
+dep_remove_force="$(OOONANA_REPO_DIR="$dep_repo" \
+  OOONANA_STATE_DIR="$tmp/dep-state" \
+  OOONANA_CACHE_DIR="$tmp/dep-cache" \
+  OOONANA_ROOT="$tmp/dep-root" \
+  "$CLI" remove libthing --force --dry-run)"
+assert_contains "$dep_remove_force" "would remove libthing"
+
+OOONANA_REPO_DIR="$dep_repo" \
+  OOONANA_STATE_DIR="$tmp/conflict-state" \
+  OOONANA_CACHE_DIR="$tmp/conflict-cache" \
+  OOONANA_ROOT="$tmp/conflict-root" \
+  "$CLI" get right >/dev/null
+conflict_install="$(OOONANA_REPO_DIR="$dep_repo" \
+  OOONANA_STATE_DIR="$tmp/conflict-state" \
+  OOONANA_CACHE_DIR="$tmp/conflict-cache" \
+  OOONANA_ROOT="$tmp/conflict-root" \
+  "$CLI" get left --dry-run 2>&1 || true)"
+assert_contains "$conflict_install" "left conflicts with installed package: right"
 
 custom_repo="$tmp/custom-repo"
 custom_root="$tmp/custom-root"

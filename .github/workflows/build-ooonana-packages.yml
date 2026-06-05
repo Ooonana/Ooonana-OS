@@ -49,6 +49,7 @@ jobs:
           ALPINE_REPOS: ${{ inputs.alpine_repo }}
           OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
           out="$RUNNER_TEMP/ooonana-repo"
@@ -65,12 +66,17 @@ jobs:
             full_i3_arg="--full-i3"
           fi
           pages_url="https://${OWNER}.github.io/${REPO_NAME}"
+          release_url="https://github.com/${OWNER}/${REPO_NAME}/releases/download/${RELEASE_TAG}/ooonana-package-repo.tar.gz"
+          cloud_url="$release_url"
+          if [ "${{ inputs.publish_pages }}" = "true" ]; then
+            cloud_url="$pages_url"
+          fi
           # shellcheck disable=SC2086
           bash scripts/build-package-repo.sh \
             --out-dir "$out" \
             --package-profile "$profile" \
             --packages "$PACKAGES" \
-            --cloud-url "$pages_url" \
+            --cloud-url "$cloud_url" \
             --clean \
             $full_i3_arg \
             $repo_args

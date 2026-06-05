@@ -218,7 +218,7 @@ USER_NAME="ooonana"
 HOSTNAME_VALUE="ooonana"
 THEME="${OOONANA_THEME:-dark}"
 CLOUD_REPO="${OOONANA_CLOUD_REPO:-}"
-DEFAULT_CLOUD_REPO="${OOONANA_DEFAULT_CLOUD_REPO:-https://ooonana.github.io/Ooonana-OS}"
+DEFAULT_CLOUD_REPO="${OOONANA_DEFAULT_CLOUD_REPO:-https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-package-repo.tar.gz}"
 PASSWORD_VALUE=""
 YES=0
 DRY_RUN=0
@@ -357,7 +357,7 @@ run_installer() {
   printf 'Hostname: %s\n' "$HOSTNAME_VALUE"
   printf 'Theme: %s\n' "$THEME"
   printf 'Package repo: %s\n' "${CLOUD_REPO:-none}"
-  printf 'Installer log: %s\n\n' "$LOG_FILE"
+  printf 'Progress log: %s\n\n' "$LOG_FILE"
   printf '[1/6] format target\n'
   printf '[2/6] copy Ooonana files\n'
   printf '[3/6] write user, hostname, theme\n'
@@ -416,14 +416,15 @@ done
 if [ "$DRY_RUN" -eq 1 ]; then
   target="${TARGET:-/dev/vdb}"
   printf 'Ooonana installer wizard\n'
-  printf 'Step 1/8 target: %s\n' "$target"
-  printf 'Step 2/8 user: %s\n' "$USER_NAME"
-  printf 'Step 3/8 hostname: %s\n' "$HOSTNAME_VALUE"
-  printf 'Step 4/8 theme: %s\n' "$THEME"
-  printf 'Step 5/8 cloud repo: %s\n' "${CLOUD_REPO:-none}"
-  printf 'Step 6/8 source root: %s\n' "$SOURCE"
-  printf 'Step 7/8 confirm: INSTALL\n'
-  printf 'Step 8/8 reboot: optional\n'
+  printf 'Step 1/8 choose target disk: %s\n' "$target"
+  printf 'Step 2/8 create user: %s\n' "$USER_NAME"
+  printf 'Step 3/8 set hostname: %s\n' "$HOSTNAME_VALUE"
+  printf 'Step 4/8 choose theme: %s\n' "$THEME"
+  printf 'Step 5/8 choose package repo: %s\n' "${CLOUD_REPO:-none}"
+  printf 'Step 6/8 choose source root: %s\n' "$SOURCE"
+  printf 'Step 7/8 confirm erase: INSTALL\n'
+  printf 'Step 8/8 install, log, reboot\n'
+  printf 'Progress log: %s\n' "$LOG_FILE"
   printf '/usr/sbin/ooonana-install --target %s --source %s --hostname %s --user %s --theme %s' "$target" "$SOURCE" "$HOSTNAME_VALUE" "$USER_NAME" "$THEME"
   [ -z "$CLOUD_REPO" ] || printf ' --cloud-repo %s' "$CLOUD_REPO"
   printf ' --yes\n'

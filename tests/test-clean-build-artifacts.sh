@@ -35,14 +35,18 @@ assert_contains "$unsafe_out" "refusing unsafe build dir"
 
 work="$tmp/ooonana-os/build"
 mkdir -p "$work/rootfs" "$work/scratch-rootfs" "$work/linux" "$work/kernel-build" "$work/ooonana-kernel"
-mkdir -p "$work/full-i3-rootfs" "$work/release-full-i3-rootfs" "$work/full-i3-repo" "$work/full-i3-refresh-repo" "$work/full-i3-iso-tree"
+mkdir -p "$work/full-i3-rootfs" "$work/release-full-i3-rootfs" "$work/full-i3-repo" "$work/full-i3-refresh-repo" "$work/full-i3-iso-tree" "$work/full-i3-disk-mnt"
 touch \
   "$work/keep.txt" \
+  "$work/OVMF_VARS_ooonana.fd" \
   "$work/ooonana.iso" \
+  "$work/ooonana-rootfs.tar.gz" \
   "$work/ooonana-scratch.iso" \
+  "$work/ooonana-scratch-smoke.iso" \
   "$work/ooonana-full-i3.iso" \
   "$work/ooonana-full-i3-smoke.iso" \
   "$work/ooonana-full-i3-live-smoke.iso" \
+  "$work/ooonana-full-i3-installer-smoke.iso" \
   "$work/ooonana-full-i3-live-initramfs.cpio.gz" \
   "$work/ooonana-full-i3-disk.raw" \
   "$work/ooonana-full-i3-rootfs.tar.gz" \
@@ -65,15 +69,20 @@ assert_contains "$dry" "$work/rootfs"
 
 bash "$SCRIPT" --work-dir "$work" --keep-source --yes >/dev/null
 [[ ! -e "$work/rootfs" ]] || fail "rootfs not removed"
+[[ ! -e "$work/OVMF_VARS_ooonana.fd" ]] || fail "OVMF vars not removed"
 [[ ! -e "$work/ooonana.iso" ]] || fail "iso not removed"
+[[ ! -e "$work/ooonana-rootfs.tar.gz" ]] || fail "rootfs tarball not removed"
+[[ ! -e "$work/ooonana-scratch-smoke.iso" ]] || fail "scratch smoke iso not removed"
 [[ ! -e "$work/full-i3-rootfs" ]] || fail "full-i3 rootfs not removed"
 [[ ! -e "$work/release-full-i3-rootfs" ]] || fail "release full-i3 rootfs not removed"
 [[ ! -e "$work/full-i3-repo" ]] || fail "full-i3 repo not removed"
 [[ ! -e "$work/full-i3-refresh-repo" ]] || fail "full-i3 refresh repo not removed"
 [[ ! -e "$work/full-i3-iso-tree" ]] || fail "full-i3 ISO tree not removed"
+[[ ! -e "$work/full-i3-disk-mnt" ]] || fail "full-i3 disk mount not removed"
 [[ ! -e "$work/ooonana-full-i3.iso" ]] || fail "full-i3 iso not removed"
 [[ ! -e "$work/ooonana-full-i3-smoke.iso" ]] || fail "full-i3 smoke iso not removed"
 [[ ! -e "$work/ooonana-full-i3-live-smoke.iso" ]] || fail "full-i3 live smoke iso not removed"
+[[ ! -e "$work/ooonana-full-i3-installer-smoke.iso" ]] || fail "full-i3 installer smoke iso not removed"
 [[ ! -e "$work/ooonana-full-i3-live-initramfs.cpio.gz" ]] || fail "full-i3 live initramfs not removed"
 [[ ! -e "$work/ooonana-full-i3-disk.raw" ]] || fail "full-i3 disk not removed"
 [[ ! -e "$work/ooonana-full-i3-rootfs.tar.gz" ]] || fail "full-i3 tarball not removed"
