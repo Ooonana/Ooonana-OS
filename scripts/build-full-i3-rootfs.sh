@@ -235,6 +235,52 @@ fi
 exec ooonana-theme-env xterm -e sh -lc 'echo "blueman missing"; echo "run: ooonana get blueman"; exec sh'
 EOF
 
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/hsetroot" <<'EOF'
+#!/bin/sh
+set -eu
+color=""
+image=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -solid)
+      color="${2:-}"
+      shift 2
+      ;;
+    -cover|-fill|-full)
+      image="${2:-}"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+if [ -n "$image" ] && [ -f "$image" ] && command -v feh >/dev/null 2>&1; then
+  exec feh --bg-fill "$image"
+fi
+if [ -n "$color" ] && command -v xsetroot >/dev/null 2>&1; then
+  exec xsetroot -solid "$color"
+fi
+if command -v xsetroot >/dev/null 2>&1; then
+  exec xsetroot -name "Ooonana OS"
+fi
+exit 0
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/xsettingsd" <<'EOF'
+#!/bin/sh
+set -eu
+case "${1:-}" in
+  --help|-h)
+    echo "Ooonana xsettingsd compatibility daemon"
+    exit 0
+    ;;
+esac
+while :; do
+  sleep 3600
+done
+EOF
+
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-screenshot" <<'EOF'
 #!/bin/sh
 set -eu

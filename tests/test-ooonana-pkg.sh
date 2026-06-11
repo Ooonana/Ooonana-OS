@@ -533,12 +533,42 @@ OOONANA_PKG_KIND="tool"
 OOONANA_PKG_SUMMARY="Right side package"
 OOONANA_PKG_DEPS=""
 EOF
+cat > "$dep_repo/cyclea.pkg" <<'EOF'
+OOONANA_PKG_ID="cyclea"
+OOONANA_PKG_VERSION="1.0.0"
+OOONANA_PKG_KIND="tool"
+OOONANA_PKG_SUMMARY="Cycle A"
+OOONANA_PKG_DEPS="cycleb"
+EOF
+cat > "$dep_repo/cycleb.pkg" <<'EOF'
+OOONANA_PKG_ID="cycleb"
+OOONANA_PKG_VERSION="1.0.0"
+OOONANA_PKG_KIND="tool"
+OOONANA_PKG_SUMMARY="Cycle B"
+OOONANA_PKG_DEPS="cyclea"
+EOF
 depends="$(OOONANA_REPO_DIR="$dep_repo" "$CLI" depends appthing)"
 assert_contains "$depends" "appthing depends: libthing"
 nodeps="$(OOONANA_REPO_DIR="$dep_repo" "$CLI" depends libthing)"
 assert_contains "$nodeps" "libthing has no dependencies"
 left_info="$(OOONANA_REPO_DIR="$dep_repo" "$CLI" show left)"
 assert_contains "$left_info" "conflicts: right"
+
+cycle_dry="$(OOONANA_REPO_DIR="$dep_repo" \
+  OOONANA_STATE_DIR="$tmp/cycle-state-dry" \
+  OOONANA_CACHE_DIR="$tmp/cycle-cache-dry" \
+  OOONANA_ROOT="$tmp/cycle-root-dry" \
+  "$CLI" get cyclea --dry-run)"
+assert_contains "$cycle_dry" "would install cycleb 1.0.0"
+assert_contains "$cycle_dry" "would install cyclea 1.0.0"
+
+OOONANA_REPO_DIR="$dep_repo" \
+  OOONANA_STATE_DIR="$tmp/cycle-state" \
+  OOONANA_CACHE_DIR="$tmp/cycle-cache" \
+  OOONANA_ROOT="$tmp/cycle-root" \
+  "$CLI" get cyclea >/dev/null
+[[ -f "$tmp/cycle-state/installed/cyclea.pkg" ]] || fail "cyclea not installed"
+[[ -f "$tmp/cycle-state/installed/cycleb.pkg" ]] || fail "cycleb not installed"
 
 OOONANA_REPO_DIR="$dep_repo" \
   OOONANA_STATE_DIR="$tmp/dep-state" \

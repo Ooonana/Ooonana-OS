@@ -246,7 +246,11 @@ main() {
   ooonana_require_commands awk basename chmod cp find gzip mkdir rm sed sha256sum sort tar tr
   mkdir -p "$OUT_DIR"
   WORK="$(mktemp -d)"
-  trap 'rm -rf "$WORK"' EXIT
+  cleanup() {
+    chmod -R u+rwX "$WORK" 2>/dev/null || true
+    rm -rf "$WORK"
+  }
+  trap cleanup EXIT
   APKINDEX="$WORK/APKINDEX"
   : > "$APKINDEX"
   repo_i=0

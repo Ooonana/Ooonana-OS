@@ -15,7 +15,6 @@ picom
 dunst
 dmenu
 feh
-hsetroot
 xterm
 alacritty
 xsetroot
@@ -39,7 +38,6 @@ ncmpcpp
 ranger
 htop
 vim
-xsettingsd
 brightnessctl
 coreutils
 parted

@@ -383,12 +383,14 @@ Default full-i3 apps and tools:
 
 ```text
 chromium, nemo, python3, py3-pip, alacritty
-polybar, rofi, yad, picom, dunst, hsetroot
+polybar, rofi, yad, picom, dunst, feh
 networkmanager, network-manager-applet, blueman
 geany, maim, mpd, mpc, ncmpcpp, ranger, htop, vim
-xsettingsd, arandr, xrandr, pavucontrol, brightnessctl
+arandr, xrandr, pavucontrol, brightnessctl
 parted, e2fsprogs, dosfstools, util-linux
 ```
+
+Ooonana also ships `hsetroot` and `xsettingsd` fallback commands because Alpine v3.20 does not publish those packages in the enabled main/community repos.
 
 Build full-i3 package repo locally:
 

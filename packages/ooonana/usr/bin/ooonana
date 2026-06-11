@@ -810,7 +810,7 @@ write_repo_index_entry() {
   [ -n "$OOONANA_PKG_VERSION" ] || die "package missing version: $file"
   [ -n "$OOONANA_PKG_SUMMARY" ] || die "package missing summary: $file"
   case "$OOONANA_PKG_ID" in
-    *[!A-Za-z0-9_.-]*|"") die "bad package id: $OOONANA_PKG_ID" ;;
+    *[!A-Za-z0-9_.+-]*|"") die "bad package id: $OOONANA_PKG_ID" ;;
   esac
   pkg_sha="$(sha256_file "$file")"
   archive_rel=""
@@ -1355,16 +1355,26 @@ check_reverse_dependencies() {
 }
 
 install_one_pkg() {
-  local id dry_run deps conflicts dep
+  local id dry_run deps conflicts dep old_installing
   id="$1"
   dry_run="$2"
+  case " ${OOONANA_INSTALLING:-} " in
+    *" $id "*) return 0 ;;
+  esac
+  if pkg_installed "$id"; then
+    printf 'already installed %s\n' "$id"
+    return 0
+  fi
   load_pkg "$id"
 
   deps="$OOONANA_PKG_DEPS"
   conflicts="$OOONANA_PKG_CONFLICTS"
+  old_installing="${OOONANA_INSTALLING:-}"
+  OOONANA_INSTALLING="$old_installing $id"
   for dep in $deps; do
     install_one_pkg "$dep" "$dry_run"
   done
+  OOONANA_INSTALLING="$old_installing"
   load_pkg "$id"
   OOONANA_PKG_DEPS="$deps"
   OOONANA_PKG_CONFLICTS="$conflicts"
