@@ -235,13 +235,89 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-settings" <<'EOF'
 #!/bin/sh
 set -eu
-if command -v arandr >/dev/null 2>&1; then
-  exec arandr
+
+if [ "${1:-}" = "--dry-run" ]; then
+  echo "yad settings menu"
+  echo "actions: theme wallpaper display audio wifi bluetooth repo about"
+  echo "OOONANA_SETTINGS_GUI_OK"
+  exit 0
 fi
-if command -v pavucontrol >/dev/null 2>&1; then
-  exec pavucontrol
+
+open_term() {
+  if command -v ooonana-theme-env >/dev/null 2>&1; then
+    exec ooonana-theme-env xterm -e sh -lc 'ooonana help ui; exec sh'
+  fi
+  exec sh -lc 'ooonana help ui; exec sh'
+}
+
+if [ -z "${DISPLAY:-}" ] || ! command -v yad >/dev/null 2>&1; then
+  open_term
 fi
-exec ooonana-theme-env xterm -e sh -lc 'ooonana help ui; exec sh'
+
+while :; do
+  action="$(yad --center --title "Ooonana Settings" --width=520 --height=360 \
+    --list --print-column=1 --column Action --column Description \
+    theme "Dark/light theme" \
+    wallpaper "Choose desktop wallpaper" \
+    display "Open display layout" \
+    audio "Open audio controls" \
+    wifi "Open NetworkManager" \
+    bluetooth "Open Bluetooth manager" \
+    repo "Set cloud package repo" \
+    about "Show Ooonana info" 2>/dev/null || true)"
+  [ -n "$action" ] || exit 0
+  case "$action" in
+    theme)
+      theme="$(yad --center --title "Ooonana Theme" --form --field "Theme:CB" "dark!light" 2>/dev/null | cut -d'|' -f1 || true)"
+      case "$theme" in
+        dark|light)
+          if [ "$(id -u 2>/dev/null || echo 1)" = "0" ]; then
+            mkdir -p /etc/ooonana
+            printf '%s\n' "$theme" >/etc/ooonana/theme
+          else
+            mkdir -p "${HOME:-/tmp}/.config/ooonana"
+            printf '%s\n' "$theme" >"${HOME:-/tmp}/.config/ooonana/theme"
+          fi
+          ooonana-theme-env apply 2>/dev/null || true
+          ;;
+      esac
+      ;;
+    wallpaper)
+      file="$(yad --center --title "Ooonana Wallpaper" --file --filename="/usr/share/ooonana/wallpapers/" 2>/dev/null || true)"
+      [ -n "$file" ] && ooonana-wallpaper "$file" || true
+      ;;
+    display)
+      command -v arandr >/dev/null 2>&1 && arandr || yad --center --title "Display" --text "arandr missing"
+      ;;
+    audio)
+      command -v pavucontrol >/dev/null 2>&1 && pavucontrol || yad --center --title "Audio" --text "pavucontrol missing"
+      ;;
+    wifi)
+      ooonana-wifi || true
+      ;;
+    bluetooth)
+      ooonana-bluetooth || true
+      ;;
+    repo)
+      repo="$(yad --center --title "Ooonana Repo" --entry --text "Cloud package repo URL" --entry-text "https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-package-repo.tar.gz" 2>/dev/null || true)"
+      if [ -n "$repo" ]; then
+        mkdir -p /etc/ooonana/sources.d 2>/dev/null || true
+        {
+          printf 'OOONANA_REPO_NAME="cloud"\n'
+          printf 'OOONANA_REPO_URI="%s"\n' "$repo"
+        } >/etc/ooonana/sources.d/cloud.repo 2>/dev/null ||
+          yad --center --title "Repo" --text "Need root to write /etc/ooonana/sources.d/cloud.repo"
+      fi
+      ;;
+    about)
+      if [ -f /usr/share/ooonana/logo.txt ]; then
+        yad --center --title "Ooonana OS" --text-info --filename=/usr/share/ooonana/logo.txt --width=520 --height=260
+      else
+        yad --center --title "Ooonana OS" --text "Ooonana OS"
+      fi
+      ;;
+  esac
+done
 EOF
 
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-wallpaper" <<'EOF'
@@ -366,16 +442,176 @@ EOF
 }
 
 write_gui_installer() {
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-installer-gui" <<'EOF'
+#!/bin/sh
+set -eu
+
+if [ "${1:-}" = "--dry-run" ]; then
+  echo "yad installer gui"
+  echo "modes: erase-disk custom-existing-partitions"
+  echo "fields: target home swap efi format-root format-home format-swap format-efi user password hostname theme repo source"
+  echo "OOONANA_INSTALLER_GUI_OK"
+  exit 0
+fi
+
+fallback() {
+  exec /usr/bin/ooonana-install-wizard "$@"
+}
+
+if [ -z "${DISPLAY:-}" ] || ! command -v yad >/dev/null 2>&1; then
+  fallback "$@"
+fi
+
+default_target="/dev/vdb"
+for dev in /dev/vdb /dev/sdb /dev/xvdb /dev/nvme0n2; do
+  [ -b "$dev" ] && { default_target="$dev"; break; }
+done
+
+parent_disk() {
+  case "$1" in
+    /dev/nvme*n*p[0-9]*) printf '%s\n' "${1%p[0-9]*}" ;;
+    /dev/*[0-9]) printf '%s\n' "${1%[0-9]*}" ;;
+    *) printf '%s\n' "$1" ;;
+  esac
+}
+
+root_disk() {
+  root_dev="$(awk '$2 == "/" { print $1; exit }' /proc/mounts 2>/dev/null || true)"
+  case "$root_dev" in
+    /dev/*) parent_disk "$root_dev" ;;
+    *) return 0 ;;
+  esac
+}
+
+form="$(yad --center --title "Install Ooonana OS" --width=720 \
+  --form --separator='|' \
+  --field "Mode:CB" "erase-disk!custom-existing-partitions" \
+  --field "Target disk or root partition" "$default_target" \
+  --field "Home partition" "" \
+  --field "Swap partition" "" \
+  --field "EFI partition" "" \
+  --field "Format root:CHK" TRUE \
+  --field "Format home:CHK" TRUE \
+  --field "Format swap:CHK" TRUE \
+  --field "Format EFI:CHK" FALSE \
+  --field "User" "ooonana" \
+  --field "Password:H" "" \
+  --field "Hostname" "ooonana" \
+  --field "Theme:CB" "dark!light" \
+  --field "Cloud repo" "https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-package-repo.tar.gz" \
+  --field "Source root" "/" 2>/dev/null || true)"
+[ -n "$form" ] || exit 0
+
+field() {
+  printf '%s' "$form" | cut -d'|' -f"$1"
+}
+
+mode="$(field 1)"
+target="$(field 2)"
+home_part="$(field 3)"
+swap_part="$(field 4)"
+efi_part="$(field 5)"
+format_root="$(field 6)"
+format_home="$(field 7)"
+format_swap="$(field 8)"
+format_efi="$(field 9)"
+user_name="$(field 10)"
+password="$(field 11)"
+host_name="$(field 12)"
+theme="$(field 13)"
+cloud_repo="$(field 14)"
+source_root="$(field 15)"
+
+[ -n "$target" ] || { yad --center --title "Install Ooonana OS" --text "Target required"; exit 1; }
+[ -n "$source_root" ] || source_root="/"
+root="$(root_disk)"
+if [ -n "$root" ] && { [ "$target" = "$root" ] || [ "$(parent_disk "$target")" = "$root" ]; } &&
+  [ "${OOONANA_INSTALL_ALLOW_ROOT_TARGET:-0}" != "1" ]; then
+  yad --center --title "Install Ooonana OS" --text "Target looks like the current root disk: $target"
+  exit 1
+fi
+
+set -- /usr/sbin/ooonana-install --target "$target" --source "$source_root" --hostname "$host_name" --user "$user_name" --theme "$theme"
+[ -n "$cloud_repo" ] && set -- "$@" --cloud-repo "$cloud_repo"
+[ -n "$password" ] && set -- "$@" --password-stdin
+
+case "$mode" in
+  custom-existing-partitions)
+    set -- "$@" --bootloader none
+    [ -n "$home_part" ] && set -- "$@" --home-part "$home_part"
+    [ -n "$swap_part" ] && set -- "$@" --swap-part "$swap_part"
+    [ -n "$efi_part" ] && set -- "$@" --efi-part "$efi_part"
+    [ "$format_root" = "TRUE" ] || set -- "$@" --keep-root
+    [ "$format_home" = "TRUE" ] || set -- "$@" --keep-home
+    [ "$format_swap" = "TRUE" ] || set -- "$@" --keep-swap
+    [ "$format_efi" = "TRUE" ] && set -- "$@" --format-efi || set -- "$@" --keep-efi
+    ;;
+  *)
+    :
+    ;;
+esac
+
+tmp_dir="${TMPDIR:-/tmp}/ooonana-installer-gui.$$"
+mkdir -p "$tmp_dir"
+preview="$tmp_dir/preview.txt"
+log="$tmp_dir/install.log"
+status_file="$tmp_dir/status"
+
+if [ -n "$password" ]; then
+  printf '%s\n' "$password" | "$@" --dry-run --yes >"$preview" 2>&1 || true
+else
+  "$@" --dry-run --yes >"$preview" 2>&1 || true
+fi
+
+yad --center --title "Ooonana Install Preview" --width=860 --height=560 \
+  --text-info --filename="$preview" \
+  --button=Cancel:1 --button=Install:0 2>/dev/null || exit 0
+
+: >"$log"
+(
+  set +e
+  if [ -n "$password" ]; then
+    printf '%s\n' "$password" | "$@" --yes >"$log" 2>&1
+  else
+    "$@" --yes >"$log" 2>&1
+  fi
+  rc="$?"
+  printf '%s\n' "$rc" >"$status_file"
+) &
+pid="$!"
+
+yad --center --title "Ooonana Install Log" --width=860 --height=560 \
+  --text-info --tail --filename="$log" --button=Close:0 2>/dev/null || true
+wait "$pid" 2>/dev/null || true
+status="$(cat "$status_file" 2>/dev/null || echo 1)"
+if [ "$status" = "0" ]; then
+  yad --center --title "Ooonana OS" --text "Install complete. Reboot when ready." 2>/dev/null || true
+else
+  if yad --center --title "Ooonana Install Failed" --text "Install failed. Open fallback shell?" --button=No:1 --button=Shell:0 2>/dev/null; then
+    exec ooonana-theme-env xterm -e /bin/sh -l
+  fi
+fi
+exit "$status"
+EOF
+
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-gui-installer" <<'EOF'
 #!/bin/sh
 set -eu
 
 if [ "${1:-}" = "--dry-run" ]; then
+  echo "ooonana-installer-gui --dry-run"
   echo "xterm -title Ooonana Installer"
   echo "default theme: dark background, orange cursor"
   echo "ooonana-install-wizard --dry-run"
   echo "OOONANA_GUI_INSTALLER_OK"
   exit 0
+fi
+
+if [ "${OOONANA_INSTALL_FORCE_WIZARD:-0}" != "1" ] &&
+  [ -n "${DISPLAY:-}" ] &&
+  command -v yad >/dev/null 2>&1 &&
+  [ -x /usr/bin/ooonana-installer-gui ]; then
+  exec /usr/bin/ooonana-installer-gui "$@"
 fi
 
 xterm_theme() {
@@ -756,7 +992,7 @@ EOF
 [Desktop Entry]
 Type=Application
 Name=Install Ooonana OS
-Exec=ooonana-gui-installer
+Exec=ooonana-installer-gui
 Terminal=false
 Categories=System;
 EOF
@@ -768,6 +1004,15 @@ Name=Ooonana Setup
 Exec=ooonana-setup --gui
 Terminal=false
 Categories=System;
+EOF
+
+  install -D -m 0644 /dev/stdin "$ROOTFS/usr/share/applications/ooonana-settings.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Ooonana Settings
+Exec=ooonana-settings
+Terminal=false
+Categories=Settings;System;
 EOF
 }
 

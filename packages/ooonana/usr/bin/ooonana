@@ -317,12 +317,22 @@ Full i3 UI:
   Mod+Shift+E   exit i3
 
 Desktop helpers:
+  ooonana-installer-gui
+  ooonana-gui-installer
+  ooonana-settings
+  ooonana-ai-app
   ooonana-browser [URL]
   ooonana-files [PATH]
   ooonana-wifi
   ooonana-bluetooth
   ooonana-settings
   ooonana-wallpaper [PNG]
+
+Installer:
+  erase disk mode
+  custom partitions: root, home, swap, EFI
+  preview command before install
+  fallback terminal wizard when GUI packages are missing
 
 Theme:
   default: black background, orange cursor/text

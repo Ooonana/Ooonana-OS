@@ -3,6 +3,13 @@ set -eu
 
 AI_CMD="${OOONANA_AI_CMD:-ooonana-ai}"
 
+if [ "${1:-}" = "--dry-run" ]; then
+  printf 'yad Ooonana AI dashboard\n'
+  printf 'actions: chat ask tools tasks sessions setup shell desktop audit history provider model env\n'
+  printf 'OOONANA_AI_APP_GUI_OK\n'
+  exit 0
+fi
+
 open_xterm() {
   [ "${OOONANA_AI_APP_NO_X:-0}" = "1" ] && return 1
   [ "${OOONANA_AI_APP_TERMINAL:-0}" = "1" ] && return 1
@@ -13,6 +20,57 @@ open_xterm() {
     exec xterm -title "Ooonana AI" -e env OOONANA_AI_APP_TERMINAL=1 "$0" "$@"
   fi
   return 1
+}
+
+open_action_terminal() {
+  title="Ooonana AI"
+  [ "$#" -gt 0 ] && title="Ooonana AI: $1"
+  if command -v ooonana-theme-env >/dev/null 2>&1 && command -v xterm >/dev/null 2>&1; then
+    exec ooonana-theme-env xterm -title "$title" -e env OOONANA_AI_APP_TERMINAL=1 "$0" "$@"
+  fi
+  if command -v xterm >/dev/null 2>&1; then
+    exec xterm -title "$title" -e env OOONANA_AI_APP_TERMINAL=1 "$0" "$@"
+  fi
+  return 1
+}
+
+open_gui() {
+  [ "${OOONANA_AI_APP_NO_X:-0}" = "1" ] && return 1
+  [ "${OOONANA_AI_APP_GUI:-1}" = "1" ] || return 1
+  [ "${OOONANA_AI_APP_TERMINAL:-0}" = "1" ] && return 1
+  [ -n "${DISPLAY:-}" ] || return 1
+  command -v yad >/dev/null 2>&1 || return 1
+
+  action="$(yad --center --title "Ooonana AI" --width=560 --height=420 \
+    --list --print-column=1 --column Action --column Description \
+    chat "Open interactive chat" \
+    ask "Ask one prompt" \
+    tools "List available tools" \
+    tasks "Task board" \
+    sessions "Saved chat sessions" \
+    setup "Configure provider keys" \
+    desktop "Inspect desktop context" \
+    audit "Show audit log" \
+    history "Show history" \
+    provider "Provider settings" \
+    model "Model settings" \
+    env "Environment check" \
+    shell "Fallback shell" 2>/dev/null || true)"
+  [ -n "$action" ] || exit 0
+
+  case "$action" in
+    ask)
+      prompt="$(yad --center --title "Ask Ooonana AI" --entry --text "Prompt" 2>/dev/null || true)"
+      [ -n "$prompt" ] || exit 0
+      open_action_terminal ask "$prompt" || return 1
+      ;;
+    shell)
+      open_action_terminal shell || return 1
+      ;;
+    *)
+      open_action_terminal "$action" || return 1
+      ;;
+  esac
 }
 
 run_ai() {
@@ -148,7 +206,7 @@ main_loop() {
   done
 }
 
-open_xterm "$@" || true
+open_gui "$@" || open_xterm "$@" || true
 
 if [ -n "${OOONANA_AI_APP_COMMAND:-}" ]; then
   run_action "$OOONANA_AI_APP_COMMAND" "$@"

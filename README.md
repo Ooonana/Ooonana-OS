@@ -121,9 +121,9 @@ Working now:
 - GRUB has Ooonana theme/logo text, BIOS/UEFI hybrid support, live/install/safe graphics menus, and a persistent USB boot entry
 - Rufus support has a DD-mode note inside the ISO, USB-friendly volume labels, and `scripts/verify-rufus-iso.sh`
 - Full-i3 live starts eudev before Xorg and ships libinput config for PS/2 keyboard and mouse discovery
-- Full-i3 now ships an Archcraft-like i3 baseline: polybar, rofi, picom, dunst, Chromium launcher, Nemo launcher, Wi-Fi/Bluetooth/settings helpers, wallpaper changer, and dark Ooonana colors
+- Full-i3 now ships an Archcraft-like i3 baseline: polybar, rofi, yad, picom, dunst, Chromium launcher, Nemo launcher, Wi-Fi/Bluetooth/settings helpers, wallpaper changer, and dark Ooonana colors
 - Installed disk boots in QEMU
-- `ooonana-install` can partition a raw/whole disk, format ext4, copy rootfs, install kernel, write GRUB, and persist user, hostname, and theme
+- `ooonana-install` can partition a raw/whole disk, install to an existing root partition, mount optional home/swap/EFI partitions, format or keep selected filesystems, copy rootfs, install kernel, write GRUB, and persist user, hostname, and theme
 - Generic `ooonana-rootfs.tar.gz` can be unpacked for chroot/container-style use
 - Minimal and full-i3 WSL distro exports can be imported
 - `ooonana` package manager has repo index, checksums, install, remove, purge, upgrade, fix, files, verify
@@ -383,9 +383,10 @@ Default full-i3 apps and tools:
 
 ```text
 chromium, nemo, python3, py3-pip, alacritty
-polybar, rofi, picom, dunst
+polybar, rofi, yad, picom, dunst
 networkmanager, network-manager-applet, blueman
 arandr, pavucontrol
+parted, e2fsprogs, dosfstools, util-linux
 ```
 
 Build full-i3 package repo locally:
@@ -477,11 +478,34 @@ Current full-i3 release proof files:
 Inside full-i3, the GUI installer launcher is:
 
 ```bash
+ooonana-installer-gui
 ooonana-gui-installer
 ooonana-install-wizard
 ```
 
-The wizard opens in a themed xterm under i3, walks disk picker, user/password, hostname, theme, cloud repo picker, source root, confirmation, install progress, and reboot prompt steps, logs to `/var/log/ooonana-install-wizard.log`, and blocks installing over the current root disk unless `OOONANA_INSTALL_ALLOW_ROOT_TARGET=1` is set. If install fails, it prints `OOONANA_INSTALL_WIZARD_FAIL` and drops to a fallback shell.
+`ooonana-installer-gui` uses `yad` windows for install mode, target/root partition, optional `/home`, swap, EFI, format/keep toggles, user/password, hostname, theme, cloud repo, and source root. It shows the exact `ooonana-install --dry-run` preview before install, writes logs, and offers a fallback shell if install fails.
+
+The terminal wizard still exists as fallback. It opens in a themed xterm under i3, walks disk picker, user/password, hostname, theme, cloud repo picker, source root, confirmation, install progress, and reboot prompt steps, logs to `/var/log/ooonana-install-wizard.log`, and blocks installing over the current root disk unless `OOONANA_INSTALL_ALLOW_ROOT_TARGET=1` is set. If install fails, it prints `OOONANA_INSTALL_WIZARD_FAIL` and drops to a fallback shell.
+
+Custom partition backend example:
+
+```bash
+sudo ooonana-install \
+  --target /dev/sda2 \
+  --home-part /dev/sda3 \
+  --swap-part /dev/sda4 \
+  --efi-part /dev/sda1 \
+  --keep-root \
+  --keep-home \
+  --keep-efi \
+  --bootloader none \
+  --source / \
+  --user ryan \
+  --hostname ooonana-lab \
+  --theme dark \
+  --yes
+```
+
 Default full-i3 UI is dark: black background, orange text/cursor. The old sunset look is light mode:
 
 ```bash
@@ -502,6 +526,8 @@ Mod+B        Bluetooth settings
 Mod+Shift+S  Display/audio settings
 Mod+Shift+P  Wallpaper changer
 ```
+
+`ooonana-settings` opens a GUI settings menu when `yad` is available. It can switch theme, choose wallpaper, open display/audio/Wi-Fi/Bluetooth tools, write the cloud repo source, and show Ooonana info. It falls back to the terminal help path when GUI pieces are missing.
 
 Persistent live USB:
 
@@ -641,9 +667,10 @@ Full-i3 includes an Ooonana AI app launcher:
 i3 shortcut: Mod+Shift+a
 ```
 
-The launcher opens a native terminal dashboard with status, desktop context,
-chat, ask, tools, tasks, sessions, setup, provider, model, audit, history, env,
-and shell actions. For terminal-only launch:
+The launcher opens a `yad` GUI dashboard when the full desktop is available,
+then falls back to the native terminal dashboard. Actions include status,
+desktop context, chat, ask, tools, tasks, sessions, setup, provider, model,
+audit, history, env, and shell. For terminal-only launch:
 
 ```bash
 OOONANA_AI_APP_NO_X=1 ooonana-ai-app
@@ -856,6 +883,7 @@ docs/ooonana-pdf-os.md
 docs/ooonana-roadmap.md
 docs/rufus-usb.md
 docs/ooonana-ai.md
+docs/superpowers/plans/2026-06-11-installer-gui-settings-ai.md
 docs/ooonana-ai.env.example
 docs/jarvis-agi-research.md
 docs/superpowers/plans/2026-05-21-rootfs-qemu.md

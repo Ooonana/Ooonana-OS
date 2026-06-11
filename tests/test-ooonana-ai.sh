@@ -31,6 +31,8 @@ assert_not_contains() {
 [[ -f "$AI_DESKTOP_FILE" ]] || fail "missing AI desktop file"
 [[ -f "$AI_APP" ]] || fail "missing AI app"
 assert_contains "$(<"$AI_DESKTOP_APP")" 'xterm -title "Ooonana AI"'
+assert_contains "$(<"$AI_DESKTOP_APP")" "yad --center --title \"Ooonana AI\""
+assert_contains "$(<"$AI_DESKTOP_APP")" "OOONANA_AI_APP_GUI_OK"
 assert_contains "$(<"$AI_DESKTOP_FILE")" "Exec=ooonana-ai-app"
 
 tmp="$(mktemp -d)"
@@ -62,6 +64,10 @@ assert_contains "$app_oneshot" "1  chat"
 assert_contains "$app_oneshot" "6  setup"
 assert_contains "$app_oneshot" "8  desktop"
 assert_contains "$app_oneshot" "12 model"
+
+app_gui_dry="$("$AI_DESKTOP_APP" --dry-run)"
+assert_contains "$app_gui_dry" "yad Ooonana AI dashboard"
+assert_contains "$app_gui_dry" "OOONANA_AI_APP_GUI_OK"
 
 app_tools="$(PATH="$fake_app_bin:$PATH" OOONANA_AI_APP_NO_X=1 OOONANA_AI_APP_COMMAND=tools "$AI_DESKTOP_APP")"
 assert_contains "$app_tools" "Ooonana CLI tool registry"

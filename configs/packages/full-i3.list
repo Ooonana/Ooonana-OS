@@ -10,6 +10,7 @@ i3wm
 i3status
 polybar
 rofi
+yad
 picom
 dunst
 dmenu
@@ -32,5 +33,6 @@ coreutils
 parted
 grub-bios
 e2fsprogs
+dosfstools
 rsync
 util-linux

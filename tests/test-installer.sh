@@ -35,6 +35,12 @@ assert_contains "$installer_help" "--cloud-repo URI"
 assert_contains "$installer_help" "--password-stdin"
 assert_contains "$installer_help" "--kernel PATH"
 assert_contains "$installer_help" "--bootloader auto|grub|none"
+assert_contains "$installer_help" "--home-part PATH"
+assert_contains "$installer_help" "--swap-part PATH"
+assert_contains "$installer_help" "--efi-part PATH"
+assert_contains "$installer_help" "--keep-root"
+assert_contains "$installer_help" "--keep-home"
+assert_contains "$installer_help" "--format-efi"
 assert_contains "$installer_help" "--smoke"
 assert_contains "$installer_help" "--gui-smoke"
 assert_contains "$installer_help" "/run/ooonana-target"
@@ -58,6 +64,32 @@ assert_contains "$installer_dry_run" "OOONANA_INSTALL_OK"
 
 installer_dry_run_normal="$(bash "$INSTALLER" --dry-run --yes --target /tmp/ooonana-test-disk.raw --source /tmp/ooonana-source --kernel /tmp/vmlinuz-ooonana)"
 assert_contains "$installer_dry_run_normal" "grub.cfg: linux /boot/vmlinuz root=PARTUUID=TARGET_PARTUUID rw console=ttyS0 console=tty0 panic=1 init=/sbin/init ooonana.edition=full-i3"
+
+custom_dry_run="$(bash "$INSTALLER" --dry-run --yes \
+  --target /dev/sda2 \
+  --source /tmp/ooonana-source \
+  --home-part /dev/sda3 \
+  --swap-part /dev/sda4 \
+  --efi-part /dev/sda1 \
+  --keep-root \
+  --keep-home \
+  --keep-efi \
+  --bootloader none \
+  --hostname custom-lab \
+  --user ryan \
+  --theme light)"
+assert_contains "$custom_dry_run" "keep root filesystem: /dev/sda2"
+assert_contains "$custom_dry_run" "mount /dev/sda2 /run/ooonana-target"
+assert_contains "$custom_dry_run" "mount /dev/sda3 /run/ooonana-target/home"
+assert_contains "$custom_dry_run" "mkswap -L OOONANA_SWAP /dev/sda4"
+assert_contains "$custom_dry_run" "mount /dev/sda1 /run/ooonana-target/boot/efi"
+assert_contains "$custom_dry_run" "fstab:"
+assert_contains "$custom_dry_run" "/dev/sda3 /home ext4 defaults 0 2"
+assert_contains "$custom_dry_run" "/dev/sda1 /boot/efi vfat umask=0077 0 1"
+assert_contains "$custom_dry_run" "LABEL=OOONANA_SWAP none swap sw 0 0"
+assert_contains "$custom_dry_run" "umount /run/ooonana-target/boot/efi"
+assert_contains "$custom_dry_run" "umount /run/ooonana-target/home"
+assert_not_contains "$custom_dry_run" "grub-install"
 
 installer_src="$(<"$INSTALLER")"
 assert_contains "$installer_src" "terminal_input console serial"
