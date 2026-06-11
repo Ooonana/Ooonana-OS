@@ -312,6 +312,11 @@ Full i3 UI:
   Mod+Shift+A   Ooonana AI app
   Mod+Shift+I   installer
   Mod+Shift+P   wallpaper changer
+  Print         screenshot
+  Mod+Shift+G   Geany/Vim editor
+  Mod+Shift+M   MPD music client
+  Mod+Shift+X   htop process monitor
+  Mod+Shift+U   ranger file manager
   Mod+Shift+T   toggle dark/light theme
   Mod+Shift+R   restart i3
   Mod+Shift+E   exit i3
@@ -327,6 +332,12 @@ Desktop helpers:
   ooonana-bluetooth
   ooonana-settings
   ooonana-wallpaper [PNG]
+  ooonana-screenshot [--select]
+  ooonana-editor [PATH]
+  ooonana-music
+  ooonana-processes
+  ooonana-ranger [PATH]
+  ooonana-brightness [VALUE]
 
 Installer:
   erase disk mode

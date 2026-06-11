@@ -126,6 +126,12 @@ rootfs="$tmp/full-rootfs"
 [[ -x "$rootfs/usr/bin/ooonana-bluetooth" ]] || fail "missing bluetooth helper"
 [[ -x "$rootfs/usr/bin/ooonana-settings" ]] || fail "missing settings helper"
 [[ -x "$rootfs/usr/bin/ooonana-wallpaper" ]] || fail "missing wallpaper helper"
+[[ -x "$rootfs/usr/bin/ooonana-screenshot" ]] || fail "missing screenshot helper"
+[[ -x "$rootfs/usr/bin/ooonana-editor" ]] || fail "missing editor helper"
+[[ -x "$rootfs/usr/bin/ooonana-music" ]] || fail "missing music helper"
+[[ -x "$rootfs/usr/bin/ooonana-processes" ]] || fail "missing processes helper"
+[[ -x "$rootfs/usr/bin/ooonana-ranger" ]] || fail "missing ranger helper"
+[[ -x "$rootfs/usr/bin/ooonana-brightness" ]] || fail "missing brightness helper"
 [[ -f "$rootfs/usr/share/ooonana/logo.svg" ]] || fail "missing rootfs logo svg"
 [[ -f "$rootfs/usr/share/ooonana/logo.png" ]] || fail "missing rootfs logo png"
 [[ -f "$rootfs/usr/share/ooonana/wallpapers/ooonana-wallpaper.png" ]] || fail "missing rootfs wallpaper"
@@ -134,6 +140,7 @@ rootfs="$tmp/full-rootfs"
 [[ -f "$rootfs/etc/ooonana/rofi.rasi" ]] || fail "missing rofi config"
 [[ -f "$rootfs/etc/ooonana/picom.conf" ]] || fail "missing picom config"
 [[ -f "$rootfs/etc/ooonana/dunstrc" ]] || fail "missing dunst config"
+[[ -f "$rootfs/etc/ooonana/xsettingsd.conf" ]] || fail "missing xsettingsd config"
 [[ -f "$rootfs/etc/neofetch/config.conf" ]] || fail "missing neofetch config"
 [[ -f "$rootfs/etc/X11/xorg.conf.d/10-ooonana-input.conf" ]] || fail "missing Xorg input config"
 [[ -f "$rootfs/usr/share/applications/ooonana-installer.desktop" ]] || fail "missing GUI installer desktop entry"
@@ -184,12 +191,18 @@ assert_contains "$i3_config" 'bindsym $mod+Shift+a exec ooonana-ai-app'
 assert_contains "$i3_config" "polybar -c /etc/ooonana/polybar.ini ooonana"
 assert_contains "$i3_config" "picom --config /etc/ooonana/picom.conf"
 assert_contains "$i3_config" "dunst -config /etc/ooonana/dunstrc"
+assert_contains "$i3_config" "xsettingsd -c /etc/ooonana/xsettingsd.conf"
 assert_contains "$i3_config" "rofi -show drun -theme /etc/ooonana/rofi.rasi"
 assert_contains "$i3_config" 'bindsym $mod+Shift+f exec ooonana-files'
 assert_contains "$i3_config" 'bindsym $mod+Shift+w exec ooonana-browser'
 assert_contains "$i3_config" 'bindsym $mod+n exec ooonana-wifi'
 assert_contains "$i3_config" 'bindsym $mod+b exec ooonana-bluetooth'
 assert_contains "$i3_config" 'bindsym $mod+Shift+p exec ooonana-wallpaper'
+assert_contains "$i3_config" 'bindsym Print exec ooonana-screenshot'
+assert_contains "$i3_config" 'bindsym $mod+Shift+g exec ooonana-editor'
+assert_contains "$i3_config" 'bindsym $mod+Shift+m exec ooonana-music'
+assert_contains "$i3_config" 'bindsym $mod+Shift+x exec ooonana-processes'
+assert_contains "$i3_config" 'bindsym $mod+Shift+u exec ooonana-ranger'
 
 xorg_input="$(<"$rootfs/etc/X11/xorg.conf.d/10-ooonana-input.conf")"
 assert_contains "$xorg_input" 'Option "AutoAddDevices" "true"'
@@ -202,6 +215,7 @@ assert_contains "$theme_helper" 'OOONANA_BG="#050505"'
 assert_contains "$theme_helper" 'OOONANA_BG="#ffb21a"'
 assert_contains "$theme_helper" "/etc/ooonana/theme"
 assert_contains "$theme_helper" ".config/ooonana/wallpaper"
+assert_contains "$theme_helper" "hsetroot -cover"
 assert_contains "$theme_helper" '-e /bin/sh -l'
 assert_contains "$theme_helper" 'exec xterm -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR"'
 
@@ -220,8 +234,26 @@ assert_contains "$settings_helper" "OOONANA_SETTINGS_GUI_OK"
 assert_contains "$settings_helper" "repo"
 assert_contains "$settings_helper" "arandr"
 assert_contains "$settings_helper" "pavucontrol"
+assert_contains "$settings_helper" "ooonana-brightness"
+assert_contains "$settings_helper" "ooonana-screenshot"
 wallpaper_helper="$(<"$rootfs/usr/bin/ooonana-wallpaper")"
 assert_contains "$wallpaper_helper" "feh --bg-fill"
+assert_contains "$wallpaper_helper" "hsetroot -cover"
+screenshot_helper="$(<"$rootfs/usr/bin/ooonana-screenshot")"
+assert_contains "$screenshot_helper" "maim"
+assert_contains "$screenshot_helper" "Pictures/Ooonana"
+editor_helper="$(<"$rootfs/usr/bin/ooonana-editor")"
+assert_contains "$editor_helper" "geany"
+assert_contains "$editor_helper" "vim"
+music_helper="$(<"$rootfs/usr/bin/ooonana-music")"
+assert_contains "$music_helper" "ncmpcpp"
+assert_contains "$music_helper" "mpc"
+processes_helper="$(<"$rootfs/usr/bin/ooonana-processes")"
+assert_contains "$processes_helper" "htop"
+ranger_helper="$(<"$rootfs/usr/bin/ooonana-ranger")"
+assert_contains "$ranger_helper" "ranger"
+brightness_helper="$(<"$rootfs/usr/bin/ooonana-brightness")"
+assert_contains "$brightness_helper" "brightnessctl"
 
 polybar_cfg="$(<"$rootfs/etc/ooonana/polybar.ini")"
 assert_contains "$polybar_cfg" "Ooonana OS"
@@ -298,6 +330,7 @@ assert_contains "$installer_gui_dry" "OOONANA_INSTALLER_GUI_OK"
 
 settings_dry="$("$rootfs/usr/bin/ooonana-settings" --dry-run)"
 assert_contains "$settings_dry" "yad settings menu"
+assert_contains "$settings_dry" "brightness screenshot editor music processes ranger"
 assert_contains "$settings_dry" "OOONANA_SETTINGS_GUI_OK"
 
 rcs="$(<"$rootfs/etc/init.d/rcS")"
@@ -324,6 +357,12 @@ assert_contains "$contents" "./etc/ooonana/edition"
 assert_contains "$contents" "./usr/bin/ooonana-gui-installer"
 assert_contains "$contents" "./usr/bin/ooonana-install-wizard"
 assert_contains "$contents" "./usr/bin/ooonana-ai-app"
+assert_contains "$contents" "./usr/bin/ooonana-screenshot"
+assert_contains "$contents" "./usr/bin/ooonana-editor"
+assert_contains "$contents" "./usr/bin/ooonana-music"
+assert_contains "$contents" "./usr/bin/ooonana-processes"
+assert_contains "$contents" "./usr/bin/ooonana-ranger"
+assert_contains "$contents" "./usr/bin/ooonana-brightness"
 assert_contains "$contents" "./usr/share/applications/ooonana-ai.desktop"
 assert_contains "$contents" "./usr/bin/ooonana-setup"
 assert_contains "$contents" "./usr/bin/ooonana-i3-session"

@@ -148,6 +148,9 @@ case "${1:-env}" in
       IFS= read -r saved_wallpaper <"$HOME/.config/ooonana/wallpaper" || saved_wallpaper=""
       [ -n "$saved_wallpaper" ] && wallpaper="$saved_wallpaper"
     fi
+    if command -v hsetroot >/dev/null 2>&1 && [ -f "$wallpaper" ]; then
+      hsetroot -cover "$wallpaper" && exit 0 || true
+    fi
     if command -v feh >/dev/null 2>&1 && [ -f "$wallpaper" ]; then
       feh --bg-fill "$wallpaper" || true
     fi
@@ -232,13 +235,100 @@ fi
 exec ooonana-theme-env xterm -e sh -lc 'echo "blueman missing"; echo "run: ooonana get blueman"; exec sh'
 EOF
 
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-screenshot" <<'EOF'
+#!/bin/sh
+set -eu
+dir="${HOME:-/root}/Pictures/Ooonana"
+mkdir -p "$dir"
+file="$dir/screenshot-$(date +%Y%m%d-%H%M%S).png"
+if command -v maim >/dev/null 2>&1; then
+  if [ "${1:-}" = "--select" ]; then
+    maim -s "$file"
+  else
+    maim "$file"
+  fi
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send "Ooonana Screenshot" "$file" || true
+  fi
+  printf '%s\n' "$file"
+  exit 0
+fi
+exec ooonana-theme-env xterm -e sh -lc 'echo "maim missing"; echo "run: ooonana get maim"; exec sh'
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-editor" <<'EOF'
+#!/bin/sh
+set -eu
+target="${1:-}"
+if command -v geany >/dev/null 2>&1; then
+  if [ -n "$target" ]; then
+    exec geany "$target"
+  fi
+  exec geany
+fi
+if command -v vim >/dev/null 2>&1; then
+  if [ -n "$target" ]; then
+    exec ooonana-theme-env xterm -e vim "$target"
+  fi
+  exec ooonana-theme-env xterm -e vim
+fi
+exec ooonana-theme-env xterm -e sh -lc 'echo "editor missing"; echo "run: ooonana get geany vim"; exec sh'
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-music" <<'EOF'
+#!/bin/sh
+set -eu
+if command -v ncmpcpp >/dev/null 2>&1; then
+  exec ooonana-theme-env xterm -e ncmpcpp
+fi
+if command -v mpc >/dev/null 2>&1; then
+  exec ooonana-theme-env xterm -e sh -lc 'mpc status; exec sh'
+fi
+exec ooonana-theme-env xterm -e sh -lc 'echo "music tools missing"; echo "run: ooonana get mpd mpc ncmpcpp"; exec sh'
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-processes" <<'EOF'
+#!/bin/sh
+set -eu
+if command -v htop >/dev/null 2>&1; then
+  exec ooonana-theme-env xterm -e htop
+fi
+exec ooonana-theme-env xterm -e sh -lc 'echo "htop missing"; echo "run: ooonana get htop"; exec sh'
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-ranger" <<'EOF'
+#!/bin/sh
+set -eu
+path="${1:-${HOME:-/root}}"
+if command -v ranger >/dev/null 2>&1; then
+  exec ooonana-theme-env xterm -e ranger "$path"
+fi
+exec ooonana-theme-env xterm -e sh -lc 'echo "ranger missing"; echo "run: ooonana get ranger"; exec sh'
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-brightness" <<'EOF'
+#!/bin/sh
+set -eu
+if ! command -v brightnessctl >/dev/null 2>&1; then
+  exec ooonana-theme-env xterm -e sh -lc 'echo "brightnessctl missing"; echo "run: ooonana get brightnessctl"; exec sh'
+fi
+if [ "$#" -gt 0 ]; then
+  exec brightnessctl set "$1"
+fi
+if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
+  value="$(yad --center --title "Ooonana Brightness" --scale --min-value=1 --max-value=100 --value=75 --button=Apply:0 2>/dev/null || true)"
+  [ -n "$value" ] && exec brightnessctl set "${value}%"
+fi
+exec ooonana-theme-env xterm -e sh -lc 'brightnessctl; echo; echo "Usage: ooonana-brightness 75%"; exec sh'
+EOF
+
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-settings" <<'EOF'
 #!/bin/sh
 set -eu
 
 if [ "${1:-}" = "--dry-run" ]; then
   echo "yad settings menu"
-  echo "actions: theme wallpaper display audio wifi bluetooth repo about"
+  echo "actions: theme wallpaper display audio wifi bluetooth brightness screenshot editor music processes ranger repo about"
   echo "OOONANA_SETTINGS_GUI_OK"
   exit 0
 fi
@@ -263,6 +353,12 @@ while :; do
     audio "Open audio controls" \
     wifi "Open NetworkManager" \
     bluetooth "Open Bluetooth manager" \
+    brightness "Set display brightness" \
+    screenshot "Take screenshot" \
+    editor "Open Geany/Vim" \
+    music "Open MPD client" \
+    processes "Open htop" \
+    ranger "Open terminal file manager" \
     repo "Set cloud package repo" \
     about "Show Ooonana info" 2>/dev/null || true)"
   [ -n "$action" ] || exit 0
@@ -298,6 +394,24 @@ while :; do
     bluetooth)
       ooonana-bluetooth || true
       ;;
+    brightness)
+      ooonana-brightness || true
+      ;;
+    screenshot)
+      ooonana-screenshot || true
+      ;;
+    editor)
+      ooonana-editor || true
+      ;;
+    music)
+      ooonana-music || true
+      ;;
+    processes)
+      ooonana-processes || true
+      ;;
+    ranger)
+      ooonana-ranger || true
+      ;;
     repo)
       repo="$(yad --center --title "Ooonana Repo" --entry --text "Cloud package repo URL" --entry-text "https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-package-repo.tar.gz" 2>/dev/null || true)"
       if [ -n "$repo" ]; then
@@ -330,10 +444,22 @@ if [ ! -f "$wallpaper" ]; then
 fi
 mkdir -p "${HOME:-/root}/.config/ooonana"
 printf '%s\n' "$wallpaper" >"${HOME:-/root}/.config/ooonana/wallpaper"
+if command -v hsetroot >/dev/null 2>&1; then
+  exec hsetroot -cover "$wallpaper"
+fi
 if command -v feh >/dev/null 2>&1; then
   exec feh --bg-fill "$wallpaper"
 fi
 exec ooonana-theme-env apply
+EOF
+
+  install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/xsettingsd.conf" <<'EOF'
+Net/ThemeName "Adwaita-dark"
+Net/IconThemeName "Adwaita"
+Gtk/FontName "Sans 10"
+Gtk/CursorThemeName "Adwaita"
+Gtk/ButtonImages 1
+Gtk/MenuImages 1
 EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/polybar.ini" <<'EOF'

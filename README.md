@@ -383,9 +383,10 @@ Default full-i3 apps and tools:
 
 ```text
 chromium, nemo, python3, py3-pip, alacritty
-polybar, rofi, yad, picom, dunst
+polybar, rofi, yad, picom, dunst, hsetroot
 networkmanager, network-manager-applet, blueman
-arandr, pavucontrol
+geany, maim, mpd, mpc, ncmpcpp, ranger, htop, vim
+xsettingsd, arandr, xrandr, pavucontrol, brightnessctl
 parted, e2fsprogs, dosfstools, util-linux
 ```
 
@@ -525,9 +526,14 @@ Mod+N        Network settings
 Mod+B        Bluetooth settings
 Mod+Shift+S  Display/audio settings
 Mod+Shift+P  Wallpaper changer
+Print        Screenshot
+Mod+Shift+G  Geany/Vim editor
+Mod+Shift+M  MPD music client
+Mod+Shift+X  htop process monitor
+Mod+Shift+U  ranger file manager
 ```
 
-`ooonana-settings` opens a GUI settings menu when `yad` is available. It can switch theme, choose wallpaper, open display/audio/Wi-Fi/Bluetooth tools, write the cloud repo source, and show Ooonana info. It falls back to the terminal help path when GUI pieces are missing.
+`ooonana-settings` opens a GUI settings menu when `yad` is available. It can switch theme, choose wallpaper, open display/audio/Wi-Fi/Bluetooth tools, set brightness, take screenshots, open editor/music/process/file-manager helpers, write the cloud repo source, and show Ooonana info. It falls back to the terminal help path when GUI pieces are missing.
 
 Persistent live USB:
 

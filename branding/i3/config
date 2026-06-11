@@ -6,6 +6,7 @@ exec_always --no-startup-id ooonana-theme-env apply
 exec --no-startup-id xsetroot -name "Ooonana OS"
 exec --no-startup-id sh -c 'command -v picom >/dev/null 2>&1 && picom --config /etc/ooonana/picom.conf &'
 exec --no-startup-id sh -c 'command -v dunst >/dev/null 2>&1 && dunst -config /etc/ooonana/dunstrc &'
+exec --no-startup-id sh -c 'command -v xsettingsd >/dev/null 2>&1 && xsettingsd -c /etc/ooonana/xsettingsd.conf &'
 exec_always --no-startup-id sh -c 'command -v polybar >/dev/null 2>&1 && killall polybar >/dev/null 2>&1 || true; command -v polybar >/dev/null 2>&1 && polybar -c /etc/ooonana/polybar.ini ooonana &'
 exec --no-startup-id sh -c 'command -v nm-applet >/dev/null 2>&1 && nm-applet --indicator &'
 exec --no-startup-id sh -c 'command -v blueman-applet >/dev/null 2>&1 && blueman-applet &'
@@ -21,6 +22,11 @@ bindsym $mod+Shift+a exec ooonana-ai-app
 bindsym $mod+Shift+i exec ooonana-gui-installer
 bindsym $mod+Shift+p exec ooonana-wallpaper
 bindsym $mod+Shift+t exec ooonana-theme-env toggle
+bindsym Print exec ooonana-screenshot
+bindsym $mod+Shift+g exec ooonana-editor
+bindsym $mod+Shift+m exec ooonana-music
+bindsym $mod+Shift+x exec ooonana-processes
+bindsym $mod+Shift+u exec ooonana-ranger
 bindsym $mod+Shift+r restart
 bindsym $mod+Shift+q kill
 bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'Exit Ooonana i3?' -b 'Exit' 'i3-msg exit'"
