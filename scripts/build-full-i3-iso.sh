@@ -12,7 +12,7 @@ LIVE_INITRAMFS="$WORK_DIR/ooonana-full-i3-live-initramfs.cpio.gz"
 DISK_IMAGE="$WORK_DIR/ooonana-full-i3-disk.raw"
 ISO_TREE="$WORK_DIR/full-i3-iso-tree"
 ISO="$WORK_DIR/ooonana-full-i3.iso"
-VOLUME="OOONANA_FULL_I3"
+VOLUME="OOONANAUSB"
 INSTALL_TARGET="auto"
 SMOKE=0
 LIVE_SMOKE=0
@@ -35,7 +35,7 @@ Options:
   --disk-image PATH    Full-i3 bootable raw disk image
   --iso-tree PATH      ISO staging directory (default: WORK_DIR/full-i3-iso-tree)
   --iso PATH           ISO output path (default: WORK_DIR/ooonana-full-i3.iso)
-  --volume NAME        ISO volume label (default: OOONANA_FULL_I3)
+  --volume NAME        ISO volume label (default: OOONANAUSB, 11 chars or less for USB tools)
   --install-target DEV Installer target device, or auto (default: auto)
   --smoke              Add smoke boot kernel argument
   --live-smoke         Smoke-test live i3 path instead of installer path
@@ -126,6 +126,32 @@ menuentry 'Install Ooonana OS Full i3 (safe graphics)' {
 EOF
 }
 
+write_rufus_note() {
+  cat > "$ISO_TREE/RUFUS.md" <<'EOF'
+# Ooonana OS Rufus USB
+
+Recommended Rufus mode:
+
+1. Select `ooonana-full-i3.iso`.
+2. Click Start.
+3. If Rufus says `ISOHybrid image detected`, choose `Write in DD Image mode`.
+4. Disable Secure Boot. Ooonana uses unsigned GRUB/kernel builds right now.
+
+Boot support:
+
+- UEFI: needs the ISO built with GRUB EFI modules.
+- Legacy BIOS/CSM: GRUB BIOS path is included.
+- Installer: use `Install Ooonana OS Full i3`.
+- Safe graphics: use `Install Ooonana OS Full i3 (safe graphics)`.
+
+Persistence:
+
+Use `Ooonana OS Full i3 Live (persistent USB)`.
+Create an extra ext4 partition labeled `OOONANA_PERSIST`.
+Ooonana mounts persistent `/home`, `/etc/ooonana`, `/var/lib/ooonana`, and `/var/cache/ooonana`.
+EOF
+}
+
 stage_iso_tree() {
   [[ -f "$KERNEL" ]] || ooonana_die "missing kernel: $KERNEL"
   [[ -f "$INITRAMFS" ]] || ooonana_die "missing initramfs: $INITRAMFS"
@@ -140,6 +166,7 @@ stage_iso_tree() {
   install -m 0644 "$LIVE_INITRAMFS" "$ISO_TREE/boot/live-initramfs.cpio.gz"
   install -m 0644 "$DISK_IMAGE" "$ISO_TREE/images/ooonana-full-i3-disk.raw"
   install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/logo.txt" "$ISO_TREE/boot/grub/ooonana-logo.txt"
+  write_rufus_note
   cat > "$ISO_TREE/boot/grub/theme.txt" <<'EOF'
 title-text: "Ooonana OS"
 title-color: "#ffb21a"

@@ -12,7 +12,7 @@ ROOTFS_IMAGE="$WORK_DIR/ooonana-scratch.ext4"
 DISK_IMAGE=""
 ISO_TREE="$WORK_DIR/scratch-grub-iso-tree"
 ISO="$WORK_DIR/ooonana-scratch-grub.iso"
-VOLUME="OOONANA_GRUB"
+VOLUME="OOONANAMIN"
 INSTALL=0
 INSTALL_TARGET="/dev/vda"
 SMOKE=0
@@ -34,7 +34,7 @@ Options:
   --disk-image PATH    Bootable raw disk image for installer ISO
   --iso-tree PATH      ISO staging directory (default: WORK_DIR/scratch-grub-iso-tree)
   --iso PATH           ISO output path (default: WORK_DIR/ooonana-scratch-grub.iso)
-  --volume NAME        ISO volume label (default: OOONANA_GRUB)
+  --volume NAME        ISO volume label (default: OOONANAMIN, 11 chars or less for USB tools)
   --install            Build installer ISO that writes rootfs image to target
   --install-target DEV Installer target device inside QEMU (default: /dev/vda)
   --smoke              Boot straight to Ooonana smoke marker
@@ -121,6 +121,26 @@ EOF
   fi
 }
 
+write_rufus_note() {
+  cat > "$ISO_TREE/RUFUS.md" <<'EOF'
+# Ooonana OS Minimal Rufus USB
+
+Recommended Rufus mode:
+
+1. Select `ooonana-scratch.iso`.
+2. Click Start.
+3. If Rufus says `ISOHybrid image detected`, choose `Write in DD Image mode`.
+4. Disable Secure Boot. Ooonana uses unsigned GRUB/kernel builds right now.
+
+Boot support:
+
+- UEFI: needs the ISO built with GRUB EFI modules.
+- Legacy BIOS/CSM: GRUB BIOS path is included.
+- Minimal shell: use `Ooonana OS Minimal`.
+- Installer: use `Install Ooonana OS Minimal` when present.
+EOF
+}
+
 stage_iso_tree() {
   [[ -f "$KERNEL" ]] || ooonana_die "missing kernel: $KERNEL"
   [[ -f "$INITRAMFS" ]] || ooonana_die "missing initramfs: $INITRAMFS"
@@ -136,6 +156,7 @@ stage_iso_tree() {
   install -m 0644 "$KERNEL" "$ISO_TREE/boot/vmlinuz"
   install -m 0644 "$INITRAMFS" "$ISO_TREE/boot/initramfs.cpio.gz"
   install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/logo.txt" "$ISO_TREE/boot/grub/ooonana-logo.txt"
+  write_rufus_note
   cat > "$ISO_TREE/boot/grub/theme.txt" <<'EOF'
 title-text: "Ooonana OS Minimal"
 title-color: "#ffb21a"

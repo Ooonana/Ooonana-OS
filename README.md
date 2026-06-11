@@ -22,6 +22,7 @@ Lightweight scratch-built Linux for QEMU, WSL, installer experiments, and AI-fir
 - [Ooonana Command](#ooonana-command)
 - [Package Factory](#package-factory)
 - [Full I3 Edition](#full-i3-edition)
+- [Rufus USB](#rufus-usb)
 - [Ooonana AI](#ooonana-ai)
 - [Build From Source](#build-from-source)
 - [Project Files](#project-files)
@@ -53,6 +54,7 @@ ooonana-full-i3.iso    live desktop by default, persistent live second, installe
 ooonana-scratch.iso    minimal shell plus installer menu
 full-i3 live desktop   i3, polybar, rofi, wallpaper, GUI installer launcher
 full-i3 install menu   VGA-first, serial-safe image installer, safe graphics fallback
+rufus usb              ISOHybrid/DD mode, BIOS/UEFI, Secure Boot off
 ```
 
 Release files:
@@ -117,6 +119,7 @@ Working now:
 - Installer has a serial-safe xterm UI with logo, disk picker, user/password, hostname, theme, cloud repo picker, progress, logs, fail shell, and reboot prompt
 - Live/install ISO keeps interactive prompts on the VGA console for VMware while smoke tests log through serial
 - GRUB has Ooonana theme/logo text, BIOS/UEFI hybrid support, live/install/safe graphics menus, and a persistent USB boot entry
+- Rufus support has a DD-mode note inside the ISO, USB-friendly volume labels, and `scripts/verify-rufus-iso.sh`
 - Full-i3 live starts eudev before Xorg and ships libinput config for PS/2 keyboard and mouse discovery
 - Full-i3 now ships an Archcraft-like i3 baseline: polybar, rofi, picom, dunst, Chromium launcher, Nemo launcher, Wi-Fi/Bluetooth/settings helpers, wallpaper changer, and dark Ooonana colors
 - Installed disk boots in QEMU
@@ -432,6 +435,7 @@ UEFI support:
 bash scripts/install-wsl-deps.sh
 bash scripts/build-full-i3-iso.sh --uefi --force
 bash scripts/verify-vmware-uefi-input.sh
+bash scripts/verify-rufus-iso.sh
 ```
 
 `grub-mkrescue` builds BIOS boot support always. When `grub-efi-amd64-bin` provides `/usr/lib/grub/x86_64-efi` and `mtools` provides `mformat`, the ISO becomes hybrid BIOS/UEFI. `ovmf` is only needed for local UEFI QEMU proof.
@@ -508,6 +512,44 @@ Persistence label: OOONANA_PERSIST
 ```
 
 For Rufus/native USB, flash the ISO normally, then add an ext4 persistence partition labeled `OOONANA_PERSIST`. Ooonana bind-mounts `/home`, `/etc/ooonana`, `/var/lib/ooonana`, and `/var/cache/ooonana` from that partition.
+
+## Rufus USB
+
+Use the full-i3 ISO:
+
+```text
+/var/tmp/ooonana-os/release/ooonana-full-i3.iso
+```
+
+Rufus settings:
+
+```text
+Image mode: Write in DD Image mode
+Secure Boot: off
+Target system: BIOS or UEFI
+```
+
+If Rufus shows `ISOHybrid image detected`, choose `Write in DD Image mode`.
+The ISO includes `RUFUS.md` at the USB root with the same notes.
+
+Verify before uploading or flashing:
+
+```bash
+bash scripts/verify-rufus-iso.sh \
+  --iso /var/tmp/ooonana-os/release/ooonana-full-i3.iso
+```
+
+Expected marker:
+
+```text
+OOONANA_RUFUS_ISO_OK
+```
+
+More:
+
+```text
+docs/rufus-usb.md
+```
 
 VMware note:
 
@@ -764,6 +806,7 @@ scripts/build-full-i3-rootfs.sh
 scripts/build-full-i3-live-initramfs.sh
 scripts/build-full-i3-disk.sh
 scripts/build-full-i3-iso.sh
+scripts/verify-rufus-iso.sh
 scripts/generate-ooonana-pdf.py
 scripts/build-ooonana-pdf-os.sh
 scripts/inject-ooonana-pdf-root.sh
@@ -784,6 +827,7 @@ tests/test-full-i3-rootfs.sh
 tests/test-full-i3-live-initramfs.sh
 tests/test-full-i3-disk.sh
 tests/test-full-i3-iso.sh
+tests/test-rufus-iso-verify.sh
 tests/test-gui-installer.sh
 tests/test-qemu-gui.sh
 tests/test-logo-sync.sh
@@ -810,6 +854,7 @@ docs/ooonana.pdf                bootable Ooonana OS PDF target
 docs/ooonana-guide.pdf          docs-only field guide PDF
 docs/ooonana-pdf-os.md
 docs/ooonana-roadmap.md
+docs/rufus-usb.md
 docs/ooonana-ai.md
 docs/ooonana-ai.env.example
 docs/jarvis-agi-research.md

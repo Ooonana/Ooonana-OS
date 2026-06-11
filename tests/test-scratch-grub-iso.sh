@@ -23,6 +23,8 @@ assert_contains "$script_src" "/usr/lib/grub/x86_64-efi"
 assert_contains "$script_src" "hybrid BIOS/UEFI ISO"
 assert_contains "$script_src" "Ooonana OS Minimal"
 assert_contains "$script_src" "ooonana-logo.txt"
+assert_contains "$script_src" 'VOLUME="OOONANAMIN"'
+assert_contains "$script_src" "Write in DD Image mode"
 
 help="$(bash "$SCRIPT" --help)"
 assert_contains "$help" "Build Ooonana scratch GRUB ISO"
@@ -73,9 +75,12 @@ PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
 [[ -f "$tmp/build/scratch-grub-iso-tree/boot/initramfs.cpio.gz" ]] || fail "missing staged initramfs"
 [[ -f "$tmp/build/scratch-grub-iso-tree/boot/grub/ooonana-logo.txt" ]] || fail "missing staged GRUB logo"
 [[ -f "$tmp/build/scratch-grub-iso-tree/boot/grub/theme.txt" ]] || fail "missing staged GRUB theme"
+[[ -f "$tmp/build/scratch-grub-iso-tree/RUFUS.md" ]] || fail "missing staged Rufus note"
 [[ -f "$tmp/build/scratch-grub-iso-tree/images/ooonana-scratch-disk.raw" ]] || fail "missing staged disk image"
 [[ -f "$tmp/build/scratch-grub-iso-tree/boot/grub/grub.cfg" ]] || fail "missing grub config"
 [[ "$(<"$tmp/build/scratch-grub-iso-tree/images/ooonana-scratch-disk.raw")" == "disk" ]] || fail "wrong staged disk image"
+assert_contains "$(<"$tmp/build/scratch-grub-iso-tree/RUFUS.md")" "Write in DD Image mode"
+assert_contains "$(<"$tmp/build/scratch-grub-iso-tree/RUFUS.md")" "Ooonana OS Minimal"
 
 cfg="$(<"$tmp/build/scratch-grub-iso-tree/boot/grub/grub.cfg")"
 assert_contains "$cfg" "set default=1"

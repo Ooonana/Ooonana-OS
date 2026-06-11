@@ -22,7 +22,9 @@ assert_contains "$script_src" "ooonana.install.image=/mnt/install/images/ooonana
 assert_contains "$script_src" "Ooonana OS Full i3 Live"
 assert_contains "$script_src" "Ooonana OS Full i3 Live (persistent USB)"
 assert_contains "$script_src" "ooonana.persistence=1"
-assert_contains "$script_src" "OOONANA_FULL_I3"
+assert_contains "$script_src" 'VOLUME="OOONANAUSB"'
+assert_contains "$script_src" "Write in DD Image mode"
+assert_contains "$script_src" "OOONANA_PERSIST"
 assert_contains "$script_src" "grub-mkrescue"
 assert_contains "$script_src" "/usr/lib/grub/x86_64-efi"
 assert_contains "$script_src" "hybrid BIOS/UEFI ISO"
@@ -108,9 +110,12 @@ PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
 [[ -f "$tmp/build/full-i3-iso-tree/boot/live-initramfs.cpio.gz" ]] || fail "missing staged live initramfs"
 [[ -f "$tmp/build/full-i3-iso-tree/boot/grub/ooonana-logo.txt" ]] || fail "missing staged GRUB logo"
 [[ -f "$tmp/build/full-i3-iso-tree/boot/grub/theme.txt" ]] || fail "missing staged GRUB theme"
+[[ -f "$tmp/build/full-i3-iso-tree/RUFUS.md" ]] || fail "missing staged Rufus note"
 [[ -f "$tmp/build/full-i3-iso-tree/images/ooonana-full-i3-disk.raw" ]] || fail "missing staged full disk image"
 [[ "$(<"$tmp/build/full-i3-iso-tree/images/ooonana-full-i3-disk.raw")" == "full disk" ]] || fail "wrong staged disk image"
 [[ "$(<"$tmp/build/full-i3-iso-tree/boot/live-initramfs.cpio.gz")" == "live initramfs" ]] || fail "wrong staged live initramfs"
+assert_contains "$(<"$tmp/build/full-i3-iso-tree/RUFUS.md")" "Write in DD Image mode"
+assert_contains "$(<"$tmp/build/full-i3-iso-tree/RUFUS.md")" "OOONANA_PERSIST"
 
 cfg="$(<"$tmp/build/full-i3-iso-tree/boot/grub/grub.cfg")"
 assert_contains "$cfg" "set default=2"
