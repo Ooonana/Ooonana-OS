@@ -30,14 +30,23 @@ print_dashboard() {
   printf 'Ooonana AI native app\n'
   printf '=====================\n\n'
   run_ai status || true
+  printf '\nDesktop\n'
+  printf 'display: %s\n' "${DISPLAY:-missing}"
+  printf 'theme: %s\n' "${OOONANA_THEME:-auto}"
   printf '\nQuick actions\n'
-  printf '1 chat\n'
-  printf '2 ask\n'
-  printf '3 tools\n'
-  printf '4 tasks\n'
-  printf '5 sessions\n'
-  printf '6 setup\n'
-  printf '7 shell\n'
+  printf '1  chat\n'
+  printf '2  ask\n'
+  printf '3  tools\n'
+  printf '4  tasks\n'
+  printf '5  sessions\n'
+  printf '6  setup\n'
+  printf '7  shell\n'
+  printf '8  desktop\n'
+  printf '9  audit\n'
+  printf '10 history\n'
+  printf '11 provider\n'
+  printf '12 model\n'
+  printf '13 env\n'
   printf 'q quit\n'
 }
 
@@ -92,6 +101,30 @@ run_action() {
       ;;
     7|shell)
       exec /bin/sh
+      ;;
+    8|desktop)
+      run_ai tool desktop
+      pause_if_interactive
+      ;;
+    9|audit)
+      run_ai audit
+      pause_if_interactive
+      ;;
+    10|history)
+      run_ai history
+      pause_if_interactive
+      ;;
+    11|provider)
+      run_ai provider
+      pause_if_interactive
+      ;;
+    12|model)
+      run_ai model
+      pause_if_interactive
+      ;;
+    13|env)
+      run_ai env
+      pause_if_interactive
       ;;
     q|quit|exit)
       exit 0

@@ -36,8 +36,17 @@ That writes `docs/ooonana-guide.pdf`.
 
 ## TODO
 
-- Build and verify `docs/ooonana.pdf` in Chromium.
+- Build and verify `docs/ooonana.pdf` in Chromium. First Chrome smoke proof
+  loads the OoonanaPDF UI and reaches the RISC-V kernel boot path.
 - Add RISC-V native Ooonana kernel/rootfs instead of linuxpdf's prebuilt root.
 - Add an Ooonana boot marker in the PDF console.
 - Reduce payload size for faster PDF load.
 - Add release artifact upload for `ooonana.pdf`.
+
+Chrome smoke:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/test-ooonana-pdf-chrome.ps1
+```
+
+The screenshot output is `docs/ooonana-pdf-chrome-smoke.png`.

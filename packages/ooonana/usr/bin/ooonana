@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-VERSION="0.7.0"
+VERSION="0.8.0"
 HOME_DIR="${HOME:-/root}"
 if [ -n "${OOONANA_AI_CONFIG:-}" ]; then
   AI_CONFIG="$OOONANA_AI_CONFIG"
@@ -58,6 +58,14 @@ Usage:
   ooonana wsl [doctor|status]
   ooonana setup [options]
 
+Small shell tools:
+  bunana                 Exit shell when loaded by Ooonana login shell
+  bunana --shutdown      Power off
+  bunana --restart       Reboot
+  clear                  Clear terminal
+  oonana                 Play Ooonana brick game
+  neofetch               Show Ooonana logo and system info
+
 Packages:
   ooonana update
   ooonana sources
@@ -112,11 +120,17 @@ AI:
 Examples:
   ooonana update
   ooonana search editor
+  ooonana search browser
+  ooonana search file-manager
   ooonana get nano
+  ooonana get chromium
+  ooonana get nemo
   ooonana upgrade --dry-run
   ooonana fix nano --reinstall
   ooonana purge nano
   ooonana repo build --dry-run nano
+  oonana
+  bunana --restart
 
 Paths:
   repos: /usr/lib/ooonana/repo, /etc/ooonana/sources.d/*.repo
@@ -290,11 +304,25 @@ usage_ui_help() {
 Full i3 UI:
   Mod+Enter     terminal
   Mod+d         app launcher
+  Mod+Shift+F   Nemo file manager
+  Mod+Shift+W   Chromium browser
+  Mod+N         Wi-Fi settings
+  Mod+B         Bluetooth settings
+  Mod+Shift+S   display/audio settings
   Mod+Shift+A   Ooonana AI app
   Mod+Shift+I   installer
+  Mod+Shift+P   wallpaper changer
   Mod+Shift+T   toggle dark/light theme
   Mod+Shift+R   restart i3
   Mod+Shift+E   exit i3
+
+Desktop helpers:
+  ooonana-browser [URL]
+  ooonana-files [PATH]
+  ooonana-wifi
+  ooonana-bluetooth
+  ooonana-settings
+  ooonana-wallpaper [PNG]
 
 Theme:
   default: black background, orange cursor/text

@@ -1,0 +1,28 @@
+#!/bin/sh
+set -eu
+
+usage() {
+  cat <<'USAGE'
+bunana              exit current command
+bunana --shutdown   power off
+bunana --restart    reboot
+
+For real shell-exit behavior, use Ooonana login shell or run:
+  . bunana
+USAGE
+}
+
+case "${1:-}" in
+  --shutdown)
+    poweroff -f 2>/dev/null || halt -f 2>/dev/null || shutdown -h now 2>/dev/null || exit 0
+    ;;
+  --restart|--reboot)
+    reboot -f 2>/dev/null || shutdown -r now 2>/dev/null || exit 0
+    ;;
+  --help|-h)
+    usage
+    ;;
+  *)
+    exit 0
+    ;;
+esac

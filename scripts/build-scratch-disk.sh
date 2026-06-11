@@ -83,14 +83,45 @@ write_grub_config() {
   local append
   append="$(kernel_append)"
   mkdir -p "$target/boot/grub"
+  if [[ -f "$target/usr/share/ooonana/logo.txt" ]]; then
+    install -m 0644 "$target/usr/share/ooonana/logo.txt" "$target/boot/grub/ooonana-logo.txt"
+  elif [[ -f "$ROOT/packages/ooonana/usr/share/ooonana/logo.txt" ]]; then
+    install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/logo.txt" "$target/boot/grub/ooonana-logo.txt"
+  fi
+  cat > "$target/boot/grub/theme.txt" <<'EOF'
+title-text: "Ooonana OS Minimal"
+title-color: "#ffb21a"
+desktop-color: "#050505"
+terminal-font: "Unifont Regular 16"
+message-color: "#ffb21a"
+selected-item-color: "#050505"
+selected-item-background-color: "#ffb21a"
+item-color: "#ffb21a"
+item-font: "Unifont Regular 16"
+EOF
   cat > "$target/boot/grub/grub.cfg" <<EOF
+insmod all_video
+if loadfont /boot/grub/fonts/unicode.pf2; then
+  insmod gfxterm
+fi
 serial --unit=0 --speed=115200
 terminal_input console serial
 terminal_output console serial
-set timeout=1
+if [ -f /boot/grub/theme.txt ]; then
+  set theme=/boot/grub/theme.txt
+fi
+if terminal_output gfxterm serial; then
+  true
+fi
+clear
+echo 'Ooonana OS Minimal'
+if [ -f /boot/grub/ooonana-logo.txt ]; then
+  cat /boot/grub/ooonana-logo.txt
+fi
+set timeout=5
 set default=0
 
-menuentry 'Ooonana OS' {
+menuentry 'Ooonana OS Minimal' {
   linux /boot/vmlinuz $append
 }
 EOF

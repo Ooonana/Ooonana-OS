@@ -5,3 +5,4 @@ bash
 curl
 wget
 ca-certificates
+python3

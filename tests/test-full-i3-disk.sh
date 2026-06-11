@@ -27,6 +27,8 @@ script_src="$(<"$SCRIPT")"
 assert_contains "$script_src" "Ooonana OS Full i3"
 assert_contains "$script_src" "ooonana.edition=full-i3"
 assert_contains "$script_src" "ooonana.gui-smoke=1"
+assert_contains "$script_src" "ooonana-logo.txt"
+assert_contains "$script_src" "set theme=/boot/grub/theme.txt"
 assert_contains "$script_src" "OOONANA_FULL_I3_DISK_OK"
 
 help="$(bash "$SCRIPT" --help)"
@@ -71,5 +73,6 @@ dry_run_normal="$(bash "$SCRIPT" \
 assert_contains "$dry_run_normal" "root=PARTUUID=TARGET_PARTUUID rw console=ttyS0 console=tty0 panic=1 init=/sbin/init ooonana.edition=full-i3"
 assert_contains "$script_src" "terminal_input console serial"
 assert_contains "$script_src" "terminal_output console serial"
+assert_contains "$script_src" "terminal_output gfxterm serial"
 
 printf 'ok full-i3-disk\n'

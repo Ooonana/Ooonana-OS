@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+
+logo="/usr/share/ooonana/logo.txt"
+[ -f "$logo" ] || logo="/etc/motd"
+
+if [ -f "$logo" ]; then
+  cat "$logo"
+else
+  printf 'Ooonana OS\n'
+fi
+
+printf '\n'
+printf 'os: %s\n' "$(sed -n 's/^PRETTY_NAME="//; s/"$//; 1p' /etc/os-release 2>/dev/null || printf 'Ooonana OS')"
+printf 'kernel: %s\n' "$(uname -r 2>/dev/null || printf unknown)"
+printf 'host: %s\n' "$(hostname 2>/dev/null || printf ooonana)"
+printf 'shell: %s\n' "${SHELL:-/bin/sh}"
+printf 'pkg: ooonana\n'

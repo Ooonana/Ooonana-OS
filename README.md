@@ -49,10 +49,10 @@ Minimal scratch installer ISO:
 Live environment status:
 
 ```text
-ooonana-full-i3.iso    live desktop by default, install menu second
-ooonana-scratch.iso    minimal installer-only
-full-i3 live desktop   i3, wallpaper, GUI installer launcher
-full-i3 install menu   VGA-first, serial-safe image installer
+ooonana-full-i3.iso    live desktop by default, persistent live second, installer third
+ooonana-scratch.iso    minimal shell plus installer menu
+full-i3 live desktop   i3, polybar, rofi, wallpaper, GUI installer launcher
+full-i3 install menu   VGA-first, serial-safe image installer, safe graphics fallback
 ```
 
 Release files:
@@ -116,12 +116,15 @@ Working now:
 - Installer ISO opens a fallback shell on install failure or cancel
 - Installer has a serial-safe xterm UI with logo, disk picker, user/password, hostname, theme, cloud repo picker, progress, logs, fail shell, and reboot prompt
 - Live/install ISO keeps interactive prompts on the VGA console for VMware while smoke tests log through serial
+- GRUB has Ooonana theme/logo text, BIOS/UEFI hybrid support, live/install/safe graphics menus, and a persistent USB boot entry
 - Full-i3 live starts eudev before Xorg and ships libinput config for PS/2 keyboard and mouse discovery
+- Full-i3 now ships an Archcraft-like i3 baseline: polybar, rofi, picom, dunst, Chromium launcher, Nemo launcher, Wi-Fi/Bluetooth/settings helpers, wallpaper changer, and dark Ooonana colors
 - Installed disk boots in QEMU
 - `ooonana-install` can partition a raw/whole disk, format ext4, copy rootfs, install kernel, write GRUB, and persist user, hostname, and theme
 - Generic `ooonana-rootfs.tar.gz` can be unpacked for chroot/container-style use
 - Minimal and full-i3 WSL distro exports can be imported
 - `ooonana` package manager has repo index, checksums, install, remove, purge, upgrade, fix, files, verify
+- Minimal and full rootfs include Ooonana shell helpers: `bunana`, `clear`, `oonana` brick game, and Ooonana neofetch logo fallback
 - `ooonana update` can sync local repos, HTTP repos, and GitHub Release repo tarballs into cache
 - Alpine `.apk` packages can be imported into Ooonana `.pkg` repos
 - Full-i3 branding assets, package profiles, input drivers, package-installed rootfs, boot disk, live/install ISO, GUI installer wizard, AI desktop launcher, and real QEMU boot proof exist as a separate edition path
@@ -134,6 +137,13 @@ Next work:
 - Full ISO export/install polish for VMware and other hypervisors
 - More first-party packages
 - Service manager, login defaults, security hardening
+- Native RISC-V Ooonana rootfs for the PDF OS path
+
+Detailed numbered roadmap:
+
+```text
+docs/ooonana-roadmap.md
+```
 
 ## Install And Test
 
@@ -222,6 +232,17 @@ ooonana clean
 ooonana repo index /usr/lib/ooonana/repo
 ```
 
+Small terminal commands:
+
+```bash
+bunana                 # exit login shell function
+bunana --shutdown      # power off
+bunana --restart       # reboot
+clear                  # clear terminal
+oonana                 # brick game, two-o command
+neofetch               # Ooonana logo fallback
+```
+
 Install package flow:
 
 ```bash
@@ -305,6 +326,8 @@ Default cloud package profile:
 configs/packages/ooonana-cloud.list
 ```
 
+The default seed now includes `python3` so AI and repo tooling can run once the cloud repo is published.
+
 This creates:
 
 ```text
@@ -351,7 +374,16 @@ full-i3   ooonana-full-i3.iso, ooonana-full-i3-disk.raw, ooonana-full-i3-rootfs.
 ```
 
 The full-i3 path adds branding, i3 config, X input drivers, package automation, live desktop, GUI installer tools, Ooonana AI app launcher, and a package-installed rootfs. It does not replace the minimal release.
-The full-i3 ISO boots live i3 by default. Its second GRUB entry runs the serial-safe installer. From the live desktop, launch `ooonana-gui-installer` to install through the graphical wizard.
+The full-i3 ISO boots live i3 by default. The GRUB menu includes normal live, persistent live, installer, and safe graphics installer entries. From the live desktop, launch `ooonana-gui-installer` to install through the graphical wizard.
+
+Default full-i3 apps and tools:
+
+```text
+chromium, nemo, python3, py3-pip, alacritty
+polybar, rofi, picom, dunst
+networkmanager, network-manager-applet, blueman
+arandr, pavucontrol
+```
 
 Build full-i3 package repo locally:
 
@@ -456,6 +488,26 @@ OOONANA_THEME=light ooonana setup --first-boot --gui
 ```
 
 The installer persists the chosen theme in `/etc/ooonana/theme`; i3 reads it through `ooonana-theme-env` on boot. Inside i3, `Mod+Shift+T` toggles dark/light, `Mod+Shift+A` opens the Ooonana AI app, and `Mod+Shift+I` opens the installer.
+Extra i3 keys:
+
+```text
+Mod+Shift+F  Nemo file manager
+Mod+Shift+W  Chromium browser
+Mod+N        Network settings
+Mod+B        Bluetooth settings
+Mod+Shift+S  Display/audio settings
+Mod+Shift+P  Wallpaper changer
+```
+
+Persistent live USB:
+
+```text
+GRUB entry: Ooonana OS Full i3 Live (persistent USB)
+Kernel arg: ooonana.persistence=1
+Persistence label: OOONANA_PERSIST
+```
+
+For Rufus/native USB, flash the ISO normally, then add an ext4 persistence partition labeled `OOONANA_PERSIST`. Ooonana bind-mounts `/home`, `/etc/ooonana`, `/var/lib/ooonana`, and `/var/cache/ooonana` from that partition.
 
 VMware note:
 
@@ -547,8 +599,9 @@ Full-i3 includes an Ooonana AI app launcher:
 i3 shortcut: Mod+Shift+a
 ```
 
-The launcher opens a native terminal dashboard with status, chat, ask, tools,
-tasks, sessions, setup, and shell actions. For terminal-only launch:
+The launcher opens a native terminal dashboard with status, desktop context,
+chat, ask, tools, tasks, sessions, setup, provider, model, audit, history, env,
+and shell actions. For terminal-only launch:
 
 ```bash
 OOONANA_AI_APP_NO_X=1 ooonana-ai-app
@@ -667,6 +720,7 @@ Kernel and package config:
 configs/kernel/ooonana-minimal-x86_64.fragment
 configs/packages/core.list
 configs/packages/ooonana-repo.list
+configs/packages/ooonana-cloud.list
 configs/packages/full-i3.list
 ```
 
@@ -674,12 +728,18 @@ Ooonana package:
 
 ```text
 packages/ooonana/usr/bin/ooonana
+packages/ooonana/usr/bin/oonana
+packages/ooonana/usr/bin/bunana
+packages/ooonana/usr/bin/clear
+packages/ooonana/usr/bin/neofetch
 packages/ooonana/usr/bin/ooonana-ai
+packages/ooonana/usr/bin/ooonana-ai-app
 packages/ooonana/usr/lib/ooonana/ai/ooonana_ai.py
 packages/ooonana/usr/lib/ooonana/repo/*.pkg
 packages/ooonana/usr/lib/ooonana/repo/index.tsv
 packages/ooonana/usr/lib/ooonana/repo/SHA256SUMS
 packages/ooonana/usr/sbin/ooonana-install
+packages/ooonana/etc/neofetch/config.conf
 packages/ooonana/usr/share/ooonana/logo.txt
 ```
 
@@ -707,6 +767,7 @@ scripts/build-full-i3-iso.sh
 scripts/generate-ooonana-pdf.py
 scripts/build-ooonana-pdf-os.sh
 scripts/inject-ooonana-pdf-root.sh
+scripts/test-ooonana-pdf-chrome.ps1
 scripts/lib/common.sh
 ```
 
@@ -728,6 +789,7 @@ tests/test-qemu-gui.sh
 tests/test-logo-sync.sh
 tests/test-ooonana-pdf.sh
 tests/test-ooonana-pdf-os.sh
+tests/test-ooonana-pdf-chrome-smoke.sh
 tests/test-rootfs-tarball.sh
 tests/test-scratch-rootfs.sh
 tests/test-scratch-initramfs.sh
@@ -747,6 +809,7 @@ docs/logo.txt
 docs/ooonana.pdf                bootable Ooonana OS PDF target
 docs/ooonana-guide.pdf          docs-only field guide PDF
 docs/ooonana-pdf-os.md
+docs/ooonana-roadmap.md
 docs/ooonana-ai.md
 docs/ooonana-ai.env.example
 docs/jarvis-agi-research.md

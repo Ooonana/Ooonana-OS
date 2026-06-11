@@ -38,7 +38,7 @@ EOF
 chmod +x "$scratch/bin/sh"
 cat > "$scratch/usr/bin/ooonana" <<'EOF'
 #!/bin/sh
-echo ooonana 0.7.0
+echo ooonana 0.8.0
 EOF
 chmod +x "$scratch/usr/bin/ooonana"
 cat > "$scratch/usr/bin/ooonana-setup" <<'EOF'
@@ -116,10 +116,24 @@ rootfs="$tmp/full-rootfs"
 [[ -x "$rootfs/usr/bin/ooonana-i3-session" ]] || fail "missing i3 session"
 [[ -x "$rootfs/usr/bin/ooonana-i3-smoke-session" ]] || fail "missing GUI smoke session"
 [[ -x "$rootfs/usr/bin/ooonana-theme-env" ]] || fail "missing theme helper"
+[[ -x "$rootfs/usr/bin/bunana" ]] || fail "missing bunana command"
+[[ -x "$rootfs/usr/bin/oonana" ]] || fail "missing oonana game"
+[[ -x "$rootfs/usr/bin/neofetch" ]] || fail "missing neofetch fallback"
+[[ -x "$rootfs/usr/bin/ooonana-browser" ]] || fail "missing browser helper"
+[[ -x "$rootfs/usr/bin/ooonana-files" ]] || fail "missing file manager helper"
+[[ -x "$rootfs/usr/bin/ooonana-wifi" ]] || fail "missing wifi helper"
+[[ -x "$rootfs/usr/bin/ooonana-bluetooth" ]] || fail "missing bluetooth helper"
+[[ -x "$rootfs/usr/bin/ooonana-settings" ]] || fail "missing settings helper"
+[[ -x "$rootfs/usr/bin/ooonana-wallpaper" ]] || fail "missing wallpaper helper"
 [[ -f "$rootfs/usr/share/ooonana/logo.svg" ]] || fail "missing rootfs logo svg"
 [[ -f "$rootfs/usr/share/ooonana/logo.png" ]] || fail "missing rootfs logo png"
 [[ -f "$rootfs/usr/share/ooonana/wallpapers/ooonana-wallpaper.png" ]] || fail "missing rootfs wallpaper"
 [[ -f "$rootfs/etc/i3/config" ]] || fail "missing rootfs i3 config"
+[[ -f "$rootfs/etc/ooonana/polybar.ini" ]] || fail "missing polybar config"
+[[ -f "$rootfs/etc/ooonana/rofi.rasi" ]] || fail "missing rofi config"
+[[ -f "$rootfs/etc/ooonana/picom.conf" ]] || fail "missing picom config"
+[[ -f "$rootfs/etc/ooonana/dunstrc" ]] || fail "missing dunst config"
+[[ -f "$rootfs/etc/neofetch/config.conf" ]] || fail "missing neofetch config"
 [[ -f "$rootfs/etc/X11/xorg.conf.d/10-ooonana-input.conf" ]] || fail "missing Xorg input config"
 [[ -f "$rootfs/usr/share/applications/ooonana-installer.desktop" ]] || fail "missing GUI installer desktop entry"
 [[ -f "$rootfs/usr/share/applications/ooonana-ai.desktop" ]] || fail "missing AI app desktop entry"
@@ -146,6 +160,7 @@ assert_contains "$start_script" "grep -qi microsoft /proc/version"
 assert_contains "$start_script" 'exec /usr/bin/ooonana-i3-session'
 assert_contains "$start_script" 'HOME="/root"'
 assert_contains "$start_script" 'touch "$HOME/.Xauthority"'
+assert_contains "$start_script" 'exec /bin/sh -l'
 
 i3_smoke_session="$(<"$rootfs/usr/bin/ooonana-i3-smoke-session")"
 assert_contains "$i3_smoke_session" "i3-msg exit"
@@ -162,6 +177,15 @@ assert_contains "$i3_session" "exec i3"
 
 i3_config="$(<"$rootfs/etc/i3/config")"
 assert_contains "$i3_config" 'bindsym $mod+Shift+a exec ooonana-ai-app'
+assert_contains "$i3_config" "polybar -c /etc/ooonana/polybar.ini ooonana"
+assert_contains "$i3_config" "picom --config /etc/ooonana/picom.conf"
+assert_contains "$i3_config" "dunst -config /etc/ooonana/dunstrc"
+assert_contains "$i3_config" "rofi -show drun -theme /etc/ooonana/rofi.rasi"
+assert_contains "$i3_config" 'bindsym $mod+Shift+f exec ooonana-files'
+assert_contains "$i3_config" 'bindsym $mod+Shift+w exec ooonana-browser'
+assert_contains "$i3_config" 'bindsym $mod+n exec ooonana-wifi'
+assert_contains "$i3_config" 'bindsym $mod+b exec ooonana-bluetooth'
+assert_contains "$i3_config" 'bindsym $mod+Shift+p exec ooonana-wallpaper'
 
 xorg_input="$(<"$rootfs/etc/X11/xorg.conf.d/10-ooonana-input.conf")"
 assert_contains "$xorg_input" 'Option "AutoAddDevices" "true"'
@@ -173,7 +197,28 @@ theme_helper="$(<"$rootfs/usr/bin/ooonana-theme-env")"
 assert_contains "$theme_helper" 'OOONANA_BG="#050505"'
 assert_contains "$theme_helper" 'OOONANA_BG="#ffb21a"'
 assert_contains "$theme_helper" "/etc/ooonana/theme"
+assert_contains "$theme_helper" ".config/ooonana/wallpaper"
+assert_contains "$theme_helper" '-e /bin/sh -l'
 assert_contains "$theme_helper" 'exec xterm -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR"'
+
+browser_helper="$(<"$rootfs/usr/bin/ooonana-browser")"
+assert_contains "$browser_helper" "chromium --no-first-run"
+files_helper="$(<"$rootfs/usr/bin/ooonana-files")"
+assert_contains "$files_helper" 'exec nemo "$path"'
+wifi_helper="$(<"$rootfs/usr/bin/ooonana-wifi")"
+assert_contains "$wifi_helper" "nm-connection-editor"
+assert_contains "$wifi_helper" "nmtui"
+bt_helper="$(<"$rootfs/usr/bin/ooonana-bluetooth")"
+assert_contains "$bt_helper" "blueman-manager"
+settings_helper="$(<"$rootfs/usr/bin/ooonana-settings")"
+assert_contains "$settings_helper" "arandr"
+assert_contains "$settings_helper" "pavucontrol"
+wallpaper_helper="$(<"$rootfs/usr/bin/ooonana-wallpaper")"
+assert_contains "$wallpaper_helper" "feh --bg-fill"
+
+polybar_cfg="$(<"$rootfs/etc/ooonana/polybar.ini")"
+assert_contains "$polybar_cfg" "Ooonana OS"
+assert_contains "$polybar_cfg" "#ffb21a"
 
 gui_installer="$(<"$rootfs/usr/bin/ooonana-gui-installer")"
 assert_contains "$gui_installer" "OOONANA_INSTALL_WIZARD_IN_TERMINAL"
@@ -233,9 +278,14 @@ assert_contains "$rcs" "udevd --daemon"
 assert_contains "$rcs" "udevadm trigger"
 assert_contains "$rcs" "udevadm settle"
 assert_contains "$rcs" "mdev -s"
+assert_contains "$rcs" "start_persistence()"
+assert_contains "$rcs" "ooonana.persistence=1"
+assert_contains "$rcs" "OOONANA_PERSIST"
+assert_contains "$rcs" "OOONANA_PERSISTENCE_OK"
 assert_contains "$rcs" "/usr/bin/start-ooonana-i3"
 assert_contains "$rcs" "OOONANA_FULL_I3_FAIL"
 assert_contains "$rcs" "OOONANA_BOOT_OK"
+assert_contains "$rcs" "exec /bin/sh -l"
 
 contents="$(tar -tzf "$tmp/ooonana-full-i3-rootfs.tar.gz" | sort)"
 assert_contains "$contents" "./etc/init.d/rcS"

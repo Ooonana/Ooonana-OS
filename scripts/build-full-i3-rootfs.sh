@@ -87,7 +87,7 @@ fi
 
 echo "Ooonana full-i3"
 echo "Missing startx or i3. Build/publish the full-i3 package repo, then run: ooonana get full-i3"
-exec /bin/sh
+exec /bin/sh -l
 EOF
 }
 
@@ -143,8 +143,13 @@ case "${1:-env}" in
     ;;
   apply)
     xsetroot -solid "$OOONANA_BG" 2>/dev/null || true
-    if command -v feh >/dev/null 2>&1 && [ -f /usr/share/ooonana/wallpapers/ooonana-wallpaper.png ]; then
-      feh --bg-fill /usr/share/ooonana/wallpapers/ooonana-wallpaper.png || true
+    wallpaper="/usr/share/ooonana/wallpapers/ooonana-wallpaper.png"
+    if [ -n "${HOME:-}" ] && [ -f "$HOME/.config/ooonana/wallpaper" ]; then
+      IFS= read -r saved_wallpaper <"$HOME/.config/ooonana/wallpaper" || saved_wallpaper=""
+      [ -n "$saved_wallpaper" ] && wallpaper="$saved_wallpaper"
+    fi
+    if command -v feh >/dev/null 2>&1 && [ -f "$wallpaper" ]; then
+      feh --bg-fill "$wallpaper" || true
     fi
     ;;
   toggle)
@@ -156,6 +161,9 @@ case "${1:-env}" in
     ;;
   xterm)
     shift
+    if [ "$#" -eq 0 ]; then
+      exec xterm -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR" -e /bin/sh -l
+    fi
     exec xterm -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR" "$@"
     ;;
   *)
@@ -163,6 +171,197 @@ case "${1:-env}" in
     exit 1
     ;;
 esac
+EOF
+}
+
+write_desktop_helpers() {
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-open" <<'EOF'
+#!/bin/sh
+set -eu
+
+for cmd in "$@"; do
+  if command -v "$cmd" >/dev/null 2>&1; then
+    exec "$cmd"
+  fi
+done
+printf 'missing app: %s\n' "$*" >&2
+exit 1
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-browser" <<'EOF'
+#!/bin/sh
+set -eu
+url="${1:-about:blank}"
+if command -v chromium >/dev/null 2>&1; then
+  exec chromium --no-first-run --disable-default-apps "$url"
+fi
+if command -v chromium-browser >/dev/null 2>&1; then
+  exec chromium-browser "$url"
+fi
+exec ooonana-theme-env xterm -e sh -lc 'echo "chromium missing"; echo "run: ooonana get chromium"; exec sh'
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-files" <<'EOF'
+#!/bin/sh
+set -eu
+path="${1:-${HOME:-/root}}"
+if command -v nemo >/dev/null 2>&1; then
+  exec nemo "$path"
+fi
+exec ooonana-theme-env xterm -e sh -lc 'echo "nemo missing"; echo "run: ooonana get nemo"; exec sh'
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-wifi" <<'EOF'
+#!/bin/sh
+set -eu
+if command -v nm-connection-editor >/dev/null 2>&1; then
+  exec nm-connection-editor
+fi
+if command -v nmtui >/dev/null 2>&1; then
+  exec ooonana-theme-env xterm -e nmtui
+fi
+exec ooonana-theme-env xterm -e sh -lc 'echo "NetworkManager UI missing"; echo "run: ooonana get network-manager-applet"; exec sh'
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-bluetooth" <<'EOF'
+#!/bin/sh
+set -eu
+if command -v blueman-manager >/dev/null 2>&1; then
+  exec blueman-manager
+fi
+exec ooonana-theme-env xterm -e sh -lc 'echo "blueman missing"; echo "run: ooonana get blueman"; exec sh'
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-settings" <<'EOF'
+#!/bin/sh
+set -eu
+if command -v arandr >/dev/null 2>&1; then
+  exec arandr
+fi
+if command -v pavucontrol >/dev/null 2>&1; then
+  exec pavucontrol
+fi
+exec ooonana-theme-env xterm -e sh -lc 'ooonana help ui; exec sh'
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-wallpaper" <<'EOF'
+#!/bin/sh
+set -eu
+wallpaper="${1:-/usr/share/ooonana/wallpapers/ooonana-wallpaper.png}"
+if [ ! -f "$wallpaper" ]; then
+  printf 'missing wallpaper: %s\n' "$wallpaper" >&2
+  exit 1
+fi
+mkdir -p "${HOME:-/root}/.config/ooonana"
+printf '%s\n' "$wallpaper" >"${HOME:-/root}/.config/ooonana/wallpaper"
+if command -v feh >/dev/null 2>&1; then
+  exec feh --bg-fill "$wallpaper"
+fi
+exec ooonana-theme-env apply
+EOF
+
+  install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/polybar.ini" <<'EOF'
+[colors]
+background = #050505
+foreground = #ffb21a
+accent = #ffd37a
+urgent = #ff4d2e
+
+[bar/ooonana]
+width = 100%
+height = 28
+background = ${colors.background}
+foreground = ${colors.foreground}
+line-size = 2
+line-color = ${colors.accent}
+font-0 = monospace:size=10;2
+modules-left = workspaces title
+modules-center = logo
+modules-right = wlan battery date
+
+[module/logo]
+type = custom/text
+content = Ooonana OS
+content-foreground = ${colors.accent}
+
+[module/workspaces]
+type = internal/i3
+format = <label-state>
+label-focused = %name%
+label-focused-foreground = ${colors.background}
+label-focused-background = ${colors.foreground}
+label-focused-padding = 2
+label-unfocused = %name%
+label-unfocused-padding = 2
+
+[module/title]
+type = internal/xwindow
+label = %title:0:48:...%
+
+[module/wlan]
+type = internal/network
+interface-type = wireless
+label-connected = wifi %essid%
+label-disconnected = wifi off
+
+[module/battery]
+type = internal/battery
+battery = BAT0
+adapter = AC
+
+[module/date]
+type = internal/date
+date = %Y-%m-%d %H:%M
+EOF
+
+  install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/rofi.rasi" <<'EOF'
+* {
+  background: #050505;
+  foreground: #ffb21a;
+  selected: #281604;
+  urgent: #ff4d2e;
+  font: "monospace 11";
+}
+window {
+  width: 42%;
+  border: 2px;
+  border-color: @foreground;
+  background-color: @background;
+}
+inputbar, listview {
+  background-color: @background;
+  text-color: @foreground;
+}
+element selected {
+  background-color: @selected;
+  text-color: #fff0c7;
+}
+EOF
+
+  install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/picom.conf" <<'EOF'
+backend = "xrender";
+vsync = true;
+shadow = true;
+shadow-radius = 7;
+shadow-opacity = 0.25;
+fading = true;
+fade-delta = 4;
+corner-radius = 0;
+EOF
+
+  install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/dunstrc" <<'EOF'
+[global]
+font = monospace 10
+frame_color = "#ffb21a"
+separator_color = "#ffb21a"
+background = "#050505"
+foreground = "#ffb21a"
+geometry = "340x5-20+40"
+corner_radius = 0
+[urgency_critical]
+background = "#281604"
+foreground = "#fff0c7"
+frame_color = "#ff4d2e"
 EOF
 }
 
@@ -621,6 +820,38 @@ start_device_manager() {
 
 start_device_manager
 
+start_persistence() {
+  grep -q 'ooonana.persistence=1' /proc/cmdline 2>/dev/null || return 0
+  mkdir -p /mnt/persist
+  persist_dev=""
+  for candidate in \
+    /dev/disk/by-label/OOONANA_PERSIST \
+    /dev/disk/by-label/ooonana-persist \
+    /dev/disk/by-label/OOONANA-PERSIST; do
+    if [ -e "$candidate" ]; then
+      persist_dev="$candidate"
+      break
+    fi
+  done
+  if [ -z "$persist_dev" ]; then
+    echo "OOONANA_PERSISTENCE_WAIT"
+    return 0
+  fi
+  if mount "$persist_dev" /mnt/persist 2>/dev/null; then
+    mkdir -p /mnt/persist/home /mnt/persist/etc-ooonana /mnt/persist/var-lib-ooonana /mnt/persist/var-cache-ooonana
+    mkdir -p /home /etc/ooonana /var/lib/ooonana /var/cache/ooonana
+    mount --bind /mnt/persist/home /home 2>/dev/null || true
+    mount --bind /mnt/persist/etc-ooonana /etc/ooonana 2>/dev/null || true
+    mount --bind /mnt/persist/var-lib-ooonana /var/lib/ooonana 2>/dev/null || true
+    mount --bind /mnt/persist/var-cache-ooonana /var/cache/ooonana 2>/dev/null || true
+    echo "OOONANA_PERSISTENCE_OK"
+  else
+    echo "OOONANA_PERSISTENCE_FAIL"
+  fi
+}
+
+start_persistence
+
 host="ooonana"
 if [ -f /etc/hostname ]; then
   read -r host </etc/hostname || host="ooonana"
@@ -634,7 +865,7 @@ fi
 echo "Ooonana full i3 rootfs"
 
 if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
-  if /usr/bin/ooonana version | grep -q 'ooonana 0.7.0' &&
+  if /usr/bin/ooonana version | grep -q 'ooonana 0.8.0' &&
     /usr/bin/ooonana list --installed | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else
@@ -660,6 +891,7 @@ if [ -x /usr/bin/start-ooonana-i3 ]; then
 fi
 
 echo "Ooonana full i3 fallback shell"
+exec /bin/sh -l
 EOF
 }
 
@@ -739,7 +971,17 @@ main() {
   mkdir -p "$(dirname "$ROOTFS")"
   cp -a "$SCRATCH_ROOTFS" "$ROOTFS"
   cp -a "$ROOT/packages/ooonana/." "$ROOTFS/"
-  chmod 0755 "$ROOTFS/usr/bin/ooonana" "$ROOTFS/usr/bin/ooonana-ai" "$ROOTFS/usr/bin/ooonana-setup" "$ROOTFS/usr/sbin/ooonana-install"
+  chmod 0755 \
+    "$ROOTFS/usr/bin/ooonana" \
+    "$ROOTFS/usr/bin/ooonana-ai" \
+    "$ROOTFS/usr/bin/ooonana-ai-app" \
+    "$ROOTFS/usr/bin/ooonana-setup" \
+    "$ROOTFS/usr/bin/bunana" \
+    "$ROOTFS/usr/bin/oonana" \
+    "$ROOTFS/usr/bin/clear" \
+    "$ROOTFS/usr/bin/neofetch" \
+    "$ROOTFS/usr/bin/ooonana-neofetch" \
+    "$ROOTFS/usr/sbin/ooonana-install"
   mkdir -p "$ROOTFS/etc/ooonana" "$ROOTFS/var/lib/ooonana/packages/installed" "$ROOTFS/var/log"
   printf '127.0.0.1 localhost ooonana\n' > "$ROOTFS/etc/hosts"
   printf 'full-i3\n' > "$ROOTFS/etc/ooonana/edition"
@@ -747,6 +989,7 @@ main() {
   install_branding
   write_start_script
   write_theme_helpers
+  write_desktop_helpers
   write_gui_installer
   write_xorg_input_config
   write_full_init_script

@@ -72,6 +72,7 @@ create_base_dirs() {
     "$ROOTFS/bin" \
     "$ROOTFS/dev/pts" \
     "$ROOTFS/etc/ooonana/sources.d" \
+    "$ROOTFS/etc/profile.d" \
     "$ROOTFS/etc/init.d" \
     "$ROOTFS/mnt/install" \
     "$ROOTFS/proc" \
@@ -89,7 +90,7 @@ create_base_dirs() {
 
 create_busybox_links() {
   local applet
-  for applet in adduser awk basename cat chmod cp cut date dd df dirname dmesg echo env free grep hostname ifconfig ip ls mkdir mount mv passwd ps pwd readlink rm rmdir route sed sh sha256sum sleep sort sync tar touch tr udhcpc umount uname wc wget; do
+  for applet in adduser awk basename cat chmod clear cp cut date dd df dirname dmesg echo env free grep hostname ifconfig ip ls mkdir mount mv passwd ps pwd readlink rm rmdir route sed sh sha256sum sleep sort sync tar touch tr udhcpc umount uname wc wget; do
     ln -sf busybox "$ROOTFS/bin/$applet"
   done
   for applet in mdev reboot; do
@@ -113,6 +114,7 @@ create_device_nodes() {
 install_ooonana_payload() {
   cp -a "$ROOT/packages/ooonana/." "$ROOTFS/"
   chmod 0755 "$ROOTFS/usr/bin/ooonana" "$ROOTFS/usr/bin/ooonana-setup" "$ROOTFS/usr/sbin/ooonana-install"
+  chmod 0755 "$ROOTFS/usr/bin/bunana" "$ROOTFS/usr/bin/oonana" "$ROOTFS/usr/bin/clear" "$ROOTFS/usr/bin/neofetch" "$ROOTFS/usr/bin/ooonana-neofetch"
   cp "$ROOTFS/usr/lib/ooonana/repo/base.pkg" "$ROOTFS/var/lib/ooonana/packages/installed/base.pkg"
 }
 
@@ -152,7 +154,7 @@ fi
 exec <"$console_device" >"$console_device" 2>&1
 /etc/init.d/rcS
 echo "Ooonana shell on console"
-exec /bin/sh <"$console_device" >"$console_device" 2>&1
+exec /bin/sh -l <"$console_device" >"$console_device" 2>&1
 EOF
 
   write_file "$ROOTFS/etc/inittab" 0644 <<'EOF'
@@ -211,7 +213,7 @@ fallback_shell() {
     console_device="/dev/ttyS0"
   fi
   [ -e "$console_device" ] || console_device="/dev/console"
-  exec /bin/sh <"$console_device" >"$console_device" 2>&1
+  exec /bin/sh -l <"$console_device" >"$console_device" 2>&1
 }
 
 install_fail() {
@@ -304,7 +306,7 @@ if grep -q 'ooonana.install=1' /proc/cmdline 2>/dev/null; then
 fi
 
 if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
-  if /usr/bin/ooonana version | grep -q 'ooonana 0.7.0' &&
+  if /usr/bin/ooonana version | grep -q 'ooonana 0.8.0' &&
     /usr/bin/ooonana me | grep -q 'Ooonana OS' &&
     /usr/bin/ooonana list | grep -q 'gui' &&
     /usr/bin/ooonana list --installed | grep -q 'base'; then
@@ -327,6 +329,14 @@ NAME="Ooonana OS"
 ID=ooonana
 PRETTY_NAME="Ooonana OS Scratch"
 VERSION_ID="0.0.1-scratch"
+EOF
+  write_file "$ROOTFS/etc/profile" 0644 <<'EOF'
+export PATH="/sbin:/bin:/usr/sbin:/usr/bin${PATH:+:$PATH}"
+if [ -d /etc/profile.d ]; then
+  for f in /etc/profile.d/*.sh; do
+    [ -r "$f" ] && . "$f"
+  done
+fi
 EOF
   write_file "$ROOTFS/etc/passwd" 0644 <<'EOF'
 root:x:0:0:root:/root:/bin/sh

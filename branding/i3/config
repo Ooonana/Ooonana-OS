@@ -4,11 +4,22 @@ font pango:monospace 10
 
 exec_always --no-startup-id ooonana-theme-env apply
 exec --no-startup-id xsetroot -name "Ooonana OS"
+exec --no-startup-id sh -c 'command -v picom >/dev/null 2>&1 && picom --config /etc/ooonana/picom.conf &'
+exec --no-startup-id sh -c 'command -v dunst >/dev/null 2>&1 && dunst -config /etc/ooonana/dunstrc &'
+exec_always --no-startup-id sh -c 'command -v polybar >/dev/null 2>&1 && killall polybar >/dev/null 2>&1 || true; command -v polybar >/dev/null 2>&1 && polybar -c /etc/ooonana/polybar.ini ooonana &'
+exec --no-startup-id sh -c 'command -v nm-applet >/dev/null 2>&1 && nm-applet --indicator &'
+exec --no-startup-id sh -c 'command -v blueman-applet >/dev/null 2>&1 && blueman-applet &'
 
 bindsym $mod+Return exec ooonana-theme-env xterm
-bindsym $mod+d exec dmenu_run
+bindsym $mod+d exec sh -c 'command -v rofi >/dev/null 2>&1 && rofi -show drun -theme /etc/ooonana/rofi.rasi || dmenu_run'
+bindsym $mod+Shift+f exec ooonana-files
+bindsym $mod+Shift+w exec ooonana-browser
+bindsym $mod+n exec ooonana-wifi
+bindsym $mod+b exec ooonana-bluetooth
+bindsym $mod+Shift+s exec ooonana-settings
 bindsym $mod+Shift+a exec ooonana-ai-app
 bindsym $mod+Shift+i exec ooonana-gui-installer
+bindsym $mod+Shift+p exec ooonana-wallpaper
 bindsym $mod+Shift+t exec ooonana-theme-env toggle
 bindsym $mod+Shift+r restart
 bindsym $mod+Shift+q kill

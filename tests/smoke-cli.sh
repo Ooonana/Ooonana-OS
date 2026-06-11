@@ -3,6 +3,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLI="$ROOT/packages/ooonana/usr/bin/ooonana"
+BUNANA="$ROOT/packages/ooonana/usr/bin/bunana"
+OONANA_GAME="$ROOT/packages/ooonana/usr/bin/oonana"
+NEOFETCH="$ROOT/packages/ooonana/usr/bin/neofetch"
 
 fail() {
   printf 'FAIL: %s\n' "$*" >&2
@@ -10,15 +13,19 @@ fail() {
 }
 
 [[ -x "$CLI" ]] || fail "missing executable CLI"
+[[ -x "$BUNANA" ]] || fail "missing bunana command"
+[[ -x "$OONANA_GAME" ]] || fail "missing oonana game"
+[[ -x "$NEOFETCH" ]] || fail "missing neofetch fallback"
+[[ -f "$ROOT/packages/ooonana/etc/neofetch/config.conf" ]] || fail "missing neofetch config"
 
 first_line="$(sed -n '1p' "$CLI")"
 [[ "$first_line" == "#!/bin/sh" ]] || fail "CLI must use /bin/sh shebang: $first_line"
 
 version="$("$CLI" version)"
-[[ "$version" == "ooonana 0.7.0" ]] || fail "bad version: $version"
+[[ "$version" == "ooonana 0.8.0" ]] || fail "bad version: $version"
 
 sh_version="$(sh "$CLI" version)"
-[[ "$sh_version" == "ooonana 0.7.0" ]] || fail "bad sh version: $sh_version"
+[[ "$sh_version" == "ooonana 0.8.0" ]] || fail "bad sh version: $sh_version"
 
 doctor="$("$CLI" doctor || true)"
 [[ "$doctor" == *"kernel:"* ]] || fail "doctor missing kernel"
@@ -47,5 +54,13 @@ me="$("$CLI" me)"
 wsl="$("$CLI" wsl status)"
 [[ "$wsl" == *"wsl:"* ]] || fail "wsl missing state"
 [[ "$wsl" == *"qemu:"* ]] || fail "wsl missing qemu"
+
+bunana_help="$("$BUNANA" --help)"
+[[ "$bunana_help" == *"bunana --restart"* ]] || fail "bunana help missing restart"
+game_help="$("$OONANA_GAME" --help)"
+[[ "$game_help" == *"Tiny brick game"* ]] || fail "oonana game help missing"
+neofetch_out="$("$NEOFETCH")"
+[[ "$neofetch_out" == *"Ooonana OS"* ]] || fail "neofetch missing logo"
+grep -q 'ascii_distro="Ooonana"' "$ROOT/packages/ooonana/etc/neofetch/config.conf" || fail "neofetch config missing Ooonana logo"
 
 printf 'ok cli\n'

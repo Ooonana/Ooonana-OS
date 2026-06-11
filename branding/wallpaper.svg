@@ -2,20 +2,22 @@
   <title id="title">Ooonana OS Wallpaper</title>
   <desc id="desc">Default dark mode Ooonana OS wallpaper rendered from the project ASCII art.</desc>
   <rect id="ooonana-wallpaper" width="1920" height="1080" fill="#050505"/>
-  <rect id="ooonana-horizon" x="0" y="912" width="1920" height="168" fill="#ffb21a" opacity="0.13"/>
-  <rect x="0" y="906" width="1920" height="2" fill="#ffb21a" opacity="0.72"/>
-  <g id="ooonana-face" fill="#ffb21a" font-family="monospace" font-size="72" font-weight="700" xml:space="preserve">
-    <text class="ooonana-ascii" x="446" y="216">
-      <tspan x="446" dy="0">Ooonana OS</tspan>
-      <tspan x="446" dy="108">      __________________</tspan>
-      <tspan x="446" dy="108">     |    __      __    |</tspan>
-      <tspan x="446" dy="108">     |   /  \    /  \   |</tspan>
-      <tspan x="446" dy="108">   / |                  |\</tspan>
-      <tspan x="446" dy="108">  /  |     \______/     | \</tspan>
-      <tspan x="446" dy="108">     |__________________|</tspan>
-      <tspan x="446" dy="108">          |        |</tspan>
+  <rect x="0" y="0" width="1920" height="1080" fill="#070707"/>
+  <rect id="ooonana-horizon" x="0" y="888" width="1920" height="192" fill="#ffb21a" opacity="0.10"/>
+  <rect x="160" y="862" width="1600" height="2" fill="#ffb21a" opacity="0.80"/>
+  <rect x="160" y="910" width="1600" height="1" fill="#ffd37a" opacity="0.38"/>
+  <text x="960" y="146" text-anchor="middle" fill="#ffb21a" font-family="monospace" font-size="56" font-weight="700">Ooonana OS</text>
+  <g id="ooonana-face" fill="#ffb21a" font-family="monospace" font-size="58" font-weight="700" xml:space="preserve">
+    <text class="ooonana-ascii" x="520" y="284">
+      <tspan x="520" dy="0">      __________________</tspan>
+      <tspan x="520" dy="86">     |    __      __    |</tspan>
+      <tspan x="520" dy="86">     |   /  \    /  \   |</tspan>
+      <tspan x="520" dy="86">   / |                  |\</tspan>
+      <tspan x="520" dy="86">  /  |     \______/     | \</tspan>
+      <tspan x="520" dy="86">     |__________________|</tspan>
+      <tspan x="520" dy="86">          |        |</tspan>
     </text>
   </g>
-  <text x="960" y="1002" text-anchor="middle" fill="#ffd37a" font-family="monospace" font-size="32">full i3 edition</text>
-  <text x="960" y="1044" text-anchor="middle" fill="#ffb21a" font-family="monospace" font-size="24">default dark mode</text>
+  <text x="960" y="978" text-anchor="middle" fill="#ffd37a" font-family="monospace" font-size="30">full i3 edition</text>
+  <text x="960" y="1022" text-anchor="middle" fill="#ffb21a" font-family="monospace" font-size="22">black background / orange cursor</text>
 </svg>

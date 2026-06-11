@@ -58,12 +58,17 @@ app_oneshot="$(PATH="$fake_app_bin:$PATH" OOONANA_AI_APP_NO_X=1 OOONANA_AI_APP_O
 assert_contains "$app_oneshot" "Ooonana AI native app"
 assert_contains "$app_oneshot" "FAKE_AI status"
 assert_contains "$app_oneshot" "Quick actions"
-assert_contains "$app_oneshot" "1 chat"
-assert_contains "$app_oneshot" "6 setup"
+assert_contains "$app_oneshot" "1  chat"
+assert_contains "$app_oneshot" "6  setup"
+assert_contains "$app_oneshot" "8  desktop"
+assert_contains "$app_oneshot" "12 model"
 
 app_tools="$(PATH="$fake_app_bin:$PATH" OOONANA_AI_APP_NO_X=1 OOONANA_AI_APP_COMMAND=tools "$AI_DESKTOP_APP")"
 assert_contains "$app_tools" "Ooonana CLI tool registry"
 assert_contains "$app_tools" "FAKE_AI tools"
+
+app_desktop="$(PATH="$fake_app_bin:$PATH" OOONANA_AI_APP_NO_X=1 OOONANA_AI_APP_COMMAND=desktop "$AI_DESKTOP_APP")"
+assert_contains "$app_desktop" "FAKE_AI tool desktop"
 
 setup="$(OOONANA_AI_CONFIG="$config" "$CLI" ai setup)"
 assert_contains "$setup" "AI config:"

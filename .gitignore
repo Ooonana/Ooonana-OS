@@ -1,6 +1,7 @@
 build/
 .worktrees/
 *.log
+docs/ooonana-pdf-chrome-*.png
 *.qcow2
 *.raw
 *.ext4

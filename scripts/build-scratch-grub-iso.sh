@@ -69,26 +69,56 @@ write_grub_config() {
   if [[ "$SMOKE" -eq 1 ]]; then
     console_args="console=tty0 console=ttyS0"
   fi
-  local append="$console_args panic=1 rdinit=/init"
+  local live_append="$console_args panic=1 rdinit=/init"
+  local install_append="$console_args panic=1 rdinit=/init ooonana.install=1 ooonana.install.target=$INSTALL_TARGET"
+  local default_entry=0
   if [[ "$INSTALL" -eq 1 ]]; then
-    append="$append ooonana.install=1 ooonana.install.target=$INSTALL_TARGET"
+    default_entry=1
   fi
   if [[ "$SMOKE" -eq 1 ]]; then
-    append="$append ooonana.smoke=1"
+    if [[ "$INSTALL" -eq 1 ]]; then
+      install_append="$install_append ooonana.smoke=1"
+    else
+      live_append="$live_append ooonana.smoke=1"
+    fi
   fi
 
   cat > "$ISO_TREE/boot/grub/grub.cfg" <<EOF
+insmod all_video
+if loadfont /boot/grub/fonts/unicode.pf2; then
+  insmod gfxterm
+fi
 serial --unit=0 --speed=115200
 terminal_input console serial
 terminal_output console serial
-set timeout=1
-set default=0
+if [ -f /boot/grub/theme.txt ]; then
+  set theme=/boot/grub/theme.txt
+fi
+if terminal_output gfxterm serial; then
+  true
+fi
+clear
+echo 'Ooonana OS Minimal'
+if [ -f /boot/grub/ooonana-logo.txt ]; then
+  cat /boot/grub/ooonana-logo.txt
+fi
+set timeout=5
+set default=$default_entry
 
-menuentry 'Ooonana OS' {
-  linux /boot/vmlinuz $append
+menuentry 'Ooonana OS Minimal' {
+  linux /boot/vmlinuz $live_append
   initrd /boot/initramfs.cpio.gz
 }
 EOF
+  if [[ "$INSTALL" -eq 1 ]]; then
+    cat >> "$ISO_TREE/boot/grub/grub.cfg" <<EOF
+
+menuentry 'Install Ooonana OS Minimal' {
+  linux /boot/vmlinuz $install_append
+  initrd /boot/initramfs.cpio.gz
+}
+EOF
+  fi
 }
 
 stage_iso_tree() {
@@ -105,6 +135,18 @@ stage_iso_tree() {
 
   install -m 0644 "$KERNEL" "$ISO_TREE/boot/vmlinuz"
   install -m 0644 "$INITRAMFS" "$ISO_TREE/boot/initramfs.cpio.gz"
+  install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/logo.txt" "$ISO_TREE/boot/grub/ooonana-logo.txt"
+  cat > "$ISO_TREE/boot/grub/theme.txt" <<'EOF'
+title-text: "Ooonana OS Minimal"
+title-color: "#ffb21a"
+desktop-color: "#050505"
+terminal-font: "Unifont Regular 16"
+message-color: "#ffb21a"
+selected-item-color: "#050505"
+selected-item-background-color: "#ffb21a"
+item-color: "#ffb21a"
+item-font: "Unifont Regular 16"
+EOF
   if [[ "$INSTALL" -eq 1 && -n "$DISK_IMAGE" ]]; then
     install -m 0644 "$DISK_IMAGE" "$ISO_TREE/images/ooonana-scratch-disk.raw"
   elif [[ "$INSTALL" -eq 1 ]]; then

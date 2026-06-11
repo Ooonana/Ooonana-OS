@@ -71,20 +71,37 @@ write_grub_config() {
     console_args="console=tty0 console=ttyS0"
   fi
   local live_append="$console_args panic=1 rdinit=/init ooonana.live=1 ooonana.edition=full-i3"
+  local persistent_append="$live_append ooonana.persistence=1"
   local install_append="$console_args panic=1 rdinit=/init ooonana.install=1 ooonana.install.target=$INSTALL_TARGET ooonana.install.image=/mnt/install/images/ooonana-full-i3-disk.raw"
+  local safe_install_append="$install_append nomodeset"
   local default_entry=0
   if [[ "$SMOKE" -eq 1 && "$LIVE_SMOKE" -eq 1 ]]; then
     live_append="$live_append ooonana.smoke=1 ooonana.gui-smoke=1"
   elif [[ "$SMOKE" -eq 1 ]]; then
-    default_entry=1
+    default_entry=2
     install_append="$install_append ooonana.smoke=1"
   fi
 
   cat > "$ISO_TREE/boot/grub/grub.cfg" <<EOF
+insmod all_video
+if loadfont /boot/grub/fonts/unicode.pf2; then
+  insmod gfxterm
+fi
 serial --unit=0 --speed=115200
 terminal_input console serial
 terminal_output console serial
-set timeout=1
+if [ -f /boot/grub/theme.txt ]; then
+  set theme=/boot/grub/theme.txt
+fi
+if terminal_output gfxterm serial; then
+  true
+fi
+clear
+echo 'Ooonana OS'
+if [ -f /boot/grub/ooonana-logo.txt ]; then
+  cat /boot/grub/ooonana-logo.txt
+fi
+set timeout=5
 set default=$default_entry
 
 menuentry 'Ooonana OS Full i3 Live' {
@@ -92,8 +109,18 @@ menuentry 'Ooonana OS Full i3 Live' {
   initrd /boot/live-initramfs.cpio.gz
 }
 
+menuentry 'Ooonana OS Full i3 Live (persistent USB)' {
+  linux /boot/vmlinuz $persistent_append
+  initrd /boot/live-initramfs.cpio.gz
+}
+
 menuentry 'Install Ooonana OS Full i3' {
   linux /boot/vmlinuz $install_append
+  initrd /boot/install-initramfs.cpio.gz
+}
+
+menuentry 'Install Ooonana OS Full i3 (safe graphics)' {
+  linux /boot/vmlinuz $safe_install_append
   initrd /boot/install-initramfs.cpio.gz
 }
 EOF
@@ -112,6 +139,18 @@ stage_iso_tree() {
   install -m 0644 "$INITRAMFS" "$ISO_TREE/boot/install-initramfs.cpio.gz"
   install -m 0644 "$LIVE_INITRAMFS" "$ISO_TREE/boot/live-initramfs.cpio.gz"
   install -m 0644 "$DISK_IMAGE" "$ISO_TREE/images/ooonana-full-i3-disk.raw"
+  install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/logo.txt" "$ISO_TREE/boot/grub/ooonana-logo.txt"
+  cat > "$ISO_TREE/boot/grub/theme.txt" <<'EOF'
+title-text: "Ooonana OS"
+title-color: "#ffb21a"
+desktop-color: "#050505"
+terminal-font: "Unifont Regular 16"
+message-color: "#ffb21a"
+selected-item-color: "#050505"
+selected-item-background-color: "#ffb21a"
+item-color: "#ffb21a"
+item-font: "Unifont Regular 16"
+EOF
   write_grub_config
   chmod -R a+rwX "$ISO_TREE" 2>/dev/null || true
 }

@@ -28,6 +28,9 @@ assert_contains "$script_src" "grub-install"
 assert_contains "$script_src" "part_msdos ext2"
 assert_contains "$script_src" "ooonana_reexec_as_root"
 assert_contains "$script_src" "unsafe mount point"
+assert_contains "$script_src" "Ooonana OS Minimal"
+assert_contains "$script_src" "ooonana-logo.txt"
+assert_contains "$script_src" "set theme=/boot/grub/theme.txt"
 
 help="$(bash "$SCRIPT" --help)"
 assert_contains "$help" "Build Ooonana scratch boot disk"
@@ -61,5 +64,6 @@ assert_contains "$dry_run" "OOONANA_DISK_OK"
 assert_not_contains "$dry_run" "systemd.unit"
 assert_contains "$script_src" "terminal_input console serial"
 assert_contains "$script_src" "terminal_output console serial"
+assert_contains "$script_src" "terminal_output gfxterm serial"
 
 printf 'ok scratch-disk\n'
