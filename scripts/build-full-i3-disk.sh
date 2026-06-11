@@ -9,7 +9,7 @@ WORK_DIR="$(ooonana_default_build_dir)"
 ROOTFS="$WORK_DIR/full-i3-rootfs"
 KERNEL="$WORK_DIR/ooonana-kernel/vmlinuz-ooonana"
 DISK_IMAGE="$WORK_DIR/ooonana-full-i3-disk.raw"
-SIZE="768M"
+SIZE="2048M"
 MOUNT_POINT="$WORK_DIR/full-i3-disk-mnt"
 SMOKE=0
 GUI_SMOKE=0
@@ -30,7 +30,7 @@ Options:
   --rootfs PATH       Full-i3 rootfs path (default: WORK_DIR/full-i3-rootfs)
   --kernel PATH       Kernel path (default: WORK_DIR/ooonana-kernel/vmlinuz-ooonana)
   --disk-image PATH   Raw boot disk output (default: WORK_DIR/ooonana-full-i3-disk.raw)
-  --size SIZE         Raw disk size (default: 768M)
+  --size SIZE         Raw disk size (default: 2048M)
   --mount-point PATH  Temporary mount point (default: WORK_DIR/full-i3-disk-mnt)
   --smoke             Add smoke boot kernel argument
   --gui-smoke         Add GUI smoke kernel argument

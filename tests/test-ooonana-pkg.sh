@@ -59,6 +59,12 @@ assert_contains "$help" "ooonana verify PACKAGE"
 assert_contains "$help" "ooonana upgrade [PACKAGE...]"
 assert_contains "$help" "ooonana repo index [PATH]"
 assert_contains "$help" "ooonana repo build [options] [PACKAGE...]"
+assert_contains "$help" "ooonana repo add NAME URI"
+assert_contains "$help" "ooonana repo remove NAME"
+assert_contains "$help" "ooonana repo doctor"
+assert_contains "$help" "ooonana check [PACKAGE...]"
+assert_contains "$help" "ooonana add PACKAGE"
+assert_contains "$help" "ooonana uninstall PACKAGE"
 assert_contains "$help" "ooonana sources"
 assert_contains "$help" "ooonana remove PACKAGE"
 assert_contains "$help" "ooonana purge PACKAGE"
@@ -83,6 +89,8 @@ assert_contains "$packages_help" "1. ooonana update"
 assert_contains "$packages_help" "2. ooonana search QUERY"
 assert_contains "$packages_help" "3. ooonana get PACKAGE"
 assert_contains "$packages_help" "Fix/removal:"
+assert_contains "$packages_help" "ooonana check"
+assert_contains "$packages_help" "ooonana repo doctor"
 
 get_help="$("$CLI" help get)"
 assert_contains "$get_help" "Install package:"
@@ -112,6 +120,9 @@ assert_contains "$ui_help" "OOONANA_THEME=light"
 
 repo_help="$("$CLI" help repo)"
 assert_contains "$repo_help" "Repo commands:"
+assert_contains "$repo_help" "ooonana repo add NAME URI"
+assert_contains "$repo_help" "ooonana repo remove NAME"
+assert_contains "$repo_help" "ooonana repo doctor"
 assert_contains "$repo_help" "OOONANA_REPO_URI="
 assert_contains "$repo_help" "release tarball"
 assert_contains "$repo_help" "OOONANA_REPO_TOKEN"
@@ -188,6 +199,8 @@ assert_not_contains "$("$CLI" list --installed)" "gui"
 
 install_alias="$("$CLI" install gui --dry-run)"
 assert_contains "$install_alias" "would install gui"
+add_alias="$("$CLI" add gui --dry-run)"
+assert_contains "$add_alias" "would install gui"
 
 install="$("$CLI" get ai)"
 assert_contains "$install" "installed ai"
@@ -200,6 +213,14 @@ assert_contains "$repeat" "already installed ai"
 remove="$("$CLI" remove ai)"
 assert_contains "$remove" "removed ai"
 assert_not_contains "$("$CLI" list --installed)" "ai"
+
+OOONANA_REPO_DIR="$REPO" "$CLI" get ai >/dev/null
+check_ai="$(OOONANA_REPO_DIR="$REPO" "$CLI" check ai)"
+assert_contains "$check_ai" "check ok ai"
+uninstall_ai="$(OOONANA_REPO_DIR="$REPO" "$CLI" uninstall ai)"
+assert_contains "$uninstall_ai" "removed ai"
+check_all_empty="$(OOONANA_REPO_DIR="$REPO" "$CLI" check)"
+assert_contains "$check_all_empty" "check ok: no packages installed"
 
 purge_root="$tmp/purge-root"
 mkdir -p "$purge_root/etc/ooonana/packages/ai" "$purge_root/var/lib/ooonana/packages/config/ai"
@@ -241,6 +262,29 @@ assert_contains "$(<"$OOONANA_CACHE_DIR/index.tsv")" "editor"
 multi_sources="$(OOONANA_SOURCES_DIR="$sources_dir" "$CLI" sources)"
 assert_contains "$multi_sources" "extra"
 assert_contains "$multi_sources" "$extra_repo"
+
+repo_doctor="$(OOONANA_SOURCES_DIR="$sources_dir" "$CLI" repo doctor)"
+assert_contains "$repo_doctor" "builtin: ok"
+assert_contains "$repo_doctor" "extra: ok"
+assert_contains "$repo_doctor" "OOONANA_REPO_DOCTOR_OK"
+
+repo_add_dir="$tmp/repo-add-sources"
+repo_add_out="$(OOONANA_SOURCES_DIR="$repo_add_dir" "$CLI" repo add lab "$extra_repo")"
+assert_contains "$repo_add_out" "repo added lab"
+assert_contains "$(<"$repo_add_dir/lab.repo")" 'OOONANA_REPO_NAME="lab"'
+assert_contains "$(<"$repo_add_dir/lab.repo")" "OOONANA_REPO_URI=\"$extra_repo\""
+repo_remove_out="$(OOONANA_SOURCES_DIR="$repo_add_dir" "$CLI" repo remove lab)"
+assert_contains "$repo_remove_out" "repo removed lab"
+[[ ! -e "$repo_add_dir/lab.repo" ]] || fail "repo remove left source file"
+
+bad_repo_sources="$tmp/bad-repo-sources"
+mkdir -p "$bad_repo_sources"
+cat > "$bad_repo_sources/bad.repo" <<'EOF'
+OOONANA_REPO_NAME="bad"
+OOONANA_REPO_URI="/missing/ooonana/repo"
+EOF
+bad_repo_doctor="$(OOONANA_SOURCES_DIR="$bad_repo_sources" "$CLI" repo doctor 2>&1 || true)"
+assert_contains "$bad_repo_doctor" "bad: missing"
 
 multi_search="$(OOONANA_SOURCES_DIR="$sources_dir" "$CLI" search tiny)"
 assert_contains "$multi_search" "editor"
@@ -646,13 +690,15 @@ assert_contains "$hook_remove" "removed demo"
 
 archive_repo="$tmp/archive-repo"
 archive_root="$tmp/archive-root"
-mkdir -p "$archive_repo" "$archive_root" "$tmp/payload/usr/bin" "$tmp/payload/etc/ooonana"
+mkdir -p "$archive_repo" "$archive_root" "$tmp/payload/usr/bin" "$tmp/payload/etc/ooonana" "$tmp/payload/usr/share/ca-certificates/mozilla"
 cat > "$tmp/payload/usr/bin/hello-ooonana" <<'EOF'
 #!/bin/sh
 echo hello from ooonana
 EOF
 chmod +x "$tmp/payload/usr/bin/hello-ooonana"
 printf 'archive-test\n' > "$tmp/payload/etc/ooonana/archive.txt"
+unicode_cert="$(printf 'NetLock_Arany_=Class_Gold=_F\305\221tan\303\272s\303\255tv\303\241ny.crt')"
+printf 'unicode-cert\n' > "$tmp/payload/usr/share/ca-certificates/mozilla/$unicode_cert"
 tar -C "$tmp/payload" -czf "$archive_repo/hello.tar.gz" .
 archive_sha="$(sha256sum "$archive_repo/hello.tar.gz" | awk '{print $1}')"
 cat > "$archive_repo/hello.pkg" <<EOF
@@ -688,7 +734,9 @@ assert_contains "$archive_install" "unpacked hello.tar.gz"
 assert_contains "$archive_install" "installed hello"
 [[ -x "$archive_root/usr/bin/hello-ooonana" ]] || fail "archive did not install executable"
 [[ "$(cat "$archive_root/etc/ooonana/archive.txt")" == "archive-test" ]] || fail "archive did not install data"
+[[ -f "$archive_root/usr/share/ca-certificates/mozilla/$unicode_cert" ]] || fail "archive did not install unicode filename"
 [[ -f "$tmp/archive-state/files/hello.list" ]] || fail "missing archive file manifest"
+assert_not_contains "$(<"$tmp/archive-state/files/hello.list")" '\305'
 
 archive_files="$(OOONANA_REPO_DIR="$archive_repo" \
   OOONANA_STATE_DIR="$tmp/archive-state" \
@@ -697,6 +745,7 @@ archive_files="$(OOONANA_REPO_DIR="$archive_repo" \
   "$CLI" files hello)"
 assert_contains "$archive_files" "/usr/bin/hello-ooonana"
 assert_contains "$archive_files" "/etc/ooonana/archive.txt"
+assert_contains "$archive_files" "/usr/share/ca-certificates/mozilla/$unicode_cert"
 
 archive_verify="$(OOONANA_REPO_DIR="$archive_repo" \
   OOONANA_STATE_DIR="$tmp/archive-state" \
@@ -704,6 +753,12 @@ archive_verify="$(OOONANA_REPO_DIR="$archive_repo" \
   OOONANA_ROOT="$archive_root" \
   "$CLI" verify hello)"
 assert_contains "$archive_verify" "verify ok hello"
+archive_check="$(OOONANA_REPO_DIR="$archive_repo" \
+  OOONANA_STATE_DIR="$tmp/archive-state" \
+  OOONANA_CACHE_DIR="$tmp/archive-cache" \
+  OOONANA_ROOT="$archive_root" \
+  "$CLI" check)"
+assert_contains "$archive_check" "check ok hello"
 
 rm -f "$archive_root/usr/bin/hello-ooonana"
 archive_verify_bad="$(OOONANA_REPO_DIR="$archive_repo" \
@@ -740,6 +795,7 @@ assert_contains "$archive_remove" "removed archive files hello"
 assert_contains "$archive_remove" "removed hello"
 [[ ! -e "$archive_root/usr/bin/hello-ooonana" ]] || fail "archive remove left executable"
 [[ ! -e "$archive_root/etc/ooonana/archive.txt" ]] || fail "archive remove left data"
+[[ ! -e "$archive_root/usr/share/ca-certificates/mozilla/$unicode_cert" ]] || fail "archive remove left unicode filename"
 
 cat > "$archive_repo/bad.pkg" <<'EOF'
 OOONANA_PKG_ID="bad"

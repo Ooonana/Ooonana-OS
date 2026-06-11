@@ -126,7 +126,7 @@ Working now:
 - `ooonana-install` can partition a raw/whole disk, install to an existing root partition, mount optional home/swap/EFI partitions, format or keep selected filesystems, copy rootfs, install kernel, write GRUB, and persist user, hostname, and theme
 - Generic `ooonana-rootfs.tar.gz` can be unpacked for chroot/container-style use
 - Minimal and full-i3 WSL distro exports can be imported
-- `ooonana` package manager has repo index, checksums, install, remove, purge, upgrade, fix, files, verify
+- `ooonana` package manager has repo add/remove/doctor, repo index, checksums, install/add, remove/uninstall, purge, upgrade, fix, check, files, verify
 - Minimal and full rootfs include Ooonana shell helpers: `bunana`, `clear`, `oonana` brick game, and Ooonana neofetch logo fallback
 - `ooonana update` can sync local repos, HTTP repos, and GitHub Release repo tarballs into cache
 - Alpine `.apk` packages can be imported into Ooonana `.pkg` repos
@@ -226,10 +226,15 @@ ooonana get gui --dry-run
 ooonana install ai
 ooonana files ai
 ooonana verify ai
+ooonana check ai
 ooonana upgrade --dry-run
 ooonana remove ai
+ooonana uninstall ai
 ooonana purge ai
 ooonana fix ai --reinstall
+ooonana repo add cloud https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-package-repo.tar.gz
+ooonana repo doctor
+ooonana repo remove cloud
 ooonana clean --dry-run
 ooonana clean
 ooonana repo index /usr/lib/ooonana/repo
@@ -256,11 +261,17 @@ ooonana get nano --dry-run     # preview install
 ooonana get nano               # install package and deps
 ooonana files nano             # list owned files
 ooonana verify nano            # check owned files still exist
+ooonana check nano             # verify one package
+ooonana check                  # verify every installed package
 ooonana upgrade nano           # upgrade one package
 ooonana upgrade                # upgrade all installed packages
 ooonana remove nano            # remove files and installed marker
+ooonana uninstall nano         # remove alias
 ooonana purge nano             # remove files, marker, and Ooonana config dirs
 ooonana fix nano --reinstall   # resync repo and reinstall package
+ooonana repo add cloud URL     # add repo source
+ooonana repo doctor            # check configured repos
+ooonana repo remove cloud      # remove repo source
 ooonana clean                  # remove cached repo indexes and tarball extracts
 ```
 
@@ -421,6 +432,7 @@ Build full-i3 disk and live/install ISO:
 bash scripts/build-full-i3-disk.sh \
   --rootfs /var/tmp/ooonana-os/build/full-i3-rootfs \
   --disk-image /var/tmp/ooonana-os/build/ooonana-full-i3-disk.raw \
+  --size 2048M \
   --force
 bash scripts/build-full-i3-live-initramfs.sh \
   --rootfs /var/tmp/ooonana-os/build/full-i3-rootfs \
@@ -468,6 +480,7 @@ Current full-i3 release proof files:
 /var/tmp/ooonana-os/release/SHA256SUMS.full-i3
 /var/tmp/ooonana-os/release/qemu-full-i3-live.log
 /var/tmp/ooonana-os/release/qemu-full-i3-live-iso.log
+/var/tmp/ooonana-os/release/qemu-full-i3-persistent-smoke.log
 /var/tmp/ooonana-os/release/qemu-full-i3-uefi-installer.log
 /var/tmp/ooonana-os/release/qemu-full-i3-installer-vmware.log
 /var/tmp/ooonana-os/release/qemu-full-i3-installed-sata.log
@@ -487,6 +500,14 @@ ooonana-install-wizard
 ```
 
 `ooonana-installer-gui` uses `yad` windows for install mode, target/root partition, optional `/home`, swap, EFI, format/keep toggles, user/password, hostname, theme, cloud repo, and source root. It shows the exact `ooonana-install --dry-run` preview before install, writes logs, and offers a fallback shell if install fails.
+
+Inside full-i3, the GUI package manager launcher is:
+
+```bash
+ooonana-packages-app
+```
+
+`ooonana-packages-app` uses `yad` for update, search, install, remove, upgrade, source listing, and repo doctor. It falls back to terminal package help when GUI pieces are missing.
 
 The terminal wizard still exists as fallback. It opens in a themed xterm under i3, walks disk picker, user/password, hostname, theme, cloud repo picker, source root, confirmation, install progress, and reboot prompt steps, logs to `/var/log/ooonana-install-wizard.log`, and blocks installing over the current root disk unless `OOONANA_INSTALL_ALLOW_ROOT_TARGET=1` is set. If install fails, it prints `OOONANA_INSTALL_WIZARD_FAIL` and drops to a fallback shell.
 
@@ -518,7 +539,7 @@ OOONANA_THEME=light ooonana-gui-installer
 OOONANA_THEME=light ooonana setup --first-boot --gui
 ```
 
-The installer persists the chosen theme in `/etc/ooonana/theme`; i3 reads it through `ooonana-theme-env` on boot. Inside i3, `Mod+Shift+T` toggles dark/light, `Mod+Shift+A` opens the Ooonana AI app, and `Mod+Shift+I` opens the installer.
+The installer persists the chosen theme in `/etc/ooonana/theme`; i3 reads it through `ooonana-theme-env` on boot. Inside i3, `Mod+Shift+T` toggles dark/light, `Mod+Shift+A` opens the Ooonana AI app, `Mod+Shift+O` opens the package manager app, and `Mod+Shift+I` opens the installer.
 Extra i3 keys:
 
 ```text
@@ -527,6 +548,7 @@ Mod+Shift+W  Chromium browser
 Mod+N        Network settings
 Mod+B        Bluetooth settings
 Mod+Shift+S  Display/audio settings
+Mod+Shift+O  Package manager app
 Mod+Shift+P  Wallpaper changer
 Print        Screenshot
 Mod+Shift+G  Geany/Vim editor
@@ -535,7 +557,7 @@ Mod+Shift+X  htop process monitor
 Mod+Shift+U  ranger file manager
 ```
 
-`ooonana-settings` opens a GUI settings menu when `yad` is available. It can switch theme, choose wallpaper, open display/audio/Wi-Fi/Bluetooth tools, set brightness, take screenshots, open editor/music/process/file-manager helpers, write the cloud repo source, and show Ooonana info. It falls back to the terminal help path when GUI pieces are missing.
+`ooonana-settings` opens a GUI settings menu when `yad` is available. It can switch theme, choose wallpaper, open display/audio/Wi-Fi/Bluetooth tools, open package manager, set brightness, take screenshots, open editor/music/process/file-manager helpers, write the cloud repo source, and show Ooonana info. It falls back to the terminal help path when GUI pieces are missing.
 
 Persistent live USB:
 
@@ -591,7 +613,7 @@ VMware note:
 No EFI environment detected
 ```
 
-This line is harmless only for legacy BIOS boot. Hybrid BIOS/UEFI ISO support needs `grub-efi-amd64-bin` installed before `grub-mkrescue`. If live boot reaches `Run /init` and then looks stuck, rebuild with the latest console fix; interactive init now mounts `/proc` before choosing `tty1`, and smoke logs use `ttyS0` directly. If i3 starts but input is dead, rebuild the full-i3 package repo/rootfs; the profile now includes eudev and starts it before Xorg. The full-i3 installer auto-detects `/dev/vd*`, `/dev/sd*`, `/dev/xvd*`, and `/dev/nvme*` targets, then installed GRUB boots by `PARTUUID` instead of hardcoding `/dev/vda1`. If install fails or is cancelled outside smoke mode, the ISO opens a BusyBox shell instead of rebooting. The release ISO should not include `ooonana.smoke=1`; smoke ISOs are only for automated QEMU proof and reboot after markers.
+This line is harmless only for legacy BIOS boot. Hybrid BIOS/UEFI ISO support needs `grub-efi-amd64-bin` installed before `grub-mkrescue`. If live boot reaches `Run /init` and then looks stuck, rebuild with the latest console fix; interactive init now mounts `/proc` before choosing `tty1`, and smoke logs use `ttyS0` directly. If persistent live drops to shell with `mkdir: not found`, rebuild the full-i3 rootfs/ISO; package install can overwrite early boot applet links, and the current builder restores BusyBox links for `/bin/mkdir`, `/bin/cat`, `/bin/sleep`, and other init-critical commands. If i3 starts but input is dead, rebuild the full-i3 package repo/rootfs; the profile now includes eudev and starts it before Xorg. The full-i3 installer auto-detects `/dev/vd*`, `/dev/sd*`, `/dev/xvd*`, and `/dev/nvme*` targets, then installed GRUB boots by `PARTUUID` instead of hardcoding `/dev/vda1`. If install fails or is cancelled outside smoke mode, the ISO opens a BusyBox shell instead of rebooting. The release ISO should not include `ooonana.smoke=1`; smoke ISOs are only for automated QEMU proof and reboot after markers.
 
 Non-interactive installed-disk proof path:
 

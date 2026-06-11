@@ -368,13 +368,91 @@ fi
 exec ooonana-theme-env xterm -e sh -lc 'brightnessctl; echo; echo "Usage: ooonana-brightness 75%"; exec sh'
 EOF
 
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-packages-app" <<'EOF'
+#!/bin/sh
+set -eu
+
+if [ "${1:-}" = "--dry-run" ]; then
+  echo "yad packages app"
+  echo "actions: update search install remove upgrade sources doctor"
+  echo "OOONANA_PACKAGES_APP_OK"
+  exit 0
+fi
+
+open_term() {
+  if command -v ooonana-theme-env >/dev/null 2>&1; then
+    exec ooonana-theme-env xterm -e sh -lc 'ooonana help packages; exec sh'
+  fi
+  exec sh -lc 'ooonana help packages; exec sh'
+}
+
+run_log() {
+  title="$1"
+  shift
+  tmp="${TMPDIR:-/tmp}/ooonana-packages.$$"
+  mkdir -p "$tmp"
+  log="$tmp/log.txt"
+  {
+    printf '$'
+    printf ' %s' "$@"
+    printf '\n\n'
+    "$@"
+  } >"$log" 2>&1 || true
+  yad --center --title "$title" --width=780 --height=520 --text-info --filename="$log" 2>/dev/null || true
+  rm -rf "$tmp"
+}
+
+if [ -z "${DISPLAY:-}" ] || ! command -v yad >/dev/null 2>&1; then
+  open_term
+fi
+
+while :; do
+  action="$(yad --center --title "Ooonana Packages" --width=560 --height=360 \
+    --list --print-column=1 --column Action --column Description \
+    update "Sync package repos" \
+    search "Search packages" \
+    install "Install package" \
+    remove "Remove package" \
+    upgrade "Upgrade installed packages" \
+    sources "Show configured repos" \
+    doctor "Check package repos" 2>/dev/null || true)"
+  [ -n "$action" ] || exit 0
+  case "$action" in
+    update)
+      run_log "Ooonana Packages Update" ooonana update
+      ;;
+    search)
+      query="$(yad --center --title "Ooonana Package Search" --entry --text "Search query" 2>/dev/null || true)"
+      [ -n "$query" ] && run_log "Ooonana Package Search" ooonana search "$query"
+      ;;
+    install)
+      pkg="$(yad --center --title "Ooonana Install Package" --entry --text "Package name" 2>/dev/null || true)"
+      [ -n "$pkg" ] && run_log "Ooonana Install Package" ooonana get "$pkg"
+      ;;
+    remove)
+      pkg="$(yad --center --title "Ooonana Remove Package" --entry --text "Package name" 2>/dev/null || true)"
+      [ -n "$pkg" ] && run_log "Ooonana Remove Package" ooonana remove "$pkg"
+      ;;
+    upgrade)
+      run_log "Ooonana Packages Upgrade" ooonana upgrade
+      ;;
+    sources)
+      run_log "Ooonana Package Sources" ooonana sources
+      ;;
+    doctor)
+      run_log "Ooonana Repo Doctor" ooonana repo doctor
+      ;;
+  esac
+done
+EOF
+
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-settings" <<'EOF'
 #!/bin/sh
 set -eu
 
 if [ "${1:-}" = "--dry-run" ]; then
   echo "yad settings menu"
-  echo "actions: theme wallpaper display audio wifi bluetooth brightness screenshot editor music processes ranger repo about"
+  echo "actions: theme wallpaper display audio wifi bluetooth packages brightness screenshot editor music processes ranger repo about"
   echo "OOONANA_SETTINGS_GUI_OK"
   exit 0
 fi
@@ -399,6 +477,7 @@ while :; do
     audio "Open audio controls" \
     wifi "Open NetworkManager" \
     bluetooth "Open Bluetooth manager" \
+    packages "Open package manager" \
     brightness "Set display brightness" \
     screenshot "Take screenshot" \
     editor "Open Geany/Vim" \
@@ -439,6 +518,9 @@ while :; do
       ;;
     bluetooth)
       ooonana-bluetooth || true
+      ;;
+    packages)
+      ooonana-packages-app || true
       ;;
     brightness)
       ooonana-brightness || true
@@ -1186,6 +1268,15 @@ Exec=ooonana-settings
 Terminal=false
 Categories=Settings;System;
 EOF
+
+  install -D -m 0644 /dev/stdin "$ROOTFS/usr/share/applications/ooonana-packages.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Ooonana Packages
+Exec=ooonana-packages-app
+Terminal=false
+Categories=System;PackageManager;
+EOF
 }
 
 write_xorg_input_config() {
@@ -1346,6 +1437,39 @@ install_full_i3_packages() {
     "$ROOT/packages/ooonana/usr/bin/ooonana" get full-i3 >/dev/null
 }
 
+restore_busybox_init_links() {
+  [[ -x "$ROOTFS/bin/busybox" ]] || return 0
+  mkdir -p "$ROOTFS/bin" "$ROOTFS/sbin" "$ROOTFS/usr/bin"
+  for applet in adduser awk basename cat chmod clear cp cut date dd df dirname dmesg echo env free grep hostname ifconfig ip ls mkdir mount mv passwd ps pwd readlink rm rmdir route sed sh sha256sum sleep sort sync tar touch tr udhcpc umount uname wc wget; do
+    ln -sf busybox "$ROOTFS/bin/$applet"
+  done
+  for applet in init reboot poweroff halt mdev switch_root; do
+    ln -sf ../bin/busybox "$ROOTFS/sbin/$applet"
+  done
+  ln -sf ../../bin/busybox "$ROOTFS/usr/bin/env"
+}
+
+write_full_groups() {
+  local group_file="$ROOTFS/etc/group"
+  touch "$group_file"
+  for entry in \
+    'root:x:0:' \
+    'tty:x:5:' \
+    'disk:x:6:' \
+    'lp:x:7:' \
+    'dialout:x:20:' \
+    'audio:x:29:' \
+    'video:x:44:' \
+    'input:x:97:' \
+    'kmem:x:9:' \
+    'cdrom:x:11:' \
+    'tape:x:26:' \
+    'kvm:x:34:'; do
+    name="${entry%%:*}"
+    grep -q "^$name:" "$group_file" 2>/dev/null || printf '%s\n' "$entry" >> "$group_file"
+  done
+}
+
 write_tarball() {
   mkdir -p "$(dirname "$TARBALL")"
   rm -f "$TARBALL"
@@ -1403,6 +1527,8 @@ main() {
   printf '127.0.0.1 localhost ooonana\n' > "$ROOTFS/etc/hosts"
   printf 'full-i3\n' > "$ROOTFS/etc/ooonana/edition"
   install_full_i3_packages
+  restore_busybox_init_links
+  write_full_groups
   install_branding
   write_start_script
   write_theme_helpers

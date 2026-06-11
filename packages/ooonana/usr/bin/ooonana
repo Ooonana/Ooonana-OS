@@ -76,14 +76,20 @@ Packages:
   ooonana depends PACKAGE
   ooonana files PACKAGE
   ooonana verify PACKAGE
+  ooonana check [PACKAGE...]
   ooonana get PACKAGE [--dry-run]
   ooonana install PACKAGE [--dry-run]
+  ooonana add PACKAGE [--dry-run]
   ooonana upgrade [PACKAGE...] [--dry-run]
   ooonana remove PACKAGE... [--dry-run]
+  ooonana uninstall PACKAGE... [--dry-run]
   ooonana purge PACKAGE... [--dry-run]
   ooonana fix [PACKAGE...] [--dry-run] [--reinstall]
   ooonana repo index [PATH]
   ooonana repo build [options] [PACKAGE...]
+  ooonana repo add NAME URI
+  ooonana repo remove NAME
+  ooonana repo doctor
   ooonana clean
 
 Need more help:
@@ -125,6 +131,7 @@ Examples:
   ooonana get nano
   ooonana get chromium
   ooonana get nemo
+  ooonana check
   ooonana upgrade --dry-run
   ooonana fix nano --reinstall
   ooonana purge nano
@@ -150,6 +157,8 @@ Package flow:
      Install package plus Ooonana dependencies.
   4. ooonana verify PACKAGE
      Check installed file list still exists.
+  5. ooonana check
+     Verify every installed package file manifest.
 
 Check before install:
   ooonana show nano
@@ -166,10 +175,13 @@ Fix/removal:
   ooonana fix nano --reinstall
   ooonana remove nano
   ooonana purge nano
+  ooonana check
   ooonana clean
 
 Repos:
   ooonana sources
+  ooonana repo doctor
+  ooonana repo add cloud https://example.test/ooonana-repo
   ooonana repo index /usr/lib/ooonana/repo
   ooonana repo build nano
 
@@ -244,10 +256,16 @@ usage_repo_help() {
   cat <<'USAGE'
 Repo commands:
   ooonana sources
+  ooonana repo doctor
+  ooonana repo add NAME URI
+  ooonana repo remove NAME
   ooonana repo index [PATH]
   ooonana repo build [options] [PACKAGE...]
 
 Build examples:
+  ooonana repo add cloud https://example.test/ooonana-repo
+  ooonana repo remove cloud
+  ooonana repo doctor
   OOONANA_SOURCE_ROOT=/path/to/Ooonana-OS ooonana repo build nano
   ooonana repo build --dry-run nano
   ooonana repo build --out-dir /var/tmp/ooonana-repo nano
@@ -310,6 +328,7 @@ Full i3 UI:
   Mod+B         Bluetooth settings
   Mod+Shift+S   display/audio settings
   Mod+Shift+A   Ooonana AI app
+  Mod+Shift+O   package manager app
   Mod+Shift+I   installer
   Mod+Shift+P   wallpaper changer
   Print         screenshot
@@ -326,6 +345,7 @@ Desktop helpers:
   ooonana-gui-installer
   ooonana-settings
   ooonana-ai-app
+  ooonana-packages-app
   ooonana-browser [URL]
   ooonana-files [PATH]
   ooonana-wifi
@@ -591,7 +611,7 @@ validate_repo_tarball_entries() {
   repo_name="$1"
   tarball="$2"
   have tar || die "missing command: tar"
-  tar -tzf "$tarball" | while IFS= read -r entry; do
+  tar_list_archive "$tarball" | while IFS= read -r entry; do
     clean_entry="${entry#./}"
     [ -n "$clean_entry" ] || continue
     case "$clean_entry" in
@@ -859,6 +879,98 @@ cmd_repo_index() {
   printf 'indexed %s package(s): %s\n' "$count" "$repo_path"
 }
 
+safe_repo_name() {
+  case "$1" in
+    *[!A-Za-z0-9_.-]*|"") return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+safe_repo_uri() {
+  case "$1" in
+    http://*|https://*|file://*|/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+repo_source_path() {
+  printf '%s/%s.repo\n' "$SOURCES_DIR" "$1"
+}
+
+cmd_repo_add() {
+  name="${1:-}"
+  uri="${2:-}"
+  [ "$#" -eq 2 ] || die "usage: ooonana repo add NAME URI"
+  safe_repo_name "$name" || die "bad repo name: $name"
+  safe_repo_uri "$uri" || die "bad repo URI: $uri"
+  mkdir -p "$SOURCES_DIR"
+  path="$(repo_source_path "$name")"
+  {
+    printf 'OOONANA_REPO_NAME="%s"\n' "$name"
+    printf 'OOONANA_REPO_URI="%s"\n' "$uri"
+  } > "$path"
+  printf 'repo added %s %s\n' "$name" "$uri"
+}
+
+cmd_repo_remove() {
+  name="${1:-}"
+  [ "$#" -eq 1 ] || die "usage: ooonana repo remove NAME"
+  safe_repo_name "$name" || die "bad repo name: $name"
+  path="$(repo_source_path "$name")"
+  [ -f "$path" ] || die "repo not found: $name"
+  rm -f "$path"
+  printf 'repo removed %s\n' "$name"
+}
+
+cmd_repo_doctor_one() {
+  repo_name="$1"
+  repo_path="$2"
+  if repo_is_tarball "$repo_path"; then
+    if repo_is_remote "$repo_path" || [ -f "$repo_path" ]; then
+      printf '%s: ok %s\n' "$repo_name" "$repo_path"
+      return 0
+    fi
+    printf '%s: missing %s\n' "$repo_name" "$repo_path" >&2
+    return 1
+  fi
+  if repo_is_remote "$repo_path"; then
+    printf '%s: ok remote %s\n' "$repo_name" "$repo_path"
+    return 0
+  fi
+  if [ ! -d "$repo_path" ]; then
+    printf '%s: missing %s\n' "$repo_name" "$repo_path" >&2
+    return 1
+  fi
+  if [ -f "$repo_path/index.tsv" ]; then
+    printf '%s: ok %s\n' "$repo_name" "$repo_path"
+    return 0
+  fi
+  for file in "$repo_path"/*.pkg; do
+    if [ -f "$file" ]; then
+      printf '%s: ok %s\n' "$repo_name" "$repo_path"
+      return 0
+    fi
+  done
+  printf '%s: missing package index %s\n' "$repo_name" "$repo_path" >&2
+  return 1
+}
+
+cmd_repo_doctor() {
+  ensure_pkg_dirs
+  sources_tmp="$CACHE_DIR/repo-doctor.tsv.$$"
+  repo_sources > "$sources_tmp"
+  status=0
+  while IFS='	' read -r repo_name repo_path; do
+    [ -n "$repo_name" ] || continue
+    cmd_repo_doctor_one "$repo_name" "$repo_path" || status=1
+  done < "$sources_tmp"
+  rm -f "$sources_tmp"
+  if [ "$status" -eq 0 ]; then
+    printf 'OOONANA_REPO_DOCTOR_OK\n'
+  fi
+  return "$status"
+}
+
 pkg_ids() {
   [ -d "$REPO_DIR" ] || die "missing repo: $REPO_DIR"
   {
@@ -942,11 +1054,20 @@ verify_pkg_archive() {
   fi
 }
 
+tar_list_archive() {
+  archive_path="$1"
+  if tar --quoting-style=literal -tzf "$archive_path" >/dev/null 2>&1; then
+    tar --quoting-style=literal -tzf "$archive_path"
+  else
+    tar -tzf "$archive_path"
+  fi
+}
+
 validate_archive_entries() {
   id="$1"
   archive_path="$2"
   have tar || die "missing command: tar"
-  tar -tzf "$archive_path" | while IFS= read -r entry; do
+  tar_list_archive "$archive_path" | while IFS= read -r entry; do
     clean_entry="${entry#./}"
     [ -n "$clean_entry" ] || continue
     case "$clean_entry" in
@@ -972,7 +1093,7 @@ install_pkg_archive() {
   mkdir -p "$OOONANA_ROOT"
   tar -xzf "$archive_path" -C "$OOONANA_ROOT"
   mkdir -p "$(pkg_files_dir)"
-  tar -tzf "$archive_path" | sed -e 's#^\./##' -e '/^$/d' > "$(pkg_files_manifest "$id")"
+  tar_list_archive "$archive_path" | sed -e 's#^\./##' -e '/^$/d' > "$(pkg_files_manifest "$id")"
   printf 'unpacked %s\n' "$OOONANA_PKG_ARCHIVE"
 }
 
@@ -1317,6 +1438,37 @@ cmd_verify() {
   printf 'verify ok %s\n' "$id"
 }
 
+cmd_check() {
+  packages=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      -*) die "usage: ooonana check [PACKAGE...]" ;;
+      *) packages="$packages ${1}" ;;
+    esac
+    shift
+  done
+
+  if [ -z "$packages" ]; then
+    if [ ! -d "$INSTALLED_DIR" ]; then
+      printf 'check ok: no packages installed\n'
+      return 0
+    fi
+    for file in "$INSTALLED_DIR"/*.pkg; do
+      [ -f "$file" ] || continue
+      packages="$packages $(basename "$file" .pkg)"
+    done
+  fi
+  if [ -z "$packages" ]; then
+    printf 'check ok: no packages installed\n'
+    return 0
+  fi
+
+  for id in $packages; do
+    verify_pkg_files "$id" || exit 1
+    printf 'check ok %s\n' "$id"
+  done
+}
+
 check_pkg_conflicts() {
   id="$1"
   for conflict in $OOONANA_PKG_CONFLICTS; do
@@ -1649,6 +1801,19 @@ cmd_fix() {
 cmd_repo() {
   subcmd="${1:-}"
   case "$subcmd" in
+    add)
+      shift
+      cmd_repo_add "$@"
+      ;;
+    remove|rm)
+      shift
+      cmd_repo_remove "$@"
+      ;;
+    doctor|check)
+      shift
+      [ "$#" -eq 0 ] || die "usage: ooonana repo doctor"
+      cmd_repo_doctor
+      ;;
     index)
       shift
       cmd_repo_index "$@"
@@ -1657,7 +1822,7 @@ cmd_repo() {
       shift
       cmd_repo_build "$@"
       ;;
-    *) die "usage: ooonana repo [index|build]" ;;
+    *) die "usage: ooonana repo [add|remove|doctor|index|build]" ;;
   esac
 }
 
@@ -2024,9 +2189,10 @@ main() {
     depends) cmd_depends "$@" ;;
     files) cmd_files "$@" ;;
     verify) cmd_verify "$@" ;;
-    get|install) cmd_get "$@" ;;
+    check) cmd_check "$@" ;;
+    get|install|add) cmd_get "$@" ;;
     upgrade) cmd_upgrade "$@" ;;
-    remove) cmd_remove "$@" ;;
+    remove|uninstall) cmd_remove "$@" ;;
     purge) cmd_purge "$@" ;;
     fix) cmd_fix "$@" ;;
     repo) cmd_repo "$@" ;;
