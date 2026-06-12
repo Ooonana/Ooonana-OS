@@ -91,9 +91,8 @@ fi
 serial --unit=0 --speed=115200
 terminal_input console serial
 terminal_output console serial
-if [ -f /boot/grub/theme.txt ]; then
-  set theme=/boot/grub/theme.txt
-fi
+set color_normal=yellow/black
+set color_highlight=black/yellow
 if terminal_output gfxterm serial; then
   true
 fi
@@ -163,10 +162,6 @@ title-color: "#ffb21a"
 desktop-color: "#050505"
 terminal-font: "Unifont Regular 16"
 message-color: "#ffb21a"
-selected-item-color: "#050505"
-selected-item-background-color: "#ffb21a"
-item-color: "#ffb21a"
-item-font: "Unifont Regular 16"
 EOF
   if [[ "$INSTALL" -eq 1 && -n "$DISK_IMAGE" ]]; then
     install -m 0644 "$DISK_IMAGE" "$ISO_TREE/images/ooonana-scratch-disk.raw"

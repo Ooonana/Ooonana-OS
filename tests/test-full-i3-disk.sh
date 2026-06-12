@@ -28,7 +28,7 @@ assert_contains "$script_src" "Ooonana OS Full i3"
 assert_contains "$script_src" "ooonana.edition=full-i3"
 assert_contains "$script_src" "ooonana.gui-smoke=1"
 assert_contains "$script_src" "ooonana-logo.txt"
-assert_contains "$script_src" "set theme=/boot/grub/theme.txt"
+assert_not_contains "$script_src" "set theme=/boot/grub/theme.txt"
 assert_contains "$script_src" "OOONANA_FULL_I3_DISK_OK"
 
 help="$(bash "$SCRIPT" --help)"
@@ -74,5 +74,13 @@ assert_contains "$dry_run_normal" "root=PARTUUID=TARGET_PARTUUID rw console=ttyS
 assert_contains "$script_src" "terminal_input console serial"
 assert_contains "$script_src" "terminal_output console serial"
 assert_contains "$script_src" "terminal_output gfxterm serial"
+assert_contains "$script_src" "set color_normal=yellow/black"
+assert_contains "$script_src" "set color_highlight=black/yellow"
+assert_contains "$script_src" 'title-color: "#ffb21a"'
+assert_contains "$script_src" 'message-color: "#ffb21a"'
+assert_not_contains "$script_src" "selected-item-color"
+assert_not_contains "$script_src" "selected-item-background-color"
+assert_not_contains "$script_src" "item-color"
+assert_not_contains "$script_src" "item-font"
 
 printf 'ok full-i3-disk\n'

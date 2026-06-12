@@ -118,7 +118,7 @@ Working now:
 - Installer ISO opens a fallback shell on install failure or cancel
 - Installer has a serial-safe xterm UI with logo, disk picker, user/password, hostname, theme, cloud repo picker, progress, logs, fail shell, and reboot prompt
 - Live/install ISO keeps interactive prompts on the VGA console for VMware while smoke tests log through serial
-- GRUB has Ooonana theme/logo text, BIOS/UEFI hybrid support, live/install/safe graphics menus, and a persistent USB boot entry
+- GRUB has Ooonana logo text, orange-on-black menu colors, BIOS/UEFI hybrid support, live/install/safe graphics menus, and a persistent USB boot entry
 - Rufus support has a DD-mode note inside the ISO, USB-friendly volume labels, and `scripts/verify-rufus-iso.sh`
 - Full-i3 live starts eudev before Xorg and ships libinput config for PS/2 keyboard and mouse discovery
 - Full-i3 now ships an Archcraft-like i3 baseline: polybar, rofi, yad, picom, dunst, Chromium launcher, Nemo launcher, Wi-Fi/Bluetooth/settings helpers, wallpaper changer, and dark Ooonana colors
@@ -127,7 +127,7 @@ Working now:
 - Generic `ooonana-rootfs.tar.gz` can be unpacked for chroot/container-style use
 - Minimal and full-i3 WSL distro exports can be imported
 - `ooonana` package manager has repo add/remove/doctor, repo index, checksums, install/add, remove/uninstall, purge, upgrade, fix, check, files, verify
-- Minimal and full rootfs include Ooonana shell helpers: `bunana`, `clear`, `oonana` brick game, and Ooonana neofetch logo fallback
+- Minimal and full rootfs include Ooonana shell helpers: `bunana`, `clear`, upgraded `oonana` brickout game, and Ooonana neofetch logo fallback
 - `ooonana update` can sync local repos, HTTP repos, and GitHub Release repo tarballs into cache
 - Alpine `.apk` packages can be imported into Ooonana `.pkg` repos
 - Full-i3 branding assets, package profiles, input drivers, package-installed rootfs, boot disk, live/install ISO, GUI installer wizard, AI desktop launcher, and real QEMU boot proof exist as a separate edition path
@@ -247,7 +247,7 @@ bunana                 # exit login shell function
 bunana --shutdown      # power off
 bunana --restart       # reboot
 clear                  # clear terminal
-oonana                 # brick game, two-o command
+oonana                 # Ooonana brickout game, two-o command
 neofetch               # Ooonana logo fallback
 ```
 
@@ -613,7 +613,7 @@ VMware note:
 No EFI environment detected
 ```
 
-This line is harmless only for legacy BIOS boot. Hybrid BIOS/UEFI ISO support needs `grub-efi-amd64-bin` installed before `grub-mkrescue`. If live boot reaches `Run /init` and then looks stuck, rebuild with the latest console fix; interactive init now mounts `/proc` before choosing `tty1`, and smoke logs use `ttyS0` directly. If persistent live drops to shell with `mkdir: not found`, rebuild the full-i3 rootfs/ISO; package install can overwrite early boot applet links, and the current builder restores BusyBox links for `/bin/mkdir`, `/bin/cat`, `/bin/sleep`, and other init-critical commands. If i3 starts but input is dead, rebuild the full-i3 package repo/rootfs; the profile now includes eudev and starts it before Xorg. The full-i3 installer auto-detects `/dev/vd*`, `/dev/sd*`, `/dev/xvd*`, and `/dev/nvme*` targets, then installed GRUB boots by `PARTUUID` instead of hardcoding `/dev/vda1`. If install fails or is cancelled outside smoke mode, the ISO opens a BusyBox shell instead of rebooting. The release ISO should not include `ooonana.smoke=1`; smoke ISOs are only for automated QEMU proof and reboot after markers.
+This line is harmless only for legacy BIOS boot. Hybrid BIOS/UEFI ISO support needs `grub-efi-amd64-bin` installed before `grub-mkrescue`. If GRUB pauses with `unknown property` or `Press any key to continue`, rebuild with the current orange console-color GRUB config; Ooonana does not load a GRUB theme file because invalid top-level theme properties can block unattended boot. If live boot reaches `Run /init` and then looks stuck, rebuild with the latest console fix; interactive init now mounts `/proc` before choosing `tty1`, and smoke logs use `ttyS0` directly. If persistent live drops to shell with `mkdir: not found`, rebuild the full-i3 rootfs/ISO; package install can overwrite early boot applet links, and the current builder restores BusyBox links for `/bin/mkdir`, `/bin/cat`, `/bin/sleep`, and other init-critical commands. If i3 starts but input is dead, rebuild the full-i3 package repo/rootfs; the profile now includes eudev and starts it before Xorg. The full-i3 installer auto-detects `/dev/vd*`, `/dev/sd*`, `/dev/xvd*`, and `/dev/nvme*` targets, then installed GRUB boots by `PARTUUID` instead of hardcoding `/dev/vda1`. If install fails or is cancelled outside smoke mode, the ISO opens a BusyBox shell instead of rebooting. The release ISO should not include `ooonana.smoke=1`; smoke ISOs are only for automated QEMU proof and reboot after markers.
 
 Non-interactive installed-disk proof path:
 

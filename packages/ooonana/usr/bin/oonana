@@ -5,54 +5,105 @@ if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   cat <<'USAGE'
 oonana
 
-Tiny brick game. Bricks spell OOONANA OS. Ball is Ooonana.
+Ooonana brickout.
+Bricks spell OOONANA OS. Ball is the Ooonana face marker.
 
 Keys each turn:
-  a left
-  d right
-  q quit
-  enter stay
+  a / h  left
+  d / l  right
+  q      quit
+  enter  stay
 USAGE
   exit 0
 fi
 
-cols=32
-rows=15
-paddle=14
-ball_x=15
-ball_y=11
+cols=40
+rows=18
+paddle_width=7
+paddle=17
+ball_x=20
+ball_y=14
 dx=1
 dy=-1
 score=0
 lives=3
-bricks="OOOOOOOOOO
-O OONANA O
-O   OS   O
-OOOOOOOOOO"
+level=1
+
+bricks="OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+O  OOO N   N  AAAAA N   N  AAAAA   OS
+O  O O NN  N A     A NN  N A     A  OS
+O  O O N N N AAAAAAA N N N AAAAAAA  OS
+O  OOO N  NN A     A N  NN A     A  OS
+OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO"
+
+use_color=0
+if [ -t 1 ] && [ "${TERM:-dumb}" != "dumb" ] && [ -z "${NO_COLOR:-}" ]; then
+  use_color=1
+fi
+
+paint() {
+  if [ "$use_color" -eq 1 ]; then
+    printf '\033[%sm%s\033[0m' "$1" "$2"
+  else
+    printf '%s' "$2"
+  fi
+}
+
+brick_rows() {
+  printf '%s\n' "$bricks" | wc -l | tr -d ' '
+}
+
+brick_count() {
+  printf '%s\n' "$bricks" | tr -d ' \n' | wc -c | tr -d ' '
+}
+
+line_at() {
+  printf '%s\n' "$bricks" | sed -n "${1}p"
+}
+
+char_at() {
+  line="$(line_at "$2")"
+  printf '%s' "$line" | cut -c "$1" 2>/dev/null || true
+}
 
 cell() {
   x="$1"
   y="$2"
-  if [ "$y" -le 4 ]; then
-    line="$(printf '%s\n' "$bricks" | sed -n "${y}p")"
-    char="$(printf '%s' "$line" | cut -c "$x" 2>/dev/null || true)"
-    [ "$char" = "O" ] && { printf '#'; return; }
+  max_brick_y="$(brick_rows)"
+  if [ "$y" -le "$max_brick_y" ]; then
+    char="$(char_at "$x" "$y")"
+    if [ -n "$char" ] && [ "$char" != " " ]; then
+      paint '38;5;214' "$char"
+      return
+    fi
   fi
   if [ "$x" -eq "$ball_x" ] && [ "$y" -eq "$ball_y" ]; then
-    printf '@'
+    paint '38;5;214' '@'
     return
   fi
-  if [ "$y" -eq 14 ] && [ "$x" -ge "$paddle" ] && [ "$x" -le $((paddle + 5)) ]; then
-    printf '='
+  if [ "$y" -eq "$rows" ] && [ "$x" -ge "$paddle" ] && [ "$x" -lt $((paddle + paddle_width)) ]; then
+    paint '1;37' '='
     return
   fi
   printf ' '
 }
 
+draw_border() {
+  printf '+'
+  i=1
+  while [ "$i" -le "$cols" ]; do
+    printf '-'
+    i=$((i + 1))
+  done
+  printf '+\n'
+}
+
 draw() {
   clear 2>/dev/null || printf '\033[H\033[2J'
-  printf 'oonana brickout  score:%s lives:%s\n' "$score" "$lives"
-  printf '+--------------------------------+\n'
+  left="$(brick_count)"
+  paint '38;5;214' 'oonana brickout'
+  printf '  score:%s lives:%s level:%s bricks:%s\n' "$score" "$lives" "$level" "$left"
+  draw_border
   y=1
   while [ "$y" -le "$rows" ]; do
     printf '|'
@@ -64,17 +115,16 @@ draw() {
     printf '|\n'
     y=$((y + 1))
   done
-  printf '+--------------------------------+\n'
+  draw_border
   printf 'a/d move, enter stay, q quit > '
 }
 
 brick_at() {
   bx="$1"
   by="$2"
-  [ "$by" -ge 1 ] && [ "$by" -le 4 ] || return 1
-  line="$(printf '%s\n' "$bricks" | sed -n "${by}p")"
-  char="$(printf '%s' "$line" | cut -c "$bx" 2>/dev/null || true)"
-  [ "$char" = "O" ]
+  [ "$by" -ge 1 ] && [ "$by" -le "$(brick_rows)" ] || return 1
+  char="$(char_at "$bx" "$by")"
+  [ -n "$char" ] && [ "$char" != " " ]
 }
 
 remove_brick() {
@@ -96,17 +146,34 @@ remove_brick() {
   done
 }
 
+reset_ball() {
+  ball_x=20
+  ball_y=14
+  dx="$level"
+  [ "$dx" -gt 2 ] && dx=2
+  dy=-1
+}
+
 while [ "$lives" -gt 0 ]; do
+  if [ "$(brick_count)" -eq 0 ]; then
+    draw
+    printf '\nwin. score:%s\n' "$score"
+    exit 0
+  fi
+
   draw
   IFS= read -r key || key=q
   case "$key" in
-    a|h) [ "$paddle" -gt 1 ] && paddle=$((paddle - 2)) ;;
-    d|l) [ "$paddle" -lt 27 ] && paddle=$((paddle + 2)) ;;
-    q) printf '\nbye\n'; exit 0 ;;
+    a|h) [ "$paddle" -gt 1 ] && paddle=$((paddle - 3)) ;;
+    d|l) [ "$paddle" -lt $((cols - paddle_width)) ] && paddle=$((paddle + 3)) ;;
+    q) printf '\nbye. score:%s\n' "$score"; exit 0 ;;
   esac
+  [ "$paddle" -lt 1 ] && paddle=1
+  [ "$paddle" -gt $((cols - paddle_width + 1)) ] && paddle=$((cols - paddle_width + 1))
 
   next_x=$((ball_x + dx))
   next_y=$((ball_y + dy))
+
   if [ "$next_x" -le 1 ] || [ "$next_x" -ge "$cols" ]; then
     dx=$((0 - dx))
     next_x=$((ball_x + dx))
@@ -115,24 +182,34 @@ while [ "$lives" -gt 0 ]; do
     dy=1
     next_y=$((ball_y + dy))
   fi
+
   if brick_at "$next_x" "$next_y"; then
     bricks="$(remove_brick "$next_x" "$next_y")"
-    score=$((score + 10))
+    score=$((score + 10 * level))
     dy=$((0 - dy))
     next_y=$((ball_y + dy))
+    if [ $((score % 120)) -eq 0 ]; then
+      level=$((level + 1))
+    fi
   fi
-  if [ "$next_y" -eq 14 ] && [ "$next_x" -ge "$paddle" ] && [ "$next_x" -le $((paddle + 5)) ]; then
+
+  if [ "$next_y" -eq "$rows" ] && [ "$next_x" -ge "$paddle" ] && [ "$next_x" -lt $((paddle + paddle_width)) ]; then
+    hit=$((next_x - paddle))
     dy=-1
+    if [ "$hit" -le 1 ]; then
+      dx=-1
+    elif [ "$hit" -ge $((paddle_width - 2)) ]; then
+      dx=1
+    fi
     next_y=$((ball_y + dy))
   fi
+
   if [ "$next_y" -gt "$rows" ]; then
     lives=$((lives - 1))
-    ball_x=15
-    ball_y=11
-    dx=1
-    dy=-1
+    reset_ball
     continue
   fi
+
   ball_x="$next_x"
   ball_y="$next_y"
 done

@@ -96,7 +96,15 @@ assert_contains "$installer_src" "terminal_input console serial"
 assert_contains "$installer_src" "terminal_output console serial"
 assert_contains "$installer_src" "terminal_output gfxterm serial"
 assert_contains "$installer_src" "ooonana-logo.txt"
-assert_contains "$installer_src" "set theme=/boot/grub/theme.txt"
+assert_not_contains "$installer_src" "set theme=/boot/grub/theme.txt"
+assert_contains "$installer_src" "set color_normal=yellow/black"
+assert_contains "$installer_src" "set color_highlight=black/yellow"
+assert_contains "$installer_src" 'title-color: "#ffb21a"'
+assert_contains "$installer_src" 'message-color: "#ffb21a"'
+assert_not_contains "$installer_src" "selected-item-color"
+assert_not_contains "$installer_src" "selected-item-background-color"
+assert_not_contains "$installer_src" "item-color"
+assert_not_contains "$installer_src" "item-font"
 
 run_help="$(bash "$ROOT/scripts/run-qemu.sh" --help)"
 assert_contains "$run_help" "--disk"
