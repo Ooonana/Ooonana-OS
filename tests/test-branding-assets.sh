@@ -47,6 +47,8 @@ assert_contains "$wallpaper" 'viewBox="0 0 1920 1080"'
 assert_contains "$wallpaper" "Ooonana OS"
 assert_contains "$wallpaper" "ooonana-wallpaper"
 assert_contains "$wallpaper" 'id="ooonana-horizon"'
+assert_contains "$wallpaper" 'id="ooonana-panel-grid"'
+assert_contains "$wallpaper" '>Ooonana<'
 assert_contains "$wallpaper" "ooonana-ascii"
 assert_contains "$wallpaper" "Default dark mode"
 assert_contains "$wallpaper" "black background / orange cursor"
@@ -61,9 +63,12 @@ assert_contains "$config" 'rofi -show drun -theme /etc/ooonana/rofi.rasi'
 assert_contains "$config" 'picom --config /etc/ooonana/picom.conf'
 assert_contains "$config" 'dunst -config /etc/ooonana/dunstrc'
 assert_contains "$config" 'xsettingsd -c /etc/ooonana/xsettingsd.conf'
+assert_contains "$config" 'for_window [class=".*"] border pixel 2'
+assert_contains "$config" 'hide_edge_borders smart'
+assert_contains "$config" 'default_border pixel 2'
 assert_contains "$config" 'bindsym $mod+Shift+f exec ooonana-files'
 assert_contains "$config" 'bindsym $mod+Shift+w exec ooonana-browser'
-assert_contains "$config" 'bindsym $mod+Shift+a exec ooonana-ai-app'
+assert_contains "$config" 'bindsym $mod+Shift+a exec ooonana-ai-launch'
 assert_contains "$config" 'bindsym $mod+Shift+o exec ooonana-packages-app'
 assert_contains "$config" 'bindsym $mod+n exec ooonana-wifi'
 assert_contains "$config" 'bindsym $mod+b exec ooonana-bluetooth'

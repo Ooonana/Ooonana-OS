@@ -30,7 +30,7 @@ assert_contains "$script_src" "ooonana_reexec_as_root"
 assert_contains "$script_src" "unsafe mount point"
 assert_contains "$script_src" "Ooonana OS Minimal"
 assert_contains "$script_src" "ooonana-logo.txt"
-assert_contains "$script_src" "set theme=/boot/grub/theme.txt"
+assert_not_contains "$script_src" "set theme=/boot/grub/theme.txt"
 
 help="$(bash "$SCRIPT" --help)"
 assert_contains "$help" "Build Ooonana scratch boot disk"
@@ -65,5 +65,13 @@ assert_not_contains "$dry_run" "systemd.unit"
 assert_contains "$script_src" "terminal_input console serial"
 assert_contains "$script_src" "terminal_output console serial"
 assert_contains "$script_src" "terminal_output gfxterm serial"
+assert_contains "$script_src" "set color_normal=yellow/black"
+assert_contains "$script_src" "set color_highlight=black/yellow"
+assert_contains "$script_src" 'title-color: "#ffb21a"'
+assert_contains "$script_src" 'message-color: "#ffb21a"'
+assert_not_contains "$script_src" "selected-item-color"
+assert_not_contains "$script_src" "selected-item-background-color"
+assert_not_contains "$script_src" "item-color"
+assert_not_contains "$script_src" "item-font"
 
 printf 'ok scratch-disk\n'

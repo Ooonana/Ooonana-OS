@@ -1,23 +1,49 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc">
   <title id="title">Ooonana OS Wallpaper</title>
-  <desc id="desc">Default dark mode Ooonana OS wallpaper rendered from the project ASCII art.</desc>
+  <desc id="desc">Default dark mode Ooonana OS wallpaper. Black panel grid with orange Ooonana ASCII art.</desc>
   <rect id="ooonana-wallpaper" width="1920" height="1080" fill="#050505"/>
-  <rect x="0" y="0" width="1920" height="1080" fill="#070707"/>
-  <rect id="ooonana-horizon" x="0" y="888" width="1920" height="192" fill="#ffb21a" opacity="0.10"/>
-  <rect x="160" y="862" width="1600" height="2" fill="#ffb21a" opacity="0.80"/>
-  <rect x="160" y="910" width="1600" height="1" fill="#ffd37a" opacity="0.38"/>
-  <text x="960" y="146" text-anchor="middle" fill="#ffb21a" font-family="monospace" font-size="56" font-weight="700">Ooonana OS</text>
-  <g id="ooonana-face" fill="#ffb21a" font-family="monospace" font-size="58" font-weight="700" xml:space="preserve">
-    <text class="ooonana-ascii" x="520" y="284">
-      <tspan x="520" dy="0">      __________________</tspan>
-      <tspan x="520" dy="86">     |    __      __    |</tspan>
-      <tspan x="520" dy="86">     |   /  \    /  \   |</tspan>
-      <tspan x="520" dy="86">   / |                  |\</tspan>
-      <tspan x="520" dy="86">  /  |     \______/     | \</tspan>
-      <tspan x="520" dy="86">     |__________________|</tspan>
-      <tspan x="520" dy="86">          |        |</tspan>
+  <rect x="0" y="0" width="1920" height="1080" fill="#080806"/>
+  <rect x="72" y="64" width="1776" height="952" fill="#0b0b09" stroke="#2a1a05" stroke-width="2"/>
+  <g id="ooonana-panel-grid" stroke="#ffb21a" stroke-width="1" opacity="0.18">
+    <path d="M72 164H1848"/>
+    <path d="M72 916H1848"/>
+    <path d="M292 64V1016"/>
+    <path d="M1628 64V1016"/>
+    <path d="M72 314H292"/>
+    <path d="M72 466H292"/>
+    <path d="M72 618H292"/>
+    <path d="M1628 314H1848"/>
+    <path d="M1628 466H1848"/>
+    <path d="M1628 618H1848"/>
+  </g>
+  <rect id="ooonana-horizon" x="72" y="916" width="1776" height="100" fill="#ffb21a" opacity="0.08"/>
+  <rect x="72" y="164" width="1776" height="3" fill="#ffb21a" opacity="0.92"/>
+  <rect x="72" y="916" width="1776" height="3" fill="#ffb21a" opacity="0.70"/>
+  <text x="138" y="125" fill="#ffd37a" font-family="monospace" font-size="28">Ooonana</text>
+  <text x="960" y="126" text-anchor="middle" fill="#ffb21a" font-family="monospace" font-size="58" font-weight="700">Ooonana OS</text>
+  <text x="1782" y="125" text-anchor="end" fill="#ffd37a" font-family="monospace" font-size="28">full i3</text>
+  <g fill="#ffb21a" font-family="monospace" font-size="22" opacity="0.84">
+    <text x="126" y="220">mod+d</text>
+    <text x="126" y="372">rofi</text>
+    <text x="126" y="524">polybar</text>
+    <text x="126" y="676">picom</text>
+    <text x="1682" y="220">dark</text>
+    <text x="1682" y="372">orange</text>
+    <text x="1682" y="524">tiling</text>
+    <text x="1682" y="676">live</text>
+  </g>
+  <g id="ooonana-face" fill="#ffb21a" font-family="monospace" font-size="62" font-weight="700" xml:space="preserve">
+    <text class="ooonana-ascii" x="495" y="304">
+      <tspan x="495" dy="0">      __________________</tspan>
+      <tspan x="495" dy="88">     |    __      __    |</tspan>
+      <tspan x="495" dy="88">     |   /  \    /  \   |</tspan>
+      <tspan x="495" dy="88">   / |                  |\</tspan>
+      <tspan x="495" dy="88">  /  |     \______/     | \</tspan>
+      <tspan x="495" dy="88">     |__________________|</tspan>
+      <tspan x="495" dy="88">          |        |</tspan>
     </text>
   </g>
-  <text x="960" y="978" text-anchor="middle" fill="#ffd37a" font-family="monospace" font-size="30">full i3 edition</text>
-  <text x="960" y="1022" text-anchor="middle" fill="#ffb21a" font-family="monospace" font-size="22">black background / orange cursor</text>
+  <rect x="440" y="852" width="1040" height="2" fill="#ffd37a" opacity="0.45"/>
+  <text x="960" y="960" text-anchor="middle" fill="#ffd37a" font-family="monospace" font-size="30">black background / orange cursor</text>
+  <text x="960" y="1002" text-anchor="middle" fill="#ffb21a" font-family="monospace" font-size="22">i3 + polybar + rofi + picom + dunst</text>
 </svg>

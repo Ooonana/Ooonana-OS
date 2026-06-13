@@ -1,0 +1,31 @@
+#!/bin/sh
+set -eu
+
+if [ "${1:-}" = "--dry-run" ]; then
+  echo "launches ooonana-ai-app with GUI/terminal fallback"
+  echo "OOONANA_AI_LAUNCH_OK"
+  exit 0
+fi
+
+log="${XDG_RUNTIME_DIR:-/tmp}/ooonana-ai-app.log"
+rm -f "$log" 2>/dev/null || true
+
+if ooonana-ai-app "$@" >"$log" 2>&1; then
+  exit 0
+fi
+
+status="$?"
+if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
+  yad --center --title "Ooonana AI" \
+    --text "Ooonana AI failed to launch. Log: $log" \
+    --button=Close:1 --button=Log:0 2>/dev/null &&
+    yad --center --title "Ooonana AI Log" --width=760 --height=520 \
+      --text-info --filename="$log" 2>/dev/null || true
+fi
+
+if command -v ooonana-theme-env >/dev/null 2>&1 && command -v xterm >/dev/null 2>&1; then
+  exec ooonana-theme-env xterm -title "Ooonana AI Log" -e sh -lc "cat '$log' 2>/dev/null; printf '\\nexit: $status\\n'; exec sh"
+fi
+
+cat "$log" 2>/dev/null || true
+exit "$status"

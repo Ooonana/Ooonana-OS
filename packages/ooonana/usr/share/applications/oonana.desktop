@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Ooonana Breakout
+Comment=Play the Ooonana OS breakout game
+Exec=oonana
+Terminal=true
+Categories=Game;
+Icon=applications-games

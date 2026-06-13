@@ -69,16 +69,42 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 xorriso -osirrox on -indev "$ISO" -extract /boot/grub/grub.cfg "$tmp/grub.cfg" >/dev/null 2>&1 ||
   fail "could not extract GRUB config from ISO"
+xorriso -osirrox on -indev "$ISO" -extract /boot/grub/theme.txt "$tmp/theme.txt" >/dev/null 2>&1 || true
 xorriso -osirrox on -indev "$ISO" -extract /RUFUS.md "$tmp/RUFUS.md" >/dev/null 2>&1 ||
   fail "could not extract Rufus note from ISO"
 
 need_contains "$tmp/grub.cfg" "terminal_input console serial"
-need_contains "$tmp/grub.cfg" "terminal_output console serial"
+case "$EDITION" in
+  full-i3)
+    need_contains "$tmp/grub.cfg" "insmod font"
+    need_contains "$tmp/grub.cfg" "set gfxmode=1024x768,800x600,auto"
+    need_contains "$tmp/grub.cfg" "set gfxpayload=keep"
+    need_contains "$tmp/grub.cfg" "terminal_output gfxterm serial"
+    need_contains "$tmp/grub.cfg" "insmod gfxmenu"
+    need_contains "$tmp/grub.cfg" "insmod gfxterm_menu"
+    ;;
+  minimal)
+    need_contains "$tmp/grub.cfg" "terminal_output console serial"
+    ;;
+esac
+need_contains "$tmp/grub.cfg" "set color_normal=yellow/black"
+need_contains "$tmp/grub.cfg" "set color_highlight=black/yellow"
+if grep -qF 'set theme=/boot/grub/theme.txt' "$tmp/grub.cfg"; then
+  [[ -f "$tmp/theme.txt" ]] || fail "GRUB config loads missing theme file"
+  need_contains "$tmp/theme.txt" "+ progress_bar"
+  need_contains "$tmp/theme.txt" 'id = "__timeout__"'
+  need_contains "$tmp/theme.txt" 'fg_color = "#ffb21a"'
+  need_contains "$tmp/theme.txt" 'bg_color = "#1b1202"'
+  done_item "GRUB timeout progress bar"
+fi
 need_contains "$tmp/grub.cfg" "set timeout=5"
 need_contains "$tmp/grub.cfg" "cat /boot/grub/ooonana-logo.txt"
+if [[ -f "$tmp/theme.txt" ]] && grep -q 'selected-item-color\|selected-item-background-color\|item-color\|item-font' "$tmp/theme.txt"; then
+  fail "GRUB theme contains invalid menu color property"
+fi
 need_contains "$tmp/RUFUS.md" "Write in DD Image mode"
 need_contains "$tmp/RUFUS.md" "Disable Secure Boot"
-done_item "Rufus DD-mode note and human-visible GRUB"
+done_item "Rufus DD-mode note and orange GRUB"
 
 case "$EDITION" in
   full-i3)
@@ -87,6 +113,8 @@ case "$EDITION" in
     need_contains "$tmp/grub.cfg" "Install Ooonana OS Full i3"
     need_contains "$tmp/grub.cfg" "Install Ooonana OS Full i3 (safe graphics)"
     need_contains "$tmp/grub.cfg" "ooonana.persistence=1"
+    need_contains "$tmp/grub.cfg" "ooonana.install=1 ooonana.edition=full-i3"
+    need_contains "$tmp/grub.cfg" "initrd /boot/live-initramfs.cpio.gz"
     need_contains "$tmp/RUFUS.md" "OOONANA_PERSIST"
     ;;
   minimal)

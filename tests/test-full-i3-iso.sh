@@ -28,6 +28,11 @@ assert_contains "$script_src" "OOONANA_PERSIST"
 assert_contains "$script_src" "grub-mkrescue"
 assert_contains "$script_src" "/usr/lib/grub/x86_64-efi"
 assert_contains "$script_src" "hybrid BIOS/UEFI ISO"
+assert_contains "$script_src" "insmod gfxmenu"
+assert_contains "$script_src" "insmod gfxterm_menu"
+assert_contains "$script_src" "insmod font"
+assert_contains "$script_src" "set gfxmode=1024x768,800x600,auto"
+assert_contains "$script_src" "terminal_output gfxterm serial"
 
 installer_src="$(<"$ROOT/scripts/build-scratch-rootfs.sh")"
 assert_contains "$installer_src" "cmdline_value 'ooonana.install.image'"
@@ -77,12 +82,19 @@ PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
 
 normal_cfg="$(<"$tmp/build/full-i3-iso-tree/boot/grub/grub.cfg")"
 assert_contains "$normal_cfg" "terminal_input console serial"
-assert_contains "$normal_cfg" "terminal_output console serial"
 assert_contains "$normal_cfg" "terminal_output gfxterm serial"
+assert_contains "$normal_cfg" "insmod gfxmenu"
+assert_contains "$normal_cfg" "insmod gfxterm_menu"
+assert_contains "$normal_cfg" "insmod font"
+assert_contains "$normal_cfg" "set gfxmode=1024x768,800x600,auto"
+assert_contains "$normal_cfg" "terminal_output gfxterm serial"
+assert_contains "$normal_cfg" "set color_normal=yellow/black"
+assert_contains "$normal_cfg" "set color_highlight=black/yellow"
 assert_contains "$normal_cfg" "console=ttyS0 console=tty0"
 assert_contains "$normal_cfg" "set default=0"
 assert_contains "$normal_cfg" "set timeout=5"
 assert_contains "$normal_cfg" "set theme=/boot/grub/theme.txt"
+assert_contains "$normal_cfg" "export theme"
 assert_contains "$normal_cfg" "cat /boot/grub/ooonana-logo.txt"
 assert_contains "$normal_cfg" "menuentry 'Ooonana OS Full i3 Live'"
 assert_contains "$normal_cfg" "menuentry 'Ooonana OS Full i3 Live (persistent USB)'"
@@ -91,6 +103,11 @@ assert_contains "$normal_cfg" "menuentry 'Install Ooonana OS Full i3 (safe graph
 assert_contains "$normal_cfg" "ooonana.live=1"
 assert_contains "$normal_cfg" "ooonana.persistence=1"
 assert_contains "$normal_cfg" "ooonana.install.target=auto"
+assert_contains "$normal_cfg" "ooonana.install=1 ooonana.edition=full-i3"
+assert_contains "$normal_cfg" "menuentry 'Install Ooonana OS Full i3'"
+assert_contains "$normal_cfg" "menuentry 'Install Ooonana OS Full i3 (safe graphics)'"
+assert_contains "$normal_cfg" "initrd /boot/live-initramfs.cpio.gz"
+[[ "$normal_cfg" != *"initrd /boot/install-initramfs.cpio.gz"* ]] || fail "full-i3 install entries should boot live GUI installer"
 [[ "$normal_cfg" != *"ooonana.smoke=1"* ]] || fail "normal full-i3 ISO must not auto-smoke/reboot"
 
 PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
@@ -110,6 +127,18 @@ PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
 [[ -f "$tmp/build/full-i3-iso-tree/boot/live-initramfs.cpio.gz" ]] || fail "missing staged live initramfs"
 [[ -f "$tmp/build/full-i3-iso-tree/boot/grub/ooonana-logo.txt" ]] || fail "missing staged GRUB logo"
 [[ -f "$tmp/build/full-i3-iso-tree/boot/grub/theme.txt" ]] || fail "missing staged GRUB theme"
+theme="$(<"$tmp/build/full-i3-iso-tree/boot/grub/theme.txt")"
+assert_contains "$theme" 'title-color: "#ffb21a"'
+assert_contains "$theme" 'message-color: "#ffb21a"'
+assert_contains "$theme" "+ progress_bar"
+assert_contains "$theme" 'id = "__timeout__"'
+assert_contains "$theme" 'fg_color = "#ffb21a"'
+assert_contains "$theme" 'bg_color = "#1b1202"'
+assert_contains "$theme" "+ boot_menu"
+[[ "$theme" != *"selected-item-color"* ]] || fail "GRUB theme has invalid selected item color"
+[[ "$theme" != *"selected-item-background-color"* ]] || fail "GRUB theme has invalid selected item background"
+[[ "$theme" != *"item-color"* ]] || fail "GRUB theme has invalid item color"
+[[ "$theme" != *"item-font"* ]] || fail "GRUB theme has invalid item font"
 [[ -f "$tmp/build/full-i3-iso-tree/RUFUS.md" ]] || fail "missing staged Rufus note"
 [[ -f "$tmp/build/full-i3-iso-tree/images/ooonana-full-i3-disk.raw" ]] || fail "missing staged full disk image"
 [[ "$(<"$tmp/build/full-i3-iso-tree/images/ooonana-full-i3-disk.raw")" == "full disk" ]] || fail "wrong staged disk image"

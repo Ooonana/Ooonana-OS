@@ -87,6 +87,11 @@ need_contains "$ROOT/scripts/build-full-i3-rootfs.sh" 'MatchIsKeyboard "on"'
 need_contains "$ROOT/scripts/build-full-i3-rootfs.sh" 'MatchIsPointer "on"'
 done_item "full-i3 input stack"
 
+need_contains "$ROOT/README.md" "full-i3 VM RAM         4096 MB recommended"
+need_contains "$ROOT/README.md" "Initramfs unpacking failed: write error"
+need_contains "$ROOT/README.md" "2048 MB"
+done_item "VMware full-i3 RAM warning"
+
 need_contains "$UEFI_LOG" "OOONANA_INSTALL_OK"
 need_contains "$LIVE_LOG" "OOONANA_FULL_I3_OK"
 need_contains "$LIVE_LOG" 'Using config directory: "/etc/X11/xorg.conf.d"'

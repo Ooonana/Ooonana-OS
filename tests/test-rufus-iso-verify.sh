@@ -30,19 +30,32 @@ printf 'fake iso\n' > "$tmp/full.iso"
 printf 'fake iso\n' > "$tmp/min.iso"
 
 cat > "$tmp/full-grub.cfg" <<'EOF'
+insmod font
+set gfxmode=1024x768,800x600,auto
+set gfxpayload=keep
 terminal_input console serial
-terminal_output console serial
+terminal_output gfxterm serial
+set color_normal=yellow/black
+set color_highlight=black/yellow
+set theme=/boot/grub/theme.txt
+export theme
+insmod gfxmenu
+insmod gfxterm_menu
 set timeout=5
 cat /boot/grub/ooonana-logo.txt
 menuentry 'Ooonana OS Full i3 Live' { linux /boot/vmlinuz console=ttyS0 console=tty0 }
 menuentry 'Ooonana OS Full i3 Live (persistent USB)' { linux /boot/vmlinuz ooonana.persistence=1 }
-menuentry 'Install Ooonana OS Full i3' { linux /boot/vmlinuz ooonana.install=1 }
-menuentry 'Install Ooonana OS Full i3 (safe graphics)' { linux /boot/vmlinuz nomodeset }
+menuentry 'Install Ooonana OS Full i3' { linux /boot/vmlinuz ooonana.install=1 ooonana.edition=full-i3; initrd /boot/live-initramfs.cpio.gz }
+menuentry 'Install Ooonana OS Full i3 (safe graphics)' { linux /boot/vmlinuz ooonana.install=1 ooonana.edition=full-i3 nomodeset; initrd /boot/live-initramfs.cpio.gz }
 EOF
 
 cat > "$tmp/min-grub.cfg" <<'EOF'
 terminal_input console serial
 terminal_output console serial
+set color_normal=yellow/black
+set color_highlight=black/yellow
+set theme=/boot/grub/theme.txt
+export theme
 set timeout=5
 cat /boot/grub/ooonana-logo.txt
 menuentry 'Ooonana OS Minimal' { linux /boot/vmlinuz console=ttyS0 console=tty0 }
@@ -60,6 +73,19 @@ cat > "$tmp/min-RUFUS.md" <<'EOF'
 Write in DD Image mode
 Disable Secure Boot
 Ooonana OS Minimal
+EOF
+
+cat > "$tmp/theme.txt" <<'EOF'
+title-color: "#ffb21a"
+message-color: "#ffb21a"
++ boot_menu {
+  left = 16%
+}
++ progress_bar {
+  id = "__timeout__"
+  fg_color = "#ffb21a"
+  bg_color = "#1b1202"
+}
 EOF
 
 cat > "$tmp/bin/xorriso" <<'EOF'
@@ -81,6 +107,12 @@ REPORT
       *) cp "$OOONANA_FAKE_ROOT/full-grub.cfg" "$last" ;;
     esac
     ;;
+  *"-extract /boot/grub/theme.txt"*)
+    for arg in "$@"; do
+      last="$arg"
+    done
+    cp "$OOONANA_FAKE_ROOT/theme.txt" "$last"
+    ;;
   *"-extract /RUFUS.md"*)
     for arg in "$@"; do
       last="$arg"
@@ -99,7 +131,8 @@ chmod +x "$tmp/bin/xorriso"
 
 out="$(OOONANA_FAKE_ROOT="$tmp" OOONANA_FAKE_EDITION=full-i3 PATH="$tmp/bin:$PATH" bash "$SCRIPT" --iso "$tmp/full.iso")"
 assert_contains "$out" "[done] ISOHybrid BIOS and UEFI boot paths"
-assert_contains "$out" "[done] Rufus DD-mode note and human-visible GRUB"
+assert_contains "$out" "[done] Rufus DD-mode note and orange GRUB"
+assert_contains "$out" "[done] GRUB timeout progress bar"
 assert_contains "$out" "[done] edition menus"
 assert_contains "$out" "[done] release GRUB has no smoke auto-reboot args"
 assert_contains "$out" "[done] USB-friendly volume labels"

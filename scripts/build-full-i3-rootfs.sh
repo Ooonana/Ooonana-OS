@@ -66,6 +66,18 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   exit 0
 fi
 
+if grep -q 'ooonana.install=1' /proc/cmdline 2>/dev/null; then
+  if command -v startx >/dev/null 2>&1 &&
+    command -v i3 >/dev/null 2>&1 &&
+    [ -x /usr/bin/ooonana-i3-installer-session ]; then
+    exec startx /usr/bin/ooonana-i3-installer-session
+  fi
+  if [ -x /usr/bin/ooonana-gui-installer ]; then
+    exec /usr/bin/ooonana-gui-installer
+  fi
+  exec /usr/bin/ooonana-install-wizard
+fi
+
 is_wsl_session() {
   [ -n "${WSL_DISTRO_NAME:-}" ] && return 0
   [ -n "${WSL_INTEROP:-}" ] && return 0
@@ -452,7 +464,8 @@ set -eu
 
 if [ "${1:-}" = "--dry-run" ]; then
   echo "yad settings menu"
-  echo "actions: theme wallpaper display audio wifi bluetooth packages brightness screenshot editor music processes ranger repo about"
+  echo "actions: theme wallpaper display audio wifi bluetooth packages brightness screenshot editor music processes ranger ai terminal browser files repo about"
+  echo "OOONANA_SETTINGS_THEME_OK"
   echo "OOONANA_SETTINGS_GUI_OK"
   exit 0
 fi
@@ -464,20 +477,75 @@ open_term() {
   exec sh -lc 'ooonana help ui; exec sh'
 }
 
+theme_status() {
+  if [ -f "${HOME:-/root}/.config/ooonana/theme" ]; then
+    read -r theme <"${HOME:-/root}/.config/ooonana/theme" || theme=""
+  elif [ -f /etc/ooonana/theme ]; then
+    read -r theme </etc/ooonana/theme || theme=""
+  else
+    theme="${OOONANA_THEME:-dark}"
+  fi
+  [ -n "$theme" ] || theme="dark"
+  printf '%s\n' "$theme"
+}
+
+wallpaper_status() {
+  if [ -f "${HOME:-/root}/.config/ooonana/wallpaper" ]; then
+    read -r wallpaper <"${HOME:-/root}/.config/ooonana/wallpaper" || wallpaper=""
+  else
+    wallpaper="/usr/share/ooonana/wallpapers/ooonana-wallpaper.png"
+  fi
+  printf '%s\n' "$wallpaper"
+}
+
+launch_terminal() {
+  if command -v ooonana-theme-env >/dev/null 2>&1 && command -v xterm >/dev/null 2>&1; then
+    ooonana-theme-env xterm -e sh -lc "${1:-exec sh}" &
+    return 0
+  fi
+  sh -lc "${1:-exec sh}"
+}
+
+show_info() {
+  info="${TMPDIR:-/tmp}/ooonana-settings-info.$$"
+  {
+    if [ -f /usr/share/ooonana/logo.txt ]; then
+      cat /usr/share/ooonana/logo.txt
+      printf '\n'
+    fi
+    printf 'Ooonana OS\n'
+    printf 'edition: %s\n' "$(cat /etc/ooonana/edition 2>/dev/null || echo full-i3)"
+    printf 'theme: %s\n' "$(theme_status)"
+    printf 'wallpaper: %s\n' "$(wallpaper_status)"
+    printf 'settings: /usr/bin/ooonana-settings\n'
+    printf 'packages: ooonana-packages-app\n'
+    printf 'ai: ooonana-ai-app\n'
+  } >"$info"
+  yad --center --title "Ooonana OS" --text-info --filename="$info" --width=620 --height=420 2>/dev/null || true
+  rm -f "$info"
+}
+
 if [ -z "${DISPLAY:-}" ] || ! command -v yad >/dev/null 2>&1; then
   open_term
 fi
 
 while :; do
-  action="$(yad --center --title "Ooonana Settings" --width=520 --height=360 \
+  theme_now="$(theme_status)"
+  wallpaper_now="$(wallpaper_status)"
+  action="$(yad --center --title "Ooonana Settings" --width=680 --height=500 \
+    --text "Theme: $theme_now    Wallpaper: $(basename "$wallpaper_now" 2>/dev/null || echo wallpaper)" \
     --list --print-column=1 --column Action --column Description \
-    theme "Dark/light theme" \
+    theme "Dark/light theme and apply now" \
     wallpaper "Choose desktop wallpaper" \
     display "Open display layout" \
     audio "Open audio controls" \
     wifi "Open NetworkManager" \
     bluetooth "Open Bluetooth manager" \
     packages "Open package manager" \
+    ai "Open Ooonana AI app" \
+    browser "Open Chromium" \
+    files "Open Nemo file manager" \
+    terminal "Open themed terminal" \
     brightness "Set display brightness" \
     screenshot "Take screenshot" \
     editor "Open Geany/Vim" \
@@ -500,6 +568,8 @@ while :; do
             printf '%s\n' "$theme" >"${HOME:-/tmp}/.config/ooonana/theme"
           fi
           ooonana-theme-env apply 2>/dev/null || true
+          yad --center --title "Ooonana Theme" --text "Theme changed to $theme" --timeout=2 2>/dev/null || true
+          echo "OOONANA_SETTINGS_THEME_OK" >/dev/null
           ;;
       esac
       ;;
@@ -521,6 +591,18 @@ while :; do
       ;;
     packages)
       ooonana-packages-app || true
+      ;;
+    ai)
+      ooonana-ai-app || true
+      ;;
+    browser)
+      ooonana-browser || true
+      ;;
+    files)
+      ooonana-files || true
+      ;;
+    terminal)
+      launch_terminal 'exec sh -l'
       ;;
     brightness)
       ooonana-brightness || true
@@ -552,14 +634,44 @@ while :; do
       fi
       ;;
     about)
-      if [ -f /usr/share/ooonana/logo.txt ]; then
-        yad --center --title "Ooonana OS" --text-info --filename=/usr/share/ooonana/logo.txt --width=520 --height=260
-      else
-        yad --center --title "Ooonana OS" --text "Ooonana OS"
-      fi
+      show_info
       ;;
   esac
 done
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-settings-launch" <<'EOF'
+#!/bin/sh
+set -eu
+
+if [ "${1:-}" = "--dry-run" ]; then
+  echo "launches ooonana-settings with GUI/terminal fallback"
+  echo "OOONANA_SETTINGS_LAUNCH_OK"
+  exit 0
+fi
+
+log="${XDG_RUNTIME_DIR:-/tmp}/ooonana-settings.log"
+rm -f "$log" 2>/dev/null || true
+
+if ooonana-settings "$@" >"$log" 2>&1; then
+  exit 0
+fi
+
+status="$?"
+if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
+  yad --center --title "Ooonana Settings" \
+    --text "Ooonana Settings failed to launch. Log: $log" \
+    --button=Close:1 --button=Log:0 2>/dev/null &&
+    yad --center --title "Ooonana Settings Log" --width=760 --height=520 \
+      --text-info --filename="$log" 2>/dev/null || true
+fi
+
+if command -v ooonana-theme-env >/dev/null 2>&1 && command -v xterm >/dev/null 2>&1; then
+  exec ooonana-theme-env xterm -title "Ooonana Settings Log" -e sh -lc "cat '$log' 2>/dev/null; printf '\nexit: $status\n'; exec sh"
+fi
+
+cat "$log" 2>/dev/null || true
+exit "$status"
 EOF
 
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-wallpaper" <<'EOF'
@@ -593,21 +705,44 @@ EOF
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/polybar.ini" <<'EOF'
 [colors]
 background = #050505
+background-alt = #0f0c08
 foreground = #ffb21a
 accent = #ffd37a
+muted = #7a5014
 urgent = #ff4d2e
 
 [bar/ooonana]
 width = 100%
-height = 28
+height = 34
+offset-x = 0
+offset-y = 0
+radius = 0
+fixed-center = true
 background = ${colors.background}
 foreground = ${colors.foreground}
-line-size = 2
+border-size = 0
+padding-left = 2
+padding-right = 2
+module-margin = 1
+separator = |
+separator-foreground = ${colors.muted}
+line-size = 3
 line-color = ${colors.accent}
 font-0 = monospace:size=10;2
-modules-left = workspaces title
+modules-left = launcher workspaces title
 modules-center = logo
-modules-right = wlan battery date
+modules-right = network volume battery date
+wm-restack = i3
+override-redirect = false
+enable-ipc = true
+
+[module/launcher]
+type = custom/text
+content = Ooonana
+content-foreground = ${colors.background}
+content-background = ${colors.foreground}
+content-padding = 2
+click-left = rofi -show drun -theme /etc/ooonana/rofi.rasi
 
 [module/logo]
 type = custom/text
@@ -622,49 +757,175 @@ label-focused-foreground = ${colors.background}
 label-focused-background = ${colors.foreground}
 label-focused-padding = 2
 label-unfocused = %name%
+label-unfocused-foreground = ${colors.accent}
+label-unfocused-background = ${colors.background-alt}
 label-unfocused-padding = 2
+label-visible = %name%
+label-visible-foreground = ${colors.foreground}
+label-visible-padding = 2
+label-urgent = %name%
+label-urgent-foreground = ${colors.background}
+label-urgent-background = ${colors.urgent}
+label-urgent-padding = 2
 
 [module/title]
 type = internal/xwindow
-label = %title:0:48:...%
+label = %title:0:54:...%
+label-empty = desktop
 
-[module/wlan]
+[module/network]
 type = internal/network
 interface-type = wireless
 label-connected = wifi %essid%
 label-disconnected = wifi off
+label-disconnected-foreground = ${colors.muted}
+
+[module/volume]
+type = internal/pulseaudio
+format-volume = vol <label-volume>
+label-muted = mute
+label-muted-foreground = ${colors.muted}
 
 [module/battery]
 type = internal/battery
 battery = BAT0
 adapter = AC
+format-charging = bat <label-charging>
+format-discharging = bat <label-discharging>
+format-full = bat full
 
 [module/date]
 type = internal/date
-date = %Y-%m-%d %H:%M
+interval = 1
+date = %Y-%m-%d
+time = %H:%M
+label = %date% %time%
 EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/rofi.rasi" <<'EOF'
+configuration {
+  modi: "drun,run,window";
+  show-icons: true;
+  sidebar-mode: true;
+  drun-display-format: "{icon} {name}";
+  display-drun: "Ooonana";
+  display-run: "Run";
+  display-window: "Windows";
+}
 * {
   background: #050505;
+  background-alt: #0f0c08;
   foreground: #ffb21a;
-  selected: #281604;
+  accent: #ffd37a;
+  muted: #7a5014;
+  selected-normal-background: #ffb21a;
+  selected-normal-foreground: #050505;
+  selected-active-background: #ffd37a;
+  selected-active-foreground: #050505;
+  alternate-normal-background: #111111;
   urgent: #ff4d2e;
   font: "monospace 11";
 }
 window {
-  width: 42%;
+  width: 48%;
+  location: center;
+  anchor: center;
   border: 2px;
-  border-color: @foreground;
+  border-color: #ffb21a;
   background-color: @background;
+  padding: 0;
 }
-inputbar, listview {
+mainbox {
+  background-color: @background;
+  children: [ inputbar, mode-switcher, listview ];
+  spacing: 10px;
+  padding: 18px;
+}
+inputbar {
   background-color: @background;
   text-color: @foreground;
+  border: 0 0 2px 0;
+  border-color: @foreground;
+  padding: 8px;
+  children: [ prompt, textbox-prompt-colon, entry ];
 }
-element selected {
-  background-color: @selected;
-  text-color: #fff0c7;
+prompt {
+  text-color: @foreground;
+  font: "monospace bold 11";
+}
+textbox-prompt-colon {
+  expand: false;
+  str: ":";
+  text-color: @accent;
+  margin: 0 6px 0 4px;
+}
+entry {
+  text-color: @foreground;
+  placeholder: "type app, command, or window";
+  placeholder-color: @muted;
+}
+mode-switcher {
+  background-color: @background;
+  text-color: @foreground;
+  spacing: 6px;
+}
+button {
+  background-color: @background-alt;
+  text-color: @foreground;
+  padding: 6px 10px;
+  border: 1px;
+  border-color: @muted;
+}
+button selected {
+  background-color: @selected-normal-background;
+  text-color: @selected-normal-foreground;
+  border-color: @selected-normal-background;
+}
+listview {
+  background-color: @background;
+  text-color: @foreground;
+  lines: 12;
+  columns: 1;
+  fixed-height: true;
+  dynamic: true;
+  scrollbar: true;
+}
+element {
+  background-color: @background-alt;
+  text-color: @foreground;
+  padding: 8px;
+  margin: 2px 0;
+}
+element normal.normal {
+  background-color: @background-alt;
+  text-color: @foreground;
+}
+element alternate.normal {
+  background-color: @alternate-normal-background;
+  text-color: @foreground;
+}
+element selected.normal {
+  background-color: @selected-normal-background;
+  text-color: @selected-normal-foreground;
+}
+element selected.active {
+  background-color: @selected-active-background;
+  text-color: @selected-active-foreground;
+}
+element selected.urgent {
+  background-color: @urgent;
+  text-color: @selected-normal-foreground;
+}
+element-icon {
+  size: 20px;
+}
+element-text {
+  text-color: inherit;
+}
+scrollbar {
+  width: 4px;
+  handle-color: @foreground;
+  background-color: @background-alt;
 }
 EOF
 
@@ -672,10 +933,16 @@ EOF
 backend = "xrender";
 vsync = true;
 shadow = true;
-shadow-radius = 7;
-shadow-opacity = 0.25;
+shadow-radius = 16;
+shadow-offset-x = -8;
+shadow-offset-y = -8;
+shadow-opacity = 0.36;
 fading = true;
-fade-delta = 4;
+fade-delta = 6;
+fade-in-step = 0.045;
+fade-out-step = 0.045;
+inactive-opacity = 0.94;
+active-opacity = 1.0;
 corner-radius = 0;
 EOF
 
@@ -686,8 +953,13 @@ frame_color = "#ffb21a"
 separator_color = "#ffb21a"
 background = "#050505"
 foreground = "#ffb21a"
-geometry = "340x5-20+40"
+origin = top-right
+offset = 20x42
+width = 340
+height = 160
+frame_width = 2
 corner_radius = 0
+highlight = "#ffb21a"
 [urgency_critical]
 background = "#281604"
 foreground = "#fff0c7"
@@ -1242,6 +1514,30 @@ fi
 exec i3
 EOF
 
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-i3-installer-session" <<'EOF'
+#!/bin/sh
+set -eu
+
+if [ -x /usr/bin/ooonana-theme-env ]; then
+  eval "$(/usr/bin/ooonana-theme-env env)"
+  ooonana-theme-env apply
+fi
+
+installer_config="${TMPDIR:-/tmp}/ooonana-i3-installer.config"
+cat > "$installer_config" <<'I3CONFIG'
+# i3 config file (v4)
+font pango:monospace 10
+set $mod Mod4
+bindsym $mod+Return exec ooonana-theme-env xterm -e /bin/sh -l
+bindsym $mod+Shift+i exec ooonana-gui-installer
+bindsym $mod+Shift+r restart
+bindsym $mod+Shift+e exit
+exec --no-startup-id sh -c 'sleep 1; ooonana-gui-installer || ooonana-install-wizard'
+I3CONFIG
+
+exec i3 -c "$installer_config"
+EOF
+
   install -D -m 0644 /dev/stdin "$ROOTFS/usr/share/applications/ooonana-installer.desktop" <<'EOF'
 [Desktop Entry]
 Type=Application
@@ -1264,7 +1560,7 @@ EOF
 [Desktop Entry]
 Type=Application
 Name=Ooonana Settings
-Exec=ooonana-settings
+Exec=ooonana-settings-launch
 Terminal=false
 Categories=Settings;System;
 EOF
@@ -1360,6 +1656,36 @@ start_persistence() {
 
 start_persistence
 
+ensure_glib_schemas() {
+  if command -v glib-compile-schemas >/dev/null 2>&1 &&
+    [ -d /usr/share/glib-2.0/schemas ] &&
+    [ ! -f /usr/share/glib-2.0/schemas/gschemas.compiled ]; then
+    glib-compile-schemas /usr/share/glib-2.0/schemas 2>/dev/null || true
+  fi
+}
+
+refresh_gtk_caches() {
+  if command -v update-mime-database >/dev/null 2>&1 &&
+    [ -d /usr/share/mime ]; then
+    update-mime-database /usr/share/mime >/dev/null 2>&1 || true
+  fi
+  if command -v gdk-pixbuf-query-loaders >/dev/null 2>&1 &&
+    [ -d /usr/lib/gdk-pixbuf-2.0/2.10.0/loaders ]; then
+    mkdir -p /usr/lib/gdk-pixbuf-2.0/2.10.0
+    gdk-pixbuf-query-loaders >/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache 2>/dev/null || true
+  fi
+  if command -v gtk-update-icon-cache >/dev/null 2>&1 &&
+    [ -d /usr/share/icons ]; then
+    for theme in /usr/share/icons/*; do
+      [ -d "$theme" ] || continue
+      gtk-update-icon-cache -q -t -f "$theme" >/dev/null 2>&1 || true
+    done
+  fi
+}
+
+ensure_glib_schemas
+refresh_gtk_caches
+
 host="ooonana"
 if [ -f /etc/hostname ]; then
   read -r host </etc/hostname || host="ooonana"
@@ -1435,6 +1761,35 @@ install_full_i3_packages() {
     OOONANA_STATE_DIR="$ROOTFS/var/lib/ooonana/packages" \
     OOONANA_CACHE_DIR="$ROOTFS/var/cache/ooonana" \
     "$ROOT/packages/ooonana/usr/bin/ooonana" get full-i3 >/dev/null
+}
+
+compile_glib_schemas() {
+  local schema_dir="$ROOTFS/usr/share/glib-2.0/schemas"
+  [[ -d "$schema_dir" ]] || return 0
+  if command -v glib-compile-schemas >/dev/null 2>&1; then
+    glib-compile-schemas "$ROOTFS/usr/share/glib-2.0/schemas" >/dev/null 2>&1 ||
+      ooonana_log "warning: could not compile GSettings schemas in full-i3 rootfs"
+  fi
+}
+
+refresh_gtk_caches() {
+  if [[ -d "$ROOTFS/usr/share/mime" ]] && command -v update-mime-database >/dev/null 2>&1; then
+    update-mime-database "$ROOTFS/usr/share/mime" >/dev/null 2>&1 ||
+      ooonana_log "warning: could not update MIME database in full-i3 rootfs"
+  fi
+  if [[ -d "$ROOTFS/usr/share/icons" ]] && command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    local theme
+    for theme in "$ROOTFS"/usr/share/icons/*; do
+      [[ -d "$theme" ]] || continue
+      gtk-update-icon-cache -q -t -f "$theme" >/dev/null 2>&1 || true
+    done
+  fi
+  if [[ "$(id -u)" -eq 0 ]] &&
+    [[ -x "$ROOTFS/usr/bin/gdk-pixbuf-query-loaders" ]] &&
+    [[ -d "$ROOTFS/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders" ]]; then
+    chroot "$ROOTFS" /usr/bin/gdk-pixbuf-query-loaders \
+      >"$ROOTFS/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache" 2>/dev/null || true
+  fi
 }
 
 restore_busybox_init_links() {
@@ -1516,17 +1871,21 @@ main() {
     "$ROOTFS/usr/bin/ooonana" \
     "$ROOTFS/usr/bin/ooonana-ai" \
     "$ROOTFS/usr/bin/ooonana-ai-app" \
+    "$ROOTFS/usr/bin/ooonana-ai-launch" \
     "$ROOTFS/usr/bin/ooonana-setup" \
     "$ROOTFS/usr/bin/bunana" \
     "$ROOTFS/usr/bin/oonana" \
     "$ROOTFS/usr/bin/clear" \
     "$ROOTFS/usr/bin/neofetch" \
     "$ROOTFS/usr/bin/ooonana-neofetch" \
+    "$ROOTFS/usr/bin/ooonana-settings-launch" \
     "$ROOTFS/usr/sbin/ooonana-install"
   mkdir -p "$ROOTFS/etc/ooonana" "$ROOTFS/var/lib/ooonana/packages/installed" "$ROOTFS/var/log"
   printf '127.0.0.1 localhost ooonana\n' > "$ROOTFS/etc/hosts"
   printf 'full-i3\n' > "$ROOTFS/etc/ooonana/edition"
   install_full_i3_packages
+  compile_glib_schemas
+  refresh_gtk_caches
   restore_busybox_init_links
   write_full_groups
   install_branding

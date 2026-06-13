@@ -4,6 +4,9 @@ py3-pip
 dbus
 xorg-server
 xinit
+libxcb
+libxau
+libxdmcp
 xf86-video-vesa
 xf86-video-fbdev
 i3wm
@@ -11,6 +14,10 @@ i3status
 polybar
 rofi
 yad
+shared-mime-info
+gdk-pixbuf
+gdk-pixbuf-loaders
+hicolor-icon-theme
 picom
 dunst
 dmenu
