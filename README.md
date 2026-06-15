@@ -29,16 +29,25 @@ Lightweight scratch-built Linux for QEMU, WSL, installer experiments, and AI-fir
 
 ## Download / Release Files
 
-Current release artifacts live in:
+Current release artifacts on this machine live in:
 
 ```text
-/var/tmp/ooonana-os/release
+F:\Ooonana\ooonana-os\release-current
+/mnt/f/Ooonana/ooonana-os/release-current
+```
+
+If WSL `/mnt/f` does not show the Windows F: drive, mount it manually:
+
+```bash
+sudo mkdir -p /mnt/winf
+sudo mount -t drvfs F: /mnt/winf
 ```
 
 Main full-i3 live/install ISO:
 
 ```text
-/var/tmp/ooonana-os/release/ooonana-full-i3.iso
+F:\Ooonana\ooonana-os\release-current\ooonana-full-i3.iso
+/mnt/f/Ooonana/ooonana-os/release-current/ooonana-full-i3.iso
 ```
 
 Minimal scratch installer ISO:
@@ -53,8 +62,9 @@ Live environment status:
 ooonana-full-i3.iso    live desktop by default, persistent live second, installer third
 ooonana-scratch.iso    minimal shell plus installer menu
 full-i3 live desktop   i3, polybar, rofi, wallpaper, GUI installer launcher
-full-i3 install menu   VGA-first, serial-safe image installer, safe graphics fallback
+full-i3 install menu   live GUI installer session, VGA-first fallback, safe graphics fallback
 rufus usb              ISOHybrid/DD mode, BIOS/UEFI, Secure Boot off
+full-i3 VM RAM         2048 MB tested after live rootfs moved outside initramfs
 ```
 
 Release files:
@@ -89,7 +99,7 @@ qemu-full-i3-vnc.png               full-i3 VNC screenshot proof
 Verify files:
 
 ```bash
-cd /var/tmp/ooonana-os/release
+cd /mnt/f/Ooonana/ooonana-os/release-current
 sha256sum -c SHA256SUMS
 sha256sum -c SHA256SUMS.full-i3
 ```
@@ -118,21 +128,21 @@ Working now:
 - Installer ISO opens a fallback shell on install failure or cancel
 - Installer has a serial-safe xterm UI with logo, disk picker, user/password, hostname, theme, cloud repo picker, progress, logs, fail shell, and reboot prompt
 - Live/install ISO keeps interactive prompts on the VGA console for VMware while smoke tests log through serial
-- GRUB has Ooonana logo text, orange-on-black menu colors, BIOS/UEFI hybrid support, live/install/safe graphics menus, and a persistent USB boot entry
+- GRUB loads gfxterm/font/theme, shows Ooonana logo text, orange-on-black menu colors, graphical timeout progress bar, BIOS/UEFI hybrid support, live/install/safe graphics menus, and a persistent USB boot entry
 - Rufus support has a DD-mode note inside the ISO, USB-friendly volume labels, and `scripts/verify-rufus-iso.sh`
 - Full-i3 live starts eudev before Xorg and ships libinput config for PS/2 keyboard and mouse discovery
-- Full-i3 now ships an Archcraft-like i3 baseline: polybar, rofi, yad, picom, dunst, Chromium launcher, Nemo launcher, Wi-Fi/Bluetooth/settings helpers, wallpaper changer, and dark Ooonana colors
+- Full-i3 now ships an Ooonana i3 baseline: polybar-first bar, rofi launcher, picom shadows/fades, dunst notifications, Chromium launcher, Nemo launcher, Wi-Fi/Bluetooth/settings helpers, wallpaper changer, and dark Ooonana colors
 - Installed disk boots in QEMU
 - `ooonana-install` can partition a raw/whole disk, install to an existing root partition, mount optional home/swap/EFI partitions, format or keep selected filesystems, copy rootfs, install kernel, write GRUB, and persist user, hostname, and theme
 - Generic `ooonana-rootfs.tar.gz` can be unpacked for chroot/container-style use
 - Minimal and full-i3 WSL distro exports can be imported
 - `ooonana` package manager has repo add/remove/doctor, repo index, checksums, install/add, remove/uninstall, purge, upgrade, fix, check, files, verify
-- Minimal and full rootfs include Ooonana shell helpers: `bunana`, `clear`, upgraded `oonana` brickout game, and Ooonana neofetch logo fallback
+- Minimal and full rootfs include Ooonana shell helpers: `bunana`, `clear`, installer-based `oonana` brickout game, and Ooonana neofetch logo fallback
 - `ooonana update` can sync local repos, HTTP repos, and GitHub Release repo tarballs into cache
 - Alpine `.apk` packages can be imported into Ooonana `.pkg` repos
 - Full-i3 branding assets, package profiles, input drivers, package-installed rootfs, boot disk, live/install ISO, GUI installer wizard, AI desktop launcher, and real QEMU boot proof exist as a separate edition path
 - First-boot setup can create a user, prompt for password, write basic network config, and add a cloud package repo
-- `ooonana-ai` supports NVIDIA NIM, Google Gemini, tools, tasks, audit, and shell fallback for scratch WSL
+- `ooonana-ai` supports NVIDIA NIM, Google Gemini, tools, tasks, audit, shell fallback for scratch WSL, and a full-i3 GUI app with home/actions/ask/provider-model/log panels
 
 Next work:
 
@@ -250,6 +260,8 @@ clear                  # clear terminal
 oonana                 # Ooonana brickout game, two-o command
 neofetch               # Ooonana logo fallback
 ```
+
+`oonana` starts the terminal brickout game from the installer game engine. Bricks spell `OOONANA OS`, the ball is the Ooonana face, supported terminals use ANSI cursor-home redraw, and repeated hits build combo scoring. The game uses multiple colors for bricks, HUD, paddle, and ball when color is available. Controls are `a/d`, left/right arrows, and `q` quit.
 
 Install package flow:
 
@@ -530,7 +542,7 @@ sudo ooonana-install \
   --yes
 ```
 
-Default full-i3 UI is dark: black background, orange text/cursor. The old sunset look is light mode:
+Default full-i3 UI is dark: black background, orange text/cursor, Ooonana polybar/rofi/picom/dunst config, and a new black/orange Ooonana wallpaper. `Mod+d` opens a patched Ooonana rofi launcher with orange selection, Ooonana labels, icon rows, and matching black/orange mode tabs. The old sunset look is light mode:
 
 ```bash
 ooonana help ui
@@ -539,7 +551,7 @@ OOONANA_THEME=light ooonana-gui-installer
 OOONANA_THEME=light ooonana setup --first-boot --gui
 ```
 
-The installer persists the chosen theme in `/etc/ooonana/theme`; i3 reads it through `ooonana-theme-env` on boot. Inside i3, `Mod+Shift+T` toggles dark/light, `Mod+Shift+A` opens the Ooonana AI app, `Mod+Shift+O` opens the package manager app, and `Mod+Shift+I` opens the installer.
+The installer persists the chosen theme in `/etc/ooonana/theme`; i3 reads it through `ooonana-theme-env` on boot. Inside i3, `Mod+Shift+T` toggles dark/light, `Mod+Shift+A` opens the Ooonana AI app through `ooonana-ai-launch`, `Mod+Shift+S` opens settings through `ooonana-settings-launch`, `Mod+Shift+O` opens the package manager app, and `Mod+Shift+I` opens the installer.
 Extra i3 keys:
 
 ```text
@@ -557,7 +569,7 @@ Mod+Shift+X  htop process monitor
 Mod+Shift+U  ranger file manager
 ```
 
-`ooonana-settings` opens a GUI settings menu when `yad` is available. It can switch theme, choose wallpaper, open display/audio/Wi-Fi/Bluetooth tools, open package manager, set brightness, take screenshots, open editor/music/process/file-manager helpers, write the cloud repo source, and show Ooonana info. It falls back to the terminal help path when GUI pieces are missing.
+`ooonana-settings` opens a GUI settings menu when `yad` is available. It can switch theme, choose wallpaper, open display/audio/Wi-Fi/Bluetooth tools, open package manager, launch Ooonana AI, open Chromium/Nemo/terminal, set brightness, take screenshots, open editor/music/process/file-manager helpers, write the cloud repo source, and show Ooonana info. It falls back to the terminal help path when GUI pieces are missing.
 
 Persistent live USB:
 
@@ -574,7 +586,8 @@ For Rufus/native USB, flash the ISO normally, then add an ext4 persistence parti
 Use the full-i3 ISO:
 
 ```text
-/var/tmp/ooonana-os/release/ooonana-full-i3.iso
+F:\Ooonana\ooonana-os\release-current\ooonana-full-i3.iso
+/mnt/f/Ooonana/ooonana-os/release-current/ooonana-full-i3.iso
 ```
 
 Rufus settings:
@@ -592,7 +605,7 @@ Verify before uploading or flashing:
 
 ```bash
 bash scripts/verify-rufus-iso.sh \
-  --iso /var/tmp/ooonana-os/release/ooonana-full-i3.iso
+  --iso /mnt/f/Ooonana/ooonana-os/release-current/ooonana-full-i3.iso
 ```
 
 Expected marker:
@@ -613,7 +626,7 @@ VMware note:
 No EFI environment detected
 ```
 
-This line is harmless only for legacy BIOS boot. Hybrid BIOS/UEFI ISO support needs `grub-efi-amd64-bin` installed before `grub-mkrescue`. If GRUB pauses with `unknown property` or `Press any key to continue`, rebuild with the current orange console-color GRUB config; Ooonana does not load a GRUB theme file because invalid top-level theme properties can block unattended boot. If live boot reaches `Run /init` and then looks stuck, rebuild with the latest console fix; interactive init now mounts `/proc` before choosing `tty1`, and smoke logs use `ttyS0` directly. If persistent live drops to shell with `mkdir: not found`, rebuild the full-i3 rootfs/ISO; package install can overwrite early boot applet links, and the current builder restores BusyBox links for `/bin/mkdir`, `/bin/cat`, `/bin/sleep`, and other init-critical commands. If i3 starts but input is dead, rebuild the full-i3 package repo/rootfs; the profile now includes eudev and starts it before Xorg. The full-i3 installer auto-detects `/dev/vd*`, `/dev/sd*`, `/dev/xvd*`, and `/dev/nvme*` targets, then installed GRUB boots by `PARTUUID` instead of hardcoding `/dev/vda1`. If install fails or is cancelled outside smoke mode, the ISO opens a BusyBox shell instead of rebooting. The release ISO should not include `ooonana.smoke=1`; smoke ISOs are only for automated QEMU proof and reboot after markers.
+This line is harmless only for legacy BIOS boot. Hybrid BIOS/UEFI ISO support needs `grub-efi-amd64-bin` installed before `grub-mkrescue`. Current full-i3 GRUB loads `font`, sets `gfxmode=1024x768,800x600,auto`, loads the orange theme, and keeps serial fallback. Full-i3 live now uses a tiny initramfs plus `/images/ooonana-full-i3-live-rootfs.ext4`, so the desktop rootfs is no longer unpacked into RAM. QEMU BIOS and UEFI live smoke both pass at 2048 MB, and the kernel fragment enables EFI/simple framebuffer plus USB HID/storage for native/Rufus boot. If you see `Initramfs unpacking failed: write error` or `libxcb.so.1` errors, you are booting an old ISO. If live boot reaches `Run /init` and then looks stuck, rebuild with the latest console fix; interactive init mounts `/proc` before choosing `tty1`, and smoke logs use `ttyS0` directly. If persistent live drops to shell with `mkdir: not found`, rebuild the full-i3 rootfs/ISO; package install can overwrite early boot applet links, and the current builder restores BusyBox links for `/bin/mkdir`, `/bin/cat`, `/bin/sleep`, and other init-critical commands. If i3 starts but input is dead, rebuild the full-i3 package repo/rootfs; the profile now includes eudev and starts it before Xorg. The full-i3 panel includes Wi-Fi, Bluetooth, network, audio, brightness, battery, date, and tray items. The full-i3 installer auto-detects `/dev/vd*`, `/dev/sd*`, `/dev/xvd*`, and `/dev/nvme*` targets, then installed GRUB boots by `PARTUUID` instead of hardcoding `/dev/vda1`. If install fails or is cancelled outside smoke mode, the ISO opens a BusyBox shell instead of rebooting. The release ISO should not include `ooonana.smoke=1`; smoke ISOs are only for automated QEMU proof and reboot after markers.
 
 Non-interactive installed-disk proof path:
 
@@ -642,7 +655,7 @@ First-boot setup launches from the full-i3 session through xterm when possible:
 ooonana setup --first-boot --gui
 ```
 
-It can create a user, prompt for a password, write `/etc/network/interfaces`, write `/etc/ooonana/theme`, and add `/etc/ooonana/sources.d/cloud.repo` so `ooonana update` can use a published cloud package repo.
+It can create a user, prompt for a password, write `/etc/network/interfaces`, write `/etc/ooonana/theme`, and add `/etc/ooonana/sources.d/cloud.repo` so `ooonana update` can use a published cloud package repo. In full-i3 it opens a `yad` setup form first, then falls back to themed xterm when GUI pieces are missing.
 
 Cloud package build:
 
@@ -693,14 +706,16 @@ Full-i3 includes an Ooonana AI app launcher:
 
 ```text
 /usr/bin/ooonana-ai-app
+/usr/bin/ooonana-ai-launch
 /usr/share/applications/ooonana-ai.desktop
 i3 shortcut: Mod+Shift+a
 ```
 
 The launcher opens a `yad` GUI dashboard when the full desktop is available,
-then falls back to the native terminal dashboard. Actions include status,
-desktop context, chat, ask, tools, tasks, sessions, setup, provider, model,
-audit, history, env, and shell. For terminal-only launch:
+then falls back to the native terminal dashboard. The GUI has home, action,
+ask, provider/model, and log flows. It can show status, tools registry, task
+board, audit/history, desktop context, and env output in Ooonana dialogs.
+Chat, setup, and shell still use a themed terminal. For terminal-only launch:
 
 ```bash
 OOONANA_AI_APP_NO_X=1 ooonana-ai-app

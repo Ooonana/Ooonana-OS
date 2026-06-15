@@ -42,10 +42,10 @@ assert_contains "$builder" "/usr/sbin/ooonana-install"
 assert_contains "$builder" "OOONANA_INSTALLER_GUI_OK"
 assert_contains "$builder" "toggle)"
 assert_contains "$i3_config" 'bindsym $mod+Shift+i exec ooonana-gui-installer'
-assert_contains "$i3_config" 'bindsym $mod+Shift+a exec ooonana-ai-app'
+assert_contains "$i3_config" 'bindsym $mod+Shift+a exec ooonana-ai-launch'
 assert_contains "$i3_config" 'bindsym $mod+Shift+t exec ooonana-theme-env toggle'
 assert_contains "$i3_config" "client.focused"
-assert_contains "$i3_config" "separator #ffb21a"
+assert_contains "$i3_config" "exec_always --no-startup-id sh -c 'command -v polybar"
 assert_contains "$full_test" "ooonana-gui-installer"
 assert_contains "$full_test" "ooonana-installer-gui"
 assert_contains "$full_test" "ooonana-ai.desktop"

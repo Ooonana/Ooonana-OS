@@ -101,6 +101,10 @@ echo 'Ooonana OS Minimal'
 if [ -f /boot/grub/ooonana-logo.txt ]; then
   cat /boot/grub/ooonana-logo.txt
 fi
+if [ -f /boot/grub/theme.txt ]; then
+  set theme=/boot/grub/theme.txt
+  export theme
+fi
 set timeout=5
 set default=$default_entry
 
@@ -162,6 +166,35 @@ title-color: "#ffb21a"
 desktop-color: "#050505"
 terminal-font: "Unifont Regular 16"
 message-color: "#ffb21a"
+message-bg-color: "#050505"
+
++ boot_menu {
+  left = 16%
+  top = 32%
+  width = 68%
+  height = 38%
+}
+
++ label {
+  text = "boot time"
+  left = 16%
+  top = 82%
+  width = 68%
+  height = 18
+  color = "#ffb21a"
+  align = "center"
+}
+
++ progress_bar {
+  id = "__timeout__"
+  left = 16%
+  top = 86%
+  width = 68%
+  height = 18
+  fg_color = "#ffb21a"
+  bg_color = "#1b1202"
+  border_color = "#ffb21a"
+}
 EOF
   if [[ "$INSTALL" -eq 1 && -n "$DISK_IMAGE" ]]; then
     install -m 0644 "$DISK_IMAGE" "$ISO_TREE/images/ooonana-scratch-disk.raw"

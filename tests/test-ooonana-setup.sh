@@ -18,6 +18,9 @@ assert_contains() {
 
 [[ -x "$SETUP" ]] || fail "missing executable setup command"
 setup_src="$(<"$SETUP")"
+assert_contains "$setup_src" 'yad --center --title "Ooonana Setup"'
+assert_contains "$setup_src" "OOONANA_SETUP_GUI_OK"
+assert_contains "$setup_src" "fields: user password network address gateway dns theme cloud-repo done"
 assert_contains "$setup_src" 'xterm -title "Ooonana Setup"'
 assert_contains "$setup_src" 'OOONANA_THEME:-dark'
 assert_contains "$setup_src" 'XTERM_BG="#050505"'
@@ -44,6 +47,11 @@ assert_contains "$dry" "would write theme dark"
 assert_contains "$dry" "would add cloud repo https://example.test/repo"
 assert_contains "$dry" "would mark setup done"
 assert_contains "$dry" "OOONANA_SETUP_OK"
+
+gui_dry="$("$SETUP" --gui --dry-run)"
+assert_contains "$gui_dry" "yad setup gui"
+assert_contains "$gui_dry" "fields: user password network address gateway dns theme cloud-repo done"
+assert_contains "$gui_dry" "OOONANA_SETUP_GUI_OK"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT

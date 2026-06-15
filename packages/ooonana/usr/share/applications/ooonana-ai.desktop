@@ -2,6 +2,6 @@
 Type=Application
 Name=Ooonana AI
 Comment=Open Ooonana AI terminal app
-Exec=ooonana-ai-app
+Exec=ooonana-ai-launch
 Terminal=false
 Categories=Utility;System;

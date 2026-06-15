@@ -9,6 +9,7 @@ WORK_DIR="$(ooonana_default_build_dir)"
 KERNEL="$WORK_DIR/ooonana-kernel/vmlinuz-ooonana"
 INITRAMFS="$WORK_DIR/ooonana-scratch-initramfs.cpio.gz"
 LIVE_INITRAMFS="$WORK_DIR/ooonana-full-i3-live-initramfs.cpio.gz"
+LIVE_ROOTFS_IMAGE="$WORK_DIR/ooonana-full-i3-live-rootfs.ext4"
 DISK_IMAGE="$WORK_DIR/ooonana-full-i3-disk.raw"
 ISO_TREE="$WORK_DIR/full-i3-iso-tree"
 ISO="$WORK_DIR/ooonana-full-i3.iso"
@@ -32,6 +33,8 @@ Options:
   --initramfs PATH     Scratch installer initramfs path
   --live-initramfs PATH
                        Full-i3 live initramfs path
+  --live-rootfs-image PATH
+                       Full-i3 live ext4 rootfs image
   --disk-image PATH    Full-i3 bootable raw disk image
   --iso-tree PATH      ISO staging directory (default: WORK_DIR/full-i3-iso-tree)
   --iso PATH           ISO output path (default: WORK_DIR/ooonana-full-i3.iso)
@@ -47,10 +50,11 @@ USAGE
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --work-dir) WORK_DIR="$2"; KERNEL="$2/ooonana-kernel/vmlinuz-ooonana"; INITRAMFS="$2/ooonana-scratch-initramfs.cpio.gz"; LIVE_INITRAMFS="$2/ooonana-full-i3-live-initramfs.cpio.gz"; DISK_IMAGE="$2/ooonana-full-i3-disk.raw"; ISO_TREE="$2/full-i3-iso-tree"; ISO="$2/ooonana-full-i3.iso"; shift 2 ;;
+    --work-dir) WORK_DIR="$2"; KERNEL="$2/ooonana-kernel/vmlinuz-ooonana"; INITRAMFS="$2/ooonana-scratch-initramfs.cpio.gz"; LIVE_INITRAMFS="$2/ooonana-full-i3-live-initramfs.cpio.gz"; LIVE_ROOTFS_IMAGE="$2/ooonana-full-i3-live-rootfs.ext4"; DISK_IMAGE="$2/ooonana-full-i3-disk.raw"; ISO_TREE="$2/full-i3-iso-tree"; ISO="$2/ooonana-full-i3.iso"; shift 2 ;;
     --kernel) KERNEL="$2"; shift 2 ;;
     --initramfs) INITRAMFS="$2"; shift 2 ;;
     --live-initramfs) LIVE_INITRAMFS="$2"; shift 2 ;;
+    --live-rootfs-image) LIVE_ROOTFS_IMAGE="$2"; shift 2 ;;
     --disk-image) DISK_IMAGE="$2"; shift 2 ;;
     --iso-tree) ISO_TREE="$2"; shift 2 ;;
     --iso) ISO="$2"; shift 2 ;;
@@ -72,33 +76,44 @@ write_grub_config() {
   fi
   local live_append="$console_args panic=1 rdinit=/init ooonana.live=1 ooonana.edition=full-i3"
   local persistent_append="$live_append ooonana.persistence=1"
-  local install_append="$console_args panic=1 rdinit=/init ooonana.install=1 ooonana.install.target=$INSTALL_TARGET ooonana.install.image=/mnt/install/images/ooonana-full-i3-disk.raw"
+  local install_append="$console_args panic=1 rdinit=/init ooonana.live=1 ooonana.install=1 ooonana.edition=full-i3 ooonana.install.target=$INSTALL_TARGET"
+  local install_initrd="/boot/live-initramfs.cpio.gz"
   local safe_install_append="$install_append nomodeset"
   local default_entry=0
   if [[ "$SMOKE" -eq 1 && "$LIVE_SMOKE" -eq 1 ]]; then
     live_append="$live_append ooonana.smoke=1 ooonana.gui-smoke=1"
   elif [[ "$SMOKE" -eq 1 ]]; then
     default_entry=2
-    install_append="$install_append ooonana.smoke=1"
+    install_append="$console_args panic=1 rdinit=/init ooonana.install=1 ooonana.install.target=$INSTALL_TARGET ooonana.install.image=/mnt/install/images/ooonana-full-i3-disk.raw ooonana.smoke=1"
+    install_initrd="/boot/install-initramfs.cpio.gz"
   fi
+  safe_install_append="$install_append nomodeset"
 
   cat > "$ISO_TREE/boot/grub/grub.cfg" <<EOF
 insmod all_video
-if loadfont /boot/grub/fonts/unicode.pf2; then
-  insmod gfxterm
-fi
+insmod font
+set gfxmode=1024x768,800x600,auto
+set gfxpayload=keep
 serial --unit=0 --speed=115200
 terminal_input console serial
-terminal_output console serial
+if loadfont /boot/grub/fonts/unicode.pf2 || loadfont \$prefix/fonts/unicode.pf2; then
+  insmod gfxterm_menu
+  insmod gfxterm
+  insmod gfxmenu
+  terminal_output gfxterm serial
+else
+  terminal_output console serial
+fi
 set color_normal=yellow/black
 set color_highlight=black/yellow
-if terminal_output gfxterm serial; then
-  true
-fi
 clear
 echo 'Ooonana OS'
 if [ -f /boot/grub/ooonana-logo.txt ]; then
   cat /boot/grub/ooonana-logo.txt
+fi
+if [ -f /boot/grub/theme.txt ]; then
+  set theme=/boot/grub/theme.txt
+  export theme
 fi
 set timeout=5
 set default=$default_entry
@@ -115,12 +130,12 @@ menuentry 'Ooonana OS Full i3 Live (persistent USB)' {
 
 menuentry 'Install Ooonana OS Full i3' {
   linux /boot/vmlinuz $install_append
-  initrd /boot/install-initramfs.cpio.gz
+  initrd $install_initrd
 }
 
 menuentry 'Install Ooonana OS Full i3 (safe graphics)' {
   linux /boot/vmlinuz $safe_install_append
-  initrd /boot/install-initramfs.cpio.gz
+  initrd $install_initrd
 }
 EOF
 }
@@ -142,6 +157,7 @@ Boot support:
 - Legacy BIOS/CSM: GRUB BIOS path is included.
 - Installer: use `Install Ooonana OS Full i3`.
 - Safe graphics: use `Install Ooonana OS Full i3 (safe graphics)`.
+- live rootfs is stored outside initramfs, so 2GB VMs and USB boots avoid giant initramfs unpack failures.
 
 Persistence:
 
@@ -155,6 +171,7 @@ stage_iso_tree() {
   [[ -f "$KERNEL" ]] || ooonana_die "missing kernel: $KERNEL"
   [[ -f "$INITRAMFS" ]] || ooonana_die "missing initramfs: $INITRAMFS"
   [[ -f "$LIVE_INITRAMFS" ]] || ooonana_die "missing live initramfs: $LIVE_INITRAMFS"
+  [[ -f "$LIVE_ROOTFS_IMAGE" ]] || ooonana_die "missing live rootfs image: $LIVE_ROOTFS_IMAGE"
   [[ -f "$DISK_IMAGE" ]] || ooonana_die "missing full-i3 disk image: $DISK_IMAGE"
 
   rm -rf "$ISO_TREE"
@@ -163,6 +180,7 @@ stage_iso_tree() {
   install -m 0644 "$KERNEL" "$ISO_TREE/boot/vmlinuz"
   install -m 0644 "$INITRAMFS" "$ISO_TREE/boot/install-initramfs.cpio.gz"
   install -m 0644 "$LIVE_INITRAMFS" "$ISO_TREE/boot/live-initramfs.cpio.gz"
+  install -m 0644 "$LIVE_ROOTFS_IMAGE" "$ISO_TREE/images/ooonana-full-i3-live-rootfs.ext4"
   install -m 0644 "$DISK_IMAGE" "$ISO_TREE/images/ooonana-full-i3-disk.raw"
   install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/logo.txt" "$ISO_TREE/boot/grub/ooonana-logo.txt"
   write_rufus_note
@@ -172,6 +190,35 @@ title-color: "#ffb21a"
 desktop-color: "#050505"
 terminal-font: "Unifont Regular 16"
 message-color: "#ffb21a"
+message-bg-color: "#050505"
+
++ boot_menu {
+  left = 16%
+  top = 32%
+  width = 68%
+  height = 38%
+}
+
++ label {
+  text = "boot time"
+  left = 16%
+  top = 82%
+  width = 68%
+  height = 18
+  color = "#ffb21a"
+  align = "center"
+}
+
++ progress_bar {
+  id = "__timeout__"
+  left = 16%
+  top = 86%
+  width = 68%
+  height = 18
+  fg_color = "#ffb21a"
+  bg_color = "#1b1202"
+  border_color = "#ffb21a"
+}
 EOF
   write_grub_config
   chmod -R a+rwX "$ISO_TREE" 2>/dev/null || true

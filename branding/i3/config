@@ -2,6 +2,19 @@
 set $mod Mod4
 font pango:monospace 10
 
+floating_modifier $mod
+focus_follows_mouse yes
+mouse_warping none
+workspace_layout default
+hide_edge_borders smart
+default_border pixel 2
+default_floating_border pixel 2
+for_window [class=".*"] border pixel 2
+for_window [class="Yad"] floating enable
+for_window [class="Pavucontrol"] floating enable
+for_window [class="Blueman-manager"] floating enable
+for_window [window_role="pop-up"] floating enable
+
 exec_always --no-startup-id ooonana-theme-env apply
 exec --no-startup-id xsetroot -name "Ooonana OS"
 exec --no-startup-id sh -c 'command -v picom >/dev/null 2>&1 && picom --config /etc/ooonana/picom.conf &'
@@ -17,8 +30,8 @@ bindsym $mod+Shift+f exec ooonana-files
 bindsym $mod+Shift+w exec ooonana-browser
 bindsym $mod+n exec ooonana-wifi
 bindsym $mod+b exec ooonana-bluetooth
-bindsym $mod+Shift+s exec ooonana-settings
-bindsym $mod+Shift+a exec ooonana-ai-app
+bindsym $mod+Shift+s exec ooonana-settings-launch
+bindsym $mod+Shift+a exec ooonana-ai-launch
 bindsym $mod+Shift+o exec ooonana-packages-app
 bindsym $mod+Shift+i exec ooonana-gui-installer
 bindsym $mod+Shift+p exec ooonana-wallpaper
@@ -51,16 +64,3 @@ client.focused #ffb21a #1d1207 #fff0c7 #ffb21a #ffb21a
 client.unfocused #1d1207 #050505 #ffd37a #1d1207 #1d1207
 client.focused_inactive #281604 #0b1012 #ffd37a #281604 #281604
 client.urgent #ff4d2e #281604 #fff0c7 #ff4d2e #ff4d2e
-
-bar {
-    status_command i3status
-    colors {
-        background #0b1012
-        statusline #ffb21a
-        separator #ffb21a
-        focused_workspace #ffb21a #281604 #fff0c7
-        active_workspace #281604 #1d1207 #ffd37a
-        inactive_workspace #1d1207 #1d1207 #ffd37a
-        urgent_workspace #ff4d2e #281604 #fff0c7
-    }
-}

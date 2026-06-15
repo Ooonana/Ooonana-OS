@@ -24,7 +24,7 @@ Usage:
 
 Options:
   --first-boot          Skip when setup marker already exists
-  --gui                 Open setup in xterm when DISPLAY is available
+  --gui                 Open setup GUI when DISPLAY is available
   --user NAME           Create user
   --password            Prompt for created user password
   --network dhcp|static Configure eth0 network
@@ -73,6 +73,101 @@ xterm_theme() {
       ;;
   esac
   XTERM_CURSOR="#ffb21a"
+}
+
+run_gui_setup() {
+  if [ "$DRY_RUN" -eq 1 ]; then
+    printf 'yad setup gui\n'
+    printf 'fields: user password network address gateway dns theme cloud-repo done\n'
+    printf 'OOONANA_SETUP_GUI_OK\n'
+    return 0
+  fi
+  [ -n "${DISPLAY:-}" ] || return 1
+  have yad || return 1
+
+  default_user="${USER_NAME:-ooonana}"
+  default_network="${NETWORK_MODE:-dhcp}"
+  default_theme="${THEME:-dark}"
+  default_done="TRUE"
+  [ "$DONE" -eq 0 ] && default_done="FALSE"
+
+  result="$(yad --center --title "Ooonana Setup" \
+    --width=620 --height=420 \
+    --form \
+    --text "First boot setup" \
+    --field="User" "$default_user" \
+    --field="Set password:CHK" "$PASSWORD_SETUP" \
+    --field="Network:CB" "$default_network!dhcp!static" \
+    --field="Address" "$ADDRESS" \
+    --field="Gateway" "$GATEWAY" \
+    --field="DNS" "$DNS_SERVERS" \
+    --field="Theme:CB" "$default_theme!dark!light" \
+    --field="Cloud repo" "$CLOUD_REPO" \
+    --field="Mark done:CHK" "$default_done" \
+    --button=Cancel:1 --button=Preview:2 --button=Run:0 2>/dev/null)" || rc="$?"
+  rc="${rc:-0}"
+  [ "$rc" -eq 1 ] && exit 0
+
+  old_ifs="$IFS"
+  IFS='|'
+  set -- $result
+  IFS="$old_ifs"
+  USER_NAME="${1:-}"
+  pass_choice="${2:-FALSE}"
+  NETWORK_MODE="${3:-}"
+  ADDRESS="${4:-}"
+  GATEWAY="${5:-}"
+  DNS_SERVERS="${6:-}"
+  THEME="${7:-}"
+  CLOUD_REPO="${8:-}"
+  done_choice="${9:-TRUE}"
+
+  case "$pass_choice" in TRUE|true|1|yes|YES) PASSWORD_SETUP=1 ;; *) PASSWORD_SETUP=0 ;; esac
+  case "$done_choice" in TRUE|true|1|yes|YES) DONE=1 ;; *) DONE=0 ;; esac
+
+  set -- "$0"
+  [ "$FIRST_BOOT" -eq 1 ] && set -- "$@" --first-boot
+  [ -n "$USER_NAME" ] && set -- "$@" --user "$USER_NAME"
+  [ "$PASSWORD_SETUP" -eq 1 ] && set -- "$@" --password
+  [ -n "$NETWORK_MODE" ] && set -- "$@" --network "$NETWORK_MODE"
+  [ -n "$ADDRESS" ] && set -- "$@" --address "$ADDRESS"
+  [ -n "$GATEWAY" ] && set -- "$@" --gateway "$GATEWAY"
+  [ -n "$DNS_SERVERS" ] && set -- "$@" --dns "$DNS_SERVERS"
+  [ -n "$THEME" ] && set -- "$@" --theme "$THEME"
+  [ -n "$CLOUD_REPO" ] && set -- "$@" --cloud-repo "$CLOUD_REPO"
+  [ "$DONE" -eq 1 ] && set -- "$@" --done
+
+  preview="$("$@" --dry-run 2>&1 || true)"
+  if [ "$rc" -eq 2 ]; then
+    yad --center --title "Ooonana Setup Preview" \
+      --width=760 --height=420 --text-info \
+      --button=Close:0 2>/dev/null <<EOF
+$preview
+EOF
+    return 0
+  fi
+
+  if ! yad --center --title "Ooonana Setup" \
+    --text "Run setup with these settings?" \
+    --button=Cancel:1 --button=Run:0 2>/dev/null; then
+    exit 0
+  fi
+
+  log="${XDG_RUNTIME_DIR:-/tmp}/ooonana-setup.log"
+  if "$@" >"$log" 2>&1; then
+    yad --center --title "Ooonana Setup" --width=760 --height=420 \
+      --text-info --filename="$log" --button=Close:0 2>/dev/null || true
+    exit 0
+  fi
+
+  yad --center --title "Ooonana Setup Failed" --width=760 --height=420 \
+    --text-info --filename="$log" --button=Shell:2 --button=Close:1 2>/dev/null || fail_rc="$?"
+  fail_rc="${fail_rc:-1}"
+  if [ "$fail_rc" -eq 2 ] && have xterm; then
+    xterm_theme
+    exec xterm -title "Ooonana Setup Shell" -bg "$XTERM_BG" -fg "$XTERM_FG" -cr "$XTERM_CURSOR" -e /bin/sh
+  fi
+  exit 1
 }
 
 valid_user() {
@@ -301,6 +396,10 @@ done
 if [ "$FIRST_BOOT" -eq 1 ] && [ -f "$(setup_marker)" ]; then
   printf 'setup: already complete\n'
   exit 0
+fi
+
+if [ "$GUI" -eq 1 ] && [ -z "${OOONANA_SETUP_IN_TERMINAL:-}" ]; then
+  run_gui_setup && exit 0
 fi
 
 if [ "$GUI" -eq 1 ] && [ -n "${DISPLAY:-}" ] && [ -z "${OOONANA_SETUP_IN_TERMINAL:-}" ] && have xterm; then

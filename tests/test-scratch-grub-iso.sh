@@ -85,7 +85,8 @@ assert_contains "$(<"$tmp/build/scratch-grub-iso-tree/RUFUS.md")" "Ooonana OS Mi
 cfg="$(<"$tmp/build/scratch-grub-iso-tree/boot/grub/grub.cfg")"
 assert_contains "$cfg" "set default=1"
 assert_contains "$cfg" "set timeout=5"
-[[ "$cfg" != *"set theme=/boot/grub/theme.txt"* ]] || fail "GRUB must not load theme file"
+assert_contains "$cfg" "set theme=/boot/grub/theme.txt"
+assert_contains "$cfg" "export theme"
 assert_contains "$cfg" "cat /boot/grub/ooonana-logo.txt"
 assert_contains "$cfg" "terminal_output gfxterm serial"
 assert_contains "$cfg" "set color_normal=yellow/black"
@@ -117,6 +118,11 @@ assert_contains "$normal_cfg" "terminal_output console serial"
 theme="$(<"$tmp/build/scratch-grub-iso-tree/boot/grub/theme.txt")"
 assert_contains "$theme" 'title-color: "#ffb21a"'
 assert_contains "$theme" 'message-color: "#ffb21a"'
+assert_contains "$theme" "+ progress_bar"
+assert_contains "$theme" 'id = "__timeout__"'
+assert_contains "$theme" 'fg_color = "#ffb21a"'
+assert_contains "$theme" 'bg_color = "#1b1202"'
+assert_contains "$theme" "+ boot_menu"
 [[ "$theme" != *"selected-item-color"* ]] || fail "GRUB theme has invalid selected item color"
 [[ "$theme" != *"selected-item-background-color"* ]] || fail "GRUB theme has invalid selected item background"
 [[ "$theme" != *"item-color"* ]] || fail "GRUB theme has invalid item color"
