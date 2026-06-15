@@ -42,6 +42,7 @@ help="$(bash "$SCRIPT" --help)"
 assert_contains "$help" "Build Ooonana full-i3 live/installer ISO"
 assert_contains "$help" "--disk-image"
 assert_contains "$help" "--live-initramfs"
+assert_contains "$help" "--live-rootfs-image"
 assert_contains "$help" "--iso"
 assert_contains "$help" "--install-target"
 assert_contains "$help" "--live-smoke"
@@ -54,6 +55,7 @@ mkdir -p "$tmp/bin"
 printf 'kernel\n' > "$tmp/vmlinuz"
 printf 'initramfs\n' > "$tmp/initramfs.cpio.gz"
 printf 'live initramfs\n' > "$tmp/live-initramfs.cpio.gz"
+printf 'live rootfs image\n' > "$tmp/live-rootfs.ext4"
 printf 'full disk\n' > "$tmp/full.raw"
 
 cat > "$tmp/bin/grub-mkrescue" <<'FAKE'
@@ -76,6 +78,7 @@ PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
   --kernel "$tmp/vmlinuz" \
   --initramfs "$tmp/initramfs.cpio.gz" \
   --live-initramfs "$tmp/live-initramfs.cpio.gz" \
+  --live-rootfs-image "$tmp/live-rootfs.ext4" \
   --disk-image "$tmp/full.raw" \
   --iso "$tmp/ooonana-full-i3-normal.iso" \
   --force >/dev/null
@@ -115,6 +118,7 @@ PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
   --kernel "$tmp/vmlinuz" \
   --initramfs "$tmp/initramfs.cpio.gz" \
   --live-initramfs "$tmp/live-initramfs.cpio.gz" \
+  --live-rootfs-image "$tmp/live-rootfs.ext4" \
   --disk-image "$tmp/full.raw" \
   --iso "$tmp/ooonana-full-i3.iso" \
   --install-target /dev/vdb \
@@ -125,6 +129,7 @@ PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
 [[ -f "$tmp/build/full-i3-iso-tree/boot/vmlinuz" ]] || fail "missing staged kernel"
 [[ -f "$tmp/build/full-i3-iso-tree/boot/install-initramfs.cpio.gz" ]] || fail "missing staged install initramfs"
 [[ -f "$tmp/build/full-i3-iso-tree/boot/live-initramfs.cpio.gz" ]] || fail "missing staged live initramfs"
+[[ -f "$tmp/build/full-i3-iso-tree/images/ooonana-full-i3-live-rootfs.ext4" ]] || fail "missing staged live rootfs image"
 [[ -f "$tmp/build/full-i3-iso-tree/boot/grub/ooonana-logo.txt" ]] || fail "missing staged GRUB logo"
 [[ -f "$tmp/build/full-i3-iso-tree/boot/grub/theme.txt" ]] || fail "missing staged GRUB theme"
 theme="$(<"$tmp/build/full-i3-iso-tree/boot/grub/theme.txt")"
@@ -143,8 +148,10 @@ assert_contains "$theme" "+ boot_menu"
 [[ -f "$tmp/build/full-i3-iso-tree/images/ooonana-full-i3-disk.raw" ]] || fail "missing staged full disk image"
 [[ "$(<"$tmp/build/full-i3-iso-tree/images/ooonana-full-i3-disk.raw")" == "full disk" ]] || fail "wrong staged disk image"
 [[ "$(<"$tmp/build/full-i3-iso-tree/boot/live-initramfs.cpio.gz")" == "live initramfs" ]] || fail "wrong staged live initramfs"
+[[ "$(<"$tmp/build/full-i3-iso-tree/images/ooonana-full-i3-live-rootfs.ext4")" == "live rootfs image" ]] || fail "wrong staged live rootfs image"
 assert_contains "$(<"$tmp/build/full-i3-iso-tree/RUFUS.md")" "Write in DD Image mode"
 assert_contains "$(<"$tmp/build/full-i3-iso-tree/RUFUS.md")" "OOONANA_PERSIST"
+assert_contains "$(<"$tmp/build/full-i3-iso-tree/RUFUS.md")" "live rootfs is stored outside initramfs"
 
 cfg="$(<"$tmp/build/full-i3-iso-tree/boot/grub/grub.cfg")"
 assert_contains "$cfg" "set default=2"
@@ -168,6 +175,7 @@ PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
   --kernel "$tmp/vmlinuz" \
   --initramfs "$tmp/initramfs.cpio.gz" \
   --live-initramfs "$tmp/live-initramfs.cpio.gz" \
+  --live-rootfs-image "$tmp/live-rootfs.ext4" \
   --disk-image "$tmp/full.raw" \
   --iso "$tmp/ooonana-full-i3-live-smoke.iso" \
   --smoke \

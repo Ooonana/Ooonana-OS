@@ -65,7 +65,7 @@ assert_contains "$out" "[done] UEFI + BIOS hybrid ISO"
 assert_contains "$out" "[done] VMware-visible GRUB and VGA-first release console"
 assert_contains "$out" "[done] init chooses tty1 for humans and ttyS0 for smoke"
 assert_contains "$out" "[done] full-i3 input stack"
-assert_contains "$out" "[done] VMware full-i3 RAM warning"
+assert_contains "$out" "[done] VMware full-i3 2GB live-rootfs fix"
 assert_contains "$out" "[done] QEMU UEFI installer and live i3 proof logs"
 assert_contains "$out" "OOONANA_VMWARE_UEFI_INPUT_OK"
 

@@ -9,6 +9,7 @@ WORK_DIR="$(ooonana_default_build_dir)"
 KERNEL="$WORK_DIR/ooonana-kernel/vmlinuz-ooonana"
 INITRAMFS="$WORK_DIR/ooonana-scratch-initramfs.cpio.gz"
 LIVE_INITRAMFS="$WORK_DIR/ooonana-full-i3-live-initramfs.cpio.gz"
+LIVE_ROOTFS_IMAGE="$WORK_DIR/ooonana-full-i3-live-rootfs.ext4"
 DISK_IMAGE="$WORK_DIR/ooonana-full-i3-disk.raw"
 ISO_TREE="$WORK_DIR/full-i3-iso-tree"
 ISO="$WORK_DIR/ooonana-full-i3.iso"
@@ -32,6 +33,8 @@ Options:
   --initramfs PATH     Scratch installer initramfs path
   --live-initramfs PATH
                        Full-i3 live initramfs path
+  --live-rootfs-image PATH
+                       Full-i3 live ext4 rootfs image
   --disk-image PATH    Full-i3 bootable raw disk image
   --iso-tree PATH      ISO staging directory (default: WORK_DIR/full-i3-iso-tree)
   --iso PATH           ISO output path (default: WORK_DIR/ooonana-full-i3.iso)
@@ -47,10 +50,11 @@ USAGE
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --work-dir) WORK_DIR="$2"; KERNEL="$2/ooonana-kernel/vmlinuz-ooonana"; INITRAMFS="$2/ooonana-scratch-initramfs.cpio.gz"; LIVE_INITRAMFS="$2/ooonana-full-i3-live-initramfs.cpio.gz"; DISK_IMAGE="$2/ooonana-full-i3-disk.raw"; ISO_TREE="$2/full-i3-iso-tree"; ISO="$2/ooonana-full-i3.iso"; shift 2 ;;
+    --work-dir) WORK_DIR="$2"; KERNEL="$2/ooonana-kernel/vmlinuz-ooonana"; INITRAMFS="$2/ooonana-scratch-initramfs.cpio.gz"; LIVE_INITRAMFS="$2/ooonana-full-i3-live-initramfs.cpio.gz"; LIVE_ROOTFS_IMAGE="$2/ooonana-full-i3-live-rootfs.ext4"; DISK_IMAGE="$2/ooonana-full-i3-disk.raw"; ISO_TREE="$2/full-i3-iso-tree"; ISO="$2/ooonana-full-i3.iso"; shift 2 ;;
     --kernel) KERNEL="$2"; shift 2 ;;
     --initramfs) INITRAMFS="$2"; shift 2 ;;
     --live-initramfs) LIVE_INITRAMFS="$2"; shift 2 ;;
+    --live-rootfs-image) LIVE_ROOTFS_IMAGE="$2"; shift 2 ;;
     --disk-image) DISK_IMAGE="$2"; shift 2 ;;
     --iso-tree) ISO_TREE="$2"; shift 2 ;;
     --iso) ISO="$2"; shift 2 ;;
@@ -153,6 +157,7 @@ Boot support:
 - Legacy BIOS/CSM: GRUB BIOS path is included.
 - Installer: use `Install Ooonana OS Full i3`.
 - Safe graphics: use `Install Ooonana OS Full i3 (safe graphics)`.
+- live rootfs is stored outside initramfs, so 2GB VMs and USB boots avoid giant initramfs unpack failures.
 
 Persistence:
 
@@ -166,6 +171,7 @@ stage_iso_tree() {
   [[ -f "$KERNEL" ]] || ooonana_die "missing kernel: $KERNEL"
   [[ -f "$INITRAMFS" ]] || ooonana_die "missing initramfs: $INITRAMFS"
   [[ -f "$LIVE_INITRAMFS" ]] || ooonana_die "missing live initramfs: $LIVE_INITRAMFS"
+  [[ -f "$LIVE_ROOTFS_IMAGE" ]] || ooonana_die "missing live rootfs image: $LIVE_ROOTFS_IMAGE"
   [[ -f "$DISK_IMAGE" ]] || ooonana_die "missing full-i3 disk image: $DISK_IMAGE"
 
   rm -rf "$ISO_TREE"
@@ -174,6 +180,7 @@ stage_iso_tree() {
   install -m 0644 "$KERNEL" "$ISO_TREE/boot/vmlinuz"
   install -m 0644 "$INITRAMFS" "$ISO_TREE/boot/install-initramfs.cpio.gz"
   install -m 0644 "$LIVE_INITRAMFS" "$ISO_TREE/boot/live-initramfs.cpio.gz"
+  install -m 0644 "$LIVE_ROOTFS_IMAGE" "$ISO_TREE/images/ooonana-full-i3-live-rootfs.ext4"
   install -m 0644 "$DISK_IMAGE" "$ISO_TREE/images/ooonana-full-i3-disk.raw"
   install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/logo.txt" "$ISO_TREE/boot/grub/ooonana-logo.txt"
   write_rufus_note

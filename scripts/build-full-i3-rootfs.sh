@@ -731,7 +731,9 @@ line-color = ${colors.accent}
 font-0 = monospace:size=10;2
 modules-left = launcher workspaces title
 modules-center = logo
-modules-right = network volume battery date
+modules-right = wifi bluetooth network audio brightness battery date
+tray-position = right
+tray-padding = 2
 wm-restack = i3
 override-redirect = false
 enable-ipc = true
@@ -773,6 +775,18 @@ type = internal/xwindow
 label = %title:0:54:...%
 label-empty = desktop
 
+[module/wifi]
+type = custom/text
+content = wifi
+content-foreground = ${colors.accent}
+click-left = ooonana-wifi
+
+[module/bluetooth]
+type = custom/text
+content = bt
+content-foreground = ${colors.accent}
+click-left = ooonana-bluetooth
+
 [module/network]
 type = internal/network
 interface-type = wireless
@@ -780,11 +794,20 @@ label-connected = wifi %essid%
 label-disconnected = wifi off
 label-disconnected-foreground = ${colors.muted}
 
-[module/volume]
+[module/audio]
 type = internal/pulseaudio
 format-volume = vol <label-volume>
 label-muted = mute
 label-muted-foreground = ${colors.muted}
+click-left = pavucontrol
+
+[module/brightness]
+type = custom/text
+content = bright
+content-foreground = ${colors.accent}
+click-left = ooonana-brightness
+scroll-up = brightnessctl set +5%
+scroll-down = brightnessctl set 5%-
 
 [module/battery]
 type = internal/battery
