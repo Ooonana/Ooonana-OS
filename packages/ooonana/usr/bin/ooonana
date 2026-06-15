@@ -85,9 +85,9 @@ Packages:
   ooonana uninstall PACKAGE... [--dry-run]
   ooonana purge PACKAGE... [--dry-run]
   ooonana fix [PACKAGE...] [--dry-run] [--reinstall]
-  ooonana repo index [PATH]
+  ooonana repo index [--sign-key KEY] [PATH]
   ooonana repo build [options] [PACKAGE...]
-  ooonana repo add NAME URI
+  ooonana repo add NAME URI [PUBKEY]
   ooonana repo remove NAME
   ooonana repo doctor
   ooonana clean
@@ -181,8 +181,8 @@ Fix/removal:
 Repos:
   ooonana sources
   ooonana repo doctor
-  ooonana repo add cloud https://example.test/ooonana-repo
-  ooonana repo index /usr/lib/ooonana/repo
+  ooonana repo add cloud https://example.test/ooonana-repo /etc/ooonana/trusted-keys/cloud.pem
+  ooonana repo index --sign-key /root/ooonana-repo.key /usr/lib/ooonana/repo
   ooonana repo build nano
 
 Only Ooonana repos are used on target OS. Alpine APKs are imported by repo build automation before install.
@@ -257,9 +257,9 @@ usage_repo_help() {
 Repo commands:
   ooonana sources
   ooonana repo doctor
-  ooonana repo add NAME URI
+  ooonana repo add NAME URI [PUBKEY]
   ooonana repo remove NAME
-  ooonana repo index [PATH]
+  ooonana repo index [--sign-key KEY] [PATH]
   ooonana repo build [options] [PACKAGE...]
 
 Build examples:
@@ -276,13 +276,20 @@ Repo source file:
 Source format:
   OOONANA_REPO_NAME="cloud"
   OOONANA_REPO_URI="https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-package-repo.tar.gz"
+  OOONANA_REPO_KEY="/etc/ooonana/trusted-keys/cloud.pem"
 
 GitHub Releases tarball source:
   OOONANA_REPO_NAME="release"
   OOONANA_REPO_URI="https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-package-repo.tar.gz"
 
 Ooonana can sync direct HTTP repos or a release tarball that contains index.tsv,
-SHA256SUMS, *.pkg files, and archives/.
+SHA256SUMS, optional SHA256SUMS.sig, *.pkg files, and archives/.
+
+Signed repos:
+  ooonana repo index --sign-key /root/repo.key /srv/ooonana-repo
+  ooonana repo add cloud https://example.test/ooonana-repo /etc/ooonana/trusted-keys/cloud.pem
+  OOONANA_REPO_VERIFY_KEY=/etc/ooonana/trusted-keys/cloud.pem ooonana update
+  OOONANA_REQUIRE_SIGNED_REPOS=1 ooonana update
 
 Private GitHub release repos:
   OOONANA_REPO_TOKEN=github_pat_or_token ooonana update
@@ -431,11 +438,13 @@ reset_pkg_vars() {
   LOADED_REPO_DIR=""
   LOADED_REPO_NAME=""
   LOADED_REPO_URI=""
+  LOADED_REPO_KEY=""
 }
 
 reset_repo_vars() {
   OOONANA_REPO_NAME=""
   OOONANA_REPO_URI=""
+  OOONANA_REPO_KEY=""
 }
 
 repo_uri_path() {
@@ -604,6 +613,8 @@ sync_remote_repo() {
   mkdir -p "$cache_dir"
   download_file "$(remote_repo_url "$repo_uri" index.tsv)" "$cache_dir/index.tsv"
   download_file "$(remote_repo_url "$repo_uri" SHA256SUMS)" "$cache_dir/SHA256SUMS"
+  rm -f "$cache_dir/SHA256SUMS.sig"
+  download_file "$(remote_repo_url "$repo_uri" SHA256SUMS.sig)" "$cache_dir/SHA256SUMS.sig" 2>/dev/null || true
   printf '%s\n' "$cache_dir"
 }
 
@@ -690,15 +701,16 @@ load_repo_source_file() {
     *[!A-Za-z0-9_.-]*|"") die "bad repo source name: $OOONANA_REPO_NAME" ;;
   esac
   OOONANA_REPO_URI="$(repo_uri_path "$OOONANA_REPO_URI")"
+  [ -z "$OOONANA_REPO_KEY" ] || [ -f "$OOONANA_REPO_KEY" ] || die "repo key missing: $OOONANA_REPO_KEY"
 }
 
 repo_sources() {
-  printf 'builtin\t%s\n' "$REPO_DIR"
+  printf 'builtin\t%s\t%s\n' "$REPO_DIR" "${OOONANA_BUILTIN_REPO_KEY:-}"
   [ -d "$SOURCES_DIR" ] || return 0
   for source_file in "$SOURCES_DIR"/*.repo; do
     [ -f "$source_file" ] || continue
     load_repo_source_file "$source_file"
-    printf '%s\t%s\n' "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI"
+    printf '%s\t%s\t%s\n' "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI" "$OOONANA_REPO_KEY"
   done
 }
 
@@ -708,6 +720,7 @@ find_pkg_file() {
     LOADED_PKG_FILE="$REPO_DIR/$id.pkg"
     LOADED_REPO_DIR="$REPO_DIR"
     LOADED_REPO_NAME="builtin"
+    LOADED_REPO_KEY="${OOONANA_BUILTIN_REPO_KEY:-}"
     return 0
   fi
 
@@ -722,6 +735,7 @@ find_pkg_file() {
         LOADED_PKG_FILE="$remote_dir/$id.pkg"
         LOADED_REPO_DIR="$remote_dir"
         LOADED_REPO_NAME="$OOONANA_REPO_NAME"
+        LOADED_REPO_KEY="$OOONANA_REPO_KEY"
         return 0
       fi
     elif repo_is_remote "$OOONANA_REPO_URI"; then
@@ -732,6 +746,7 @@ find_pkg_file() {
         LOADED_REPO_DIR="$remote_dir"
         LOADED_REPO_NAME="$OOONANA_REPO_NAME"
         LOADED_REPO_URI="$OOONANA_REPO_URI"
+        LOADED_REPO_KEY="$OOONANA_REPO_KEY"
         return 0
       fi
     else
@@ -740,6 +755,7 @@ find_pkg_file() {
         LOADED_PKG_FILE="$OOONANA_REPO_URI/$id.pkg"
         LOADED_REPO_DIR="$OOONANA_REPO_URI"
         LOADED_REPO_NAME="$OOONANA_REPO_NAME"
+        LOADED_REPO_KEY="$OOONANA_REPO_KEY"
         return 0
       fi
     fi
@@ -765,6 +781,7 @@ load_installed_pkg() {
   [ -f "$LOADED_PKG_FILE" ] || die "package not installed: $id"
   LOADED_REPO_DIR="$INSTALLED_DIR"
   LOADED_REPO_NAME="installed"
+  LOADED_REPO_KEY=""
   . "$LOADED_PKG_FILE"
   [ "$OOONANA_PKG_ID" = "$id" ] || die "bad installed package metadata: $id"
   [ -n "$OOONANA_PKG_VERSION" ] || die "installed package missing version: $id"
@@ -789,11 +806,52 @@ repo_checksum_expected() {
   awk -v rel="$rel_path" '$2 == rel { print $1; found = 1; exit } END { if (!found) exit 1 }' "$sums_file"
 }
 
+repo_signature_key() {
+  repo_path="$1"
+  repo_key="${2:-}"
+  if [ -n "$repo_key" ]; then
+    printf '%s\n' "$repo_key"
+    return 0
+  fi
+  if [ -n "${OOONANA_REPO_VERIFY_KEY:-}" ]; then
+    printf '%s\n' "$OOONANA_REPO_VERIFY_KEY"
+    return 0
+  fi
+  if [ -f "$repo_path/repo.pub" ] && [ "${OOONANA_TRUST_REPO_EMBEDDED_KEY:-0}" = "1" ]; then
+    printf '%s\n' "$repo_path/repo.pub"
+    return 0
+  fi
+  return 1
+}
+
+verify_repo_signature() {
+  repo_path="$1"
+  repo_key="${2:-}"
+  sums_file="$repo_path/SHA256SUMS"
+  sig_file="$repo_path/SHA256SUMS.sig"
+  if [ ! -f "$sums_file" ]; then
+    [ "${OOONANA_REQUIRE_SIGNED_REPOS:-0}" = "1" ] && die "repo signature missing: $repo_path"
+    return 0
+  fi
+  if [ ! -f "$sig_file" ]; then
+    [ "${OOONANA_REQUIRE_SIGNED_REPOS:-0}" = "1" ] && die "repo signature missing: $repo_path"
+    return 0
+  fi
+  have openssl || die "signed repo needs openssl: $repo_path"
+  key_file="$(repo_signature_key "$repo_path" "$repo_key" || true)"
+  [ -n "$key_file" ] || die "signed repo missing trusted key: $repo_path"
+  [ -f "$key_file" ] || die "trusted repo key missing: $key_file"
+  openssl dgst -sha256 -verify "$key_file" -signature "$sig_file" "$sums_file" >/dev/null 2>&1 ||
+    die "repo signature mismatch: $repo_path"
+}
+
 verify_repo_checksum() {
   repo_path="$1"
   rel_path="$2"
+  repo_key="${3:-}"
   sums_file="$repo_path/SHA256SUMS"
   [ -f "$sums_file" ] || return 0
+  verify_repo_signature "$repo_path" "$repo_key"
   target="$repo_path/$rel_path"
   [ -f "$target" ] || die "missing repo file: $rel_path"
   expected="$(repo_checksum_expected "$sums_file" "$rel_path" || true)"
@@ -806,7 +864,7 @@ verify_loaded_pkg_file() {
   [ -n "${LOADED_REPO_DIR:-}" ] || return 0
   [ -n "${LOADED_PKG_FILE:-}" ] || return 0
   rel_path="$(basename "$LOADED_PKG_FILE")"
-  verify_repo_checksum "$LOADED_REPO_DIR" "$rel_path"
+  verify_repo_checksum "$LOADED_REPO_DIR" "$rel_path" "${LOADED_REPO_KEY:-}"
 }
 
 verify_loaded_archive_file() {
@@ -814,8 +872,17 @@ verify_loaded_archive_file() {
   [ -n "${OOONANA_PKG_ARCHIVE:-}" ] || return 0
   case "$OOONANA_PKG_ARCHIVE" in
     /*) return 0 ;;
-    *) verify_repo_checksum "$LOADED_REPO_DIR" "$OOONANA_PKG_ARCHIVE" ;;
+    *) verify_repo_checksum "$LOADED_REPO_DIR" "$OOONANA_PKG_ARCHIVE" "${LOADED_REPO_KEY:-}" ;;
   esac
+}
+
+sign_repo_index() {
+  repo_path="$1"
+  sign_key="$2"
+  [ -n "$sign_key" ] || return 0
+  [ -f "$sign_key" ] || die "sign key missing: $sign_key"
+  have openssl || die "repo signing needs openssl"
+  openssl dgst -sha256 -sign "$sign_key" -out "$repo_path/SHA256SUMS.sig" "$repo_path/SHA256SUMS"
 }
 
 write_repo_index_entry() {
@@ -858,9 +925,31 @@ write_repo_index_entry() {
 }
 
 cmd_repo_index() {
-  repo_path="${1:-$REPO_DIR}"
-  shift || true
-  [ "$#" -eq 0 ] || die "usage: ooonana repo index [PATH]"
+  repo_path="$REPO_DIR"
+  sign_key="${OOONANA_REPO_SIGN_KEY:-}"
+  seen_repo_path=0
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --sign-key)
+        [ "$#" -ge 2 ] || die "usage: ooonana repo index [--sign-key KEY] [PATH]"
+        sign_key="$2"
+        shift 2
+        ;;
+      --sign-key=*)
+        sign_key="${1#--sign-key=}"
+        shift
+        ;;
+      -*)
+        die "usage: ooonana repo index [--sign-key KEY] [PATH]"
+        ;;
+      *)
+        [ "$seen_repo_path" -eq 0 ] || die "usage: ooonana repo index [--sign-key KEY] [PATH]"
+        repo_path="$1"
+        seen_repo_path=1
+        shift
+        ;;
+    esac
+  done
   [ -d "$repo_path" ] || die "missing repo: $repo_path"
   index_tmp="$repo_path/index.tsv.tmp"
   sums_tmp="$repo_path/SHA256SUMS.tmp"
@@ -876,7 +965,10 @@ cmd_repo_index() {
   sort -u "$sums_tmp" -o "$sums_tmp"
   mv "$index_tmp" "$repo_path/index.tsv"
   mv "$sums_tmp" "$repo_path/SHA256SUMS"
+  sign_repo_index "$repo_path" "$sign_key"
   printf 'indexed %s package(s): %s\n' "$count" "$repo_path"
+  [ -n "$sign_key" ] && printf 'signed repo: %s\n' "$repo_path/SHA256SUMS.sig"
+  return 0
 }
 
 safe_repo_name() {
@@ -893,6 +985,13 @@ safe_repo_uri() {
   esac
 }
 
+safe_repo_key() {
+  case "$1" in
+    ""|/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 repo_source_path() {
   printf '%s/%s.repo\n' "$SOURCES_DIR" "$1"
 }
@@ -900,16 +999,21 @@ repo_source_path() {
 cmd_repo_add() {
   name="${1:-}"
   uri="${2:-}"
-  [ "$#" -eq 2 ] || die "usage: ooonana repo add NAME URI"
+  key="${3:-}"
+  [ "$#" -ge 2 ] && [ "$#" -le 3 ] || die "usage: ooonana repo add NAME URI [PUBKEY]"
   safe_repo_name "$name" || die "bad repo name: $name"
   safe_repo_uri "$uri" || die "bad repo URI: $uri"
+  safe_repo_key "$key" || die "repo key path must be absolute: $key"
+  [ -z "$key" ] || [ -f "$key" ] || die "repo key missing: $key"
   mkdir -p "$SOURCES_DIR"
   path="$(repo_source_path "$name")"
   {
     printf 'OOONANA_REPO_NAME="%s"\n' "$name"
     printf 'OOONANA_REPO_URI="%s"\n' "$uri"
+    [ -z "$key" ] || printf 'OOONANA_REPO_KEY="%s"\n' "$key"
   } > "$path"
   printf 'repo added %s %s\n' "$name" "$uri"
+  [ -z "$key" ] || printf 'repo key %s\n' "$key"
 }
 
 cmd_repo_remove() {
@@ -925,6 +1029,7 @@ cmd_repo_remove() {
 cmd_repo_doctor_one() {
   repo_name="$1"
   repo_path="$2"
+  repo_key="${3:-}"
   if repo_is_tarball "$repo_path"; then
     if repo_is_remote "$repo_path" || [ -f "$repo_path" ]; then
       printf '%s: ok %s\n' "$repo_name" "$repo_path"
@@ -942,6 +1047,7 @@ cmd_repo_doctor_one() {
     return 1
   fi
   if [ -f "$repo_path/index.tsv" ]; then
+    verify_repo_signature "$repo_path" "$repo_key"
     printf '%s: ok %s\n' "$repo_name" "$repo_path"
     return 0
   fi
@@ -960,9 +1066,9 @@ cmd_repo_doctor() {
   sources_tmp="$CACHE_DIR/repo-doctor.tsv.$$"
   repo_sources > "$sources_tmp"
   status=0
-  while IFS='	' read -r repo_name repo_path; do
+  while IFS='	' read -r repo_name repo_path repo_key; do
     [ -n "$repo_name" ] || continue
-    cmd_repo_doctor_one "$repo_name" "$repo_path" || status=1
+    cmd_repo_doctor_one "$repo_name" "$repo_path" "${repo_key:-}" || status=1
   done < "$sources_tmp"
   rm -f "$sources_tmp"
   if [ "$status" -eq 0 ]; then
@@ -1006,6 +1112,13 @@ pkg_ids() {
 
 pkg_installed() {
   [ -f "$INSTALLED_DIR/$1.pkg" ]
+}
+
+safe_pkg_id() {
+  case "$1" in
+    *[!A-Za-z0-9_.+-]*|"") return 1 ;;
+    *) return 0 ;;
+  esac
 }
 
 pkg_hook() {
@@ -1078,6 +1191,17 @@ validate_archive_entries() {
   done
 }
 
+safe_manifest_entry() {
+  case "$1" in
+    ""|.|..|/*|../*|*/../*|*/..)
+      return 1
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+}
+
 install_pkg_archive() {
   id="$1"
   if [ -n "${LOADED_REPO_URI:-}" ]; then
@@ -1104,6 +1228,7 @@ remove_pkg_archive_files() {
 
   sed '1!G;h;$!d' "$manifest" | while IFS= read -r entry; do
     [ -n "$entry" ] || continue
+    safe_manifest_entry "$entry" || die "unsafe manifest path in $id: $entry"
     target="$(root_join "/$entry")"
     if [ -d "$target" ] && [ ! -L "$target" ]; then
       rmdir "$target" 2>/dev/null || true
@@ -1217,7 +1342,7 @@ cmd_update() {
   repo_count=0
   : > "$tmp"
   repo_sources > "$sources_tmp"
-  while IFS='	' read -r repo_name repo_path; do
+  while IFS='	' read -r repo_name repo_path repo_key; do
     [ -n "$repo_name" ] || continue
     repo_count=$((repo_count + 1))
     repo_remote=0
@@ -1228,6 +1353,7 @@ cmd_update() {
       repo_path="$(sync_remote_repo "$repo_name" "$repo_path")"
     fi
     [ -d "$repo_path" ] || die "missing repo source: $repo_name $repo_path"
+    verify_repo_signature "$repo_path" "${repo_key:-}"
     if [ -f "$repo_path/index.tsv" ]; then
       while IFS='	' read -r pkg_id pkg_version pkg_kind pkg_summary pkg_deps pkg_archive pkg_sha; do
         [ -n "$pkg_id" ] || continue
@@ -1236,8 +1362,8 @@ cmd_update() {
         [ "$pkg_deps" = "-" ] && pkg_deps=""
         [ "$pkg_archive" = "-" ] && pkg_archive=""
         if [ "$repo_remote" -eq 0 ]; then
-          verify_repo_checksum "$repo_path" "$pkg_id.pkg"
-          [ -z "$pkg_archive" ] || verify_repo_checksum "$repo_path" "$pkg_archive"
+          verify_repo_checksum "$repo_path" "$pkg_id.pkg" "${repo_key:-}"
+          [ -z "$pkg_archive" ] || verify_repo_checksum "$repo_path" "$pkg_archive" "${repo_key:-}"
         fi
         printf '%s\t%s\t%s\t%s\t%s\n' "$repo_name" "$pkg_id" "$pkg_version" "${pkg_kind:-bundle}" "$pkg_summary" >> "$tmp"
       done < "$repo_path/index.tsv"
@@ -1263,9 +1389,13 @@ cmd_update() {
 }
 
 cmd_sources() {
-  repo_sources | while IFS='	' read -r repo_name repo_path; do
+  repo_sources | while IFS='	' read -r repo_name repo_path repo_key; do
     [ -n "$repo_name" ] || continue
-    printf '%-12s %s\n' "$repo_name" "$repo_path"
+    if [ -n "${repo_key:-}" ]; then
+      printf '%-12s %s key=%s\n' "$repo_name" "$repo_path" "$repo_key"
+    else
+      printf '%-12s %s\n' "$repo_name" "$repo_path"
+    fi
   done
 }
 
@@ -1382,6 +1512,7 @@ cmd_search() {
 cmd_depends() {
   id="${1:-}"
   [ -n "$id" ] || die "usage: ooonana depends PACKAGE"
+  safe_pkg_id "$id" || die "bad package id: $id"
   shift || true
   [ "$#" -eq 0 ] || die "usage: ooonana depends PACKAGE"
   load_pkg "$id"
@@ -1397,6 +1528,7 @@ cmd_depends() {
 cmd_files() {
   id="${1:-}"
   [ -n "$id" ] || die "usage: ooonana files PACKAGE"
+  safe_pkg_id "$id" || die "bad package id: $id"
   shift || true
   [ "$#" -eq 0 ] || die "usage: ooonana files PACKAGE"
   pkg_installed "$id" || die "package not installed: $id"
@@ -1432,6 +1564,7 @@ verify_pkg_files() {
 cmd_verify() {
   id="${1:-}"
   [ -n "$id" ] || die "usage: ooonana verify PACKAGE"
+  safe_pkg_id "$id" || die "bad package id: $id"
   shift || true
   [ "$#" -eq 0 ] || die "usage: ooonana verify PACKAGE"
   verify_pkg_files "$id" || exit 1
@@ -1464,6 +1597,7 @@ cmd_check() {
   fi
 
   for id in $packages; do
+    safe_pkg_id "$id" || die "bad package id: $id"
     verify_pkg_files "$id" || exit 1
     printf 'check ok %s\n' "$id"
   done
@@ -1501,23 +1635,31 @@ installed_dependent_of() {
 check_reverse_dependencies() {
   id="$1"
   force="$2"
+  planned="${3:-}"
   [ "$force" -eq 1 ] && return 0
-  dependent="$(installed_dependent_of "$id" | sed -n '1p')"
-  [ -z "$dependent" ] || die "$id required by installed package: $dependent"
+  installed_dependent_of "$id" | while IFS= read -r dependent; do
+    [ -n "$dependent" ] || continue
+    case " $planned " in
+      *" $dependent "*) continue ;;
+      *) die "$id required by installed package: $dependent" ;;
+    esac
+  done
 }
 
 install_one_pkg() {
   local id dry_run deps conflicts dep old_installing
   id="$1"
   dry_run="$2"
+  safe_pkg_id "$id" || die "bad package id: $id"
   case " ${OOONANA_INSTALLING:-} " in
-    *" $id "*) return 0 ;;
+    *" $id "*) die "dependency cycle:${OOONANA_INSTALLING:-} $id" ;;
   esac
   if pkg_installed "$id"; then
     printf 'already installed %s\n' "$id"
     return 0
   fi
   load_pkg "$id"
+  check_pkg_conflicts "$id"
 
   deps="$OOONANA_PKG_DEPS"
   conflicts="$OOONANA_PKG_CONFLICTS"
@@ -1535,8 +1677,6 @@ install_one_pkg() {
     printf 'already installed %s\n' "$id"
     return 0
   fi
-  check_pkg_conflicts "$id"
-
   if [ "$dry_run" -eq 1 ]; then
     printf 'would install %s %s\n' "$id" "$OOONANA_PKG_VERSION"
     [ -n "$OOONANA_PKG_ARCHIVE" ] && printf 'would unpack %s\n' "$OOONANA_PKG_ARCHIVE"
@@ -1564,14 +1704,19 @@ cmd_get() {
   [ -n "$packages" ] || die "usage: ooonana get PACKAGE [--dry-run]"
 
   for id in $packages; do
+    safe_pkg_id "$id" || die "bad package id: $id"
     install_one_pkg "$id" "$dry_run"
   done
 }
 
 upgrade_one_pkg() {
-  local id dry_run old_version new_version deps dep archive_path
+  local id dry_run old_version new_version deps dep archive_path old_upgrading
   id="$1"
   dry_run="$2"
+  safe_pkg_id "$id" || die "bad package id: $id"
+  case " ${OOONANA_UPGRADING:-} " in
+    *" $id "*) die "upgrade dependency cycle:${OOONANA_UPGRADING:-} $id" ;;
+  esac
   pkg_installed "$id" || die "package not installed: $id"
 
   old_version="$(installed_pkg_version "$id")"
@@ -1588,6 +1733,8 @@ upgrade_one_pkg() {
   fi
 
   deps="$OOONANA_PKG_DEPS"
+  old_upgrading="${OOONANA_UPGRADING:-}"
+  OOONANA_UPGRADING="$old_upgrading $id"
   for dep in $deps; do
     if pkg_installed "$dep"; then
       upgrade_one_pkg "$dep" "$dry_run"
@@ -1595,6 +1742,7 @@ upgrade_one_pkg() {
       install_one_pkg "$dep" "$dry_run"
     fi
   done
+  OOONANA_UPGRADING="$old_upgrading"
   load_pkg "$id"
 
   if [ "$dry_run" -eq 1 ]; then
@@ -1642,6 +1790,7 @@ cmd_upgrade() {
   fi
 
   for id in $packages; do
+    safe_pkg_id "$id" || die "bad package id: $id"
     upgrade_one_pkg "$id" "$dry_run"
   done
 }
@@ -1657,11 +1806,13 @@ remove_one_pkg() {
   dry_run="$2"
   purge="$3"
   force="$4"
+  planned="${5:-}"
+  safe_pkg_id "$id" || die "bad package id: $id"
   if ! pkg_installed "$id"; then
     printf 'not installed %s\n' "$id"
     return 0
   fi
-  check_reverse_dependencies "$id" "$force"
+  check_reverse_dependencies "$id" "$force" "$planned"
   if find_pkg_file "$id"; then
     load_pkg "$id"
   else
@@ -1703,7 +1854,10 @@ cmd_remove() {
   done
   [ -n "$packages" ] || die "usage: ooonana remove PACKAGE... [--dry-run] [--force]"
   for id in $packages; do
-    remove_one_pkg "$id" "$dry_run" 0 "$force"
+    safe_pkg_id "$id" || die "bad package id: $id"
+  done
+  for id in $packages; do
+    remove_one_pkg "$id" "$dry_run" 0 "$force" "$packages"
   done
 }
 
@@ -1721,7 +1875,10 @@ cmd_purge() {
   done
   [ -n "$packages" ] || die "usage: ooonana purge PACKAGE... [--dry-run] [--force]"
   for id in $packages; do
-    remove_one_pkg "$id" "$dry_run" 1 "$force"
+    safe_pkg_id "$id" || die "bad package id: $id"
+  done
+  for id in $packages; do
+    remove_one_pkg "$id" "$dry_run" 1 "$force" "$packages"
   done
 }
 
@@ -1729,6 +1886,7 @@ fix_one_pkg() {
   id="$1"
   dry_run="$2"
   reinstall="$3"
+  safe_pkg_id "$id" || die "bad package id: $id"
   if ! pkg_installed "$id"; then
     if [ "$dry_run" -eq 1 ]; then
       printf 'would install missing %s\n' "$id"
@@ -1794,6 +1952,7 @@ cmd_fix() {
     return 0
   fi
   for id in $packages; do
+    safe_pkg_id "$id" || die "bad package id: $id"
     fix_one_pkg "$id" "$dry_run" "$reinstall"
   done
 }

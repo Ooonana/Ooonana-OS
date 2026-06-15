@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
 """
 oonana - Ooonana OS Breakout Minigame
-Installer game engine. Bricks spell "OOONANA OS". Ball is the Ooonana face.
+Installer game engine. Bricks spell "OOONANA OS". Ball is the Ooonana logo.
 """
 import os
 import random
 import select
 import sys
-import termios
 import time
-import tty
+
+try:
+    import termios
+    import tty
+except ImportError:
+    termios = None
+    tty = None
 
 WIDTH = 80
 HEIGHT = 26
@@ -31,12 +36,26 @@ COLORS = {
 }
 RESET = "\033[0m"
 
+LOGO_BALL = [
+    "  _____________  ",
+    " |   /  \\   /  \\ | ",
+    "/|                  |\\",
+    " |____\\___/___| ",
+    "       |       | ",
+]
+
 BALL_FACES = {
-    "up": "(^_^)",
-    "down": "('.')",
-    "bounce": "(o_o)",
-    "death": "(x_x)",
-    "win": "(^o^)",
+    "up": LOGO_BALL,
+    "down": LOGO_BALL,
+    "bounce": LOGO_BALL,
+    "death": [
+        "  _____________  ",
+        " |   x      x   | ",
+        "/|                  |\\",
+        " |____\\___/___| ",
+        "       |       | ",
+    ],
+    "win": LOGO_BALL,
 }
 
 
@@ -171,11 +190,14 @@ class Game:
                     if 0 < x < WIDTH - 1:
                         line[x] = color("\033[1;33m", "#")
 
-            if y == int(self.ball_y):
-                start = int(self.ball_x) - len(face) // 2
-                for index, char in enumerate(face):
+            sprite = face
+            top = int(self.ball_y) - len(sprite) // 2
+            if top <= y < top + len(sprite):
+                sprite_line = sprite[y - top]
+                start = int(self.ball_x) - len(sprite_line) // 2
+                for index, char in enumerate(sprite_line):
                     pos = start + index
-                    if 0 < pos < WIDTH - 1:
+                    if char != " " and 0 < pos < WIDTH - 1:
                         line[pos] = color("\033[1;32m", char)
 
             buffer.append("".join(line))
@@ -193,7 +215,7 @@ def usage():
 Ooonana brickout.
 Installer game engine.
 Bricks spell OOONANA OS.
-Ball sprite: Ooonana face ball.
+Ball sprite: full Ooonana logo ball.
 real-time Python terminal game with combo scoring.
 
 Keys:
@@ -238,6 +260,9 @@ def snapshot():
 
 
 def run():
+    if termios is None or tty is None:
+        snapshot()
+        return
     game = Game()
     old_settings = None
     sys.stdout.write("\033[?25l\033[2J")

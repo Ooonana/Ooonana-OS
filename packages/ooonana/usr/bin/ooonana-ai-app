@@ -2,12 +2,14 @@
 set -eu
 
 AI_CMD="${OOONANA_AI_CMD:-ooonana-ai}"
+APP_LOG="${OOONANA_AI_APP_LOG:-${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/ai-app.log}"
 
 if [ "${1:-}" = "--dry-run" ]; then
   printf 'yad Ooonana AI dashboard\n'
-  printf 'actions: status provider model tools tasks audit history desktop chat ask sessions setup env shell\n'
+  printf 'actions: status provider model tools tasks audit history desktop desktop-control permissions logs chat ask sessions setup env shell\n'
   printf 'dashboard tabs: home actions ask provider-model logs\n'
-  printf 'gui controls: ask form provider/model action launcher\n'
+  printf 'gui controls: ask form provider/model action launcher desktop-control permissions logs\n'
+  printf 'permissions: shell actions gated; desktop actions explicit; logs: %s\n' "$APP_LOG"
   printf 'OOONANA_AI_APP_GUI_OK\n'
   exit 0
 fi
@@ -40,10 +42,16 @@ run_ai() {
   "$AI_CMD" "$@"
 }
 
+log_event() {
+  mkdir -p "$(dirname "$APP_LOG")" 2>/dev/null || return 0
+  printf '%s %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z' 2>/dev/null || echo time)" "$*" >>"$APP_LOG" 2>/dev/null || true
+}
+
 run_gui_text() {
   title="$1"
   shift
   tmp="${TMPDIR:-/tmp}/ooonana-ai-app.$$"
+  log_event "run: ooonana-ai $*"
   if run_ai "$@" >"$tmp" 2>&1; then
     :
   else
@@ -89,7 +97,7 @@ show_home() {
   {
     printf '\nActions\n'
     printf '=======\n'
-    printf 'Ask, Chat, Tools, Tasks, Provider/Model, Audit, History, Desktop, Setup, Env, Shell\n'
+    printf 'Ask, Chat, Tools, Tasks, Provider/Model, Audit, History, Desktop, Desktop Control, Permissions, Logs, Setup, Env, Shell\n'
   } >>"$tmp"
   yad --center --title "Ooonana AI" --width=820 --height=560 \
     --text-info --filename="$tmp" --button=Actions:0 --button=Close:1 2>/dev/null
@@ -111,6 +119,9 @@ choose_action() {
     audit "Logs" "Show audit log" \
     history "Logs" "Show prompt history" \
     desktop "Desktop" "Inspect desktop context" \
+    desktop-control "Desktop" "Open terminal, browser, files, or restart i3" \
+    permissions "Safety" "Show action permissions and shell gate" \
+    logs "Logs" "Open Ooonana AI app log" \
     setup "Config" "Configure provider keys" \
     env "Config" "Environment check" \
     shell "Terminal" "Fallback shell" 2>/dev/null || true
@@ -144,6 +155,48 @@ provider_model_gui() {
   rm -f "$tmp"
 }
 
+permissions_gui() {
+  tmp="${TMPDIR:-/tmp}/ooonana-ai-permissions.$$"
+  {
+    printf 'Ooonana AI permissions\n'
+    printf '======================\n\n'
+    printf 'ask/chat: allowed with configured provider key\n'
+    printf 'desktop inspect: read-only\n'
+    printf 'desktop control: explicit button choice only\n'
+    printf 'shell tool: blocked unless command uses --yes\n'
+    printf 'logs: %s\n' "$APP_LOG"
+  } >"$tmp"
+  yad --center --title "Ooonana AI Permissions" --width=700 --height=420 \
+    --text-info --filename="$tmp" 2>/dev/null || true
+  rm -f "$tmp"
+}
+
+logs_gui() {
+  mkdir -p "$(dirname "$APP_LOG")" 2>/dev/null || true
+  [ -f "$APP_LOG" ] || printf 'log created\n' >"$APP_LOG"
+  yad --center --title "Ooonana AI Logs" --width=760 --height=520 \
+    --text-info --filename="$APP_LOG" 2>/dev/null || true
+}
+
+desktop_control_gui() {
+  action="$(yad --center --title "Ooonana Desktop Control" --width=600 --height=360 \
+    --list --print-column=1 --column Action --column Description \
+    terminal "Open themed terminal" \
+    browser "Open Chromium" \
+    files "Open Nemo file manager" \
+    settings "Open Ooonana Settings" \
+    restart-i3 "Restart i3 window manager" 2>/dev/null || true)"
+  [ -n "$action" ] || return 0
+  log_event "desktop-control: $action"
+  case "$action" in
+    terminal) open_action_terminal shell || true ;;
+    browser) command -v ooonana-browser >/dev/null 2>&1 && ooonana-browser || true ;;
+    files) command -v ooonana-files >/dev/null 2>&1 && ooonana-files || true ;;
+    settings) command -v ooonana-settings >/dev/null 2>&1 && ooonana-settings || true ;;
+    restart-i3) command -v i3-msg >/dev/null 2>&1 && i3-msg restart >/dev/null 2>&1 || true ;;
+  esac
+}
+
 open_gui() {
   [ "${OOONANA_AI_APP_NO_X:-0}" = "1" ] && return 1
   [ "${OOONANA_AI_APP_GUI:-1}" = "1" ] || return 1
@@ -173,6 +226,15 @@ open_gui() {
       ;;
     desktop)
       run_gui_text "Ooonana AI Desktop" tool desktop
+      ;;
+    desktop-control)
+      desktop_control_gui
+      ;;
+    permissions)
+      permissions_gui
+      ;;
+    logs)
+      logs_gui
       ;;
     audit)
       run_gui_text "Ooonana AI Audit" audit
@@ -227,6 +289,9 @@ print_dashboard() {
   printf '11 provider\n'
   printf '12 model\n'
   printf '13 env\n'
+  printf '14 permissions\n'
+  printf '15 logs\n'
+  printf '16 desktop-control\n'
   printf 'q quit\n'
 }
 
@@ -304,6 +369,21 @@ run_action() {
       ;;
     13|env)
       run_ai env
+      pause_if_interactive
+      ;;
+    14|permissions)
+      printf 'permissions: shell blocked unless --yes; desktop control requires explicit action\n'
+      printf 'log: %s\n' "$APP_LOG"
+      pause_if_interactive
+      ;;
+    15|logs)
+      mkdir -p "$(dirname "$APP_LOG")" 2>/dev/null || true
+      [ -f "$APP_LOG" ] || printf 'log created\n' >"$APP_LOG"
+      cat "$APP_LOG"
+      pause_if_interactive
+      ;;
+    16|desktop-control)
+      printf 'desktop-control: terminal browser files settings restart-i3\n'
       pause_if_interactive
       ;;
     0|status)

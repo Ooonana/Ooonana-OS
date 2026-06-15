@@ -465,6 +465,8 @@ set -eu
 if [ "${1:-}" = "--dry-run" ]; then
   echo "yad settings menu"
   echo "actions: theme wallpaper display audio wifi bluetooth packages brightness screenshot editor music processes ranger ai terminal browser files repo about"
+  echo "status cards: theme wallpaper network bluetooth audio display repo"
+  echo "safe launchers: terminal browser files ai packages"
   echo "OOONANA_SETTINGS_THEME_OK"
   echo "OOONANA_SETTINGS_GUI_OK"
   exit 0
@@ -520,6 +522,9 @@ show_info() {
     printf 'settings: /usr/bin/ooonana-settings\n'
     printf 'packages: ooonana-packages-app\n'
     printf 'ai: ooonana-ai-app\n'
+    printf 'network: %s\n' "$(command -v nm-applet >/dev/null 2>&1 && echo NetworkManager || echo basic)"
+    printf 'bluetooth: %s\n' "$(command -v blueman-manager >/dev/null 2>&1 && echo blueman || echo missing)"
+    printf 'audio: %s\n' "$(command -v pavucontrol >/dev/null 2>&1 && echo pavucontrol || echo missing)"
   } >"$info"
   yad --center --title "Ooonana OS" --text-info --filename="$info" --width=620 --height=420 2>/dev/null || true
   rm -f "$info"
@@ -533,7 +538,7 @@ while :; do
   theme_now="$(theme_status)"
   wallpaper_now="$(wallpaper_status)"
   action="$(yad --center --title "Ooonana Settings" --width=680 --height=500 \
-    --text "Theme: $theme_now    Wallpaper: $(basename "$wallpaper_now" 2>/dev/null || echo wallpaper)" \
+    --text "Theme: $theme_now    Wallpaper: $(basename "$wallpaper_now" 2>/dev/null || echo wallpaper)    Network/Bluetooth/Audio ready when tray tools are installed" \
     --list --print-column=1 --column Action --column Description \
     theme "Dark/light theme and apply now" \
     wallpaper "Choose desktop wallpaper" \

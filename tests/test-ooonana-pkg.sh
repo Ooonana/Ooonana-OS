@@ -57,9 +57,9 @@ assert_contains "$help" "ooonana depends PACKAGE"
 assert_contains "$help" "ooonana files PACKAGE"
 assert_contains "$help" "ooonana verify PACKAGE"
 assert_contains "$help" "ooonana upgrade [PACKAGE...]"
-assert_contains "$help" "ooonana repo index [PATH]"
+assert_contains "$help" "ooonana repo index [--sign-key KEY] [PATH]"
 assert_contains "$help" "ooonana repo build [options] [PACKAGE...]"
-assert_contains "$help" "ooonana repo add NAME URI"
+assert_contains "$help" "ooonana repo add NAME URI [PUBKEY]"
 assert_contains "$help" "ooonana repo remove NAME"
 assert_contains "$help" "ooonana repo doctor"
 assert_contains "$help" "ooonana check [PACKAGE...]"
@@ -120,10 +120,13 @@ assert_contains "$ui_help" "OOONANA_THEME=light"
 
 repo_help="$("$CLI" help repo)"
 assert_contains "$repo_help" "Repo commands:"
-assert_contains "$repo_help" "ooonana repo add NAME URI"
+assert_contains "$repo_help" "ooonana repo add NAME URI [PUBKEY]"
 assert_contains "$repo_help" "ooonana repo remove NAME"
 assert_contains "$repo_help" "ooonana repo doctor"
 assert_contains "$repo_help" "OOONANA_REPO_URI="
+assert_contains "$repo_help" "OOONANA_REPO_KEY="
+assert_contains "$repo_help" "Signed repos:"
+assert_contains "$repo_help" "OOONANA_REQUIRE_SIGNED_REPOS=1"
 assert_contains "$repo_help" "release tarball"
 assert_contains "$repo_help" "OOONANA_REPO_TOKEN"
 
@@ -276,6 +279,63 @@ assert_contains "$(<"$repo_add_dir/lab.repo")" "OOONANA_REPO_URI=\"$extra_repo\"
 repo_remove_out="$(OOONANA_SOURCES_DIR="$repo_add_dir" "$CLI" repo remove lab)"
 assert_contains "$repo_remove_out" "repo removed lab"
 [[ ! -e "$repo_add_dir/lab.repo" ]] || fail "repo remove left source file"
+
+if command -v openssl >/dev/null 2>&1; then
+  sign_repo="$tmp/sign-repo"
+  sign_root="$tmp/sign-root"
+  sign_state="$tmp/sign-state"
+  sign_cache="$tmp/sign-cache"
+  sign_sources="$tmp/sign-sources"
+  mkdir -p "$sign_repo" "$sign_root" "$sign_sources"
+  openssl genrsa -out "$tmp/repo.key" 2048 >/dev/null 2>&1
+  openssl rsa -in "$tmp/repo.key" -pubout -out "$tmp/repo.pub" >/dev/null 2>&1
+  cat > "$sign_repo/signed.pkg" <<'EOF'
+OOONANA_PKG_ID="signed"
+OOONANA_PKG_VERSION="1.0.0"
+OOONANA_PKG_KIND="tool"
+OOONANA_PKG_SUMMARY="Signed repo package"
+OOONANA_PKG_DEPS=""
+EOF
+  signed_index="$("$CLI" repo index --sign-key "$tmp/repo.key" "$sign_repo")"
+  assert_contains "$signed_index" "signed repo:"
+  [[ -f "$sign_repo/SHA256SUMS.sig" ]] || fail "missing repo signature"
+  signed_update="$(OOONANA_REPO_DIR="$sign_repo" \
+    OOONANA_REPO_VERIFY_KEY="$tmp/repo.pub" \
+    OOONANA_STATE_DIR="$sign_state" \
+    OOONANA_CACHE_DIR="$sign_cache" \
+    "$CLI" update)"
+  assert_contains "$signed_update" "synced 1 package(s)"
+  signed_install="$(OOONANA_REPO_DIR="$sign_repo" \
+    OOONANA_REPO_VERIFY_KEY="$tmp/repo.pub" \
+    OOONANA_STATE_DIR="$sign_state" \
+    OOONANA_CACHE_DIR="$sign_cache" \
+    OOONANA_ROOT="$sign_root" \
+    "$CLI" get signed)"
+  assert_contains "$signed_install" "installed signed"
+  cat > "$sign_sources/signed.repo" <<EOF
+OOONANA_REPO_NAME="signed"
+OOONANA_REPO_URI="$sign_repo"
+OOONANA_REPO_KEY="$tmp/repo.pub"
+EOF
+  signed_source_update="$(OOONANA_SOURCES_DIR="$sign_sources" \
+    OOONANA_STATE_DIR="$tmp/sign-source-state" \
+    OOONANA_CACHE_DIR="$tmp/sign-source-cache" \
+    "$CLI" update)"
+  assert_contains "$signed_source_update" "from 2 source(s)"
+  printf '# tamper\n' >> "$sign_repo/SHA256SUMS"
+  signed_bad="$(OOONANA_REPO_DIR="$sign_repo" \
+    OOONANA_REPO_VERIFY_KEY="$tmp/repo.pub" \
+    OOONANA_STATE_DIR="$tmp/sign-bad-state" \
+    OOONANA_CACHE_DIR="$tmp/sign-bad-cache" \
+    "$CLI" update 2>&1 || true)"
+  assert_contains "$signed_bad" "repo signature mismatch"
+  unsigned_required="$(OOONANA_REPO_DIR="$extra_repo" \
+    OOONANA_REQUIRE_SIGNED_REPOS=1 \
+    OOONANA_STATE_DIR="$tmp/unsigned-state" \
+    OOONANA_CACHE_DIR="$tmp/unsigned-cache" \
+    "$CLI" update 2>&1 || true)"
+  assert_contains "$unsigned_required" "repo signature missing"
+fi
 
 bad_repo_sources="$tmp/bad-repo-sources"
 mkdir -p "$bad_repo_sources"
@@ -602,17 +662,9 @@ cycle_dry="$(OOONANA_REPO_DIR="$dep_repo" \
   OOONANA_STATE_DIR="$tmp/cycle-state-dry" \
   OOONANA_CACHE_DIR="$tmp/cycle-cache-dry" \
   OOONANA_ROOT="$tmp/cycle-root-dry" \
-  "$CLI" get cyclea --dry-run)"
-assert_contains "$cycle_dry" "would install cycleb 1.0.0"
-assert_contains "$cycle_dry" "would install cyclea 1.0.0"
-
-OOONANA_REPO_DIR="$dep_repo" \
-  OOONANA_STATE_DIR="$tmp/cycle-state" \
-  OOONANA_CACHE_DIR="$tmp/cycle-cache" \
-  OOONANA_ROOT="$tmp/cycle-root" \
-  "$CLI" get cyclea >/dev/null
-[[ -f "$tmp/cycle-state/installed/cyclea.pkg" ]] || fail "cyclea not installed"
-[[ -f "$tmp/cycle-state/installed/cycleb.pkg" ]] || fail "cycleb not installed"
+  "$CLI" get cyclea --dry-run 2>&1 || true)"
+assert_contains "$cycle_dry" "dependency cycle:"
+assert_contains "$cycle_dry" "cyclea cycleb cyclea"
 
 OOONANA_REPO_DIR="$dep_repo" \
   OOONANA_STATE_DIR="$tmp/dep-state" \
@@ -631,6 +683,13 @@ dep_remove_force="$(OOONANA_REPO_DIR="$dep_repo" \
   OOONANA_ROOT="$tmp/dep-root" \
   "$CLI" remove libthing --force --dry-run)"
 assert_contains "$dep_remove_force" "would remove libthing"
+dep_remove_batch="$(OOONANA_REPO_DIR="$dep_repo" \
+  OOONANA_STATE_DIR="$tmp/dep-state" \
+  OOONANA_CACHE_DIR="$tmp/dep-cache" \
+  OOONANA_ROOT="$tmp/dep-root" \
+  "$CLI" remove appthing libthing --dry-run)"
+assert_contains "$dep_remove_batch" "would remove appthing"
+assert_contains "$dep_remove_batch" "would remove libthing"
 
 OOONANA_REPO_DIR="$dep_repo" \
   OOONANA_STATE_DIR="$tmp/conflict-state" \

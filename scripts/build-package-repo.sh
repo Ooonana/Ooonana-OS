@@ -15,6 +15,8 @@ CLOUD_URL=""
 REPO_NAME="cloud"
 CLEAN=0
 DRY_RUN=0
+SIGN_KEY="${OOONANA_REPO_SIGN_KEY:-}"
+PUBLIC_KEY="${OOONANA_REPO_PUBLIC_KEY:-}"
 IMPORT_APK_SCRIPT="${OOONANA_IMPORT_APK_SCRIPT:-$ROOT/scripts/import-apk-package.sh}"
 IMPORT_I3_SCRIPT="${OOONANA_IMPORT_I3_SCRIPT:-$ROOT/scripts/import-i3-package-set.sh}"
 
@@ -33,6 +35,8 @@ Options:
   --full-i3               Build full-i3 wrapper packages and branding
   --cloud-url URL         Write cloud.repo and README.txt for this URL
   --repo-name NAME        Repo source name for cloud.repo (default: cloud)
+  --sign-key PATH         Sign SHA256SUMS with an OpenSSL private key
+  --public-key PATH       Copy public key to repo.pub for distribution
   --clean                 Delete output dir before build
   --dry-run               Print resolved build command only
   -h, --help              Show help
@@ -55,6 +59,8 @@ while [[ $# -gt 0 ]]; do
     --full-i3) FULL_I3=1; shift ;;
     --cloud-url) CLOUD_URL="$2"; shift 2 ;;
     --repo-name) REPO_NAME="$2"; shift 2 ;;
+    --sign-key) SIGN_KEY="$2"; shift 2 ;;
+    --public-key) PUBLIC_KEY="$2"; shift 2 ;;
     --clean) CLEAN=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -139,6 +145,8 @@ main() {
     printf 'packages: %s\n' "$package_list"
     printf 'full-i3: %s\n' "$FULL_I3"
     [[ -n "$CLOUD_URL" ]] && printf 'cloud: %s %s\n' "$REPO_NAME" "$CLOUD_URL"
+    [[ -n "$SIGN_KEY" ]] && printf 'sign-key: %s\n' "$SIGN_KEY"
+    [[ -n "$PUBLIC_KEY" ]] && printf 'public-key: %s\n' "$PUBLIC_KEY"
     if [[ "$FULL_I3" -eq 1 ]]; then
       ooonana_print_command bash "$IMPORT_I3_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --packages "$package_list"
     else
@@ -154,6 +162,14 @@ main() {
   else
     # shellcheck disable=SC2086
     bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" $package_list
+  fi
+  if [[ -n "$PUBLIC_KEY" ]]; then
+    [[ -f "$PUBLIC_KEY" ]] || ooonana_die "missing public key: $PUBLIC_KEY"
+    cp "$PUBLIC_KEY" "$OUT_DIR/repo.pub"
+    chmod 0644 "$OUT_DIR/repo.pub" 2>/dev/null || true
+  fi
+  if [[ -n "$SIGN_KEY" ]]; then
+    "$ROOT/packages/ooonana/usr/bin/ooonana" repo index --sign-key "$SIGN_KEY" "$OUT_DIR" >/dev/null
   fi
   write_cloud_hints
   ooonana_log "package repo ready: $OUT_DIR"

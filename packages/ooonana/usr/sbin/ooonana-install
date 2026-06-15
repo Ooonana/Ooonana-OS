@@ -28,6 +28,7 @@ FORMAT_ROOT=1
 FORMAT_HOME=1
 FORMAT_SWAP=1
 FORMAT_EFI=0
+ALLOW_CURRENT_ROOT=0
 
 usage() {
   cat <<'USAGE'
@@ -55,6 +56,8 @@ Options:
   --keep-swap         Do not initialize swap partition
   --keep-efi          Do not format EFI partition (default)
   --format-efi        Format EFI partition as FAT32 with label OOONANA_EFI
+  --danger-allow-current-root
+                      Allow target matching current root disk/partition
   --smoke             Add smoke boot argument
   --gui-smoke         Add GUI smoke boot argument
   --yes               Confirm destructive install
@@ -249,6 +252,84 @@ require_block_or_dry() {
   [[ -n "$path" ]] || return 0
   [[ "$DRY_RUN" -eq 1 ]] && return 0
   [[ -b "$path" ]] || die "$label must be a block device: $path"
+}
+
+partition_owner_disk() {
+  local path="$1"
+  local pkname=""
+  [[ "$DRY_RUN" -eq 0 ]] || return 1
+  command -v lsblk >/dev/null 2>&1 || return 1
+  pkname="$(lsblk -no PKNAME "$path" 2>/dev/null | sed -n '1p' || true)"
+  [[ -n "$pkname" ]] || return 1
+  printf '/dev/%s\n' "$pkname"
+}
+
+same_target_path() {
+  local left="$1"
+  local right="$2"
+  [[ -n "$left" && -n "$right" ]] || return 1
+  if command -v readlink >/dev/null 2>&1; then
+    left="$(readlink -f "$left" 2>/dev/null || printf '%s\n' "$left")"
+    right="$(readlink -f "$right" 2>/dev/null || printf '%s\n' "$right")"
+  fi
+  [[ "$left" == "$right" ]]
+}
+
+current_root_source() {
+  command -v findmnt >/dev/null 2>&1 || return 1
+  findmnt -n -o SOURCE / 2>/dev/null | sed -n '1p'
+}
+
+validate_unique_install_parts() {
+  local seen="" label part
+  for label in root home swap efi; do
+    case "$label" in
+      root) part="$TARGET_PART" ;;
+      home) part="$HOME_PART" ;;
+      swap) part="$SWAP_PART" ;;
+      efi) part="$EFI_PART" ;;
+    esac
+    [[ -n "$part" ]] || continue
+    case " $seen " in
+      *" $part "*) die "partition reused for install roles: $part" ;;
+    esac
+    seen="$seen $part"
+  done
+}
+
+validate_disk_extra_parts() {
+  local part owner
+  [[ "$TARGET_MODE" == "disk" ]] || return 0
+  for part in "$HOME_PART" "$SWAP_PART" "$EFI_PART"; do
+    [[ -n "$part" ]] || continue
+    case "$part" in
+      "$TARGET"*) die "extra partition would be wiped by disk target: $part on $TARGET" ;;
+    esac
+    if [[ "$DRY_RUN" -eq 0 ]]; then
+      owner="$(partition_owner_disk "$part" || true)"
+      [[ -z "$owner" ]] || ! same_target_path "$owner" "$TARGET" ||
+        die "extra partition would be wiped by disk target: $part on $TARGET"
+    fi
+  done
+}
+
+validate_current_root_safety() {
+  local root_part root_disk target_disk
+  [[ "$ALLOW_CURRENT_ROOT" -eq 0 ]] || return 0
+  [[ "$DRY_RUN" -eq 0 ]] || return 0
+  root_part="$(current_root_source || true)"
+  [[ -n "$root_part" ]] || return 0
+  root_disk="$(partition_owner_disk "$root_part" || true)"
+  if same_target_path "$TARGET_PART" "$root_part"; then
+    die "refusing current root partition target: $TARGET_PART"
+  fi
+  if [[ "$TARGET_MODE" == "disk" ]]; then
+    target_disk="$INSTALL_DEVICE"
+    [[ -n "$target_disk" ]] || target_disk="$TARGET"
+    if same_target_path "$target_disk" "$root_disk" || same_target_path "$target_disk" "$root_part"; then
+      die "refusing current root disk target: $target_disk"
+    fi
+  fi
 }
 
 mount_extra_partitions() {
@@ -487,6 +568,9 @@ prepare_target() {
       ;;
     *) die "unknown target mode: $TARGET_MODE" ;;
   esac
+  validate_unique_install_parts
+  validate_disk_extra_parts
+  validate_current_root_safety
 
   if [[ "$TARGET_MODE" == "partition" && "$FORMAT_ROOT" -eq 0 ]]; then
     printf 'keep root filesystem: %s\n' "$TARGET_PART"
@@ -548,6 +632,7 @@ while [[ $# -gt 0 ]]; do
     --keep-swap) FORMAT_SWAP=0; shift ;;
     --keep-efi) FORMAT_EFI=0; shift ;;
     --format-efi) FORMAT_EFI=1; shift ;;
+    --danger-allow-current-root) ALLOW_CURRENT_ROOT=1; shift ;;
     --smoke) SMOKE=1; shift ;;
     --gui-smoke) GUI_SMOKE=1; shift ;;
     --yes) YES=1; shift ;;

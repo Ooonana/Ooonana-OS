@@ -41,6 +41,7 @@ assert_contains "$installer_help" "--efi-part PATH"
 assert_contains "$installer_help" "--keep-root"
 assert_contains "$installer_help" "--keep-home"
 assert_contains "$installer_help" "--format-efi"
+assert_contains "$installer_help" "--danger-allow-current-root"
 assert_contains "$installer_help" "--smoke"
 assert_contains "$installer_help" "--gui-smoke"
 assert_contains "$installer_help" "/run/ooonana-target"
@@ -91,7 +92,21 @@ assert_contains "$custom_dry_run" "umount /run/ooonana-target/boot/efi"
 assert_contains "$custom_dry_run" "umount /run/ooonana-target/home"
 assert_not_contains "$custom_dry_run" "grub-install"
 
+duplicate_part="$(bash "$INSTALLER" --dry-run --yes \
+  --target /dev/sda2 \
+  --bootloader none \
+  --home-part /dev/sda2 \
+  --keep-root 2>&1 || true)"
+assert_contains "$duplicate_part" "partition reused for install roles: /dev/sda2"
+
+wiped_extra="$(bash "$INSTALLER" --dry-run --yes \
+  --target /dev/sda \
+  --home-part /dev/sda3 2>&1 || true)"
+assert_contains "$wiped_extra" "extra partition would be wiped by disk target: /dev/sda3 on /dev/sda"
+
 installer_src="$(<"$INSTALLER")"
+assert_contains "$installer_src" "refusing current root partition target"
+assert_contains "$installer_src" "refusing current root disk target"
 assert_contains "$installer_src" "terminal_input console serial"
 assert_contains "$installer_src" "terminal_output console serial"
 assert_contains "$installer_src" "terminal_output gfxterm serial"

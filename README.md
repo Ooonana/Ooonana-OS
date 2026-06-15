@@ -261,7 +261,7 @@ oonana                 # Ooonana brickout game, two-o command
 neofetch               # Ooonana logo fallback
 ```
 
-`oonana` starts the terminal brickout game from the installer game engine. Bricks spell `OOONANA OS`, the ball is the Ooonana face, supported terminals use ANSI cursor-home redraw, and repeated hits build combo scoring. The game uses multiple colors for bricks, HUD, paddle, and ball when color is available. Controls are `a/d`, left/right arrows, and `q` quit.
+`oonana` starts the terminal brickout game from the installer game engine. Bricks spell `OOONANA OS`, the ball is the Ooonana logo sprite, supported terminals use ANSI cursor-home redraw, and repeated hits build combo scoring. The game uses multiple colors for bricks, HUD, paddle, and ball when color is available. Controls are `a/d`, left/right arrows, and `q` quit.
 
 Install package flow:
 
@@ -361,10 +361,25 @@ This creates:
 /tmp/ooonana-repo/archives/*.tar.gz
 /tmp/ooonana-repo/index.tsv
 /tmp/ooonana-repo/SHA256SUMS
+/tmp/ooonana-repo/SHA256SUMS.sig
 /tmp/ooonana-repo/cloud.repo
 ```
 
 `scripts/import-apk-package.sh` is the low-level APK importer. `scripts/build-package-repo.sh` is the normal repo builder. It loads a profile, adds extra package names, imports dependencies, writes indexes and checksums, and can write cloud repo hints.
+
+Signed repos:
+
+```bash
+bash scripts/build-package-repo.sh \
+  --out-dir /tmp/ooonana-repo \
+  --package-profile configs/packages/ooonana-cloud.list \
+  --sign-key /root/ooonana-repo.key \
+  --public-key /root/ooonana-repo.pub \
+  --clean
+
+ooonana repo add cloud https://example.test/ooonana-repo /etc/ooonana/trusted-keys/cloud.pem
+OOONANA_REQUIRE_SIGNED_REPOS=1 ooonana update
+```
 
 CLI dry run:
 
@@ -408,6 +423,10 @@ Default full-i3 apps and tools:
 chromium, nemo, python3, py3-pip, alacritty
 polybar, rofi, yad, picom, dunst, feh
 networkmanager, network-manager-applet, blueman
+bluez, wpa_supplicant, wireless-regdb, linux-firmware
+linux-firmware-i915, linux-firmware-amdgpu, linux-firmware-brcm
+linux-firmware-rtlwifi, sof-firmware, mesa-dri-gallium
+mesa-va-gallium, mesa-vulkan-intel, alsa-utils
 geany, maim, mpd, mpc, ncmpcpp, ranger, htop, vim
 arandr, xrandr, pavucontrol, brightnessctl
 parted, e2fsprogs, dosfstools, util-linux
@@ -601,6 +620,24 @@ Target system: BIOS or UEFI
 If Rufus shows `ISOHybrid image detected`, choose `Write in DD Image mode`.
 The ISO includes `RUFUS.md` at the USB root with the same notes.
 
+Installed-system boot matrix helper:
+
+```bash
+bash scripts/verify-installed-boot-matrix.sh --disk /path/to/ooonana-installed.raw --iso /path/to/ooonana-full-i3.iso --dry-run
+```
+
+Secure Boot is optional and requires user-owned MOK keys. Prepare signed assets with:
+
+```bash
+bash scripts/build-secure-boot-assets.sh \
+  --efi-dir /boot/efi \
+  --kernel /boot/vmlinuz \
+  --key /root/MOK.key \
+  --cert /root/MOK.crt \
+  --out-dir /tmp/ooonana-secure-boot \
+  --dry-run
+```
+
 Verify before uploading or flashing:
 
 ```bash
@@ -668,6 +705,8 @@ When `full_i3_profile=true`, the cloud build uses:
 ```text
 configs/packages/full-i3.list
 ```
+
+The full-i3 profile includes desktop basics plus common hardware support: NetworkManager, Bluetooth, Wi-Fi regulatory data, selected Linux firmware families, SOF audio firmware, Mesa DRI/VA, Intel Vulkan, and ALSA tools.
 
 After the generated repo tarball is published to GitHub Releases and added to `/etc/ooonana/sources.d/cloud.repo`, this path is intended to work:
 

@@ -50,9 +50,21 @@ jobs:
           OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
           RELEASE_TAG: ${{ inputs.release_tag }}
+          OOONANA_REPO_SIGN_KEY_B64: ${{ secrets.OOONANA_REPO_SIGN_KEY_B64 }}
+          OOONANA_REPO_PUBLIC_KEY_B64: ${{ secrets.OOONANA_REPO_PUBLIC_KEY_B64 }}
         run: |
           set -euo pipefail
           out="$RUNNER_TEMP/ooonana-repo"
+          sign_args=""
+          if [ -n "${OOONANA_REPO_SIGN_KEY_B64:-}" ]; then
+            printf '%s' "$OOONANA_REPO_SIGN_KEY_B64" | base64 -d > "$RUNNER_TEMP/ooonana-repo-sign.key"
+            chmod 600 "$RUNNER_TEMP/ooonana-repo-sign.key"
+            sign_args="$sign_args --sign-key $RUNNER_TEMP/ooonana-repo-sign.key"
+          fi
+          if [ -n "${OOONANA_REPO_PUBLIC_KEY_B64:-}" ]; then
+            printf '%s' "$OOONANA_REPO_PUBLIC_KEY_B64" | base64 -d > "$RUNNER_TEMP/ooonana-repo.pub"
+            sign_args="$sign_args --public-key $RUNNER_TEMP/ooonana-repo.pub"
+          fi
           repo_args=""
           for repo in $ALPINE_REPOS; do
             repo_args="$repo_args --repo-url $repo"
@@ -79,6 +91,7 @@ jobs:
             --cloud-url "$cloud_url" \
             --clean \
             $full_i3_arg \
+            $sign_args \
             $repo_args
           find "$out" -maxdepth 3 -type f -print | sort
 
