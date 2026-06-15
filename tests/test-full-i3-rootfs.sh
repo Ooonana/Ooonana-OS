@@ -18,6 +18,9 @@ assert_contains() {
 [[ -x "$SCRIPT" ]] || fail "missing executable full-i3 rootfs builder"
 script_src="$(<"$SCRIPT")"
 assert_contains "$script_src" 'cp -a "$ROOT/packages/ooonana/." "$ROOTFS/"'
+assert_contains "$script_src" 'cp -a "$REPO/." "$ROOTFS/usr/lib/ooonana/repo/"'
+assert_contains "$script_src" 'ooonana" repo index "$ROOTFS/usr/lib/ooonana/repo"'
+assert_contains "$script_src" 'ooonana" repo index "$REPO"'
 assert_contains "$script_src" "compile_glib_schemas()"
 assert_contains "$script_src" 'glib-compile-schemas "$ROOTFS/usr/share/glib-2.0/schemas"'
 assert_contains "$script_src" "refresh_gtk_caches()"

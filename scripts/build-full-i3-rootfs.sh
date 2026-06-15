@@ -1890,6 +1890,9 @@ main() {
   mkdir -p "$(dirname "$ROOTFS")"
   cp -a "$SCRATCH_ROOTFS" "$ROOTFS"
   cp -a "$ROOT/packages/ooonana/." "$ROOTFS/"
+  rm -rf "$ROOTFS/usr/lib/ooonana/repo"
+  mkdir -p "$ROOTFS/usr/lib/ooonana/repo"
+  cp -a "$REPO/." "$ROOTFS/usr/lib/ooonana/repo/"
   chmod 0755 \
     "$ROOTFS/usr/bin/ooonana" \
     "$ROOTFS/usr/bin/ooonana-ai" \
@@ -1906,6 +1909,8 @@ main() {
   mkdir -p "$ROOTFS/etc/ooonana" "$ROOTFS/var/lib/ooonana/packages/installed" "$ROOTFS/var/log"
   printf '127.0.0.1 localhost ooonana\n' > "$ROOTFS/etc/hosts"
   printf 'full-i3\n' > "$ROOTFS/etc/ooonana/edition"
+  "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$ROOTFS/usr/lib/ooonana/repo" >/dev/null
+  "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$REPO" >/dev/null
   install_full_i3_packages
   compile_glib_schemas
   refresh_gtk_caches
