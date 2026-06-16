@@ -227,7 +227,7 @@ EOF
 build_iso() {
   mkdir -p "$(dirname "$ISO")"
   rm -f "$ISO"
-  grub-mkrescue -volid "$VOLUME" -o "$ISO" "$ISO_TREE"
+  grub-mkrescue -volid "$VOLUME" -iso-level 3 -o "$ISO" "$ISO_TREE"
 }
 
 validate_grub_modules() {

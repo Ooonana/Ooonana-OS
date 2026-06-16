@@ -1652,7 +1652,14 @@ install_one_pkg() {
   dry_run="$2"
   safe_pkg_id "$id" || die "bad package id: $id"
   case " ${OOONANA_INSTALLING:-} " in
-    *" $id "*) die "dependency cycle:${OOONANA_INSTALLING:-} $id" ;;
+    *" $id "*)
+      load_pkg "$id"
+      if [ "$OOONANA_PKG_KIND" = "apk" ]; then
+        printf 'dependency cycle tolerated: %s\n' "$id"
+        return 0
+      fi
+      die "dependency cycle:${OOONANA_INSTALLING:-} $id"
+      ;;
   esac
   if pkg_installed "$id"; then
     printf 'already installed %s\n' "$id"
@@ -1715,7 +1722,14 @@ upgrade_one_pkg() {
   dry_run="$2"
   safe_pkg_id "$id" || die "bad package id: $id"
   case " ${OOONANA_UPGRADING:-} " in
-    *" $id "*) die "upgrade dependency cycle:${OOONANA_UPGRADING:-} $id" ;;
+    *" $id "*)
+      load_pkg "$id"
+      if [ "$OOONANA_PKG_KIND" = "apk" ]; then
+        printf 'upgrade dependency cycle tolerated: %s\n' "$id"
+        return 0
+      fi
+      die "upgrade dependency cycle:${OOONANA_UPGRADING:-} $id"
+      ;;
   esac
   pkg_installed "$id" || die "package not installed: $id"
 

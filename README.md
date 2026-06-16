@@ -463,7 +463,7 @@ Build full-i3 disk and live/install ISO:
 bash scripts/build-full-i3-disk.sh \
   --rootfs /var/tmp/ooonana-os/build/full-i3-rootfs \
   --disk-image /var/tmp/ooonana-os/build/ooonana-full-i3-disk.raw \
-  --size 2048M \
+  --size 6144M \
   --force
 bash scripts/build-full-i3-live-initramfs.sh \
   --rootfs /var/tmp/ooonana-os/build/full-i3-rootfs \

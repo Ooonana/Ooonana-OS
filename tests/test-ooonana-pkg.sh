@@ -651,6 +651,20 @@ OOONANA_PKG_KIND="tool"
 OOONANA_PKG_SUMMARY="Cycle B"
 OOONANA_PKG_DEPS="cyclea"
 EOF
+cat > "$dep_repo/apkcyclea.pkg" <<'EOF'
+OOONANA_PKG_ID="apkcyclea"
+OOONANA_PKG_VERSION="1.0.0"
+OOONANA_PKG_KIND="apk"
+OOONANA_PKG_SUMMARY="APK cycle A"
+OOONANA_PKG_DEPS="apkcycleb"
+EOF
+cat > "$dep_repo/apkcycleb.pkg" <<'EOF'
+OOONANA_PKG_ID="apkcycleb"
+OOONANA_PKG_VERSION="1.0.0"
+OOONANA_PKG_KIND="apk"
+OOONANA_PKG_SUMMARY="APK cycle B"
+OOONANA_PKG_DEPS="apkcyclea"
+EOF
 depends="$(OOONANA_REPO_DIR="$dep_repo" "$CLI" depends appthing)"
 assert_contains "$depends" "appthing depends: libthing"
 nodeps="$(OOONANA_REPO_DIR="$dep_repo" "$CLI" depends libthing)"
@@ -665,6 +679,15 @@ cycle_dry="$(OOONANA_REPO_DIR="$dep_repo" \
   "$CLI" get cyclea --dry-run 2>&1 || true)"
 assert_contains "$cycle_dry" "dependency cycle:"
 assert_contains "$cycle_dry" "cyclea cycleb cyclea"
+
+apk_cycle_dry="$(OOONANA_REPO_DIR="$dep_repo" \
+  OOONANA_STATE_DIR="$tmp/apk-cycle-state-dry" \
+  OOONANA_CACHE_DIR="$tmp/apk-cycle-cache-dry" \
+  OOONANA_ROOT="$tmp/apk-cycle-root-dry" \
+  "$CLI" get apkcyclea --dry-run)"
+assert_contains "$apk_cycle_dry" "dependency cycle tolerated: apkcyclea"
+assert_contains "$apk_cycle_dry" "would install apkcycleb"
+assert_contains "$apk_cycle_dry" "would install apkcyclea"
 
 OOONANA_REPO_DIR="$dep_repo" \
   OOONANA_STATE_DIR="$tmp/dep-state" \
