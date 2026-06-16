@@ -11,6 +11,7 @@ INITRAMFS="$WORK_DIR/ooonana-scratch-initramfs.cpio.gz"
 LIVE_INITRAMFS="$WORK_DIR/ooonana-full-i3-live-initramfs.cpio.gz"
 LIVE_ROOTFS_IMAGE="$WORK_DIR/ooonana-full-i3-live-rootfs.ext4"
 DISK_IMAGE="$WORK_DIR/ooonana-full-i3-disk.raw"
+DISK_IMAGE_STAGED="ooonana-full-i3-disk.raw.gz"
 ISO_TREE="$WORK_DIR/full-i3-iso-tree"
 ISO="$WORK_DIR/ooonana-full-i3.iso"
 VOLUME="OOONANAUSB"
@@ -84,7 +85,7 @@ write_grub_config() {
     live_append="$live_append ooonana.smoke=1 ooonana.gui-smoke=1"
   elif [[ "$SMOKE" -eq 1 ]]; then
     default_entry=2
-    install_append="$console_args panic=1 rdinit=/init ooonana.install=1 ooonana.install.target=$INSTALL_TARGET ooonana.install.image=/mnt/install/images/ooonana-full-i3-disk.raw ooonana.smoke=1"
+    install_append="$console_args panic=1 rdinit=/init ooonana.install=1 ooonana.install.target=$INSTALL_TARGET ooonana.install.image=/mnt/install/images/$DISK_IMAGE_STAGED ooonana.smoke=1"
     install_initrd="/boot/install-initramfs.cpio.gz"
   fi
   safe_install_append="$install_append nomodeset"
@@ -181,7 +182,7 @@ stage_iso_tree() {
   install -m 0644 "$INITRAMFS" "$ISO_TREE/boot/install-initramfs.cpio.gz"
   install -m 0644 "$LIVE_INITRAMFS" "$ISO_TREE/boot/live-initramfs.cpio.gz"
   install -m 0644 "$LIVE_ROOTFS_IMAGE" "$ISO_TREE/images/ooonana-full-i3-live-rootfs.ext4"
-  install -m 0644 "$DISK_IMAGE" "$ISO_TREE/images/ooonana-full-i3-disk.raw"
+  gzip -n -c "$DISK_IMAGE" > "$ISO_TREE/images/$DISK_IMAGE_STAGED"
   install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/logo.txt" "$ISO_TREE/boot/grub/ooonana-logo.txt"
   write_rufus_note
   cat > "$ISO_TREE/boot/grub/theme.txt" <<'EOF'
@@ -243,7 +244,7 @@ validate_grub_modules() {
 
 main() {
   ooonana_require_linux
-  ooonana_require_commands grub-mkrescue install
+  ooonana_require_commands gzip grub-mkrescue install
   validate_grub_modules
 
   if [[ "$FORCE" -eq 1 ]]; then

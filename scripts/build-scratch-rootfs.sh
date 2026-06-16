@@ -290,9 +290,18 @@ if grep -q 'ooonana.install=1' /proc/cmdline 2>/dev/null; then
   fi
   echo "Source image: $install_image"
   echo "Writing image to target"
-  if ! dd if="$install_image" of="$target" bs=4M; then
-    install_fail
-  fi
+  case "$install_image" in
+    *.gz)
+      if ! gzip -dc "$install_image" | dd of="$target" bs=4M; then
+        install_fail
+      fi
+      ;;
+    *)
+      if ! dd if="$install_image" of="$target" bs=4M; then
+        install_fail
+      fi
+      ;;
+  esac
   if ! sync; then
     install_fail
   fi

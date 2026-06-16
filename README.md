@@ -76,7 +76,7 @@ ooonana-rootfs.tar.gz              minimal chroot/container rootfs tarball
 ooonana-wsl-rootfs.tar.gz          minimal WSL import rootfs
 ooonana-full-i3-rootfs.tar.gz      full-i3 package-installed rootfs tarball
 ooonana-full-i3-disk.raw           full-i3 installed raw disk image
-ooonana-full-i3.iso                full-i3 live/install ISO
+ooonana-full-i3.iso                full-i3 live/install ISO, embeds compressed install disk
 ooonana-full-i3-wsl-rootfs.tar.gz  full-i3 WSL import rootfs
 vmlinuz-ooonana                    Ooonana Linux kernel
 SHA256SUMS                         checksums for release artifacts
@@ -416,6 +416,7 @@ full-i3   ooonana-full-i3.iso, ooonana-full-i3-disk.raw, ooonana-full-i3-rootfs.
 
 The full-i3 path adds branding, i3 config, X input drivers, package automation, live desktop, GUI installer tools, Ooonana AI app launcher, and a package-installed rootfs. It does not replace the minimal release.
 The full-i3 ISO boots live i3 by default. The GRUB menu includes normal live, persistent live, installer, and safe graphics installer entries. From the live desktop, launch `ooonana-gui-installer` to install through the graphical wizard.
+The full-i3 ISO stages the installed raw disk as `images/ooonana-full-i3-disk.raw.gz` and streams it through `gzip -dc` during install. This keeps Rufus/DD USB behavior while avoiding a second uncompressed 6GB image inside the ISO.
 
 Default full-i3 apps and tools:
 
