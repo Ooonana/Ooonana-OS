@@ -30,17 +30,10 @@ printf 'fake iso\n' > "$tmp/full.iso"
 printf 'fake iso\n' > "$tmp/min.iso"
 
 cat > "$tmp/full-grub.cfg" <<'EOF'
-insmod font
-set gfxmode=1024x768,800x600,auto
-set gfxpayload=keep
 terminal_input console serial
-terminal_output gfxterm serial
+terminal_output console serial
 set color_normal=yellow/black
 set color_highlight=black/yellow
-set theme=/boot/grub/theme.txt
-export theme
-insmod gfxmenu
-insmod gfxterm_menu
 set timeout=5
 cat /boot/grub/ooonana-logo.txt
 menuentry 'Ooonana OS Full i3 Live' { linux /boot/vmlinuz console=ttyS0 console=tty0 }
@@ -132,7 +125,6 @@ chmod +x "$tmp/bin/xorriso"
 out="$(OOONANA_FAKE_ROOT="$tmp" OOONANA_FAKE_EDITION=full-i3 PATH="$tmp/bin:$PATH" bash "$SCRIPT" --iso "$tmp/full.iso")"
 assert_contains "$out" "[done] ISOHybrid BIOS and UEFI boot paths"
 assert_contains "$out" "[done] Rufus DD-mode note and orange GRUB"
-assert_contains "$out" "[done] GRUB timeout progress bar"
 assert_contains "$out" "[done] edition menus"
 assert_contains "$out" "[done] release GRUB has no smoke auto-reboot args"
 assert_contains "$out" "[done] USB-friendly volume labels"
