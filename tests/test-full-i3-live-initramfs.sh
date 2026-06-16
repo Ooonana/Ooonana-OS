@@ -27,7 +27,7 @@ assert_contains "$help" "--kernel"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
-mkdir -p "$tmp/bin" "$tmp/rootfs/bin" "$tmp/rootfs/etc/ooonana" "$tmp/rootfs/lib" "$tmp/rootfs/usr/bin" "$tmp/rootfs/dev" "$tmp/rootfs/proc" "$tmp/rootfs/sys" "$tmp/rootfs/run" "$tmp/rootfs/tmp"
+mkdir -p "$tmp/bin" "$tmp/rootfs/bin" "$tmp/rootfs/etc/ooonana" "$tmp/rootfs/lib/firmware" "$tmp/rootfs/usr/bin" "$tmp/rootfs/dev" "$tmp/rootfs/proc" "$tmp/rootfs/sys" "$tmp/rootfs/run" "$tmp/rootfs/tmp"
 cat > "$tmp/bin/cpio" <<'EOF'
 #!/bin/sh
 cat >/dev/null
@@ -51,6 +51,8 @@ EOF
 chmod +x "$tmp/rootfs/bin/busybox"
 printf 'loader\n' > "$tmp/rootfs/lib/ld-musl-x86_64.so.1"
 printf 'libc\n' > "$tmp/rootfs/lib/libc.musl-x86_64.so.1"
+printf 'regdb\n' > "$tmp/rootfs/lib/firmware/regulatory.db"
+printf 'regsig\n' > "$tmp/rootfs/lib/firmware/regulatory.db.p7s"
 printf 'full-i3\n' > "$tmp/rootfs/etc/ooonana/edition"
 cat > "$tmp/rootfs/usr/bin/start-ooonana-i3" <<'EOF'
 #!/bin/sh
@@ -81,5 +83,7 @@ assert_contains "$script_src" "mount -t overlay overlay"
 assert_contains "$script_src" "switch_root /newroot /sbin/init"
 assert_contains "$script_src" "ld-musl-x86_64.so.1"
 assert_contains "$script_src" "libc.musl-x86_64.so.1"
+assert_contains "$script_src" "regulatory.db"
+assert_contains "$script_src" '[ -e /proc/sys/kernel/hotplug ]'
 
 printf 'ok full-i3-live-initramfs\n'

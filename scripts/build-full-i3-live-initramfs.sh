@@ -89,6 +89,12 @@ main() {
   if [[ -e "$ROOTFS/lib/libc.musl-x86_64.so.1" ]]; then
     install -m 0755 "$ROOTFS/lib/libc.musl-x86_64.so.1" "$LIVE_INIT_TREE/lib/libc.musl-x86_64.so.1"
   fi
+  if [[ -f "$ROOTFS/lib/firmware/regulatory.db" ]]; then
+    install -D -m 0644 "$ROOTFS/lib/firmware/regulatory.db" "$LIVE_INIT_TREE/lib/firmware/regulatory.db"
+  fi
+  if [[ -f "$ROOTFS/lib/firmware/regulatory.db.p7s" ]]; then
+    install -D -m 0644 "$ROOTFS/lib/firmware/regulatory.db.p7s" "$LIVE_INIT_TREE/lib/firmware/regulatory.db.p7s"
+  fi
   for applet in sh mount mkdir mknod sleep cat echo switch_root ls grep umount losetup mdev modprobe; do
     ln -sf busybox "$LIVE_INIT_TREE/bin/$applet"
   done
@@ -122,7 +128,7 @@ mount -t devtmpfs devtmpfs /dev 2>/dev/null || {
 }
 mkdir -p /dev/pts /mnt/iso /mnt/root-ro /cow/upper /cow/work /newroot
 mount -t devpts devpts /dev/pts 2>/dev/null || true
-echo /sbin/mdev >/proc/sys/kernel/hotplug 2>/dev/null || true
+[ -e /proc/sys/kernel/hotplug ] && echo /sbin/mdev >/proc/sys/kernel/hotplug 2>/dev/null || true
 mdev -s 2>/dev/null || true
 modprobe loop 2>/dev/null || true
 modprobe iso9660 2>/dev/null || true

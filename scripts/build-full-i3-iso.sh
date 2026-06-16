@@ -74,6 +74,8 @@ write_grub_config() {
   local console_args="console=ttyS0 console=tty0"
   if [[ "$SMOKE" -eq 1 ]]; then
     console_args="console=tty0 console=ttyS0"
+  else
+    console_args="$console_args quiet loglevel=3"
   fi
   local live_append="$console_args panic=1 rdinit=/init ooonana.live=1 ooonana.edition=full-i3"
   local persistent_append="$live_append ooonana.persistence=1"
@@ -97,10 +99,11 @@ set gfxmode=1024x768,800x600,auto
 set gfxpayload=keep
 serial --unit=0 --speed=115200
 terminal_input console serial
-if loadfont /boot/grub/fonts/unicode.pf2 || loadfont \$prefix/fonts/unicode.pf2; then
-  insmod gfxterm_menu
+if loadfont /boot/grub/fonts/unicode.pf2; then
   insmod gfxterm
-  insmod gfxmenu
+  terminal_output gfxterm serial
+elif loadfont \$prefix/fonts/unicode.pf2; then
+  insmod gfxterm
   terminal_output gfxterm serial
 else
   terminal_output console serial
@@ -111,10 +114,6 @@ clear
 echo 'Ooonana OS'
 if [ -f /boot/grub/ooonana-logo.txt ]; then
   cat /boot/grub/ooonana-logo.txt
-fi
-if [ -f /boot/grub/theme.txt ]; then
-  set theme=/boot/grub/theme.txt
-  export theme
 fi
 set timeout=5
 set default=$default_entry

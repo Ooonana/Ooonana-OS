@@ -80,8 +80,7 @@ case "$EDITION" in
     need_contains "$tmp/grub.cfg" "set gfxmode=1024x768,800x600,auto"
     need_contains "$tmp/grub.cfg" "set gfxpayload=keep"
     need_contains "$tmp/grub.cfg" "terminal_output gfxterm serial"
-    need_contains "$tmp/grub.cfg" "insmod gfxmenu"
-    need_contains "$tmp/grub.cfg" "insmod gfxterm_menu"
+    need_contains "$tmp/grub.cfg" "insmod gfxterm"
     ;;
   minimal)
     need_contains "$tmp/grub.cfg" "terminal_output console serial"
