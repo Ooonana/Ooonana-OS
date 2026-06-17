@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKFLOW="$ROOT/.github/workflows/build-ooonana-packages.yml"
 IMPORTER="$ROOT/scripts/import-apk-package.sh"
 BUILDER="$ROOT/scripts/build-package-repo.sh"
+R2_PUBLISHER="$ROOT/scripts/publish-r2-repo.sh"
 README="$ROOT/README.md"
 DEFAULT_PROFILE="$ROOT/configs/packages/ooonana-repo.list"
 CLOUD_PROFILE="$ROOT/configs/packages/ooonana-cloud.list"
@@ -23,6 +24,7 @@ assert_contains() {
 
 [[ -x "$IMPORTER" ]] || fail "missing executable importer"
 [[ -x "$BUILDER" ]] || fail "missing executable package repo builder"
+[[ -x "$R2_PUBLISHER" ]] || fail "missing executable R2 publisher"
 [[ -f "$WORKFLOW" ]] || fail "missing package workflow"
 [[ -f "$DEFAULT_PROFILE" ]] || fail "missing default package profile"
 [[ -f "$CLOUD_PROFILE" ]] || fail "missing cloud package profile"
@@ -94,11 +96,20 @@ assert_contains "$workflow" "package_profile:"
 assert_contains "$workflow" "alpine_repo:"
 assert_contains "$workflow" "full_i3_profile:"
 assert_contains "$workflow" "publish_pages:"
+assert_contains "$workflow" "publish_r2:"
+assert_contains "$workflow" "r2_bucket:"
+assert_contains "$workflow" "r2_prefix:"
+assert_contains "$workflow" "r2_public_url:"
 assert_contains "$workflow" "scripts/build-package-repo.sh"
+assert_contains "$workflow" "scripts/publish-r2-repo.sh"
 assert_contains "$workflow" "actions/upload-artifact"
 assert_contains "$workflow" "actions/upload-pages-artifact"
 assert_contains "$workflow" "actions/deploy-pages"
 assert_contains "$workflow" "gh release upload"
+assert_contains "$workflow" "awscli"
+assert_contains "$workflow" "CLOUDFLARE_ACCOUNT_ID"
+assert_contains "$workflow" "R2_ACCESS_KEY_ID"
+assert_contains "$workflow" "R2_SECRET_ACCESS_KEY"
 assert_contains "$workflow" "OOONANA_REPO_SIGN_KEY_B64"
 assert_contains "$workflow" "OOONANA_REPO_PUBLIC_KEY_B64"
 assert_contains "$workflow" "--sign-key"
@@ -159,6 +170,25 @@ OOONANA_TEST_ROOT="$ROOT" OOONANA_IMPORT_APK_SCRIPT="$stub" bash "$BUILDER" \
 assert_contains "$(<"$tmp/repo/cloud.repo")" 'OOONANA_REPO_URI="https://example.test/repo"'
 assert_contains "$(<"$tmp/repo/README.txt")" "ooonana update"
 
+r2_help="$(bash "$R2_PUBLISHER" --help)"
+assert_contains "$r2_help" "Publish an Ooonana package repo directory to Cloudflare R2"
+assert_contains "$r2_help" "--repo-dir DIR"
+assert_contains "$r2_help" "--bucket BUCKET"
+assert_contains "$r2_help" "--public-url URL"
+r2_dry="$(R2_ACCESS_KEY_ID=test-key R2_SECRET_ACCESS_KEY=test-secret CLOUDFLARE_ACCOUNT_ID=abc123 bash "$R2_PUBLISHER" \
+  --repo-dir "$tmp/repo" \
+  --bucket ooonana-packages \
+  --prefix packages-latest \
+  --public-url https://packages.example.test/packages-latest \
+  --source-file "$tmp/r2.repo" \
+  --dry-run)"
+assert_contains "$r2_dry" "aws s3 sync"
+assert_contains "$r2_dry" "https://abc123.r2.cloudflarestorage.com"
+assert_contains "$r2_dry" "s3://ooonana-packages/packages-latest/"
+assert_contains "$r2_dry" "https://packages.example.test/packages-latest"
+assert_contains "$(<"$tmp/r2.repo")" 'OOONANA_REPO_NAME="r2"'
+assert_contains "$(<"$tmp/r2.repo")" 'OOONANA_REPO_URI="https://packages.example.test/packages-latest"'
+
 i3_importer="$(<"$ROOT/scripts/import-i3-package-set.sh")"
 assert_contains "$i3_importer" "xf86-video-vesa"
 assert_contains "$i3_importer" "libxcb"
@@ -181,6 +211,9 @@ assert_contains "$readme" "configs/packages/ooonana-cloud.list"
 assert_contains "$readme" "configs/packages/ooonana-repo.list"
 assert_contains "$readme" "ooonana get nano"
 assert_contains "$readme" "GitHub Pages"
+assert_contains "$readme" "Cloudflare R2"
+assert_contains "$readme" "scripts/publish-r2-repo.sh"
+assert_contains "$readme" "R2_ACCESS_KEY_ID"
 assert_contains "$readme" "ooonana-package-repo.tar.gz"
 
 printf 'ok package-factory\n'

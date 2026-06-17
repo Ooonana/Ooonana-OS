@@ -334,6 +334,18 @@ OOONANA_REPO_TOKEN="$(gh auth token)" ooonana update
 Direct HTTP directory repos also work when the URL contains `index.tsv`,
 `SHA256SUMS`, `*.pkg`, and `archives/` as normal files.
 
+Cloudflare R2 direct repo source example:
+
+```sh
+cat >/etc/ooonana/sources.d/r2.repo <<'EOF'
+OOONANA_REPO_NAME="r2"
+OOONANA_REPO_URI="https://packages.example.test/packages-latest"
+EOF
+
+ooonana update
+ooonana get nano
+```
+
 ## Package Factory
 
 Build an Ooonana repo from Alpine packages:
@@ -367,6 +379,18 @@ This creates:
 
 `scripts/import-apk-package.sh` is the low-level APK importer. `scripts/build-package-repo.sh` is the normal repo builder. It loads a profile, adds extra package names, imports dependencies, writes indexes and checksums, and can write cloud repo hints.
 
+Publish the generated repo to Cloudflare R2:
+
+```bash
+bash scripts/publish-r2-repo.sh \
+  --repo-dir /tmp/ooonana-repo \
+  --bucket ooonana-packages \
+  --prefix packages-latest \
+  --public-url https://packages.example.test/packages-latest
+```
+
+Current full-i3 package repo backup is about 947 MiB, so it is below a 10 GB storage budget. That is not a hard cap: importing more desktop stacks or firmware can grow it. R2 direct publishing keeps the repo as normal HTTP files instead of forcing every client to download the whole release tarball.
+
 Signed repos:
 
 ```bash
@@ -387,14 +411,31 @@ CLI dry run:
 OOONANA_SOURCE_ROOT="$PWD" ooonana repo build --dry-run nano
 ```
 
-The GitHub Actions workflow `Build Ooonana Packages` can run the same importer in cloud from a package profile, upload the generated repo as artifacts, publish `ooonana-package-repo.tar.gz` to GitHub Releases, and optionally deploy the repo to GitHub Pages. Release tarball repos are the default cloud path because free/private GitHub Pages can be blocked by account plan. Pages still works as a direct HTTP repo when enabled.
+The GitHub Actions workflow `Build Ooonana Packages` can run the same importer in cloud from a package profile, upload the generated repo as artifacts, publish `ooonana-package-repo.tar.gz` to GitHub Releases, optionally deploy the repo to GitHub Pages, and optionally sync the direct repo to Cloudflare R2. Release tarball repos are the default backup path. Pages and R2 work as direct HTTP repos when enabled.
 The generated repo includes `cloud.repo` and `README.txt` so the repo source can be copied straight into `/etc/ooonana/sources.d/cloud.repo`.
 
-Cloud build defaults are repo-wide seed packages, not nano-only:
+Cloud build defaults are full-i3 packages, not nano-only:
 
 ```text
-package_profile=configs/packages/ooonana-cloud.list
+package_profile=configs/packages/full-i3.list
 packages="" for optional extras
+```
+
+R2 workflow inputs:
+
+```text
+publish_r2=true
+r2_bucket=ooonana-packages
+r2_prefix=packages-latest
+r2_public_url=https://packages.example.test/packages-latest
+```
+
+R2 workflow secrets:
+
+```text
+CLOUDFLARE_ACCOUNT_ID
+R2_ACCESS_KEY_ID
+R2_SECRET_ACCESS_KEY
 ```
 
 Use `packages` for quick extras or change `package_profile` to another `.list` file. The builder imports requested packages plus dependencies; it does not mirror all Alpine packages. `ooonana get PACKAGE` installs from configured Ooonana repos. It does not live-fetch Alpine APKs on the target OS.
