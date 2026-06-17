@@ -346,6 +346,18 @@ ooonana update
 ooonana get nano
 ```
 
+GitLab Pages direct repo source example:
+
+```sh
+cat >/etc/ooonana/sources.d/gitlab.repo <<'EOF'
+OOONANA_REPO_NAME="gitlab"
+OOONANA_REPO_URI="https://YOUR_NAMESPACE.gitlab.io/YOUR_PROJECT"
+EOF
+
+ooonana update
+ooonana upgrade
+```
+
 ## Package Factory
 
 Build an Ooonana repo from Alpine packages:
@@ -353,18 +365,25 @@ Build an Ooonana repo from Alpine packages:
 ```bash
 bash scripts/build-package-repo.sh \
   --out-dir /tmp/ooonana-repo \
-  --package-profile configs/packages/ooonana-cloud.list \
+  --package-profile configs/packages/both.list \
   --cloud-url https://github.com/YOUR/YOUR_REPO/releases/download/packages-latest/ooonana-package-repo.tar.gz \
+  --full-i3 \
   --clean
 ```
 
-Default cloud package profile:
+Combined default cloud package profile:
+
+```text
+configs/packages/both.list
+```
+
+Minimal seed profile:
 
 ```text
 configs/packages/ooonana-cloud.list
 ```
 
-The default seed now includes `python3` so AI and repo tooling can run once the cloud repo is published.
+The combined seed includes `python3` so AI and repo tooling can run once the cloud repo is published.
 
 This creates:
 
@@ -411,15 +430,26 @@ CLI dry run:
 OOONANA_SOURCE_ROOT="$PWD" ooonana repo build --dry-run nano
 ```
 
-The GitHub Actions workflow `Build Ooonana Packages` can run the same importer in cloud from a package profile, upload the generated repo as artifacts, publish `ooonana-package-repo.tar.gz` to GitHub Releases, optionally deploy the repo to GitHub Pages, and optionally sync the direct repo to Cloudflare R2. Release tarball repos are the default backup path. Pages and R2 work as direct HTTP repos when enabled.
+The GitHub Actions workflow `Build Ooonana Packages` can run the same importer in cloud from a package profile, upload the generated repo as artifacts, publish `ooonana-package-repo.tar.gz` to GitHub Releases, optionally deploy the repo to GitHub Pages, and optionally sync the direct repo to Cloudflare R2. The GitLab CI file `.gitlab-ci.yml` publishes the direct repo to GitLab Pages. Release tarball repos are the default backup path. Pages and R2 work as direct HTTP repos when enabled.
 The generated repo includes `cloud.repo` and `README.txt` so the repo source can be copied straight into `/etc/ooonana/sources.d/cloud.repo`.
 
-Cloud build defaults are full-i3 packages, not nano-only:
+Cloud build defaults are both minimal seed and full-i3 packages, not nano-only:
 
 ```text
-package_profile=configs/packages/full-i3.list
+package_profile=configs/packages/both.list
 packages="" for optional extras
 ```
+
+GitLab Pages variables:
+
+```text
+PACKAGE_SET=both
+PACKAGE_PROFILE=          # optional override
+OOONANA_REPO_NAME=gitlab
+OOONANA_PAGES_REPO_URL=https://YOUR_NAMESPACE.gitlab.io/YOUR_PROJECT
+```
+
+GitLab Pages uses the generated `public/` directory. GitLab.com Pages currently has a 1 GB maximum site size, so the full package repo is close to the limit. The CI fails before publishing if `public/` grows past `OOONANA_PAGES_MAX_BYTES`.
 
 R2 workflow inputs:
 
@@ -739,10 +769,11 @@ It can create a user, prompt for a password, write `/etc/network/interfaces`, wr
 Cloud package build:
 
 ```text
-GitHub Actions -> Build Ooonana Packages -> full_i3_profile=true
+GitHub Actions -> Build Ooonana Packages -> package_profile=configs/packages/both.list
+GitLab CI/CD -> pages
 ```
 
-The package workflow now defaults to the full-i3 profile, publishes `ooonana-package-repo.tar.gz` to the `packages-latest` GitHub Release, and writes repo hints for:
+The package workflows now default to the combined profile, publish `ooonana-package-repo.tar.gz` to the `packages-latest` GitHub Release as backup, and write repo hints for:
 
 ```text
 https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-package-repo.tar.gz
@@ -755,13 +786,13 @@ ooonana update
 ooonana upgrade
 ```
 
-When `full_i3_profile=true`, the cloud build uses:
+The combined cloud build uses:
 
 ```text
-configs/packages/full-i3.list
+configs/packages/both.list
 ```
 
-The full-i3 profile includes desktop basics plus common hardware support: NetworkManager, Bluetooth, Wi-Fi regulatory data, selected Linux firmware families, SOF audio firmware, Mesa DRI/VA, Intel Vulkan, and ALSA tools.
+The combined profile includes minimal CLI seed packages plus full-i3 desktop basics and common hardware support: NetworkManager, Bluetooth, Wi-Fi regulatory data, selected Linux firmware families, SOF audio firmware, Mesa DRI/VA, Intel Vulkan, and ALSA tools.
 
 After the generated repo tarball is published to GitHub Releases and added to `/etc/ooonana/sources.d/cloud.repo`, this path is intended to work:
 
@@ -926,6 +957,7 @@ Kernel and package config:
 
 ```text
 configs/kernel/ooonana-minimal-x86_64.fragment
+configs/packages/both.list
 configs/packages/core.list
 configs/packages/ooonana-repo.list
 configs/packages/ooonana-cloud.list

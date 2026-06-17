@@ -1,0 +1,115 @@
+stages:
+  - deploy
+
+variables:
+  PACKAGE_SET: "both"
+  PACKAGE_PROFILE: ""
+  PACKAGES: ""
+  ALPINE_REPOS: "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64 https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64"
+  OOONANA_REPO_NAME: "gitlab"
+  OOONANA_PAGES_MAX_BYTES: "1000000000"
+
+pages:
+  image: alpine:3.20
+  stage: deploy
+  before_script:
+    - apk add --no-cache bash curl wget tar gzip coreutils findutils gawk grep sed openssl
+  script:
+    - |
+      bash <<'BASH'
+      set -euo pipefail
+
+      repo_url="${OOONANA_PAGES_REPO_URL:-${CI_PAGES_URL:-}}"
+      repo_url="${repo_url%/}"
+      if [ -z "$repo_url" ]; then
+        echo "missing CI_PAGES_URL or OOONANA_PAGES_REPO_URL" >&2
+        exit 1
+      fi
+
+      package_set="${PACKAGE_SET:-both}"
+      profile="${PACKAGE_PROFILE:-}"
+      full_i3_arg=""
+      case "$package_set" in
+        minimal)
+          profile="${profile:-configs/packages/ooonana-cloud.list}"
+          ;;
+        full-i3)
+          profile="${profile:-configs/packages/full-i3.list}"
+          full_i3_arg="--full-i3"
+          ;;
+        both)
+          profile="${profile:-configs/packages/both.list}"
+          full_i3_arg="--full-i3"
+          ;;
+        custom)
+          [ -n "$profile" ] || { echo "PACKAGE_PROFILE required for PACKAGE_SET=custom" >&2; exit 1; }
+          if [ "${FULL_I3_PROFILE:-false}" = "true" ]; then
+            full_i3_arg="--full-i3"
+          fi
+          ;;
+        *)
+          echo "bad PACKAGE_SET: $package_set" >&2
+          exit 1
+          ;;
+      esac
+
+      sign_args=""
+      if [ -n "${OOONANA_REPO_SIGN_KEY_B64:-}" ]; then
+        printf '%s' "$OOONANA_REPO_SIGN_KEY_B64" | base64 -d > /tmp/ooonana-repo-sign.key
+        chmod 600 /tmp/ooonana-repo-sign.key
+        sign_args="$sign_args --sign-key /tmp/ooonana-repo-sign.key"
+      fi
+      if [ -n "${OOONANA_REPO_PUBLIC_KEY_B64:-}" ]; then
+        printf '%s' "$OOONANA_REPO_PUBLIC_KEY_B64" | base64 -d > /tmp/ooonana-repo.pub
+        sign_args="$sign_args --public-key /tmp/ooonana-repo.pub"
+      fi
+
+      repo_args=""
+      for repo in $ALPINE_REPOS; do
+        repo_args="$repo_args --repo-url $repo"
+      done
+
+      # shellcheck disable=SC2086
+      bash scripts/build-package-repo.sh \
+        --out-dir public \
+        --package-profile "$profile" \
+        --packages "${PACKAGES:-}" \
+        --cloud-url "$repo_url" \
+        --repo-name "$OOONANA_REPO_NAME" \
+        --clean \
+        $full_i3_arg \
+        $sign_args \
+        $repo_args
+
+      cat > public/index.html <<HTML
+      <!doctype html>
+      <html lang="en">
+      <meta charset="utf-8">
+      <title>Ooonana Package Repo</title>
+      <body>
+      <h1>Ooonana Package Repo</h1>
+      <p>Repo: $repo_url</p>
+      <pre>ooonana repo add $OOONANA_REPO_NAME $repo_url
+      ooonana update
+      ooonana upgrade</pre>
+      </body>
+      </html>
+HTML
+      : > public/.nojekyll
+
+      bytes="$(du -sb public | awk '{print $1}')"
+      limit="${OOONANA_PAGES_MAX_BYTES:-1000000000}"
+      if [ "$bytes" -gt "$limit" ]; then
+        echo "Ooonana repo too large for GitLab Pages: $bytes > $limit" >&2
+        exit 1
+      fi
+      printf 'Ooonana Pages repo size: %s bytes\n' "$bytes"
+      find public -maxdepth 2 -type f -print | sort
+      BASH
+  pages: true
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'

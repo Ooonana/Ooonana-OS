@@ -10,7 +10,7 @@ on:
       package_profile:
         description: "Repo package profile file to import"
         required: false
-        default: "configs/packages/full-i3.list"
+        default: "configs/packages/both.list"
       alpine_repo:
         description: "Space-separated Alpine APK repository URLs"
         required: true
