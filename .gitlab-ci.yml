@@ -106,10 +106,8 @@ pages:
       printf 'Ooonana Pages repo size: %s bytes\n' "$bytes"
       find public -maxdepth 2 -type f -print | sort
       BASH
-  pages: true
   artifacts:
     paths:
       - public
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    - if: '$CI_PIPELINE_SOURCE == "web"'
+  only:
+    - main
