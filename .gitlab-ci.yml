@@ -1,5 +1,10 @@
 stages:
+  - check
   - deploy
+
+workflow:
+  rules:
+    - when: always
 
 variables:
   PACKAGE_SET: "both"
@@ -8,6 +13,12 @@ variables:
   ALPINE_REPOS: "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64 https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64"
   OOONANA_REPO_NAME: "gitlab"
   OOONANA_PAGES_MAX_BYTES: "1000000000"
+
+ci-smoke:
+  image: alpine:3.20
+  stage: check
+  script:
+    - echo "Ooonana GitLab CI active"
 
 deploy-package-repo:
   image: alpine:3.20

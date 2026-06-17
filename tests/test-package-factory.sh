@@ -139,6 +139,8 @@ assert_contains "$workflow" "default: \"configs/packages/both.list\""
 assert_contains "$workflow" "default: true"
 
 gitlab_ci="$(<"$GITLAB_CI")"
+assert_contains "$gitlab_ci" "workflow:"
+assert_contains "$gitlab_ci" "ci-smoke:"
 assert_contains "$gitlab_ci" "PACKAGE_SET: \"both\""
 assert_contains "$gitlab_ci" "PACKAGE_PROFILE: \"\""
 assert_contains "$gitlab_ci" "deploy-package-repo:"
