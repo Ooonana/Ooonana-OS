@@ -94,6 +94,7 @@ write_grub_config() {
 
   cat > "$ISO_TREE/boot/grub/grub.cfg" <<EOF
 insmod all_video
+insmod png
 if loadfont /boot/grub/fonts/unicode.pf2; then
   insmod gfxterm
 fi
@@ -118,6 +119,7 @@ if [ -f /boot/grub/theme.txt ]; then
   set theme=/boot/grub/theme.txt
   export theme
 fi
+set timeout_style=menu
 set timeout=5
 set default=$default_entry
 
@@ -190,6 +192,7 @@ stage_iso_tree() {
   cat > "$ISO_TREE/boot/grub/theme.txt" <<'EOF'
 title-text: "Ooonana OS"
 title-color: "#ffb21a"
+desktop-image: "/boot/grub/background.png"
 desktop-color: "#050505"
 terminal-font: "Unifont Regular 16"
 message-color: "#ffb21a"
@@ -200,12 +203,17 @@ message-bg-color: "#050505"
   top = 32%
   width = 68%
   height = 38%
+  item_color = "#ffb21a"
+  selected_item_color = "#ffffff"
+  item_height = 26
+  item_padding = 6
+  item_spacing = 4
 }
 
 + label {
-  text = "boot time"
+  text = "Use arrows. Enter boots selected."
   left = 16%
-  top = 82%
+  top = 78%
   width = 68%
   height = 18
   color = "#ffb21a"
@@ -223,6 +231,8 @@ message-bg-color: "#050505"
   border_color = "#ffb21a"
 }
 EOF
+  printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIwAAAABJRU5ErkJggg==' |
+    base64 -d > "$ISO_TREE/boot/grub/background.png"
   write_grub_config
   chmod -R a+rwX "$ISO_TREE" 2>/dev/null || true
 }

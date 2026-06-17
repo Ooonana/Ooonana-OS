@@ -70,6 +70,7 @@ trap 'rm -rf "$tmp"' EXIT
 xorriso -osirrox on -indev "$ISO" -extract /boot/grub/grub.cfg "$tmp/grub.cfg" >/dev/null 2>&1 ||
   fail "could not extract GRUB config from ISO"
 xorriso -osirrox on -indev "$ISO" -extract /boot/grub/theme.txt "$tmp/theme.txt" >/dev/null 2>&1 || true
+xorriso -osirrox on -indev "$ISO" -extract /boot/grub/background.png "$tmp/background.png" >/dev/null 2>&1 || true
 xorriso -osirrox on -indev "$ISO" -extract /RUFUS.md "$tmp/RUFUS.md" >/dev/null 2>&1 ||
   fail "could not extract Rufus note from ISO"
 
@@ -80,6 +81,7 @@ case "$EDITION" in
     need_contains "$tmp/grub.cfg" "[#####-----]"
     need_contains "$tmp/grub.cfg" "terminal_output console serial"
     need_contains "$tmp/grub.cfg" "terminal_output gfxterm serial"
+    need_contains "$tmp/grub.cfg" "insmod png"
     need_contains "$tmp/grub.cfg" "set theme=/boot/grub/theme.txt"
     if grep -q 'set gfxmode=\|set gfxpayload=keep\|insmod gfxmenu' "$tmp/grub.cfg"; then
       fail "full-i3 GRUB forces graphics mode and can resize VMware display"
@@ -97,6 +99,13 @@ if grep -qF 'set theme=/boot/grub/theme.txt' "$tmp/grub.cfg"; then
   need_contains "$tmp/theme.txt" 'id = "__timeout__"'
   need_contains "$tmp/theme.txt" 'fg_color = "#ffb21a"'
   need_contains "$tmp/theme.txt" 'bg_color = "#1b1202"'
+  if [[ "$EDITION" == "full-i3" ]]; then
+    need_contains "$tmp/grub.cfg" "set timeout_style=menu"
+    need_contains "$tmp/theme.txt" 'desktop-image: "/boot/grub/background.png"'
+    need_contains "$tmp/theme.txt" 'item_color = "#ffb21a"'
+    need_contains "$tmp/theme.txt" 'selected_item_color = "#ffffff"'
+    [[ -s "$tmp/background.png" ]] || fail "GRUB theme background missing or empty"
+  fi
   done_item "GRUB timeout progress bar"
 fi
 need_contains "$tmp/grub.cfg" "set timeout=5"

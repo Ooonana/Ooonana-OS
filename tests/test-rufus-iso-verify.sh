@@ -33,6 +33,7 @@ cat > "$tmp/full-grub.cfg" <<'EOF'
 terminal_input console serial
 terminal_output console serial
 terminal_output gfxterm serial
+insmod png
 set color_normal=yellow/black
 set color_highlight=black/yellow
 function ooonana_progress_bar {
@@ -40,6 +41,7 @@ function ooonana_progress_bar {
 }
 set theme=/boot/grub/theme.txt
 export theme
+set timeout_style=menu
 set timeout=5
 cat /boot/grub/ooonana-logo.txt
 menuentry 'Ooonana OS Full i3 Live' { linux /boot/vmlinuz console=ttyS0 console=tty0 }
@@ -55,6 +57,7 @@ set color_normal=yellow/black
 set color_highlight=black/yellow
 set theme=/boot/grub/theme.txt
 export theme
+set timeout_style=menu
 set timeout=5
 cat /boot/grub/ooonana-logo.txt
 menuentry 'Ooonana OS Minimal' { linux /boot/vmlinuz console=ttyS0 console=tty0 }
@@ -76,9 +79,12 @@ EOF
 
 cat > "$tmp/theme.txt" <<'EOF'
 title-color: "#ffb21a"
+desktop-image: "/boot/grub/background.png"
 message-color: "#ffb21a"
 + boot_menu {
   left = 16%
+  item_color = "#ffb21a"
+  selected_item_color = "#ffffff"
 }
 + progress_bar {
   id = "__timeout__"
@@ -86,6 +92,7 @@ message-color: "#ffb21a"
   bg_color = "#1b1202"
 }
 EOF
+printf 'png' > "$tmp/background.png"
 
 cat > "$tmp/bin/xorriso" <<'EOF'
 #!/bin/sh
@@ -111,6 +118,12 @@ REPORT
       last="$arg"
     done
     cp "$OOONANA_FAKE_ROOT/theme.txt" "$last"
+    ;;
+  *"-extract /boot/grub/background.png"*)
+    for arg in "$@"; do
+      last="$arg"
+    done
+    cp "$OOONANA_FAKE_ROOT/background.png" "$last"
     ;;
   *"-extract /RUFUS.md"*)
     for arg in "$@"; do

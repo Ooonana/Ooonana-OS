@@ -95,6 +95,7 @@ normal_cfg="$(<"$tmp/build/full-i3-iso-tree/boot/grub/grub.cfg")"
 assert_contains "$normal_cfg" "terminal_input console serial"
 assert_contains "$normal_cfg" "terminal_output console serial"
 assert_contains "$normal_cfg" "terminal_output gfxterm serial"
+assert_contains "$normal_cfg" "insmod png"
 assert_contains "$normal_cfg" "ooonana_progress_bar"
 assert_contains "$normal_cfg" "[#####-----]"
 [[ "$normal_cfg" != *"insmod gfxmenu"* ]] || fail "full-i3 GRUB config must not load gfxmenu"
@@ -104,6 +105,7 @@ assert_contains "$normal_cfg" "set color_normal=yellow/black"
 assert_contains "$normal_cfg" "set color_highlight=black/yellow"
 assert_contains "$normal_cfg" "console=ttyS0 console=tty0 quiet loglevel=3"
 assert_contains "$normal_cfg" "set default=0"
+assert_contains "$normal_cfg" "set timeout_style=menu"
 assert_contains "$normal_cfg" "set timeout=5"
 assert_contains "$normal_cfg" "set theme=/boot/grub/theme.txt"
 if command -v grub-script-check >/dev/null 2>&1; then
@@ -112,6 +114,12 @@ fi
 theme="$(<"$tmp/build/full-i3-iso-tree/boot/grub/theme.txt")"
 assert_contains "$theme" "+ progress_bar"
 assert_contains "$theme" 'id = "__timeout__"'
+assert_contains "$theme" 'desktop-image: "/boot/grub/background.png"'
+assert_contains "$theme" 'item_color = "#ffb21a"'
+assert_contains "$theme" 'selected_item_color = "#ffffff"'
+assert_contains "$theme" "item_height = 26"
+assert_contains "$theme" "Use arrows. Enter boots selected."
+[[ -s "$tmp/build/full-i3-iso-tree/boot/grub/background.png" ]] || fail "missing GRUB background bitmap"
 assert_contains "$normal_cfg" "cat /boot/grub/ooonana-logo.txt"
 assert_contains "$normal_cfg" "menuentry 'Ooonana OS Full i3 Live'"
 assert_contains "$normal_cfg" "menuentry 'Ooonana OS Full i3 Live (persistent USB)'"
