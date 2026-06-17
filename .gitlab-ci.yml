@@ -9,7 +9,7 @@ variables:
   OOONANA_REPO_NAME: "gitlab"
   OOONANA_PAGES_MAX_BYTES: "1000000000"
 
-pages:
+deploy-package-repo:
   image: alpine:3.20
   stage: deploy
   before_script:
@@ -106,6 +106,7 @@ pages:
       printf 'Ooonana Pages repo size: %s bytes\n' "$bytes"
       find public -maxdepth 2 -type f -print | sort
       BASH
+  pages: true
   artifacts:
     paths:
       - public
