@@ -94,7 +94,7 @@ pages:
       ooonana upgrade</pre>
       </body>
       </html>
-HTML
+      HTML
       : > public/.nojekyll
 
       bytes="$(du -sb public | awk '{print $1}')"
