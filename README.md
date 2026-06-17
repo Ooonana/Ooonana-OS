@@ -701,6 +701,19 @@ Cloud package build:
 GitHub Actions -> Build Ooonana Packages -> full_i3_profile=true
 ```
 
+The package workflow now defaults to the full-i3 profile, publishes `ooonana-package-repo.tar.gz` to the `packages-latest` GitHub Release, and writes repo hints for:
+
+```text
+https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-package-repo.tar.gz
+```
+
+Inside Ooonana OS:
+
+```sh
+ooonana update
+ooonana upgrade
+```
+
 When `full_i3_profile=true`, the cloud build uses:
 
 ```text

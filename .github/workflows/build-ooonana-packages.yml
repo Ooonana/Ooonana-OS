@@ -10,7 +10,7 @@ on:
       package_profile:
         description: "Repo package profile file to import"
         required: false
-        default: "configs/packages/ooonana-cloud.list"
+        default: "configs/packages/full-i3.list"
       alpine_repo:
         description: "Space-separated Alpine APK repository URLs"
         required: true
@@ -28,7 +28,7 @@ on:
         description: "Build Ooonana full-i3 wrapper packages and branding archive"
         required: true
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: write

@@ -93,15 +93,30 @@ write_grub_config() {
   safe_install_append="$install_append nomodeset"
 
   cat > "$ISO_TREE/boot/grub/grub.cfg" <<EOF
+insmod all_video
+if loadfont /boot/grub/fonts/unicode.pf2; then
+  insmod gfxterm
+fi
 serial --unit=0 --speed=115200
 terminal_input console serial
 terminal_output console serial
 set color_normal=yellow/black
 set color_highlight=black/yellow
+if terminal_output gfxterm serial; then
+  true
+fi
+function ooonana_progress_bar {
+  echo '[#####-----] booting Ooonana OS'
+}
 clear
 echo 'Ooonana OS'
 if [ -f /boot/grub/ooonana-logo.txt ]; then
   cat /boot/grub/ooonana-logo.txt
+fi
+ooonana_progress_bar
+if [ -f /boot/grub/theme.txt ]; then
+  set theme=/boot/grub/theme.txt
+  export theme
 fi
 set timeout=5
 set default=$default_entry
@@ -172,6 +187,42 @@ stage_iso_tree() {
   gzip -n -c "$DISK_IMAGE" > "$ISO_TREE/images/$DISK_IMAGE_STAGED"
   install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/logo.txt" "$ISO_TREE/boot/grub/ooonana-logo.txt"
   write_rufus_note
+  cat > "$ISO_TREE/boot/grub/theme.txt" <<'EOF'
+title-text: "Ooonana OS"
+title-color: "#ffb21a"
+desktop-color: "#050505"
+terminal-font: "Unifont Regular 16"
+message-color: "#ffb21a"
+message-bg-color: "#050505"
+
++ boot_menu {
+  left = 16%
+  top = 32%
+  width = 68%
+  height = 38%
+}
+
++ label {
+  text = "boot time"
+  left = 16%
+  top = 82%
+  width = 68%
+  height = 18
+  color = "#ffb21a"
+  align = "center"
+}
+
++ progress_bar {
+  id = "__timeout__"
+  left = 16%
+  top = 86%
+  width = 68%
+  height = 18
+  fg_color = "#ffb21a"
+  bg_color = "#1b1202"
+  border_color = "#ffb21a"
+}
+EOF
   write_grub_config
   chmod -R a+rwX "$ISO_TREE" 2>/dev/null || true
 }

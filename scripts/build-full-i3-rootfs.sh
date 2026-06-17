@@ -247,6 +247,86 @@ fi
 exec ooonana-theme-env xterm -e sh -lc 'echo "blueman missing"; echo "run: ooonana get blueman"; exec sh'
 EOF
 
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-rofi-wifi" <<'EOF'
+#!/bin/sh
+set -eu
+choose() {
+  if [ -n "${DISPLAY:-}" ] && command -v rofi >/dev/null 2>&1; then
+    printf 'Connections\nEditor\nTUI\nStatus\n' | rofi -dmenu -i -p "Wi-Fi" -theme /etc/ooonana/rofi.rasi 2>/dev/null || true
+  else
+    printf 'Editor\n'
+  fi
+}
+action="$(choose)"
+case "$action" in
+  Connections|Editor) exec ooonana-wifi ;;
+  TUI) command -v nmtui >/dev/null 2>&1 && exec ooonana-theme-env xterm -e nmtui ;;
+  Status) exec ooonana-theme-env xterm -e sh -lc 'nmcli dev status 2>/dev/null || ip addr; exec sh' ;;
+esac
+exit 0
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-rofi-bluetooth" <<'EOF'
+#!/bin/sh
+set -eu
+choose() {
+  if [ -n "${DISPLAY:-}" ] && command -v rofi >/dev/null 2>&1; then
+    printf 'Manager\nDevices\nPower On\nPower Off\n' | rofi -dmenu -i -p "Bluetooth" -theme /etc/ooonana/rofi.rasi 2>/dev/null || true
+  else
+    printf 'Manager\n'
+  fi
+}
+action="$(choose)"
+case "$action" in
+  Manager) exec ooonana-bluetooth ;;
+  Devices) exec ooonana-theme-env xterm -e sh -lc 'bluetoothctl devices 2>/dev/null || echo "bluetoothctl missing"; exec sh' ;;
+  "Power On") bluetoothctl power on >/dev/null 2>&1 || true ;;
+  "Power Off") bluetoothctl power off >/dev/null 2>&1 || true ;;
+esac
+exit 0
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-rofi-brightness" <<'EOF'
+#!/bin/sh
+set -eu
+choose() {
+  if [ -n "${DISPLAY:-}" ] && command -v rofi >/dev/null 2>&1; then
+    printf '25%\n50%\n75%\n100%\nUp 5%\nDown 5%\nSlider\n' | rofi -dmenu -i -p "Brightness" -theme /etc/ooonana/rofi.rasi 2>/dev/null || true
+  else
+    printf 'Slider\n'
+  fi
+}
+action="$(choose)"
+case "$action" in
+  25%|50%|75%|100%) exec ooonana-brightness "$action" ;;
+  "Up 5%") exec ooonana-brightness +5% ;;
+  "Down 5%") exec ooonana-brightness 5%- ;;
+  Slider) exec ooonana-brightness ;;
+esac
+exit 0
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-rofi-power" <<'EOF'
+#!/bin/sh
+set -eu
+choose() {
+  if [ -n "${DISPLAY:-}" ] && command -v rofi >/dev/null 2>&1; then
+    printf 'Lock\nExit i3\nRestart i3\nReboot\nShutdown\n' | rofi -dmenu -i -p "Power" -theme /etc/ooonana/rofi.rasi 2>/dev/null || true
+  else
+    printf 'Exit i3\n'
+  fi
+}
+action="$(choose)"
+case "$action" in
+  Lock) command -v i3lock >/dev/null 2>&1 && i3lock || true ;;
+  "Exit i3") command -v i3-msg >/dev/null 2>&1 && i3-msg exit >/dev/null 2>&1 || true ;;
+  "Restart i3") command -v i3-msg >/dev/null 2>&1 && i3-msg restart >/dev/null 2>&1 || true ;;
+  Reboot) exec bunana --restart ;;
+  Shutdown) exec bunana --shutdown ;;
+esac
+exit 0
+EOF
+
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/hsetroot" <<'EOF'
 #!/bin/sh
 set -eu
@@ -465,6 +545,7 @@ set -eu
 if [ "${1:-}" = "--dry-run" ]; then
   echo "yad settings menu"
   echo "actions: theme wallpaper display audio wifi bluetooth packages brightness screenshot editor music processes ranger ai terminal browser files repo about"
+  echo "sections: System Hardware Applications Ooonana"
   echo "status cards: theme wallpaper network bluetooth audio display repo"
   echo "safe launchers: terminal browser files ai packages"
   echo "OOONANA_SETTINGS_THEME_OK"
@@ -539,26 +620,26 @@ while :; do
   wallpaper_now="$(wallpaper_status)"
   action="$(yad --center --title "Ooonana Settings" --width=680 --height=500 \
     --text "Theme: $theme_now    Wallpaper: $(basename "$wallpaper_now" 2>/dev/null || echo wallpaper)    Network/Bluetooth/Audio ready when tray tools are installed" \
-    --list --print-column=1 --column Action --column Description \
-    theme "Dark/light theme and apply now" \
-    wallpaper "Choose desktop wallpaper" \
-    display "Open display layout" \
-    audio "Open audio controls" \
-    wifi "Open NetworkManager" \
-    bluetooth "Open Bluetooth manager" \
-    packages "Open package manager" \
-    ai "Open Ooonana AI app" \
-    browser "Open Chromium" \
-    files "Open Nemo file manager" \
-    terminal "Open themed terminal" \
-    brightness "Set display brightness" \
-    screenshot "Take screenshot" \
-    editor "Open Geany/Vim" \
-    music "Open MPD client" \
-    processes "Open htop" \
-    ranger "Open terminal file manager" \
-    repo "Set cloud package repo" \
-    about "Show Ooonana info" 2>/dev/null || true)"
+    --list --print-column=1 --column Action --column Section --column Description \
+    theme System "Dark/light theme and apply now" \
+    wallpaper System "Choose desktop wallpaper" \
+    display Hardware "Open display layout" \
+    audio Hardware "Open audio controls" \
+    wifi Hardware "Open NetworkManager" \
+    bluetooth Hardware "Open Bluetooth manager" \
+    brightness Hardware "Set display brightness" \
+    browser Applications "Open Chromium" \
+    files Applications "Open Nemo file manager" \
+    terminal Applications "Open themed terminal" \
+    screenshot Applications "Take screenshot" \
+    editor Applications "Open Geany/Vim" \
+    music Applications "Open MPD client" \
+    processes Applications "Open htop" \
+    ranger Applications "Open terminal file manager" \
+    packages Ooonana "Open package manager" \
+    ai Ooonana "Open Ooonana AI app" \
+    repo Ooonana "Set cloud package repo" \
+    about Ooonana "Show Ooonana info" 2>/dev/null || true)"
   [ -n "$action" ] || exit 0
   case "$action" in
     theme)
@@ -709,16 +790,17 @@ EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/polybar.ini" <<'EOF'
 [colors]
-background = #050505
-background-alt = #0f0c08
+background = #10141a
+background-alt = #1a2029
 foreground = #ffb21a
 accent = #ffd37a
 muted = #7a5014
 urgent = #ff4d2e
+cool = #5eb6ff
 
 [bar/ooonana]
 width = 100%
-height = 34
+height = 30
 offset-x = 0
 offset-y = 0
 radius = 0
@@ -726,30 +808,77 @@ fixed-center = true
 background = ${colors.background}
 foreground = ${colors.foreground}
 border-size = 0
-padding-left = 2
-padding-right = 2
-module-margin = 1
-separator = |
+padding-left = 1
+padding-right = 1
+module-margin = 0
+separator = "  "
 separator-foreground = ${colors.muted}
-line-size = 3
+line-size = 2
 line-color = ${colors.accent}
 font-0 = monospace:size=10;2
-modules-left = launcher workspaces title
-modules-center = logo
-modules-right = wifi bluetooth network audio brightness battery date
+modules-left = brand launcher terminal browser files editor media title
+modules-center =
+modules-right = audio brightness battery bluetooth network wifi date power
 tray-position = right
 tray-padding = 2
 wm-restack = i3
 override-redirect = false
 enable-ipc = true
 
+[module/brand]
+type = custom/text
+content = O
+content-foreground = ${colors.foreground}
+content-background = ${colors.background}
+content-padding = 1
+
 [module/launcher]
 type = custom/text
-content = Ooonana
-content-foreground = ${colors.background}
-content-background = ${colors.foreground}
+content = run
+content-foreground = ${colors.cool}
+content-background = ${colors.background-alt}
 content-padding = 2
 click-left = rofi -show drun -theme /etc/ooonana/rofi.rasi
+
+[module/terminal]
+type = custom/text
+content = term
+content-foreground = ${colors.accent}
+content-background = ${colors.background-alt}
+content-padding = 1
+click-left = ooonana-theme-env xterm
+
+[module/browser]
+type = custom/text
+content = web
+content-foreground = ${colors.accent}
+content-background = ${colors.background-alt}
+content-padding = 1
+click-left = ooonana-browser
+
+[module/files]
+type = custom/text
+content = files
+content-foreground = ${colors.accent}
+content-background = ${colors.background-alt}
+content-padding = 1
+click-left = ooonana-files
+
+[module/editor]
+type = custom/text
+content = edit
+content-foreground = ${colors.accent}
+content-background = ${colors.background-alt}
+content-padding = 1
+click-left = ooonana-editor
+
+[module/media]
+type = custom/text
+content = media - Ooonana
+content-foreground = ${colors.accent}
+content-background = ${colors.background-alt}
+content-padding = 2
+click-left = ooonana-music
 
 [module/logo]
 type = custom/text
@@ -777,42 +906,68 @@ label-urgent-padding = 2
 
 [module/title]
 type = internal/xwindow
-label = %title:0:54:...%
+label = %title:0:42:...%
 label-empty = desktop
+label-foreground = ${colors.accent}
+label-background = ${colors.background}
+label-padding = 2
 
 [module/wifi]
 type = custom/text
-content = wifi
+content = oasis
 content-foreground = ${colors.accent}
-click-left = ooonana-wifi
+content-background = ${colors.background-alt}
+content-padding = 2
+click-left = ooonana-rofi-wifi
 
 [module/bluetooth]
 type = custom/text
-content = bt
+content = bt on
 content-foreground = ${colors.accent}
-click-left = ooonana-bluetooth
+content-background = ${colors.background-alt}
+content-padding = 2
+click-left = ooonana-rofi-bluetooth
 
 [module/network]
 type = internal/network
 interface-type = wireless
 label-connected = wifi %essid%
+label-connected-foreground = ${colors.accent}
+label-connected-background = ${colors.background-alt}
+label-connected-padding = 2
 label-disconnected = wifi off
 label-disconnected-foreground = ${colors.muted}
+label-disconnected-background = ${colors.background-alt}
+label-disconnected-padding = 2
 
 [module/audio]
 type = internal/pulseaudio
 format-volume = vol <label-volume>
+format-volume-background = ${colors.background-alt}
+format-volume-padding = 2
 label-muted = mute
 label-muted-foreground = ${colors.muted}
+label-muted-background = ${colors.background-alt}
+label-muted-padding = 2
 click-left = pavucontrol
 
 [module/brightness]
 type = custom/text
-content = bright
+content = light 20%
 content-foreground = ${colors.accent}
-click-left = ooonana-brightness
+content-background = ${colors.background-alt}
+content-padding = 2
+click-left = ooonana-rofi-brightness
 scroll-up = brightnessctl set +5%
 scroll-down = brightnessctl set 5%-
+
+[module/power]
+type = custom/text
+content = power
+content-foreground = ${colors.urgent}
+content-background = ${colors.background-alt}
+content-padding = 2
+click-left = ooonana-rofi-power
 
 [module/battery]
 type = internal/battery
@@ -821,13 +976,22 @@ adapter = AC
 format-charging = bat <label-charging>
 format-discharging = bat <label-discharging>
 format-full = bat full
+format-charging-background = ${colors.background-alt}
+format-discharging-background = ${colors.background-alt}
+format-full-background = ${colors.background-alt}
+format-charging-padding = 2
+format-discharging-padding = 2
+format-full-padding = 2
 
 [module/date]
 type = internal/date
 interval = 1
 date = %Y-%m-%d
 time = %H:%M
-label = %date% %time%
+label = time %time%
+label-foreground = ${colors.cool}
+label-background = ${colors.background-alt}
+label-padding = 2
 EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/rofi.rasi" <<'EOF'
@@ -1791,6 +1955,22 @@ install_full_i3_packages() {
     "$ROOT/packages/ooonana/usr/bin/ooonana" get full-i3 >/dev/null
 }
 
+write_default_cloud_source() {
+  mkdir -p "$ROOTFS/etc/ooonana/sources.d" "$ROOTFS/usr/lib/ooonana/repo"
+  rm -rf "$ROOTFS/usr/lib/ooonana/repo"
+  mkdir -p "$ROOTFS/usr/lib/ooonana/repo"
+  cat > "$ROOTFS/etc/ooonana/sources.d/cloud.repo" <<'EOF'
+OOONANA_REPO_NAME="cloud"
+OOONANA_REPO_URI="https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-package-repo.tar.gz"
+EOF
+  cat > "$ROOTFS/usr/lib/ooonana/repo/README.txt" <<'EOF'
+Ooonana full-i3 uses cloud packages by default.
+Run:
+  ooonana update
+  ooonana upgrade
+EOF
+}
+
 compile_glib_schemas() {
   local schema_dir="$ROOTFS/usr/share/glib-2.0/schemas"
   [[ -d "$schema_dir" ]] || return 0
@@ -1917,6 +2097,7 @@ main() {
   "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$ROOTFS/usr/lib/ooonana/repo" >/dev/null
   "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$REPO" >/dev/null
   install_full_i3_packages
+  write_default_cloud_source
   compile_glib_schemas
   refresh_gtk_caches
   restore_busybox_init_links

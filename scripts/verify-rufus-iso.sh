@@ -76,8 +76,12 @@ xorriso -osirrox on -indev "$ISO" -extract /RUFUS.md "$tmp/RUFUS.md" >/dev/null 
 need_contains "$tmp/grub.cfg" "terminal_input console serial"
 case "$EDITION" in
   full-i3)
+    need_contains "$tmp/grub.cfg" "ooonana_progress_bar"
+    need_contains "$tmp/grub.cfg" "[#####-----]"
     need_contains "$tmp/grub.cfg" "terminal_output console serial"
-    if grep -q 'set gfxmode=\|set gfxpayload=keep\|terminal_output gfxterm\|insmod gfxterm\|insmod font' "$tmp/grub.cfg"; then
+    need_contains "$tmp/grub.cfg" "terminal_output gfxterm serial"
+    need_contains "$tmp/grub.cfg" "set theme=/boot/grub/theme.txt"
+    if grep -q 'set gfxmode=\|set gfxpayload=keep\|insmod gfxmenu' "$tmp/grub.cfg"; then
       fail "full-i3 GRUB forces graphics mode and can resize VMware display"
     fi
     ;;

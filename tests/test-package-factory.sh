@@ -109,6 +109,8 @@ assert_contains "$workflow" 'cloud_url="$release_url"'
 [[ "$workflow" != *'default: "nano"'* ]] || fail "workflow default must not be nano-only"
 assert_contains "$workflow" "configs/packages/ooonana-cloud.list"
 assert_contains "$workflow" "configs/packages/full-i3.list"
+assert_contains "$workflow" "default: \"configs/packages/full-i3.list\""
+assert_contains "$workflow" "default: true"
 
 builder_help="$(bash "$BUILDER" --help)"
 assert_contains "$builder_help" "Build an Ooonana package repo"

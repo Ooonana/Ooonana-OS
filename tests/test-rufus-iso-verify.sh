@@ -32,8 +32,14 @@ printf 'fake iso\n' > "$tmp/min.iso"
 cat > "$tmp/full-grub.cfg" <<'EOF'
 terminal_input console serial
 terminal_output console serial
+terminal_output gfxterm serial
 set color_normal=yellow/black
 set color_highlight=black/yellow
+function ooonana_progress_bar {
+  echo '[#####-----] booting Ooonana OS'
+}
+set theme=/boot/grub/theme.txt
+export theme
 set timeout=5
 cat /boot/grub/ooonana-logo.txt
 menuentry 'Ooonana OS Full i3 Live' { linux /boot/vmlinuz console=ttyS0 console=tty0 }

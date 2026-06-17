@@ -8,6 +8,8 @@ if [ "${1:-}" = "--dry-run" ]; then
   printf 'yad Ooonana AI dashboard\n'
   printf 'actions: status provider model tools tasks audit history desktop desktop-control permissions logs chat ask sessions setup env shell\n'
   printf 'dashboard tabs: home actions ask provider-model logs\n'
+  printf 'dashboard sections: Home Ask Chat Tools Desktop Permissions Logs\n'
+  printf 'grouped actions: Prompt Health Config Tools Desktop Logs Safety Terminal\n'
   printf 'gui controls: ask form provider/model action launcher desktop-control permissions logs\n'
   printf 'permissions: shell actions gated; desktop actions explicit; logs: %s\n' "$APP_LOG"
   printf 'OOONANA_AI_APP_GUI_OK\n'
@@ -109,22 +111,22 @@ show_home() {
 choose_action() {
   yad --center --title "Ooonana AI Actions" --width=680 --height=520 \
     --list --print-column=1 --column Action --column Group --column Description \
-    ask "Prompt" "Ask one prompt from a GUI form" \
-    chat "Prompt" "Open interactive chat terminal" \
-    status "Health" "Provider, model, desktop, and health" \
-    provider-model "Config" "Show provider and model together" \
-    tools "Tools" "Show local tool registry" \
-    tasks "Tasks" "Show task board" \
+    ask Prompt "Ask one prompt from a GUI form" \
+    chat Prompt "Open interactive chat terminal" \
+    status Health "Provider, model, desktop, and health" \
+    provider-model Config "Show provider and model together" \
+    tools Tools "Show local tool registry" \
+    tasks Tools "Show task board" \
     sessions "Memory" "Saved chat sessions" \
-    audit "Logs" "Show audit log" \
-    history "Logs" "Show prompt history" \
-    desktop "Desktop" "Inspect desktop context" \
-    desktop-control "Desktop" "Open terminal, browser, files, or restart i3" \
-    permissions "Safety" "Show action permissions and shell gate" \
-    logs "Logs" "Open Ooonana AI app log" \
-    setup "Config" "Configure provider keys" \
-    env "Config" "Environment check" \
-    shell "Terminal" "Fallback shell" 2>/dev/null || true
+    audit Logs "Show audit log" \
+    history Logs "Show prompt history" \
+    desktop Desktop "Inspect desktop context" \
+    desktop-control Desktop "Open terminal, browser, files, or restart i3" \
+    permissions Safety "Show action permissions and shell gate" \
+    logs Logs "Open Ooonana AI app log" \
+    setup Config "Configure provider keys" \
+    env Config "Environment check" \
+    shell Terminal "Fallback shell" 2>/dev/null || true
 }
 
 ask_gui() {

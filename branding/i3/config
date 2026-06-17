@@ -30,6 +30,8 @@ bindsym $mod+Shift+f exec ooonana-files
 bindsym $mod+Shift+w exec ooonana-browser
 bindsym $mod+n exec ooonana-wifi
 bindsym $mod+b exec ooonana-bluetooth
+bindsym $mod+Shift+n exec ooonana-rofi-wifi
+bindsym $mod+Shift+b exec ooonana-rofi-bluetooth
 bindsym $mod+Shift+s exec ooonana-settings-launch
 bindsym $mod+Shift+a exec ooonana-ai-launch
 bindsym $mod+Shift+o exec ooonana-packages-app
