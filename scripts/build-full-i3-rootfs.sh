@@ -252,16 +252,16 @@ EOF
 set -eu
 choose() {
   if [ -n "${DISPLAY:-}" ] && command -v rofi >/dev/null 2>&1; then
-    printf 'Connections\nEditor\nTUI\nStatus\n' | rofi -dmenu -i -p "Wi-Fi" -theme /etc/ooonana/rofi.rasi 2>/dev/null || true
+    printf ' Connections\n Editor\n TUI\n Status\n' | rofi -dmenu -i -p "Wi-Fi" -theme /etc/ooonana/rofi.rasi 2>/dev/null || true
   else
     printf 'Editor\n'
   fi
 }
 action="$(choose)"
 case "$action" in
-  Connections|Editor) exec ooonana-wifi ;;
-  TUI) command -v nmtui >/dev/null 2>&1 && exec ooonana-theme-env xterm -e nmtui ;;
-  Status) exec ooonana-theme-env xterm -e sh -lc 'nmcli dev status 2>/dev/null || ip addr; exec sh' ;;
+  *Connections*|*Editor*) exec ooonana-wifi ;;
+  *TUI*) command -v nmtui >/dev/null 2>&1 && exec ooonana-theme-env xterm -e nmtui ;;
+  *Status*) exec ooonana-theme-env xterm -e sh -lc 'nmcli dev status 2>/dev/null || ip addr; exec sh' ;;
 esac
 exit 0
 EOF
@@ -271,17 +271,17 @@ EOF
 set -eu
 choose() {
   if [ -n "${DISPLAY:-}" ] && command -v rofi >/dev/null 2>&1; then
-    printf 'Manager\nDevices\nPower On\nPower Off\n' | rofi -dmenu -i -p "Bluetooth" -theme /etc/ooonana/rofi.rasi 2>/dev/null || true
+    printf ' Manager\n Devices\n Power On\n Power Off\n' | rofi -dmenu -i -p "Bluetooth" -theme /etc/ooonana/rofi.rasi 2>/dev/null || true
   else
     printf 'Manager\n'
   fi
 }
 action="$(choose)"
 case "$action" in
-  Manager) exec ooonana-bluetooth ;;
-  Devices) exec ooonana-theme-env xterm -e sh -lc 'bluetoothctl devices 2>/dev/null || echo "bluetoothctl missing"; exec sh' ;;
-  "Power On") bluetoothctl power on >/dev/null 2>&1 || true ;;
-  "Power Off") bluetoothctl power off >/dev/null 2>&1 || true ;;
+  *Manager*) exec ooonana-bluetooth ;;
+  *Devices*) exec ooonana-theme-env xterm -e sh -lc 'bluetoothctl devices 2>/dev/null || echo "bluetoothctl missing"; exec sh' ;;
+  *"Power On"*) bluetoothctl power on >/dev/null 2>&1 || true ;;
+  *"Power Off"*) bluetoothctl power off >/dev/null 2>&1 || true ;;
 esac
 exit 0
 EOF
@@ -291,17 +291,20 @@ EOF
 set -eu
 choose() {
   if [ -n "${DISPLAY:-}" ] && command -v rofi >/dev/null 2>&1; then
-    printf '25%\n50%\n75%\n100%\nUp 5%\nDown 5%\nSlider\n' | rofi -dmenu -i -p "Brightness" -theme /etc/ooonana/rofi.rasi 2>/dev/null || true
+    printf ' 25%\n 50%\n 75%\n 100%\n Up 5%\n Down 5%\n▰ Slider\n' | rofi -dmenu -i -p "Brightness" -theme /etc/ooonana/rofi.rasi 2>/dev/null || true
   else
     printf 'Slider\n'
   fi
 }
 action="$(choose)"
 case "$action" in
-  25%|50%|75%|100%) exec ooonana-brightness "$action" ;;
-  "Up 5%") exec ooonana-brightness +5% ;;
-  "Down 5%") exec ooonana-brightness 5%- ;;
-  Slider) exec ooonana-brightness ;;
+  *25%*) exec ooonana-brightness 25% ;;
+  *50%*) exec ooonana-brightness 50% ;;
+  *75%*) exec ooonana-brightness 75% ;;
+  *100%*) exec ooonana-brightness 100% ;;
+  *"Up 5%"*) exec ooonana-brightness +5% ;;
+  *"Down 5%"*) exec ooonana-brightness 5%- ;;
+  *Slider*) exec ooonana-brightness ;;
 esac
 exit 0
 EOF
@@ -311,18 +314,18 @@ EOF
 set -eu
 choose() {
   if [ -n "${DISPLAY:-}" ] && command -v rofi >/dev/null 2>&1; then
-    printf 'Lock\nExit i3\nRestart i3\nReboot\nShutdown\n' | rofi -dmenu -i -p "Power" -theme /etc/ooonana/rofi.rasi 2>/dev/null || true
+    printf ' Lock\n Exit i3\n Restart i3\n Reboot\n Shutdown\n' | rofi -dmenu -i -p "Power" -theme /etc/ooonana/rofi.rasi 2>/dev/null || true
   else
     printf 'Exit i3\n'
   fi
 }
 action="$(choose)"
 case "$action" in
-  Lock) command -v i3lock >/dev/null 2>&1 && i3lock || true ;;
-  "Exit i3") command -v i3-msg >/dev/null 2>&1 && i3-msg exit >/dev/null 2>&1 || true ;;
-  "Restart i3") command -v i3-msg >/dev/null 2>&1 && i3-msg restart >/dev/null 2>&1 || true ;;
-  Reboot) exec bunana --restart ;;
-  Shutdown) exec bunana --shutdown ;;
+  *Lock*) command -v i3lock >/dev/null 2>&1 && i3lock || true ;;
+  *"Exit i3"*) command -v i3-msg >/dev/null 2>&1 && i3-msg exit >/dev/null 2>&1 || true ;;
+  *"Restart i3"*) command -v i3-msg >/dev/null 2>&1 && i3-msg restart >/dev/null 2>&1 || true ;;
+  *Reboot*) exec bunana --restart ;;
+  *Shutdown*) exec bunana --shutdown ;;
 esac
 exit 0
 EOF
@@ -454,10 +457,36 @@ if [ "$#" -gt 0 ]; then
   exec brightnessctl set "$1"
 fi
 if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
-  value="$(yad --center --title "Ooonana Brightness" --scale --min-value=1 --max-value=100 --value=75 --button=Apply:0 2>/dev/null || true)"
+  current="$(brightnessctl -m 2>/dev/null | awk -F, '{gsub(/%/,"",$4); print $4; exit}')"
+  [ -n "$current" ] || current=75
+  value="$(yad --center --title "Ooonana Brightness" --scale --min-value=1 --max-value=100 --value="$current" --button=Apply:0 2>/dev/null || true)"
   [ -n "$value" ] && exec brightnessctl set "${value}%"
 fi
 exec ooonana-theme-env xterm -e sh -lc 'brightnessctl; echo; echo "Usage: ooonana-brightness 75%"; exec sh'
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-brightness-status" <<'EOF'
+#!/bin/sh
+set -eu
+value="0"
+if command -v brightnessctl >/dev/null 2>&1; then
+  value="$(brightnessctl -m 2>/dev/null | awk -F, '{gsub(/%/,"",$4); print $4; exit}')"
+fi
+case "$value" in
+  ''|*[!0-9]*) value=0 ;;
+esac
+filled=$(( (value + 9) / 10 ))
+bar=""
+i=1
+while [ "$i" -le 10 ]; do
+  if [ "$i" -le "$filled" ]; then
+    bar="${bar}━"
+  else
+    bar="${bar}─"
+  fi
+  i=$((i + 1))
+done
+printf ' %s %s%%\n' "$bar" "$value"
 EOF
 
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-packages-app" <<'EOF'
@@ -547,6 +576,8 @@ if [ "${1:-}" = "--dry-run" ]; then
   echo "actions: theme wallpaper display audio wifi bluetooth packages brightness screenshot editor music processes ranger ai terminal browser files repo about"
   echo "sections: System Hardware Applications Ooonana"
   echo "status cards: theme wallpaper network bluetooth audio display repo"
+  echo "icon grid: theme wallpaper display audio wifi bluetooth brightness terminal browser files packages ai"
+  echo "brightness scale: current brightnessctl value"
   echo "safe launchers: terminal browser files ai packages"
   echo "OOONANA_SETTINGS_THEME_OK"
   echo "OOONANA_SETTINGS_GUI_OK"
@@ -618,28 +649,28 @@ fi
 while :; do
   theme_now="$(theme_status)"
   wallpaper_now="$(wallpaper_status)"
-  action="$(yad --center --title "Ooonana Settings" --width=680 --height=500 \
+  action="$(yad --center --title "Ooonana Settings" --width=780 --height=560 \
     --text "Theme: $theme_now    Wallpaper: $(basename "$wallpaper_now" 2>/dev/null || echo wallpaper)    Network/Bluetooth/Audio ready when tray tools are installed" \
-    --list --print-column=1 --column Action --column Section --column Description \
-    theme System "Dark/light theme and apply now" \
-    wallpaper System "Choose desktop wallpaper" \
-    display Hardware "Open display layout" \
-    audio Hardware "Open audio controls" \
-    wifi Hardware "Open NetworkManager" \
-    bluetooth Hardware "Open Bluetooth manager" \
-    brightness Hardware "Set display brightness" \
-    browser Applications "Open Chromium" \
-    files Applications "Open Nemo file manager" \
-    terminal Applications "Open themed terminal" \
-    screenshot Applications "Take screenshot" \
-    editor Applications "Open Geany/Vim" \
-    music Applications "Open MPD client" \
-    processes Applications "Open htop" \
-    ranger Applications "Open terminal file manager" \
-    packages Ooonana "Open package manager" \
-    ai Ooonana "Open Ooonana AI app" \
-    repo Ooonana "Set cloud package repo" \
-    about Ooonana "Show Ooonana info" 2>/dev/null || true)"
+    --list --print-column=2 --column Icon --column Action --column Section --column Description \
+    "" theme System "Dark/light theme and apply now" \
+    "" wallpaper System "Choose desktop wallpaper" \
+    "" display Hardware "Open display layout" \
+    "" audio Hardware "Open audio controls" \
+    "" wifi Hardware "Open NetworkManager" \
+    "" bluetooth Hardware "Open Bluetooth manager" \
+    "" brightness Hardware "Set display brightness" \
+    "" browser Applications "Open Chromium" \
+    "" files Applications "Open Nemo file manager" \
+    "" terminal Applications "Open themed terminal" \
+    "" screenshot Applications "Take screenshot" \
+    "" editor Applications "Open Geany/Vim" \
+    "" music Applications "Open MPD client" \
+    "" processes Applications "Open htop" \
+    "" ranger Applications "Open terminal file manager" \
+    "" packages Ooonana "Open package manager" \
+    "" ai Ooonana "Open Ooonana AI app" \
+    "" repo Ooonana "Set cloud package repo" \
+    "" about Ooonana "Show Ooonana info" 2>/dev/null || true)"
   [ -n "$action" ] || exit 0
   case "$action" in
     theme)
@@ -795,7 +826,7 @@ background-alt = #1a2029
 foreground = #ffb21a
 accent = #ffd37a
 muted = #7a5014
-urgent = #ff4d2e
+urgent = #050505
 cool = #5eb6ff
 
 [bar/ooonana]
@@ -816,7 +847,10 @@ separator-foreground = ${colors.muted}
 line-size = 2
 line-color = ${colors.accent}
 font-0 = monospace:size=10;2
-modules-left = brand launcher terminal browser files editor media title
+font-1 = "Font Awesome 7 Free Solid:size=10;2"
+font-2 = "Font Awesome 6 Free Solid:size=10;2"
+font-3 = "Font Awesome 5 Free Solid:size=10;2"
+modules-left = brand terminal browser files editor media title
 modules-center =
 modules-right = audio brightness battery bluetooth network wifi date power
 tray-position = right
@@ -827,14 +861,15 @@ enable-ipc = true
 
 [module/brand]
 type = custom/text
-content = O
+content = Ooonana
 content-foreground = ${colors.foreground}
 content-background = ${colors.background}
-content-padding = 1
+content-padding = 2
+click-left = rofi -show drun -theme /etc/ooonana/rofi.rasi
 
 [module/launcher]
 type = custom/text
-content = run
+content = Ooonana
 content-foreground = ${colors.cool}
 content-background = ${colors.background-alt}
 content-padding = 2
@@ -842,39 +877,39 @@ click-left = rofi -show drun -theme /etc/ooonana/rofi.rasi
 
 [module/terminal]
 type = custom/text
-content = term
+content = 
 content-foreground = ${colors.accent}
 content-background = ${colors.background-alt}
-content-padding = 1
+content-padding = 2
 click-left = ooonana-theme-env xterm
 
 [module/browser]
 type = custom/text
-content = web
+content = 
 content-foreground = ${colors.accent}
 content-background = ${colors.background-alt}
-content-padding = 1
+content-padding = 2
 click-left = ooonana-browser
 
 [module/files]
 type = custom/text
-content = files
+content = 
 content-foreground = ${colors.accent}
 content-background = ${colors.background-alt}
-content-padding = 1
+content-padding = 2
 click-left = ooonana-files
 
 [module/editor]
 type = custom/text
-content = edit
+content = 
 content-foreground = ${colors.accent}
 content-background = ${colors.background-alt}
-content-padding = 1
+content-padding = 2
 click-left = ooonana-editor
 
 [module/media]
 type = custom/text
-content = media - Ooonana
+content = 
 content-foreground = ${colors.accent}
 content-background = ${colors.background-alt}
 content-padding = 2
@@ -914,7 +949,7 @@ label-padding = 2
 
 [module/wifi]
 type = custom/text
-content = oasis
+content = 
 content-foreground = ${colors.accent}
 content-background = ${colors.background-alt}
 content-padding = 2
@@ -922,7 +957,7 @@ click-left = ooonana-rofi-wifi
 
 [module/bluetooth]
 type = custom/text
-content = bt on
+content = 
 content-foreground = ${colors.accent}
 content-background = ${colors.background-alt}
 content-padding = 2
@@ -931,40 +966,42 @@ click-left = ooonana-rofi-bluetooth
 [module/network]
 type = internal/network
 interface-type = wireless
-label-connected = wifi %essid%
+label-connected =  %essid%
 label-connected-foreground = ${colors.accent}
 label-connected-background = ${colors.background-alt}
 label-connected-padding = 2
-label-disconnected = wifi off
+label-disconnected =  off
 label-disconnected-foreground = ${colors.muted}
 label-disconnected-background = ${colors.background-alt}
 label-disconnected-padding = 2
 
 [module/audio]
 type = internal/pulseaudio
-format-volume = vol <label-volume>
+format-volume =  <label-volume>
 format-volume-background = ${colors.background-alt}
 format-volume-padding = 2
-label-muted = mute
+label-muted = 
 label-muted-foreground = ${colors.muted}
 label-muted-background = ${colors.background-alt}
 label-muted-padding = 2
 click-left = pavucontrol
 
 [module/brightness]
-type = custom/text
-content = light 20%
-content-foreground = ${colors.accent}
-content-background = ${colors.background-alt}
-content-padding = 2
+type = custom/script
+exec = ooonana-brightness-status
+interval = 2
+label = %output%
+label-foreground = ${colors.accent}
+label-background = ${colors.background-alt}
+label-padding = 2
 click-left = ooonana-rofi-brightness
 scroll-up = brightnessctl set +5%
 scroll-down = brightnessctl set 5%-
 
 [module/power]
 type = custom/text
-content = power
-content-foreground = ${colors.urgent}
+content = 
+content-foreground = ${colors.foreground}
 content-background = ${colors.background-alt}
 content-padding = 2
 click-left = ooonana-rofi-power
@@ -988,7 +1025,7 @@ type = internal/date
 interval = 1
 date = %Y-%m-%d
 time = %H:%M
-label = time %time%
+label = %time%
 label-foreground = ${colors.cool}
 label-background = ${colors.background-alt}
 label-padding = 2
@@ -1001,7 +1038,7 @@ configuration {
   sidebar-mode: true;
   drun-display-format: "{icon} {name}";
   display-drun: "Ooonana";
-  display-run: "Run";
+  display-run: "Ooonana";
   display-window: "Windows";
 }
 * {
@@ -1015,7 +1052,7 @@ configuration {
   selected-active-background: #ffd37a;
   selected-active-foreground: #050505;
   alternate-normal-background: #111111;
-  urgent: #ff4d2e;
+  urgent: #050505;
   font: "monospace 11";
 }
 window {
@@ -1153,9 +1190,9 @@ frame_width = 2
 corner_radius = 0
 highlight = "#ffb21a"
 [urgency_critical]
-background = "#281604"
-foreground = "#fff0c7"
-frame_color = "#ff4d2e"
+background = "#050505"
+foreground = "#ffb21a"
+frame_color = "#ffb21a"
 EOF
 }
 

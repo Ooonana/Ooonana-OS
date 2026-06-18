@@ -10,6 +10,8 @@ if [ "${1:-}" = "--dry-run" ]; then
   printf 'dashboard tabs: home actions ask provider-model logs\n'
   printf 'dashboard sections: Home Ask Chat Tools Desktop Permissions Logs\n'
   printf 'grouped actions: Prompt Health Config Tools Desktop Logs Safety Terminal\n'
+  printf 'icon command center: ask chat status tools desktop settings logs shell\n'
+  printf 'persistent GUI loop: returns to actions after each action\n'
   printf 'gui controls: ask form provider/model action launcher desktop-control permissions logs\n'
   printf 'permissions: shell actions gated; desktop actions explicit; logs: %s\n' "$APP_LOG"
   printf 'OOONANA_AI_APP_GUI_OK\n'
@@ -109,24 +111,24 @@ show_home() {
 }
 
 choose_action() {
-  yad --center --title "Ooonana AI Actions" --width=680 --height=520 \
-    --list --print-column=1 --column Action --column Group --column Description \
-    ask Prompt "Ask one prompt from a GUI form" \
-    chat Prompt "Open interactive chat terminal" \
-    status Health "Provider, model, desktop, and health" \
-    provider-model Config "Show provider and model together" \
-    tools Tools "Show local tool registry" \
-    tasks Tools "Show task board" \
-    sessions "Memory" "Saved chat sessions" \
-    audit Logs "Show audit log" \
-    history Logs "Show prompt history" \
-    desktop Desktop "Inspect desktop context" \
-    desktop-control Desktop "Open terminal, browser, files, or restart i3" \
-    permissions Safety "Show action permissions and shell gate" \
-    logs Logs "Open Ooonana AI app log" \
-    setup Config "Configure provider keys" \
-    env Config "Environment check" \
-    shell Terminal "Fallback shell" 2>/dev/null || true
+  yad --center --title "Ooonana AI Actions" --width=780 --height=560 \
+    --list --print-column=2 --column Icon --column Action --column Group --column Description \
+    "" ask Prompt "Ask one prompt from a GUI form" \
+    "" chat Prompt "Open interactive chat terminal" \
+    "" status Health "Provider, model, desktop, and health" \
+    "" provider-model Config "Show provider and model together" \
+    "" tools Tools "Show local tool registry" \
+    "" tasks Tools "Show task board" \
+    "" sessions Memory "Saved chat sessions" \
+    "" audit Logs "Show audit log" \
+    "" history Logs "Show prompt history" \
+    "" desktop Desktop "Inspect desktop context" \
+    "" desktop-control Desktop "Open terminal, browser, files, settings, or restart i3" \
+    "" permissions Safety "Show action permissions and shell gate" \
+    "" logs Logs "Open Ooonana AI app log" \
+    "" setup Config "Configure provider keys" \
+    "" env Config "Environment check" \
+    "" shell Terminal "Fallback shell" 2>/dev/null || true
 }
 
 ask_gui() {
@@ -183,19 +185,19 @@ logs_gui() {
 desktop_control_gui() {
   action="$(yad --center --title "Ooonana Desktop Control" --width=600 --height=360 \
     --list --print-column=1 --column Action --column Description \
-    terminal "Open themed terminal" \
-    browser "Open Chromium" \
-    files "Open Nemo file manager" \
-    settings "Open Ooonana Settings" \
-    restart-i3 "Restart i3 window manager" 2>/dev/null || true)"
+    " terminal" "Open themed terminal" \
+    " browser" "Open Chromium" \
+    " files" "Open Nemo file manager" \
+    " settings" "Open Ooonana Settings" \
+    " restart-i3" "Restart i3 window manager" 2>/dev/null || true)"
   [ -n "$action" ] || return 0
   log_event "desktop-control: $action"
   case "$action" in
-    terminal) open_action_terminal shell || true ;;
-    browser) command -v ooonana-browser >/dev/null 2>&1 && ooonana-browser || true ;;
-    files) command -v ooonana-files >/dev/null 2>&1 && ooonana-files || true ;;
-    settings) command -v ooonana-settings >/dev/null 2>&1 && ooonana-settings || true ;;
-    restart-i3) command -v i3-msg >/dev/null 2>&1 && i3-msg restart >/dev/null 2>&1 || true ;;
+    *terminal*) open_action_terminal shell || true ;;
+    *browser*) command -v ooonana-browser >/dev/null 2>&1 && ooonana-browser || true ;;
+    *files*) command -v ooonana-files >/dev/null 2>&1 && ooonana-files || true ;;
+    *settings*) command -v ooonana-settings >/dev/null 2>&1 && ooonana-settings || true ;;
+    *restart-i3*) command -v i3-msg >/dev/null 2>&1 && i3-msg restart >/dev/null 2>&1 || true ;;
   esac
 }
 
@@ -206,63 +208,71 @@ open_gui() {
   [ -n "${DISPLAY:-}" ] || return 1
   command -v yad >/dev/null 2>&1 || return 1
 
-  show_home || exit 0
-  action="$(choose_action)"
-  [ -n "$action" ] || exit 0
+  while :; do
+    show_home || exit 0
+    action="$(choose_action)"
+    [ -n "$action" ] || exit 0
 
-  case "$action" in
-    provider-model)
-      provider_model_gui
-      ;;
-    status)
-      show_gui_status
-      ;;
-    tools)
-      run_gui_text "Ooonana AI Tools" tools
-      ;;
-    tasks)
-      run_gui_text "Ooonana AI Tasks" tasks
-      ;;
-    sessions)
-      run_gui_text "Ooonana AI Sessions" sessions
-      ;;
-    desktop)
-      run_gui_text "Ooonana AI Desktop" tool desktop
-      ;;
-    desktop-control)
-      desktop_control_gui
-      ;;
-    permissions)
-      permissions_gui
-      ;;
-    logs)
-      logs_gui
-      ;;
-    audit)
-      run_gui_text "Ooonana AI Audit" audit
-      ;;
-    history)
-      run_gui_text "Ooonana AI History" history
-      ;;
-    provider)
-      run_gui_text "Ooonana AI Provider" provider
-      ;;
-    model)
-      run_gui_text "Ooonana AI Model" model
-      ;;
-    env)
-      run_gui_text "Ooonana AI Env" env
-      ;;
-    ask)
-      ask_gui
-      ;;
-    shell)
-      open_action_terminal shell || return 1
-      ;;
-    *)
-      open_action_terminal "$action" || return 1
-      ;;
-  esac
+    case "$action" in
+      provider-model)
+        provider_model_gui
+        ;;
+      status)
+        show_gui_status
+        ;;
+      tools)
+        run_gui_text "Ooonana AI Tools" tools
+        ;;
+      tasks)
+        run_gui_text "Ooonana AI Tasks" tasks
+        ;;
+      sessions)
+        run_gui_text "Ooonana AI Sessions" sessions
+        ;;
+      desktop)
+        run_gui_text "Ooonana AI Desktop" tool desktop
+        ;;
+      desktop-control)
+        desktop_control_gui
+        ;;
+      permissions)
+        permissions_gui
+        ;;
+      logs)
+        logs_gui
+        ;;
+      audit)
+        run_gui_text "Ooonana AI Audit" audit
+        ;;
+      history)
+        run_gui_text "Ooonana AI History" history
+        ;;
+      provider)
+        run_gui_text "Ooonana AI Provider" provider
+        ;;
+      model)
+        run_gui_text "Ooonana AI Model" model
+        ;;
+      env)
+        run_gui_text "Ooonana AI Env" env
+        ;;
+      ask)
+        ask_gui
+        ;;
+      shell)
+        open_action_terminal shell || return 1
+        ;;
+      chat)
+        open_action_terminal chat || return 1
+        ;;
+      setup)
+        open_action_terminal setup || return 1
+        ;;
+      *)
+        open_action_terminal "$action" || return 1
+        ;;
+    esac
+  done
 }
 
 pause_if_interactive() {

@@ -493,7 +493,7 @@ Default full-i3 apps and tools:
 
 ```text
 chromium, nemo, python3, py3-pip, alacritty
-polybar, rofi, yad, picom, dunst, feh
+polybar, rofi, yad, font-awesome-free, picom, dunst, feh
 networkmanager, network-manager-applet, blueman
 bluez, wpa_supplicant, wireless-regdb, linux-firmware
 linux-firmware-i915, linux-firmware-amdgpu, linux-firmware-brcm
@@ -633,7 +633,7 @@ sudo ooonana-install \
   --yes
 ```
 
-Default full-i3 UI is dark: black background, orange text/cursor, Ooonana polybar/rofi/picom/dunst config, and a new black/orange Ooonana wallpaper. `Mod+d` opens a patched Ooonana rofi launcher with orange selection, Ooonana labels, icon rows, and matching black/orange mode tabs. The old sunset look is light mode:
+Default full-i3 UI is dark: black background, orange text/cursor, Ooonana polybar/rofi/picom/dunst config, and a new black/orange Ooonana wallpaper. The panel uses an `Ooonana` launcher label plus icon buttons for terminal, browser, files, editor, media, audio, brightness, Wi-Fi, Bluetooth, battery, clock, and power. Brightness has scroll support and a clickable scale. `Mod+d` opens a patched Ooonana rofi launcher with orange selection, Ooonana labels, icon rows, and matching black/orange mode tabs. The old sunset look is light mode:
 
 ```bash
 ooonana help ui
@@ -660,7 +660,7 @@ Mod+Shift+X  htop process monitor
 Mod+Shift+U  ranger file manager
 ```
 
-`ooonana-settings` opens a GUI settings menu when `yad` is available. It can switch theme, choose wallpaper, open display/audio/Wi-Fi/Bluetooth tools, open package manager, launch Ooonana AI, open Chromium/Nemo/terminal, set brightness, take screenshots, open editor/music/process/file-manager helpers, write the cloud repo source, and show Ooonana info. It falls back to the terminal help path when GUI pieces are missing.
+`ooonana-settings` opens an icon-based GUI settings menu when `yad` is available. It can switch theme, choose wallpaper, open display/audio/Wi-Fi/Bluetooth tools, open package manager, launch Ooonana AI, open Chromium/Nemo/terminal, set brightness with the current hardware value, take screenshots, open editor/music/process/file-manager helpers, write the cloud repo source, and show Ooonana info. It falls back to the terminal help path when GUI pieces are missing.
 
 Persistent live USB:
 
@@ -735,7 +735,7 @@ VMware note:
 No EFI environment detected
 ```
 
-This line is harmless only for legacy BIOS boot. Hybrid BIOS/UEFI ISO support needs `grub-efi-amd64-bin` installed before `grub-mkrescue`. Current full-i3 GRUB uses console text output with orange colors, the Ooonana logo, and serial fallback; it does not set `gfxmode` or keep a graphics payload, because that can resize VMware displays. Full-i3 live now uses a tiny initramfs plus `/images/ooonana-full-i3-live-rootfs.ext4`, so the desktop rootfs is no longer unpacked into RAM. QEMU BIOS and UEFI live smoke both pass at 2048 MB, and the kernel fragment enables EFI/simple framebuffer plus USB HID/storage for native/Rufus boot. If you see `Initramfs unpacking failed: write error` or `libxcb.so.1` errors, you are booting an old ISO. If live boot reaches `Run /init` and then looks stuck, rebuild with the latest console fix; interactive init mounts `/proc` before choosing `tty1`, and smoke logs use `ttyS0` directly. If persistent live drops to shell with `mkdir: not found`, rebuild the full-i3 rootfs/ISO; package install can overwrite early boot applet links, and the current builder restores BusyBox links for `/bin/mkdir`, `/bin/cat`, `/bin/sleep`, and other init-critical commands. If i3 starts but input is dead, rebuild the full-i3 package repo/rootfs; the profile now includes eudev and starts it before Xorg. The full-i3 panel includes Wi-Fi, Bluetooth, network, audio, brightness, battery, date, and tray items. The full-i3 installer auto-detects `/dev/vd*`, `/dev/sd*`, `/dev/xvd*`, and `/dev/nvme*` targets, then installed GRUB boots by `PARTUUID` instead of hardcoding `/dev/vda1`. If install fails or is cancelled outside smoke mode, the ISO opens a BusyBox shell instead of rebooting. The release ISO should not include `ooonana.smoke=1`; smoke ISOs are only for automated QEMU proof and reboot after markers.
+This line is harmless only for legacy BIOS boot. Hybrid BIOS/UEFI ISO support needs `grub-efi-amd64-bin` installed before `grub-mkrescue`. Current full-i3 GRUB uses console text output with orange on black, the Ooonana logo, and serial fallback; it does not set `gfxmode` or keep a graphics payload, because that can resize VMware displays. Full-i3 live now uses a tiny initramfs plus `/images/ooonana-full-i3-live-rootfs.ext4`, so the desktop rootfs is no longer unpacked into RAM. QEMU BIOS and UEFI live smoke both pass at 2048 MB, and the kernel fragment enables EFI/simple framebuffer plus USB HID/storage for native/Rufus boot. If you see `Initramfs unpacking failed: write error` or `libxcb.so.1` errors, you are booting an old ISO. If live boot reaches `Run /init` and then looks stuck, rebuild with the latest console fix; interactive init mounts `/proc` before choosing `tty1`, and smoke logs use `ttyS0` directly. If persistent live drops to shell with `mkdir: not found`, rebuild the full-i3 rootfs/ISO; package install can overwrite early boot applet links, and the current builder restores BusyBox links for `/bin/mkdir`, `/bin/cat`, `/bin/sleep`, and other init-critical commands. If i3 starts but input is dead, rebuild the full-i3 package repo/rootfs; the profile now includes eudev and starts it before Xorg. The full-i3 panel includes Wi-Fi, Bluetooth, network, audio, brightness, battery, date, and tray items. The full-i3 installer auto-detects `/dev/vd*`, `/dev/sd*`, `/dev/xvd*`, and `/dev/nvme*` targets, then installed GRUB boots by `PARTUUID` instead of hardcoding `/dev/vda1`. If install fails or is cancelled outside smoke mode, the ISO opens a BusyBox shell instead of rebooting. The release ISO should not include `ooonana.smoke=1`; smoke ISOs are only for automated QEMU proof and reboot after markers.
 
 Non-interactive installed-disk proof path:
 
@@ -837,10 +837,12 @@ i3 shortcut: Mod+Shift+a
 ```
 
 The launcher opens a `yad` GUI dashboard when the full desktop is available,
-then falls back to the native terminal dashboard. The GUI has home, action,
+then falls back to the native terminal dashboard. The GUI now uses an icon
+command center and returns to actions after each task. It has home, action,
 ask, provider/model, and log flows. It can show status, tools registry, task
-board, audit/history, desktop context, and env output in Ooonana dialogs.
-Chat, setup, and shell still use a themed terminal. For terminal-only launch:
+board, audit/history, desktop context, desktop control, permissions, and env
+output in Ooonana dialogs. Chat, setup, and shell still use a themed terminal.
+For terminal-only launch:
 
 ```bash
 OOONANA_AI_APP_NO_X=1 ooonana-ai-app

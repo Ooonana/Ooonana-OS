@@ -117,7 +117,10 @@ assert_contains "$theme" 'id = "__timeout__"'
 assert_contains "$theme" 'desktop-image: "/boot/grub/background.png"'
 assert_contains "$theme" 'item_color = "#ffb21a"'
 assert_contains "$theme" 'selected_item_color = "#ffffff"'
-assert_contains "$theme" "item_height = 26"
+assert_contains "$theme" 'visible = true'
+assert_contains "$theme" 'item_font = "Unifont Regular 16"'
+assert_contains "$theme" "item_height = 30"
+assert_contains "$theme" "scrollbar = false"
 assert_contains "$theme" "Use arrows. Enter boots selected."
 [[ -s "$tmp/build/full-i3-iso-tree/boot/grub/background.png" ]] || fail "missing GRUB background bitmap"
 assert_contains "$normal_cfg" "cat /boot/grub/ooonana-logo.txt"

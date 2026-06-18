@@ -85,11 +85,14 @@ message-color: "#ffb21a"
   left = 16%
   item_color = "#ffb21a"
   selected_item_color = "#ffffff"
+  visible = true
+  item_font = "Unifont Regular 16"
+  scrollbar = false
 }
 + progress_bar {
   id = "__timeout__"
   fg_color = "#ffb21a"
-  bg_color = "#1b1202"
+  bg_color = "#050505"
 }
 EOF
 printf 'png' > "$tmp/background.png"

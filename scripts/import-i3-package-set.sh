@@ -7,7 +7,7 @@ source "$ROOT/scripts/lib/common.sh"
 
 OUT_DIR="$ROOT/packages/ooonana/usr/lib/ooonana/repo"
 REPO_ARGS=()
-I3_PACKAGES="xorg-server xinit libxcb libxau libxdmcp xf86-video-vesa xf86-video-fbdev xf86-input-libinput xf86-input-evdev eudev i3wm i3status polybar rofi yad picom dunst dmenu feh xterm alacritty xsetroot xrandr xinput chromium nemo geany networkmanager network-manager-applet blueman arandr pavucontrol maim mpd mpc ncmpcpp ranger htop vim brightnessctl coreutils parted grub-bios e2fsprogs dosfstools rsync util-linux"
+I3_PACKAGES="xorg-server xinit libxcb libxau libxdmcp xf86-video-vesa xf86-video-fbdev xf86-input-libinput xf86-input-evdev eudev i3wm i3status polybar rofi yad hicolor-icon-theme font-awesome-free picom dunst dmenu feh xterm alacritty xsetroot xrandr xinput chromium nemo geany networkmanager network-manager-applet blueman arandr pavucontrol maim mpd mpc ncmpcpp ranger htop vim brightnessctl coreutils parted grub-bios e2fsprogs dosfstools rsync util-linux"
 BRANDING_VERSION="0.1.0"
 
 usage() {

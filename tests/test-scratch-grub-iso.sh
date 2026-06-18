@@ -121,7 +121,7 @@ assert_contains "$theme" 'message-color: "#ffb21a"'
 assert_contains "$theme" "+ progress_bar"
 assert_contains "$theme" 'id = "__timeout__"'
 assert_contains "$theme" 'fg_color = "#ffb21a"'
-assert_contains "$theme" 'bg_color = "#1b1202"'
+assert_contains "$theme" 'bg_color = "#050505"'
 assert_contains "$theme" "+ boot_menu"
 [[ "$theme" != *"selected-item-color"* ]] || fail "GRUB theme has invalid selected item color"
 [[ "$theme" != *"selected-item-background-color"* ]] || fail "GRUB theme has invalid selected item background"

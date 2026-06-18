@@ -24,6 +24,7 @@ shared-mime-info
 gdk-pixbuf
 gdk-pixbuf-loaders
 hicolor-icon-theme
+font-awesome-free
 picom
 dunst
 dmenu

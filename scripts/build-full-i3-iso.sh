@@ -182,10 +182,17 @@ stage_iso_tree() {
   rm -rf "$ISO_TREE"
   mkdir -p "$ISO_TREE/boot/grub" "$ISO_TREE/images"
 
+  stage_large_file() {
+    local src="$1"
+    local dst="$2"
+    rm -f "$dst"
+    ln "$src" "$dst" 2>/dev/null || install -m 0644 "$src" "$dst"
+  }
+
   install -m 0644 "$KERNEL" "$ISO_TREE/boot/vmlinuz"
   install -m 0644 "$INITRAMFS" "$ISO_TREE/boot/install-initramfs.cpio.gz"
   install -m 0644 "$LIVE_INITRAMFS" "$ISO_TREE/boot/live-initramfs.cpio.gz"
-  install -m 0644 "$LIVE_ROOTFS_IMAGE" "$ISO_TREE/images/ooonana-full-i3-live-rootfs.ext4"
+  stage_large_file "$LIVE_ROOTFS_IMAGE" "$ISO_TREE/images/ooonana-full-i3-live-rootfs.ext4"
   gzip -n -c "$DISK_IMAGE" > "$ISO_TREE/images/$DISK_IMAGE_STAGED"
   install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/logo.txt" "$ISO_TREE/boot/grub/ooonana-logo.txt"
   write_rufus_note
@@ -200,14 +207,18 @@ message-bg-color: "#050505"
 
 + boot_menu {
   left = 16%
-  top = 32%
+  top = 28%
   width = 68%
-  height = 38%
+  height = 44%
+  visible = true
+  item_font = "Unifont Regular 16"
+  selected_item_font = "Unifont Regular 16"
   item_color = "#ffb21a"
   selected_item_color = "#ffffff"
-  item_height = 26
+  item_height = 30
   item_padding = 6
   item_spacing = 4
+  scrollbar = false
 }
 
 + label {
@@ -227,7 +238,7 @@ message-bg-color: "#050505"
   width = 68%
   height = 18
   fg_color = "#ffb21a"
-  bg_color = "#1b1202"
+  bg_color = "#050505"
   border_color = "#ffb21a"
 }
 EOF

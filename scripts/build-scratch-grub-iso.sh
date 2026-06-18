@@ -192,7 +192,7 @@ message-bg-color: "#050505"
   width = 68%
   height = 18
   fg_color = "#ffb21a"
-  bg_color = "#1b1202"
+  bg_color = "#050505"
   border_color = "#ffb21a"
 }
 EOF

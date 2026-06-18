@@ -90,9 +90,13 @@ assert_contains "$app_gui_dry" "status provider model tools tasks audit history 
 assert_contains "$app_gui_dry" "dashboard tabs: home actions ask provider-model logs"
 assert_contains "$app_gui_dry" "dashboard sections: Home Ask Chat Tools Desktop Permissions Logs"
 assert_contains "$app_gui_dry" "grouped actions: Prompt Health Config Tools Desktop Logs Safety Terminal"
+assert_contains "$app_gui_dry" "icon command center"
+assert_contains "$app_gui_dry" "persistent GUI loop"
 assert_contains "$app_gui_dry" "gui controls: ask form provider/model action launcher desktop-control permissions logs"
 assert_contains "$app_gui_dry" "permissions: shell actions gated"
 assert_contains "$app_gui_dry" "OOONANA_AI_APP_GUI_OK"
+assert_contains "$(<"$AI_DESKTOP_APP")" "--column Icon --column Action"
+assert_contains "$(<"$AI_DESKTOP_APP")" "while :; do"
 launcher_dry="$("$AI_LAUNCHER" --dry-run)"
 assert_contains "$launcher_dry" "OOONANA_AI_LAUNCH_OK"
 
