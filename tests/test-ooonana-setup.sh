@@ -21,11 +21,13 @@ setup_src="$(<"$SETUP")"
 assert_contains "$setup_src" 'yad --center --title "Ooonana Setup"'
 assert_contains "$setup_src" "OOONANA_SETUP_GUI_OK"
 assert_contains "$setup_src" "fields: user password network address gateway dns theme cloud-repo done"
-assert_contains "$setup_src" 'xterm -title "Ooonana Setup"'
+assert_contains "$setup_src" 'xterm $XTERM_FONT_ARGS -title "Ooonana Setup"'
 assert_contains "$setup_src" 'OOONANA_THEME:-dark'
 assert_contains "$setup_src" 'XTERM_BG="#050505"'
 assert_contains "$setup_src" 'XTERM_BG="#ffb21a"'
 assert_contains "$setup_src" '-cr "$XTERM_CURSOR"'
+assert_contains "$setup_src" 'XTERM_FONT_ARGS="-fa monospace -fs 10"'
+assert_contains "$setup_src" '$XTERM_FONT_ARGS -title "Ooonana Setup"'
 
 help="$("$SETUP" --help)"
 assert_contains "$help" "Ooonana first-boot setup"

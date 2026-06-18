@@ -51,6 +51,9 @@ assert_contains "$(<"$AI_DESKTOP_APP")" "if open_gui"
 assert_contains "$(<"$AI_LAUNCHER")" "OOONANA_AI_LAUNCH_OK"
 assert_contains "$(<"$AI_LAUNCHER")" "ooonana-ai-app"
 assert_contains "$(<"$AI_DESKTOP_FILE")" "Exec=ooonana-ai-launch"
+assert_contains "$(<"$AI_DESKTOP_APP")" "XTERM_FONT_ARGS='-fa monospace -fs 10'"
+assert_contains "$(<"$AI_DESKTOP_APP")" '$XTERM_FONT_ARGS -title "Ooonana AI"'
+assert_contains "$(<"$AI_DESKTOP_APP")" '$XTERM_FONT_ARGS -title "$title"'
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT

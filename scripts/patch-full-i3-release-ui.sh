@@ -65,6 +65,9 @@ ooonana-brightness|/usr/bin/ooonana-brightness|0100755
 ooonana-brightness-status|/usr/bin/ooonana-brightness-status|0100755
 ooonana-settings|/usr/bin/ooonana-settings|0100755
 ooonana-settings-launch|/usr/bin/ooonana-settings-launch|0100755
+ooonana-theme-env|/usr/bin/ooonana-theme-env|0100755
+ooonana-setup|/usr/bin/ooonana-setup|0100755
+ooonana-gui-installer|/usr/bin/ooonana-gui-installer|0100755
 polybar.ini|/etc/ooonana/polybar.ini|0100644
 rofi.rasi|/etc/ooonana/rofi.rasi|0100644
 dunstrc|/etc/ooonana/dunstrc|0100644
@@ -92,6 +95,9 @@ build_payload() {
   extract_block '$ROOTFS/usr/bin/ooonana-brightness-status' "$payload/ooonana-brightness-status"
   extract_block '$ROOTFS/usr/bin/ooonana-settings"' "$payload/ooonana-settings"
   extract_block '$ROOTFS/usr/bin/ooonana-settings-launch' "$payload/ooonana-settings-launch"
+  extract_block '$ROOTFS/usr/bin/ooonana-theme-env' "$payload/ooonana-theme-env"
+  install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana-setup" "$payload/ooonana-setup"
+  extract_block '$ROOTFS/usr/bin/ooonana-gui-installer' "$payload/ooonana-gui-installer"
   extract_block '$ROOTFS/etc/ooonana/polybar.ini' "$payload/polybar.ini"
   extract_block '$ROOTFS/etc/ooonana/rofi.rasi' "$payload/rofi.rasi"
   extract_block '$ROOTFS/etc/ooonana/dunstrc' "$payload/dunstrc"

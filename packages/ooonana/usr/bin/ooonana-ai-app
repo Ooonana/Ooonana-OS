@@ -3,6 +3,7 @@ set -eu
 
 AI_CMD="${OOONANA_AI_CMD:-ooonana-ai}"
 APP_LOG="${OOONANA_AI_APP_LOG:-${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/ai-app.log}"
+XTERM_FONT_ARGS='-fa monospace -fs 10'
 
 if [ "${1:-}" = "--dry-run" ]; then
   printf 'yad Ooonana AI dashboard\n'
@@ -27,7 +28,7 @@ open_xterm() {
     exec ooonana-theme-env xterm -title "Ooonana AI" -e env OOONANA_AI_APP_TERMINAL=1 "$0" "$@"
   fi
   if command -v xterm >/dev/null 2>&1; then
-    exec xterm -title "Ooonana AI" -e env OOONANA_AI_APP_TERMINAL=1 "$0" "$@"
+    exec xterm $XTERM_FONT_ARGS -title "Ooonana AI" -e env OOONANA_AI_APP_TERMINAL=1 "$0" "$@"
   fi
   return 1
 }
@@ -39,7 +40,7 @@ open_action_terminal() {
     exec ooonana-theme-env xterm -title "$title" -e env OOONANA_AI_APP_TERMINAL=1 "$0" "$@"
   fi
   if command -v xterm >/dev/null 2>&1; then
-    exec xterm -title "$title" -e env OOONANA_AI_APP_TERMINAL=1 "$0" "$@"
+    exec xterm $XTERM_FONT_ARGS -title "$title" -e env OOONANA_AI_APP_TERMINAL=1 "$0" "$@"
   fi
   return 1
 }

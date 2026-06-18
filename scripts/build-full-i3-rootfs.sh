@@ -130,6 +130,7 @@ load_theme() {
       ;;
   esac
   OOONANA_CURSOR="#ffb21a"
+  XTERM_FONT_ARGS="-fa monospace -fs 10"
   export OOONANA_THEME OOONANA_BG OOONANA_FG OOONANA_CURSOR
 }
 
@@ -177,9 +178,9 @@ case "${1:-env}" in
   xterm)
     shift
     if [ "$#" -eq 0 ]; then
-      exec xterm -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR" -e /bin/sh -l
+      exec xterm $XTERM_FONT_ARGS -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR" -e /bin/sh -l
     fi
-    exec xterm -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR" "$@"
+    exec xterm $XTERM_FONT_ARGS -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR" "$@"
     ;;
   *)
     echo "usage: ooonana-theme-env [env|apply|toggle|xterm]" >&2
@@ -1355,7 +1356,7 @@ set -eu
 
 if [ "${1:-}" = "--dry-run" ]; then
   echo "ooonana-installer-gui --dry-run"
-  echo "xterm -title Ooonana Installer"
+  echo "xterm -fa monospace -fs 10 -title Ooonana Installer"
   echo "default theme: dark background, orange cursor"
   echo "ooonana-install-wizard --dry-run"
   echo "OOONANA_GUI_INSTALLER_OK"
@@ -1381,6 +1382,7 @@ xterm_theme() {
       ;;
   esac
   XTERM_CURSOR="#ffb21a"
+  XTERM_FONT_ARGS="-fa monospace -fs 10"
 }
 
 wizard="/usr/bin/ooonana-install-wizard"
@@ -1392,7 +1394,7 @@ fi
 if [ -n "${DISPLAY:-}" ] && [ -z "${OOONANA_INSTALL_WIZARD_IN_TERMINAL:-}" ] && command -v xterm >/dev/null 2>&1; then
   xterm_theme
   exec env OOONANA_INSTALL_WIZARD_IN_TERMINAL=1 \
-    xterm -title "Ooonana Installer" -bg "$XTERM_BG" -fg "$XTERM_FG" -cr "$XTERM_CURSOR" -e "$wizard" "$@"
+    xterm $XTERM_FONT_ARGS -title "Ooonana Installer" -bg "$XTERM_BG" -fg "$XTERM_FG" -cr "$XTERM_CURSOR" -e "$wizard" "$@"
 else
   exec "$wizard" "$@"
 fi

@@ -264,7 +264,9 @@ assert_contains "$theme_helper" "/etc/ooonana/theme"
 assert_contains "$theme_helper" ".config/ooonana/wallpaper"
 assert_contains "$theme_helper" "hsetroot -cover"
 assert_contains "$theme_helper" '-e /bin/sh -l'
-assert_contains "$theme_helper" 'exec xterm -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR"'
+assert_contains "$theme_helper" 'exec xterm $XTERM_FONT_ARGS -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR"'
+assert_contains "$theme_helper" 'XTERM_FONT_ARGS="-fa monospace -fs 10"'
+assert_contains "$theme_helper" '$XTERM_FONT_ARGS -bg "$OOONANA_BG" -fg "$OOONANA_FG"'
 
 browser_helper="$(<"$rootfs/usr/bin/ooonana-browser")"
 assert_contains "$browser_helper" "chromium --no-first-run"
@@ -403,7 +405,7 @@ gui_installer="$(<"$rootfs/usr/bin/ooonana-gui-installer")"
 assert_contains "$gui_installer" "ooonana-installer-gui --dry-run"
 assert_contains "$gui_installer" "/usr/bin/ooonana-installer-gui"
 assert_contains "$gui_installer" "OOONANA_INSTALL_WIZARD_IN_TERMINAL"
-assert_contains "$gui_installer" 'xterm -title "Ooonana Installer"'
+assert_contains "$gui_installer" 'xterm $XTERM_FONT_ARGS -title "Ooonana Installer"'
 assert_contains "$gui_installer" 'OOONANA_THEME:-dark'
 assert_contains "$gui_installer" 'XTERM_BG="#050505"'
 assert_contains "$gui_installer" '-cr "$XTERM_CURSOR"'
@@ -458,7 +460,7 @@ assert_contains "$wizard_dry" "OOONANA_INSTALL_WIZARD_OK"
 
 gui_dry="$("$rootfs/usr/bin/ooonana-gui-installer" --dry-run)"
 assert_contains "$gui_dry" "ooonana-installer-gui --dry-run"
-assert_contains "$gui_dry" "xterm -title Ooonana Installer"
+assert_contains "$gui_dry" "xterm -fa monospace -fs 10 -title Ooonana Installer"
 assert_contains "$gui_dry" "default theme: dark background, orange cursor"
 assert_contains "$gui_dry" "ooonana-install-wizard --dry-run"
 assert_contains "$gui_dry" "OOONANA_GUI_INSTALLER_OK"
