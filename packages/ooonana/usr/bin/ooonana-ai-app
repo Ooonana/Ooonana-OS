@@ -12,7 +12,9 @@ if [ "${1:-}" = "--dry-run" ]; then
   printf 'grouped actions: Prompt Health Config Tools Desktop Logs Safety Terminal\n'
   printf 'icon command center: ask chat status tools desktop settings logs shell\n'
   printf 'persistent GUI loop: returns to actions after each action\n'
+  printf 'gui chat: transcript prompt loop buttons ask status model provider tools clear save close\n'
   printf 'gui controls: ask form provider/model action launcher desktop-control permissions logs\n'
+  printf 'OOONANA_AI_CHAT_GUI_OK\n'
   printf 'permissions: shell actions gated; desktop actions explicit; logs: %s\n' "$APP_LOG"
   printf 'OOONANA_AI_APP_GUI_OK\n'
   exit 0
@@ -114,7 +116,7 @@ choose_action() {
   yad --center --title "Ooonana AI Actions" --width=780 --height=560 \
     --list --print-column=2 --column Icon --column Action --column Group --column Description \
     "" ask Prompt "Ask one prompt from a GUI form" \
-    "" chat Prompt "Open interactive chat terminal" \
+    "" chat Prompt "Open GUI chat" \
     "" status Health "Provider, model, desktop, and health" \
     "" provider-model Config "Show provider and model together" \
     "" tools Tools "Show local tool registry" \
@@ -139,6 +141,81 @@ ask_gui() {
   prompt="${prompt%|}"
   [ -n "$prompt" ] || return 0
   run_gui_text "Ooonana AI Answer" ask "$prompt"
+}
+
+chat_gui() {
+  [ -n "${DISPLAY:-}" ] || return 1
+  command -v yad >/dev/null 2>&1 || return 1
+
+  transcript="${OOONANA_AI_CHAT_TRANSCRIPT:-${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/ai-chat-gui.txt}"
+  mkdir -p "$(dirname "$transcript")" 2>/dev/null || true
+  if [ ! -f "$transcript" ]; then
+    {
+      printf 'Ooonana AI GUI chat\n'
+      printf '===================\n\n'
+    } >"$transcript"
+  fi
+
+  while :; do
+    if yad --center --title "Ooonana AI Chat" --width=860 --height=620 \
+      --text-info --filename="$transcript" \
+      --button=Ask:0 --button=Status:2 --button=Model:3 --button=Provider:4 \
+      --button=Tools:5 --button=Clear:6 --button=Save:7 --button=Close:1 2>/dev/null; then
+      rc=0
+    else
+      rc="$?"
+    fi
+
+    case "$rc" in
+      0)
+        prompt="$(yad --center --title "Ooonana AI Chat" --width=760 --height=300 \
+          --form --text "Message" --field="Prompt:TXT" "" \
+          --button=Cancel:1 --button=Ask:0 2>/dev/null || true)"
+        prompt="${prompt%|}"
+        [ -n "$prompt" ] || continue
+        tmp="${TMPDIR:-/tmp}/ooonana-ai-chat.$$"
+        {
+          printf '\nYou\n---\n%s\n\nOoonana\n-------\n' "$prompt"
+        } >>"$transcript"
+        log_event "chat-gui ask"
+        if run_ai ask "$prompt" >"$tmp" 2>&1; then
+          cat "$tmp" >>"$transcript"
+        else
+          rc_ai="$?"
+          printf 'command failed: ooonana-ai ask\nexit: %s\n' "$rc_ai" >>"$transcript"
+          cat "$tmp" >>"$transcript" 2>/dev/null || true
+        fi
+        printf '\n' >>"$transcript"
+        rm -f "$tmp"
+        ;;
+      2)
+        run_gui_text "Ooonana AI Status" status
+        ;;
+      3)
+        run_gui_text "Ooonana AI Model" model
+        ;;
+      4)
+        run_gui_text "Ooonana AI Provider" provider
+        ;;
+      5)
+        run_gui_text "Ooonana AI Tools" tools
+        ;;
+      6)
+        {
+          printf 'Ooonana AI GUI chat\n'
+          printf '===================\n\n'
+        } >"$transcript"
+        ;;
+      7)
+        dest="$(yad --center --title "Save Ooonana AI Chat" --file --save \
+          --filename="${HOME:-/tmp}/ooonana-ai-chat.txt" 2>/dev/null || true)"
+        [ -n "$dest" ] && cp "$transcript" "$dest" 2>/dev/null || true
+        ;;
+      *)
+        return 0
+        ;;
+    esac
+  done
 }
 
 provider_model_gui() {
@@ -263,7 +340,7 @@ open_gui() {
         open_action_terminal shell || return 1
         ;;
       chat)
-        open_action_terminal chat || return 1
+        chat_gui || open_action_terminal chat || return 1
         ;;
       setup)
         open_action_terminal setup || return 1

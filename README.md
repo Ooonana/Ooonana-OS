@@ -65,6 +65,7 @@ full-i3 live desktop   i3, polybar, rofi, wallpaper, GUI installer launcher
 full-i3 install menu   live GUI installer session, VGA-first fallback, safe graphics fallback
 rufus usb              ISOHybrid/DD mode, BIOS/UEFI, Secure Boot off
 full-i3 VM RAM         2048 MB tested after live rootfs moved outside initramfs
+live kernel            Linux 6.6.142 LTS with Ooonana responsiveness fragment
 ```
 
 Release files:
@@ -129,6 +130,7 @@ Working now:
 - Installer has a serial-safe xterm UI with logo, disk picker, user/password, hostname, theme, cloud repo picker, progress, logs, fail shell, and reboot prompt
 - Live/install ISO keeps interactive prompts on the VGA console for VMware while smoke tests log through serial
 - GRUB uses a stable orange-on-black text menu with Ooonana logo text, BIOS/UEFI hybrid support, live/install/safe graphics menus, and a persistent USB boot entry. Full-i3 does not force `gfxmode` or `gfxpayload=keep`, so VMware keeps its normal display size.
+- Kernel config is tuned for desktop responsiveness: performance compiler mode, full preemption, dynamic preemption, high-resolution timers, 1000 Hz scheduler tick, and scheduler autogroup.
 - Rufus support has a DD-mode note inside the ISO, USB-friendly volume labels, and `scripts/verify-rufus-iso.sh`
 - Full-i3 live starts eudev before Xorg and ships libinput config for PS/2 keyboard and mouse discovery
 - Full-i3 now ships an Ooonana i3 baseline: polybar-first bar, rofi launcher, picom shadows/fades, dunst notifications, Chromium launcher, Nemo launcher, Wi-Fi/Bluetooth/settings helpers, wallpaper changer, and dark Ooonana colors
@@ -142,7 +144,7 @@ Working now:
 - Alpine `.apk` packages can be imported into Ooonana `.pkg` repos
 - Full-i3 branding assets, package profiles, input drivers, package-installed rootfs, boot disk, live/install ISO, GUI installer wizard, AI desktop launcher, and real QEMU boot proof exist as a separate edition path
 - First-boot setup can create a user, prompt for password, write basic network config, and add a cloud package repo
-- `ooonana-ai` supports NVIDIA NIM, Google Gemini, tools, tasks, audit, shell fallback for scratch WSL, and a full-i3 GUI app with home/actions/ask/provider-model/log panels
+- `ooonana-ai` supports NVIDIA NIM, Google Gemini, tools, tasks, audit, shell fallback for scratch WSL, and a full-i3 GUI app with home/actions/ask/chat/provider-model/log panels
 
 Next work:
 
@@ -841,7 +843,9 @@ then falls back to the native terminal dashboard. The GUI now uses an icon
 command center and returns to actions after each task. It has home, action,
 ask, provider/model, and log flows. It can show status, tools registry, task
 board, audit/history, desktop context, desktop control, permissions, and env
-output in Ooonana dialogs. Chat, setup, and shell still use a themed terminal.
+output in Ooonana dialogs. Chat now uses a GUI transcript with Ask, Status,
+Model, Provider, Tools, Clear, Save, and Close buttons. Setup and shell still
+use a themed terminal.
 For terminal-only launch:
 
 ```bash
@@ -876,6 +880,7 @@ bash scripts/install-wsl-deps.sh
 Build kernel:
 
 ```bash
+# default source is Linux 6.6.142 LTS
 bash scripts/fetch-kernel-source.sh --force
 bash scripts/build-kernel.sh \
   --config-fragment configs/kernel/ooonana-minimal-x86_64.fragment \

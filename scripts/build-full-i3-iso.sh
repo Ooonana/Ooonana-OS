@@ -242,7 +242,7 @@ message-bg-color: "#050505"
   border_color = "#ffb21a"
 }
 EOF
-  printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIwAAAABJRU5ErkJggg==' |
+  printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNgYGD4DwABBAEAgLvRWwAAAABJRU5ErkJggg==' |
     base64 -d > "$ISO_TREE/boot/grub/background.png"
   write_grub_config
   chmod -R a+rwX "$ISO_TREE" 2>/dev/null || true
