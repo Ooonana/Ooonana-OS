@@ -59,7 +59,7 @@ need_command xorriso
 
 report="$(xorriso -indev "$ISO" -report_el_torito as_mkisofs 2>/dev/null)"
 if [[ "$report" != *"--grub2-mbr"* && "$report" != *"-isohybrid-mbr"* ]]; then
-  fail "ISO missing hybrid BIOS MBR path for Rufus DD mode"
+  fail "ISO missing hybrid BIOS MBR path for Rufus ISO/DD compatibility"
 fi
 [[ "$report" == *"-eltorito-alt-boot"* ]] || fail "ISO missing alternate El Torito boot catalog"
 [[ "$report" == *"-e '/efi.img'"* || "$report" == *'-e "/efi.img"'* ]] || fail "ISO missing UEFI EFI image"
@@ -116,9 +116,10 @@ need_contains "$tmp/grub.cfg" "cat /boot/grub/ooonana-logo.txt"
 if [[ -f "$tmp/theme.txt" ]] && grep -q 'selected-item-color\|selected-item-background-color\|item-color\|item-font' "$tmp/theme.txt"; then
   fail "GRUB theme contains invalid menu color property"
 fi
-need_contains "$tmp/RUFUS.md" "Write in DD Image mode"
+need_contains "$tmp/RUFUS.md" "Write in ISO Image mode (Recommended)"
+need_contains "$tmp/RUFUS.md" "DD Image mode only as fallback"
 need_contains "$tmp/RUFUS.md" "Disable Secure Boot"
-done_item "Rufus DD-mode note and orange GRUB"
+done_item "Rufus ISO-mode note and orange GRUB"
 
 case "$EDITION" in
   full-i3)

@@ -153,8 +153,9 @@ Recommended Rufus mode:
 
 1. Select `ooonana-full-i3.iso`.
 2. Click Start.
-3. If Rufus says `ISOHybrid image detected`, choose `Write in DD Image mode`.
-4. Disable Secure Boot. Ooonana uses unsigned GRUB/kernel builds right now.
+3. If Rufus says `ISOHybrid image detected`, choose `Write in ISO Image mode (Recommended)`.
+4. DD Image mode only as fallback if ISO mode fails on this machine.
+5. Disable Secure Boot. Ooonana uses unsigned GRUB/kernel builds right now.
 
 Boot support:
 
@@ -163,6 +164,7 @@ Boot support:
 - Installer: use `Install Ooonana OS Full i3`.
 - Safe graphics: use `Install Ooonana OS Full i3 (safe graphics)`.
 - live rootfs is stored outside initramfs, so 2GB VMs and USB boots avoid giant initramfs unpack failures.
+- ISO mode copies files to USB, so each payload file must stay under the FAT32 4GiB limit.
 
 Persistence:
 
@@ -170,6 +172,21 @@ Use `Ooonana OS Full i3 Live (persistent USB)`.
 Create an extra ext4 partition labeled `OOONANA_PERSIST`.
 Ooonana mounts persistent `/home`, `/etc/ooonana`, `/var/lib/ooonana`, and `/var/cache/ooonana`.
 EOF
+}
+
+file_size_bytes() {
+  stat -c '%s' "$1" 2>/dev/null || stat -f '%z' "$1"
+}
+
+check_iso_mode_file_sizes() {
+  local max_fat32_file=$((4 * 1024 * 1024 * 1024 - 1))
+  local path size
+  while IFS= read -r -d '' path; do
+    size="$(file_size_bytes "$path")" || ooonana_die "could not stat ISO payload: $path"
+    if (( size > max_fat32_file )); then
+      ooonana_die "$path is larger than FAT32 4GiB limit; shrink/compress it or use DD Image mode only as fallback"
+    fi
+  done < <(find "$ISO_TREE" -type f -print0)
 }
 
 stage_iso_tree() {
@@ -245,6 +262,7 @@ EOF
   printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNgYGD4DwABBAEAgLvRWwAAAABJRU5ErkJggg==' |
     base64 -d > "$ISO_TREE/boot/grub/background.png"
   write_grub_config
+  check_iso_mode_file_sizes
   chmod -R a+rwX "$ISO_TREE" 2>/dev/null || true
 }
 
@@ -267,7 +285,7 @@ validate_grub_modules() {
 
 main() {
   ooonana_require_linux
-  ooonana_require_commands gzip grub-mkrescue install
+  ooonana_require_commands find gzip grub-mkrescue install stat
   validate_grub_modules
 
   if [[ "$FORCE" -eq 1 ]]; then

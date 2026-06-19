@@ -24,7 +24,8 @@ assert_contains "$script_src" "hybrid BIOS/UEFI ISO"
 assert_contains "$script_src" "Ooonana OS Minimal"
 assert_contains "$script_src" "ooonana-logo.txt"
 assert_contains "$script_src" 'VOLUME="OOONANAMIN"'
-assert_contains "$script_src" "Write in DD Image mode"
+assert_contains "$script_src" "Write in ISO Image mode (Recommended)"
+assert_contains "$script_src" "DD Image mode only as fallback"
 
 help="$(bash "$SCRIPT" --help)"
 assert_contains "$help" "Build Ooonana scratch GRUB ISO"
@@ -79,7 +80,8 @@ PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
 [[ -f "$tmp/build/scratch-grub-iso-tree/images/ooonana-scratch-disk.raw" ]] || fail "missing staged disk image"
 [[ -f "$tmp/build/scratch-grub-iso-tree/boot/grub/grub.cfg" ]] || fail "missing grub config"
 [[ "$(<"$tmp/build/scratch-grub-iso-tree/images/ooonana-scratch-disk.raw")" == "disk" ]] || fail "wrong staged disk image"
-assert_contains "$(<"$tmp/build/scratch-grub-iso-tree/RUFUS.md")" "Write in DD Image mode"
+assert_contains "$(<"$tmp/build/scratch-grub-iso-tree/RUFUS.md")" "Write in ISO Image mode (Recommended)"
+assert_contains "$(<"$tmp/build/scratch-grub-iso-tree/RUFUS.md")" "DD Image mode only as fallback"
 assert_contains "$(<"$tmp/build/scratch-grub-iso-tree/RUFUS.md")" "Ooonana OS Minimal"
 
 cfg="$(<"$tmp/build/scratch-grub-iso-tree/boot/grub/grub.cfg")"

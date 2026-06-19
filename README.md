@@ -96,7 +96,7 @@ ooonana-full-i3.iso    live desktop by default, persistent live second, installe
 ooonana-scratch.iso    minimal shell plus installer menu
 full-i3 live desktop   i3, polybar, rofi, wallpaper, GUI installer launcher
 full-i3 install menu   live GUI installer session, VGA-first fallback, safe graphics fallback
-rufus usb              ISOHybrid/DD mode, BIOS/UEFI, Secure Boot off
+rufus usb              ISO mode, BIOS/UEFI, Secure Boot off
 rufus persistence      second GRUB entry plus ext4 partition labeled OOONANA_PERSIST
 full-i3 VM RAM         2048 MB tested after live rootfs moved outside initramfs
 live kernel            Linux 6.6.142 LTS with Ooonana responsiveness fragment
@@ -165,7 +165,7 @@ Working now:
 - Live/install ISO keeps interactive prompts on the VGA console for VMware while smoke tests log through serial
 - GRUB uses a stable orange-on-black text menu with Ooonana logo text, BIOS/UEFI hybrid support, live/install/safe graphics menus, and a persistent USB boot entry. Full-i3 does not force `gfxmode` or `gfxpayload=keep`, so VMware keeps its normal display size.
 - Kernel config is tuned for desktop responsiveness: performance compiler mode, full preemption, dynamic preemption, high-resolution timers, 1000 Hz scheduler tick, and scheduler autogroup.
-- Rufus support has a DD-mode note inside the ISO, USB-friendly volume labels, and `scripts/verify-rufus-iso.sh`
+- Rufus support has an ISO-mode note inside the ISO, USB-friendly volume labels, and `scripts/verify-rufus-iso.sh`
 - Full-i3 live starts eudev before Xorg and ships libinput config for PS/2 keyboard and mouse discovery
 - Full-i3 now ships an Ooonana i3 baseline: polybar-first bar, rofi launcher, picom shadows/fades, dunst notifications, Chromium launcher, Nemo launcher, Wi-Fi/Bluetooth/settings helpers, wallpaper changer, and dark Ooonana colors
 - Installed disk boots in QEMU
@@ -523,7 +523,7 @@ full-i3   ooonana-full-i3.iso, ooonana-full-i3-disk.raw, ooonana-full-i3-rootfs.
 
 The full-i3 path adds branding, i3 config, X input drivers, package automation, live desktop, GUI installer tools, Ooonana AI app launcher, and a package-installed rootfs. It does not replace the minimal release.
 The full-i3 ISO boots live i3 by default. The GRUB menu includes normal live, persistent live, installer, and safe graphics installer entries. From the live desktop, launch `ooonana-gui-installer` to install through the graphical wizard.
-The full-i3 ISO stages the installed raw disk as `images/ooonana-full-i3-disk.raw.gz` and streams it through `gzip -dc` during install. This keeps Rufus/DD USB behavior while avoiding a second uncompressed 6GB image inside the ISO.
+The full-i3 ISO stages the installed raw disk as `images/ooonana-full-i3-disk.raw.gz` and streams it through `gzip -dc` during install. This keeps Rufus ISO-mode USB behavior while avoiding a second uncompressed 6GB image inside the ISO. Each copied payload file is kept below the FAT32 4GiB limit.
 
 Default full-i3 apps and tools:
 
@@ -723,7 +723,7 @@ Compatibility:
 BIOS: yes
 UEFI: yes
 Secure Boot: no, disable it for now
-Rufus mode: DD Image mode
+Rufus mode: ISO Image mode
 ```
 
 Rufus settings for normal USB boot:
@@ -731,14 +731,15 @@ Rufus settings for normal USB boot:
 ```text
 Device: your USB drive
 Boot selection: ooonana-full-i3.iso
-Partition scheme: Rufus may ignore this in DD mode; the ISO carries hybrid BIOS/UEFI layout
+Partition scheme: GPT for UEFI or MBR for BIOS/CSM; the ISO carries hybrid BIOS/UEFI boot files
 Target system: BIOS or UEFI
 File system: Rufus default is fine
-Image mode prompt: Write in DD Image mode
+Image mode prompt: Write in ISO Image mode (Recommended)
 Secure Boot: off in firmware/BIOS setup
 ```
 
-If Rufus shows `ISOHybrid image detected`, choose `Write in DD Image mode`.
+If Rufus shows `ISOHybrid image detected`, choose `Write in ISO Image mode (Recommended)`.
+Use DD Image mode only as fallback if ISO mode fails on a specific machine.
 The ISO includes `RUFUS.md` at the USB root with the same notes.
 
 Persistent live mode:

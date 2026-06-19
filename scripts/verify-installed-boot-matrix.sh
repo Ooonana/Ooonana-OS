@@ -59,9 +59,9 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   print_cmd "${qemu_uefi[@]}"
   printf '[vmware] create VM, firmware BIOS then UEFI, attach disk %s, expect GRUB then Ooonana login/i3\n' "$DISK"
   if [[ -n "$ISO" ]]; then
-    printf '[real-pc-rufus] flash %s in DD mode, disable Secure Boot unless signed, test live persistent install\n' "$ISO"
+    printf '[real-pc-rufus] flash %s in ISO mode, disable Secure Boot unless signed, test live persistent install\n' "$ISO"
   else
-    printf '[real-pc-rufus] flash release ISO in DD mode, disable Secure Boot unless signed, test live persistent install\n'
+    printf '[real-pc-rufus] flash release ISO in ISO mode, disable Secure Boot unless signed, test live persistent install\n'
   fi
   printf 'OOONANA_BOOT_MATRIX_PLAN_OK\n'
   exit 0

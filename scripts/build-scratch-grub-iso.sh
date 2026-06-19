@@ -130,10 +130,11 @@ write_rufus_note() {
 
 Recommended Rufus mode:
 
-1. Select `ooonana-scratch.iso`.
+1. Select `ooonana-scratch-grub.iso`.
 2. Click Start.
-3. If Rufus says `ISOHybrid image detected`, choose `Write in DD Image mode`.
-4. Disable Secure Boot. Ooonana uses unsigned GRUB/kernel builds right now.
+3. If Rufus says `ISOHybrid image detected`, choose `Write in ISO Image mode (Recommended)`.
+4. DD Image mode only as fallback if ISO mode fails on this machine.
+5. Disable Secure Boot. Ooonana uses unsigned GRUB/kernel builds right now.
 
 Boot support:
 
@@ -141,7 +142,23 @@ Boot support:
 - Legacy BIOS/CSM: GRUB BIOS path is included.
 - Minimal shell: use `Ooonana OS Minimal`.
 - Installer: use `Install Ooonana OS Minimal` when present.
+- ISO mode copies files to USB, so each payload file must stay under the FAT32 4GiB limit.
 EOF
+}
+
+file_size_bytes() {
+  stat -c '%s' "$1" 2>/dev/null || stat -f '%z' "$1"
+}
+
+check_iso_mode_file_sizes() {
+  local max_fat32_file=$((4 * 1024 * 1024 * 1024 - 1))
+  local path size
+  while IFS= read -r -d '' path; do
+    size="$(file_size_bytes "$path")" || ooonana_die "could not stat ISO payload: $path"
+    if (( size > max_fat32_file )); then
+      ooonana_die "$path is larger than FAT32 4GiB limit; shrink/compress it or use DD Image mode only as fallback"
+    fi
+  done < <(find "$ISO_TREE" -type f -print0)
 }
 
 stage_iso_tree() {
@@ -202,6 +219,7 @@ EOF
     install -m 0644 "$ROOTFS_IMAGE" "$ISO_TREE/images/ooonana-scratch.ext4"
   fi
   write_grub_config
+  check_iso_mode_file_sizes
   chmod -R a+rwX "$ISO_TREE" 2>/dev/null || true
 }
 
@@ -224,7 +242,7 @@ validate_grub_modules() {
 
 main() {
   ooonana_require_linux
-  ooonana_require_commands grub-mkrescue install
+  ooonana_require_commands find grub-mkrescue install stat
   validate_grub_modules
 
   if [[ "$FORCE" -eq 1 ]]; then

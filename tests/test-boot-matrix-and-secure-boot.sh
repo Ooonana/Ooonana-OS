@@ -24,7 +24,7 @@ assert_contains "$boot_plan" "[qemu-bios]"
 assert_contains "$boot_plan" "[qemu-uefi]"
 assert_contains "$boot_plan" "[vmware]"
 assert_contains "$boot_plan" "[real-pc-rufus]"
-assert_contains "$boot_plan" "DD mode"
+assert_contains "$boot_plan" "ISO mode"
 assert_contains "$boot_plan" "OOONANA_BOOT_MATRIX_PLAN_OK"
 
 secure_plan="$(bash "$SECURE_BOOT" --efi-dir /tmp/efi --kernel /tmp/vmlinuz --key /tmp/MOK.key --cert /tmp/MOK.crt --out-dir /tmp/sb --dry-run)"

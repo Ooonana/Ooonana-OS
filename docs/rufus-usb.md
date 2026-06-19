@@ -6,12 +6,13 @@ Rufus settings:
 
 ```text
 Boot selection: ooonana-full-i3.iso
-Image mode: Write in DD Image mode
+Image mode: Write in ISO Image mode (Recommended)
 Secure Boot: off
 Target system: BIOS or UEFI
 ```
 
-If Rufus shows `ISOHybrid image detected`, choose `Write in DD Image mode`.
+If Rufus shows `ISOHybrid image detected`, choose `Write in ISO Image mode (Recommended)`.
+Use DD Image mode only as fallback if ISO mode fails on a specific machine.
 
 Ooonana ISO layout:
 
@@ -20,6 +21,7 @@ BIOS boot: GRUB MBR path
 UEFI boot: /efi.img path from grub-mkrescue
 GRUB menu: live, persistent live, installer, safe graphics installer
 Volume label: OOONANAUSB
+Payload limit: every copied file stays below the FAT32 4GiB limit
 ```
 
 Persistence:

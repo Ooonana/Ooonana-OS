@@ -25,7 +25,9 @@ assert_contains "$script_src" "Ooonana OS Full i3 Live"
 assert_contains "$script_src" "Ooonana OS Full i3 Live (persistent USB)"
 assert_contains "$script_src" "ooonana.persistence=1"
 assert_contains "$script_src" 'VOLUME="OOONANAUSB"'
-assert_contains "$script_src" "Write in DD Image mode"
+assert_contains "$script_src" "Write in ISO Image mode (Recommended)"
+assert_contains "$script_src" "DD Image mode only as fallback"
+assert_contains "$script_src" "check_iso_mode_file_sizes"
 assert_contains "$script_src" "OOONANA_PERSIST"
 assert_contains "$script_src" "grub-mkrescue"
 assert_contains "$script_src" "/usr/lib/grub/x86_64-efi"
@@ -164,9 +166,25 @@ PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
 [[ "$(gzip -dc "$tmp/build/full-i3-iso-tree/images/ooonana-full-i3-disk.raw.gz")" == "full disk" ]] || fail "wrong staged disk image"
 [[ "$(<"$tmp/build/full-i3-iso-tree/boot/live-initramfs.cpio.gz")" == "live initramfs" ]] || fail "wrong staged live initramfs"
 [[ "$(<"$tmp/build/full-i3-iso-tree/images/ooonana-full-i3-live-rootfs.ext4")" == "live rootfs image" ]] || fail "wrong staged live rootfs image"
-assert_contains "$(<"$tmp/build/full-i3-iso-tree/RUFUS.md")" "Write in DD Image mode"
+assert_contains "$(<"$tmp/build/full-i3-iso-tree/RUFUS.md")" "Write in ISO Image mode (Recommended)"
+assert_contains "$(<"$tmp/build/full-i3-iso-tree/RUFUS.md")" "DD Image mode only as fallback"
+assert_contains "$(<"$tmp/build/full-i3-iso-tree/RUFUS.md")" "FAT32 4GiB"
 assert_contains "$(<"$tmp/build/full-i3-iso-tree/RUFUS.md")" "OOONANA_PERSIST"
 assert_contains "$(<"$tmp/build/full-i3-iso-tree/RUFUS.md")" "live rootfs is stored outside initramfs"
+
+truncate -s 4294967296 "$tmp/too-big-live-rootfs.ext4"
+if PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
+  --work-dir "$tmp/build-too-big" \
+  --kernel "$tmp/vmlinuz" \
+  --initramfs "$tmp/initramfs.cpio.gz" \
+  --live-initramfs "$tmp/live-initramfs.cpio.gz" \
+  --live-rootfs-image "$tmp/too-big-live-rootfs.ext4" \
+  --disk-image "$tmp/full.raw" \
+  --iso "$tmp/too-big.iso" \
+  --force >"$tmp/too-big.out" 2>"$tmp/too-big.err"; then
+  fail "full-i3 ISO builder accepted file larger than FAT32 limit"
+fi
+assert_contains "$(<"$tmp/too-big.err")" "larger than FAT32 4GiB limit"
 
 cfg="$(<"$tmp/build/full-i3-iso-tree/boot/grub/grub.cfg")"
 assert_contains "$cfg" "set default=2"

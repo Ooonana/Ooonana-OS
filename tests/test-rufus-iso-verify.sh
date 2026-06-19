@@ -65,14 +65,16 @@ EOF
 
 cat > "$tmp/full-RUFUS.md" <<'EOF'
 # Ooonana OS Rufus USB
-Write in DD Image mode
+Write in ISO Image mode (Recommended)
+DD Image mode only as fallback
 Disable Secure Boot
 OOONANA_PERSIST
 EOF
 
 cat > "$tmp/min-RUFUS.md" <<'EOF'
 # Ooonana OS Minimal Rufus USB
-Write in DD Image mode
+Write in ISO Image mode (Recommended)
+DD Image mode only as fallback
 Disable Secure Boot
 Ooonana OS Minimal
 EOF
@@ -146,7 +148,7 @@ chmod +x "$tmp/bin/xorriso"
 
 out="$(OOONANA_FAKE_ROOT="$tmp" OOONANA_FAKE_EDITION=full-i3 PATH="$tmp/bin:$PATH" bash "$SCRIPT" --iso "$tmp/full.iso")"
 assert_contains "$out" "[done] ISOHybrid BIOS and UEFI boot paths"
-assert_contains "$out" "[done] Rufus DD-mode note and orange GRUB"
+assert_contains "$out" "[done] Rufus ISO-mode note and orange GRUB"
 assert_contains "$out" "[done] edition menus"
 assert_contains "$out" "[done] release GRUB has no smoke auto-reboot args"
 assert_contains "$out" "[done] USB-friendly volume labels"
