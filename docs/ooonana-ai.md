@@ -301,9 +301,19 @@ ooonana-ai status          shows provider/UI status
 Full-i3 app launcher:
 
 ```text
-ooonana-ai-app             opens a themed xterm dashboard for Ooonana AI
+ooonana-ai-app             opens the Ooonana AI workbench or terminal fallback
 Mod+Shift+a                i3 shortcut
 /usr/share/applications/ooonana-ai.desktop
+```
+
+GUI workbench:
+
+```text
+Chat pane       transcript, prompt flow, clear, save
+Action rail     ask, chat, tools, tasks, sessions, desktop, setup
+Context pane    desktop state, tools, tasks
+Safety pane     shell and desktop-control permission notes
+Logs pane       app log and audit/history access
 ```
 
 Terminal-only dashboard:

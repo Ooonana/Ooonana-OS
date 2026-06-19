@@ -685,9 +685,13 @@ if [ "${1:-}" = "--dry-run" ]; then
   echo "actions: theme wallpaper display audio wifi bluetooth packages brightness screenshot editor music processes ranger ai terminal browser files repo about"
   echo "sections: System Hardware Applications Ooonana"
   echo "status cards: theme wallpaper network bluetooth audio display repo"
+  echo "control center layout"
+  echo "settings tabs: Overview System Hardware Apps Ooonana Logs"
+  echo "quick controls: theme wallpaper brightness volume wifi bluetooth display repo"
   echo "icon grid: theme wallpaper display audio wifi bluetooth brightness terminal browser files packages ai"
   echo "brightness scale: current brightnessctl value"
   echo "safe launchers: terminal browser files ai packages"
+  echo "GitLab Pages repo: https://ooonana.gitlab.io/ooonana-repo"
   echo "OOONANA_SETTINGS_THEME_OK"
   echo "OOONANA_SETTINGS_GUI_OK"
   exit 0
@@ -751,16 +755,36 @@ show_info() {
   rm -f "$info"
 }
 
-if [ -z "${DISPLAY:-}" ] || ! command -v yad >/dev/null 2>&1; then
-  open_term
-fi
+show_overview() {
+  overview="${TMPDIR:-/tmp}/ooonana-settings-overview.$$"
+  {
+    printf 'Ooonana Control Center\n'
+    printf '======================\n\n'
+    printf 'Theme      %s\n' "$(theme_status)"
+    printf 'Wallpaper  %s\n' "$(wallpaper_status)"
+    printf 'Display    %s\n' "$(command -v arandr >/dev/null 2>&1 && echo arandr || echo xrandr)"
+    printf 'Audio      %s\n' "$(command -v pavucontrol >/dev/null 2>&1 && echo pavucontrol || echo basic)"
+    printf 'Wi-Fi      %s\n' "$(command -v nm-connection-editor >/dev/null 2>&1 && echo NetworkManager || echo basic)"
+    printf 'Bluetooth  %s\n' "$(command -v blueman-manager >/dev/null 2>&1 && echo blueman || echo missing)"
+    printf 'Repo       %s\n' "https://ooonana.gitlab.io/ooonana-repo"
+    printf '\nQuick controls: theme wallpaper brightness volume wifi bluetooth display repo\n'
+    printf 'Settings tabs: Overview System Hardware Apps Ooonana Logs\n'
+  } >"$overview"
+  yad --center --title "Ooonana Control Center" --width=760 --height=500 \
+    --text-info --filename="$overview" \
+    --button=Controls:0 --button=Close:1 2>/dev/null
+  rc="$?"
+  rm -f "$overview"
+  return "$rc"
+}
 
-while :; do
+choose_settings_action() {
   theme_now="$(theme_status)"
   wallpaper_now="$(wallpaper_status)"
-  action="$(yad --center --title "Ooonana Settings" --width=780 --height=560 \
+  yad --center --title "Ooonana Settings" --width=860 --height=620 \
     --text "Theme: $theme_now    Wallpaper: $(basename "$wallpaper_now" 2>/dev/null || echo wallpaper)    Network/Bluetooth/Audio ready when tray tools are installed" \
     --list --print-column=2 --column Icon --column Action --column Section --column Description \
+    "" overview Overview "Show control center status cards" \
     "" theme System "Dark/light theme and apply now" \
     "" wallpaper System "Choose desktop wallpaper" \
     "" display Hardware "Open display layout" \
@@ -768,20 +792,40 @@ while :; do
     "" wifi Hardware "Open NetworkManager" \
     "" bluetooth Hardware "Open Bluetooth manager" \
     "" brightness Hardware "Set display brightness" \
-    "" browser Applications "Open Chromium" \
-    "" files Applications "Open Nemo file manager" \
-    "" terminal Applications "Open themed terminal" \
-    "" screenshot Applications "Take screenshot" \
-    "" editor Applications "Open Geany/Vim" \
-    "" music Applications "Open MPD client" \
-    "" processes Applications "Open htop" \
-    "" ranger Applications "Open terminal file manager" \
+    "" browser Apps "Open Chromium" \
+    "" files Apps "Open Nemo file manager" \
+    "" terminal Apps "Open themed terminal" \
+    "" screenshot Apps "Take screenshot" \
+    "" editor Apps "Open Geany/Vim" \
+    "" music Apps "Open MPD client" \
+    "" processes Apps "Open htop" \
+    "" ranger Apps "Open terminal file manager" \
     "" packages Ooonana "Open package manager" \
-    "" ai Ooonana "Open Ooonana AI app" \
-    "" repo Ooonana "Set cloud package repo" \
-    "" about Ooonana "Show Ooonana info" 2>/dev/null || true)"
+    "" ai Ooonana "Open Ooonana AI workbench" \
+    "" repo Ooonana "Set GitLab Pages or backup repo" \
+    "" logs Logs "Open settings log" \
+    "" about Ooonana "Show Ooonana info" 2>/dev/null || true
+}
+
+show_settings_logs() {
+  log="${XDG_RUNTIME_DIR:-/tmp}/ooonana-settings.log"
+  [ -f "$log" ] || printf 'settings log ready\n' >"$log" 2>/dev/null || true
+  yad --center --title "Ooonana Settings Logs" --width=760 --height=520 \
+    --text-info --filename="$log" 2>/dev/null || true
+}
+
+if [ -z "${DISPLAY:-}" ] || ! command -v yad >/dev/null 2>&1; then
+  open_term
+fi
+
+while :; do
+  show_overview || exit 0
+  action="$(choose_settings_action)"
   [ -n "$action" ] || exit 0
   case "$action" in
+    overview)
+      show_overview || true
+      ;;
     theme)
       theme="$(yad --center --title "Ooonana Theme" --form --field "Theme:CB" "dark!light" 2>/dev/null | cut -d'|' -f1 || true)"
       case "$theme" in
@@ -849,15 +893,23 @@ while :; do
       ooonana-ranger || true
       ;;
     repo)
-      repo="$(yad --center --title "Ooonana Repo" --entry --text "Cloud package repo URL" --entry-text "https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-package-repo.tar.gz" 2>/dev/null || true)"
+      repo="$(yad --center --title "Ooonana Repo" --form \
+        --text "GitLab Pages repo is default. GitHub release tarball is backup." \
+        --field "Repo:CB" "https://ooonana.gitlab.io/ooonana-repo!https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-package-repo.tar.gz" \
+        --field "Custom" "" 2>/dev/null || true)"
       if [ -n "$repo" ]; then
+        chosen="$(printf '%s' "$repo" | cut -d'|' -f2)"
+        [ -n "$chosen" ] || chosen="$(printf '%s' "$repo" | cut -d'|' -f1)"
         mkdir -p /etc/ooonana/sources.d 2>/dev/null || true
         {
-          printf 'OOONANA_REPO_NAME="cloud"\n'
-          printf 'OOONANA_REPO_URI="%s"\n' "$repo"
+          printf 'OOONANA_REPO_NAME="gitlab"\n'
+          printf 'OOONANA_REPO_URI="%s"\n' "$chosen"
         } >/etc/ooonana/sources.d/cloud.repo 2>/dev/null ||
           yad --center --title "Repo" --text "Need root to write /etc/ooonana/sources.d/cloud.repo"
       fi
+      ;;
+    logs)
+      show_settings_logs
       ;;
     about)
       show_info

@@ -387,7 +387,7 @@ GitLab Pages direct repo source example:
 ```sh
 cat >/etc/ooonana/sources.d/gitlab.repo <<'EOF'
 OOONANA_REPO_NAME="gitlab"
-OOONANA_REPO_URI="https://YOUR_NAMESPACE.gitlab.io/YOUR_PROJECT"
+OOONANA_REPO_URI="https://ooonana.gitlab.io/ooonana-repo"
 EOF
 
 ooonana update
@@ -482,7 +482,7 @@ GitLab Pages variables:
 PACKAGE_SET=both
 PACKAGE_PROFILE=          # optional override
 OOONANA_REPO_NAME=gitlab
-OOONANA_PAGES_REPO_URL=https://YOUR_NAMESPACE.gitlab.io/YOUR_PROJECT
+OOONANA_PAGES_REPO_URL=https://ooonana.gitlab.io/ooonana-repo
 ```
 
 GitLab Pages uses the generated `public/` directory. GitLab.com Pages currently has a 1 GB maximum site size, so the full package repo is close to the limit. The CI fails before publishing if `public/` grows past `OOONANA_PAGES_MAX_BYTES`.
@@ -696,7 +696,7 @@ Mod+Shift+X  htop process monitor
 Mod+Shift+U  ranger file manager
 ```
 
-`ooonana-settings` opens an icon-based GUI settings menu when `yad` is available. It can switch theme, choose wallpaper, open display/audio/Wi-Fi/Bluetooth tools, open package manager, launch Ooonana AI, open Chromium/Nemo/terminal, set brightness with the current hardware value, take screenshots, open editor/music/process/file-manager helpers, write the cloud repo source, and show Ooonana info. It falls back to the terminal help path when GUI pieces are missing.
+`ooonana-settings` opens an Ooonana Control Center when `yad` is available. It starts with status cards for theme, wallpaper, display, audio, Wi-Fi, Bluetooth, and repo state, then opens grouped controls for System, Hardware, Apps, Ooonana, and Logs. It can switch theme, choose wallpaper, open display/audio/Wi-Fi/Bluetooth tools, open package manager, launch the AI workbench, open Chromium/Nemo/terminal, set brightness, take screenshots, open editor/music/process/file-manager helpers, write the GitLab Pages package repo source, and show logs/about info. It falls back to the terminal help path when GUI pieces are missing.
 
 Persistent live USB:
 
@@ -857,6 +857,7 @@ GitLab CI/CD -> pages
 The package workflows now default to the combined profile, publish `ooonana-package-repo.tar.gz` to the `packages-latest` GitHub Release as backup, and write repo hints for:
 
 ```text
+https://ooonana.gitlab.io/ooonana-repo
 https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-package-repo.tar.gz
 ```
 
@@ -917,14 +918,13 @@ Full-i3 includes an Ooonana AI app launcher:
 i3 shortcut: Mod+Shift+a
 ```
 
-The launcher opens a `yad` GUI dashboard when the full desktop is available,
-then falls back to the native terminal dashboard. The GUI now uses an icon
-command center and returns to actions after each task. It has home, action,
-ask, provider/model, and log flows. It can show status, tools registry, task
-board, audit/history, desktop context, desktop control, permissions, and env
-output in Ooonana dialogs. Chat now uses a GUI transcript with Ask, Status,
-Model, Provider, Tools, Clear, Save, and Close buttons. Setup and shell still
-use a themed terminal.
+The launcher opens a `yad` AI workbench when the full desktop is available,
+then falls back to the native terminal dashboard. The workbench is chat-first:
+it has a transcript pane, prompt flow, action rail, context panel, permissions,
+and logs. It can show status, tools registry, task board, audit/history,
+desktop context, desktop control, provider/model, permissions, and env output
+in Ooonana dialogs. Chat uses Ask, Status, Model, Provider, Tools, Clear, Save,
+and Close buttons. Setup and shell still use a themed terminal.
 For terminal-only launch:
 
 ```bash
