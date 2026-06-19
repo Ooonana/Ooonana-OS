@@ -67,6 +67,7 @@ ooonana-audio-panel|/usr/bin/ooonana-audio-panel|0100755
 ooonana-rofi-power|/usr/bin/ooonana-rofi-power|0100755
 ooonana-brightness|/usr/bin/ooonana-brightness|0100755
 ooonana-brightness-status|/usr/bin/ooonana-brightness-status|0100755
+ooonana|/usr/bin/ooonana|0100755
 ooonana-settings|/usr/bin/ooonana-settings|0100755
 ooonana-settings-launch|/usr/bin/ooonana-settings-launch|0100755
 ooonana-theme-env|/usr/bin/ooonana-theme-env|0100755
@@ -77,6 +78,7 @@ rofi.rasi|/etc/ooonana/rofi.rasi|0100644
 dunstrc|/etc/ooonana/dunstrc|0100644
 ooonana-ai-app|/usr/bin/ooonana-ai-app|0100755
 ooonana-ai-launch|/usr/bin/ooonana-ai-launch|0100755
+cloud.repo|/etc/ooonana/sources.d/cloud.repo|0100644
 45-font-awesome.conf|/etc/fonts/conf.avail/45-font-awesome.conf|0100644
 65-font-awesome.conf|/etc/fonts/conf.avail/65-font-awesome.conf|0100644
 45-font-awesome.conf|/etc/fonts/conf.d/45-font-awesome.conf|0100644
@@ -102,6 +104,7 @@ build_payload() {
   extract_block '$ROOTFS/usr/bin/ooonana-rofi-power' "$payload/ooonana-rofi-power"
   extract_block '$ROOTFS/usr/bin/ooonana-brightness"' "$payload/ooonana-brightness"
   extract_block '$ROOTFS/usr/bin/ooonana-brightness-status' "$payload/ooonana-brightness-status"
+  install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana" "$payload/ooonana"
   extract_block '$ROOTFS/usr/bin/ooonana-settings"' "$payload/ooonana-settings"
   extract_block '$ROOTFS/usr/bin/ooonana-settings-launch' "$payload/ooonana-settings-launch"
   extract_block '$ROOTFS/usr/bin/ooonana-theme-env' "$payload/ooonana-theme-env"
@@ -112,6 +115,10 @@ build_payload() {
   extract_block '$ROOTFS/etc/ooonana/dunstrc' "$payload/dunstrc"
   install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana-ai-app" "$payload/ooonana-ai-app"
   install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana-ai-launch" "$payload/ooonana-ai-launch"
+  cat > "$payload/cloud.repo" <<'EOF'
+OOONANA_REPO_NAME="gitlab"
+OOONANA_REPO_URI="https://ooonana.gitlab.io/ooonana-repo"
+EOF
 
   local apk="$WORK/font-awesome-free.apk"
   wget -q -O "$apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/font-awesome-free-6.4.2-r1.apk"

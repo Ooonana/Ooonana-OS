@@ -257,7 +257,7 @@ Full-i3 WSL GUI launch needs WSLg or an X server with `DISPLAY` set.
 ooonana me
 ooonana setup
 ooonana setup --first-boot --gui
-ooonana setup --user ryan --password --network dhcp --cloud-repo https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-package-repo.tar.gz --done
+ooonana setup --user ryan --password --network dhcp --cloud-repo https://ooonana.gitlab.io/ooonana-repo --done
 ooonana version
 ooonana wsl status
 ooonana update
@@ -278,9 +278,9 @@ ooonana remove ai
 ooonana uninstall ai
 ooonana purge ai
 ooonana fix ai --reinstall
-ooonana repo add cloud https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-package-repo.tar.gz
+ooonana repo add gitlab https://ooonana.gitlab.io/ooonana-repo
 ooonana repo doctor
-ooonana repo remove cloud
+ooonana repo remove gitlab
 ooonana clean --dry-run
 ooonana clean
 ooonana repo index /usr/lib/ooonana/repo
@@ -349,6 +349,18 @@ Package metadata lives inside Ooonana:
 /var/cache/ooonana/repos/NAME
 ```
 
+GitLab Pages direct repo source example:
+
+```sh
+cat >/etc/ooonana/sources.d/gitlab.repo <<'EOF'
+OOONANA_REPO_NAME="gitlab"
+OOONANA_REPO_URI="https://ooonana.gitlab.io/ooonana-repo"
+EOF
+
+ooonana update
+ooonana get nano
+```
+
 Release tarball repo source example:
 
 ```sh
@@ -380,18 +392,6 @@ EOF
 
 ooonana update
 ooonana get nano
-```
-
-GitLab Pages direct repo source example:
-
-```sh
-cat >/etc/ooonana/sources.d/gitlab.repo <<'EOF'
-OOONANA_REPO_NAME="gitlab"
-OOONANA_REPO_URI="https://ooonana.gitlab.io/ooonana-repo"
-EOF
-
-ooonana update
-ooonana upgrade
 ```
 
 ## Package Factory

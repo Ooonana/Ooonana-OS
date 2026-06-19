@@ -1416,7 +1416,7 @@ form="$(yad --center --title "Install Ooonana OS" --width=720 \
   --field "Password:H" "" \
   --field "Hostname" "ooonana" \
   --field "Theme:CB" "dark!light" \
-  --field "Cloud repo" "https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-package-repo.tar.gz" \
+  --field "Cloud repo" "https://ooonana.gitlab.io/ooonana-repo" \
   --field "Source root" "/" 2>/dev/null || true)"
 [ -n "$form" ] || exit 0
 
@@ -1571,7 +1571,7 @@ USER_NAME="ooonana"
 HOSTNAME_VALUE="ooonana"
 THEME="${OOONANA_THEME:-dark}"
 CLOUD_REPO="${OOONANA_CLOUD_REPO:-}"
-DEFAULT_CLOUD_REPO="${OOONANA_DEFAULT_CLOUD_REPO:-https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-package-repo.tar.gz}"
+DEFAULT_CLOUD_REPO="${OOONANA_DEFAULT_CLOUD_REPO:-https://ooonana.gitlab.io/ooonana-repo}"
 PASSWORD_VALUE=""
 YES=0
 DRY_RUN=0
@@ -2177,8 +2177,8 @@ write_default_cloud_source() {
   rm -rf "$ROOTFS/usr/lib/ooonana/repo"
   mkdir -p "$ROOTFS/usr/lib/ooonana/repo"
   cat > "$ROOTFS/etc/ooonana/sources.d/cloud.repo" <<'EOF'
-OOONANA_REPO_NAME="cloud"
-OOONANA_REPO_URI="https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-package-repo.tar.gz"
+OOONANA_REPO_NAME="gitlab"
+OOONANA_REPO_URI="https://ooonana.gitlab.io/ooonana-repo"
 EOF
   cat > "$ROOTFS/usr/lib/ooonana/repo/README.txt" <<'EOF'
 Ooonana full-i3 uses cloud packages by default.
