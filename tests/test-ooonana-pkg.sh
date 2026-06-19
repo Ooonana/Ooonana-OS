@@ -408,6 +408,57 @@ assert_contains "$http_update" "from 2 source(s)"
 assert_contains "$(<"$http_cache/index.tsv")" "cloud"
 assert_contains "$(<"$http_cache/index.tsv")" "nano"
 
+python_fallback_bin="$tmp/python-fallback-bin"
+python_fallback_sources="$tmp/python-fallback-sources"
+python_fallback_state="$tmp/python-fallback-state"
+python_fallback_cache="$tmp/python-fallback-cache"
+python_fallback_log="$tmp/python-fallback.log"
+mkdir -p "$python_fallback_bin" "$python_fallback_sources"
+for cmd in awk bash cat cp cut dirname grep mkdir mv rm sed sha256sum sort tar tr; do
+  ln -sf "$(command -v "$cmd")" "$python_fallback_bin/$cmd"
+done
+cat > "$python_fallback_bin/wget" <<'EOF'
+#!/bin/sh
+echo "wget: can't execute 'ssl_client': No such file or directory" >&2
+exit 1
+EOF
+cat > "$python_fallback_bin/python3" <<'EOF'
+#!/bin/sh
+set -eu
+[ "$1" = "-" ] || exit 2
+url="$2"
+out="$3"
+: "${OOONANA_PY_FALLBACK_REPO:?}"
+: "${OOONANA_PY_FALLBACK_LOG:?}"
+rel="${url#*/repo/}"
+case "$rel" in
+  index.tsv|SHA256SUMS|SHA256SUMS.sig|nano.pkg|archives/nano-1.0-r0.tar.gz)
+    printf '%s\n' "$rel" >> "$OOONANA_PY_FALLBACK_LOG"
+    cp "$OOONANA_PY_FALLBACK_REPO/$rel" "$out"
+    ;;
+  *)
+    exit 3
+    ;;
+esac
+EOF
+chmod +x "$python_fallback_bin/wget" "$python_fallback_bin/python3"
+cat > "$python_fallback_sources/cloud.repo" <<EOF
+OOONANA_REPO_NAME="cloud"
+OOONANA_REPO_URI="http://127.0.0.1:$http_port/repo"
+EOF
+
+python_fallback_update="$(PATH="$python_fallback_bin" \
+  OOONANA_PY_FALLBACK_REPO="$http_repo" \
+  OOONANA_PY_FALLBACK_LOG="$python_fallback_log" \
+  OOONANA_SOURCES_DIR="$python_fallback_sources" \
+  OOONANA_STATE_DIR="$python_fallback_state" \
+  OOONANA_CACHE_DIR="$python_fallback_cache" \
+  "$CLI" update 2>&1 || true)"
+assert_contains "$python_fallback_update" "from 2 source(s)"
+assert_contains "$(<"$python_fallback_log")" "index.tsv"
+assert_contains "$(<"$python_fallback_log")" "SHA256SUMS"
+[[ -f "$python_fallback_cache/repos/cloud/index.tsv" ]] || fail "missing python fallback cached index"
+
 http_dry="$(OOONANA_SOURCES_DIR="$http_sources" \
   OOONANA_STATE_DIR="$http_state" \
   OOONANA_CACHE_DIR="$http_cache" \

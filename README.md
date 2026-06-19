@@ -432,7 +432,7 @@ This creates:
 /tmp/ooonana-repo/cloud.repo
 ```
 
-`scripts/import-apk-package.sh` is the low-level APK importer. `scripts/build-package-repo.sh` is the normal repo builder. It loads a profile, adds extra package names, imports dependencies, writes indexes and checksums, and can write cloud repo hints.
+`scripts/import-apk-package.sh` is the low-level APK importer. `scripts/build-package-repo.sh` is the normal repo builder. It loads a profile, adds extra package names, imports dependencies, writes indexes and checksums, and can write cloud repo hints. `ooonana update` and remote installs use `curl`, `wget`, or Python 3 as HTTPS download fallbacks, so GitLab Pages repos still work in small BusyBox systems where `wget` lacks TLS support.
 
 Publish the generated repo to Cloudflare R2:
 
