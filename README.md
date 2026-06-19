@@ -13,6 +13,8 @@ Ooonana OS
 
 Lightweight scratch-built Linux for QEMU, WSL, installer experiments, and AI-first terminal work.
 
+![Ooonana OS full-i3 live desktop](https://github.com/Ooonana/Ooonana-OS/releases/download/v0.1.6-full-i3-xterm-fix/ooonana-full-i3-live-screenshot.png)
+
 ## Quick Links
 
 - [Download / Release Files](#download--release-files)
@@ -28,6 +30,12 @@ Lightweight scratch-built Linux for QEMU, WSL, installer experiments, and AI-fir
 - [Project Files](#project-files)
 
 ## Download / Release Files
+
+Latest GitHub release:
+
+```text
+https://github.com/Ooonana/Ooonana-OS/releases/tag/v0.1.6-full-i3-xterm-fix
+```
 
 Current release artifacts on this machine live in:
 
@@ -50,6 +58,31 @@ F:\Ooonana\ooonana-os\release-current\ooonana-full-i3.iso
 /mnt/f/Ooonana/ooonana-os/release-current/ooonana-full-i3.iso
 ```
 
+GitHub release download is split because GitHub rejects single release assets over 2 GiB:
+
+```text
+ooonana-full-i3.iso.part01
+ooonana-full-i3.iso.part02
+ooonana-full-i3.iso.part03
+ooonana-full-i3.iso.part04
+ooonana-full-i3.iso.part05
+REASSEMBLE.txt
+SHA256SUMS.full-i3
+```
+
+Reassemble on Windows:
+
+```powershell
+copy /b ooonana-full-i3.iso.part01+ooonana-full-i3.iso.part02+ooonana-full-i3.iso.part03+ooonana-full-i3.iso.part04+ooonana-full-i3.iso.part05 ooonana-full-i3.iso
+Get-FileHash -Algorithm SHA256 .\ooonana-full-i3.iso
+```
+
+Current full-i3 ISO SHA256:
+
+```text
+88b696d3abb7abe25aaee3231d40d5ceccab26bb9f59e5656838d4d44530adfb
+```
+
 Minimal scratch installer ISO:
 
 ```text
@@ -64,6 +97,7 @@ ooonana-scratch.iso    minimal shell plus installer menu
 full-i3 live desktop   i3, polybar, rofi, wallpaper, GUI installer launcher
 full-i3 install menu   live GUI installer session, VGA-first fallback, safe graphics fallback
 rufus usb              ISOHybrid/DD mode, BIOS/UEFI, Secure Boot off
+rufus persistence      second GRUB entry plus ext4 partition labeled OOONANA_PERSIST
 full-i3 VM RAM         2048 MB tested after live rootfs moved outside initramfs
 live kernel            Linux 6.6.142 LTS with Ooonana responsiveness fragment
 ```
@@ -683,16 +717,60 @@ F:\Ooonana\ooonana-os\release-current\ooonana-full-i3.iso
 /mnt/f/Ooonana/ooonana-os/release-current/ooonana-full-i3.iso
 ```
 
-Rufus settings:
+Compatibility:
 
 ```text
-Image mode: Write in DD Image mode
-Secure Boot: off
+BIOS: yes
+UEFI: yes
+Secure Boot: no, disable it for now
+Rufus mode: DD Image mode
+```
+
+Rufus settings for normal USB boot:
+
+```text
+Device: your USB drive
+Boot selection: ooonana-full-i3.iso
+Partition scheme: Rufus may ignore this in DD mode; the ISO carries hybrid BIOS/UEFI layout
 Target system: BIOS or UEFI
+File system: Rufus default is fine
+Image mode prompt: Write in DD Image mode
+Secure Boot: off in firmware/BIOS setup
 ```
 
 If Rufus shows `ISOHybrid image detected`, choose `Write in DD Image mode`.
 The ISO includes `RUFUS.md` at the USB root with the same notes.
+
+Persistent live mode:
+
+```text
+GRUB entry: Ooonana OS Full i3 Live (persistent USB)
+Kernel arg: ooonana.persistence=1
+Required partition label: OOONANA_PERSIST
+Filesystem: ext4
+Persisted paths: /home, /etc/ooonana, /var/lib/ooonana, /var/cache/ooonana
+```
+
+Rufus writes the bootable ISO. Persistence needs one extra Linux ext4 partition after the ISO area. Rufus may not create this correctly for Ooonana automatically.
+
+Create persistence from Linux after flashing, replacing `/dev/sdX` with the USB device:
+
+```bash
+sudo parted /dev/sdX unit MiB print free
+sudo parted /dev/sdX mkpart OOONANA_PERSIST ext4 4500MiB 100%
+```
+
+Use the first free-space start shown by `print free`; `4500MiB` is only an example for the current 4.2 GiB ISO. If the command above has no free-space range, use `gparted` and create an ext4 partition in the unused USB space. Then label it:
+
+```bash
+sudo mkfs.ext4 -L OOONANA_PERSIST /dev/sdX3
+```
+
+Use the second GRUB entry:
+
+```text
+Ooonana OS Full i3 Live (persistent USB)
+```
 
 Installed-system boot matrix helper:
 
