@@ -29,7 +29,7 @@ assert_contains "$builder" "custom-existing-partitions"
 assert_contains "$builder" "--home-part"
 assert_contains "$builder" "--swap-part"
 assert_contains "$builder" "--efi-part"
-assert_contains "$builder" 'xterm $XTERM_FONT_ARGS -title "Ooonana Installer"'
+assert_contains "$builder" 'xterm -title "Ooonana Installer"'
 assert_contains "$builder" "Step 1/8: Target disk"
 assert_contains "$builder" "Step 2/8: User account"
 assert_contains "$builder" "Step 4/8: Theme"

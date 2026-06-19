@@ -48,6 +48,8 @@ assert_contains "$script_src" "grub-bios"
 assert_contains "$script_src" "rsync"
 assert_contains "$script_src" "e2fsprogs"
 assert_contains "$script_src" "coreutils"
+assert_contains "$script_src" "font-awesome-brands"
+assert_contains "$script_src" "font-misc-misc"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT

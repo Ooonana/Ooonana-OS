@@ -60,6 +60,10 @@ patch_ext4() {
 ooonana-rofi-wifi|/usr/bin/ooonana-rofi-wifi|0100755
 ooonana-rofi-bluetooth|/usr/bin/ooonana-rofi-bluetooth|0100755
 ooonana-rofi-brightness|/usr/bin/ooonana-rofi-brightness|0100755
+ooonana-wifi-panel|/usr/bin/ooonana-wifi-panel|0100755
+ooonana-bluetooth-panel|/usr/bin/ooonana-bluetooth-panel|0100755
+ooonana-brightness-panel|/usr/bin/ooonana-brightness-panel|0100755
+ooonana-audio-panel|/usr/bin/ooonana-audio-panel|0100755
 ooonana-rofi-power|/usr/bin/ooonana-rofi-power|0100755
 ooonana-brightness|/usr/bin/ooonana-brightness|0100755
 ooonana-brightness-status|/usr/bin/ooonana-brightness-status|0100755
@@ -79,6 +83,7 @@ ooonana-ai-launch|/usr/bin/ooonana-ai-launch|0100755
 65-font-awesome.conf|/etc/fonts/conf.d/65-font-awesome.conf|0100644
 Font Awesome 6 Free-Regular-400.otf|/usr/share/fonts/font-awesome/Font Awesome 6 Free-Regular-400.otf|0100644
 Font Awesome 6 Free-Solid-900.otf|/usr/share/fonts/font-awesome/Font Awesome 6 Free-Solid-900.otf|0100644
+Font Awesome 6 Brands-Regular-400.otf|/usr/share/fonts/font-awesome/Font Awesome 6 Brands-Regular-400.otf|0100644
 EOF
 }
 
@@ -90,6 +95,10 @@ build_payload() {
   extract_block '$ROOTFS/usr/bin/ooonana-rofi-wifi' "$payload/ooonana-rofi-wifi"
   extract_block '$ROOTFS/usr/bin/ooonana-rofi-bluetooth' "$payload/ooonana-rofi-bluetooth"
   extract_block '$ROOTFS/usr/bin/ooonana-rofi-brightness' "$payload/ooonana-rofi-brightness"
+  extract_block '$ROOTFS/usr/bin/ooonana-wifi-panel' "$payload/ooonana-wifi-panel"
+  extract_block '$ROOTFS/usr/bin/ooonana-bluetooth-panel' "$payload/ooonana-bluetooth-panel"
+  extract_block '$ROOTFS/usr/bin/ooonana-brightness-panel' "$payload/ooonana-brightness-panel"
+  extract_block '$ROOTFS/usr/bin/ooonana-audio-panel' "$payload/ooonana-audio-panel"
   extract_block '$ROOTFS/usr/bin/ooonana-rofi-power' "$payload/ooonana-rofi-power"
   extract_block '$ROOTFS/usr/bin/ooonana-brightness"' "$payload/ooonana-brightness"
   extract_block '$ROOTFS/usr/bin/ooonana-brightness-status' "$payload/ooonana-brightness-status"
@@ -117,6 +126,12 @@ build_payload() {
   mv "$payload/etc/fonts/conf.avail/65-font-awesome.conf" "$payload/65-font-awesome.conf"
   mv "$payload/usr/share/fonts/font-awesome/Font Awesome 6 Free-Regular-400.otf" "$payload/Font Awesome 6 Free-Regular-400.otf"
   mv "$payload/usr/share/fonts/font-awesome/Font Awesome 6 Free-Solid-900.otf" "$payload/Font Awesome 6 Free-Solid-900.otf"
+
+  local brands_apk="$WORK/font-awesome-brands.apk"
+  wget -q -O "$brands_apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/font-awesome-brands-6.4.2-r1.apk"
+  tar -xzf "$brands_apk" -C "$payload" \
+    'usr/share/fonts/font-awesome/Font Awesome 6 Brands-Regular-400.otf'
+  mv "$payload/usr/share/fonts/font-awesome/Font Awesome 6 Brands-Regular-400.otf" "$payload/Font Awesome 6 Brands-Regular-400.otf"
   rm -rf "$payload/etc" "$payload/usr"
 }
 

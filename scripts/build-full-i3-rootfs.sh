@@ -130,7 +130,6 @@ load_theme() {
       ;;
   esac
   OOONANA_CURSOR="#ffb21a"
-  XTERM_FONT_ARGS="-fa monospace -fs 10"
   export OOONANA_THEME OOONANA_BG OOONANA_FG OOONANA_CURSOR
 }
 
@@ -178,9 +177,9 @@ case "${1:-env}" in
   xterm)
     shift
     if [ "$#" -eq 0 ]; then
-      exec xterm $XTERM_FONT_ARGS -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR" -e /bin/sh -l
+      exec xterm -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR" -e /bin/sh -l
     fi
-    exec xterm $XTERM_FONT_ARGS -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR" "$@"
+    exec xterm -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR" "$@"
     ;;
   *)
     echo "usage: ooonana-theme-env [env|apply|toggle|xterm]" >&2
@@ -287,6 +286,67 @@ esac
 exit 0
 EOF
 
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-wifi-panel" <<'EOF'
+#!/bin/sh
+set -eu
+if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
+  tmp="${TMPDIR:-/tmp}/ooonana-wifi-panel.$$"
+  {
+    printf 'Network devices\n'
+    printf '===============\n'
+    nmcli dev status 2>/dev/null || ip addr 2>/dev/null || true
+    printf '\nWi-Fi networks\n'
+    printf '==============\n'
+    nmcli dev wifi list 2>/dev/null || printf 'No Wi-Fi scan data. NetworkManager may be stopped.\n'
+  } >"$tmp"
+  if yad --center --title "Wi-Fi" --width=420 --height=280 \
+    --text-info --filename="$tmp" \
+    --button=Editor:0 --button=TUI:2 --button=Close:1 2>/dev/null; then
+    rc=0
+  else
+    rc="$?"
+  fi
+  rm -f "$tmp"
+  case "$rc" in
+    0) exec ooonana-wifi ;;
+    2) command -v nmtui >/dev/null 2>&1 && exec ooonana-theme-env xterm -e nmtui ;;
+  esac
+  exit 0
+fi
+exec ooonana-rofi-wifi
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-bluetooth-panel" <<'EOF'
+#!/bin/sh
+set -eu
+if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
+  tmp="${TMPDIR:-/tmp}/ooonana-bluetooth-panel.$$"
+  {
+    printf 'Bluetooth controller\n'
+    printf '====================\n'
+    bluetoothctl show 2>/dev/null || printf 'bluetoothctl missing or Bluetooth service stopped.\n'
+    printf '\nDevices\n'
+    printf '=======\n'
+    bluetoothctl devices 2>/dev/null || true
+  } >"$tmp"
+  if yad --center --title "Bluetooth" --width=420 --height=280 \
+    --text-info --filename="$tmp" \
+    --button=Manager:0 --button="Power On":2 --button="Power Off":3 --button=Close:1 2>/dev/null; then
+    rc=0
+  else
+    rc="$?"
+  fi
+  rm -f "$tmp"
+  case "$rc" in
+    0) exec ooonana-bluetooth ;;
+    2) bluetoothctl power on >/dev/null 2>&1 || true ;;
+    3) bluetoothctl power off >/dev/null 2>&1 || true ;;
+  esac
+  exit 0
+fi
+exec ooonana-rofi-bluetooth
+EOF
+
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-rofi-brightness" <<'EOF'
 #!/bin/sh
 set -eu
@@ -308,6 +368,54 @@ case "$action" in
   *Slider*) exec ooonana-brightness ;;
 esac
 exit 0
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-brightness-panel" <<'EOF'
+#!/bin/sh
+set -eu
+if ! command -v brightnessctl >/dev/null 2>&1; then
+  exec ooonana-theme-env xterm -e sh -lc 'echo "brightnessctl missing"; echo "run: ooonana get brightnessctl"; exec sh'
+fi
+current="$(brightnessctl -m 2>/dev/null | awk -F, '{gsub(/%/,"",$4); print $4; exit}')"
+[ -n "$current" ] || current=75
+if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
+  set +e
+  value="$(yad --scale --title "Brightness" --center --width=420 --height=120 \
+    --min-value=0 --max-value=100 --value="$current" \
+    --button=Cancel:1 --button=Apply:0 2>/dev/null)"
+  rc="$?"
+  set -e
+  [ "$rc" -eq 0 ] && [ -n "$value" ] && exec brightnessctl set "${value}%"
+  exit 0
+fi
+exec ooonana-brightness
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-audio-panel" <<'EOF'
+#!/bin/sh
+set -eu
+current="50"
+if command -v pactl >/dev/null 2>&1; then
+  current="$(pactl get-sink-volume @DEFAULT_SINK@ 2>/dev/null | awk -F/ 'NR==1 {gsub(/[% ]/,"",$2); print $2; exit}')"
+fi
+case "$current" in ""|*[!0-9]*) current=50 ;; esac
+if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
+  set +e
+  value="$(yad --scale --title "Sound" --center --width=420 --height=120 \
+    --min-value=0 --max-value=150 --value="$current" \
+    --button=Mixer:2 --button=Cancel:1 --button=Apply:0 2>/dev/null)"
+  rc="$?"
+  set -e
+  case "$rc" in
+    0) [ -n "$value" ] && exec pactl set-sink-volume @DEFAULT_SINK@ "${value}%" ;;
+    2) command -v pavucontrol >/dev/null 2>&1 && exec pavucontrol ;;
+  esac
+  exit 0
+fi
+if command -v pavucontrol >/dev/null 2>&1; then
+  exec pavucontrol
+fi
+exec ooonana-theme-env xterm -e sh -lc 'pactl info 2>/dev/null || echo "pactl missing"; exec sh'
 EOF
 
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-rofi-power" <<'EOF'
@@ -851,6 +959,8 @@ font-0 = monospace:size=10;2
 font-1 = "Font Awesome 7 Free Solid:size=10;2"
 font-2 = "Font Awesome 6 Free Solid:size=10;2"
 font-3 = "Font Awesome 5 Free Solid:size=10;2"
+font-4 = "Font Awesome 6 Brands:size=10;2"
+font-5 = "Font Awesome 5 Brands:size=10;2"
 modules-left = brand terminal browser files editor media title
 modules-center =
 modules-right = audio brightness battery bluetooth network wifi date power
@@ -954,7 +1064,7 @@ content = 
 content-foreground = ${colors.accent}
 content-background = ${colors.background-alt}
 content-padding = 2
-click-left = ooonana-rofi-wifi
+click-left = ooonana-wifi-panel
 
 [module/bluetooth]
 type = custom/text
@@ -962,7 +1072,7 @@ content = 
 content-foreground = ${colors.accent}
 content-background = ${colors.background-alt}
 content-padding = 2
-click-left = ooonana-rofi-bluetooth
+click-left = ooonana-bluetooth-panel
 
 [module/network]
 type = internal/network
@@ -985,7 +1095,7 @@ label-muted = 
 label-muted-foreground = ${colors.muted}
 label-muted-background = ${colors.background-alt}
 label-muted-padding = 2
-click-left = pavucontrol
+click-left = ooonana-audio-panel
 
 [module/brightness]
 type = custom/script
@@ -995,7 +1105,7 @@ label = %output%
 label-foreground = ${colors.accent}
 label-background = ${colors.background-alt}
 label-padding = 2
-click-left = ooonana-rofi-brightness
+click-left = ooonana-brightness-panel
 scroll-up = brightnessctl set +5%
 scroll-down = brightnessctl set 5%-
 
@@ -1356,7 +1466,7 @@ set -eu
 
 if [ "${1:-}" = "--dry-run" ]; then
   echo "ooonana-installer-gui --dry-run"
-  echo "xterm -fa monospace -fs 10 -title Ooonana Installer"
+  echo "xterm -title Ooonana Installer"
   echo "default theme: dark background, orange cursor"
   echo "ooonana-install-wizard --dry-run"
   echo "OOONANA_GUI_INSTALLER_OK"
@@ -1382,7 +1492,6 @@ xterm_theme() {
       ;;
   esac
   XTERM_CURSOR="#ffb21a"
-  XTERM_FONT_ARGS="-fa monospace -fs 10"
 }
 
 wizard="/usr/bin/ooonana-install-wizard"
@@ -1394,7 +1503,7 @@ fi
 if [ -n "${DISPLAY:-}" ] && [ -z "${OOONANA_INSTALL_WIZARD_IN_TERMINAL:-}" ] && command -v xterm >/dev/null 2>&1; then
   xterm_theme
   exec env OOONANA_INSTALL_WIZARD_IN_TERMINAL=1 \
-    xterm $XTERM_FONT_ARGS -title "Ooonana Installer" -bg "$XTERM_BG" -fg "$XTERM_FG" -cr "$XTERM_CURSOR" -e "$wizard" "$@"
+    xterm -title "Ooonana Installer" -bg "$XTERM_BG" -fg "$XTERM_FG" -cr "$XTERM_CURSOR" -e "$wizard" "$@"
 else
   exec "$wizard" "$@"
 fi
@@ -1914,7 +2023,24 @@ refresh_gtk_caches() {
   fi
 }
 
+refresh_font_caches() {
+  [ -d /usr/share/fonts ] || return 0
+  if command -v mkfontscale >/dev/null 2>&1; then
+    for font_dir in /usr/share/fonts/*; do
+      [ -d "$font_dir" ] || continue
+      mkfontscale "$font_dir" >/dev/null 2>&1 || true
+      if command -v mkfontdir >/dev/null 2>&1; then
+        mkfontdir "$font_dir" >/dev/null 2>&1 || true
+      fi
+    done
+  fi
+  if command -v fc-cache >/dev/null 2>&1; then
+    fc-cache -r /usr/share/fonts >/dev/null 2>&1 || true
+  fi
+}
+
 ensure_glib_schemas
+refresh_font_caches
 refresh_gtk_caches
 
 host="ooonana"
@@ -2039,6 +2165,26 @@ refresh_gtk_caches() {
   fi
 }
 
+refresh_font_caches() {
+  [[ -d "$ROOTFS/usr/share/fonts" ]] || return 0
+  if [[ "$(id -u)" -eq 0 ]] && [[ -x "$ROOTFS/bin/sh" ]]; then
+    chroot "$ROOTFS" /bin/sh -lc '
+      if command -v mkfontscale >/dev/null 2>&1; then
+        for font_dir in /usr/share/fonts/*; do
+          [ -d "$font_dir" ] || continue
+          mkfontscale "$font_dir" >/dev/null 2>&1 || true
+          if command -v mkfontdir >/dev/null 2>&1; then
+            mkfontdir "$font_dir" >/dev/null 2>&1 || true
+          fi
+        done
+      fi
+      if command -v fc-cache >/dev/null 2>&1; then
+        fc-cache -r /usr/share/fonts >/dev/null 2>&1 || true
+      fi
+    ' >/dev/null 2>&1 || ooonana_log "warning: could not refresh font caches in full-i3 rootfs"
+  fi
+}
+
 restore_busybox_init_links() {
   [[ -x "$ROOTFS/bin/busybox" ]] || return 0
   mkdir -p "$ROOTFS/bin" "$ROOTFS/sbin" "$ROOTFS/usr/bin"
@@ -2138,6 +2284,7 @@ main() {
   install_full_i3_packages
   write_default_cloud_source
   compile_glib_schemas
+  refresh_font_caches
   refresh_gtk_caches
   restore_busybox_init_links
   write_full_groups

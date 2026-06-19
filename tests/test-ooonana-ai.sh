@@ -47,13 +47,15 @@ assert_contains "$(<"$AI_DESKTOP_APP")" "tools registry"
 assert_contains "$(<"$AI_DESKTOP_APP")" "permissions_gui"
 assert_contains "$(<"$AI_DESKTOP_APP")" "logs_gui"
 assert_contains "$(<"$AI_DESKTOP_APP")" "desktop_control_gui"
+assert_contains "$(<"$AI_DESKTOP_APP")" "open_requested_gui_action"
+assert_contains "$(<"$AI_DESKTOP_APP")" "chat_gui \"\$@\""
 assert_contains "$(<"$AI_DESKTOP_APP")" "if open_gui"
 assert_contains "$(<"$AI_LAUNCHER")" "OOONANA_AI_LAUNCH_OK"
 assert_contains "$(<"$AI_LAUNCHER")" "ooonana-ai-app"
 assert_contains "$(<"$AI_DESKTOP_FILE")" "Exec=ooonana-ai-launch"
-assert_contains "$(<"$AI_DESKTOP_APP")" "XTERM_FONT_ARGS='-fa monospace -fs 10'"
-assert_contains "$(<"$AI_DESKTOP_APP")" '$XTERM_FONT_ARGS -title "Ooonana AI"'
-assert_contains "$(<"$AI_DESKTOP_APP")" '$XTERM_FONT_ARGS -title "$title"'
+assert_not_contains "$(<"$AI_DESKTOP_APP")" "XTERM_FONT_ARGS='-fa monospace -fs 10'"
+assert_not_contains "$(<"$AI_DESKTOP_APP")" '$XTERM_FONT_ARGS -title "Ooonana AI"'
+assert_not_contains "$(<"$AI_DESKTOP_APP")" '$XTERM_FONT_ARGS -title "$title"'
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -98,6 +100,7 @@ assert_contains "$app_gui_dry" "grouped actions: Prompt Health Config Tools Desk
 assert_contains "$app_gui_dry" "icon command center"
 assert_contains "$app_gui_dry" "persistent GUI loop"
 assert_contains "$app_gui_dry" "gui chat: transcript prompt loop buttons ask status model provider tools clear save close"
+assert_contains "$app_gui_dry" "direct gui action: chat opens chat window immediately"
 assert_contains "$app_gui_dry" "gui controls: ask form provider/model action launcher desktop-control permissions logs"
 assert_contains "$app_gui_dry" "permissions: shell actions gated"
 assert_contains "$app_gui_dry" "OOONANA_AI_APP_GUI_OK"

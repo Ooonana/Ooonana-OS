@@ -3,7 +3,6 @@ set -eu
 
 AI_CMD="${OOONANA_AI_CMD:-ooonana-ai}"
 APP_LOG="${OOONANA_AI_APP_LOG:-${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/ai-app.log}"
-XTERM_FONT_ARGS='-fa monospace -fs 10'
 
 if [ "${1:-}" = "--dry-run" ]; then
   printf 'yad Ooonana AI dashboard\n'
@@ -14,6 +13,7 @@ if [ "${1:-}" = "--dry-run" ]; then
   printf 'icon command center: ask chat status tools desktop settings logs shell\n'
   printf 'persistent GUI loop: returns to actions after each action\n'
   printf 'gui chat: transcript prompt loop buttons ask status model provider tools clear save close\n'
+  printf 'direct gui action: chat opens chat window immediately\n'
   printf 'gui controls: ask form provider/model action launcher desktop-control permissions logs\n'
   printf 'OOONANA_AI_CHAT_GUI_OK\n'
   printf 'permissions: shell actions gated; desktop actions explicit; logs: %s\n' "$APP_LOG"
@@ -28,7 +28,7 @@ open_xterm() {
     exec ooonana-theme-env xterm -title "Ooonana AI" -e env OOONANA_AI_APP_TERMINAL=1 "$0" "$@"
   fi
   if command -v xterm >/dev/null 2>&1; then
-    exec xterm $XTERM_FONT_ARGS -title "Ooonana AI" -e env OOONANA_AI_APP_TERMINAL=1 "$0" "$@"
+    exec xterm -title "Ooonana AI" -e env OOONANA_AI_APP_TERMINAL=1 "$0" "$@"
   fi
   return 1
 }
@@ -40,7 +40,7 @@ open_action_terminal() {
     exec ooonana-theme-env xterm -title "$title" -e env OOONANA_AI_APP_TERMINAL=1 "$0" "$@"
   fi
   if command -v xterm >/dev/null 2>&1; then
-    exec xterm $XTERM_FONT_ARGS -title "$title" -e env OOONANA_AI_APP_TERMINAL=1 "$0" "$@"
+    exec xterm -title "$title" -e env OOONANA_AI_APP_TERMINAL=1 "$0" "$@"
   fi
   return 1
 }
@@ -353,6 +353,30 @@ open_gui() {
   done
 }
 
+open_requested_gui_action() {
+  [ "${OOONANA_AI_APP_NO_X:-0}" = "1" ] && return 1
+  [ "${OOONANA_AI_APP_GUI:-1}" = "1" ] || return 1
+  [ "${OOONANA_AI_APP_TERMINAL:-0}" = "1" ] && return 1
+  [ -n "${DISPLAY:-}" ] || return 1
+  command -v yad >/dev/null 2>&1 || return 1
+
+  case "${1:-}" in
+    chat)
+      shift
+      chat_gui "$@"
+      exit 0
+      ;;
+    ask)
+      shift
+      ask_gui "$@"
+      exit 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 pause_if_interactive() {
   [ "${OOONANA_AI_APP_ONESHOT:-0}" = "1" ] && return 0
   [ -t 0 ] || return 0
@@ -502,6 +526,9 @@ main_loop() {
   done
 }
 
+if open_requested_gui_action "$@"; then
+  exit 0
+fi
 if open_gui "$@"; then
   exit 0
 fi

@@ -73,7 +73,6 @@ xterm_theme() {
       ;;
   esac
   XTERM_CURSOR="#ffb21a"
-  XTERM_FONT_ARGS="-fa monospace -fs 10"
 }
 
 run_gui_setup() {
@@ -166,7 +165,7 @@ EOF
   fail_rc="${fail_rc:-1}"
   if [ "$fail_rc" -eq 2 ] && have xterm; then
     xterm_theme
-    exec xterm $XTERM_FONT_ARGS -title "Ooonana Setup Shell" -bg "$XTERM_BG" -fg "$XTERM_FG" -cr "$XTERM_CURSOR" -e /bin/sh
+    exec xterm -title "Ooonana Setup Shell" -bg "$XTERM_BG" -fg "$XTERM_FG" -cr "$XTERM_CURSOR" -e /bin/sh
   fi
   exit 1
 }
@@ -406,7 +405,7 @@ fi
 if [ "$GUI" -eq 1 ] && [ -n "${DISPLAY:-}" ] && [ -z "${OOONANA_SETUP_IN_TERMINAL:-}" ] && have xterm; then
   xterm_theme
   exec env OOONANA_SETUP_IN_TERMINAL=1 OOONANA_ROOT="$OOONANA_ROOT" \
-    xterm $XTERM_FONT_ARGS -title "Ooonana Setup" -bg "$XTERM_BG" -fg "$XTERM_FG" -cr "$XTERM_CURSOR" -e "$0" --first-boot
+    xterm -title "Ooonana Setup" -bg "$XTERM_BG" -fg "$XTERM_FG" -cr "$XTERM_CURSOR" -e "$0" --first-boot
 fi
 
 prompt_first_boot

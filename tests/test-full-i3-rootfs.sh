@@ -15,6 +15,12 @@ assert_contains() {
   [[ "$haystack" == *"$needle"* ]] || fail "missing: $needle"
 }
 
+assert_not_contains() {
+  local haystack="$1"
+  local needle="$2"
+  [[ "$haystack" != *"$needle"* ]] || fail "unexpected: $needle"
+}
+
 [[ -x "$SCRIPT" ]] || fail "missing executable full-i3 rootfs builder"
 script_src="$(<"$SCRIPT")"
 assert_contains "$script_src" 'cp -a "$ROOT/packages/ooonana/." "$ROOTFS/"'
@@ -26,6 +32,9 @@ assert_contains "$script_src" 'glib-compile-schemas "$ROOTFS/usr/share/glib-2.0/
 assert_contains "$script_src" "refresh_gtk_caches()"
 assert_contains "$script_src" 'update-mime-database "$ROOTFS/usr/share/mime"'
 assert_contains "$script_src" "gdk-pixbuf-query-loaders"
+assert_contains "$script_src" "refresh_font_caches()"
+assert_contains "$script_src" "mkfontscale"
+assert_contains "$script_src" "fc-cache -r /usr/share/fonts"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -148,6 +157,10 @@ fi
 [[ -x "$rootfs/usr/bin/ooonana-rofi-wifi" ]] || fail "missing rofi wifi applet"
 [[ -x "$rootfs/usr/bin/ooonana-rofi-bluetooth" ]] || fail "missing rofi bluetooth applet"
 [[ -x "$rootfs/usr/bin/ooonana-rofi-brightness" ]] || fail "missing rofi brightness applet"
+[[ -x "$rootfs/usr/bin/ooonana-wifi-panel" ]] || fail "missing wifi panel"
+[[ -x "$rootfs/usr/bin/ooonana-bluetooth-panel" ]] || fail "missing bluetooth panel"
+[[ -x "$rootfs/usr/bin/ooonana-brightness-panel" ]] || fail "missing brightness panel"
+[[ -x "$rootfs/usr/bin/ooonana-audio-panel" ]] || fail "missing audio panel"
 [[ -x "$rootfs/usr/bin/ooonana-rofi-power" ]] || fail "missing rofi power applet"
 [[ -x "$rootfs/usr/bin/ooonana-settings" ]] || fail "missing settings helper"
 [[ -x "$rootfs/usr/bin/ooonana-settings-launch" ]] || fail "missing settings launch wrapper"
@@ -264,9 +277,9 @@ assert_contains "$theme_helper" "/etc/ooonana/theme"
 assert_contains "$theme_helper" ".config/ooonana/wallpaper"
 assert_contains "$theme_helper" "hsetroot -cover"
 assert_contains "$theme_helper" '-e /bin/sh -l'
-assert_contains "$theme_helper" 'exec xterm $XTERM_FONT_ARGS -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR"'
-assert_contains "$theme_helper" 'XTERM_FONT_ARGS="-fa monospace -fs 10"'
-assert_contains "$theme_helper" '$XTERM_FONT_ARGS -bg "$OOONANA_BG" -fg "$OOONANA_FG"'
+assert_contains "$theme_helper" 'exec xterm -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR"'
+assert_not_contains "$theme_helper" 'XTERM_FONT_ARGS="-fa monospace -fs 10"'
+assert_not_contains "$theme_helper" '$XTERM_FONT_ARGS -bg "$OOONANA_BG" -fg "$OOONANA_FG"'
 
 browser_helper="$(<"$rootfs/usr/bin/ooonana-browser")"
 assert_contains "$browser_helper" "chromium --no-first-run"
@@ -275,8 +288,16 @@ assert_contains "$files_helper" 'exec nemo "$path"'
 wifi_helper="$(<"$rootfs/usr/bin/ooonana-wifi")"
 assert_contains "$wifi_helper" "nm-connection-editor"
 assert_contains "$wifi_helper" "nmtui"
+wifi_panel="$(<"$rootfs/usr/bin/ooonana-wifi-panel")"
+assert_contains "$wifi_panel" 'yad --center --title "Wi-Fi"'
+assert_contains "$wifi_panel" "--width=420 --height=280"
+assert_contains "$wifi_panel" "nmcli dev wifi list"
 bt_helper="$(<"$rootfs/usr/bin/ooonana-bluetooth")"
 assert_contains "$bt_helper" "blueman-manager"
+bt_panel="$(<"$rootfs/usr/bin/ooonana-bluetooth-panel")"
+assert_contains "$bt_panel" 'yad --center --title "Bluetooth"'
+assert_contains "$bt_panel" "--width=420 --height=280"
+assert_contains "$bt_panel" "bluetoothctl devices"
 settings_helper="$(<"$rootfs/usr/bin/ooonana-settings")"
 settings_launcher="$(<"$rootfs/usr/bin/ooonana-settings-launch")"
 assert_contains "$settings_helper" "yad --center --title \"Ooonana Settings\""
@@ -326,6 +347,12 @@ ranger_helper="$(<"$rootfs/usr/bin/ooonana-ranger")"
 assert_contains "$ranger_helper" "ranger"
 brightness_helper="$(<"$rootfs/usr/bin/ooonana-brightness")"
 assert_contains "$brightness_helper" "brightnessctl"
+brightness_panel="$(<"$rootfs/usr/bin/ooonana-brightness-panel")"
+assert_contains "$brightness_panel" 'yad --scale --title "Brightness"'
+assert_contains "$brightness_panel" "--min-value=0 --max-value=100"
+audio_panel="$(<"$rootfs/usr/bin/ooonana-audio-panel")"
+assert_contains "$audio_panel" 'yad --scale --title "Sound"'
+assert_contains "$audio_panel" "pactl set-sink-volume"
 brightness_status="$(<"$rootfs/usr/bin/ooonana-brightness-status")"
 assert_contains "$brightness_status" "brightnessctl -m"
 assert_contains "$brightness_status" ""
@@ -348,6 +375,7 @@ assert_contains "$polybar_cfg" "Ooonana OS"
 assert_contains "$polybar_cfg" "#ffb21a"
 assert_contains "$polybar_cfg" "#10141a"
 assert_contains "$polybar_cfg" "font-1 = \"Font Awesome"
+assert_contains "$polybar_cfg" "Font Awesome 6 Brands"
 assert_contains "$polybar_cfg" "[module/brand]"
 assert_contains "$polybar_cfg" "[module/launcher]"
 assert_contains "$polybar_cfg" "[module/terminal]"
@@ -367,16 +395,16 @@ assert_contains "$polybar_cfg" "content = "
 assert_contains "$polybar_cfg" "content = "
 assert_contains "$polybar_cfg" "[module/wifi]"
 assert_contains "$polybar_cfg" "content = "
-assert_contains "$polybar_cfg" "click-left = ooonana-rofi-wifi"
+assert_contains "$polybar_cfg" "click-left = ooonana-wifi-panel"
 assert_contains "$polybar_cfg" "[module/bluetooth]"
 assert_contains "$polybar_cfg" "content = "
-assert_contains "$polybar_cfg" "click-left = ooonana-rofi-bluetooth"
+assert_contains "$polybar_cfg" "click-left = ooonana-bluetooth-panel"
 assert_contains "$polybar_cfg" "[module/audio]"
 assert_contains "$polybar_cfg" "format-volume =  <label-volume>"
-assert_contains "$polybar_cfg" "click-left = pavucontrol"
+assert_contains "$polybar_cfg" "click-left = ooonana-audio-panel"
 assert_contains "$polybar_cfg" "[module/brightness]"
 assert_contains "$polybar_cfg" "exec = ooonana-brightness-status"
-assert_contains "$polybar_cfg" "click-left = ooonana-rofi-brightness"
+assert_contains "$polybar_cfg" "click-left = ooonana-brightness-panel"
 assert_contains "$polybar_cfg" "[module/power]"
 assert_contains "$polybar_cfg" "content = "
 assert_contains "$polybar_cfg" "click-left = ooonana-rofi-power"
@@ -405,10 +433,11 @@ gui_installer="$(<"$rootfs/usr/bin/ooonana-gui-installer")"
 assert_contains "$gui_installer" "ooonana-installer-gui --dry-run"
 assert_contains "$gui_installer" "/usr/bin/ooonana-installer-gui"
 assert_contains "$gui_installer" "OOONANA_INSTALL_WIZARD_IN_TERMINAL"
-assert_contains "$gui_installer" 'xterm $XTERM_FONT_ARGS -title "Ooonana Installer"'
+assert_contains "$gui_installer" 'xterm -title "Ooonana Installer"'
 assert_contains "$gui_installer" 'OOONANA_THEME:-dark'
 assert_contains "$gui_installer" 'XTERM_BG="#050505"'
 assert_contains "$gui_installer" '-cr "$XTERM_CURSOR"'
+assert_not_contains "$gui_installer" 'XTERM_FONT_ARGS="-fa monospace -fs 10"'
 assert_contains "$gui_installer" "ooonana-install-wizard --dry-run"
 
 installer_gui="$(<"$rootfs/usr/bin/ooonana-installer-gui")"
@@ -460,7 +489,7 @@ assert_contains "$wizard_dry" "OOONANA_INSTALL_WIZARD_OK"
 
 gui_dry="$("$rootfs/usr/bin/ooonana-gui-installer" --dry-run)"
 assert_contains "$gui_dry" "ooonana-installer-gui --dry-run"
-assert_contains "$gui_dry" "xterm -fa monospace -fs 10 -title Ooonana Installer"
+assert_contains "$gui_dry" "xterm -title Ooonana Installer"
 assert_contains "$gui_dry" "default theme: dark background, orange cursor"
 assert_contains "$gui_dry" "ooonana-install-wizard --dry-run"
 assert_contains "$gui_dry" "OOONANA_GUI_INSTALLER_OK"

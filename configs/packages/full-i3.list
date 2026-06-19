@@ -19,6 +19,8 @@ gdk-pixbuf
 gdk-pixbuf-loaders
 hicolor-icon-theme
 font-awesome-free
+font-awesome-brands
+font-misc-misc
 picom
 dunst
 dmenu
