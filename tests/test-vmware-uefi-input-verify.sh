@@ -34,7 +34,7 @@ EOF
 cat > "$tmp/fake-grub.cfg" <<'EOF'
 terminal_input console serial
 terminal_output console serial
-linux /boot/vmlinuz console=ttyS0 console=tty0 panic=1
+linux /boot/vmlinuz console=tty0 console=ttyS0 panic=1
 EOF
 
 cat > "$tmp/bin/xorriso" <<'EOF'
@@ -62,7 +62,7 @@ chmod +x "$tmp/bin/xorriso"
 
 out="$(FAKE_GRUB_CFG="$tmp/fake-grub.cfg" PATH="$tmp/bin:$PATH" bash "$SCRIPT" --release-dir "$tmp/release")"
 assert_contains "$out" "[done] UEFI + BIOS hybrid ISO"
-assert_contains "$out" "[done] VMware-visible GRUB and VGA-first release console"
+assert_contains "$out" "[done] VMware-visible GRUB and serial-readable release console"
 assert_contains "$out" "[done] init chooses tty1 for humans and ttyS0 for smoke"
 assert_contains "$out" "[done] full-i3 input stack"
 assert_contains "$out" "[done] VMware full-i3 2GB live-rootfs fix"

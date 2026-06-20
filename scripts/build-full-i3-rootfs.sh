@@ -589,9 +589,9 @@ bar=""
 i=1
 while [ "$i" -le 10 ]; do
   if [ "$i" -le "$filled" ]; then
-    bar="${bar}━"
+    bar="${bar}#"
   else
-    bar="${bar}─"
+    bar="${bar}-"
   fi
   i=$((i + 1))
 done
@@ -1876,6 +1876,13 @@ EOF
 #!/bin/sh
 set -eu
 
+if [ -z "${OOONANA_DBUS_SESSION:-}" ] &&
+  [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] &&
+  command -v dbus-run-session >/dev/null 2>&1; then
+  export OOONANA_DBUS_SESSION=1
+  exec dbus-run-session -- "$0" "$@"
+fi
+
 if [ -x /usr/bin/ooonana-theme-env ]; then
   eval "$(/usr/bin/ooonana-theme-env env)"
   ooonana-theme-env apply
@@ -1894,6 +1901,13 @@ EOF
 #!/bin/sh
 set -eu
 
+if [ -z "${OOONANA_DBUS_SESSION:-}" ] &&
+  [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] &&
+  command -v dbus-run-session >/dev/null 2>&1; then
+  export OOONANA_DBUS_SESSION=1
+  exec dbus-run-session -- "$0" "$@"
+fi
+
 if [ -x /usr/bin/ooonana-theme-env ]; then
   eval "$(/usr/bin/ooonana-theme-env env)"
   ooonana-theme-env apply
@@ -1909,6 +1923,13 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-i3-installer-session" <<'EOF'
 #!/bin/sh
 set -eu
+
+if [ -z "${OOONANA_DBUS_SESSION:-}" ] &&
+  [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] &&
+  command -v dbus-run-session >/dev/null 2>&1; then
+  export OOONANA_DBUS_SESSION=1
+  exec dbus-run-session -- "$0" "$@"
+fi
 
 if [ -x /usr/bin/ooonana-theme-env ]; then
   eval "$(/usr/bin/ooonana-theme-env env)"
@@ -2016,6 +2037,34 @@ start_device_manager() {
 
 start_device_manager
 
+start_system_services() {
+  mkdir -p /run/dbus /var/lib/dbus /etc
+  chmod 0777 /run/dbus 2>/dev/null || true
+  grep -q '^messagebus:' /etc/group 2>/dev/null || echo 'messagebus:x:81:' >>/etc/group
+  grep -q '^messagebus:' /etc/passwd 2>/dev/null || echo 'messagebus:x:81:81:DBus Message Bus:/run/dbus:/bin/false' >>/etc/passwd
+  if [ ! -s /etc/machine-id ]; then
+    if command -v dbus-uuidgen >/dev/null 2>&1; then
+      dbus-uuidgen >/etc/machine-id 2>/dev/null || true
+    else
+      cat /proc/sys/kernel/random/uuid 2>/dev/null | tr -d '-' >/etc/machine-id || true
+    fi
+  fi
+  if [ -s /etc/machine-id ] && [ ! -s /var/lib/dbus/machine-id ]; then
+    cp /etc/machine-id /var/lib/dbus/machine-id 2>/dev/null || true
+  fi
+  if command -v dbus-daemon >/dev/null 2>&1 && [ ! -S /run/dbus/system_bus_socket ]; then
+    dbus-daemon --system --fork --nopidfile >/dev/null 2>&1 || true
+  fi
+  if command -v NetworkManager >/dev/null 2>&1 && ! pidof NetworkManager >/dev/null 2>&1; then
+    NetworkManager --no-daemon >/var/log/NetworkManager.log 2>&1 &
+  fi
+  if command -v bluetoothd >/dev/null 2>&1 && ! pidof bluetoothd >/dev/null 2>&1; then
+    bluetoothd >/var/log/bluetoothd.log 2>&1 &
+  fi
+}
+
+start_system_services
+
 start_persistence() {
   grep -q 'ooonana.persistence=1' /proc/cmdline 2>/dev/null || return 0
   mkdir -p /mnt/persist
@@ -2108,6 +2157,19 @@ fi
 echo "Ooonana full i3 rootfs"
 
 if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
+  missing_downloaders=""
+  for cmd in python3 curl wget; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+      missing_downloaders="$missing_downloaders $cmd"
+    fi
+  done
+  if [ -n "$missing_downloaders" ]; then
+    echo "OOONANA_DOWNLOADERS_FAIL$missing_downloaders"
+    sync
+    sleep 1
+    reboot -f
+  fi
+  echo "OOONANA_DOWNLOADERS_OK python3 curl wget"
   if /usr/bin/ooonana version | grep -q 'ooonana 0.8.0' &&
     /usr/bin/ooonana list --installed | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
@@ -2144,6 +2206,28 @@ install_branding() {
   install -D -m 0644 "$ROOT/branding/wallpaper.svg" "$ROOTFS/usr/share/ooonana/wallpapers/ooonana-wallpaper.svg"
   install -D -m 0644 "$ROOT/branding/wallpaper.png" "$ROOTFS/usr/share/ooonana/wallpapers/ooonana-wallpaper.png"
   install -D -m 0644 "$ROOT/branding/i3/config" "$ROOTFS/etc/i3/config"
+  install -D -m 0644 "$ROOT/branding/i3/config" "$ROOTFS/etc/i3/config.keycodes"
+  install -D -m 0644 /dev/stdin "$ROOTFS/etc/xdg/autostart/nm-applet.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=NetworkManager Applet
+Hidden=true
+EOF
+  install -D -m 0644 /dev/stdin "$ROOTFS/etc/xdg/autostart/blueman.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Blueman Applet
+Hidden=true
+EOF
+}
+
+install_downloader_fallbacks() {
+  if [[ ! -e "$ROOTFS/usr/bin/wget" ]]; then
+    install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/wget" <<'EOF'
+#!/bin/sh
+exec /bin/busybox wget "$@"
+EOF
+  fi
 }
 
 shell_escape() {
@@ -2264,10 +2348,20 @@ write_full_groups() {
     'kmem:x:9:' \
     'cdrom:x:11:' \
     'tape:x:26:' \
-    'kvm:x:34:'; do
+    'kvm:x:34:' \
+    'messagebus:x:81:'; do
     name="${entry%%:*}"
     grep -q "^$name:" "$group_file" 2>/dev/null || printf '%s\n' "$entry" >> "$group_file"
   done
+
+  local passwd_file="$ROOTFS/etc/passwd"
+  touch "$passwd_file"
+  grep -q '^messagebus:' "$passwd_file" 2>/dev/null ||
+    printf '%s\n' 'messagebus:x:81:81:DBus Message Bus:/run/dbus:/bin/false' >> "$passwd_file"
+
+  mkdir -p "$ROOTFS/var/lib/dbus"
+  printf '%s\n' '11111111111111111111111111111111' > "$ROOTFS/etc/machine-id"
+  cp "$ROOTFS/etc/machine-id" "$ROOTFS/var/lib/dbus/machine-id"
 }
 
 write_tarball() {
@@ -2334,6 +2428,7 @@ main() {
   "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$ROOTFS/usr/lib/ooonana/repo" >/dev/null
   "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$REPO" >/dev/null
   install_full_i3_packages
+  install_downloader_fallbacks
   write_default_cloud_source
   compile_glib_schemas
   refresh_font_caches

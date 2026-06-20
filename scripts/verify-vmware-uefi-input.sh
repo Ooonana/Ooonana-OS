@@ -71,8 +71,8 @@ xorriso -osirrox on -indev "$ISO" -extract /boot/grub/grub.cfg "$tmp/grub.cfg" >
   fail "could not extract GRUB config from ISO"
 need_contains "$tmp/grub.cfg" "terminal_input console serial"
 need_contains "$tmp/grub.cfg" "terminal_output console serial"
-need_contains "$tmp/grub.cfg" "console=ttyS0 console=tty0"
-done_item "VMware-visible GRUB and VGA-first release console"
+need_contains "$tmp/grub.cfg" "console=tty0 console=ttyS0"
+done_item "VMware-visible GRUB and serial-readable release console"
 
 need_contains "$ROOT/scripts/build-scratch-rootfs.sh" 'console_device="/dev/tty1"'
 need_contains "$ROOT/scripts/build-scratch-rootfs.sh" 'console_device="/dev/ttyS0"'

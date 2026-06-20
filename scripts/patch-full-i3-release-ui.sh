@@ -7,6 +7,7 @@ ISO="${OOONANA_ISO:-$RELEASE_DIR/ooonana-full-i3.iso}"
 WORK="${OOONANA_PATCH_WORK:-$RELEASE_DIR/patch-full-i3-ui}"
 OUT_ISO="${OOONANA_OUT_ISO:-$RELEASE_DIR/ooonana-full-i3.iso.new}"
 VOLUME="${OOONANA_VOLUME:-OOONANAUSB}"
+EXTRA_ROOT="${OOONANA_EXTRA_ROOT:-}"
 
 need() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -49,6 +50,78 @@ write_debugfs_file() {
   debugfs -w -R "sif \"$dst\" mode $mode" "$image" >/dev/null
 }
 
+write_debugfs_symlink() {
+  local image="$1"
+  local target="$2"
+  local dst="$3"
+  local parent="${dst%/*}"
+  local path="" part
+  local -a parts
+
+  IFS='/' read -r -a parts <<< "${parent#/}"
+  for part in "${parts[@]}"; do
+    [ -n "$part" ] || continue
+    path="$path/$part"
+    debugfs -w -R "mkdir \"$path\"" "$image" >/dev/null 2>&1 || true
+  done
+  debugfs -w -R "rm \"$dst\"" "$image" >/dev/null 2>&1 || true
+  debugfs -w -R "symlink \"$dst\" \"$target\"" "$image" >/dev/null
+  debugfs -w -R "sif \"$dst\" uid 0" "$image" >/dev/null 2>&1 || true
+  debugfs -w -R "sif \"$dst\" gid 0" "$image" >/dev/null 2>&1 || true
+}
+
+patch_overlay_root() {
+  local image="$1"
+  local overlay="$2"
+  local rel src dst mode target
+
+  [ -n "$overlay" ] || return 0
+  [ -d "$overlay" ] || {
+    printf 'missing overlay root: %s\n' "$overlay" >&2
+    exit 1
+  }
+
+  while IFS= read -r rel; do
+    [ "$rel" = "." ] && continue
+    dst="/${rel#./}"
+    debugfs -w -R "mkdir \"$dst\"" "$image" >/dev/null 2>&1 || true
+  done < <(cd "$overlay" && find . -type d | sort)
+
+  while IFS= read -r -d '' rel; do
+    src="$overlay/${rel#./}"
+    dst="/${rel#./}"
+    if [ -L "$src" ]; then
+      target="$(readlink "$src")"
+      write_debugfs_symlink "$image" "$target" "$dst"
+    elif [ -f "$src" ]; then
+      mode="$(stat -c '%a' "$src")"
+      write_debugfs_file "$image" "$src" "$dst" "0100$mode"
+    fi
+  done < <(cd "$overlay" && find . \( -type f -o -type l \) -print0)
+}
+
+patch_identity_files() {
+  local image="$1"
+  local identity="$WORK/identity"
+  mkdir -p "$identity"
+
+  debugfs -R "cat /etc/group" "$image" > "$identity/group" 2>/dev/null ||
+    printf '%s\n' 'root:x:0:' > "$identity/group"
+  grep -q '^messagebus:' "$identity/group" 2>/dev/null ||
+    printf '%s\n' 'messagebus:x:81:' >> "$identity/group"
+  write_debugfs_file "$image" "$identity/group" /etc/group 0100644
+
+  debugfs -R "cat /etc/passwd" "$image" > "$identity/passwd" 2>/dev/null ||
+    printf '%s\n' 'root:x:0:0:root:/root:/bin/sh' > "$identity/passwd"
+  grep -q '^messagebus:' "$identity/passwd" 2>/dev/null ||
+    printf '%s\n' 'messagebus:x:81:81:DBus Message Bus:/run/dbus:/bin/false' >> "$identity/passwd"
+  write_debugfs_file "$image" "$identity/passwd" /etc/passwd 0100644
+
+  printf '%s\n' '11111111111111111111111111111111' > "$identity/machine-id"
+  write_debugfs_file "$image" "$identity/machine-id" /etc/machine-id 0100644
+  write_debugfs_file "$image" "$identity/machine-id" /var/lib/dbus/machine-id 0100644
+}
+
 patch_ext4() {
   local image="$1"
   local payload="$2"
@@ -72,13 +145,22 @@ ooonana-settings|/usr/bin/ooonana-settings|0100755
 ooonana-settings-launch|/usr/bin/ooonana-settings-launch|0100755
 ooonana-theme-env|/usr/bin/ooonana-theme-env|0100755
 ooonana-setup|/usr/bin/ooonana-setup|0100755
+wget|/usr/bin/wget|0100755
 ooonana-gui-installer|/usr/bin/ooonana-gui-installer|0100755
+ooonana-i3-smoke-session|/usr/bin/ooonana-i3-smoke-session|0100755
+ooonana-i3-session|/usr/bin/ooonana-i3-session|0100755
+ooonana-i3-installer-session|/usr/bin/ooonana-i3-installer-session|0100755
+i3.config|/etc/i3/config|0100644
+i3.config.keycodes|/etc/i3/config.keycodes|0100644
+nm-applet.desktop|/etc/xdg/autostart/nm-applet.desktop|0100644
+blueman.desktop|/etc/xdg/autostart/blueman.desktop|0100644
 polybar.ini|/etc/ooonana/polybar.ini|0100644
 rofi.rasi|/etc/ooonana/rofi.rasi|0100644
 dunstrc|/etc/ooonana/dunstrc|0100644
 ooonana-ai-app|/usr/bin/ooonana-ai-app|0100755
 ooonana-ai-launch|/usr/bin/ooonana-ai-launch|0100755
 cloud.repo|/etc/ooonana/sources.d/cloud.repo|0100644
+rcS|/etc/init.d/rcS|0100755
 45-font-awesome.conf|/etc/fonts/conf.avail/45-font-awesome.conf|0100644
 65-font-awesome.conf|/etc/fonts/conf.avail/65-font-awesome.conf|0100644
 45-font-awesome.conf|/etc/fonts/conf.d/45-font-awesome.conf|0100644
@@ -87,6 +169,9 @@ Font Awesome 6 Free-Regular-400.otf|/usr/share/fonts/font-awesome/Font Awesome 6
 Font Awesome 6 Free-Solid-900.otf|/usr/share/fonts/font-awesome/Font Awesome 6 Free-Solid-900.otf|0100644
 Font Awesome 6 Brands-Regular-400.otf|/usr/share/fonts/font-awesome/Font Awesome 6 Brands-Regular-400.otf|0100644
 EOF
+
+  patch_overlay_root "$image" "$EXTRA_ROOT"
+  patch_identity_files "$image"
 }
 
 build_payload() {
@@ -109,12 +194,35 @@ build_payload() {
   extract_block '$ROOTFS/usr/bin/ooonana-settings-launch' "$payload/ooonana-settings-launch"
   extract_block '$ROOTFS/usr/bin/ooonana-theme-env' "$payload/ooonana-theme-env"
   install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana-setup" "$payload/ooonana-setup"
+  cat > "$payload/wget" <<'EOF'
+#!/bin/sh
+exec /bin/busybox wget "$@"
+EOF
+  chmod 0755 "$payload/wget"
   extract_block '$ROOTFS/usr/bin/ooonana-gui-installer' "$payload/ooonana-gui-installer"
+  extract_block '$ROOTFS/usr/bin/ooonana-i3-smoke-session' "$payload/ooonana-i3-smoke-session"
+  extract_block '$ROOTFS/usr/bin/ooonana-i3-session' "$payload/ooonana-i3-session"
+  extract_block '$ROOTFS/usr/bin/ooonana-i3-installer-session' "$payload/ooonana-i3-installer-session"
+  install -m 0644 "$ROOT/branding/i3/config" "$payload/i3.config"
+  install -m 0644 "$ROOT/branding/i3/config" "$payload/i3.config.keycodes"
+  cat > "$payload/nm-applet.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=NetworkManager Applet
+Hidden=true
+EOF
+  cat > "$payload/blueman.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Blueman Applet
+Hidden=true
+EOF
   extract_block '$ROOTFS/etc/ooonana/polybar.ini' "$payload/polybar.ini"
   extract_block '$ROOTFS/etc/ooonana/rofi.rasi' "$payload/rofi.rasi"
   extract_block '$ROOTFS/etc/ooonana/dunstrc' "$payload/dunstrc"
   install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana-ai-app" "$payload/ooonana-ai-app"
   install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana-ai-launch" "$payload/ooonana-ai-launch"
+  extract_block '$ROOTFS/etc/init.d/rcS' "$payload/rcS"
   cat > "$payload/cloud.repo" <<'EOF'
 OOONANA_REPO_NAME="gitlab"
 OOONANA_REPO_URI="https://ooonana.gitlab.io/ooonana-repo"
@@ -145,8 +253,7 @@ EOF
 patch_disk_image() {
   local raw="$1"
   local payload="$2"
-  local info start_bytes end_bytes size_bytes
-  local loopdev
+  local info start_bytes end_bytes size_bytes part_image
 
   info="$(parted -sm "$raw" unit B print | awk -F: '$1 == "1" { print $2 " " $3 }')"
   read -r start_bytes end_bytes <<EOF
@@ -156,11 +263,13 @@ EOF
   end_bytes="${end_bytes%B}"
   size_bytes=$((end_bytes - start_bytes + 1))
 
-  loopdev="$(losetup --find --show --offset "$start_bytes" --sizelimit "$size_bytes" "$raw")"
-  trap 'losetup -d "$loopdev" >/dev/null 2>&1 || true' RETURN
-  patch_ext4 "$loopdev" "$payload"
-  losetup -d "$loopdev"
-  trap - RETURN
+  part_image="$WORK/disk-rootfs-partition.ext4"
+  dd if="$raw" of="$part_image" bs=16M iflag=skip_bytes,count_bytes \
+    skip="$start_bytes" count="$size_bytes" status=none
+  patch_ext4 "$part_image" "$payload"
+  dd if="$part_image" of="$raw" bs=16M oflag=seek_bytes conv=notrunc \
+    seek="$start_bytes" status=none
+  rm -f "$part_image"
 }
 
 extract_iso_file_by_lba() {
@@ -217,7 +326,6 @@ main() {
   need tar
   need gzip
   need dd
-  need losetup
 
   test -f "$ISO" || {
     printf 'missing ISO: %s\n' "$ISO" >&2

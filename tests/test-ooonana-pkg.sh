@@ -403,8 +403,10 @@ http_update="$(OOONANA_SOURCES_DIR="$http_sources" \
   OOONANA_CACHE_DIR="$http_cache" \
   "$CLI" update)"
 assert_contains "$http_update" "from 2 source(s)"
+assert_contains "$http_update" "metadata-only"
 [[ -f "$http_cache/repos/cloud/index.tsv" ]] || fail "missing remote cached index"
 [[ -f "$http_cache/repos/cloud/SHA256SUMS" ]] || fail "missing remote cached checksums"
+[[ ! -f "$http_cache/repos/cloud/archives/nano-1.0-r0.tar.gz" ]] || fail "update must not download archives"
 assert_contains "$(<"$http_cache/index.tsv")" "cloud"
 assert_contains "$(<"$http_cache/index.tsv")" "nano"
 

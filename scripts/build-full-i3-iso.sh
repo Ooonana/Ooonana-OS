@@ -71,10 +71,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 write_grub_config() {
-  local console_args="console=ttyS0 console=tty0"
-  if [[ "$SMOKE" -eq 1 ]]; then
-    console_args="console=tty0 console=ttyS0"
-  else
+  local console_args="console=tty0 console=ttyS0"
+  if [[ "$SMOKE" -eq 0 ]]; then
     console_args="$console_args quiet loglevel=3"
   fi
   local live_append="$console_args panic=1 rdinit=/init ooonana.live=1 ooonana.edition=full-i3"
@@ -295,7 +293,7 @@ main() {
   stage_iso_tree
   build_iso
   chmod a+rx "$(dirname "$WORK_DIR")" "$WORK_DIR" 2>/dev/null || true
-  chmod a+rw "$ISO"
+  chmod a+rw "$ISO" 2>/dev/null || true
 
   ooonana_log "full-i3 live/installer iso ready: $ISO"
 }

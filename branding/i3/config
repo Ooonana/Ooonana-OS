@@ -21,8 +21,8 @@ exec --no-startup-id sh -c 'command -v picom >/dev/null 2>&1 && picom --config /
 exec --no-startup-id sh -c 'command -v dunst >/dev/null 2>&1 && dunst -config /etc/ooonana/dunstrc &'
 exec --no-startup-id sh -c 'command -v xsettingsd >/dev/null 2>&1 && xsettingsd -c /etc/ooonana/xsettingsd.conf &'
 exec_always --no-startup-id sh -c 'command -v polybar >/dev/null 2>&1 && killall polybar >/dev/null 2>&1 || true; command -v polybar >/dev/null 2>&1 && polybar -c /etc/ooonana/polybar.ini ooonana &'
-exec --no-startup-id sh -c 'command -v nm-applet >/dev/null 2>&1 && nm-applet --indicator &'
-exec --no-startup-id sh -c 'command -v blueman-applet >/dev/null 2>&1 && blueman-applet &'
+exec --no-startup-id sh -c 'command -v nm-applet >/dev/null 2>&1 && [ -S /run/dbus/system_bus_socket ] && nm-applet --indicator &'
+exec --no-startup-id sh -c 'command -v blueman-applet >/dev/null 2>&1 && [ -S /run/dbus/system_bus_socket ] && blueman-applet &'
 
 bindsym $mod+Return exec ooonana-theme-env xterm
 bindsym $mod+d exec sh -c 'command -v rofi >/dev/null 2>&1 && rofi -show drun -theme /etc/ooonana/rofi.rasi || dmenu_run'

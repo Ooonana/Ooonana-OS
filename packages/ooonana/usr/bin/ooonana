@@ -1404,6 +1404,7 @@ cmd_update() {
   mv "$tmp" "$CACHE_DIR/index.tsv"
   count="$(wc -l < "$CACHE_DIR/index.tsv" | tr -d ' ')"
   printf 'ooonana repo: synced %s package(s) from %s source(s)\n' "$count" "$repo_count"
+  printf 'ooonana repo: remote update is metadata-only; package archives download on install\n'
   if [ "${OOONANA_APT_UPDATE:-0}" = "1" ] && have apt-get; then
     apt-get update
   fi
