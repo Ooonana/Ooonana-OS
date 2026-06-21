@@ -44,7 +44,7 @@ assert_contains "$help" "--password"
 assert_contains "$help" "--theme dark|light"
 
 cli_help="$("$CLI" help)"
-assert_contains "$cli_help" "ooonana setup"
+assert_contains "$cli_help" "  setup - run first-boot setup"
 
 dry="$("$CLI" setup --dry-run --user ryan --password --network dhcp --theme dark --cloud-repo https://example.test/repo --done)"
 assert_contains "$dry" "would create user ryan"

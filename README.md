@@ -326,6 +326,8 @@ ooonana clean                  # remove cached repo indexes and tarball extracts
 Help is split by task so new users do not have to read one huge page:
 
 ```bash
+ooonana help
+ooonana usage
 ooonana help packages
 ooonana help get
 ooonana help upgrade
@@ -334,6 +336,8 @@ ooonana help repo
 ooonana help ai
 ooonana help ui
 ```
+
+`ooonana help` and `ooonana usage` use an apt-style command list with short command descriptions. Detailed workflows stay under the topic pages above.
 
 `ooonana get` installs from Ooonana repos only. To bring an Alpine package into Ooonana, build or publish an Ooonana repo first with `ooonana repo build` or `scripts/build-package-repo.sh`.
 

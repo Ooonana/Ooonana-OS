@@ -48,101 +48,44 @@ CACHE_DIR="${OOONANA_CACHE_DIR:-$(root_join /var/cache/ooonana)}"
 INSTALLED_DIR="$STATE_DIR/installed"
 
 usage_main() {
-  cat <<'USAGE'
-Ooonana command center.
+  cat <<USAGE
+ooonana $VERSION
+Usage: ooonana [options] command
 
-Usage:
-  ooonana version
-  ooonana me
-  ooonana doctor
-  ooonana wsl [doctor|status]
-  ooonana setup [options]
+Ooonana is a commandline package manager and command center for
+searching, installing, upgrading, removing, and repairing Ooonana OS
+packages. It also exposes setup, WSL, AI, and desktop helper commands.
 
-Small shell tools:
-  bunana                 Exit shell when loaded by Ooonana login shell
-  bunana --shutdown      Power off
-  bunana --restart       Reboot
-  clear                  Clear terminal
-  oonana                 Play Ooonana brick game
-  neofetch               Show Ooonana logo and system info
+Most used commands:
+  list - list packages based on names or installed state
+  search - search package names and descriptions
+  show - show package details
+  install - install packages
+  reinstall - reinstall packages
+  remove - remove packages
+  purge - remove packages and Ooonana config
+  update - update list of available packages
+  upgrade - upgrade installed packages
+  fix - repair missing or damaged package files
+  verify - verify installed package files
+  repo - manage Ooonana package sources and indexes
+  setup - run first-boot setup
+  me - show Ooonana logo
+  wsl - check WSL helper distro
+  ai - open Ooonana AI commands
 
-Packages:
-  ooonana update
-  ooonana sources
-  ooonana list [--installed|--upgradeable]
-  ooonana search QUERY
-  ooonana info PACKAGE
-  ooonana show PACKAGE
-  ooonana depends PACKAGE
-  ooonana files PACKAGE
-  ooonana verify PACKAGE
-  ooonana check [PACKAGE...]
-  ooonana get PACKAGE [--dry-run]
-  ooonana install PACKAGE [--dry-run]
-  ooonana add PACKAGE [--dry-run]
-  ooonana upgrade [PACKAGE...] [--dry-run]
-  ooonana remove PACKAGE... [--dry-run]
-  ooonana uninstall PACKAGE... [--dry-run]
-  ooonana purge PACKAGE... [--dry-run]
-  ooonana fix [PACKAGE...] [--dry-run] [--reinstall]
-  ooonana repo index [--sign-key KEY] [PATH]
-  ooonana repo build [options] [PACKAGE...]
-  ooonana repo add NAME URI [PUBKEY]
-  ooonana repo remove NAME
-  ooonana repo doctor
-  ooonana clean
+Aliases:
+  get/install/add install packages
+  info/show show package details
+  uninstall/remove remove packages
+  usage/help show this text
 
-Need more help:
-  ooonana help packages
-  ooonana help get
-  ooonana help upgrade
-  ooonana help remove
-  ooonana help repo
-  ooonana help ai
-  ooonana help ui
+See 'ooonana help packages' for package flow.
+See 'ooonana help repo' for source and index details.
+See 'ooonana help ai' for AI commands.
+See 'ooonana help ui' for full-i3 shortcuts.
 
-AI:
-  ooonana ai setup
-  ooonana ai doctor
-  ooonana ai config
-  ooonana ai ask PROMPT...
-  ooonana ai chat
-  ooonana ai env
-  ooonana ai models
-  ooonana ai provider [show|set nim|set gemini]
-  ooonana ai model [show|list|set MODEL|alias NAME MODEL]
-  ooonana ai agents
-  ooonana ai agent activity
-  ooonana ai tools
-  ooonana ai tool NAME [ARGS...]
-  ooonana ai audit
-  ooonana ai tasks
-  ooonana ai task [add|done|plan] ...
-  ooonana ai history
-  ooonana ai sessions
-  ooonana ai status
-  ooonana ai ping
-
-Examples:
-  ooonana update
-  ooonana search editor
-  ooonana search browser
-  ooonana search file-manager
-  ooonana get nano
-  ooonana get chromium
-  ooonana get nemo
-  ooonana check
-  ooonana upgrade --dry-run
-  ooonana fix nano --reinstall
-  ooonana purge nano
-  ooonana repo build --dry-run nano
-  oonana
-  bunana --restart
-
-Paths:
-  repos: /usr/lib/ooonana/repo, /etc/ooonana/sources.d/*.repo
-  state: /var/lib/ooonana/packages
-  cache: /var/cache/ooonana
+This Ooonana has Super Ooonana Powers.
 USAGE
 }
 
@@ -2434,12 +2377,13 @@ main() {
     remove|uninstall) cmd_remove "$@" ;;
     purge) cmd_purge "$@" ;;
     fix) cmd_fix "$@" ;;
+    reinstall) cmd_fix --reinstall "$@" ;;
     repo) cmd_repo "$@" ;;
     clean) cmd_clean "$@" ;;
     ai)
       cmd_ai "$@"
       ;;
-    help|--help|-h) cmd_help "$@" ;;
+    help|usage|--help|-h) cmd_help "$@" ;;
     *) usage; exit 1 ;;
   esac
 }
