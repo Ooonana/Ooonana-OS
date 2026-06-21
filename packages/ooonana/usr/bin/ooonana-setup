@@ -13,7 +13,8 @@ ADDRESS=""
 GATEWAY=""
 DNS_SERVERS=""
 THEME=""
-CLOUD_REPO=""
+DEFAULT_CLOUD_REPO="${OOONANA_DEFAULT_CLOUD_REPO:-https://ooonana.gitlab.io/ooonana-repo}"
+CLOUD_REPO="$DEFAULT_CLOUD_REPO"
 
 usage() {
   cat <<'USAGE'
@@ -32,7 +33,7 @@ Options:
   --gateway IP          Static gateway
   --dns LIST            Comma-separated DNS servers
   --theme dark|light    Write Ooonana UI theme
-  --cloud-repo URI      Add Ooonana cloud package repo
+  --cloud-repo URI      Add Ooonana cloud package repo (default: https://ooonana.gitlab.io/ooonana-repo)
   --done                Mark setup complete
   --dry-run             Print actions only
   -h, --help            Show help

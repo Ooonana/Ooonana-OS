@@ -55,6 +55,10 @@ assert_contains "$dry" "would add cloud repo https://example.test/repo"
 assert_contains "$dry" "would mark setup done"
 assert_contains "$dry" "OOONANA_SETUP_OK"
 
+default_dry="$("$CLI" setup --dry-run --user ryan --network dhcp --theme dark --done)"
+assert_contains "$default_dry" "would add cloud repo https://ooonana.gitlab.io/ooonana-repo"
+assert_contains "$default_dry" "OOONANA_SETUP_OK"
+
 gui_dry="$("$SETUP" --gui --dry-run)"
 assert_contains "$gui_dry" "yad setup gui"
 assert_contains "$gui_dry" "fields: user password network address gateway dns theme cloud-repo done"
@@ -98,6 +102,23 @@ assert_contains "$(<"$rootfs/etc/ooonana/theme.conf")" 'OOONANA_THEME="light"'
 assert_contains "$(<"$rootfs/etc/ooonana/sources.d/cloud.repo")" 'OOONANA_REPO_NAME="cloud"'
 assert_contains "$(<"$rootfs/etc/ooonana/sources.d/cloud.repo")" 'OOONANA_REPO_URI="http://127.0.0.1/repo"'
 [[ -f "$rootfs/var/lib/ooonana/setup.done" ]] || fail "missing setup marker"
+
+default_root="$tmp/default-root"
+mkdir -p "$default_root/etc/ooonana/sources.d" "$default_root/etc/network" "$default_root/etc" "$default_root/var/lib/ooonana"
+cat > "$default_root/etc/passwd" <<'EOF'
+root:x:0:0:root:/root:/bin/sh
+EOF
+cat > "$default_root/etc/group" <<'EOF'
+root:x:0:
+EOF
+default_run="$(OOONANA_ROOT="$default_root" "$SETUP" \
+  --user ooonana \
+  --network dhcp \
+  --theme dark \
+  --done)"
+assert_contains "$default_run" "cloud repo: https://ooonana.gitlab.io/ooonana-repo"
+assert_contains "$(<"$default_root/etc/ooonana/sources.d/cloud.repo")" 'OOONANA_REPO_NAME="cloud"'
+assert_contains "$(<"$default_root/etc/ooonana/sources.d/cloud.repo")" 'OOONANA_REPO_URI="https://ooonana.gitlab.io/ooonana-repo"'
 
 skip="$(OOONANA_ROOT="$rootfs" "$SETUP" --first-boot)"
 assert_contains "$skip" "setup: already complete"

@@ -845,7 +845,7 @@ First-boot setup launches from the full-i3 session through xterm when possible:
 ooonana setup --first-boot --gui
 ```
 
-It can create a user, prompt for a password, write `/etc/network/interfaces`, write `/etc/ooonana/theme`, and add `/etc/ooonana/sources.d/cloud.repo` so `ooonana update` can use a published cloud package repo. In full-i3 it opens a `yad` setup form first, then falls back to themed xterm when GUI pieces are missing.
+It can create a user, prompt for a password, write `/etc/network/interfaces`, write `/etc/ooonana/theme`, and add `/etc/ooonana/sources.d/cloud.repo` so `ooonana update` can use a published cloud package repo. The GitLab Pages cloud repo is added by default, and `--cloud-repo URI` overrides it. In full-i3 it opens a `yad` setup form first, then falls back to themed xterm when GUI pieces are missing.
 
 Cloud package build:
 
