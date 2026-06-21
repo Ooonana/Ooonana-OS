@@ -2065,6 +2065,51 @@ start_system_services() {
 
 start_system_services
 
+start_network_fallback() {
+  mkdir -p /etc /var/log
+  if [ ! -s /etc/resolv.conf ]; then
+    {
+      echo 'nameserver 1.1.1.1'
+      echo 'nameserver 8.8.8.8'
+    } >/etc/resolv.conf 2>/dev/null || true
+  fi
+
+  if command -v ip >/dev/null 2>&1; then
+    ip link set lo up >/dev/null 2>&1 || true
+  elif command -v ifconfig >/dev/null 2>&1; then
+    ifconfig lo up >/dev/null 2>&1 || true
+  fi
+
+  for devpath in /sys/class/net/*; do
+    [ -e "$devpath" ] || continue
+    iface="${devpath##*/}"
+    [ "$iface" = "lo" ] && continue
+    case "$iface" in
+      wlan*|wl*) continue ;;
+    esac
+    if command -v ip >/dev/null 2>&1; then
+      ip link set "$iface" up >/dev/null 2>&1 || true
+    elif command -v ifconfig >/dev/null 2>&1; then
+      ifconfig "$iface" up >/dev/null 2>&1 || true
+    fi
+  done
+
+  if command -v udhcpc >/dev/null 2>&1 &&
+    ! route -n 2>/dev/null | awk '$1 == "0.0.0.0" { found = 1 } END { exit found ? 0 : 1 }'; then
+    for devpath in /sys/class/net/*; do
+      [ -e "$devpath" ] || continue
+      iface="${devpath##*/}"
+      [ "$iface" = "lo" ] && continue
+      case "$iface" in
+        wlan*|wl*) continue ;;
+      esac
+      udhcpc -q -n -i "$iface" -t 3 -T 3 >/var/log/udhcpc-"$iface".log 2>&1 && break
+    done
+  fi
+}
+
+start_network_fallback
+
 start_persistence() {
   grep -q 'ooonana.persistence=1' /proc/cmdline 2>/dev/null || return 0
   mkdir -p /mnt/persist

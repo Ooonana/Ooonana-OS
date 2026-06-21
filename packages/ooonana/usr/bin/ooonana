@@ -577,37 +577,55 @@ download_github_release_asset() {
 download_file() {
   url="$1"
   out="$2"
+  err="$out.err.$$"
   mkdir -p "$(dirname "$out")"
+  rm -f "$err"
   if download_github_release_asset "$url" "$out"; then
     return 0
   fi
   if have curl; then
-    if curl -fsSL "$url" -o "$out" 2>/dev/null; then
+    if curl -fsSL "$url" -o "$out" 2>"$err"; then
+      rm -f "$err"
       return 0
     fi
   fi
   if have wget; then
-    if wget -q -O "$out" "$url" 2>/dev/null; then
+    if wget -q -O "$out" "$url" 2>"$err"; then
+      rm -f "$err"
       return 0
     fi
   fi
   if have python3; then
-    if python3 - "$url" "$out" <<'PY'
+    if python3 - "$url" "$out" 2>"$err" <<'PY'
 import sys
 import urllib.request
 
 url, out = sys.argv[1], sys.argv[2]
-request = urllib.request.Request(url, headers={"User-Agent": "ooonana"})
-with urllib.request.urlopen(request, timeout=60) as response:
-    with open(out, "wb") as handle:
-        handle.write(response.read())
+try:
+    request = urllib.request.Request(url, headers={"User-Agent": "ooonana"})
+    with urllib.request.urlopen(request, timeout=60) as response:
+        with open(out, "wb") as handle:
+            handle.write(response.read())
+except Exception as exc:
+    print(exc, file=sys.stderr)
+    sys.exit(1)
 PY
     then
+      rm -f "$err"
       return 0
     fi
   fi
   rm -f "$out"
-  printf 'ooonana: download failed: %s (need curl, wget, or python3)\n' "$url" >&2
+  reason=""
+  if [ -s "$err" ]; then
+    reason="$(tail -n 1 "$err" | tr '\n' ' ')"
+  fi
+  rm -f "$err"
+  if [ -n "$reason" ]; then
+    printf 'ooonana: download failed: %s (%s; tried curl, wget, python3)\n' "$url" "$reason" >&2
+  else
+    printf 'ooonana: download failed: %s (tried curl, wget, python3)\n' "$url" >&2
+  fi
   return 1
 }
 
@@ -623,7 +641,7 @@ remote_repo_cache_file() {
   rel="$3"
   cache_dir="$(repo_cache_dir "$repo_name")"
   target="$cache_dir/$rel"
-  download_file "$(remote_repo_url "$repo_uri" "$rel")" "$target"
+  download_file "$(remote_repo_url "$repo_uri" "$rel")" "$target" || return 1
   printf '%s\n' "$target"
 }
 
@@ -632,8 +650,8 @@ sync_remote_repo() {
   repo_uri="$2"
   cache_dir="$(repo_cache_dir "$repo_name")"
   mkdir -p "$cache_dir"
-  download_file "$(remote_repo_url "$repo_uri" index.tsv)" "$cache_dir/index.tsv"
-  download_file "$(remote_repo_url "$repo_uri" SHA256SUMS)" "$cache_dir/SHA256SUMS"
+  download_file "$(remote_repo_url "$repo_uri" index.tsv)" "$cache_dir/index.tsv" || return 1
+  download_file "$(remote_repo_url "$repo_uri" SHA256SUMS)" "$cache_dir/SHA256SUMS" || return 1
   rm -f "$cache_dir/SHA256SUMS.sig"
   download_file "$(remote_repo_url "$repo_uri" SHA256SUMS.sig)" "$cache_dir/SHA256SUMS.sig" 2>/dev/null || true
   printf '%s\n' "$cache_dir"
@@ -668,7 +686,7 @@ sync_tarball_repo() {
   mkdir -p "$tmp_dir/root" "$parent_dir"
 
   if repo_is_remote "$repo_uri"; then
-    download_file "$repo_uri" "$tarball"
+    download_file "$repo_uri" "$tarball" || return 1
   else
     [ -f "$repo_uri" ] || die "missing repo tarball: $repo_name $repo_uri"
     cp "$repo_uri" "$tarball"
@@ -1368,10 +1386,36 @@ cmd_update() {
     repo_count=$((repo_count + 1))
     repo_remote=0
     if repo_is_tarball "$repo_path"; then
-      repo_path="$(sync_tarball_repo "$repo_name" "$repo_path")"
+      repo_uri="$repo_path"
+      if repo_path="$(sync_tarball_repo "$repo_name" "$repo_uri")"; then
+        :
+      else
+        cached_repo="$(repo_cache_dir "$repo_name")"
+        printf 'ooonana repo: source unavailable: %s %s\n' "$repo_name" "$repo_uri" >&2
+        if [ -f "$cached_repo/index.tsv" ]; then
+          printf 'ooonana repo: using cached metadata for %s\n' "$repo_name" >&2
+          repo_path="$cached_repo"
+        else
+          printf 'ooonana repo: no cached metadata for %s; skipping\n' "$repo_name" >&2
+          continue
+        fi
+      fi
     elif repo_is_remote "$repo_path"; then
       repo_remote=1
-      repo_path="$(sync_remote_repo "$repo_name" "$repo_path")"
+      repo_uri="$repo_path"
+      if repo_path="$(sync_remote_repo "$repo_name" "$repo_uri")"; then
+        :
+      else
+        cached_repo="$(repo_cache_dir "$repo_name")"
+        printf 'ooonana repo: source unavailable: %s %s\n' "$repo_name" "$repo_uri" >&2
+        if [ -f "$cached_repo/index.tsv" ]; then
+          printf 'ooonana repo: using cached metadata for %s\n' "$repo_name" >&2
+          repo_path="$cached_repo"
+        else
+          printf 'ooonana repo: no cached metadata for %s; skipping\n' "$repo_name" >&2
+          continue
+        fi
+      fi
     fi
     [ -d "$repo_path" ] || die "missing repo source: $repo_name $repo_path"
     verify_repo_signature "$repo_path" "${repo_key:-}"

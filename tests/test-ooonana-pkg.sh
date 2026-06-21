@@ -461,6 +461,38 @@ assert_contains "$(<"$python_fallback_log")" "index.tsv"
 assert_contains "$(<"$python_fallback_log")" "SHA256SUMS"
 [[ -f "$python_fallback_cache/repos/cloud/index.tsv" ]] || fail "missing python fallback cached index"
 
+offline_bin="$tmp/offline-bin"
+offline_sources="$tmp/offline-sources"
+offline_state="$tmp/offline-state"
+offline_cache="$tmp/offline-cache"
+mkdir -p "$offline_bin" "$offline_sources"
+for cmd in awk cat cp cut dirname grep mkdir mv rm sed sha256sum sort tar tr wc; do
+  ln -sf "$(command -v "$cmd")" "$offline_bin/$cmd"
+done
+cat > "$offline_bin/python3" <<'EOF'
+#!/bin/sh
+cat >&2 <<'PYERR'
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+socket.gaierror: [Errno -3] Try again
+PYERR
+exit 1
+EOF
+chmod +x "$offline_bin/python3"
+cat > "$offline_sources/cloud.repo" <<'EOF'
+OOONANA_REPO_NAME="cloud"
+OOONANA_REPO_URI="https://offline.invalid/repo"
+EOF
+offline_update="$(PATH="$offline_bin" \
+  OOONANA_SOURCES_DIR="$offline_sources" \
+  OOONANA_STATE_DIR="$offline_state" \
+  OOONANA_CACHE_DIR="$offline_cache" \
+  "$CLI" update 2>&1)"
+assert_contains "$offline_update" "source unavailable: cloud"
+assert_contains "$offline_update" "synced"
+assert_not_contains "$offline_update" "Traceback"
+assert_not_contains "$offline_update" "urllib.error"
+
 http_dry="$(OOONANA_SOURCES_DIR="$http_sources" \
   OOONANA_STATE_DIR="$http_state" \
   OOONANA_CACHE_DIR="$http_cache" \
