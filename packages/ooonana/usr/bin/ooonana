@@ -696,14 +696,35 @@ repo_sources() {
   done
 }
 
+repo_checksum_entry_missing() {
+  repo_path="$1"
+  rel_path="$2"
+  sums_file="$repo_path/SHA256SUMS"
+  [ -f "$sums_file" ] || return 1
+  repo_checksum_expected "$sums_file" "$rel_path" >/dev/null 2>&1 && return 1
+  return 0
+}
+
+use_pkg_candidate() {
+  pkg_file="$1"
+  repo_dir="$2"
+  repo_name="$3"
+  repo_uri="${4:-}"
+  repo_key="${5:-}"
+  rel_path="$(basename "$pkg_file")"
+  repo_checksum_entry_missing "$repo_dir" "$rel_path" && return 1
+  LOADED_PKG_FILE="$pkg_file"
+  LOADED_REPO_DIR="$repo_dir"
+  LOADED_REPO_NAME="$repo_name"
+  LOADED_REPO_URI="$repo_uri"
+  LOADED_REPO_KEY="$repo_key"
+  return 0
+}
+
 find_pkg_file() {
   id="$1"
   if [ -f "$REPO_DIR/$id.pkg" ]; then
-    LOADED_PKG_FILE="$REPO_DIR/$id.pkg"
-    LOADED_REPO_DIR="$REPO_DIR"
-    LOADED_REPO_NAME="builtin"
-    LOADED_REPO_KEY="${OOONANA_BUILTIN_REPO_KEY:-}"
-    return 0
+    use_pkg_candidate "$REPO_DIR/$id.pkg" "$REPO_DIR" "builtin" "" "${OOONANA_BUILTIN_REPO_KEY:-}" && return 0
   fi
 
   [ -d "$SOURCES_DIR" ] || return 1
@@ -714,31 +735,18 @@ find_pkg_file() {
       remote_dir="$(tarball_repo_cached_dir "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI")"
       if [ -f "$remote_dir/index.tsv" ] && awk -v id="$id" 'BEGIN { FS = "\t" } $1 == id { found = 1 } END { exit found ? 0 : 1 }' "$remote_dir/index.tsv"; then
         [ -f "$remote_dir/$id.pkg" ] || die "missing repo file: $id.pkg"
-        LOADED_PKG_FILE="$remote_dir/$id.pkg"
-        LOADED_REPO_DIR="$remote_dir"
-        LOADED_REPO_NAME="$OOONANA_REPO_NAME"
-        LOADED_REPO_KEY="$OOONANA_REPO_KEY"
-        return 0
+        use_pkg_candidate "$remote_dir/$id.pkg" "$remote_dir" "$OOONANA_REPO_NAME" "" "$OOONANA_REPO_KEY" && return 0
       fi
     elif repo_is_remote "$OOONANA_REPO_URI"; then
       remote_dir="$(remote_repo_cached_dir "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI")"
       if [ -f "$remote_dir/index.tsv" ] && awk -v id="$id" 'BEGIN { FS = "\t" } $1 == id { found = 1 } END { exit found ? 0 : 1 }' "$remote_dir/index.tsv"; then
         remote_repo_cache_file "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI" "$id.pkg" >/dev/null
-        LOADED_PKG_FILE="$remote_dir/$id.pkg"
-        LOADED_REPO_DIR="$remote_dir"
-        LOADED_REPO_NAME="$OOONANA_REPO_NAME"
-        LOADED_REPO_URI="$OOONANA_REPO_URI"
-        LOADED_REPO_KEY="$OOONANA_REPO_KEY"
-        return 0
+        use_pkg_candidate "$remote_dir/$id.pkg" "$remote_dir" "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI" "$OOONANA_REPO_KEY" && return 0
       fi
     else
       [ -d "$OOONANA_REPO_URI" ] || die "missing repo source: $OOONANA_REPO_NAME $OOONANA_REPO_URI"
       if [ -f "$OOONANA_REPO_URI/$id.pkg" ]; then
-        LOADED_PKG_FILE="$OOONANA_REPO_URI/$id.pkg"
-        LOADED_REPO_DIR="$OOONANA_REPO_URI"
-        LOADED_REPO_NAME="$OOONANA_REPO_NAME"
-        LOADED_REPO_KEY="$OOONANA_REPO_KEY"
-        return 0
+        use_pkg_candidate "$OOONANA_REPO_URI/$id.pkg" "$OOONANA_REPO_URI" "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI" "$OOONANA_REPO_KEY" && return 0
       fi
     fi
   done
@@ -1094,6 +1102,61 @@ pkg_ids() {
 
 pkg_installed() {
   [ -f "$INSTALLED_DIR/$1.pkg" ]
+}
+
+repo_index_version() {
+  repo_path="$1"
+  id="$2"
+  [ -f "$repo_path/index.tsv" ] || return 1
+  awk -v id="$id" 'BEGIN { FS = "\t" } $1 == id { print $2; found = 1; exit } END { exit found ? 0 : 1 }' "$repo_path/index.tsv"
+}
+
+pkg_file_version() (
+  pkg_file="$1"
+  id="$2"
+  reset_pkg_vars
+  . "$pkg_file"
+  [ "$OOONANA_PKG_ID" = "$id" ] || die "bad package metadata: $id"
+  [ -n "$OOONANA_PKG_VERSION" ] || die "package missing version: $id"
+  printf '%s\n' "$OOONANA_PKG_VERSION"
+)
+
+available_pkg_version_from_repo() {
+  repo_path="$1"
+  id="$2"
+  version=""
+  if version="$(repo_index_version "$repo_path" "$id" 2>/dev/null)"; then
+    repo_checksum_entry_missing "$repo_path" "$id.pkg" && return 1
+    printf '%s\n' "$version"
+    return 0
+  fi
+  if [ -f "$repo_path/$id.pkg" ]; then
+    repo_checksum_entry_missing "$repo_path" "$id.pkg" && return 1
+    pkg_file_version "$repo_path/$id.pkg" "$id"
+    return 0
+  fi
+  return 1
+}
+
+available_pkg_version() {
+  id="$1"
+  available_pkg_version_from_repo "$REPO_DIR" "$id" && return 0
+
+  [ -d "$SOURCES_DIR" ] || return 1
+  for source_file in "$SOURCES_DIR"/*.repo; do
+    [ -f "$source_file" ] || continue
+    load_repo_source_file "$source_file"
+    if repo_is_tarball "$OOONANA_REPO_URI"; then
+      repo_path="$(tarball_repo_cached_dir "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI")"
+    elif repo_is_remote "$OOONANA_REPO_URI"; then
+      repo_path="$(remote_repo_cached_dir "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI")"
+    else
+      repo_path="$OOONANA_REPO_URI"
+      [ -d "$repo_path" ] || die "missing repo source: $OOONANA_REPO_NAME $OOONANA_REPO_URI"
+    fi
+    available_pkg_version_from_repo "$repo_path" "$id" && return 0
+  done
+  return 1
 }
 
 safe_pkg_id() {
@@ -1471,8 +1534,8 @@ cmd_list() {
       [ -f "$file" ] || return 0
       id="$(basename "$file" .pkg)"
       old_version="$(installed_pkg_version "$id")"
-      load_pkg "$id"
-      if [ "$old_version" != "$OOONANA_PKG_VERSION" ]; then
+      if new_version="$(available_pkg_version "$id")" && [ "$old_version" != "$new_version" ]; then
+        load_pkg "$id"
         printf '%s %s -> %s %s\n' "$id" "$old_version" "$OOONANA_PKG_VERSION" "$OOONANA_PKG_SUMMARY"
       fi
     done | sort
@@ -1800,8 +1863,7 @@ cmd_upgrade() {
       [ -f "$file" ] || { printf 'no packages installed\n'; return 0; }
       id="$(basename "$file" .pkg)"
       old_version="$(installed_pkg_version "$id")"
-      load_pkg "$id"
-      if [ "$old_version" != "$OOONANA_PKG_VERSION" ]; then
+      if new_version="$(available_pkg_version "$id")" && [ "$old_version" != "$new_version" ]; then
         packages="$packages $id"
       fi
     done

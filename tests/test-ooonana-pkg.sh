@@ -347,6 +347,47 @@ assert_contains "$multi_show" "source: extra"
 multi_install="$(OOONANA_SOURCES_DIR="$sources_dir" "$CLI" install editor --dry-run)"
 assert_contains "$multi_install" "would install editor 1.2.0"
 
+stale_builtin="$tmp/stale-builtin"
+fresh_cloud="$tmp/fresh-cloud"
+fresh_sources="$tmp/fresh-sources"
+fresh_state="$tmp/fresh-state"
+fresh_cache="$tmp/fresh-cache"
+mkdir -p "$stale_builtin" "$fresh_cloud" "$fresh_sources" "$fresh_state/installed" "$fresh_cache"
+cat > "$stale_builtin/alacritty.pkg" <<'EOF'
+OOONANA_PKG_ID="alacritty"
+OOONANA_PKG_VERSION="0.1.0"
+OOONANA_PKG_KIND="apk"
+OOONANA_PKG_SUMMARY="Stale builtin terminal"
+OOONANA_PKG_DEPS=""
+EOF
+sha256sum "$stale_builtin/alacritty.pkg" | sed 's/alacritty.pkg/other.pkg/' > "$stale_builtin/SHA256SUMS"
+cat > "$fresh_cloud/alacritty.pkg" <<'EOF'
+OOONANA_PKG_ID="alacritty"
+OOONANA_PKG_VERSION="0.2.0"
+OOONANA_PKG_KIND="apk"
+OOONANA_PKG_SUMMARY="Fresh cloud terminal"
+OOONANA_PKG_DEPS=""
+EOF
+"$CLI" repo index "$fresh_cloud" >/dev/null
+cat > "$fresh_sources/cloud.repo" <<EOF
+OOONANA_REPO_NAME="cloud"
+OOONANA_REPO_URI="$fresh_cloud"
+EOF
+cat > "$fresh_state/installed/alacritty.pkg" <<'EOF'
+OOONANA_PKG_ID="alacritty"
+OOONANA_PKG_VERSION="0.1.0"
+OOONANA_PKG_KIND="apk"
+OOONANA_PKG_SUMMARY="Installed terminal"
+OOONANA_PKG_DEPS=""
+EOF
+fresh_upgrade="$(OOONANA_REPO_DIR="$stale_builtin" \
+  OOONANA_SOURCES_DIR="$fresh_sources" \
+  OOONANA_STATE_DIR="$fresh_state" \
+  OOONANA_CACHE_DIR="$fresh_cache" \
+  "$CLI" upgrade alacritty --dry-run 2>&1 || true)"
+assert_not_contains "$fresh_upgrade" "missing checksum: alacritty.pkg"
+assert_contains "$fresh_upgrade" "would upgrade alacritty 0.1.0 -> 0.2.0"
+
 http_root="$tmp/http-root"
 http_repo="$http_root/repo"
 http_payload="$tmp/http-payload"
@@ -371,7 +412,15 @@ OOONANA_PKG_DEPS=""
 OOONANA_PKG_ARCHIVE="archives/nano-1.0-r0.tar.gz"
 OOONANA_PKG_SHA256="$http_archive_sha"
 EOF
+cat > "$http_repo/current.pkg" <<'EOF'
+OOONANA_PKG_ID="current"
+OOONANA_PKG_VERSION="1.0-r0"
+OOONANA_PKG_KIND="apk"
+OOONANA_PKG_SUMMARY="Already current remote package"
+OOONANA_PKG_DEPS=""
+EOF
 "$CLI" repo index "$http_repo" >/dev/null
+rm -f "$http_repo/current.pkg"
 http_port="$(python3 - <<'PY'
 import socket
 s = socket.socket()
@@ -386,6 +435,35 @@ sleep 1
 cat > "$http_sources/cloud.repo" <<EOF
 OOONANA_REPO_NAME="cloud"
 OOONANA_REPO_URI="http://127.0.0.1:$http_port/repo"
+EOF
+
+current_state="$tmp/current-state"
+current_cache="$tmp/current-cache"
+mkdir -p "$current_state/installed" "$current_cache"
+cat > "$current_state/installed/current.pkg" <<'EOF'
+OOONANA_PKG_ID="current"
+OOONANA_PKG_VERSION="1.0-r0"
+OOONANA_PKG_KIND="apk"
+OOONANA_PKG_SUMMARY="Installed current package"
+OOONANA_PKG_DEPS=""
+EOF
+OOONANA_SOURCES_DIR="$http_sources" \
+  OOONANA_STATE_DIR="$current_state" \
+  OOONANA_CACHE_DIR="$current_cache" \
+  "$CLI" update >/dev/null
+current_upgrade="$(OOONANA_SOURCES_DIR="$http_sources" \
+  OOONANA_STATE_DIR="$current_state" \
+  OOONANA_CACHE_DIR="$current_cache" \
+  "$CLI" upgrade --dry-run 2>&1 || true)"
+assert_contains "$current_upgrade" "no upgrades"
+assert_not_contains "$current_upgrade" "download failed"
+[[ ! -e "$current_cache/repos/cloud/current.pkg" ]] || fail "upgrade scan downloaded current.pkg metadata"
+cat > "$http_repo/current.pkg" <<'EOF'
+OOONANA_PKG_ID="current"
+OOONANA_PKG_VERSION="1.0-r0"
+OOONANA_PKG_KIND="apk"
+OOONANA_PKG_SUMMARY="Already current remote package"
+OOONANA_PKG_DEPS=""
 EOF
 
 http_update="$(OOONANA_SOURCES_DIR="$http_sources" \
