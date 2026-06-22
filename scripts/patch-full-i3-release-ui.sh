@@ -8,6 +8,7 @@ WORK="${OOONANA_PATCH_WORK:-$RELEASE_DIR/patch-full-i3-ui}"
 OUT_ISO="${OOONANA_OUT_ISO:-$RELEASE_DIR/ooonana-full-i3.iso.new}"
 VOLUME="${OOONANA_VOLUME:-OOONANAUSB}"
 EXTRA_ROOT="${OOONANA_EXTRA_ROOT:-}"
+KERNEL_OVERRIDE="${OOONANA_KERNEL_OVERRIDE:-}"
 
 need() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -170,6 +171,7 @@ Font Awesome 6 Free-Solid-900.otf|/usr/share/fonts/font-awesome/Font Awesome 6 F
 Font Awesome 6 Brands-Regular-400.otf|/usr/share/fonts/font-awesome/Font Awesome 6 Brands-Regular-400.otf|0100644
 EOF
 
+  patch_overlay_root "$image" "$payload/root"
   patch_overlay_root "$image" "$EXTRA_ROOT"
   patch_identity_files "$image"
 }
@@ -177,7 +179,12 @@ EOF
 build_payload() {
   local payload="$1"
   rm -rf "$payload"
-  mkdir -p "$payload"
+  mkdir -p "$payload/root"
+
+  if [ -n "$KERNEL_OVERRIDE" ]; then
+    test -f "$KERNEL_OVERRIDE" || { printf 'missing kernel override: %s\n' "$KERNEL_OVERRIDE" >&2; exit 1; }
+    install -D -m 0644 "$KERNEL_OVERRIDE" "$payload/root/boot/vmlinuz"
+  fi
 
   extract_block '$ROOTFS/usr/bin/ooonana-rofi-wifi' "$payload/ooonana-rofi-wifi"
   extract_block '$ROOTFS/usr/bin/ooonana-rofi-bluetooth' "$payload/ooonana-rofi-bluetooth"
@@ -250,6 +257,12 @@ EOF
   rm -rf "$payload/etc" "$payload/usr"
 }
 
+stage_kernel_override() {
+  [ -n "$KERNEL_OVERRIDE" ] || return 0
+  test -f "$KERNEL_OVERRIDE" || { printf 'missing kernel override: %s\n' "$KERNEL_OVERRIDE" >&2; exit 1; }
+  install -m 0644 "$KERNEL_OVERRIDE" "$WORK/vmlinuz"
+}
+
 patch_disk_image() {
   local raw="$1"
   local payload="$2"
@@ -312,6 +325,7 @@ resume_after_extract() {
   build_payload "$WORK/payload"
   test -f "$WORK/live-rootfs.ext4" || { printf 'missing live-rootfs.ext4 in %s\n' "$WORK" >&2; exit 1; }
   test -f "$WORK/disk.raw" || { printf 'missing disk.raw in %s\n' "$WORK" >&2; exit 1; }
+  stage_kernel_override
   patch_ext4 "$WORK/live-rootfs.ext4" "$WORK/payload"
   patch_disk_image "$WORK/disk.raw" "$WORK/payload"
   build_iso_from_work
@@ -346,6 +360,7 @@ main() {
     -extract /boot/vmlinuz "$WORK/vmlinuz" \
     -extract /boot/install-initramfs.cpio.gz "$WORK/install-initramfs.cpio.gz" \
     -extract /boot/live-initramfs.cpio.gz "$WORK/live-initramfs.cpio.gz" >/dev/null
+  stage_kernel_override
   extract_iso_file_by_lba /images/ooonana-full-i3-live-rootfs.ext4 "$WORK/live-rootfs.ext4"
   extract_iso_file_by_lba /images/ooonana-full-i3-disk.raw.gz "$WORK/disk.raw.gz"
 

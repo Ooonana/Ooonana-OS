@@ -45,6 +45,8 @@ assert_contains "$patch_src" 'blueman.desktop|/etc/xdg/autostart/blueman.desktop
 assert_contains "$patch_src" 'wget|/usr/bin/wget|0100755'
 assert_not_contains "$patch_src" "losetup --find"
 assert_contains "$patch_src" "OOONANA_EXTRA_ROOT"
+assert_contains "$patch_src" "OOONANA_KERNEL_OVERRIDE"
+assert_contains "$patch_src" "stage_kernel_override"
 assert_contains "$patch_src" "patch_overlay_root"
 assert_contains "$patch_src" "patch_identity_files"
 assert_contains "$patch_src" "messagebus:x:81:"
