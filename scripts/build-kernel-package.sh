@@ -56,11 +56,13 @@ fetch_kernel() {
   case "$source" in
     http://*|https://*)
       if command -v curl >/dev/null 2>&1; then
-        curl -fsSL "$source" -o "$out"
-      elif command -v wget >/dev/null 2>&1; then
-        wget -q -O "$out" "$source"
-      elif command -v python3 >/dev/null 2>&1; then
-        python3 - "$source" "$out" <<'PY'
+        curl -fsSL --retry 5 --retry-delay 3 --connect-timeout 30 "$source" -o "$out" && return 0
+      fi
+      if command -v wget >/dev/null 2>&1; then
+        wget -q --tries=5 --timeout=60 -O "$out" "$source" && return 0
+      fi
+      if command -v python3 >/dev/null 2>&1; then
+        python3 - "$source" "$out" <<'PY' && return 0
 import sys
 import urllib.request
 
@@ -70,9 +72,8 @@ with urllib.request.urlopen(request, timeout=120) as response:
     with open(out, "wb") as handle:
         handle.write(response.read())
 PY
-      else
-        ooonana_die "missing downloader: curl, wget, or python3"
       fi
+      ooonana_die "download failed: $source"
       ;;
     file://*) cp "${source#file://}" "$out" ;;
     *) cp "$source" "$out" ;;

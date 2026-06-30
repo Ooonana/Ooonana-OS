@@ -47,12 +47,12 @@ fetch_url() {
     file://*) cp "${url#file://}" "$out" ;;
     http://*|https://*)
       if command -v curl >/dev/null 2>&1; then
-        curl -fsSL "$url" -o "$out"
-      elif command -v wget >/dev/null 2>&1; then
-        wget -q -O "$out" "$url"
-      else
-        ooonana_die "missing downloader: curl or wget"
+        curl -fsSL --retry 5 --retry-delay 3 --connect-timeout 30 "$url" -o "$out" && return 0
       fi
+      if command -v wget >/dev/null 2>&1; then
+        wget -q --tries=5 --timeout=60 -O "$out" "$url" && return 0
+      fi
+      ooonana_die "download failed: $url"
       ;;
     *) cp "$url" "$out" ;;
   esac
