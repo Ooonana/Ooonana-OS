@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$ROOT/scripts/lib/common.sh"
 
 WORK_DIR="$(ooonana_default_build_dir)"
-VERSION="${OOONANA_KERNEL_VERSION:-6.6.142}"
+VERSION="${OOONANA_KERNEL_VERSION:-6.18.37}"
 SOURCE_DIR="$WORK_DIR/linux"
 ARCHIVE="$WORK_DIR/linux-$VERSION.tar.xz"
 TARBALL=""
@@ -24,7 +24,7 @@ Usage:
 
 Options:
   --work-dir PATH    Build directory (default: /var/tmp/ooonana-os/build)
-  --version VERSION  Linux version (default: 6.6.142)
+  --version VERSION  Linux version (default: 6.18.37)
   --source-dir PATH  Source output directory (default: WORK_DIR/linux)
   --archive PATH     Download archive path (default: WORK_DIR/linux-VERSION.tar.xz)
   --tarball PATH     Use existing tarball instead of downloading

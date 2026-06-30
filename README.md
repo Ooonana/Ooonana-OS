@@ -99,7 +99,7 @@ full-i3 install menu   live GUI installer session, VGA-first fallback, safe grap
 rufus usb              ISO mode, BIOS/UEFI, Secure Boot off
 rufus persistence      second GRUB entry plus ext4 partition labeled OOONANA_PERSIST
 full-i3 VM RAM         2048 MB tested after live rootfs moved outside initramfs
-live kernel            Linux 6.6.142 LTS with Ooonana responsiveness fragment
+live kernel            Linux 6.18.37 with Ooonana responsiveness and Galaxy Book support
 ```
 
 Release files:
@@ -407,6 +407,8 @@ bash scripts/build-package-repo.sh \
   --out-dir /tmp/ooonana-repo \
   --package-profile configs/packages/both.list \
   --cloud-url https://github.com/YOUR/YOUR_REPO/releases/download/packages-latest/ooonana-package-repo.tar.gz \
+  --kernel /path/to/vmlinuz-ooonana \
+  --kernel-version 6.18.37 \
   --full-i3 \
   --clean
 ```
@@ -429,6 +431,7 @@ This creates:
 
 ```text
 /tmp/ooonana-repo/nano.pkg
+/tmp/ooonana-repo/ooonana-kernel.pkg
 /tmp/ooonana-repo/archives/*.tar.gz
 /tmp/ooonana-repo/index.tsv
 /tmp/ooonana-repo/SHA256SUMS
@@ -436,7 +439,7 @@ This creates:
 /tmp/ooonana-repo/cloud.repo
 ```
 
-`scripts/import-apk-package.sh` is the low-level APK importer. `scripts/build-package-repo.sh` is the normal repo builder. It loads a profile, adds extra package names, imports dependencies, writes indexes and checksums, and can write cloud repo hints. `ooonana update` and remote installs use `curl`, `wget`, or Python 3 as HTTPS download fallbacks, so GitLab Pages repos still work in small BusyBox systems where `wget` lacks TLS support.
+`scripts/import-apk-package.sh` is the low-level APK importer. `scripts/build-kernel-package.sh` wraps a built Ooonana kernel as `ooonana-kernel`. `scripts/build-package-repo.sh` is the normal repo builder. It loads a profile, adds extra package names, imports dependencies, optionally adds the kernel package, writes indexes and checksums, and can write cloud repo hints. `ooonana update` and remote installs use `curl`, `wget`, or Python 3 as HTTPS download fallbacks, so GitLab Pages repos still work in small BusyBox systems where `wget` lacks TLS support.
 
 Publish the generated repo to Cloudflare R2:
 
@@ -487,6 +490,8 @@ PACKAGE_SET=both
 PACKAGE_PROFILE=          # optional override
 OOONANA_REPO_NAME=gitlab
 OOONANA_PAGES_REPO_URL=https://ooonana.gitlab.io/ooonana-repo
+OOONANA_KERNEL_VERSION=6.18.37
+OOONANA_KERNEL_PACKAGE_URL=https://github.com/Ooonana/Ooonana-OS/releases/download/v0.1.6-full-i3-xterm-fix/vmlinuz-ooonana
 ```
 
 GitLab Pages uses the generated `public/` directory. GitLab.com Pages currently has a 1 GB maximum site size, so the full package repo is close to the limit. The CI fails before publishing if `public/` grows past `OOONANA_PAGES_MAX_BYTES`.
@@ -963,7 +968,7 @@ bash scripts/install-wsl-deps.sh
 Build kernel:
 
 ```bash
-# default source is Linux 6.6.142 LTS
+# default source is Linux 6.18.37
 bash scripts/fetch-kernel-source.sh --force
 bash scripts/build-kernel.sh \
   --config-fragment configs/kernel/ooonana-minimal-x86_64.fragment \

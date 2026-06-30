@@ -46,6 +46,14 @@ on:
         required: true
         type: boolean
         default: true
+      kernel_version:
+        description: "Ooonana kernel package version"
+        required: false
+        default: "6.18.37"
+      kernel_url:
+        description: "Kernel image URL to add as ooonana-kernel package"
+        required: false
+        default: "https://github.com/Ooonana/Ooonana-OS/releases/download/v0.1.6-full-i3-xterm-fix/vmlinuz-ooonana"
 
 permissions:
   contents: write
@@ -67,6 +75,8 @@ jobs:
           OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
           RELEASE_TAG: ${{ inputs.release_tag }}
+          OOONANA_KERNEL_VERSION: ${{ inputs.kernel_version }}
+          OOONANA_KERNEL_PACKAGE_URL: ${{ inputs.kernel_url }}
           OOONANA_REPO_SIGN_KEY_B64: ${{ secrets.OOONANA_REPO_SIGN_KEY_B64 }}
           OOONANA_REPO_PUBLIC_KEY_B64: ${{ secrets.OOONANA_REPO_PUBLIC_KEY_B64 }}
         run: |
@@ -86,6 +96,13 @@ jobs:
           for repo in $ALPINE_REPOS; do
             repo_args="$repo_args --repo-url $repo"
           done
+          kernel_args=""
+          if [ -n "${OOONANA_KERNEL_PACKAGE_URL:-}" ]; then
+            kernel_args="$kernel_args --kernel-url $OOONANA_KERNEL_PACKAGE_URL"
+          fi
+          if [ -n "${OOONANA_KERNEL_VERSION:-}" ]; then
+            kernel_args="$kernel_args --kernel-version $OOONANA_KERNEL_VERSION"
+          fi
           profile="$PACKAGE_PROFILE"
           if [ "${{ inputs.full_i3_profile }}" = "true" ] && [ "$profile" = "configs/packages/ooonana-cloud.list" ]; then
             profile="configs/packages/full-i3.list"
@@ -113,6 +130,7 @@ jobs:
             --clean \
             $full_i3_arg \
             $sign_args \
+            $kernel_args \
             $repo_args
           find "$out" -maxdepth 3 -type f -print | sort
 

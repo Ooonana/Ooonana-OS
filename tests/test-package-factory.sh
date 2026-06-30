@@ -6,6 +6,7 @@ WORKFLOW="$ROOT/.github/workflows/build-ooonana-packages.yml"
 GITLAB_CI="$ROOT/.gitlab-ci.yml"
 IMPORTER="$ROOT/scripts/import-apk-package.sh"
 BUILDER="$ROOT/scripts/build-package-repo.sh"
+KERNEL_PACKAGER="$ROOT/scripts/build-kernel-package.sh"
 R2_PUBLISHER="$ROOT/scripts/publish-r2-repo.sh"
 README="$ROOT/README.md"
 DEFAULT_PROFILE="$ROOT/configs/packages/ooonana-repo.list"
@@ -26,6 +27,7 @@ assert_contains() {
 
 [[ -x "$IMPORTER" ]] || fail "missing executable importer"
 [[ -x "$BUILDER" ]] || fail "missing executable package repo builder"
+[[ -x "$KERNEL_PACKAGER" ]] || fail "missing executable kernel package builder"
 [[ -x "$R2_PUBLISHER" ]] || fail "missing executable R2 publisher"
 [[ -f "$WORKFLOW" ]] || fail "missing package workflow"
 [[ -f "$GITLAB_CI" ]] || fail "missing GitLab CI"
@@ -114,6 +116,8 @@ assert_contains "$workflow" "workflow_dispatch:"
 assert_contains "$workflow" "packages:"
 assert_contains "$workflow" "package_profile:"
 assert_contains "$workflow" "alpine_repo:"
+assert_contains "$workflow" "kernel_version:"
+assert_contains "$workflow" "kernel_url:"
 assert_contains "$workflow" "full_i3_profile:"
 assert_contains "$workflow" "publish_pages:"
 assert_contains "$workflow" "publish_r2:"
@@ -134,6 +138,8 @@ assert_contains "$workflow" "OOONANA_REPO_SIGN_KEY_B64"
 assert_contains "$workflow" "OOONANA_REPO_PUBLIC_KEY_B64"
 assert_contains "$workflow" "--sign-key"
 assert_contains "$workflow" "--public-key"
+assert_contains "$workflow" "--kernel-url"
+assert_contains "$workflow" "--kernel-version"
 assert_contains "$workflow" 'pages_url="https://${OWNER}.github.io/${REPO_NAME}"'
 assert_contains "$workflow" 'release_url="https://github.com/${OWNER}/${REPO_NAME}/releases/download/${RELEASE_TAG}/ooonana-package-repo.tar.gz"'
 assert_contains "$workflow" 'cloud_url="$release_url"'
@@ -161,6 +167,10 @@ assert_contains "$gitlab_ci" "ooonana update"
 assert_contains "$gitlab_ci" "ooonana upgrade"
 assert_contains "$gitlab_ci" "OOONANA_REPO_SIGN_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_REPO_PUBLIC_KEY_B64"
+assert_contains "$gitlab_ci" "OOONANA_KERNEL_VERSION"
+assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_URL"
+assert_contains "$gitlab_ci" "--kernel-url"
+assert_contains "$gitlab_ci" "--kernel-version"
 assert_contains "$gitlab_ci" "configs/packages/ooonana-cloud.list"
 assert_contains "$gitlab_ci" "configs/packages/full-i3.list"
 assert_contains "$gitlab_ci" "configs/packages/both.list"
@@ -171,10 +181,22 @@ assert_contains "$builder_help" "--cloud-url URL"
 assert_contains "$builder_help" "--full-i3"
 assert_contains "$builder_help" "--sign-key PATH"
 assert_contains "$builder_help" "--public-key PATH"
+assert_contains "$builder_help" "--kernel PATH"
+assert_contains "$builder_help" "--kernel-url URL"
 builder_dry="$(bash "$BUILDER" --dry-run --package-profile "$CLOUD_PROFILE" --repo-url file:///apk --cloud-url https://example.test/ooonana nano vim)"
 assert_contains "$builder_dry" "packages: nano bash curl wget ca-certificates python3 vim"
 assert_contains "$builder_dry" "cloud: cloud https://example.test/ooonana"
 assert_contains "$builder_dry" "scripts/import-apk-package.sh"
+builder_kernel_dry="$(bash "$BUILDER" --dry-run --package-profile "$CLOUD_PROFILE" --kernel-url https://example.test/vmlinuz --kernel-version 9.9.9 nano)"
+assert_contains "$builder_kernel_dry" "kernel-url: https://example.test/vmlinuz"
+assert_contains "$builder_kernel_dry" "scripts/build-kernel-package.sh"
+assert_contains "$builder_kernel_dry" "--version 9.9.9"
+kernel_builder_help="$(bash "$KERNEL_PACKAGER" --help)"
+assert_contains "$kernel_builder_help" "Build an Ooonana kernel package"
+assert_contains "$kernel_builder_help" "--kernel PATH_OR_URL"
+kernel_builder_dry="$(bash "$KERNEL_PACKAGER" --dry-run --kernel /tmp/vmlinuz --out-dir /tmp/repo --version 9.9.9)"
+assert_contains "$kernel_builder_dry" "id: ooonana-kernel"
+assert_contains "$kernel_builder_dry" "version: 9.9.9"
 cli_dry="$(OOONANA_SOURCE_ROOT="$ROOT" "$ROOT/packages/ooonana/usr/bin/ooonana" repo build --dry-run --package-profile "$CLOUD_PROFILE" nano)"
 assert_contains "$cli_dry" "packages: nano bash curl wget ca-certificates python3"
 
@@ -211,6 +233,26 @@ OOONANA_TEST_ROOT="$ROOT" OOONANA_IMPORT_APK_SCRIPT="$stub" bash "$BUILDER" \
 [[ -f "$tmp/repo/index.tsv" ]] || fail "builder missing index"
 assert_contains "$(<"$tmp/repo/cloud.repo")" 'OOONANA_REPO_URI="https://example.test/repo"'
 assert_contains "$(<"$tmp/repo/README.txt")" "ooonana update"
+
+printf 'kernel-test\n' > "$tmp/vmlinuz"
+bash "$KERNEL_PACKAGER" \
+  --out-dir "$tmp/kernel-repo" \
+  --kernel "$tmp/vmlinuz" \
+  --version 9.9.9 >/dev/null
+[[ -f "$tmp/kernel-repo/ooonana-kernel.pkg" ]] || fail "kernel package missing"
+[[ -f "$tmp/kernel-repo/archives/ooonana-kernel-9.9.9.tar.gz" ]] || fail "kernel archive missing"
+assert_contains "$(<"$tmp/kernel-repo/index.tsv")" $'ooonana-kernel\t9.9.9\tkernel'
+tar -tzf "$tmp/kernel-repo/archives/ooonana-kernel-9.9.9.tar.gz" | grep -q 'boot/vmlinuz' || fail "kernel archive missing /boot/vmlinuz"
+
+OOONANA_TEST_ROOT="$ROOT" OOONANA_IMPORT_APK_SCRIPT="$stub" bash "$BUILDER" \
+  --out-dir "$tmp/repo-with-kernel" \
+  --package-profile /dev/null \
+  --packages nano \
+  --kernel "$tmp/vmlinuz" \
+  --kernel-version 9.9.9 \
+  --clean >/dev/null
+[[ -f "$tmp/repo-with-kernel/ooonana-kernel.pkg" ]] || fail "builder did not add kernel package"
+assert_contains "$(<"$tmp/repo-with-kernel/index.tsv")" $'ooonana-kernel\t9.9.9\tkernel'
 
 r2_help="$(bash "$R2_PUBLISHER" --help)"
 assert_contains "$r2_help" "Publish an Ooonana package repo directory to Cloudflare R2"
@@ -249,6 +291,7 @@ readme="$(<"$README")"
 assert_contains "$readme" "Package Factory"
 assert_contains "$readme" "scripts/build-package-repo.sh"
 assert_contains "$readme" "scripts/import-apk-package.sh"
+assert_contains "$readme" "scripts/build-kernel-package.sh"
 assert_contains "$readme" "configs/packages/ooonana-cloud.list"
 assert_contains "$readme" "configs/packages/ooonana-repo.list"
 assert_contains "$readme" "configs/packages/both.list"
@@ -259,5 +302,6 @@ assert_contains "$readme" "Cloudflare R2"
 assert_contains "$readme" "scripts/publish-r2-repo.sh"
 assert_contains "$readme" "R2_ACCESS_KEY_ID"
 assert_contains "$readme" "ooonana-package-repo.tar.gz"
+assert_contains "$readme" "ooonana-kernel"
 
 printf 'ok package-factory\n'

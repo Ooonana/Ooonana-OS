@@ -13,6 +13,8 @@ variables:
   ALPINE_REPOS: "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64 https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64"
   OOONANA_REPO_NAME: "gitlab"
   OOONANA_PAGES_MAX_BYTES: "1000000000"
+  OOONANA_KERNEL_VERSION: "6.18.37"
+  OOONANA_KERNEL_PACKAGE_URL: "https://github.com/Ooonana/Ooonana-OS/releases/download/v0.1.6-full-i3-xterm-fix/vmlinuz-ooonana"
 
 ci-smoke:
   image: alpine:3.20
@@ -80,6 +82,14 @@ deploy-package-repo:
         repo_args="$repo_args --repo-url $repo"
       done
 
+      kernel_args=""
+      if [ -n "${OOONANA_KERNEL_PACKAGE_URL:-}" ]; then
+        kernel_args="$kernel_args --kernel-url $OOONANA_KERNEL_PACKAGE_URL"
+      fi
+      if [ -n "${OOONANA_KERNEL_VERSION:-}" ]; then
+        kernel_args="$kernel_args --kernel-version $OOONANA_KERNEL_VERSION"
+      fi
+
       # shellcheck disable=SC2086
       bash scripts/build-package-repo.sh \
         --out-dir public \
@@ -90,6 +100,7 @@ deploy-package-repo:
         --clean \
         $full_i3_arg \
         $sign_args \
+        $kernel_args \
         $repo_args
 
       cat > public/index.html <<HTML

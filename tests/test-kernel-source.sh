@@ -20,7 +20,7 @@ assert_contains() {
 help="$(bash "$SCRIPT" --help)"
 assert_contains "$help" "Fetch Ooonana Linux kernel source"
 assert_contains "$help" "--version"
-assert_contains "$help" "default: 6.6.142"
+assert_contains "$help" "default: 6.18.37"
 assert_contains "$help" "--tarball"
 assert_contains "$help" "--dry-run"
 
@@ -40,8 +40,8 @@ assert_contains "$dry_run" "$tmp/linux"
 default_dry_run="$(bash "$SCRIPT" \
   --work-dir "$tmp/default-build" \
   --dry-run)"
-assert_contains "$default_dry_run" "linux-6.6.142.tar.xz"
-assert_contains "$default_dry_run" "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.6.142.tar.xz"
+assert_contains "$default_dry_run" "linux-6.18.37.tar.xz"
+assert_contains "$default_dry_run" "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.18.37.tar.xz"
 
 mkdir -p "$tmp/tar-src/linux-9.9.9/arch/x86"
 touch "$tmp/tar-src/linux-9.9.9/Makefile"

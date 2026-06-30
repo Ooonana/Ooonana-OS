@@ -19,6 +19,10 @@ SIGN_KEY="${OOONANA_REPO_SIGN_KEY:-}"
 PUBLIC_KEY="${OOONANA_REPO_PUBLIC_KEY:-}"
 IMPORT_APK_SCRIPT="${OOONANA_IMPORT_APK_SCRIPT:-$ROOT/scripts/import-apk-package.sh}"
 IMPORT_I3_SCRIPT="${OOONANA_IMPORT_I3_SCRIPT:-$ROOT/scripts/import-i3-package-set.sh}"
+KERNEL_PACKAGE_SCRIPT="${OOONANA_KERNEL_PACKAGE_SCRIPT:-$ROOT/scripts/build-kernel-package.sh}"
+KERNEL_PACKAGE_PATH="${OOONANA_KERNEL_PACKAGE_PATH:-}"
+KERNEL_PACKAGE_URL="${OOONANA_KERNEL_PACKAGE_URL:-}"
+KERNEL_PACKAGE_VERSION="${OOONANA_KERNEL_VERSION:-6.18.37}"
 
 usage() {
   cat <<'USAGE'
@@ -37,6 +41,9 @@ Options:
   --repo-name NAME        Repo source name for cloud.repo (default: cloud)
   --sign-key PATH         Sign SHA256SUMS with an OpenSSL private key
   --public-key PATH       Copy public key to repo.pub for distribution
+  --kernel PATH           Add Ooonana kernel package from local kernel image
+  --kernel-url URL        Add Ooonana kernel package from remote kernel image
+  --kernel-version VER    Kernel package version (default: 6.18.37)
   --clean                 Delete output dir before build
   --dry-run               Print resolved build command only
   -h, --help              Show help
@@ -61,6 +68,9 @@ while [[ $# -gt 0 ]]; do
     --repo-name) REPO_NAME="$2"; shift 2 ;;
     --sign-key) SIGN_KEY="$2"; shift 2 ;;
     --public-key) PUBLIC_KEY="$2"; shift 2 ;;
+    --kernel) KERNEL_PACKAGE_PATH="$2"; shift 2 ;;
+    --kernel-url) KERNEL_PACKAGE_URL="$2"; shift 2 ;;
+    --kernel-version) KERNEL_PACKAGE_VERSION="$2"; shift 2 ;;
     --clean) CLEAN=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -147,10 +157,20 @@ main() {
     [[ -n "$CLOUD_URL" ]] && printf 'cloud: %s %s\n' "$REPO_NAME" "$CLOUD_URL"
     [[ -n "$SIGN_KEY" ]] && printf 'sign-key: %s\n' "$SIGN_KEY"
     [[ -n "$PUBLIC_KEY" ]] && printf 'public-key: %s\n' "$PUBLIC_KEY"
+    [[ -n "$KERNEL_PACKAGE_PATH" ]] && printf 'kernel: %s\n' "$KERNEL_PACKAGE_PATH"
+    [[ -n "$KERNEL_PACKAGE_URL" ]] && printf 'kernel-url: %s\n' "$KERNEL_PACKAGE_URL"
+    if [[ -n "$KERNEL_PACKAGE_PATH$KERNEL_PACKAGE_URL" ]]; then
+      printf 'kernel-version: %s\n' "$KERNEL_PACKAGE_VERSION"
+    fi
     if [[ "$FULL_I3" -eq 1 ]]; then
       ooonana_print_command bash "$IMPORT_I3_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --packages "$package_list"
     else
       ooonana_print_command bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" $package_list
+    fi
+    if [[ -n "$KERNEL_PACKAGE_PATH" || -n "$KERNEL_PACKAGE_URL" ]]; then
+      kernel_source="$KERNEL_PACKAGE_PATH"
+      [[ -n "$kernel_source" ]] || kernel_source="$KERNEL_PACKAGE_URL"
+      ooonana_print_command bash "$KERNEL_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --kernel "$kernel_source" --version "$KERNEL_PACKAGE_VERSION"
     fi
     return 0
   fi
@@ -162,6 +182,14 @@ main() {
   else
     # shellcheck disable=SC2086
     bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" $package_list
+  fi
+  if [[ -n "$KERNEL_PACKAGE_PATH" || -n "$KERNEL_PACKAGE_URL" ]]; then
+    kernel_source="$KERNEL_PACKAGE_PATH"
+    [[ -n "$kernel_source" ]] || kernel_source="$KERNEL_PACKAGE_URL"
+    bash "$KERNEL_PACKAGE_SCRIPT" \
+      --out-dir "$OUT_DIR" \
+      --kernel "$kernel_source" \
+      --version "$KERNEL_PACKAGE_VERSION"
   fi
   if [[ -n "$PUBLIC_KEY" ]]; then
     [[ -f "$PUBLIC_KEY" ]] || ooonana_die "missing public key: $PUBLIC_KEY"
