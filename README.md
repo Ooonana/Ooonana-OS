@@ -494,7 +494,7 @@ OOONANA_KERNEL_VERSION=6.18.37
 OOONANA_KERNEL_PACKAGE_URL=https://github.com/Ooonana/Ooonana-OS/releases/download/v0.1.6-full-i3-xterm-fix/vmlinuz-ooonana
 ```
 
-GitLab Pages uses the generated `public/` directory. GitLab.com Pages currently has a 1 GB maximum site size, so the full package repo is close to the limit. The CI fails before publishing if `public/` grows past `OOONANA_PAGES_MAX_BYTES`.
+GitLab Pages uses the generated `public/` directory. GitLab.com Pages currently has a 1 GB maximum site size, so the full package repo is close to the limit. The CI fails before publishing if `public/` grows past `OOONANA_PAGES_MAX_BYTES`; the default uses 1 GiB in bytes.
 
 R2 workflow inputs:
 

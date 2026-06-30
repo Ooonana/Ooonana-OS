@@ -12,7 +12,7 @@ variables:
   PACKAGES: ""
   ALPINE_REPOS: "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64 https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64"
   OOONANA_REPO_NAME: "gitlab"
-  OOONANA_PAGES_MAX_BYTES: "1000000000"
+  OOONANA_PAGES_MAX_BYTES: "1073741824"
   OOONANA_KERNEL_VERSION: "6.18.37"
   OOONANA_KERNEL_PACKAGE_URL: "https://github.com/Ooonana/Ooonana-OS/releases/download/v0.1.6-full-i3-xterm-fix/vmlinuz-ooonana"
 
