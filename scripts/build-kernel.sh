@@ -66,6 +66,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ "${#CONFIG_FRAGMENTS[@]}" -eq 0 && -f "$ROOT/configs/kernel/ooonana-minimal-x86_64.fragment" ]]; then
+  CONFIG_FRAGMENTS+=("$ROOT/configs/kernel/ooonana-minimal-x86_64.fragment")
+fi
+
 run_cmd() {
   if [[ "$DRY_RUN" -eq 1 ]]; then
     ooonana_print_command "$@"

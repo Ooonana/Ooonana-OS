@@ -200,6 +200,7 @@ fi
 [[ -f "$rootfs/etc/ooonana/xsettingsd.conf" ]] || fail "missing xsettingsd config"
 [[ -f "$rootfs/etc/neofetch/config.conf" ]] || fail "missing neofetch config"
 [[ -f "$rootfs/etc/X11/xorg.conf.d/10-ooonana-input.conf" ]] || fail "missing Xorg input config"
+[[ -f "$rootfs/usr/share/ooonana/xorg-fbdev.conf" ]] || fail "missing Xorg fbdev template"
 [[ -f "$rootfs/usr/share/applications/ooonana-installer.desktop" ]] || fail "missing GUI installer desktop entry"
 [[ -f "$rootfs/usr/share/applications/ooonana-ai.desktop" ]] || fail "missing AI app desktop entry"
 [[ -f "$rootfs/usr/share/applications/ooonana-packages.desktop" ]] || fail "missing package app desktop entry"
@@ -246,6 +247,12 @@ assert_contains "$start_script" 'exec /usr/bin/ooonana-i3-session'
 assert_contains "$start_script" 'HOME="/root"'
 assert_contains "$start_script" 'touch "$HOME/.Xauthority"'
 assert_contains "$start_script" 'exec /bin/sh -l'
+assert_contains "$start_script" 'prepare_xorg_video_config'
+assert_contains "$start_script" '/sys/firmware/efi'
+assert_contains "$start_script" '/dev/fb0'
+assert_contains "$start_script" '/dev/dri/card0'
+assert_contains "$start_script" '/usr/share/ooonana/xorg-fbdev.conf'
+assert_contains "$start_script" 'rm -f /etc/X11/xorg.conf.d/20-ooonana-video.conf'
 
 i3_smoke_session="$(<"$rootfs/usr/bin/ooonana-i3-smoke-session")"
 assert_contains "$i3_smoke_session" "i3-msg exit"
@@ -295,6 +302,10 @@ assert_contains "$xorg_input" 'Option "AutoAddDevices" "true"'
 assert_contains "$xorg_input" 'MatchIsKeyboard "on"'
 assert_contains "$xorg_input" 'MatchIsPointer "on"'
 assert_contains "$xorg_input" 'Driver "libinput"'
+
+xorg_video="$(<"$rootfs/usr/share/ooonana/xorg-fbdev.conf")"
+assert_contains "$xorg_video" 'Driver "fbdev"'
+assert_contains "$xorg_video" 'Identifier "Ooonana framebuffer"'
 
 theme_helper="$(<"$rootfs/usr/bin/ooonana-theme-env")"
 assert_contains "$theme_helper" 'OOONANA_BG="#050505"'

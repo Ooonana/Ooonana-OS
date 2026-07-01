@@ -56,10 +56,20 @@ mkdir -p "$HOME" /tmp
 touch "$HOME/.Xauthority" 2>/dev/null || true
 export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 
+prepare_xorg_video_config() {
+  mkdir -p /etc/X11/xorg.conf.d
+  if [ -d /sys/firmware/efi ] && [ -e /dev/fb0 ] && [ ! -e /dev/dri/card0 ] && [ -f /usr/share/ooonana/xorg-fbdev.conf ]; then
+    cp /usr/share/ooonana/xorg-fbdev.conf /etc/X11/xorg.conf.d/20-ooonana-video.conf
+  else
+    rm -f /etc/X11/xorg.conf.d/20-ooonana-video.conf
+  fi
+}
+
 if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   if grep -q 'ooonana.gui-smoke=1' /proc/cmdline 2>/dev/null &&
     command -v startx >/dev/null 2>&1 &&
     command -v i3 >/dev/null 2>&1; then
+    prepare_xorg_video_config
     exec startx /usr/bin/ooonana-i3-smoke-session
   fi
   echo "OOONANA_FULL_I3_OK"
@@ -70,6 +80,7 @@ if grep -q 'ooonana.install=1' /proc/cmdline 2>/dev/null; then
   if command -v startx >/dev/null 2>&1 &&
     command -v i3 >/dev/null 2>&1 &&
     [ -x /usr/bin/ooonana-i3-installer-session ]; then
+    prepare_xorg_video_config
     exec startx /usr/bin/ooonana-i3-installer-session
   fi
   if [ -x /usr/bin/ooonana-gui-installer ]; then
@@ -94,6 +105,7 @@ if is_wsl_session &&
 fi
 
 if command -v startx >/dev/null 2>&1 && command -v i3 >/dev/null 2>&1; then
+  prepare_xorg_video_config
   exec startx /usr/bin/ooonana-i3-session
 fi
 
@@ -2009,6 +2021,20 @@ EndSection
 EOF
 }
 
+write_xorg_video_config() {
+  install -D -m 0644 /dev/stdin "$ROOTFS/usr/share/ooonana/xorg-fbdev.conf" <<'EOF'
+Section "Device"
+    Identifier "Ooonana framebuffer"
+    Driver "fbdev"
+EndSection
+
+Section "Screen"
+    Identifier "Ooonana screen"
+    Device "Ooonana framebuffer"
+EndSection
+EOF
+}
+
 write_full_init_script() {
   install -D -m 0755 /dev/stdin "$ROOTFS/etc/init.d/rcS" <<'EOF'
 #!/bin/sh
@@ -2462,6 +2488,7 @@ main() {
     "$ROOTFS/usr/bin/ooonana-setup" \
     "$ROOTFS/usr/bin/bunana" \
     "$ROOTFS/usr/bin/oonana" \
+    "$ROOTFS/usr/lib/ooonana/oonana_game.py" \
     "$ROOTFS/usr/bin/clear" \
     "$ROOTFS/usr/bin/neofetch" \
     "$ROOTFS/usr/bin/ooonana-neofetch" \
@@ -2486,6 +2513,7 @@ main() {
   write_desktop_helpers
   write_gui_installer
   write_xorg_input_config
+  write_xorg_video_config
   write_full_init_script
   printf 'packages-installed\n' > "$ROOTFS/etc/ooonana/edition-state"
   write_tarball

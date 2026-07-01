@@ -86,4 +86,12 @@ assert_contains "$script_src" "libc.musl-x86_64.so.1"
 assert_contains "$script_src" "regulatory.db"
 assert_contains "$script_src" '[ -e /proc/sys/kernel/hotplug ]'
 
+kernel_fragment="$(<"$ROOT/configs/kernel/ooonana-minimal-x86_64.fragment")"
+assert_contains "$kernel_fragment" "CONFIG_BLK_DEV_LOOP=y"
+assert_contains "$kernel_fragment" "CONFIG_ISO9660_FS=y"
+assert_contains "$kernel_fragment" "CONFIG_BLK_DEV_SR=y"
+assert_contains "$kernel_fragment" "CONFIG_SCSI=y"
+assert_contains "$kernel_fragment" "CONFIG_BLK_DEV_SD=y"
+assert_contains "$kernel_fragment" "CONFIG_BLK_DEV_NVME=y"
+
 printf 'ok full-i3-live-initramfs\n'
