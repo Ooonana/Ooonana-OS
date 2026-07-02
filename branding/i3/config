@@ -43,6 +43,9 @@ bindsym $mod+Shift+g exec ooonana-editor
 bindsym $mod+Shift+m exec ooonana-music
 bindsym $mod+Shift+x exec ooonana-processes
 bindsym $mod+Shift+u exec ooonana-ranger
+bindsym XF86TouchpadToggle exec ooonana-touchpad toggle
+bindsym XF86TouchpadOn exec ooonana-touchpad on
+bindsym XF86TouchpadOff exec ooonana-touchpad off
 bindsym $mod+Shift+r restart
 bindsym $mod+Shift+q kill
 bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'Exit Ooonana i3?' -b 'Exit' 'i3-msg exit'"

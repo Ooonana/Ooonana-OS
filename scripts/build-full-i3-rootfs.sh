@@ -259,6 +259,87 @@ fi
 exec ooonana-theme-env xterm -e sh -lc 'echo "blueman missing"; echo "run: ooonana get blueman"; exec sh'
 EOF
 
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-touchpad" <<'EOF'
+#!/bin/sh
+set -eu
+
+action="${1:-status}"
+
+touchpad_ids() {
+  command -v xinput >/dev/null 2>&1 || return 0
+  xinput list 2>/dev/null | awk '
+    BEGIN { IGNORECASE=1 }
+    /touchpad|trackpad|elan|syna/ && /id=/ {
+      line=$0
+      sub(/^.*id=/, "", line)
+      sub(/[[:space:]].*$/, "", line)
+      if (line ~ /^[0-9]+$/) print line
+    }
+  '
+}
+
+set_enabled() {
+  state="$1"
+  changed=0
+  for id in $(touchpad_ids | sort -u); do
+    [ -n "$id" ] || continue
+    xinput set-prop "$id" "Device Enabled" "$state" >/dev/null 2>&1 || true
+    changed=1
+  done
+  return "$changed"
+}
+
+status() {
+  printf 'Ooonana touchpad status\n'
+  printf '======================\n'
+  if command -v xinput >/dev/null 2>&1; then
+    xinput list || true
+    printf '\nTouchpad properties\n'
+    printf '===================\n'
+    for id in $(touchpad_ids | sort -u); do
+      printf '\n[id %s]\n' "$id"
+      xinput list-props "$id" 2>/dev/null || true
+    done
+  else
+    printf 'xinput missing\n'
+  fi
+  printf '\nKernel hints\n'
+  printf '============\n'
+  dmesg 2>/dev/null | grep -Ei 'i2c|hid|elan|synaptics|touch|lpss|gpio|pinctrl|samsung' | tail -80 || true
+  printf '\nInput devices\n'
+  printf '=============\n'
+  cat /proc/bus/input/devices 2>/dev/null || true
+}
+
+case "$action" in
+  on|enable)
+    set_enabled 1 || true
+    command -v notify-send >/dev/null 2>&1 && notify-send 'Ooonana touchpad' 'enabled' || true
+    ;;
+  off|disable)
+    set_enabled 0 || true
+    command -v notify-send >/dev/null 2>&1 && notify-send 'Ooonana touchpad' 'disabled' || true
+    ;;
+  toggle)
+    first="$(touchpad_ids | sort -u | head -n 1 || true)"
+    if [ -n "$first" ] && xinput list-props "$first" 2>/dev/null | grep -q 'Device Enabled.*:[[:space:]]*1'; then
+      set_enabled 0 || true
+      command -v notify-send >/dev/null 2>&1 && notify-send 'Ooonana touchpad' 'disabled' || true
+    else
+      set_enabled 1 || true
+      command -v notify-send >/dev/null 2>&1 && notify-send 'Ooonana touchpad' 'enabled' || true
+    fi
+    ;;
+  status|doctor|diag)
+    status
+    ;;
+  *)
+    printf 'Usage: ooonana-touchpad [status|diag|on|off|toggle]\n' >&2
+    exit 2
+    ;;
+esac
+EOF
+
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-rofi-wifi" <<'EOF'
 #!/bin/sh
 set -eu
@@ -2017,6 +2098,16 @@ Section "InputClass"
     Identifier "Ooonana pointer"
     MatchIsPointer "on"
     Driver "libinput"
+EndSection
+
+Section "InputClass"
+    Identifier "Ooonana touchpad"
+    MatchIsTouchpad "on"
+    Driver "libinput"
+    Option "Tapping" "on"
+    Option "ClickMethod" "clickfinger"
+    Option "NaturalScrolling" "true"
+    Option "DisableWhileTyping" "true"
 EndSection
 EOF
 }

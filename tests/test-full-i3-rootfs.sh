@@ -296,12 +296,24 @@ assert_contains "$i3_config" 'bindsym $mod+Shift+g exec ooonana-editor'
 assert_contains "$i3_config" 'bindsym $mod+Shift+m exec ooonana-music'
 assert_contains "$i3_config" 'bindsym $mod+Shift+x exec ooonana-processes'
 assert_contains "$i3_config" 'bindsym $mod+Shift+u exec ooonana-ranger'
+assert_contains "$i3_config" 'bindsym XF86TouchpadToggle exec ooonana-touchpad toggle'
+assert_contains "$i3_config" 'bindsym XF86TouchpadOn exec ooonana-touchpad on'
+assert_contains "$i3_config" 'bindsym XF86TouchpadOff exec ooonana-touchpad off'
 
 xorg_input="$(<"$rootfs/etc/X11/xorg.conf.d/10-ooonana-input.conf")"
 assert_contains "$xorg_input" 'Option "AutoAddDevices" "true"'
 assert_contains "$xorg_input" 'MatchIsKeyboard "on"'
 assert_contains "$xorg_input" 'MatchIsPointer "on"'
+assert_contains "$xorg_input" 'MatchIsTouchpad "on"'
+assert_contains "$xorg_input" 'Option "Tapping" "on"'
+assert_contains "$xorg_input" 'Option "ClickMethod" "clickfinger"'
 assert_contains "$xorg_input" 'Driver "libinput"'
+
+touchpad_helper="$(<"$rootfs/usr/bin/ooonana-touchpad")"
+assert_contains "$touchpad_helper" 'Usage: ooonana-touchpad [status|diag|on|off|toggle]'
+assert_contains "$touchpad_helper" "xinput set-prop"
+assert_contains "$touchpad_helper" "Device Enabled"
+assert_contains "$touchpad_helper" "cat /proc/bus/input/devices"
 
 xorg_video="$(<"$rootfs/usr/share/ooonana/xorg-fbdev.conf")"
 assert_contains "$xorg_video" 'Driver "fbdev"'
