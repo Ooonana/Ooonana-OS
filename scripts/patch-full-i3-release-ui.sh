@@ -134,11 +134,15 @@ patch_ext4() {
 ooonana-rofi-wifi|/usr/bin/ooonana-rofi-wifi|0100755
 ooonana-rofi-bluetooth|/usr/bin/ooonana-rofi-bluetooth|0100755
 ooonana-rofi-brightness|/usr/bin/ooonana-rofi-brightness|0100755
+ooonana-hardware-reprobe|/usr/bin/ooonana-hardware-reprobe|0100755
+ooonana-service-repair|/usr/bin/ooonana-service-repair|0100755
 ooonana-wifi-panel|/usr/bin/ooonana-wifi-panel|0100755
 ooonana-bluetooth-panel|/usr/bin/ooonana-bluetooth-panel|0100755
 ooonana-brightness-panel|/usr/bin/ooonana-brightness-panel|0100755
 ooonana-audio-panel|/usr/bin/ooonana-audio-panel|0100755
+ooonana-volume|/usr/bin/ooonana-volume|0100755
 ooonana-rofi-power|/usr/bin/ooonana-rofi-power|0100755
+ooonana-power-menu|/usr/bin/ooonana-power-menu|0100755
 ooonana-brightness|/usr/bin/ooonana-brightness|0100755
 ooonana-brightness-status|/usr/bin/ooonana-brightness-status|0100755
 ooonana|/usr/bin/ooonana|0100755
@@ -189,11 +193,15 @@ build_payload() {
   extract_block '$ROOTFS/usr/bin/ooonana-rofi-wifi' "$payload/ooonana-rofi-wifi"
   extract_block '$ROOTFS/usr/bin/ooonana-rofi-bluetooth' "$payload/ooonana-rofi-bluetooth"
   extract_block '$ROOTFS/usr/bin/ooonana-rofi-brightness' "$payload/ooonana-rofi-brightness"
+  extract_block '$ROOTFS/usr/bin/ooonana-hardware-reprobe' "$payload/ooonana-hardware-reprobe"
+  extract_block '$ROOTFS/usr/bin/ooonana-service-repair' "$payload/ooonana-service-repair"
   extract_block '$ROOTFS/usr/bin/ooonana-wifi-panel' "$payload/ooonana-wifi-panel"
   extract_block '$ROOTFS/usr/bin/ooonana-bluetooth-panel' "$payload/ooonana-bluetooth-panel"
   extract_block '$ROOTFS/usr/bin/ooonana-brightness-panel' "$payload/ooonana-brightness-panel"
   extract_block '$ROOTFS/usr/bin/ooonana-audio-panel' "$payload/ooonana-audio-panel"
+  extract_block '$ROOTFS/usr/bin/ooonana-volume' "$payload/ooonana-volume"
   extract_block '$ROOTFS/usr/bin/ooonana-rofi-power' "$payload/ooonana-rofi-power"
+  extract_block '$ROOTFS/usr/bin/ooonana-power-menu' "$payload/ooonana-power-menu"
   extract_block '$ROOTFS/usr/bin/ooonana-brightness"' "$payload/ooonana-brightness"
   extract_block '$ROOTFS/usr/bin/ooonana-brightness-status' "$payload/ooonana-brightness-status"
   install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana" "$payload/ooonana"

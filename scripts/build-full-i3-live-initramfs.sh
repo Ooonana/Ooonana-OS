@@ -98,6 +98,32 @@ main() {
   if [[ -f "$ROOTFS/lib/firmware/regulatory.db.p7s" ]]; then
     install -D -m 0644 "$ROOTFS/lib/firmware/regulatory.db.p7s" "$LIVE_INIT_TREE/lib/firmware/regulatory.db.p7s"
   fi
+  copy_early_firmware() {
+    local fw rel
+    [[ -d "$ROOTFS/lib/firmware" ]] || return 0
+    while IFS= read -r -d '' fw; do
+      rel="${fw#$ROOTFS/lib/firmware/}"
+      install -D -m 0644 "$fw" "$LIVE_INIT_TREE/lib/firmware/$rel"
+    done < <(
+      find "$ROOTFS/lib/firmware" \
+        \( -name 'iwlwifi-*' \
+        -o -path "$ROOTFS/lib/firmware/intel/ibt-*" \
+        -o -path "$ROOTFS/lib/firmware/rtl_bt/*" \
+        -o -path "$ROOTFS/lib/firmware/rtl_nic/*" \
+        -o -path "$ROOTFS/lib/firmware/rtlwifi/*" \
+        -o -path "$ROOTFS/lib/firmware/rtw88/*" \
+        -o -path "$ROOTFS/lib/firmware/rtw89/*" \
+        -o -path "$ROOTFS/lib/firmware/qca/*" \
+        -o -path "$ROOTFS/lib/firmware/ath10k/*" \
+        -o -path "$ROOTFS/lib/firmware/ath11k/*" \
+        -o -path "$ROOTFS/lib/firmware/ath12k/*" \
+        -o -path "$ROOTFS/lib/firmware/mediatek/*" \
+        -o -path "$ROOTFS/lib/firmware/brcm/*" \
+        -o -name 'regulatory.db*' \) \
+        -type f -print0
+    )
+  }
+  copy_early_firmware
   for applet in sh mount mkdir mknod sleep cat echo switch_root ls grep umount losetup mdev modprobe; do
     ln -sf busybox "$LIVE_INIT_TREE/bin/$applet"
   done

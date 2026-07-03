@@ -49,6 +49,8 @@ bindsym XF86TouchpadOff exec ooonana-touchpad off
 bindsym $mod+Shift+r restart
 bindsym $mod+Shift+q kill
 bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'Exit Ooonana i3?' -b 'Exit' 'i3-msg exit'"
+bindsym $mod+minus scratchpad show
+bindsym $mod+Shift+minus move scratchpad
 
 bindsym $mod+h focus left
 bindsym $mod+j focus down

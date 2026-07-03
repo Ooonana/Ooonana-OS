@@ -238,9 +238,178 @@ fi
 exec ooonana-theme-env xterm -e sh -lc 'echo "nemo missing"; echo "run: ooonana get nemo"; exec sh'
 EOF
 
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-hardware-reprobe" <<'EOF'
+#!/bin/sh
+set -eu
+
+LOG="${OOONANA_HARDWARE_LOG:-/var/log/ooonana-hardware.log}"
+mkdir -p /run /var/log
+
+log() {
+  printf '%s\n' "$*" >>"$LOG" 2>/dev/null || true
+}
+
+unblock_rfkill() {
+  if command -v rfkill >/dev/null 2>&1; then
+    rfkill unblock all >>"$LOG" 2>&1 || true
+    return 0
+  fi
+  for state in /sys/class/rfkill/rfkill*/soft /sys/class/rfkill/rfkill*/hard; do
+    [ -e "$state" ] || continue
+    [ -w "$state" ] || continue
+    printf '0' >"$state" 2>/dev/null || true
+  done
+}
+
+case "${1:-}" in
+  --force|force) force=1 ;;
+  *) force=0 ;;
+esac
+
+if [ "$force" -eq 0 ] && [ -f /run/ooonana-hardware-reprobe.done ]; then
+  exit 0
+fi
+
+unblock_rfkill
+
+rebind_driver() {
+  driver="$1"
+  for dir in /sys/bus/*/drivers/"$driver"; do
+    [ -d "$dir" ] || continue
+    [ -w "$dir/unbind" ] || continue
+    [ -w "$dir/bind" ] || continue
+    for dev in "$dir"/*; do
+      [ -L "$dev" ] || continue
+      dev_id="${dev##*/}"
+      case "$dev_id" in
+        bind|unbind|uevent|module|new_id|remove_id) continue ;;
+      esac
+      printf '%s' "$dev_id" >"$dir/unbind" 2>/dev/null || continue
+      printf '%s' "$dev_id" >"$dir/bind" 2>/dev/null || true
+      log "rebound $driver $dev_id"
+    done
+  done
+}
+
+for driver in \
+  iwlwifi rtw89_pci rtw88_pci mt7921e ath10k_pci ath11k_pci ath12k_pci \
+  brcmfmac rtl8xxxu mt7921u btusb; do
+  rebind_driver "$driver"
+done
+
+if command -v udevadm >/dev/null 2>&1; then
+  udevadm trigger --action=add >/dev/null 2>&1 || true
+  udevadm trigger --subsystem-match=net --action=add >/dev/null 2>&1 || true
+  udevadm trigger --subsystem-match=bluetooth --action=add >/dev/null 2>&1 || true
+  udevadm settle --timeout=8 >/dev/null 2>&1 || true
+fi
+
+touch /run/ooonana-hardware-reprobe.done 2>/dev/null || true
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-service-repair" <<'EOF'
+#!/bin/sh
+set -eu
+
+LOG="${OOONANA_SERVICE_LOG:-/var/log/ooonana-services.log}"
+mkdir -p /run/dbus /var/lib/dbus /var/log /run/NetworkManager /var/lib/NetworkManager /var/lib/bluetooth /etc
+chmod 0777 /run/dbus 2>/dev/null || true
+
+log() {
+  printf '%s\n' "$*" >>"$LOG" 2>/dev/null || true
+}
+
+unblock_rfkill() {
+  if command -v rfkill >/dev/null 2>&1; then
+    rfkill unblock all >>"$LOG" 2>&1 || true
+    return 0
+  fi
+  for state in /sys/class/rfkill/rfkill*/soft /sys/class/rfkill/rfkill*/hard; do
+    [ -e "$state" ] || continue
+    [ -w "$state" ] || continue
+    printf '0' >"$state" 2>/dev/null || true
+  done
+}
+
+bluetooth_daemon() {
+  for path in bluetoothd /usr/lib/bluetooth/bluetoothd /usr/libexec/bluetooth/bluetoothd /usr/sbin/bluetoothd; do
+    if command -v "$path" >/dev/null 2>&1; then
+      command -v "$path"
+      return 0
+    fi
+    [ -x "$path" ] && { printf '%s\n' "$path"; return 0; }
+  done
+  return 1
+}
+
+ensure_identity() {
+  grep -q '^messagebus:' /etc/group 2>/dev/null || echo 'messagebus:x:81:' >>/etc/group
+  grep -q '^messagebus:' /etc/passwd 2>/dev/null || echo 'messagebus:x:81:81:DBus Message Bus:/run/dbus:/bin/false' >>/etc/passwd
+  if [ ! -s /etc/machine-id ]; then
+    if command -v dbus-uuidgen >/dev/null 2>&1; then
+      dbus-uuidgen >/etc/machine-id 2>/dev/null || true
+    else
+      cat /proc/sys/kernel/random/uuid 2>/dev/null | tr -d '-' >/etc/machine-id || true
+    fi
+  fi
+  if [ -s /etc/machine-id ] && [ ! -s /var/lib/dbus/machine-id ]; then
+    cp /etc/machine-id /var/lib/dbus/machine-id 2>/dev/null || true
+  fi
+}
+
+wait_for() {
+  desc="$1"
+  shift
+  i=0
+  while [ "$i" -lt 10 ]; do
+    "$@" >/dev/null 2>&1 && return 0
+    sleep 1
+    i=$((i + 1))
+  done
+  log "wait timeout: $desc"
+  return 1
+}
+
+ensure_identity
+
+if command -v dbus-daemon >/dev/null 2>&1 && [ ! -S /run/dbus/system_bus_socket ]; then
+  dbus-daemon --system --fork --nopidfile >>"$LOG" 2>&1 || log "dbus-daemon failed"
+fi
+wait_for dbus test -S /run/dbus/system_bus_socket || true
+
+command -v ooonana-hardware-reprobe >/dev/null 2>&1 && ooonana-hardware-reprobe "${1:-}" >>"$LOG" 2>&1 || true
+unblock_rfkill
+
+if command -v NetworkManager >/dev/null 2>&1; then
+  if ! pidof NetworkManager >/dev/null 2>&1; then
+    NetworkManager --no-daemon >>"$LOG" 2>&1 &
+  fi
+  wait_for NetworkManager nmcli general status || true
+  nmcli networking on >>"$LOG" 2>&1 || true
+  nmcli radio wifi on >>"$LOG" 2>&1 || true
+  nmcli device wifi rescan >>"$LOG" 2>&1 || true
+else
+  log "NetworkManager missing"
+fi
+
+bt_daemon="$(bluetooth_daemon || true)"
+if [ -n "$bt_daemon" ]; then
+  if ! pidof bluetoothd >/dev/null 2>&1; then
+    "$bt_daemon" -n >>"$LOG" 2>&1 &
+  fi
+  wait_for bluetoothd bluetoothctl show || true
+  bluetoothctl power on >>"$LOG" 2>&1 || true
+else
+  log "bluetoothd missing"
+fi
+
+exit 0
+EOF
+
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-wifi" <<'EOF'
 #!/bin/sh
 set -eu
+command -v ooonana-service-repair >/dev/null 2>&1 && ooonana-service-repair wifi >/dev/null 2>&1 || true
 if command -v nm-connection-editor >/dev/null 2>&1; then
   exec nm-connection-editor
 fi
@@ -253,6 +422,7 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-bluetooth" <<'EOF'
 #!/bin/sh
 set -eu
+command -v ooonana-service-repair >/dev/null 2>&1 && ooonana-service-repair bluetooth >/dev/null 2>&1 || true
 if command -v blueman-manager >/dev/null 2>&1; then
   exec blueman-manager
 fi
@@ -343,6 +513,7 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-rofi-wifi" <<'EOF'
 #!/bin/sh
 set -eu
+command -v ooonana-service-repair >/dev/null 2>&1 && ooonana-service-repair wifi >/dev/null 2>&1 || true
 choose() {
   if [ -n "${DISPLAY:-}" ] && command -v rofi >/dev/null 2>&1; then
     printf ' Connections\n Editor\n TUI\n Status\n' | rofi -dmenu -i -p "Wi-Fi" -theme /etc/ooonana/rofi.rasi 2>/dev/null || true
@@ -362,6 +533,7 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-rofi-bluetooth" <<'EOF'
 #!/bin/sh
 set -eu
+command -v ooonana-service-repair >/dev/null 2>&1 && ooonana-service-repair bluetooth >/dev/null 2>&1 || true
 choose() {
   if [ -n "${DISPLAY:-}" ] && command -v rofi >/dev/null 2>&1; then
     printf ' Manager\n Devices\n Power On\n Power Off\n' | rofi -dmenu -i -p "Bluetooth" -theme /etc/ooonana/rofi.rasi 2>/dev/null || true
@@ -382,9 +554,17 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-wifi-panel" <<'EOF'
 #!/bin/sh
 set -eu
+command -v ooonana-service-repair >/dev/null 2>&1 && ooonana-service-repair wifi >/dev/null 2>&1 || true
 if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
   tmp="${TMPDIR:-/tmp}/ooonana-wifi-panel.$$"
   {
+    printf 'NetworkManager\n'
+    printf '==============\n'
+    nmcli general status 2>/dev/null || printf 'nmcli unavailable or NetworkManager stopped.\n'
+    printf '\nRadio\n'
+    printf '=====\n'
+    nmcli radio all 2>/dev/null || rfkill list 2>/dev/null || cat /sys/class/rfkill/rfkill*/{type,soft,hard} 2>/dev/null || true
+    printf '\n'
     printf 'Network devices\n'
     printf '===============\n'
     nmcli dev status 2>/dev/null || ip addr 2>/dev/null || true
@@ -412,9 +592,14 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-bluetooth-panel" <<'EOF'
 #!/bin/sh
 set -eu
+command -v ooonana-service-repair >/dev/null 2>&1 && ooonana-service-repair bluetooth >/dev/null 2>&1 || true
 if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
   tmp="${TMPDIR:-/tmp}/ooonana-bluetooth-panel.$$"
   {
+    printf 'Radio\n'
+    printf '=====\n'
+    rfkill list bluetooth 2>/dev/null || cat /sys/class/rfkill/rfkill*/{type,soft,hard} 2>/dev/null || true
+    printf '\n'
     printf 'Bluetooth controller\n'
     printf '====================\n'
     bluetoothctl show 2>/dev/null || printf 'bluetoothctl missing or Bluetooth service stopped.\n'
@@ -511,6 +696,12 @@ fi
 exec ooonana-theme-env xterm -e sh -lc 'pactl info 2>/dev/null || echo "pactl missing"; exec sh'
 EOF
 
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-volume" <<'EOF'
+#!/bin/sh
+set -eu
+exec ooonana-audio-panel "$@"
+EOF
+
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-rofi-power" <<'EOF'
 #!/bin/sh
 set -eu
@@ -530,6 +721,12 @@ case "$action" in
   *Shutdown*) exec bunana --shutdown ;;
 esac
 exit 0
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-power-menu" <<'EOF'
+#!/bin/sh
+set -eu
+exec ooonana-rofi-power "$@"
 EOF
 
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/hsetroot" <<'EOF'
@@ -1106,7 +1303,7 @@ font-2 = "Font Awesome 6 Free Solid:size=10;2"
 font-3 = "Font Awesome 5 Free Solid:size=10;2"
 font-4 = "Font Awesome 6 Brands:size=10;2"
 font-5 = "Font Awesome 5 Brands:size=10;2"
-modules-left = brand terminal browser files editor media title
+modules-left = brand terminal browser files editor media win-close win-min win-full title
 modules-center =
 modules-right = audio brightness battery bluetooth network wifi date power
 tray-position = right
@@ -1170,6 +1367,31 @@ content-foreground = ${colors.accent}
 content-background = ${colors.background-alt}
 content-padding = 2
 click-left = ooonana-music
+
+[module/win-close]
+type = custom/text
+content = 
+content-foreground = ${colors.background}
+content-background = ${colors.foreground}
+content-padding = 2
+click-left = i3-msg kill
+
+[module/win-min]
+type = custom/text
+content = 
+content-foreground = ${colors.accent}
+content-background = ${colors.background-alt}
+content-padding = 2
+click-left = i3-msg move scratchpad
+click-right = i3-msg scratchpad show
+
+[module/win-full]
+type = custom/text
+content = 
+content-foreground = ${colors.accent}
+content-background = ${colors.background-alt}
+content-padding = 2
+click-left = i3-msg fullscreen toggle
 
 [module/logo]
 type = custom/text
@@ -1256,11 +1478,11 @@ scroll-down = brightnessctl set 5%-
 
 [module/power]
 type = custom/text
-content = 
+content = ⏻
 content-foreground = ${colors.foreground}
 content-background = ${colors.background-alt}
 content-padding = 2
-click-left = ooonana-rofi-power
+click-left = ooonana-power-menu
 
 [module/battery]
 type = internal/battery
@@ -2155,6 +2377,10 @@ start_device_manager() {
 start_device_manager
 
 start_system_services() {
+  if command -v ooonana-service-repair >/dev/null 2>&1; then
+    ooonana-service-repair boot >/var/log/ooonana-service-repair.log 2>&1 || true
+    return 0
+  fi
   mkdir -p /run/dbus /var/lib/dbus /etc
   chmod 0777 /run/dbus 2>/dev/null || true
   grep -q '^messagebus:' /etc/group 2>/dev/null || echo 'messagebus:x:81:' >>/etc/group

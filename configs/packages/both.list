@@ -43,9 +43,16 @@ chromium
 nemo
 geany
 networkmanager
+networkmanager-cli
+networkmanager-tui
 network-manager-applet
 blueman
 bluez
+iproute2
+util-linux-misc
+pulseaudio-utils
+iw
+wireless-tools
 wpa_supplicant
 wireless-regdb
 linux-firmware
