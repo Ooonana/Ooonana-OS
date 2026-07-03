@@ -55,6 +55,11 @@ assert_contains "$script_src" "python3"
 assert_contains "$script_src" "py3-pip"
 assert_contains "$script_src" "font-awesome-brands"
 assert_contains "$script_src" "font-misc-misc"
+assert_contains "$script_src" "linux-firmware-intel"
+assert_contains "$script_src" "linux-firmware-rtl_nic"
+assert_contains "$script_src" "linux-firmware-rtw88"
+assert_contains "$script_src" "linux-firmware-rtw89"
+assert_contains "$script_src" "linux-firmware-qca"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
