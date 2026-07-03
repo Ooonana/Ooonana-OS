@@ -28,6 +28,7 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
 mkdir -p "$tmp/bin" "$tmp/rootfs/bin" "$tmp/rootfs/etc/ooonana" "$tmp/rootfs/lib/firmware" "$tmp/rootfs/usr/bin" "$tmp/rootfs/dev" "$tmp/rootfs/proc" "$tmp/rootfs/sys" "$tmp/rootfs/run" "$tmp/rootfs/tmp"
+mkdir -p "$tmp/rootfs/usr/share/ooonana"
 cat > "$tmp/bin/cpio" <<'EOF'
 #!/bin/sh
 cat >/dev/null
@@ -54,6 +55,7 @@ printf 'libc\n' > "$tmp/rootfs/lib/libc.musl-x86_64.so.1"
 printf 'regdb\n' > "$tmp/rootfs/lib/firmware/regulatory.db"
 printf 'regsig\n' > "$tmp/rootfs/lib/firmware/regulatory.db.p7s"
 printf 'full-i3\n' > "$tmp/rootfs/etc/ooonana/edition"
+printf 'Ooonana OS\n' > "$tmp/rootfs/usr/share/ooonana/logo.txt"
 cat > "$tmp/rootfs/usr/bin/start-ooonana-i3" <<'EOF'
 #!/bin/sh
 echo start
@@ -81,6 +83,11 @@ assert_contains "$script_src" "mount -t iso9660"
 assert_contains "$script_src" "losetup /dev/loop0"
 assert_contains "$script_src" "mount -t overlay overlay"
 assert_contains "$script_src" "switch_root /newroot /sbin/init"
+assert_contains "$script_src" "splash \"starting live boot\" 1"
+assert_contains "$script_src" "splash \"finding boot media\" 2"
+assert_contains "$script_src" "splash \"starting desktop\" 9"
+assert_contains "$script_src" "mount -o ro,noload"
+assert_contains "$script_src" "usr/share/ooonana/logo.txt"
 assert_contains "$script_src" "ld-musl-x86_64.so.1"
 assert_contains "$script_src" "libc.musl-x86_64.so.1"
 assert_contains "$script_src" "regulatory.db"

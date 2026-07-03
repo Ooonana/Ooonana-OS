@@ -81,8 +81,11 @@ main() {
   mke2fs -q -t ext4 -L OOONANA_LIVE -d "$ROOTFS" "$ROOTFS_IMAGE"
 
   LIVE_INIT_TREE="$(mktemp -d)"
-  mkdir -p "$LIVE_INIT_TREE/bin" "$LIVE_INIT_TREE/sbin" "$LIVE_INIT_TREE/lib" "$LIVE_INIT_TREE/dev" "$LIVE_INIT_TREE/proc" "$LIVE_INIT_TREE/sys" "$LIVE_INIT_TREE/mnt/iso" "$LIVE_INIT_TREE/mnt/root-ro" "$LIVE_INIT_TREE/cow" "$LIVE_INIT_TREE/newroot"
+  mkdir -p "$LIVE_INIT_TREE/bin" "$LIVE_INIT_TREE/sbin" "$LIVE_INIT_TREE/lib" "$LIVE_INIT_TREE/dev" "$LIVE_INIT_TREE/proc" "$LIVE_INIT_TREE/sys" "$LIVE_INIT_TREE/mnt/iso" "$LIVE_INIT_TREE/mnt/root-ro" "$LIVE_INIT_TREE/cow" "$LIVE_INIT_TREE/newroot" "$LIVE_INIT_TREE/usr/share/ooonana"
   install -m 0755 "$ROOTFS/bin/busybox" "$LIVE_INIT_TREE/bin/busybox"
+  if [[ -f "$ROOTFS/usr/share/ooonana/logo.txt" ]]; then
+    install -m 0644 "$ROOTFS/usr/share/ooonana/logo.txt" "$LIVE_INIT_TREE/usr/share/ooonana/logo.txt"
+  fi
   if [[ -f "$ROOTFS/lib/ld-musl-x86_64.so.1" ]]; then
     install -m 0755 "$ROOTFS/lib/ld-musl-x86_64.so.1" "$LIVE_INIT_TREE/lib/ld-musl-x86_64.so.1"
   fi
@@ -115,6 +118,7 @@ for arg in $(cat /proc/cmdline 2>/dev/null || true); do
 done
 
 fail() {
+  splash "boot failed" 10
   echo "Ooonana live init failed: $*" >/dev/console
   exec sh
 }
@@ -126,6 +130,43 @@ mount -t devtmpfs devtmpfs /dev 2>/dev/null || {
   [ -c /dev/console ] || mknod /dev/console c 5 1
   [ -c /dev/null ] || mknod /dev/null c 1 3
 }
+[ -c /dev/tty1 ] || mknod /dev/tty1 c 4 1 2>/dev/null || true
+
+splash_console="/dev/tty1"
+[ -e "$splash_console" ] || splash_console="/dev/console"
+splash() {
+  label="$1"
+  step="${2:-0}"
+  filled=""
+  empty=""
+  i=0
+  while [ "$i" -lt "$step" ]; do
+    filled="${filled}#"
+    i=$((i + 1))
+  done
+  while [ "$i" -lt 10 ]; do
+    empty="${empty}-"
+    i=$((i + 1))
+  done
+  {
+    printf '\033[2J\033[H'
+    printf 'Ooonana OS\n'
+    if [ -f /usr/share/ooonana/logo.txt ]; then
+      cat /usr/share/ooonana/logo.txt
+    else
+      printf '      __________________\n'
+      printf '     |    __      __    |\n'
+      printf '     |   /  \\    /  \\   |\n'
+      printf '   / |                  |\\\n'
+      printf '  /  |     \\______/     | \\\n'
+      printf '     |__________________|\n'
+      printf '          |        |\n'
+    fi
+    printf '\n[%s%s] %s\n' "$filled" "$empty" "$label"
+  } >"$splash_console" 2>/dev/null || true
+}
+
+splash "starting live boot" 1
 mkdir -p /dev/pts /mnt/iso /mnt/root-ro /cow/upper /cow/work /newroot
 mount -t devpts devpts /dev/pts 2>/dev/null || true
 [ -e /proc/sys/kernel/hotplug ] && echo /sbin/mdev >/proc/sys/kernel/hotplug 2>/dev/null || true
@@ -137,12 +178,13 @@ modprobe overlay 2>/dev/null || true
 [ -b /dev/loop0 ] || mknod /dev/loop0 b 7 0 2>/dev/null || true
 [ -c /dev/loop-control ] || mknod /dev/loop-control c 10 237 2>/dev/null || true
 
+splash "finding boot media" 2
 tries=0
 while [ "$tries" -lt 40 ]; do
   mdev -s 2>/dev/null || true
   for dev in /dev/sr0 /dev/sr1 /dev/cdrom /dev/hdc /dev/sd? /dev/sd?? /dev/vd? /dev/vd?? /dev/xvd? /dev/xvd?? /dev/nvme?n? /dev/nvme?n?p?; do
     [ -b "$dev" ] || continue
-    if mount -t iso9660 -o ro "$dev" /mnt/iso 2>/dev/null || mount -o ro "$dev" /mnt/iso 2>/dev/null; then
+    if mount -t iso9660 -o ro "$dev" /mnt/iso 2>/dev/null || mount -o ro,noload "$dev" /mnt/iso 2>/dev/null || mount -o ro "$dev" /mnt/iso 2>/dev/null; then
       if [ -f "/mnt/iso$LIVE_IMAGE" ]; then
         break 2
       fi
@@ -154,12 +196,15 @@ while [ "$tries" -lt 40 ]; do
 done
 
 [ -f "/mnt/iso$LIVE_IMAGE" ] || fail "cannot find $LIVE_IMAGE on boot media"
+splash "attaching live rootfs" 4
 losetup /dev/loop0 "/mnt/iso$LIVE_IMAGE" || fail "cannot attach live rootfs image"
 mount -t ext4 -o ro /dev/loop0 /mnt/root-ro || fail "cannot mount live rootfs image"
+splash "creating writable overlay" 6
 mount -t tmpfs -o mode=0755 tmpfs /cow || fail "cannot mount writable tmpfs overlay"
 mkdir -p /cow/upper /cow/work /newroot
 mount -t overlay overlay -o lowerdir=/mnt/root-ro,upperdir=/cow/upper,workdir=/cow/work /newroot || fail "cannot mount overlay root"
 
+splash "starting desktop" 9
 mkdir -p /newroot/proc /newroot/sys /newroot/dev /newroot/run/ooonana-live/iso /newroot/run/ooonana-live/root-ro /newroot/run/ooonana-live/cow
 mount --bind /mnt/iso /newroot/run/ooonana-live/iso 2>/dev/null || true
 mount --bind /mnt/root-ro /newroot/run/ooonana-live/root-ro 2>/dev/null || true

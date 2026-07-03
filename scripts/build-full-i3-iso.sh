@@ -73,7 +73,7 @@ done
 write_grub_config() {
   local console_args="console=tty0 console=ttyS0"
   if [[ "$SMOKE" -eq 0 ]]; then
-    console_args="$console_args quiet loglevel=3"
+    console_args="$console_args quiet loglevel=3 vt.global_cursor_default=0"
   fi
   local live_append="$console_args panic=1 rdinit=/init ooonana.live=1 ooonana.edition=full-i3"
   local persistent_append="$live_append ooonana.persistence=1"

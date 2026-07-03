@@ -163,10 +163,11 @@ Working now:
 - Installer ISO opens a fallback shell on install failure or cancel
 - Installer has a serial-safe xterm UI with logo, disk picker, user/password, hostname, theme, cloud repo picker, progress, logs, fail shell, and reboot prompt
 - Live/install ISO keeps interactive prompts on the VGA console for VMware while smoke tests log through serial
-- GRUB uses a stable orange-on-black text menu with Ooonana logo text, BIOS/UEFI hybrid support, live/install/safe graphics menus, and a persistent USB boot entry. Full-i3 does not force `gfxmode` or `gfxpayload=keep`, so VMware keeps its normal display size.
+- GRUB uses a stable orange-on-black text menu with Ooonana logo text, BIOS/UEFI hybrid support, live/install/safe graphics menus, and a persistent USB boot entry. After a GRUB entry is selected, the live initramfs keeps an Ooonana logo and loading bar on the VGA console while it finds boot media, mounts the live rootfs read-only, creates the tmpfs overlay, and starts i3. Full-i3 does not force `gfxmode` or `gfxpayload=keep`, so VMware keeps its normal display size.
 - Kernel config is tuned for desktop responsiveness: performance compiler mode, full preemption, dynamic preemption, high-resolution timers, 1000 Hz scheduler tick, and scheduler autogroup.
 - Rufus support has an ISO-mode note inside the ISO, USB-friendly volume labels, and `scripts/verify-rufus-iso.sh`
-- Full-i3 live starts eudev before Xorg and ships libinput config for PS/2 keyboard and mouse discovery
+- Full-i3 live starts eudev before Xorg and ships libinput config for PS/2 keyboard, mouse, and touchpad discovery
+- Full-i3 live mode does not format or write internal disks. It only reads boot media read-only and puts live changes in tmpfs unless the user explicitly launches the installer or chooses a persistent USB path.
 - Full-i3 now ships an Ooonana i3 baseline: polybar-first bar, rofi launcher, picom shadows/fades, dunst notifications, Chromium launcher, Nemo launcher, Wi-Fi/Bluetooth/settings helpers, wallpaper changer, and dark Ooonana colors
 - Installed disk boots in QEMU
 - `ooonana-install` can partition a raw/whole disk, install to an existing root partition, mount optional home/swap/EFI partitions, format or keep selected filesystems, copy rootfs, install kernel, write GRUB, and persist user, hostname, and theme
