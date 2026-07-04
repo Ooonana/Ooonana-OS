@@ -966,6 +966,14 @@ while :; do
 done
 EOF
 
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-packages" <<'EOF'
+#!/bin/sh
+set -eu
+app="$(dirname "$0")/ooonana-packages-app"
+[ -x "$app" ] && exec "$app" "$@"
+exec ooonana-packages-app "$@"
+EOF
+
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-settings" <<'EOF'
 #!/bin/sh
 set -eu

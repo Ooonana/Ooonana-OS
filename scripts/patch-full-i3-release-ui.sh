@@ -146,6 +146,7 @@ ooonana-power-menu|/usr/bin/ooonana-power-menu|0100755
 ooonana-brightness|/usr/bin/ooonana-brightness|0100755
 ooonana-brightness-status|/usr/bin/ooonana-brightness-status|0100755
 ooonana|/usr/bin/ooonana|0100755
+ooonana-packages|/usr/bin/ooonana-packages|0100755
 ooonana-settings|/usr/bin/ooonana-settings|0100755
 ooonana-settings-launch|/usr/bin/ooonana-settings-launch|0100755
 ooonana-theme-env|/usr/bin/ooonana-theme-env|0100755
@@ -205,6 +206,7 @@ build_payload() {
   extract_block '$ROOTFS/usr/bin/ooonana-brightness"' "$payload/ooonana-brightness"
   extract_block '$ROOTFS/usr/bin/ooonana-brightness-status' "$payload/ooonana-brightness-status"
   install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana" "$payload/ooonana"
+  extract_block '$ROOTFS/usr/bin/ooonana-packages"' "$payload/ooonana-packages"
   extract_block '$ROOTFS/usr/bin/ooonana-settings"' "$payload/ooonana-settings"
   extract_block '$ROOTFS/usr/bin/ooonana-settings-launch' "$payload/ooonana-settings-launch"
   extract_block '$ROOTFS/usr/bin/ooonana-theme-env' "$payload/ooonana-theme-env"
