@@ -119,6 +119,8 @@ write_theme_helpers() {
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-theme-env" <<'EOF'
 #!/bin/sh
 set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
 
 load_theme() {
   theme="${OOONANA_THEME:-}"
@@ -134,15 +136,21 @@ load_theme() {
       OOONANA_THEME="light"
       OOONANA_BG="#ffb21a"
       OOONANA_FG="#1b1202"
+      OOONANA_GTK_THEME="Adwaita"
+      OOONANA_GTK_DARK="false"
       ;;
     *)
       OOONANA_THEME="dark"
       OOONANA_BG="#050505"
       OOONANA_FG="#ffb21a"
+      OOONANA_GTK_THEME="Adwaita:dark"
+      OOONANA_GTK_DARK="true"
       ;;
   esac
   OOONANA_CURSOR="#ffb21a"
-  export OOONANA_THEME OOONANA_BG OOONANA_FG OOONANA_CURSOR
+  GTK_THEME="$OOONANA_GTK_THEME"
+  GDK_BACKEND="${GDK_BACKEND:-x11}"
+  export OOONANA_THEME OOONANA_BG OOONANA_FG OOONANA_CURSOR OOONANA_GTK_THEME OOONANA_GTK_DARK GTK_THEME GDK_BACKEND
 }
 
 load_theme
@@ -160,12 +168,38 @@ write_theme() {
 
 case "${1:-env}" in
   env)
+    printf 'PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"\n'
     printf 'OOONANA_THEME="%s"\n' "$OOONANA_THEME"
     printf 'OOONANA_BG="%s"\n' "$OOONANA_BG"
     printf 'OOONANA_FG="%s"\n' "$OOONANA_FG"
     printf 'OOONANA_CURSOR="%s"\n' "$OOONANA_CURSOR"
+    printf 'OOONANA_GTK_THEME="%s"\n' "$OOONANA_GTK_THEME"
+    printf 'OOONANA_GTK_DARK="%s"\n' "$OOONANA_GTK_DARK"
+    printf 'GTK_THEME="%s"\n' "$OOONANA_GTK_THEME"
+    printf 'GDK_BACKEND="x11"\n'
     ;;
   apply)
+    config_home="${XDG_CONFIG_HOME:-${HOME:-/root}/.config}"
+    mkdir -p "$config_home/gtk-3.0"
+    cat >"$config_home/gtk-3.0/settings.ini" <<SETTINGS
+[Settings]
+gtk-theme-name=Adwaita
+gtk-application-prefer-dark-theme=$OOONANA_GTK_DARK
+gtk-icon-theme-name=Adwaita
+gtk-font-name=Sans 10
+gtk-button-images=1
+gtk-menu-images=1
+SETTINGS
+    cat >"$config_home/gtk-3.0/gtk.css" <<CSS
+@define-color ooonana_bg $OOONANA_BG;
+@define-color ooonana_fg $OOONANA_FG;
+@define-color ooonana_accent #ffb21a;
+window, dialog, .background { background-color: @ooonana_bg; color: @ooonana_fg; }
+button { background: #1a2029; color: @ooonana_accent; border: 1px solid @ooonana_accent; border-radius: 4px; padding: 6px 10px; }
+button:hover { background: #2a3442; }
+entry, textview, treeview, list { background: #10141a; color: @ooonana_fg; }
+label { color: @ooonana_fg; }
+CSS
     xsetroot -solid "$OOONANA_BG" 2>/dev/null || true
     wallpaper="/usr/share/ooonana/wallpapers/ooonana-wallpaper.png"
     if [ -n "${HOME:-}" ] && [ -f "$HOME/.config/ooonana/wallpaper" ]; then
@@ -198,6 +232,52 @@ case "${1:-env}" in
     exit 1
     ;;
 esac
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/local/bin/yad" <<'EOF'
+#!/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+if command -v ooonana-theme-env >/dev/null 2>&1; then
+  eval "$(ooonana-theme-env env)"
+  ooonana-theme-env apply >/dev/null 2>&1 || true
+fi
+if [ -x /usr/bin/yad ]; then
+  exec /usr/bin/yad --window-icon=/usr/share/ooonana/logo.png "$@"
+fi
+echo "yad missing" >&2
+exit 127
+EOF
+
+  install -D -m 0644 /dev/stdin "$ROOTFS/etc/gtk-3.0/settings.ini" <<'EOF'
+[Settings]
+gtk-theme-name=Adwaita
+gtk-application-prefer-dark-theme=true
+gtk-icon-theme-name=Adwaita
+gtk-font-name=Sans 10
+gtk-button-images=1
+gtk-menu-images=1
+EOF
+
+  install -D -m 0644 /dev/stdin "$ROOTFS/root/.config/gtk-3.0/settings.ini" <<'EOF'
+[Settings]
+gtk-theme-name=Adwaita
+gtk-application-prefer-dark-theme=true
+gtk-icon-theme-name=Adwaita
+gtk-font-name=Sans 10
+gtk-button-images=1
+gtk-menu-images=1
+EOF
+
+  install -D -m 0644 /dev/stdin "$ROOTFS/root/.config/gtk-3.0/gtk.css" <<'EOF'
+@define-color ooonana_bg #050505;
+@define-color ooonana_fg #ffb21a;
+@define-color ooonana_accent #ffb21a;
+window, dialog, .background { background-color: @ooonana_bg; color: @ooonana_fg; }
+button { background: #1a2029; color: @ooonana_accent; border: 1px solid @ooonana_accent; border-radius: 4px; padding: 6px 10px; }
+button:hover { background: #2a3442; }
+entry, textview, treeview, list { background: #10141a; color: @ooonana_fg; }
+label { color: @ooonana_fg; }
 EOF
 }
 
@@ -241,6 +321,8 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-hardware-reprobe" <<'EOF'
 #!/bin/sh
 set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
 
 LOG="${OOONANA_HARDWARE_LOG:-/var/log/ooonana-hardware.log}"
 mkdir -p /run /var/log
@@ -310,6 +392,8 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-service-repair" <<'EOF'
 #!/bin/sh
 set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
 
 LOG="${OOONANA_SERVICE_LOG:-/var/log/ooonana-services.log}"
 mkdir -p /run/dbus /var/lib/dbus /var/log /run/NetworkManager /var/lib/NetworkManager /var/lib/bluetooth /etc
@@ -342,6 +426,31 @@ bluetooth_daemon() {
   return 1
 }
 
+network_manager_daemon() {
+  for path in NetworkManager /usr/sbin/NetworkManager /sbin/NetworkManager /usr/bin/NetworkManager; do
+    if command -v "$path" >/dev/null 2>&1; then
+      command -v "$path"
+      return 0
+    fi
+    [ -x "$path" ] && { printf '%s\n' "$path"; return 0; }
+  done
+  return 1
+}
+
+start_device_manager() {
+  mkdir -p /run/udev
+  if command -v udevd >/dev/null 2>&1 && ! pidof udevd >/dev/null 2>&1; then
+    udevd --daemon >>"$LOG" 2>&1 || true
+  fi
+  if command -v eudevd >/dev/null 2>&1 && ! pidof eudevd >/dev/null 2>&1; then
+    eudevd --daemon >>"$LOG" 2>&1 || true
+  fi
+  if command -v udevadm >/dev/null 2>&1; then
+    udevadm trigger --action=add >>"$LOG" 2>&1 || true
+    udevadm settle --timeout=8 >>"$LOG" 2>&1 || true
+  fi
+}
+
 ensure_identity() {
   grep -q '^messagebus:' /etc/group 2>/dev/null || echo 'messagebus:x:81:' >>/etc/group
   grep -q '^messagebus:' /etc/passwd 2>/dev/null || echo 'messagebus:x:81:81:DBus Message Bus:/run/dbus:/bin/false' >>/etc/passwd
@@ -372,24 +481,27 @@ wait_for() {
 
 ensure_identity
 
+start_device_manager
+
 if command -v dbus-daemon >/dev/null 2>&1 && [ ! -S /run/dbus/system_bus_socket ]; then
-  dbus-daemon --system --fork --nopidfile >>"$LOG" 2>&1 || log "dbus-daemon failed"
+  dbus-daemon --system --fork --nopidfile --address=unix:path=/run/dbus/system_bus_socket >>"$LOG" 2>&1 || log "dbus-daemon failed"
 fi
 wait_for dbus test -S /run/dbus/system_bus_socket || true
 
 command -v ooonana-hardware-reprobe >/dev/null 2>&1 && ooonana-hardware-reprobe "${1:-}" >>"$LOG" 2>&1 || true
 unblock_rfkill
 
-if command -v NetworkManager >/dev/null 2>&1; then
+nm_daemon="$(network_manager_daemon || true)"
+if [ -n "$nm_daemon" ]; then
   if ! pidof NetworkManager >/dev/null 2>&1; then
-    NetworkManager --no-daemon >>"$LOG" 2>&1 &
+    "$nm_daemon" --no-daemon >>"$LOG" 2>&1 &
   fi
   wait_for NetworkManager nmcli general status || true
   nmcli networking on >>"$LOG" 2>&1 || true
   nmcli radio wifi on >>"$LOG" 2>&1 || true
   nmcli device wifi rescan >>"$LOG" 2>&1 || true
 else
-  log "NetworkManager missing"
+  log "NetworkManager missing from PATH and standard sbin paths"
 fi
 
 bt_daemon="$(bluetooth_daemon || true)"
@@ -409,6 +521,8 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-wifi" <<'EOF'
 #!/bin/sh
 set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
 command -v ooonana-service-repair >/dev/null 2>&1 && ooonana-service-repair wifi >/dev/null 2>&1 || true
 if command -v nm-connection-editor >/dev/null 2>&1; then
   exec nm-connection-editor
@@ -422,6 +536,8 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-bluetooth" <<'EOF'
 #!/bin/sh
 set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
 command -v ooonana-service-repair >/dev/null 2>&1 && ooonana-service-repair bluetooth >/dev/null 2>&1 || true
 if command -v blueman-manager >/dev/null 2>&1; then
   exec blueman-manager
@@ -513,6 +629,8 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-rofi-wifi" <<'EOF'
 #!/bin/sh
 set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
 command -v ooonana-service-repair >/dev/null 2>&1 && ooonana-service-repair wifi >/dev/null 2>&1 || true
 choose() {
   if [ -n "${DISPLAY:-}" ] && command -v rofi >/dev/null 2>&1; then
@@ -533,6 +651,8 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-rofi-bluetooth" <<'EOF'
 #!/bin/sh
 set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
 command -v ooonana-service-repair >/dev/null 2>&1 && ooonana-service-repair bluetooth >/dev/null 2>&1 || true
 choose() {
   if [ -n "${DISPLAY:-}" ] && command -v rofi >/dev/null 2>&1; then
@@ -554,13 +674,23 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-wifi-panel" <<'EOF'
 #!/bin/sh
 set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
 command -v ooonana-service-repair >/dev/null 2>&1 && ooonana-service-repair wifi >/dev/null 2>&1 || true
 if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
   tmp="${TMPDIR:-/tmp}/ooonana-wifi-panel.$$"
+  nm_state="$(nmcli -t -f STATE general 2>/dev/null | head -n 1 || true)"
+  wifi_radio="$(nmcli -t -f WIFI radio 2>/dev/null | head -n 1 || true)"
+  [ -n "$nm_state" ] || nm_state="service not ready"
+  [ -n "$wifi_radio" ] || wifi_radio="unknown"
   {
-    printf 'NetworkManager\n'
+    printf 'Ooonana Wi-Fi\n'
+    printf '=============\n'
+    printf 'Service: %s\n' "$nm_state"
+    printf 'Radio:   %s\n' "$wifi_radio"
+    printf '\nNetworkManager\n'
     printf '==============\n'
-    nmcli general status 2>/dev/null || printf 'nmcli unavailable or NetworkManager stopped.\n'
+    nmcli general status 2>/dev/null || printf 'NetworkManager is still starting. Use Repair, then Refresh.\n'
     printf '\nRadio\n'
     printf '=====\n'
     nmcli radio all 2>/dev/null || rfkill list 2>/dev/null || cat /sys/class/rfkill/rfkill*/{type,soft,hard} 2>/dev/null || true
@@ -570,11 +700,13 @@ if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
     nmcli dev status 2>/dev/null || ip addr 2>/dev/null || true
     printf '\nWi-Fi networks\n'
     printf '==============\n'
-    nmcli dev wifi list 2>/dev/null || printf 'No Wi-Fi scan data. NetworkManager may be stopped.\n'
+    nmcli dev wifi list 2>/dev/null || printf 'No scan data yet. Try Repair or check firmware/rfkill.\n'
   } >"$tmp"
-  if yad --center --title "Wi-Fi" --width=420 --height=280 \
+  if yad --center --title "Ooonana Wi-Fi" --width=620 --height=420 \
+    --image=/usr/share/ooonana/logo.png \
+    --text "Wi-Fi control\nService: $nm_state    Radio: $wifi_radio" \
     --text-info --filename="$tmp" \
-    --button=Editor:0 --button=TUI:2 --button=Close:1 2>/dev/null; then
+    --button="Open Editor":0 --button="Terminal UI":2 --button=Repair:3 --button=Refresh:4 --button=Close:1 2>/dev/null; then
     rc=0
   else
     rc="$?"
@@ -583,6 +715,8 @@ if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
   case "$rc" in
     0) exec ooonana-wifi ;;
     2) command -v nmtui >/dev/null 2>&1 && exec ooonana-theme-env xterm -e nmtui ;;
+    3) ooonana-service-repair force >/dev/null 2>&1 || true; exec ooonana-wifi-panel ;;
+    4) exec ooonana-wifi-panel ;;
   esac
   exit 0
 fi
@@ -592,24 +726,34 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-bluetooth-panel" <<'EOF'
 #!/bin/sh
 set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
 command -v ooonana-service-repair >/dev/null 2>&1 && ooonana-service-repair bluetooth >/dev/null 2>&1 || true
 if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
   tmp="${TMPDIR:-/tmp}/ooonana-bluetooth-panel.$$"
+  bt_state="$(bluetoothctl show 2>/dev/null | awk -F': ' '/Powered/ {print $2; exit}' || true)"
+  [ -n "$bt_state" ] || bt_state="service not ready"
   {
+    printf 'Ooonana Bluetooth\n'
+    printf '=================\n'
+    printf 'Power: %s\n' "$bt_state"
+    printf '\n'
     printf 'Radio\n'
     printf '=====\n'
     rfkill list bluetooth 2>/dev/null || cat /sys/class/rfkill/rfkill*/{type,soft,hard} 2>/dev/null || true
     printf '\n'
     printf 'Bluetooth controller\n'
     printf '====================\n'
-    bluetoothctl show 2>/dev/null || printf 'bluetoothctl missing or Bluetooth service stopped.\n'
+    bluetoothctl show 2>/dev/null || printf 'Bluetooth service is still starting. Use Repair, then Refresh.\n'
     printf '\nDevices\n'
     printf '=======\n'
     bluetoothctl devices 2>/dev/null || true
   } >"$tmp"
-  if yad --center --title "Bluetooth" --width=420 --height=280 \
+  if yad --center --title "Ooonana Bluetooth" --width=620 --height=420 \
+    --image=/usr/share/ooonana/logo.png \
+    --text "Bluetooth control\nPower: $bt_state" \
     --text-info --filename="$tmp" \
-    --button=Manager:0 --button="Power On":2 --button="Power Off":3 --button=Close:1 2>/dev/null; then
+    --button=Manager:0 --button="Power On":2 --button="Power Off":3 --button=Repair:4 --button=Refresh:5 --button=Close:1 2>/dev/null; then
     rc=0
   else
     rc="$?"
@@ -619,6 +763,8 @@ if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
     0) exec ooonana-bluetooth ;;
     2) bluetoothctl power on >/dev/null 2>&1 || true ;;
     3) bluetoothctl power off >/dev/null 2>&1 || true ;;
+    4) ooonana-service-repair force >/dev/null 2>&1 || true; exec ooonana-bluetooth-panel ;;
+    5) exec ooonana-bluetooth-panel ;;
   esac
   exit 0
 fi
@@ -1267,6 +1413,28 @@ if command -v feh >/dev/null 2>&1; then
   exec feh --bg-fill "$wallpaper"
 fi
 exec ooonana-theme-env apply
+EOF
+
+  install -D -m 0644 /dev/stdin "$ROOTFS/etc/NetworkManager/NetworkManager.conf" <<'EOF'
+[main]
+plugins=keyfile
+dhcp=internal
+
+[device]
+wifi.scan-rand-mac-address=no
+
+[ifupdown]
+managed=true
+EOF
+
+  install -D -m 0644 /dev/stdin "$ROOTFS/etc/bluetooth/main.conf" <<'EOF'
+[General]
+Name = Ooonana
+ControllerMode = dual
+FastConnectable = true
+
+[Policy]
+AutoEnable = true
 EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/xsettingsd.conf" <<'EOF'

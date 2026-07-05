@@ -150,6 +150,12 @@ ooonana-packages|/usr/bin/ooonana-packages|0100755
 ooonana-settings|/usr/bin/ooonana-settings|0100755
 ooonana-settings-launch|/usr/bin/ooonana-settings-launch|0100755
 ooonana-theme-env|/usr/bin/ooonana-theme-env|0100755
+yad-wrapper|/usr/local/bin/yad|0100755
+gtk-settings.ini|/etc/gtk-3.0/settings.ini|0100644
+gtk-root-settings.ini|/root/.config/gtk-3.0/settings.ini|0100644
+gtk.css|/root/.config/gtk-3.0/gtk.css|0100644
+NetworkManager.conf|/etc/NetworkManager/NetworkManager.conf|0100644
+bluetooth-main.conf|/etc/bluetooth/main.conf|0100644
 ooonana-setup|/usr/bin/ooonana-setup|0100755
 wget|/usr/bin/wget|0100755
 ooonana-gui-installer|/usr/bin/ooonana-gui-installer|0100755
@@ -210,6 +216,12 @@ build_payload() {
   extract_block '$ROOTFS/usr/bin/ooonana-settings"' "$payload/ooonana-settings"
   extract_block '$ROOTFS/usr/bin/ooonana-settings-launch' "$payload/ooonana-settings-launch"
   extract_block '$ROOTFS/usr/bin/ooonana-theme-env' "$payload/ooonana-theme-env"
+  extract_block '$ROOTFS/usr/local/bin/yad' "$payload/yad-wrapper"
+  extract_block '$ROOTFS/etc/gtk-3.0/settings.ini' "$payload/gtk-settings.ini"
+  extract_block '$ROOTFS/root/.config/gtk-3.0/settings.ini' "$payload/gtk-root-settings.ini"
+  extract_block '$ROOTFS/root/.config/gtk-3.0/gtk.css' "$payload/gtk.css"
+  extract_block '$ROOTFS/etc/NetworkManager/NetworkManager.conf' "$payload/NetworkManager.conf"
+  extract_block '$ROOTFS/etc/bluetooth/main.conf' "$payload/bluetooth-main.conf"
   install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana-setup" "$payload/ooonana-setup"
   cat > "$payload/wget" <<'EOF'
 #!/bin/sh

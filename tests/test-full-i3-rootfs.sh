@@ -39,6 +39,10 @@ assert_contains "$script_src" "fc-cache -r /usr/share/fonts"
 assert_contains "$patch_src" 'rcS|/etc/init.d/rcS|0100755'
 assert_contains "$patch_src" 'ooonana-hardware-reprobe|/usr/bin/ooonana-hardware-reprobe|0100755'
 assert_contains "$patch_src" 'ooonana-service-repair|/usr/bin/ooonana-service-repair|0100755'
+assert_contains "$patch_src" 'yad-wrapper|/usr/local/bin/yad|0100755'
+assert_contains "$patch_src" 'gtk-settings.ini|/etc/gtk-3.0/settings.ini|0100644'
+assert_contains "$patch_src" 'NetworkManager.conf|/etc/NetworkManager/NetworkManager.conf|0100644'
+assert_contains "$patch_src" 'bluetooth-main.conf|/etc/bluetooth/main.conf|0100644'
 assert_contains "$patch_src" 'ooonana-i3-session|/usr/bin/ooonana-i3-session|0100755'
 assert_contains "$patch_src" 'i3.config|/etc/i3/config|0100644'
 assert_contains "$patch_src" 'i3.config.keycodes|/etc/i3/config.keycodes|0100644'
@@ -186,6 +190,7 @@ fi
 [[ -x "$rootfs/usr/bin/ooonana-power-menu" ]] || fail "missing power menu helper"
 [[ -x "$rootfs/usr/bin/ooonana-settings" ]] || fail "missing settings helper"
 [[ -x "$rootfs/usr/bin/ooonana-settings-launch" ]] || fail "missing settings launch wrapper"
+[[ -x "$rootfs/usr/local/bin/yad" ]] || fail "missing themed yad wrapper"
 [[ -x "$rootfs/usr/bin/wget" ]] || fail "missing wget fallback"
 [[ -x "$rootfs/usr/bin/ooonana-wallpaper" ]] || fail "missing wallpaper helper"
 [[ -x "$rootfs/usr/bin/hsetroot" ]] || fail "missing hsetroot fallback"
@@ -205,6 +210,11 @@ fi
 [[ -f "$rootfs/etc/ooonana/picom.conf" ]] || fail "missing picom config"
 [[ -f "$rootfs/etc/ooonana/dunstrc" ]] || fail "missing dunst config"
 [[ -f "$rootfs/etc/ooonana/xsettingsd.conf" ]] || fail "missing xsettingsd config"
+[[ -f "$rootfs/etc/gtk-3.0/settings.ini" ]] || fail "missing GTK system settings"
+[[ -f "$rootfs/root/.config/gtk-3.0/settings.ini" ]] || fail "missing GTK root settings"
+[[ -f "$rootfs/root/.config/gtk-3.0/gtk.css" ]] || fail "missing GTK root CSS"
+[[ -f "$rootfs/etc/NetworkManager/NetworkManager.conf" ]] || fail "missing NetworkManager config"
+[[ -f "$rootfs/etc/bluetooth/main.conf" ]] || fail "missing Bluetooth config"
 [[ -f "$rootfs/etc/neofetch/config.conf" ]] || fail "missing neofetch config"
 [[ -f "$rootfs/etc/X11/xorg.conf.d/10-ooonana-input.conf" ]] || fail "missing Xorg input config"
 [[ -f "$rootfs/usr/share/ooonana/xorg-fbdev.conf" ]] || fail "missing Xorg fbdev template"
@@ -336,8 +346,20 @@ assert_contains "$theme_helper" ".config/ooonana/wallpaper"
 assert_contains "$theme_helper" "hsetroot -cover"
 assert_contains "$theme_helper" '-e /bin/sh -l'
 assert_contains "$theme_helper" 'exec xterm -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR"'
+assert_contains "$theme_helper" 'GTK_THEME="%s"'
+assert_contains "$theme_helper" 'gtk-application-prefer-dark-theme=$OOONANA_GTK_DARK'
+assert_contains "$theme_helper" 'PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"'
 assert_not_contains "$theme_helper" 'XTERM_FONT_ARGS="-fa monospace -fs 10"'
 assert_not_contains "$theme_helper" '$XTERM_FONT_ARGS -bg "$OOONANA_BG" -fg "$OOONANA_FG"'
+
+yad_wrapper="$(<"$rootfs/usr/local/bin/yad")"
+assert_contains "$yad_wrapper" "ooonana-theme-env env"
+assert_contains "$yad_wrapper" "--window-icon=/usr/share/ooonana/logo.png"
+
+assert_contains "$(<"$rootfs/etc/gtk-3.0/settings.ini")" "gtk-application-prefer-dark-theme=true"
+assert_contains "$(<"$rootfs/root/.config/gtk-3.0/gtk.css")" "button { background: #1a2029"
+assert_contains "$(<"$rootfs/etc/NetworkManager/NetworkManager.conf")" "wifi.scan-rand-mac-address=no"
+assert_contains "$(<"$rootfs/etc/bluetooth/main.conf")" "AutoEnable = true"
 
 browser_helper="$(<"$rootfs/usr/bin/ooonana-browser")"
 assert_contains "$browser_helper" "chromium --no-first-run"
@@ -349,8 +371,12 @@ assert_contains "$wifi_helper" "nm-connection-editor"
 assert_contains "$wifi_helper" "nmtui"
 wifi_panel="$(<"$rootfs/usr/bin/ooonana-wifi-panel")"
 assert_contains "$wifi_panel" "ooonana-service-repair wifi"
-assert_contains "$wifi_panel" 'yad --center --title "Wi-Fi"'
-assert_contains "$wifi_panel" "--width=420 --height=280"
+assert_contains "$wifi_panel" 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+assert_contains "$wifi_panel" 'yad --center --title "Ooonana Wi-Fi"'
+assert_contains "$wifi_panel" "--width=620 --height=420"
+assert_contains "$wifi_panel" '--button="Open Editor":0'
+assert_contains "$wifi_panel" "--button=Repair:3"
+assert_contains "$wifi_panel" "NetworkManager is still starting. Use Repair, then Refresh."
 assert_contains "$wifi_panel" "nmcli general status"
 assert_contains "$wifi_panel" "rfkill list"
 assert_contains "$wifi_panel" "nmcli dev wifi list"
@@ -359,8 +385,11 @@ assert_contains "$bt_helper" "ooonana-service-repair bluetooth"
 assert_contains "$bt_helper" "blueman-manager"
 bt_panel="$(<"$rootfs/usr/bin/ooonana-bluetooth-panel")"
 assert_contains "$bt_panel" "ooonana-service-repair bluetooth"
-assert_contains "$bt_panel" 'yad --center --title "Bluetooth"'
-assert_contains "$bt_panel" "--width=420 --height=280"
+assert_contains "$bt_panel" 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+assert_contains "$bt_panel" 'yad --center --title "Ooonana Bluetooth"'
+assert_contains "$bt_panel" "--width=620 --height=420"
+assert_contains "$bt_panel" "--button=Repair:4"
+assert_contains "$bt_panel" "Bluetooth service is still starting. Use Repair, then Refresh."
 assert_contains "$bt_panel" "rfkill list bluetooth"
 assert_contains "$bt_panel" "bluetoothctl devices"
 hardware_reprobe="$(<"$rootfs/usr/bin/ooonana-hardware-reprobe")"
@@ -370,10 +399,14 @@ assert_contains "$hardware_reprobe" "iwlwifi"
 assert_contains "$hardware_reprobe" "btusb"
 assert_contains "$hardware_reprobe" "udevadm trigger"
 service_repair="$(<"$rootfs/usr/bin/ooonana-service-repair")"
+assert_contains "$service_repair" 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
 assert_contains "$service_repair" "dbus-daemon --system"
-assert_contains "$service_repair" "NetworkManager --no-daemon"
+assert_contains "$service_repair" "network_manager_daemon()"
+assert_contains "$service_repair" "/usr/sbin/NetworkManager"
+assert_contains "$service_repair" "--address=unix:path=/run/dbus/system_bus_socket"
 assert_contains "$service_repair" "bluetooth_daemon"
 assert_contains "$service_repair" "/usr/lib/bluetooth/bluetoothd"
+assert_contains "$service_repair" '"$nm_daemon" --no-daemon'
 assert_contains "$service_repair" '"$bt_daemon" -n'
 assert_contains "$service_repair" "nmcli radio wifi on"
 assert_contains "$service_repair" "bluetoothctl power on"
