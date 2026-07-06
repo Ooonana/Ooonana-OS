@@ -261,6 +261,14 @@ assert_contains "$repo_doctor" "builtin: ok"
 assert_contains "$repo_doctor" "extra: ok"
 assert_contains "$repo_doctor" "OOONANA_REPO_DOCTOR_OK"
 
+empty_builtin="$tmp/empty-builtin"
+mkdir -p "$empty_builtin"
+cloud_only_doctor="$(OOONANA_REPO_DIR="$empty_builtin" \
+  OOONANA_SOURCES_DIR="$sources_dir" \
+  "$CLI" repo doctor)"
+assert_contains "$cloud_only_doctor" "builtin: ok empty"
+assert_contains "$cloud_only_doctor" "OOONANA_REPO_DOCTOR_OK"
+
 repo_add_dir="$tmp/repo-add-sources"
 repo_add_out="$(OOONANA_SOURCES_DIR="$repo_add_dir" "$CLI" repo add lab "$extra_repo")"
 assert_contains "$repo_add_out" "repo added lab"
@@ -477,6 +485,12 @@ assert_contains "$http_update" "metadata-only"
 [[ ! -f "$http_cache/repos/cloud/archives/nano-1.0-r0.tar.gz" ]] || fail "update must not download archives"
 assert_contains "$(<"$http_cache/index.tsv")" "cloud"
 assert_contains "$(<"$http_cache/index.tsv")" "nano"
+http_search="$(OOONANA_SOURCES_DIR="$http_sources" \
+  OOONANA_STATE_DIR="$http_state" \
+  OOONANA_CACHE_DIR="$http_cache" \
+  "$CLI" search nano)"
+assert_contains "$http_search" "nano"
+[[ ! -f "$http_cache/repos/cloud/nano.pkg" ]] || fail "search must use cached index, not download remote pkg metadata"
 
 python_fallback_bin="$tmp/python-fallback-bin"
 python_fallback_sources="$tmp/python-fallback-sources"

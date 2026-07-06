@@ -46,6 +46,9 @@ SOURCES_DIR="${OOONANA_SOURCES_DIR:-$(root_join /etc/ooonana/sources.d)}"
 STATE_DIR="${OOONANA_STATE_DIR:-$(root_join /var/lib/ooonana/packages)}"
 CACHE_DIR="${OOONANA_CACHE_DIR:-$(root_join /var/cache/ooonana)}"
 INSTALLED_DIR="$STATE_DIR/installed"
+DOWNLOAD_CONNECT_TIMEOUT="${OOONANA_DOWNLOAD_CONNECT_TIMEOUT:-10}"
+DOWNLOAD_MAX_TIME="${OOONANA_DOWNLOAD_MAX_TIME:-90}"
+DOWNLOAD_RETRIES="${OOONANA_DOWNLOAD_RETRIES:-1}"
 
 usage_main() {
   cat <<USAGE
@@ -498,6 +501,10 @@ download_github_release_asset() {
   api_url="https://api.github.com/repos/$owner/$repo/releases/tags/$tag"
 
   curl -fsSL \
+    --connect-timeout "$DOWNLOAD_CONNECT_TIMEOUT" \
+    --max-time "$DOWNLOAD_MAX_TIME" \
+    --retry "$DOWNLOAD_RETRIES" \
+    --retry-delay 1 \
     -H "Authorization: Bearer $token" \
     -H "Accept: application/vnd.github+json" \
     -H "User-Agent: ooonana" \
@@ -510,6 +517,10 @@ download_github_release_asset() {
   rm -f "$meta"
   [ -n "$asset_api_url" ] || die "GitHub release asset missing: $owner/$repo $tag $asset"
   curl -fsSL \
+    --connect-timeout "$DOWNLOAD_CONNECT_TIMEOUT" \
+    --max-time "$DOWNLOAD_MAX_TIME" \
+    --retry "$DOWNLOAD_RETRIES" \
+    --retry-delay 1 \
     -H "Authorization: Bearer $token" \
     -H "Accept: application/octet-stream" \
     -H "User-Agent: ooonana" \
@@ -527,13 +538,18 @@ download_file() {
     return 0
   fi
   if have curl; then
-    if curl -fsSL "$url" -o "$out" 2>"$err"; then
+    if curl -fsSL \
+      --connect-timeout "$DOWNLOAD_CONNECT_TIMEOUT" \
+      --max-time "$DOWNLOAD_MAX_TIME" \
+      --retry "$DOWNLOAD_RETRIES" \
+      --retry-delay 1 \
+      "$url" -o "$out" 2>"$err"; then
       rm -f "$err"
       return 0
     fi
   fi
   if have wget; then
-    if wget -q -O "$out" "$url" 2>"$err"; then
+    if wget -q -T "$DOWNLOAD_MAX_TIME" -O "$out" "$url" 2>"$err"; then
       rm -f "$err"
       return 0
     fi
@@ -546,9 +562,14 @@ import urllib.request
 url, out = sys.argv[1], sys.argv[2]
 try:
     request = urllib.request.Request(url, headers={"User-Agent": "ooonana"})
-    with urllib.request.urlopen(request, timeout=60) as response:
+    timeout = float(__import__("os").environ.get("OOONANA_DOWNLOAD_MAX_TIME", "90"))
+    with urllib.request.urlopen(request, timeout=timeout) as response:
         with open(out, "wb") as handle:
-            handle.write(response.read())
+            while True:
+                chunk = response.read(1024 * 1024)
+                if not chunk:
+                    break
+                handle.write(chunk)
 except Exception as exc:
     print(exc, file=sys.stderr)
     sys.exit(1)
@@ -1047,6 +1068,10 @@ cmd_repo_doctor_one() {
       return 0
     fi
   done
+  if [ "$repo_name" = "builtin" ]; then
+    printf '%s: ok empty %s\n' "$repo_name" "$repo_path"
+    return 0
+  fi
   printf '%s: missing package index %s\n' "$repo_name" "$repo_path" >&2
   return 1
 }
@@ -1296,7 +1321,15 @@ pkg_state() {
 print_pkg_line() {
   id="$1"
   state="$2"
-  printf '%-14s %-8s %-10s %s\n' "$id" "$OOONANA_PKG_VERSION" "$state" "$OOONANA_PKG_SUMMARY"
+  print_pkg_fields_line "$id" "$OOONANA_PKG_VERSION" "$state" "$OOONANA_PKG_SUMMARY"
+}
+
+print_pkg_fields_line() {
+  id="$1"
+  version="$2"
+  state="$3"
+  summary="$4"
+  printf '%-14s %-8s %-10s %s\n' "$id" "$version" "$state" "$summary"
 }
 
 cmd_version() {
@@ -1542,6 +1575,15 @@ cmd_list() {
     return 0
   fi
 
+  if [ -f "$CACHE_DIR/index.tsv" ]; then
+    awk 'BEGIN { FS = "\t"; OFS = "\t" } !seen[$2]++ { print $2, $3, $5 }' "$CACHE_DIR/index.tsv" |
+      while IFS='	' read -r id version summary; do
+        [ -n "$id" ] || continue
+        print_pkg_fields_line "$id" "$version" "$(pkg_state "$id")" "$summary"
+      done | sort
+    return 0
+  fi
+
   pkg_ids | while IFS= read -r id; do
     [ -n "$id" ] || continue
     load_pkg "$id"
@@ -1571,6 +1613,21 @@ cmd_search() {
   query="$*"
   [ -n "$query" ] || die "usage: ooonana search QUERY"
   query_lc="$(printf '%s' "$query" | tr '[:upper:]' '[:lower:]')"
+  if [ -f "$CACHE_DIR/index.tsv" ]; then
+    awk -v q="$query_lc" 'BEGIN { FS = "\t"; OFS = "\t" }
+      {
+        haystack = tolower($2 " " $4 " " $5)
+        if (index(haystack, q) && !seen[$2]++) {
+          print $2, $3, $5
+        }
+      }' "$CACHE_DIR/index.tsv" |
+      while IFS='	' read -r id version summary; do
+        [ -n "$id" ] || continue
+        print_pkg_fields_line "$id" "$version" "$(pkg_state "$id")" "$summary"
+      done | sort
+    return 0
+  fi
+
   pkg_ids | while IFS= read -r id; do
     [ -n "$id" ] || continue
     load_pkg "$id"

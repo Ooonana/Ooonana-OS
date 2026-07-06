@@ -105,12 +105,22 @@ if terminal_output gfxterm serial; then
   true
 fi
 function ooonana_progress_bar {
-  echo '[#####-----] booting Ooonana OS'
+  echo '                         [#####-----] booting Ooonana OS'
 }
-clear
-echo 'Ooonana OS'
+function ooonana_show_logo {
+  clear
+  echo ''
+  echo ''
+  if [ -f /boot/grub/ooonana-logo.txt ]; then
+    cat /boot/grub/ooonana-logo.txt
+  else
+    echo '                                  Ooonana OS'
+  fi
+  echo ''
+}
+ooonana_show_logo
 if [ -f /boot/grub/ooonana-logo.txt ]; then
-  cat /boot/grub/ooonana-logo.txt
+  true
 fi
 ooonana_progress_bar
 if [ -f /boot/grub/theme.txt ]; then
@@ -209,7 +219,12 @@ stage_iso_tree() {
   install -m 0644 "$LIVE_INITRAMFS" "$ISO_TREE/boot/live-initramfs.cpio.gz"
   stage_large_file "$LIVE_ROOTFS_IMAGE" "$ISO_TREE/images/ooonana-full-i3-live-rootfs.ext4"
   gzip -n -c "$DISK_IMAGE" > "$ISO_TREE/images/$DISK_IMAGE_STAGED"
-  install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/logo.txt" "$ISO_TREE/boot/grub/ooonana-logo.txt"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    pad=$(( (80 - ${#line}) / 2 ))
+    (( pad < 0 )) && pad=0
+    printf '%*s%s\n' "$pad" '' "$line"
+  done < "$ROOT/packages/ooonana/usr/share/ooonana/logo.txt" > "$ISO_TREE/boot/grub/ooonana-logo.txt"
+  chmod 0644 "$ISO_TREE/boot/grub/ooonana-logo.txt"
   write_rufus_note
   cat > "$ISO_TREE/boot/grub/theme.txt" <<'EOF'
 title-text: "Ooonana OS"

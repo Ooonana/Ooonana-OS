@@ -7,7 +7,8 @@ source "$ROOT/scripts/lib/common.sh"
 
 OUT_DIR="$ROOT/packages/ooonana/usr/lib/ooonana/repo"
 REPO_ARGS=()
-I3_PACKAGES="curl wget ca-certificates python3 py3-pip xorg-server xinit libxcb libxau libxdmcp xf86-video-vesa xf86-video-fbdev xf86-input-libinput xf86-input-evdev eudev i3wm i3status polybar rofi yad hicolor-icon-theme font-awesome-free font-awesome-brands font-misc-misc picom dunst dmenu feh xterm alacritty xsetroot xrandr xinput chromium nemo geany networkmanager networkmanager-cli networkmanager-tui network-manager-applet blueman bluez iproute2 util-linux-misc pulseaudio-utils iw wireless-tools arandr pavucontrol maim mpd mpc ncmpcpp ranger htop vim brightnessctl coreutils parted grub-bios e2fsprogs dosfstools rsync util-linux linux-firmware-intel linux-firmware-rtl_nic linux-firmware-rtw88 linux-firmware-rtw89 linux-firmware-qca"
+DEFAULT_I3_PROFILE="$ROOT/configs/packages/full-i3.list"
+I3_PACKAGES=""
 BRANDING_VERSION="0.1.0"
 
 usage() {
@@ -37,6 +38,13 @@ done
 
 shell_escape() {
   printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+load_default_packages() {
+  [[ -f "$DEFAULT_I3_PROFILE" ]] || ooonana_die "missing package profile: $DEFAULT_I3_PROFILE"
+  sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$DEFAULT_I3_PROFILE" |
+    tr '\n' ' ' |
+    sed 's/[[:space:]]*$//'
 }
 
 write_pkg() {
@@ -108,6 +116,7 @@ main() {
   [[ -f "$ROOT/branding/wallpaper.png" ]] || ooonana_die "missing branding/wallpaper.png"
   [[ -f "$ROOT/branding/i3/config" ]] || ooonana_die "missing branding/i3/config"
   mkdir -p "$OUT_DIR"
+  [[ -n "$I3_PACKAGES" ]] || I3_PACKAGES="$(load_default_packages)"
 
   # shellcheck disable=SC2086
   bash "$ROOT/scripts/import-apk-package.sh" "${REPO_ARGS[@]}" --out-dir "$OUT_DIR" $I3_PACKAGES

@@ -160,6 +160,35 @@ mount -t devtmpfs devtmpfs /dev 2>/dev/null || {
 
 splash_console="/dev/tty1"
 [ -e "$splash_console" ] || splash_console="/dev/console"
+center_line() {
+  text="$1"
+  cols=80
+  len=${#text}
+  pad=$(((cols - len) / 2))
+  [ "$pad" -lt 0 ] && pad=0
+  i=0
+  while [ "$i" -lt "$pad" ]; do
+    printf ' '
+    i=$((i + 1))
+  done
+  printf '%s\n' "$text"
+}
+draw_logo() {
+  if [ -f /usr/share/ooonana/logo.txt ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+      center_line "$line"
+    done < /usr/share/ooonana/logo.txt
+  else
+    center_line 'Ooonana OS'
+    center_line '      __________________'
+    center_line '     |    __      __    |'
+    center_line '     |   /  \    /  \   |'
+    center_line '   / |                  |\'
+    center_line '  /  |     \______/     | \'
+    center_line '     |__________________|'
+    center_line '          |        |'
+  fi
+}
 splash() {
   label="$1"
   step="${2:-0}"
@@ -175,20 +204,10 @@ splash() {
     i=$((i + 1))
   done
   {
-    printf '\033[2J\033[H'
-    printf 'Ooonana OS\n'
-    if [ -f /usr/share/ooonana/logo.txt ]; then
-      cat /usr/share/ooonana/logo.txt
-    else
-      printf '      __________________\n'
-      printf '     |    __      __    |\n'
-      printf '     |   /  \\    /  \\   |\n'
-      printf '   / |                  |\\\n'
-      printf '  /  |     \\______/     | \\\n'
-      printf '     |__________________|\n'
-      printf '          |        |\n'
-    fi
-    printf '\n[%s%s] %s\n' "$filled" "$empty" "$label"
+    printf '\033[2J\033[6;1H'
+    draw_logo
+    printf '\n'
+    center_line "[$filled$empty] $label"
   } >"$splash_console" 2>/dev/null || true
 }
 
