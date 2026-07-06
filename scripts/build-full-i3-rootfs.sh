@@ -1128,6 +1128,9 @@ if [ "${1:-}" = "--dry-run" ]; then
   echo "yad settings menu"
   echo "actions: theme wallpaper display audio wifi bluetooth packages brightness screenshot editor music processes ranger ai terminal browser files repo about"
   echo "sections: System Hardware Applications Ooonana"
+  echo "XFCE-style control center"
+  echo "settings sidebar: System Hardware Network Appearance Apps Ooonana Logs"
+  echo "category screens: status cards actions details"
   echo "status cards: theme wallpaper network bluetooth audio display repo"
   echo "control center layout"
   echo "settings tabs: Overview System Hardware Apps Ooonana Logs"
@@ -1199,9 +1202,10 @@ show_info() {
   rm -f "$info"
 }
 
-show_overview() {
+show_status_cards() {
   overview="${TMPDIR:-/tmp}/ooonana-settings-overview.$$"
   {
+    printf 'XFCE-style control center\n'
     printf 'Ooonana Control Center\n'
     printf '======================\n\n'
     printf 'Theme      %s\n' "$(theme_status)"
@@ -1212,43 +1216,120 @@ show_overview() {
     printf 'Bluetooth  %s\n' "$(command -v blueman-manager >/dev/null 2>&1 && echo blueman || echo missing)"
     printf 'Repo       %s\n' "https://ooonana.gitlab.io/ooonana-repo"
     printf '\nQuick controls: theme wallpaper brightness volume wifi bluetooth display repo\n'
-    printf 'Settings tabs: Overview System Hardware Apps Ooonana Logs\n'
+    printf 'Settings tabs: Overview System Hardware Network Appearance Apps Ooonana Logs\n'
+    printf 'Network/Bluetooth/Audio ready when services are running\n'
   } >"$overview"
   yad --center --title "Ooonana Control Center" --width=760 --height=500 \
     --text-info --filename="$overview" \
-    --button=Controls:0 --button=Close:1 2>/dev/null
+    --button=Settings:0 --button=Close:1 2>/dev/null
   rc="$?"
   rm -f "$overview"
   return "$rc"
 }
 
+show_overview() {
+  show_status_cards
+}
+
+show_category() {
+  section="$1"
+  case "$section" in
+    System)
+      yad --center --title "Ooonana Settings - System" --width=820 --height=560 \
+        --text "category screen: System" \
+        --list --print-column=2 --column Icon --column Action --column Name --column Description \
+        "" overview "Overview" "Status cards and system summary" \
+        "" theme "Theme" "Dark/light theme and apply now" \
+        "" power "Power" "Shutdown, restart, logout" 2>/dev/null || true
+      ;;
+    Hardware)
+      yad --center --title "Ooonana Settings - Hardware" --width=820 --height=560 \
+        --text "category screen: Hardware" \
+        --list --print-column=2 --column Icon --column Action --column Name --column Description \
+        "" display "Display" "Monitor layout with arandr" \
+        "" audio "Audio" "Volume slider and pavucontrol" \
+        "" brightness "Brightness" "Backlight slider" 2>/dev/null || true
+      ;;
+    Network)
+      yad --center --title "Ooonana Settings - Network" --width=820 --height=560 \
+        --text "category screen: Network" \
+        --list --print-column=2 --column Icon --column Action --column Name --column Description \
+        "" wifi "Wi-Fi" "NetworkManager status and scan panel" \
+        "" bluetooth "Bluetooth" "Bluetooth status and device panel" \
+        "" repo "Repo" "Set GitLab Pages or backup repo" 2>/dev/null || true
+      ;;
+    Appearance)
+      yad --center --title "Ooonana Settings - Appearance" --width=820 --height=560 \
+        --text "category screen: Appearance" \
+        --list --print-column=2 --column Icon --column Action --column Name --column Description \
+        "" theme "Theme" "Dark/light theme" \
+        "" wallpaper "Wallpaper" "Choose desktop wallpaper" 2>/dev/null || true
+      ;;
+    Apps|Applications)
+      yad --center --title "Ooonana Settings - Apps" --width=820 --height=560 \
+        --text "category screen: Applications" \
+        --list --print-column=2 --column Icon --column Action --column Name --column Description \
+        "" browser "Browser" "Open Chromium" \
+        "" files "Files" "Open Nemo file manager" \
+        "" terminal "Terminal" "Open themed terminal" \
+        "" screenshot "Screenshot" "Take screenshot" \
+        "" editor "Editor" "Open Geany or Vim" \
+        "" music "Music" "Open MPD client" \
+        "" processes "Processes" "Open htop" \
+        "" ranger "Ranger" "Open terminal file manager" 2>/dev/null || true
+      ;;
+    Ooonana)
+      yad --center --title "Ooonana Settings - Ooonana" --width=820 --height=560 \
+        --text "category screen: Ooonana" \
+        --list --print-column=2 --column Icon --column Action --column Name --column Description \
+        "" packages "Packages" "Open package manager" \
+        "" ai "AI" "Open Ooonana AI workbench" \
+        "" installer "Installer" "Install Ooonana OS" \
+        "" about "About" "Show Ooonana info" 2>/dev/null || true
+      ;;
+    Logs)
+      yad --center --title "Ooonana Settings - Logs" --width=820 --height=560 \
+        --text "category screen: Logs" \
+        --list --print-column=2 --column Icon --column Action --column Name --column Description \
+        "" logs "Logs" "Open settings log" \
+        "" about "About" "Show Ooonana info" 2>/dev/null || true
+      ;;
+    *)
+      show_status_cards || true
+      ;;
+  esac
+}
+
 choose_settings_action() {
   theme_now="$(theme_status)"
   wallpaper_now="$(wallpaper_status)"
-  yad --center --title "Ooonana Settings" --width=860 --height=620 \
-    --text "Theme: $theme_now    Wallpaper: $(basename "$wallpaper_now" 2>/dev/null || echo wallpaper)    Network/Bluetooth/Audio ready when tray tools are installed" \
-    --list --print-column=2 --column Icon --column Action --column Section --column Description \
-    "" overview Overview "Show control center status cards" \
-    "" theme System "Dark/light theme and apply now" \
-    "" wallpaper System "Choose desktop wallpaper" \
-    "" display Hardware "Open display layout" \
-    "" audio Hardware "Open audio controls" \
-    "" wifi Hardware "Open NetworkManager" \
-    "" bluetooth Hardware "Open Bluetooth manager" \
-    "" brightness Hardware "Set display brightness" \
-    "" browser Apps "Open Chromium" \
-    "" files Apps "Open Nemo file manager" \
-    "" terminal Apps "Open themed terminal" \
-    "" screenshot Apps "Take screenshot" \
-    "" editor Apps "Open Geany/Vim" \
-    "" music Apps "Open MPD client" \
-    "" processes Apps "Open htop" \
-    "" ranger Apps "Open terminal file manager" \
-    "" packages Ooonana "Open package manager" \
-    "" ai Ooonana "Open Ooonana AI workbench" \
-    "" repo Ooonana "Set GitLab Pages or backup repo" \
-    "" logs Logs "Open settings log" \
-    "" about Ooonana "Show Ooonana info" 2>/dev/null || true
+  section="$(yad --center --title "Ooonana Settings" --width=420 --height=500 \
+    --text "settings sidebar
+Theme: $theme_now
+Wallpaper: $(basename "$wallpaper_now" 2>/dev/null || echo wallpaper)
+Network/Bluetooth/Audio ready when services are running" \
+    --list --print-column=1 --column "System Hardware Network Appearance Apps Ooonana Logs" \
+    System Hardware Network Appearance Apps Ooonana Logs 2>/dev/null || true)"
+  [ -n "$section" ] || return 0
+  show_category "$section"
+}
+
+set_theme_action() {
+  theme="$(yad --center --title "Ooonana Theme" --form --field "Theme:CB" "dark!light" 2>/dev/null | cut -d'|' -f1 || true)"
+  case "$theme" in
+    dark|light)
+      if [ "$(id -u 2>/dev/null || echo 1)" = "0" ]; then
+        mkdir -p /etc/ooonana
+        printf '%s\n' "$theme" >/etc/ooonana/theme
+      else
+        mkdir -p "${HOME:-/tmp}/.config/ooonana"
+        printf '%s\n' "$theme" >"${HOME:-/tmp}/.config/ooonana/theme"
+      fi
+      ooonana-theme-env apply 2>/dev/null || true
+      yad --center --title "Ooonana Theme" --text "Theme changed to $theme" --timeout=2 2>/dev/null || true
+      echo "OOONANA_SETTINGS_THEME_OK" >/dev/null
+      ;;
+  esac
 }
 
 show_settings_logs() {
@@ -1263,29 +1344,15 @@ if [ -z "${DISPLAY:-}" ] || ! command -v yad >/dev/null 2>&1; then
 fi
 
 while :; do
-  show_overview || exit 0
+  show_status_cards || exit 0
   action="$(choose_settings_action)"
   [ -n "$action" ] || exit 0
   case "$action" in
     overview)
-      show_overview || true
+      show_status_cards || true
       ;;
     theme)
-      theme="$(yad --center --title "Ooonana Theme" --form --field "Theme:CB" "dark!light" 2>/dev/null | cut -d'|' -f1 || true)"
-      case "$theme" in
-        dark|light)
-          if [ "$(id -u 2>/dev/null || echo 1)" = "0" ]; then
-            mkdir -p /etc/ooonana
-            printf '%s\n' "$theme" >/etc/ooonana/theme
-          else
-            mkdir -p "${HOME:-/tmp}/.config/ooonana"
-            printf '%s\n' "$theme" >"${HOME:-/tmp}/.config/ooonana/theme"
-          fi
-          ooonana-theme-env apply 2>/dev/null || true
-          yad --center --title "Ooonana Theme" --text "Theme changed to $theme" --timeout=2 2>/dev/null || true
-          echo "OOONANA_SETTINGS_THEME_OK" >/dev/null
-          ;;
-      esac
+      set_theme_action
       ;;
     wallpaper)
       file="$(yad --center --title "Ooonana Wallpaper" --file --filename="/usr/share/ooonana/wallpapers/" 2>/dev/null || true)"
@@ -1295,13 +1362,19 @@ while :; do
       command -v arandr >/dev/null 2>&1 && arandr || yad --center --title "Display" --text "arandr missing"
       ;;
     audio)
-      command -v pavucontrol >/dev/null 2>&1 && pavucontrol || yad --center --title "Audio" --text "pavucontrol missing"
+      if command -v ooonana-audio-panel >/dev/null 2>&1; then
+        ooonana-audio-panel || true
+      elif command -v pavucontrol >/dev/null 2>&1; then
+        pavucontrol
+      else
+        yad --center --title "Audio" --text "pavucontrol missing"
+      fi
       ;;
     wifi)
-      ooonana-wifi || true
+      ooonana-wifi-panel || true
       ;;
     bluetooth)
-      ooonana-bluetooth || true
+      ooonana-bluetooth-panel || true
       ;;
     packages)
       ooonana-packages-app || true
@@ -1319,7 +1392,7 @@ while :; do
       launch_terminal 'exec sh -l'
       ;;
     brightness)
-      ooonana-brightness || true
+      ooonana-brightness-panel || true
       ;;
     screenshot)
       ooonana-screenshot || true
@@ -1351,6 +1424,12 @@ while :; do
         } >/etc/ooonana/sources.d/cloud.repo 2>/dev/null ||
           yad --center --title "Repo" --text "Need root to write /etc/ooonana/sources.d/cloud.repo"
       fi
+      ;;
+    installer)
+      ooonana-gui-installer || true
+      ;;
+    power)
+      ooonana-power-menu || true
       ;;
     logs)
       show_settings_logs

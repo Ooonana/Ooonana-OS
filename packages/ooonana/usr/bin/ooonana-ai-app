@@ -18,6 +18,9 @@ if [ "${1:-}" = "--dry-run" ]; then
   printf 'gui chat: transcript prompt loop buttons ask status model provider tools clear save close\n'
   printf 'direct gui action: chat opens chat window immediately\n'
   printf 'gui controls: ask form provider/model action launcher desktop-control permissions logs\n'
+  printf 'ChatGPT-style desktop chat\n'
+  printf 'sidebar: New Chat Chat History Tools Tasks Context Provider Permissions Desktop Logs Shell\n'
+  printf 'main pane: provider/model header transcript prompt box\n'
   printf 'OOONANA_AI_CHAT_GUI_OK\n'
   printf 'permissions: shell actions gated; desktop actions explicit; logs: %s\n' "$APP_LOG"
   printf 'OOONANA_AI_APP_GUI_OK\n'
@@ -116,6 +119,68 @@ show_home() {
   return "$rc"
 }
 
+chat_transcript_path() {
+  printf '%s\n' "${OOONANA_AI_CHAT_TRANSCRIPT:-${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/ai-chat-gui.txt}"
+}
+
+ensure_chat_transcript() {
+  transcript="$(chat_transcript_path)"
+  mkdir -p "$(dirname "$transcript")" 2>/dev/null || true
+  if [ ! -f "$transcript" ]; then
+    {
+      printf 'Ooonana AI GUI chat\n'
+      printf '===================\n\n'
+    } >"$transcript"
+  fi
+}
+
+show_chat_home() {
+  tmp="${TMPDIR:-/tmp}/ooonana-ai-chat-home.$$"
+  transcript="$(chat_transcript_path)"
+  ensure_chat_transcript
+  {
+    printf 'ChatGPT-style desktop chat\n'
+    printf 'provider/model header\n'
+    printf '=====================\n'
+    render_status
+    printf '\nchat transcript\n'
+    printf '===============\n'
+    tail -120 "$transcript" 2>/dev/null || printf 'No chat yet.\n'
+    printf '\nprompt box: use Prompt to send a message\n'
+  } >"$tmp"
+  yad --center --title "Ooonana AI" --width=920 --height=640 \
+    --text-info --filename="$tmp" --button=Prompt:0 --button=Sidebar:2 --button=Close:1 2>/dev/null
+  rc="$?"
+  rm -f "$tmp"
+  return "$rc"
+}
+
+show_chat_prompt() {
+  ensure_chat_transcript
+  transcript="$(chat_transcript_path)"
+  prompt="$(yad --center --title "Ooonana AI Prompt" --width=780 --height=260 \
+    --form --text "prompt box" --field="Message:TXT" "" \
+    --button=Cancel:1 --button=Send:0 2>/dev/null || true)"
+  prompt="${prompt%|}"
+  [ -n "$prompt" ] || return 0
+  tmp="${TMPDIR:-/tmp}/ooonana-ai-prompt.$$"
+  {
+    printf '\nYou\n---\n%s\n\nOoonana\n-------\n' "$prompt"
+  } >>"$transcript"
+  log_event "chatgpt-style prompt"
+  if run_ai ask "$prompt" >"$tmp" 2>&1; then
+    cat "$tmp" >>"$transcript"
+  else
+    rc_ai="$?"
+    printf 'command failed: ooonana-ai ask\nexit: %s\n' "$rc_ai" >>"$transcript"
+    cat "$tmp" >>"$transcript" 2>/dev/null || true
+  fi
+  printf '\n' >>"$transcript"
+  yad --center --title "Ooonana AI Response" --width=860 --height=560 \
+    --text-info --filename="$tmp" 2>/dev/null || true
+  rm -f "$tmp"
+}
+
 show_workbench() {
   tmp="${TMPDIR:-/tmp}/ooonana-ai-workbench.$$"
   {
@@ -134,11 +199,13 @@ show_workbench() {
   return "$rc"
 }
 
-choose_action() {
-  yad --center --title "Ooonana AI Actions" --width=780 --height=560 \
+sidebar_action() {
+  yad --center --title "Ooonana AI" --width=480 --height=620 \
+    --text "ai sidebar" \
     --list --print-column=2 --column Icon --column Action --column Group --column Description \
+    "" new Prompt "New Chat" \
+    "" chat Prompt "Chat transcript and prompt box" \
     "" ask Prompt "Ask one prompt from a GUI form" \
-    "" chat Prompt "Open GUI chat" \
     "" status Health "Provider, model, desktop, and health" \
     "" provider-model Config "Show provider and model together" \
     "" tools Tools "Show local tool registry" \
@@ -155,8 +222,12 @@ choose_action() {
     "" shell Terminal "Fallback shell" 2>/dev/null || true
 }
 
+choose_action() {
+  sidebar_action
+}
+
 choose_workbench_action() {
-  choose_action
+  sidebar_action
 }
 
 ask_gui() {
@@ -173,14 +244,8 @@ chat_gui() {
   [ -n "${DISPLAY:-}" ] || return 1
   command -v yad >/dev/null 2>&1 || return 1
 
-  transcript="${OOONANA_AI_CHAT_TRANSCRIPT:-${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/ai-chat-gui.txt}"
-  mkdir -p "$(dirname "$transcript")" 2>/dev/null || true
-  if [ ! -f "$transcript" ]; then
-    {
-      printf 'Ooonana AI GUI chat\n'
-      printf '===================\n\n'
-    } >"$transcript"
-  fi
+  ensure_chat_transcript
+  transcript="$(chat_transcript_path)"
 
   while :; do
     if yad --center --title "Ooonana AI Chat" --width=860 --height=620 \
@@ -329,37 +394,44 @@ open_gui() {
   command -v yad >/dev/null 2>&1 || return 1
 
   while :; do
-    show_workbench
+    show_chat_home
     rc="$?"
     case "$rc" in
       0)
-        chat_gui || open_action_terminal chat || return 1
+        show_chat_prompt
         continue
         ;;
       2)
-        ask_gui
-        continue
-        ;;
-      4)
-        context_gui
-        continue
-        ;;
-      5)
-        permissions_gui
-        continue
-        ;;
-      6)
-        logs_gui
-        continue
+        action="$(sidebar_action)"
+        [ -n "$action" ] || continue
         ;;
       1|252)
         exit 0
         ;;
+      *)
+        action="$(sidebar_action)"
+        [ -n "$action" ] || exit 0
+        ;;
     esac
-    action="$(choose_workbench_action)"
-    [ -n "$action" ] || exit 0
 
     case "$action" in
+      new)
+        transcript="$(chat_transcript_path)"
+        mkdir -p "$(dirname "$transcript")" 2>/dev/null || true
+        {
+          printf 'Ooonana AI GUI chat\n'
+          printf '===================\n\n'
+        } >"$transcript"
+        continue
+        ;;
+      chat)
+        show_chat_home || true
+        continue
+        ;;
+      ask)
+        show_chat_prompt
+        continue
+        ;;
       provider-model)
         provider_model_gui
         ;;
