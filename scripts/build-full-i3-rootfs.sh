@@ -678,45 +678,54 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 command -v ooonana-service-repair >/dev/null 2>&1 && ooonana-service-repair wifi >/dev/null 2>&1 || true
 if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
-  tmp="${TMPDIR:-/tmp}/ooonana-wifi-panel.$$"
   nm_state="$(nmcli -t -f STATE general 2>/dev/null | head -n 1 || true)"
   wifi_radio="$(nmcli -t -f WIFI radio 2>/dev/null | head -n 1 || true)"
   [ -n "$nm_state" ] || nm_state="service not ready"
   [ -n "$wifi_radio" ] || wifi_radio="unknown"
-  {
-    printf 'Ooonana Wi-Fi\n'
-    printf '=============\n'
-    printf 'Service: %s\n' "$nm_state"
-    printf 'Radio:   %s\n' "$wifi_radio"
-    printf '\nNetworkManager\n'
-    printf '==============\n'
-    nmcli general status 2>/dev/null || printf 'NetworkManager is still starting. Use Repair, then Refresh.\n'
-    printf '\nRadio\n'
-    printf '=====\n'
-    nmcli radio all 2>/dev/null || rfkill list 2>/dev/null || cat /sys/class/rfkill/rfkill*/{type,soft,hard} 2>/dev/null || true
-    printf '\n'
-    printf 'Network devices\n'
-    printf '===============\n'
-    nmcli dev status 2>/dev/null || ip addr 2>/dev/null || true
-    printf '\nWi-Fi networks\n'
-    printf '==============\n'
-    nmcli dev wifi list 2>/dev/null || printf 'No scan data yet. Try Repair or check firmware/rfkill.\n'
-  } >"$tmp"
-  if yad --center --title "Ooonana Wi-Fi" --width=620 --height=420 \
-    --image=/usr/share/ooonana/logo.png \
-    --text "Wi-Fi control\nService: $nm_state    Radio: $wifi_radio" \
-    --text-info --filename="$tmp" \
-    --button="Open Editor":0 --button="Terminal UI":2 --button=Repair:3 --button=Refresh:4 --button=Close:1 2>/dev/null; then
-    rc=0
+  needs_repair=0
+  nmcli general status >/dev/null 2>&1 || needs_repair=1
+  device_summary="$(nmcli -t -f DEVICE,TYPE,STATE dev status 2>/dev/null | sed 's/:/ /g' | head -n 3 | tr '\n' '; ' || true)"
+  network_summary="$(nmcli dev wifi list 2>/dev/null | head -n 5 | tr '\n' '; ' || true)"
+  rfkill_summary="$(rfkill list 2>/dev/null | awk 'NR <= 8 { gsub(/^[[:space:]]+/, ""); printf "%s; ", $0 }' || true)"
+  [ -n "$device_summary" ] || device_summary="$(ip -brief addr 2>/dev/null | head -n 3 | tr '\n' '; ' || true)"
+  [ -n "$device_summary" ] || device_summary="no network device data"
+  [ -n "$network_summary" ] || network_summary="no scan data yet"
+  [ -n "$rfkill_summary" ] || rfkill_summary="rfkill unavailable or no block data"
+  if [ "$needs_repair" = "1" ]; then
+    if yad --center --title "Ooonana Wi-Fi" --width=760 --height=500 \
+      --text "Wi-Fi control\nService: $nm_state    Radio: $wifi_radio\nRepair Service means NetworkManager did not answer yet." \
+      --list --print-column=1 --column Action --column Status --column Detail \
+      "Open Editor" "$nm_state" "Open NetworkManager connection editor" \
+      "Scan Networks" "$wifi_radio" "$network_summary" \
+      "Turn Wi-Fi On" "$wifi_radio" "Enable radio and networking" \
+      "Devices" "$nm_state" "$device_summary" \
+      "Radio/RFKill" "$wifi_radio" "$rfkill_summary" \
+      --button="Open Editor":0 --button="Scan Networks":2 --button="Turn Wi-Fi On":5 --button="Repair Service":3 --button=Refresh:4 --button=Close:1 2>/dev/null; then
+      rc=0
+    else
+      rc="$?"
+    fi
   else
-    rc="$?"
+    if yad --center --title "Ooonana Wi-Fi" --width=760 --height=500 \
+      --text "Wi-Fi control\nService: $nm_state    Radio: $wifi_radio" \
+      --list --print-column=1 --column Action --column Status --column Detail \
+      "Open Editor" "$nm_state" "Open NetworkManager connection editor" \
+      "Scan Networks" "$wifi_radio" "$network_summary" \
+      "Turn Wi-Fi On" "$wifi_radio" "Enable radio and networking" \
+      "Devices" "$nm_state" "$device_summary" \
+      "Radio/RFKill" "$wifi_radio" "$rfkill_summary" \
+      --button="Open Editor":0 --button="Scan Networks":2 --button="Turn Wi-Fi On":5 --button=Refresh:4 --button=Close:1 2>/dev/null; then
+      rc=0
+    else
+      rc="$?"
+    fi
   fi
-  rm -f "$tmp"
   case "$rc" in
     0) exec ooonana-wifi ;;
-    2) command -v nmtui >/dev/null 2>&1 && exec ooonana-theme-env xterm -e nmtui ;;
+    2) nmcli dev wifi rescan >/dev/null 2>&1 || true; exec ooonana-wifi-panel ;;
     3) ooonana-service-repair force >/dev/null 2>&1 || true; exec ooonana-wifi-panel ;;
     4) exec ooonana-wifi-panel ;;
+    5) nmcli networking on >/dev/null 2>&1 || true; nmcli radio wifi on >/dev/null 2>&1 || true; exec ooonana-wifi-panel ;;
   esac
   exit 0
 fi
@@ -730,35 +739,47 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 command -v ooonana-service-repair >/dev/null 2>&1 && ooonana-service-repair bluetooth >/dev/null 2>&1 || true
 if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
-  tmp="${TMPDIR:-/tmp}/ooonana-bluetooth-panel.$$"
   bt_state="$(bluetoothctl show 2>/dev/null | awk -F': ' '/Powered/ {print $2; exit}' || true)"
   [ -n "$bt_state" ] || bt_state="service not ready"
-  {
-    printf 'Ooonana Bluetooth\n'
-    printf '=================\n'
-    printf 'Power: %s\n' "$bt_state"
-    printf '\n'
-    printf 'Radio\n'
-    printf '=====\n'
-    rfkill list bluetooth 2>/dev/null || cat /sys/class/rfkill/rfkill*/{type,soft,hard} 2>/dev/null || true
-    printf '\n'
-    printf 'Bluetooth controller\n'
-    printf '====================\n'
-    bluetoothctl show 2>/dev/null || printf 'Bluetooth service is still starting. Use Repair, then Refresh.\n'
-    printf '\nDevices\n'
-    printf '=======\n'
-    bluetoothctl devices 2>/dev/null || true
-  } >"$tmp"
-  if yad --center --title "Ooonana Bluetooth" --width=620 --height=420 \
-    --image=/usr/share/ooonana/logo.png \
-    --text "Bluetooth control\nPower: $bt_state" \
-    --text-info --filename="$tmp" \
-    --button=Manager:0 --button="Power On":2 --button="Power Off":3 --button=Repair:4 --button=Refresh:5 --button=Close:1 2>/dev/null; then
-    rc=0
+  needs_repair=0
+  bluetoothctl show >/dev/null 2>&1 || needs_repair=1
+  controller_summary="$(bluetoothctl show 2>/dev/null | awk -F': ' 'NR <= 12 { gsub(/^[[:space:]]+/, ""); printf "%s; ", $0 }' || true)"
+  device_summary="$(bluetoothctl devices 2>/dev/null | head -n 8 | tr '\n' '; ' || true)"
+  rfkill_summary="$(rfkill list bluetooth 2>/dev/null | awk 'NR <= 8 { gsub(/^[[:space:]]+/, ""); printf "%s; ", $0 }' || true)"
+  [ -n "$controller_summary" ] || controller_summary="controller not ready"
+  [ -n "$device_summary" ] || device_summary="no paired devices listed"
+  [ -n "$rfkill_summary" ] || rfkill_summary="rfkill unavailable or no bluetooth block data"
+  if [ "$needs_repair" = "1" ]; then
+    if yad --center --title "Ooonana Bluetooth" --width=760 --height=500 \
+      --text "Bluetooth control\nPower: $bt_state\nRepair Service means bluetoothd did not answer yet." \
+      --list --print-column=1 --column Action --column Status --column Detail \
+      "Open Manager" "$bt_state" "Open Blueman device manager" \
+      "Power On" "$bt_state" "Enable Bluetooth controller" \
+      "Power Off" "$bt_state" "Disable Bluetooth controller" \
+      "Devices" "$bt_state" "$device_summary" \
+      "Radio/RFKill" "$bt_state" "$rfkill_summary" \
+      "Controller" "$bt_state" "$controller_summary" \
+      --button="Open Manager":0 --button="Power On":2 --button="Power Off":3 --button="Repair Service":4 --button=Refresh:5 --button=Close:1 2>/dev/null; then
+      rc=0
+    else
+      rc="$?"
+    fi
   else
-    rc="$?"
+    if yad --center --title "Ooonana Bluetooth" --width=760 --height=500 \
+      --text "Bluetooth control\nPower: $bt_state" \
+      --list --print-column=1 --column Action --column Status --column Detail \
+      "Open Manager" "$bt_state" "Open Blueman device manager" \
+      "Power On" "$bt_state" "Enable Bluetooth controller" \
+      "Power Off" "$bt_state" "Disable Bluetooth controller" \
+      "Devices" "$bt_state" "$device_summary" \
+      "Radio/RFKill" "$bt_state" "$rfkill_summary" \
+      "Controller" "$bt_state" "$controller_summary" \
+      --button="Open Manager":0 --button="Power On":2 --button="Power Off":3 --button=Refresh:5 --button=Close:1 2>/dev/null; then
+      rc=0
+    else
+      rc="$?"
+    fi
   fi
-  rm -f "$tmp"
   case "$rc" in
     0) exec ooonana-bluetooth ;;
     2) bluetoothctl power on >/dev/null 2>&1 || true ;;
@@ -1180,26 +1201,23 @@ launch_terminal() {
   sh -lc "${1:-exec sh}"
 }
 
-show_info() {
-  info="${TMPDIR:-/tmp}/ooonana-settings-info.$$"
-  {
-    if [ -f /usr/share/ooonana/logo.txt ]; then
-      cat /usr/share/ooonana/logo.txt
-      printf '\n'
-    fi
-    printf 'Ooonana OS\n'
-    printf 'edition: %s\n' "$(cat /etc/ooonana/edition 2>/dev/null || echo full-i3)"
-    printf 'theme: %s\n' "$(theme_status)"
-    printf 'wallpaper: %s\n' "$(wallpaper_status)"
-    printf 'settings: /usr/bin/ooonana-settings\n'
-    printf 'packages: ooonana-packages-app\n'
-    printf 'ai: ooonana-ai-app\n'
-    printf 'network: %s\n' "$(command -v nm-applet >/dev/null 2>&1 && echo NetworkManager || echo basic)"
-    printf 'bluetooth: %s\n' "$(command -v blueman-manager >/dev/null 2>&1 && echo blueman || echo missing)"
-    printf 'audio: %s\n' "$(command -v pavucontrol >/dev/null 2>&1 && echo pavucontrol || echo missing)"
-  } >"$info"
-  yad --center --title "Ooonana OS" --text-info --filename="$info" --width=620 --height=420 2>/dev/null || true
-  rm -f "$info"
+settings_status_text() {
+  wifi_status="service not ready"
+  if command -v nmcli >/dev/null 2>&1; then
+    wifi_status="$(nmcli -t -f STATE general 2>/dev/null | head -n 1 || true)"
+    [ -n "$wifi_status" ] || wifi_status="service not ready"
+  fi
+  bluetooth_status="service not ready"
+  if command -v bluetoothctl >/dev/null 2>&1; then
+    bluetooth_status="$(bluetoothctl show 2>/dev/null | awk -F': ' '/Powered/ {print $2; exit}' || true)"
+    [ -n "$bluetooth_status" ] || bluetooth_status="service not ready"
+  fi
+  printf 'one-window settings hub\n'
+  printf 'Theme: %s\n' "$(theme_status)"
+  printf 'Wallpaper: %s\n' "$(basename "$(wallpaper_status)" 2>/dev/null || echo wallpaper)"
+  printf 'Wi-Fi: %s\n' "$wifi_status"
+  printf 'Bluetooth: %s\n' "$bluetooth_status"
+  printf 'Audio: %s\n' "$(command -v pavucontrol >/dev/null 2>&1 && echo pavucontrol || echo basic)"
 }
 
 show_status_cards() {
@@ -1285,14 +1303,14 @@ show_category() {
         "" packages "Packages" "Open package manager" \
         "" ai "AI" "Open Ooonana AI workbench" \
         "" installer "Installer" "Install Ooonana OS" \
-        "" about "About" "Show Ooonana info" 2>/dev/null || true
+        "" overview "Overview" "Show system status inside Settings" 2>/dev/null || true
       ;;
     Logs)
       yad --center --title "Ooonana Settings - Logs" --width=820 --height=560 \
         --text "category screen: Logs" \
         --list --print-column=2 --column Icon --column Action --column Name --column Description \
         "" logs "Logs" "Open settings log" \
-        "" about "About" "Show Ooonana info" 2>/dev/null || true
+        "" overview "Overview" "Show system status inside Settings" 2>/dev/null || true
       ;;
     *)
       show_status_cards || true
@@ -1301,13 +1319,9 @@ show_category() {
 }
 
 choose_settings_action() {
-  theme_now="$(theme_status)"
-  wallpaper_now="$(wallpaper_status)"
   section="$(yad --center --title "Ooonana Settings" --width=420 --height=500 \
     --text "settings sidebar
-Theme: $theme_now
-Wallpaper: $(basename "$wallpaper_now" 2>/dev/null || echo wallpaper)
-Network/Bluetooth/Audio ready when services are running" \
+$(settings_status_text)" \
     --list --print-column=1 --column "System Hardware Network Appearance Apps Ooonana Logs" \
     System Hardware Network Appearance Apps Ooonana Logs 2>/dev/null || true)"
   [ -n "$section" ] || return 0
@@ -1344,7 +1358,6 @@ if [ -z "${DISPLAY:-}" ] || ! command -v yad >/dev/null 2>&1; then
 fi
 
 while :; do
-  show_status_cards || exit 0
   action="$(choose_settings_action)"
   [ -n "$action" ] || exit 0
   case "$action" in

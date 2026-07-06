@@ -24,6 +24,7 @@ assert_not_contains() {
 [[ -x "$SCRIPT" ]] || fail "missing executable full-i3 rootfs builder"
 script_src="$(<"$SCRIPT")"
 patch_src="$(<"$ROOT/scripts/patch-full-i3-release-ui.sh")"
+full_i3_packages="$(<"$ROOT/configs/packages/full-i3.list")"
 assert_contains "$script_src" 'cp -a "$ROOT/packages/ooonana/." "$ROOTFS/"'
 assert_contains "$script_src" 'cp -a "$REPO/." "$ROOTFS/usr/lib/ooonana/repo/"'
 assert_contains "$script_src" 'ooonana" repo index "$ROOTFS/usr/lib/ooonana/repo"'
@@ -56,6 +57,16 @@ assert_contains "$patch_src" "stage_kernel_override"
 assert_contains "$patch_src" "patch_overlay_root"
 assert_contains "$patch_src" "patch_identity_files"
 assert_contains "$patch_src" "messagebus:x:81:"
+for required_package in \
+  python3 curl wget ca-certificates dbus eudev \
+  networkmanager networkmanager-cli networkmanager-tui network-manager-applet \
+  blueman bluez iw wireless-tools wpa_supplicant wireless-regdb \
+  linux-firmware linux-firmware-i915 linux-firmware-ath10k linux-firmware-ath11k \
+  linux-firmware-ath12k linux-firmware-mediatek linux-firmware-rtw88 \
+  linux-firmware-rtw89 linux-firmware-rtl_bt linux-firmware-rtl_nic \
+  sof-firmware; do
+  assert_contains "$full_i3_packages" "$required_package"
+done
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -373,10 +384,15 @@ wifi_panel="$(<"$rootfs/usr/bin/ooonana-wifi-panel")"
 assert_contains "$wifi_panel" "ooonana-service-repair wifi"
 assert_contains "$wifi_panel" 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
 assert_contains "$wifi_panel" 'yad --center --title "Ooonana Wi-Fi"'
-assert_contains "$wifi_panel" "--width=620 --height=420"
-assert_contains "$wifi_panel" '--button="Open Editor":0'
-assert_contains "$wifi_panel" "--button=Repair:3"
-assert_contains "$wifi_panel" "NetworkManager is still starting. Use Repair, then Refresh."
+assert_contains "$wifi_panel" "--width=760 --height=500"
+assert_contains "$wifi_panel" "--list --print-column=1"
+assert_contains "$wifi_panel" "needs_repair"
+assert_contains "$wifi_panel" "Repair Service"
+assert_contains "$wifi_panel" "Open Editor"
+assert_contains "$wifi_panel" "Scan Networks"
+assert_contains "$wifi_panel" "Turn Wi-Fi On"
+assert_not_contains "$wifi_panel" "--image=/usr/share/ooonana/logo.png"
+assert_not_contains "$wifi_panel" "--text-info --filename="
 assert_contains "$wifi_panel" "nmcli general status"
 assert_contains "$wifi_panel" "rfkill list"
 assert_contains "$wifi_panel" "nmcli dev wifi list"
@@ -387,9 +403,14 @@ bt_panel="$(<"$rootfs/usr/bin/ooonana-bluetooth-panel")"
 assert_contains "$bt_panel" "ooonana-service-repair bluetooth"
 assert_contains "$bt_panel" 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
 assert_contains "$bt_panel" 'yad --center --title "Ooonana Bluetooth"'
-assert_contains "$bt_panel" "--width=620 --height=420"
-assert_contains "$bt_panel" "--button=Repair:4"
-assert_contains "$bt_panel" "Bluetooth service is still starting. Use Repair, then Refresh."
+assert_contains "$bt_panel" "--width=760 --height=500"
+assert_contains "$bt_panel" "--list --print-column=1"
+assert_contains "$bt_panel" "needs_repair"
+assert_contains "$bt_panel" "Repair Service"
+assert_contains "$bt_panel" "Open Manager"
+assert_contains "$bt_panel" "Power On"
+assert_not_contains "$bt_panel" "--image=/usr/share/ooonana/logo.png"
+assert_not_contains "$bt_panel" "--text-info --filename="
 assert_contains "$bt_panel" "rfkill list bluetooth"
 assert_contains "$bt_panel" "bluetoothctl devices"
 hardware_reprobe="$(<"$rootfs/usr/bin/ooonana-hardware-reprobe")"
@@ -448,6 +469,12 @@ assert_contains "$settings_helper" "category screen"
 assert_contains "$settings_helper" "System Hardware Network Appearance Apps Ooonana Logs"
 assert_contains "$settings_helper" "show_category"
 assert_contains "$settings_helper" "show_status_cards"
+assert_contains "$settings_helper" "settings_status_text"
+assert_contains "$settings_helper" "one-window settings hub"
+assert_contains "$settings_helper" 'wifi_status="service not ready"'
+assert_contains "$settings_helper" 'bluetooth_status="service not ready"'
+assert_not_contains "$settings_helper" "show_status_cards || exit 0"
+assert_not_contains "$settings_helper" "show_info()"
 assert_contains "$settings_helper" "ooonana-wifi-panel"
 assert_contains "$settings_helper" "ooonana-bluetooth-panel"
 assert_contains "$settings_helper" "ooonana-brightness-panel"
