@@ -560,6 +560,16 @@ resume_after_extract() {
   build_iso_from_work
 }
 
+resume_after_live_rootfs() {
+  build_payload "$WORK/payload"
+  test -f "$WORK/live-rootfs.ext4" || { printf 'missing live-rootfs.ext4 in %s\n' "$WORK" >&2; exit 1; }
+  test -f "$WORK/disk.raw" || { printf 'missing disk.raw in %s\n' "$WORK" >&2; exit 1; }
+  test -f "$WORK/live-initramfs.cpio.gz" || { printf 'missing live-initramfs.cpio.gz in %s\n' "$WORK" >&2; exit 1; }
+  stage_kernel_override
+  patch_disk_image "$WORK/disk.raw" "$WORK/payload"
+  build_iso_from_work
+}
+
 main() {
   need xorriso
   need debugfs
@@ -583,6 +593,10 @@ main() {
 
   if [ "${1:-}" = "--resume-after-extract" ]; then
     resume_after_extract
+    exit 0
+  fi
+  if [ "${1:-}" = "--resume-after-live-rootfs" ]; then
+    resume_after_live_rootfs
     exit 0
   fi
 

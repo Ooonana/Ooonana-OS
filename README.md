@@ -82,7 +82,7 @@ Get-FileHash -Algorithm SHA256 .\ooonana-full-i3.iso
 Current full-i3 ISO SHA256:
 
 ```text
-462475a0bd4c32e1bb8a8de4859081ed6cceafbccc449bb7397ea1b6ec172729
+1e9f6aeceb6be45f9b2625688275b2b2aa8a24aaaacb4983797344d0ff65eef3
 ```
 
 Minimal scratch installer ISO:
