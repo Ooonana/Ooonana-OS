@@ -21,7 +21,7 @@ IMPORT_APK_SCRIPT="${OOONANA_IMPORT_APK_SCRIPT:-$ROOT/scripts/import-apk-package
 IMPORT_I3_SCRIPT="${OOONANA_IMPORT_I3_SCRIPT:-$ROOT/scripts/import-i3-package-set.sh}"
 KERNEL_PACKAGE_SCRIPT="${OOONANA_KERNEL_PACKAGE_SCRIPT:-$ROOT/scripts/build-kernel-package.sh}"
 CORE_PACKAGE_SCRIPT="${OOONANA_CORE_PACKAGE_SCRIPT:-$ROOT/scripts/build-ooonana-core-package.sh}"
-CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.8.1}"
+CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.8.2}"
 KERNEL_PACKAGE_PATH="${OOONANA_KERNEL_PACKAGE_PATH:-}"
 KERNEL_PACKAGE_URL="${OOONANA_KERNEL_PACKAGE_URL:-}"
 KERNEL_PACKAGE_VERSION="${OOONANA_KERNEL_VERSION:-6.18.37}"
@@ -46,7 +46,7 @@ Options:
   --kernel PATH           Add Ooonana kernel package from local kernel image
   --kernel-url URL        Add Ooonana kernel package from remote kernel image
   --kernel-version VER    Kernel package version (default: 6.18.37)
-  --core-version VER      Ooonana system update package version (default: 0.8.1)
+  --core-version VER      Ooonana system update package version (default: 0.8.2)
   --clean                 Delete output dir before build
   --dry-run               Print resolved build command only
   -h, --help              Show help
