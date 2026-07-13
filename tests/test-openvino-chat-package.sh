@@ -41,17 +41,17 @@ assert_contains "$launcher_text" "--unshare-uts"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-built="$(bash "$BUILDER" --out-dir "$tmp/repo" --version 0.1.0)"
+built="$(bash "$BUILDER" --out-dir "$tmp/repo" --version 0.1.1)"
 assert_contains "$built" "openvino-chat.pkg"
 [[ -f "$tmp/repo/openvino-chat.pkg" ]] || fail "missing package metadata"
-[[ -f "$tmp/repo/archives/openvino-chat-0.1.0.tar.gz" ]] || fail "missing package archive"
+[[ -f "$tmp/repo/archives/openvino-chat-0.1.1.tar.gz" ]] || fail "missing package archive"
 
 metadata="$(<"$tmp/repo/openvino-chat.pkg")"
 assert_contains "$metadata" 'OOONANA_PKG_ID="openvino-chat"'
 assert_contains "$metadata" 'OOONANA_PKG_DEPS="bubblewrap xz curl ca-certificates coreutils"'
 assert_contains "$metadata" "Offline Ooonana AI"
 
-contents="$(tar -tzf "$tmp/repo/archives/openvino-chat-0.1.0.tar.gz")"
+contents="$(tar -tzf "$tmp/repo/archives/openvino-chat-0.1.1.tar.gz")"
 assert_contains "$contents" "./usr/bin/openvino"
 assert_contains "$contents" "./usr/bin/ooonana-openvino-setup"
 assert_contains "$contents" "./usr/lib/ooonana/openvino-chat/src/openvino_chat/cli.py"

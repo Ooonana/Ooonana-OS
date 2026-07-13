@@ -227,9 +227,9 @@ core_builder_dry="$(bash "$CORE_PACKAGER" --dry-run --out-dir /tmp/repo --versio
 assert_contains "$core_builder_dry" "id: ooonana-core"
 assert_contains "$core_builder_dry" "runtime-id: ooonana-core-runtime"
 assert_contains "$core_builder_dry" "version: 0.8.1"
-openvino_builder_dry="$(bash "$OPENVINO_PACKAGER" --dry-run --out-dir /tmp/repo --version 0.1.0)"
+openvino_builder_dry="$(bash "$OPENVINO_PACKAGER" --dry-run --out-dir /tmp/repo --version 0.1.1)"
 assert_contains "$openvino_builder_dry" "id: openvino-chat"
-assert_contains "$openvino_builder_dry" "version: 0.1.0"
+assert_contains "$openvino_builder_dry" "version: 0.1.1"
 cli_dry="$(OOONANA_SOURCE_ROOT="$ROOT" "$ROOT/packages/ooonana/usr/bin/ooonana" repo build --dry-run --package-profile "$CLOUD_PROFILE" nano)"
 assert_contains "$cli_dry" "packages: nano bash curl wget ca-certificates python3 bubblewrap xz"
 
@@ -266,7 +266,7 @@ OOONANA_TEST_ROOT="$ROOT" OOONANA_IMPORT_APK_SCRIPT="$stub" bash "$BUILDER" \
 [[ -f "$tmp/repo/ooonana-core.pkg" ]] || fail "builder missing core meta package"
 [[ -f "$tmp/repo/ooonana-core-runtime.pkg" ]] || fail "builder missing core runtime package"
 [[ -f "$tmp/repo/openvino-chat.pkg" ]] || fail "builder missing OpenVINO Chat package"
-[[ -f "$tmp/repo/archives/openvino-chat-0.1.0.tar.gz" ]] || fail "builder missing OpenVINO Chat archive"
+[[ -f "$tmp/repo/archives/openvino-chat-0.1.1.tar.gz" ]] || fail "builder missing OpenVINO Chat archive"
 assert_contains "$(<"$tmp/repo/ooonana-core.pkg")" 'OOONANA_PKG_DEPS="ooonana-core-runtime"'
 assert_contains "$(<"$tmp/repo/ooonana-core.pkg")" 'OOONANA_PKG_ARCHIVE=""'
 core_runtime_archive="$(find "$tmp/repo/archives" -maxdepth 1 -name 'ooonana-core-runtime-*.tar.gz' -print -quit)"

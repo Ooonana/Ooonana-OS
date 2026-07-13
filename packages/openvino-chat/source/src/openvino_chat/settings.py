@@ -41,7 +41,7 @@ MODEL_DIRS = {
 MODEL_EXPORT_REQUIRED = {
     "glm": "GLM-4.1V-9B-Thinking has no ready OpenVINO snapshot configured; export it with the OpenVINO GLM4V notebook into the glm model path first.",
 }
-DEFAULT_MODEL = "qwen"
+DEFAULT_MODEL = "tiny"
 DEFAULT_REPO_ID = MODEL_REPOS[DEFAULT_MODEL]
 DEFAULT_MODEL_DIR = MODEL_DIRS[DEFAULT_MODEL]
 

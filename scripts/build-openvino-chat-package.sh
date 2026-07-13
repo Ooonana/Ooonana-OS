@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR=""
-VERSION="0.1.0"
+VERSION="0.1.1"
 SOURCE_DIR="${OOONANA_OPENVINO_CHAT_SOURCE:-$ROOT/packages/openvino-chat/source}"
 PAYLOAD_DIR="$ROOT/packages/openvino-chat/rootfs"
 DRY_RUN=0
@@ -16,7 +16,7 @@ Usage:
   scripts/build-openvino-chat-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER      Package version (default: 0.1.0)
+  --version VER      Package version (default: 0.1.1)
   --source-dir PATH  OpenVINO Chat source snapshot
   --dry-run          Print resolved package details
   -h, --help         Show help
