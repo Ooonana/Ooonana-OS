@@ -14,7 +14,7 @@ variables:
   OOONANA_REPO_NAME: "gitlab"
   OOONANA_PAGES_MAX_BYTES: "1073741824"
   OOONANA_KERNEL_VERSION: "6.18.37"
-  OOONANA_CORE_VERSION: "0.8.2"
+  OOONANA_CORE_VERSION: "0.8.3"
   OOONANA_KERNEL_PACKAGE_URL: "https://github.com/Ooonana/Ooonana-OS/releases/download/v0.1.8-ui-hardware/vmlinuz-ooonana"
 
 ci-smoke:

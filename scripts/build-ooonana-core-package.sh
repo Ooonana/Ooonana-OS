@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR=""
-VERSION="0.8.2"
+VERSION="0.8.3"
 DRY_RUN=0
 
 usage() {
@@ -14,7 +14,7 @@ Usage:
   scripts/build-ooonana-core-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER  Package version (default: 0.8.2)
+  --version VER  Package version (default: 0.8.3)
   --dry-run      Print resolved package details
   -h, --help     Show help
 USAGE
@@ -33,13 +33,15 @@ done
 [[ -n "$OUT_DIR" ]] || { printf 'build-ooonana-core-package: --out-dir required\n' >&2; exit 1; }
 [[ "$VERSION" =~ ^[0-9][0-9A-Za-z._+-]*$ ]] || { printf 'build-ooonana-core-package: bad version\n' >&2; exit 1; }
 
-archive_rel="archives/ooonana-core-$VERSION.tar.gz"
+runtime_id="ooonana-core-runtime"
+archive_rel="archives/$runtime_id-$VERSION.tar.gz"
 archive="$OUT_DIR/$archive_rel"
 metadata="$OUT_DIR/ooonana-core.pkg"
+runtime_metadata="$OUT_DIR/$runtime_id.pkg"
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
-  printf 'id: ooonana-core\nversion: %s\noverlay: %s\narchive: %s\n' \
-    "$VERSION" "$ROOT/packages/ooonana" "$archive"
+  printf 'id: ooonana-core\nruntime-id: %s\nversion: %s\noverlay: %s\narchive: %s\n' \
+    "$runtime_id" "$VERSION" "$ROOT/packages/ooonana" "$archive"
   exit 0
 fi
 
@@ -48,17 +50,32 @@ command -v sha256sum >/dev/null 2>&1 || { printf 'missing command: sha256sum\n' 
 [[ -x "$ROOT/packages/ooonana/usr/bin/ooonana" ]] || { printf 'missing Ooonana overlay\n' >&2; exit 1; }
 
 mkdir -p "$OUT_DIR/archives"
-tar -C "$ROOT/packages/ooonana" -czf "$archive" .
+staging="$(mktemp -d)"
+trap 'rm -rf "$staging"' EXIT
+cp -a "$ROOT/packages/ooonana/." "$staging/"
+mkdir -p "$staging/var/lib/ooonana/packages/files"
+: > "$staging/var/lib/ooonana/packages/files/ooonana-core.list"
+tar -C "$staging" -czf "$archive" .
 archive_sha="$(sha256sum "$archive" | awk '{print $1}')"
-cat > "$metadata" <<EOF
-OOONANA_PKG_ID="ooonana-core"
+cat > "$runtime_metadata" <<EOF
+OOONANA_PKG_ID="$runtime_id"
 OOONANA_PKG_VERSION="$VERSION"
 OOONANA_PKG_KIND="archive"
-OOONANA_PKG_SUMMARY="Ooonana OS CLI, desktop apps, services, game, and defaults"
+OOONANA_PKG_SUMMARY="Ooonana OS native CLI, desktop apps, services, game, and defaults"
 OOONANA_PKG_DEPS=""
 OOONANA_PKG_ARCHIVE="$archive_rel"
 OOONANA_PKG_SHA256="$archive_sha"
-OOONANA_PKG_NOTES="Native Ooonana system overlay; archives download only during install or upgrade"
+OOONANA_PKG_NOTES="Native Ooonana system payload; archives download only during install or upgrade"
+EOF
+cat > "$metadata" <<EOF
+OOONANA_PKG_ID="ooonana-core"
+OOONANA_PKG_VERSION="$VERSION"
+OOONANA_PKG_KIND="bundle"
+OOONANA_PKG_SUMMARY="Ooonana OS native system update"
+OOONANA_PKG_DEPS="$runtime_id"
+OOONANA_PKG_ARCHIVE=""
+OOONANA_PKG_SHA256=""
+OOONANA_PKG_NOTES="Stable meta package for migration-safe native Ooonana updates"
 EOF
 
-printf 'built %s\n' "$metadata"
+printf 'built %s\nbuilt %s\n' "$runtime_metadata" "$metadata"

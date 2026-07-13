@@ -46,7 +46,7 @@ export OOONANA_STATE_DIR="$tmp/state"
 export OOONANA_CACHE_DIR="$tmp/cache"
 
 help="$("$CLI" help)"
-assert_contains "$help" "ooonana 0.8.2"
+assert_contains "$help" "ooonana 0.8.3"
 assert_contains "$help" "Usage: ooonana [options] command"
 assert_contains "$help" "Most used commands:"
 assert_contains "$help" "  list - list packages based on names or installed state"
@@ -638,6 +638,38 @@ release_install="$(OOONANA_SOURCES_DIR="$release_sources" \
 assert_contains "$release_install" "unpacked archives/nano-1.0-r0.tar.gz"
 assert_contains "$release_install" "installed nano"
 [[ -x "$release_root/usr/bin/nano" ]] || fail "release tarball package did not install executable"
+
+rm -rf "$http_payload"
+mkdir -p "$http_payload/usr/bin"
+cat > "$http_payload/usr/bin/nano" <<'EOF'
+#!/bin/sh
+echo fake nano v2
+EOF
+chmod +x "$http_payload/usr/bin/nano"
+tar -C "$http_payload" -czf "$http_repo/archives/nano-2.0-r0.tar.gz" .
+http_archive_sha="$(sha256sum "$http_repo/archives/nano-2.0-r0.tar.gz" | awk '{print $1}')"
+cat > "$http_repo/nano.pkg" <<EOF
+OOONANA_PKG_ID="nano"
+OOONANA_PKG_VERSION="2.0-r0"
+OOONANA_PKG_KIND="apk"
+OOONANA_PKG_SUMMARY="Remote nano package"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_ARCHIVE="archives/nano-2.0-r0.tar.gz"
+OOONANA_PKG_SHA256="$http_archive_sha"
+EOF
+"$CLI" repo index "$http_repo" >/dev/null
+OOONANA_SOURCES_DIR="$http_sources" \
+  OOONANA_STATE_DIR="$http_state" \
+  OOONANA_CACHE_DIR="$http_cache" \
+  "$CLI" update >/dev/null
+http_upgrade="$(OOONANA_SOURCES_DIR="$http_sources" \
+  OOONANA_STATE_DIR="$http_state" \
+  OOONANA_CACHE_DIR="$http_cache" \
+  OOONANA_ROOT="$http_install_root" \
+  "$CLI" upgrade nano)"
+assert_contains "$http_upgrade" "upgraded nano 1.0-r0 -> 2.0-r0"
+assert_contains "$($http_install_root/usr/bin/nano)" "fake nano v2"
+[[ -f "$http_cache/repos/cloud/archives/nano-2.0-r0.tar.gz" ]] || fail "remote upgrade did not cache archive"
 
 private_sources="$tmp/private-release-sources"
 private_state="$tmp/private-release-state"

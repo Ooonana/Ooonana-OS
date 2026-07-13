@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-VERSION="0.8.2"
+VERSION="0.8.3"
 HOME_DIR="${HOME:-/root}"
 if [ -n "${OOONANA_AI_CONFIG:-}" ]; then
   AI_CONFIG="$OOONANA_AI_CONFIG"
@@ -1274,12 +1274,7 @@ safe_manifest_entry() {
 
 install_pkg_archive() {
   id="$1"
-  if [ -n "${LOADED_REPO_URI:-}" ]; then
-    case "$OOONANA_PKG_ARCHIVE" in
-      /*) ;;
-      *) remote_repo_cache_file "$LOADED_REPO_NAME" "$LOADED_REPO_URI" "$OOONANA_PKG_ARCHIVE" >/dev/null ;;
-    esac
-  fi
+  ensure_pkg_archive_available
   archive_path="$(pkg_archive_path "$OOONANA_PKG_ARCHIVE")"
   verify_loaded_archive_file
   verify_pkg_archive "$id" "$archive_path"
@@ -1289,6 +1284,16 @@ install_pkg_archive() {
   mkdir -p "$(pkg_files_dir)"
   tar_list_archive "$archive_path" | sed -e 's#^\./##' -e '/^$/d' > "$(pkg_files_manifest "$id")"
   printf 'unpacked %s\n' "$OOONANA_PKG_ARCHIVE"
+}
+
+ensure_pkg_archive_available() {
+  archive_path="$(pkg_archive_path "$OOONANA_PKG_ARCHIVE")"
+  if [ ! -f "$archive_path" ] && [ -n "${LOADED_REPO_URI:-}" ]; then
+    case "$OOONANA_PKG_ARCHIVE" in
+      /*) ;;
+      *) remote_repo_cache_file "$LOADED_REPO_NAME" "$LOADED_REPO_URI" "$OOONANA_PKG_ARCHIVE" >/dev/null ;;
+    esac
+  fi
 }
 
 remove_pkg_archive_files() {
@@ -1870,6 +1875,7 @@ upgrade_one_pkg() {
     return 0
   fi
   if [ "$dry_run" -eq 0 ] && [ -n "$OOONANA_PKG_ARCHIVE" ]; then
+    ensure_pkg_archive_available
     archive_path="$(pkg_archive_path "$OOONANA_PKG_ARCHIVE")"
     verify_pkg_archive "$id" "$archive_path"
     validate_archive_entries "$id" "$archive_path"

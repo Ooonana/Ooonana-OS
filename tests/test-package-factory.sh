@@ -216,6 +216,7 @@ assert_contains "$kernel_builder_dry" "id: ooonana-kernel"
 assert_contains "$kernel_builder_dry" "version: 9.9.9"
 core_builder_dry="$(bash "$CORE_PACKAGER" --dry-run --out-dir /tmp/repo --version 0.8.1)"
 assert_contains "$core_builder_dry" "id: ooonana-core"
+assert_contains "$core_builder_dry" "runtime-id: ooonana-core-runtime"
 assert_contains "$core_builder_dry" "version: 0.8.1"
 cli_dry="$(OOONANA_SOURCE_ROOT="$ROOT" "$ROOT/packages/ooonana/usr/bin/ooonana" repo build --dry-run --package-profile "$CLOUD_PROFILE" nano)"
 assert_contains "$cli_dry" "packages: nano bash curl wget ca-certificates python3"
@@ -250,7 +251,36 @@ OOONANA_TEST_ROOT="$ROOT" OOONANA_IMPORT_APK_SCRIPT="$stub" bash "$BUILDER" \
   --cloud-url https://example.test/repo \
   --clean >/dev/null
 [[ -f "$tmp/repo/nano.pkg" ]] || fail "builder did not run importer"
+[[ -f "$tmp/repo/ooonana-core.pkg" ]] || fail "builder missing core meta package"
+[[ -f "$tmp/repo/ooonana-core-runtime.pkg" ]] || fail "builder missing core runtime package"
+assert_contains "$(<"$tmp/repo/ooonana-core.pkg")" 'OOONANA_PKG_DEPS="ooonana-core-runtime"'
+assert_contains "$(<"$tmp/repo/ooonana-core.pkg")" 'OOONANA_PKG_ARCHIVE=""'
+core_runtime_archive="$(find "$tmp/repo/archives" -maxdepth 1 -name 'ooonana-core-runtime-*.tar.gz' -print -quit)"
+[[ -f "$core_runtime_archive" ]] || fail "builder missing core runtime archive"
+tar -tzf "$core_runtime_archive" | grep 'var/lib/ooonana/packages/files/ooonana-core.list' >/dev/null || fail "core runtime missing legacy manifest guard"
 [[ -f "$tmp/repo/index.tsv" ]] || fail "builder missing index"
+core_upgrade_root="$tmp/core-upgrade-root"
+core_upgrade_state="$core_upgrade_root/var/lib/ooonana/packages"
+mkdir -p "$core_upgrade_root/usr/bin" "$core_upgrade_state/installed" "$core_upgrade_state/files"
+printf 'old core\n' > "$core_upgrade_root/usr/bin/ooonana"
+printf 'usr/bin/ooonana\n' > "$core_upgrade_state/files/ooonana-core.list"
+cat > "$core_upgrade_state/installed/ooonana-core.pkg" <<'EOF'
+OOONANA_PKG_ID="ooonana-core"
+OOONANA_PKG_VERSION="0.8.1"
+OOONANA_PKG_KIND="archive"
+OOONANA_PKG_SUMMARY="Legacy Ooonana core"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_ARCHIVE="archives/ooonana-core-0.8.1.tar.gz"
+OOONANA_PKG_SHA256="legacy"
+EOF
+core_upgrade="$(OOONANA_REPO_DIR="$tmp/repo" \
+  OOONANA_CACHE_DIR="$tmp/core-upgrade-cache" \
+  OOONANA_ROOT="$core_upgrade_root" \
+  "$ROOT/packages/ooonana/usr/bin/ooonana" upgrade ooonana-core)"
+assert_contains "$core_upgrade" "installed ooonana-core-runtime"
+assert_contains "$core_upgrade" "upgraded ooonana-core 0.8.1"
+[[ -x "$core_upgrade_root/usr/bin/ooonana" ]] || fail "core migration removed upgraded CLI"
+assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.8.3"
 assert_contains "$(<"$tmp/repo/cloud.repo")" 'OOONANA_REPO_URI="https://example.test/repo"'
 assert_contains "$(<"$tmp/repo/README.txt")" "ooonana update"
 
