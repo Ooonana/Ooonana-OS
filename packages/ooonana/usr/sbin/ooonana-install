@@ -420,7 +420,7 @@ create_user() {
   local passwd_file="$root/etc/passwd"
   local group_file="$root/etc/group"
   local home_dir="$root/home/$USER_NAME"
-  local uid
+  local uid gid group_name tmp_file
 
   [[ -n "$USER_NAME" ]] || return 0
   valid_user "$USER_NAME" || die "bad user name: $USER_NAME"
@@ -429,15 +429,37 @@ create_user() {
   [[ -f "$passwd_file" ]] || printf 'root:x:0:0:root:/root:/bin/sh\n' > "$passwd_file"
   [[ -f "$group_file" ]] || printf 'root:x:0:\n' > "$group_file"
   if grep -q "^$USER_NAME:" "$passwd_file"; then
+    uid="$(awk -F: -v user="$USER_NAME" '$1 == user { print $3; exit }' "$passwd_file")"
+    gid="$(awk -F: -v user="$USER_NAME" '$1 == user { print $4; exit }' "$passwd_file")"
     printf 'user exists: %s\n' "$USER_NAME"
-    return 0
+  else
+    uid="$(next_uid "$passwd_file")"
+    gid="$uid"
+    printf '%s:x:%s:%s:Ooonana User:/home/%s:/bin/sh\n' "$USER_NAME" "$uid" "$gid" "$USER_NAME" >> "$passwd_file"
+    printf '%s:x:%s:\n' "$USER_NAME" "$gid" >> "$group_file"
+    printf 'user created: %s\n' "$USER_NAME"
   fi
 
-  uid="$(next_uid "$passwd_file")"
-  printf '%s:x:%s:%s:Ooonana User:/home/%s:/bin/sh\n' "$USER_NAME" "$uid" "$uid" "$USER_NAME" >> "$passwd_file"
-  printf '%s:x:%s:\n' "$USER_NAME" "$uid" >> "$group_file"
+  for group_name in wheel audio video input lp netdev plugdev users; do
+    grep -q "^$group_name:" "$group_file" 2>/dev/null || continue
+    tmp_file="$group_file.tmp.$$"
+    awk -F: -v OFS=: -v group_name="$group_name" -v member="$USER_NAME" '
+      $1 == group_name {
+        n = split($4, members, ",")
+        found = 0
+        for (i = 1; i <= n; i++) if (members[i] == member) found = 1
+        if (!found) $4 = ($4 == "" ? member : $4 "," member)
+      }
+      { print }
+    ' "$group_file" > "$tmp_file"
+    mv "$tmp_file" "$group_file"
+  done
+
   chmod 755 "$home_dir" 2>/dev/null || true
-  printf 'user created: %s\n' "$USER_NAME"
+  chown -R "$uid:$gid" "$home_dir" 2>/dev/null || true
+  mkdir -p "$root/etc/ooonana"
+  printf '%s\n' "$USER_NAME" > "$root/etc/ooonana/default-user"
+  printf 'desktop user: %s\n' "$USER_NAME"
 }
 
 hash_password() {

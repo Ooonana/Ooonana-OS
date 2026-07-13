@@ -83,9 +83,10 @@ case "$EDITION" in
     need_contains "$tmp/grub.cfg" "terminal_output gfxterm serial"
     need_contains "$tmp/grub.cfg" "insmod png"
     need_contains "$tmp/grub.cfg" "set theme=/boot/grub/theme.txt"
-    if grep -q 'set gfxmode=\|set gfxpayload=keep\|insmod gfxmenu' "$tmp/grub.cfg"; then
+    if grep -q 'set gfxmode=\|insmod gfxmenu' "$tmp/grub.cfg"; then
       fail "full-i3 GRUB forces graphics mode and can resize VMware display"
     fi
+    need_contains "$tmp/grub.cfg" "set gfxpayload=keep"
     ;;
   minimal)
     need_contains "$tmp/grub.cfg" "terminal_output console serial"

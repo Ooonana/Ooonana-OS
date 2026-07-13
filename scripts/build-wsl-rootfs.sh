@@ -102,8 +102,6 @@ main() {
   tar \
     --sort=name \
     --numeric-owner \
-    --owner=0 \
-    --group=0 \
     --exclude='./dev/*' \
     -C "$ROOTFS" \
     -czf "$TARBALL" \

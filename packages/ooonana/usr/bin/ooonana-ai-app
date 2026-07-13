@@ -24,7 +24,15 @@ if [ "${1:-}" = "--dry-run" ]; then
   printf 'OOONANA_AI_CHAT_GUI_OK\n'
   printf 'permissions: shell actions gated; desktop actions explicit; logs: %s\n' "$APP_LOG"
   printf 'OOONANA_AI_APP_GUI_OK\n'
+  printf 'native GTK chat app: /usr/lib/ooonana/ui/ai_app.py\n'
+  printf 'OOONANA_AI_NATIVE_OK\n'
   exit 0
+fi
+
+NATIVE_APP="/usr/lib/ooonana/ui/ai_app.py"
+if [ -x /usr/bin/python3 ] && [ -f "$NATIVE_APP" ] &&
+  /usr/bin/python3 -c 'import gi; gi.require_version("Gtk", "3.0")' >/dev/null 2>&1; then
+  exec /usr/bin/python3 "$NATIVE_APP" "$@"
 fi
 
 open_xterm() {

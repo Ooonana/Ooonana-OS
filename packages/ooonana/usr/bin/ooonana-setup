@@ -78,12 +78,19 @@ xterm_theme() {
 
 run_gui_setup() {
   if [ "$DRY_RUN" -eq 1 ]; then
-    printf 'yad setup gui\n'
-    printf 'fields: user password network address gateway dns theme cloud-repo done\n'
+    printf 'native GTK setup gui\n'
+    printf 'controls: account password network wifi theme cloud-repo\n'
     printf 'OOONANA_SETUP_GUI_OK\n'
     return 0
   fi
   [ -n "${DISPLAY:-}" ] || return 1
+  native_app="/usr/lib/ooonana/ui/setup_app.py"
+  if have python3 && [ -f "$native_app" ] &&
+    python3 -c 'import gi; gi.require_version("Gtk", "3.0")' >/dev/null 2>&1; then
+    set -- python3 "$native_app"
+    [ "$FIRST_BOOT" -eq 1 ] && set -- "$@" --first-boot
+    exec "$@"
+  fi
   have yad || return 1
 
   default_user="${USER_NAME:-ooonana}"
@@ -201,6 +208,23 @@ next_uid() {
   fi
 }
 
+ensure_user_access() {
+  user="$1"
+  [ "$OOONANA_ROOT" = "/" ] || return 0
+  for group in wheel audio video input lp users netdev plugdev; do
+    grep -q "^$group:" /etc/group 2>/dev/null || continue
+    addgroup "$user" "$group" >/dev/null 2>&1 || true
+  done
+  home_dir="/home/$user"
+  mkdir -p "$home_dir"
+  user_line="$(grep "^$user:" /etc/passwd | head -n 1 || true)"
+  uid="$(printf '%s\n' "$user_line" | cut -d: -f3)"
+  gid="$(printf '%s\n' "$user_line" | cut -d: -f4)"
+  [ -n "$uid" ] && [ -n "$gid" ] && chown -R "$uid:$gid" "$home_dir" 2>/dev/null || true
+  mkdir -p /etc/ooonana
+  printf '%s\n' "$user" > /etc/ooonana/default-user
+}
+
 write_user() {
   [ -n "$USER_NAME" ] || return 0
   valid_user "$USER_NAME" || die "bad user name: $USER_NAME"
@@ -209,7 +233,16 @@ write_user() {
     return 0
   fi
   if user_exists "$USER_NAME"; then
+    ensure_user_access "$USER_NAME"
     printf 'user: %s already exists\n' "$USER_NAME"
+    return 0
+  fi
+
+  if [ "$OOONANA_ROOT" = "/" ] && have adduser; then
+    adduser -D -h "/home/$USER_NAME" -s /bin/sh "$USER_NAME" >/dev/null 2>&1 ||
+      die "could not create user: $USER_NAME"
+    ensure_user_access "$USER_NAME"
+    printf 'user: %s\n' "$USER_NAME"
     return 0
   fi
 
@@ -223,6 +256,9 @@ write_user() {
   printf '%s:x:%s:%s:Ooonana User:/home/%s:/bin/sh\n' "$USER_NAME" "$uid" "$uid" "$USER_NAME" >> "$passwd_file"
   printf '%s:x:%s:\n' "$USER_NAME" "$uid" >> "$group_file"
   chmod 755 "$home_dir" 2>/dev/null || true
+  default_user_file="$(root_join /etc/ooonana/default-user)"
+  mkdir -p "$(dirname "$default_user_file")"
+  printf '%s\n' "$USER_NAME" > "$default_user_file"
   printf 'user: %s\n' "$USER_NAME"
 }
 

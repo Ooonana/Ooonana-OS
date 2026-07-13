@@ -6,6 +6,8 @@ DISK=""
 ISO=""
 MEMORY="2048"
 DRY_RUN=0
+OVMF_MODE=""
+OVMF_VARS_WORK=""
 
 usage() {
   cat <<'USAGE'
@@ -50,7 +52,30 @@ done
 [[ "$DRY_RUN" -eq 1 || -f "$DISK" ]] || die "disk missing: $DISK"
 
 qemu_bios=(qemu-system-x86_64 -m "$MEMORY" -drive "file=$DISK,format=raw,if=virtio" -serial stdio -display none -no-reboot)
-qemu_uefi=(qemu-system-x86_64 -m "$MEMORY" -drive "file=$DISK,format=raw,if=virtio" -bios /usr/share/OVMF/OVMF_CODE.fd -serial stdio -display none -no-reboot)
+qemu_uefi=(qemu-system-x86_64 -m "$MEMORY" -drive "file=$DISK,format=raw,if=virtio" -serial stdio -display none -no-reboot)
+
+if [[ -f /usr/share/ovmf/OVMF.fd ]]; then
+  OVMF_MODE="bios"
+  qemu_uefi+=(-bios /usr/share/ovmf/OVMF.fd)
+elif [[ -f /usr/share/OVMF/OVMF_CODE.fd ]]; then
+  OVMF_MODE="bios"
+  qemu_uefi+=(-bios /usr/share/OVMF/OVMF_CODE.fd)
+elif [[ -f /usr/share/OVMF/OVMF_CODE_4M.fd && -f /usr/share/OVMF/OVMF_VARS_4M.fd ]]; then
+  OVMF_MODE="pflash"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    OVMF_VARS_WORK="/tmp/ooonana-ovmf-vars-4m.fd"
+  else
+    OVMF_VARS_WORK="$(mktemp)"
+    cp /usr/share/OVMF/OVMF_VARS_4M.fd "$OVMF_VARS_WORK"
+    trap 'rm -f "$OVMF_VARS_WORK"' EXIT
+  fi
+  qemu_uefi+=(
+    -drive if=pflash,format=raw,unit=0,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd
+    -drive "if=pflash,format=raw,unit=1,file=$OVMF_VARS_WORK"
+  )
+else
+  qemu_uefi+=(-bios /usr/share/ovmf/OVMF.fd)
+fi
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
   printf '[qemu-bios] '
@@ -73,12 +98,12 @@ printf '[qemu-bios] start\n'
 "${qemu_bios[@]}"
 printf '[qemu-bios] done\n'
 
-if [[ -f /usr/share/OVMF/OVMF_CODE.fd ]]; then
+if [[ -n "$OVMF_MODE" ]]; then
   printf '[qemu-uefi] start\n'
   "${qemu_uefi[@]}"
   printf '[qemu-uefi] done\n'
 else
-  printf '[qemu-uefi] skipped: missing /usr/share/OVMF/OVMF_CODE.fd\n'
+  printf '[qemu-uefi] skipped: no supported OVMF firmware found\n'
 fi
 
 printf 'OOONANA_BOOT_MATRIX_OK\n'

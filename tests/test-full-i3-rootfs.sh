@@ -35,11 +35,28 @@ assert_contains "$script_src" "refresh_gtk_caches()"
 assert_contains "$script_src" 'update-mime-database "$ROOTFS/usr/share/mime"'
 assert_contains "$script_src" "gdk-pixbuf-query-loaders"
 assert_contains "$script_src" "refresh_font_caches()"
+assert_contains "$script_src" 'ln -s python3 "$ROOTFS/usr/bin/python"'
+assert_contains "$script_src" "fix_blueman_activation()"
+assert_contains "$script_src" "sed -i '/^SystemdService=/d'"
+assert_contains "$script_src" "start_blueman_mechanism()"
+assert_contains "$script_src" '/usr/libexec/blueman-mechanism'
+assert_contains "$script_src" 'PRETTY_NAME="Ooonana OS $OS_VERSION"'
 assert_contains "$script_src" "mkfontscale"
 assert_contains "$script_src" "fc-cache -r /usr/share/fonts"
 assert_contains "$patch_src" 'rcS|/etc/init.d/rcS|0100755'
 assert_contains "$patch_src" 'ooonana-hardware-reprobe|/usr/bin/ooonana-hardware-reprobe|0100755'
 assert_contains "$patch_src" 'ooonana-service-repair|/usr/bin/ooonana-service-repair|0100755'
+assert_contains "$patch_src" 'ooonana-run-admin|/usr/bin/ooonana-run-admin|0100755'
+assert_contains "$patch_src" 'ln -s ../run "$mount_dir/var/run"'
+assert_contains "$patch_src" 'write_debugfs_symlink "$image" python3 /usr/bin/python'
+assert_contains "$patch_src" 'org.blueman.Mechanism.service'
+assert_contains "$patch_src" 'installed/ooonana-core.pkg'
+assert_contains "$patch_src" 'start-ooonana-i3|/usr/bin/start-ooonana-i3|0100755'
+assert_contains "$patch_src" 'ooonana-wifi|/usr/bin/ooonana-wifi|0100755'
+assert_contains "$patch_src" 'ooonana-bluetooth|/usr/bin/ooonana-bluetooth|0100755'
+assert_contains "$patch_src" 'ooonana-battery-status|/usr/bin/ooonana-battery-status|0100755'
+assert_contains "$patch_src" 'oonana|/usr/bin/oonana|0100755'
+assert_contains "$patch_src" 'oonana_game.py|/usr/lib/ooonana/oonana_game.py|0100755'
 assert_contains "$patch_src" 'yad-wrapper|/usr/local/bin/yad|0100755'
 assert_contains "$patch_src" 'gtk-settings.ini|/etc/gtk-3.0/settings.ini|0100644'
 assert_contains "$patch_src" 'NetworkManager.conf|/etc/NetworkManager/NetworkManager.conf|0100644'
@@ -56,16 +73,25 @@ assert_contains "$patch_src" "OOONANA_KERNEL_OVERRIDE"
 assert_contains "$patch_src" "stage_kernel_override"
 assert_contains "$patch_src" "patch_overlay_root"
 assert_contains "$patch_src" "patch_identity_files"
+assert_contains "$patch_src" "normalize_ext4_permissions"
+assert_contains "$patch_src" "repair_ext4_image"
+assert_contains "$patch_src" "need e2fsck"
+assert_contains "$patch_src" "doas-6.8.2-r7.apk"
+assert_contains "$patch_src" 'payload/root/etc/doas.conf'
+assert_contains "$patch_src" 'payload/root/etc/os-release'
 assert_contains "$patch_src" "messagebus:x:81:"
 for required_package in \
-  python3 curl wget ca-certificates dbus eudev \
+  python3 curl wget ca-certificates dbus doas py3-gobject3 gtk+3.0 eudev \
   networkmanager networkmanager-cli networkmanager-tui network-manager-applet \
   blueman bluez iw wireless-tools wpa_supplicant wireless-regdb \
   linux-firmware linux-firmware-i915 linux-firmware-ath10k linux-firmware-ath11k \
   linux-firmware-ath12k linux-firmware-mediatek linux-firmware-rtw88 \
   linux-firmware-rtw89 linux-firmware-rtl_bt linux-firmware-rtl_nic \
-  sof-firmware; do
+  sof-firmware pulseaudio font-dejavu; do
   assert_contains "$full_i3_packages" "$required_package"
+done
+for required_runtime_package in networkmanager-wifi networkmanager-bluetooth bluez-btmgmt bluez-hid2hci bluez-obexd pulseaudio pulseaudio-alsa pulseaudio-bluez libnotify xdg-utils; do
+  assert_contains "$full_i3_packages" "$required_runtime_package"
 done
 
 tmp="$(mktemp -d)"
@@ -189,13 +215,18 @@ fi
 [[ -x "$rootfs/usr/bin/ooonana-bluetooth" ]] || fail "missing bluetooth helper"
 [[ -x "$rootfs/usr/bin/ooonana-hardware-reprobe" ]] || fail "missing hardware reprobe helper"
 [[ -x "$rootfs/usr/bin/ooonana-service-repair" ]] || fail "missing service repair helper"
+[[ -x "$rootfs/usr/bin/ooonana-run-admin" ]] || fail "missing admin helper"
+[[ -x "$rootfs/usr/bin/ooonana-apps" ]] || fail "missing app launcher"
 [[ -x "$rootfs/usr/bin/ooonana-rofi-wifi" ]] || fail "missing rofi wifi applet"
 [[ -x "$rootfs/usr/bin/ooonana-rofi-bluetooth" ]] || fail "missing rofi bluetooth applet"
 [[ -x "$rootfs/usr/bin/ooonana-rofi-brightness" ]] || fail "missing rofi brightness applet"
 [[ -x "$rootfs/usr/bin/ooonana-wifi-panel" ]] || fail "missing wifi panel"
+[[ -x "$rootfs/usr/bin/ooonana-wifi-status" ]] || fail "missing wifi panel status"
 [[ -x "$rootfs/usr/bin/ooonana-bluetooth-panel" ]] || fail "missing bluetooth panel"
+[[ -x "$rootfs/usr/bin/ooonana-bluetooth-status" ]] || fail "missing bluetooth panel status"
 [[ -x "$rootfs/usr/bin/ooonana-brightness-panel" ]] || fail "missing brightness panel"
 [[ -x "$rootfs/usr/bin/ooonana-audio-panel" ]] || fail "missing audio panel"
+[[ -x "$rootfs/usr/bin/ooonana-audio-status" ]] || fail "missing audio panel status"
 [[ -x "$rootfs/usr/bin/ooonana-volume" ]] || fail "missing volume helper"
 [[ -x "$rootfs/usr/bin/ooonana-rofi-power" ]] || fail "missing rofi power applet"
 [[ -x "$rootfs/usr/bin/ooonana-power-menu" ]] || fail "missing power menu helper"
@@ -214,6 +245,7 @@ fi
 [[ -x "$rootfs/usr/bin/ooonana-brightness" ]] || fail "missing brightness helper"
 [[ -f "$rootfs/usr/share/ooonana/logo.svg" ]] || fail "missing rootfs logo svg"
 [[ -f "$rootfs/usr/share/ooonana/logo.png" ]] || fail "missing rootfs logo png"
+[[ -f "$rootfs/usr/share/ooonana/boot-logo.txt" ]] || fail "missing rootfs boot logo"
 [[ -f "$rootfs/usr/share/ooonana/wallpapers/ooonana-wallpaper.png" ]] || fail "missing rootfs wallpaper"
 [[ -f "$rootfs/etc/i3/config" ]] || fail "missing rootfs i3 config"
 [[ -f "$rootfs/etc/ooonana/polybar.ini" ]] || fail "missing polybar config"
@@ -226,6 +258,13 @@ fi
 [[ -f "$rootfs/root/.config/gtk-3.0/gtk.css" ]] || fail "missing GTK root CSS"
 [[ -f "$rootfs/etc/NetworkManager/NetworkManager.conf" ]] || fail "missing NetworkManager config"
 [[ -f "$rootfs/etc/bluetooth/main.conf" ]] || fail "missing Bluetooth config"
+[[ -f "$rootfs/etc/doas.d/ooonana.conf" ]] || fail "missing doas policy"
+[[ -f "$rootfs/etc/doas.conf" ]] || fail "missing active doas policy"
+[[ -f "$rootfs/etc/ooonana/default-user" ]] || fail "missing default desktop user"
+[[ -d "$rootfs/home/ooonana" ]] || fail "missing live user home"
+for native_app in common setup_app settings_app wifi_app bluetooth_app packages_app ai_app controls_app launcher_app; do
+  [[ -f "$rootfs/usr/lib/ooonana/ui/$native_app.py" ]] || fail "missing native app: $native_app"
+done
 [[ -f "$rootfs/etc/neofetch/config.conf" ]] || fail "missing neofetch config"
 [[ -f "$rootfs/etc/X11/xorg.conf.d/10-ooonana-input.conf" ]] || fail "missing Xorg input config"
 [[ -f "$rootfs/usr/share/ooonana/xorg-fbdev.conf" ]] || fail "missing Xorg fbdev template"
@@ -234,8 +273,11 @@ fi
 [[ -f "$rootfs/usr/share/applications/ooonana-packages.desktop" ]] || fail "missing package app desktop entry"
 [[ -f "$rootfs/usr/share/applications/ooonana-setup.desktop" ]] || fail "missing setup desktop entry"
 [[ -f "$rootfs/usr/share/applications/ooonana-settings.desktop" ]] || fail "missing settings desktop entry"
+[[ -f "$rootfs/usr/share/applications/ooonana-apps.desktop" ]] || fail "missing app launcher desktop entry"
 [[ -f "$rootfs/usr/share/applications/oonana.desktop" ]] || fail "missing game desktop entry"
 [[ -d "$rootfs/var/log" ]] || fail "missing var log for Xorg"
+[[ -L "$rootfs/var/run" ]] || fail "var/run must point at runtime tmpfs"
+[[ "$(readlink "$rootfs/var/run")" == "../run" ]] || fail "var/run must point to ../run"
 [[ "$(readlink "$rootfs/bin/mkdir")" == "busybox" ]] || fail "init mkdir must use busybox"
 [[ "$(readlink "$rootfs/bin/cat")" == "busybox" ]] || fail "init cat must use busybox"
 [[ "$(readlink "$rootfs/bin/sleep")" == "busybox" ]] || fail "init sleep must use busybox"
@@ -245,7 +287,17 @@ assert_contains "$(<"$rootfs/etc/group")" "input:x:97:"
 assert_contains "$(<"$rootfs/etc/group")" "tape:x:26:"
 assert_contains "$(<"$rootfs/etc/group")" "kvm:x:34:"
 assert_contains "$(<"$rootfs/etc/group")" "messagebus:x:81:"
+assert_contains "$(<"$rootfs/etc/group")" "wheel:x:10:ooonana"
+assert_contains "$(<"$rootfs/etc/group")" "audio:x:29:ooonana"
+assert_contains "$(<"$rootfs/etc/group")" "video:x:44:ooonana"
+assert_contains "$(<"$rootfs/etc/passwd")" "ooonana:x:1000:1000:Ooonana Live User:/home/ooonana:/bin/sh"
 assert_contains "$(<"$rootfs/etc/passwd")" "messagebus:x:81:81:DBus Message Bus:/run/dbus:/bin/false"
+assert_contains "$(<"$rootfs/etc/doas.d/ooonana.conf")" "permit nopass keepenv :wheel"
+assert_contains "$(<"$rootfs/etc/doas.conf")" "permit nopass keepenv :wheel"
+assert_contains "$(<"$rootfs/etc/wsl.conf")" "default=ooonana"
+assert_contains "$(<"$rootfs/etc/wsl.conf")" "mountFsTab=false"
+assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS 0.1.8"'
+[[ "$(<"$rootfs/etc/ooonana/default-user")" == "ooonana" ]] || fail "wrong default desktop user"
 [[ -s "$rootfs/etc/machine-id" ]] || fail "missing machine-id"
 [[ -s "$rootfs/var/lib/dbus/machine-id" ]] || fail "missing dbus machine-id"
 assert_contains "$(<"$rootfs/etc/hosts")" "127.0.0.1 localhost ooonana"
@@ -272,6 +324,7 @@ assert_contains "$start_script" "ooonana-i3-session"
 assert_contains "$start_script" "WSL_DISTRO_NAME"
 assert_contains "$start_script" "grep -qi microsoft /proc/version"
 assert_contains "$start_script" 'exec /usr/bin/ooonana-i3-session'
+assert_contains "$start_script" 'exec startx /usr/bin/ooonana-i3-session --user "$SESSION_USER"'
 assert_contains "$start_script" 'HOME="/root"'
 assert_contains "$start_script" 'touch "$HOME/.Xauthority"'
 assert_contains "$start_script" 'exec /bin/sh -l'
@@ -291,7 +344,11 @@ assert_contains "$i3_smoke_session" "exec i3"
 
 i3_session="$(<"$rootfs/usr/bin/ooonana-i3-session")"
 assert_contains "$i3_session" "ooonana-setup --first-boot --gui"
-assert_contains "$i3_session" "/var/log/ooonana-setup.log"
+assert_contains "$i3_session" "setup.log"
+assert_contains "$i3_session" '/bin/busybox su -m -s /bin/sh'
+assert_contains "$i3_session" 'XDG_RUNTIME_DIR="/run/user/$desktop_uid"'
+assert_contains "$i3_session" "--user-session"
+assert_contains "$i3_session" "pulseaudio --start"
 assert_contains "$i3_session" "ooonana-theme-env apply"
 assert_contains "$i3_session" "dbus-run-session"
 assert_contains "$i3_session" "OOONANA_DBUS_SESSION"
@@ -312,8 +369,11 @@ assert_contains "$i3_config" "picom --config /etc/ooonana/picom.conf"
 assert_contains "$i3_config" "dunst -config /etc/ooonana/dunstrc"
 assert_contains "$i3_config" "xsettingsd -c /etc/ooonana/xsettingsd.conf"
 assert_contains "$i3_config" "[ -S /run/dbus/system_bus_socket ] && nm-applet --indicator"
-assert_contains "$i3_config" "[ -S /run/dbus/system_bus_socket ] && blueman-applet"
+assert_contains "$i3_config" "ls /sys/class/bluetooth/hci*"
+assert_contains "$i3_config" "then blueman-applet"
 assert_contains "$i3_config" "rofi -show drun -theme /etc/ooonana/rofi.rasi"
+assert_contains "$i3_config" 'bindsym $mod+d exec ooonana-apps'
+assert_contains "$i3_config" 'bindsym $mod+Shift+d exec'
 assert_contains "$i3_config" 'bindsym $mod+Shift+f exec ooonana-files'
 assert_contains "$i3_config" 'bindsym $mod+Shift+w exec ooonana-browser'
 assert_contains "$i3_config" 'bindsym $mod+n exec ooonana-wifi'
@@ -368,7 +428,8 @@ assert_contains "$yad_wrapper" "ooonana-theme-env env"
 assert_contains "$yad_wrapper" "--window-icon=/usr/share/ooonana/logo.png"
 
 assert_contains "$(<"$rootfs/etc/gtk-3.0/settings.ini")" "gtk-application-prefer-dark-theme=true"
-assert_contains "$(<"$rootfs/root/.config/gtk-3.0/gtk.css")" "button { background: #1a2029"
+assert_contains "$(<"$rootfs/root/.config/gtk-3.0/gtk.css")" "button { background: #171e27"
+assert_contains "$(<"$rootfs/root/.config/gtk-3.0/gtk.css")" "headerbar"
 assert_contains "$(<"$rootfs/etc/NetworkManager/NetworkManager.conf")" "wifi.scan-rand-mac-address=no"
 assert_contains "$(<"$rootfs/etc/bluetooth/main.conf")" "AutoEnable = true"
 
@@ -377,12 +438,14 @@ assert_contains "$browser_helper" "chromium --no-first-run"
 files_helper="$(<"$rootfs/usr/bin/ooonana-files")"
 assert_contains "$files_helper" 'exec nemo "$path"'
 wifi_helper="$(<"$rootfs/usr/bin/ooonana-wifi")"
+assert_contains "$wifi_helper" 'exec ooonana-wifi-panel "$@"'
 assert_contains "$wifi_helper" "ooonana-service-repair wifi"
 assert_contains "$wifi_helper" "nm-connection-editor"
 assert_contains "$wifi_helper" "nmtui"
 wifi_panel="$(<"$rootfs/usr/bin/ooonana-wifi-panel")"
 assert_contains "$wifi_panel" "ooonana-service-repair wifi"
 assert_contains "$wifi_panel" 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+assert_contains "$wifi_panel" "/usr/lib/ooonana/ui/wifi_app.py"
 assert_contains "$wifi_panel" 'yad --center --title "Ooonana Wi-Fi"'
 assert_contains "$wifi_panel" "--width=760 --height=500"
 assert_contains "$wifi_panel" "--list --print-column=1"
@@ -397,11 +460,13 @@ assert_contains "$wifi_panel" "nmcli general status"
 assert_contains "$wifi_panel" "rfkill list"
 assert_contains "$wifi_panel" "nmcli dev wifi list"
 bt_helper="$(<"$rootfs/usr/bin/ooonana-bluetooth")"
+assert_contains "$bt_helper" 'exec ooonana-bluetooth-panel "$@"'
 assert_contains "$bt_helper" "ooonana-service-repair bluetooth"
 assert_contains "$bt_helper" "blueman-manager"
 bt_panel="$(<"$rootfs/usr/bin/ooonana-bluetooth-panel")"
 assert_contains "$bt_panel" "ooonana-service-repair bluetooth"
 assert_contains "$bt_panel" 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+assert_contains "$bt_panel" "/usr/lib/ooonana/ui/bluetooth_app.py"
 assert_contains "$bt_panel" 'yad --center --title "Ooonana Bluetooth"'
 assert_contains "$bt_panel" "--width=760 --height=500"
 assert_contains "$bt_panel" "--list --print-column=1"
@@ -417,24 +482,32 @@ hardware_reprobe="$(<"$rootfs/usr/bin/ooonana-hardware-reprobe")"
 assert_contains "$hardware_reprobe" "rfkill unblock all"
 assert_contains "$hardware_reprobe" "/sys/class/rfkill"
 assert_contains "$hardware_reprobe" "iwlwifi"
+assert_contains "$hardware_reprobe" 'if [ "$force" -eq 1 ]; then'
 assert_contains "$hardware_reprobe" "btusb"
 assert_contains "$hardware_reprobe" "udevadm trigger"
 service_repair="$(<"$rootfs/usr/bin/ooonana-service-repair")"
 assert_contains "$service_repair" 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+assert_contains "$service_repair" 'exec ooonana-run-admin "$0" "$@"'
 assert_contains "$service_repair" "dbus-daemon --system"
 assert_contains "$service_repair" "network_manager_daemon()"
 assert_contains "$service_repair" "/usr/sbin/NetworkManager"
 assert_contains "$service_repair" "--address=unix:path=/run/dbus/system_bus_socket"
+assert_contains "$service_repair" "system D-Bus unavailable"
+assert_contains "$service_repair" "device_manager_running()"
+assert_contains "$service_repair" "/run/udev/control"
 assert_contains "$service_repair" "bluetooth_daemon"
 assert_contains "$service_repair" "/usr/lib/bluetooth/bluetoothd"
 assert_contains "$service_repair" '"$nm_daemon" --no-daemon'
 assert_contains "$service_repair" '"$bt_daemon" -n'
 assert_contains "$service_repair" "nmcli radio wifi on"
 assert_contains "$service_repair" "bluetoothctl power on"
+assert_contains "$service_repair" "btmgmt power on"
 settings_helper="$(<"$rootfs/usr/bin/ooonana-settings")"
 settings_launcher="$(<"$rootfs/usr/bin/ooonana-settings-launch")"
 assert_contains "$settings_helper" "yad --center --title \"Ooonana Settings\""
 assert_contains "$settings_helper" "OOONANA_SETTINGS_GUI_OK"
+assert_contains "$settings_helper" "/usr/lib/ooonana/ui/settings_app.py"
+assert_contains "$settings_helper" "OOONANA_SETTINGS_NATIVE_OK"
 assert_contains "$settings_helper" "OOONANA_SETTINGS_THEME_OK"
 assert_contains "$settings_helper" "theme_status"
 assert_contains "$settings_helper" "icon grid"
@@ -511,6 +584,16 @@ assert_contains "$brightness_panel" "--min-value=0 --max-value=100"
 audio_panel="$(<"$rootfs/usr/bin/ooonana-audio-panel")"
 assert_contains "$audio_panel" 'yad --scale --title "Sound"'
 assert_contains "$audio_panel" "pactl set-sink-volume"
+audio_status="$(<"$rootfs/usr/bin/ooonana-audio-status")"
+assert_contains "$audio_status" "pactl get-sink-volume"
+assert_contains "$audio_status" "amixer get Master"
+wifi_status="$(<"$rootfs/usr/bin/ooonana-wifi-status")"
+assert_contains "$wifi_status" "nmcli -t -f WIFI radio"
+bt_status="$(<"$rootfs/usr/bin/ooonana-bluetooth-status")"
+assert_contains "$bt_status" "bluetoothctl show"
+battery_status="$(<"$rootfs/usr/bin/ooonana-battery-status")"
+assert_contains "$battery_status" "printf '%b %s%%"
+assert_contains "$bt_status" '2>/dev/null | awk'
 brightness_status="$(<"$rootfs/usr/bin/ooonana-brightness-status")"
 assert_contains "$brightness_status" "brightnessctl -m"
 assert_contains "$brightness_status" ""
@@ -532,7 +615,8 @@ assert_contains "$(<"$rootfs/usr/share/applications/oonana.desktop")" "Exec=oona
 polybar_cfg="$(<"$rootfs/etc/ooonana/polybar.ini")"
 assert_contains "$polybar_cfg" "Ooonana OS"
 assert_contains "$polybar_cfg" "#ffb21a"
-assert_contains "$polybar_cfg" "#10141a"
+assert_contains "$polybar_cfg" "#080a0d"
+assert_contains "$polybar_cfg" "modules-left = brand workspaces"
 assert_contains "$polybar_cfg" "font-1 = \"Font Awesome"
 assert_contains "$polybar_cfg" "Font Awesome 6 Brands"
 assert_contains "$polybar_cfg" "[module/brand]"
@@ -549,8 +633,11 @@ assert_contains "$polybar_cfg" "click-left = i3-msg move scratchpad"
 assert_contains "$polybar_cfg" "click-right = i3-msg scratchpad show"
 assert_contains "$polybar_cfg" "[module/win-full]"
 assert_contains "$polybar_cfg" "click-left = i3-msg fullscreen toggle"
-assert_contains "$polybar_cfg" "modules-left = brand terminal browser files editor media win-close win-min win-full title"
-assert_contains "$polybar_cfg" "modules-right = audio brightness battery bluetooth network wifi date power"
+assert_contains "$polybar_cfg" "modules-left = brand workspaces terminal browser files editor media title win-min win-full win-close"
+assert_contains "$polybar_cfg" "modules-right = audio brightness battery bluetooth wifi date power"
+assert_contains "$polybar_cfg" "exec = ooonana-audio-status"
+assert_contains "$polybar_cfg" "exec = ooonana-wifi-status"
+assert_contains "$polybar_cfg" "exec = ooonana-bluetooth-status"
 assert_contains "$polybar_cfg" "tray-position = right"
 assert_contains "$polybar_cfg" "wm-restack = i3"
 assert_contains "$polybar_cfg" "content = Ooonana"
@@ -560,25 +647,26 @@ assert_contains "$polybar_cfg" "content = "
 assert_contains "$polybar_cfg" "content = "
 assert_contains "$polybar_cfg" "content = "
 assert_contains "$polybar_cfg" "[module/wifi]"
-assert_contains "$polybar_cfg" "content = "
+assert_contains "$polybar_cfg" "exec = ooonana-wifi-status"
 assert_contains "$polybar_cfg" "click-left = ooonana-wifi-panel"
 assert_contains "$polybar_cfg" "[module/bluetooth]"
-assert_contains "$polybar_cfg" "content = "
+assert_contains "$polybar_cfg" "exec = ooonana-bluetooth-status"
 assert_contains "$polybar_cfg" "click-left = ooonana-bluetooth-panel"
 assert_contains "$polybar_cfg" "[module/audio]"
-assert_contains "$polybar_cfg" "format-volume =  <label-volume>"
+assert_contains "$polybar_cfg" "exec = ooonana-audio-status"
 assert_contains "$polybar_cfg" "click-left = ooonana-audio-panel"
 assert_contains "$polybar_cfg" "[module/brightness]"
 assert_contains "$polybar_cfg" "exec = ooonana-brightness-status"
 assert_contains "$polybar_cfg" "click-left = ooonana-brightness-panel"
 assert_contains "$polybar_cfg" "[module/power]"
-assert_contains "$polybar_cfg" "content = ⏻"
+assert_contains "$polybar_cfg" "content = "
 assert_contains "$polybar_cfg" "click-left = ooonana-power-menu"
 assert_contains "$polybar_cfg" "label = %time%"
 
 i3_keycodes="$(<"$rootfs/etc/i3/config.keycodes")"
 assert_contains "$i3_keycodes" "Ooonana OS"
 assert_contains "$i3_keycodes" "[ -S /run/dbus/system_bus_socket ] && nm-applet"
+assert_contains "$i3_keycodes" "ls /sys/class/bluetooth/hci*"
 assert_not_contains "$i3_keycodes" "exec --no-startup-id nm-applet"
 assert_contains "$(<"$rootfs/etc/xdg/autostart/nm-applet.desktop")" "Hidden=true"
 assert_contains "$(<"$rootfs/etc/xdg/autostart/blueman.desktop")" "Hidden=true"
@@ -624,6 +712,7 @@ assert_contains "$installer_gui" "--format-efi"
 assert_contains "$installer_gui" "OOONANA_INSTALLER_GUI_OK"
 assert_contains "$installer_gui" "OOONANA_INSTALL_ALLOW_ROOT_TARGET"
 assert_contains "$installer_gui" "Target looks like the current root disk"
+assert_contains "$installer_gui" 'set -- ooonana-run-admin "$@"'
 
 install_wizard="$(<"$rootfs/usr/bin/ooonana-install-wizard")"
 assert_contains "$install_wizard" "Step 1/8: Target disk"
@@ -646,6 +735,7 @@ assert_contains "$install_wizard" "--cloud-repo"
 assert_contains "$install_wizard" "OOONANA_INSTALL_ALLOW_ROOT_TARGET"
 assert_contains "$install_wizard" "/usr/sbin/ooonana-install --target"
 assert_contains "$install_wizard" "/var/log/ooonana-install-wizard.log"
+assert_contains "$install_wizard" 'set -- ooonana-run-admin "$@"'
 
 wizard_dry="$("$rootfs/usr/bin/ooonana-install-wizard" --dry-run --target /dev/vdb --source / --user ryan --hostname ooonana-lab --theme dark --cloud-repo https://example.test/repo)"
 assert_contains "$wizard_dry" "Step 1/8 choose target disk: /dev/vdb"
@@ -656,7 +746,8 @@ assert_contains "$wizard_dry" "Step 5/8 choose package repo: https://example.tes
 assert_contains "$wizard_dry" "Step 6/8 choose source root: /"
 assert_contains "$wizard_dry" "Step 7/8 confirm erase: INSTALL"
 assert_contains "$wizard_dry" "Step 8/8 install, log, reboot"
-assert_contains "$wizard_dry" "Progress log: /var/log/ooonana-install-wizard.log"
+assert_contains "$wizard_dry" "Progress log: "
+assert_contains "$wizard_dry" "ooonana/install-wizard.log"
 assert_contains "$wizard_dry" "/usr/sbin/ooonana-install --target /dev/vdb --source / --hostname ooonana-lab --user ryan --theme dark --cloud-repo https://example.test/repo --yes"
 assert_contains "$wizard_dry" "OOONANA_INSTALL_WIZARD_OK"
 
@@ -682,18 +773,22 @@ assert_contains "$settings_dry" "XFCE-style control center"
 assert_contains "$settings_dry" "settings sidebar: System Hardware Network Appearance Apps Ooonana Logs"
 assert_contains "$settings_dry" "category screens: status cards actions details"
 assert_contains "$settings_dry" "OOONANA_SETTINGS_GUI_OK"
+assert_contains "$settings_dry" "OOONANA_SETTINGS_NATIVE_OK"
 settings_launch_dry="$("$rootfs/usr/bin/ooonana-settings-launch" --dry-run)"
 assert_contains "$settings_launch_dry" "OOONANA_SETTINGS_LAUNCH_OK"
 packages_dry="$("$rootfs/usr/bin/ooonana-packages-app" --dry-run)"
 assert_contains "$packages_dry" "yad packages app"
 assert_contains "$packages_dry" "actions: update search install remove upgrade sources doctor"
 assert_contains "$packages_dry" "OOONANA_PACKAGES_APP_OK"
+assert_contains "$packages_dry" "OOONANA_PACKAGES_NATIVE_OK"
 packages_alias_dry="$("$rootfs/usr/bin/ooonana-packages" --dry-run)"
 assert_contains "$packages_alias_dry" "OOONANA_PACKAGES_APP_OK"
 
 rcs="$(<"$rootfs/etc/init.d/rcS")"
 assert_contains "$rcs" "Ooonana full i3 rootfs"
 assert_contains "$rcs" "mount -t devpts devpts /dev/pts"
+assert_contains "$rcs" "mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /dev/shm"
+assert_contains "$rcs" "ln -s /run /var/run"
 assert_contains "$rcs" "read -r host </etc/hostname"
 assert_contains "$rcs" "start_device_manager()"
 assert_contains "$rcs" "udevd --daemon"
@@ -703,10 +798,11 @@ assert_contains "$rcs" "mdev -s"
 assert_contains "$rcs" "start_system_services()"
 assert_contains "$rcs" "ooonana-service-repair boot"
 assert_contains "$rcs" "messagebus:x:81:"
-assert_contains "$rcs" "chmod 0777 /run/dbus"
+assert_contains "$rcs" "chmod 0755 /run/dbus"
 assert_contains "$rcs" "dbus-uuidgen"
 assert_contains "$rcs" "/etc/machine-id"
 assert_contains "$rcs" "dbus-daemon --system --fork --nopidfile"
+assert_contains "$rcs" "test -S /run/dbus/system_bus_socket"
 assert_contains "$rcs" "NetworkManager --no-daemon"
 assert_contains "$rcs" "bluetoothd"
 assert_contains "$rcs" "start_network_fallback()"
@@ -724,6 +820,7 @@ assert_contains "$rcs" "update-mime-database /usr/share/mime"
 assert_contains "$rcs" "gdk-pixbuf-query-loaders"
 assert_contains "$rcs" "loaders.cache"
 assert_contains "$rcs" "/usr/bin/start-ooonana-i3"
+assert_contains "$rcs" '/usr/bin/start-ooonana-i3 --user "$desktop_user"'
 assert_contains "$rcs" "OOONANA_FULL_I3_FAIL"
 assert_contains "$rcs" "OOONANA_BOOT_OK"
 assert_contains "$rcs" "OOONANA_DOWNLOADERS_OK"

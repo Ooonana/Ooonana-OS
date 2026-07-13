@@ -99,15 +99,15 @@ fi
 serial --unit=0 --speed=115200
 terminal_input console serial
 terminal_output console serial
+terminal_output gfxterm serial
 set color_normal=yellow/black
 set color_highlight=black/yellow
-if terminal_output gfxterm serial; then
-  true
-fi
 function ooonana_progress_bar {
   echo '                         [#####-----] booting Ooonana OS'
 }
 function ooonana_show_logo {
+  set color_normal=yellow/black
+  export color_normal
   clear
   echo ''
   echo ''
@@ -127,6 +127,7 @@ if [ -f /boot/grub/theme.txt ]; then
   set theme=/boot/grub/theme.txt
   export theme
 fi
+set gfxpayload=keep
 set timeout_style=menu
 set timeout=5
 set default=$default_entry
@@ -223,7 +224,7 @@ stage_iso_tree() {
     pad=$(( (80 - ${#line}) / 2 ))
     (( pad < 0 )) && pad=0
     printf '%*s%s\n' "$pad" '' "$line"
-  done < "$ROOT/packages/ooonana/usr/share/ooonana/logo.txt" > "$ISO_TREE/boot/grub/ooonana-logo.txt"
+  done < "$ROOT/packages/ooonana/usr/share/ooonana/boot-logo.txt" > "$ISO_TREE/boot/grub/ooonana-logo.txt"
   chmod 0644 "$ISO_TREE/boot/grub/ooonana-logo.txt"
   write_rufus_note
   cat > "$ISO_TREE/boot/grub/theme.txt" <<'EOF'

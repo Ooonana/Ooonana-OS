@@ -86,6 +86,9 @@ main() {
   if [[ -f "$ROOTFS/usr/share/ooonana/logo.txt" ]]; then
     install -m 0644 "$ROOTFS/usr/share/ooonana/logo.txt" "$LIVE_INIT_TREE/usr/share/ooonana/logo.txt"
   fi
+  if [[ -f "$ROOTFS/usr/share/ooonana/boot-logo.txt" ]]; then
+    install -m 0644 "$ROOTFS/usr/share/ooonana/boot-logo.txt" "$LIVE_INIT_TREE/usr/share/ooonana/boot-logo.txt"
+  fi
   if [[ -f "$ROOTFS/lib/ld-musl-x86_64.so.1" ]]; then
     install -m 0755 "$ROOTFS/lib/ld-musl-x86_64.so.1" "$LIVE_INIT_TREE/lib/ld-musl-x86_64.so.1"
   fi
@@ -124,7 +127,7 @@ main() {
     )
   }
   copy_early_firmware
-  for applet in sh mount mkdir mknod sleep cat echo switch_root ls grep umount losetup mdev modprobe; do
+  for applet in sh mount mkdir mknod sleep cat echo switch_root ls grep umount losetup mdev modprobe stty wc; do
     ln -sf busybox "$LIVE_INIT_TREE/bin/$applet"
   done
   ln -sf ../bin/busybox "$LIVE_INIT_TREE/sbin/mdev"
@@ -162,7 +165,6 @@ splash_console="/dev/tty1"
 [ -e "$splash_console" ] || splash_console="/dev/console"
 center_line() {
   text="$1"
-  cols=80
   len=${#text}
   pad=$(((cols - len) / 2))
   [ "$pad" -lt 0 ] && pad=0
@@ -174,7 +176,11 @@ center_line() {
   printf '%s\n' "$text"
 }
 draw_logo() {
-  if [ -f /usr/share/ooonana/logo.txt ]; then
+  if [ -f /usr/share/ooonana/boot-logo.txt ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+      center_line "$line"
+    done < /usr/share/ooonana/boot-logo.txt
+  elif [ -f /usr/share/ooonana/logo.txt ]; then
     while IFS= read -r line || [ -n "$line" ]; do
       center_line "$line"
     done < /usr/share/ooonana/logo.txt
@@ -192,22 +198,37 @@ draw_logo() {
 splash() {
   label="$1"
   step="${2:-0}"
+  rows=25
+  cols=80
+  dimensions="$(stty size <"$splash_console" 2>/dev/null || true)"
+  if [ -n "$dimensions" ]; then
+    rows="${dimensions%% *}"
+    cols="${dimensions##* }"
+  fi
+  case "$rows" in ''|*[!0-9]*) rows=25 ;; esac
+  case "$cols" in ''|*[!0-9]*) cols=80 ;; esac
+  logo_file="/usr/share/ooonana/logo.txt"
+  [ -f /usr/share/ooonana/boot-logo.txt ] && logo_file="/usr/share/ooonana/boot-logo.txt"
+  logo_lines="$(wc -l <"$logo_file" 2>/dev/null || echo 10)"
+  start_row=$(( (rows - logo_lines - 3) / 2 ))
+  [ "$start_row" -lt 2 ] && start_row=2
   filled=""
   empty=""
   i=0
   while [ "$i" -lt "$step" ]; do
-    filled="${filled}#"
+    filled="${filled}="
     i=$((i + 1))
   done
   while [ "$i" -lt 10 ]; do
-    empty="${empty}-"
+    empty="${empty}."
     i=$((i + 1))
   done
   {
-    printf '\033[2J\033[6;1H'
+    printf '\033]P3ffb21a\033[2J\033[%s;1H\033[1;33m' "$start_row"
     draw_logo
     printf '\n'
-    center_line "[$filled$empty] $label"
+    center_line "[$filled>$empty]  $label"
+    printf '\033[0m'
   } >"$splash_console" 2>/dev/null || true
 }
 

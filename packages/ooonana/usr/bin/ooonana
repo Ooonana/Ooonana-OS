@@ -2475,6 +2475,16 @@ main() {
   [ -n "$cmd" ] || { usage; exit 0; }
   shift || true
 
+  if [ "$OOONANA_ROOT" = "/" ] &&
+    [ "$(id -u 2>/dev/null || echo 1)" != "0" ] &&
+    command -v ooonana-run-admin >/dev/null 2>&1; then
+    case "$cmd" in
+      update|get|install|add|upgrade|remove|uninstall|purge|fix|reinstall|clean)
+        exec ooonana-run-admin "$0" "$cmd" "$@"
+        ;;
+    esac
+  fi
+
   case "$cmd" in
     version|--version|-v) cmd_version ;;
     me) cmd_me ;;

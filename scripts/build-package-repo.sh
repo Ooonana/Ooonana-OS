@@ -20,6 +20,8 @@ PUBLIC_KEY="${OOONANA_REPO_PUBLIC_KEY:-}"
 IMPORT_APK_SCRIPT="${OOONANA_IMPORT_APK_SCRIPT:-$ROOT/scripts/import-apk-package.sh}"
 IMPORT_I3_SCRIPT="${OOONANA_IMPORT_I3_SCRIPT:-$ROOT/scripts/import-i3-package-set.sh}"
 KERNEL_PACKAGE_SCRIPT="${OOONANA_KERNEL_PACKAGE_SCRIPT:-$ROOT/scripts/build-kernel-package.sh}"
+CORE_PACKAGE_SCRIPT="${OOONANA_CORE_PACKAGE_SCRIPT:-$ROOT/scripts/build-ooonana-core-package.sh}"
+CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.8.1}"
 KERNEL_PACKAGE_PATH="${OOONANA_KERNEL_PACKAGE_PATH:-}"
 KERNEL_PACKAGE_URL="${OOONANA_KERNEL_PACKAGE_URL:-}"
 KERNEL_PACKAGE_VERSION="${OOONANA_KERNEL_VERSION:-6.18.37}"
@@ -44,6 +46,7 @@ Options:
   --kernel PATH           Add Ooonana kernel package from local kernel image
   --kernel-url URL        Add Ooonana kernel package from remote kernel image
   --kernel-version VER    Kernel package version (default: 6.18.37)
+  --core-version VER      Ooonana system update package version (default: 0.8.1)
   --clean                 Delete output dir before build
   --dry-run               Print resolved build command only
   -h, --help              Show help
@@ -71,6 +74,7 @@ while [[ $# -gt 0 ]]; do
     --kernel) KERNEL_PACKAGE_PATH="$2"; shift 2 ;;
     --kernel-url) KERNEL_PACKAGE_URL="$2"; shift 2 ;;
     --kernel-version) KERNEL_PACKAGE_VERSION="$2"; shift 2 ;;
+    --core-version) CORE_PACKAGE_VERSION="$2"; shift 2 ;;
     --clean) CLEAN=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -172,6 +176,7 @@ main() {
       [[ -n "$kernel_source" ]] || kernel_source="$KERNEL_PACKAGE_URL"
       ooonana_print_command bash "$KERNEL_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --kernel "$kernel_source" --version "$KERNEL_PACKAGE_VERSION"
     fi
+    ooonana_print_command bash "$CORE_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$CORE_PACKAGE_VERSION"
     return 0
   fi
 
@@ -191,11 +196,13 @@ main() {
       --kernel "$kernel_source" \
       --version "$KERNEL_PACKAGE_VERSION"
   fi
+  bash "$CORE_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$CORE_PACKAGE_VERSION"
   if [[ -n "$PUBLIC_KEY" ]]; then
     [[ -f "$PUBLIC_KEY" ]] || ooonana_die "missing public key: $PUBLIC_KEY"
     cp "$PUBLIC_KEY" "$OUT_DIR/repo.pub"
     chmod 0644 "$OUT_DIR/repo.pub" 2>/dev/null || true
   fi
+  "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$OUT_DIR" >/dev/null
   if [[ -n "$SIGN_KEY" ]]; then
     "$ROOT/packages/ooonana/usr/bin/ooonana" repo index --sign-key "$SIGN_KEY" "$OUT_DIR" >/dev/null
   fi

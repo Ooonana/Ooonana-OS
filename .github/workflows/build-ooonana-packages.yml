@@ -53,7 +53,7 @@ on:
       kernel_url:
         description: "Kernel image URL to add as ooonana-kernel package"
         required: false
-        default: "https://github.com/Ooonana/Ooonana-OS/releases/download/v0.1.6-full-i3-xterm-fix/vmlinuz-ooonana"
+        default: "https://github.com/Ooonana/Ooonana-OS/releases/download/v0.1.8-ui-hardware/vmlinuz-ooonana"
 
 permissions:
   contents: write

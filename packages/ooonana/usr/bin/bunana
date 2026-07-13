@@ -14,10 +14,27 @@ USAGE
 
 case "${1:-}" in
   --shutdown)
-    poweroff -f 2>/dev/null || halt -f 2>/dev/null || shutdown -h now 2>/dev/null || exit 0
+    if [ "$(id -u 2>/dev/null || echo 1)" != "0" ] &&
+      command -v ooonana-run-admin >/dev/null 2>&1; then
+      exec ooonana-run-admin "$0" --shutdown
+    fi
+    sync 2>/dev/null || true
+    poweroff -f && exit 0
+    halt -f && exit 0
+    shutdown -h now && exit 0
+    echo "bunana: shutdown failed" >&2
+    exit 1
     ;;
   --restart|--reboot)
-    reboot -f 2>/dev/null || shutdown -r now 2>/dev/null || exit 0
+    if [ "$(id -u 2>/dev/null || echo 1)" != "0" ] &&
+      command -v ooonana-run-admin >/dev/null 2>&1; then
+      exec ooonana-run-admin "$0" --restart
+    fi
+    sync 2>/dev/null || true
+    reboot -f && exit 0
+    shutdown -r now && exit 0
+    echo "bunana: restart failed" >&2
+    exit 1
     ;;
   --help|-h)
     usage

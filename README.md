@@ -11,9 +11,11 @@ Ooonana OS
           |        |
 ```
 
-Lightweight scratch-built Linux for QEMU, WSL, installer experiments, and AI-first terminal work.
+Ooonana OS is a custom Linux distribution built from scratch around its own boot flow, init path, installer, desktop integration, package manager, and package repository. It targets lightweight operation, low overhead, responsive desktop performance, and AI-first local or cloud-assisted work.
 
-![Ooonana OS full-i3 live desktop](https://github.com/Ooonana/Ooonana-OS/releases/download/v0.1.6-full-i3-xterm-fix/ooonana-full-i3-live-screenshot.png)
+Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Linux, BusyBox, GRUB, i3, and other open-source components. Ooonana package factory currently imports selected Alpine package payloads into Ooonana `.pkg` repositories while native packages replace them over time.
+
+![Ooonana OS full-i3 live desktop](docs/assets/ooonana-full-i3-desktop.png)
 
 ## Quick Links
 
@@ -34,7 +36,7 @@ Lightweight scratch-built Linux for QEMU, WSL, installer experiments, and AI-fir
 Latest GitHub release:
 
 ```text
-https://github.com/Ooonana/Ooonana-OS/releases/tag/v0.1.6-full-i3-xterm-fix
+https://github.com/Ooonana/Ooonana-OS/releases/tag/v0.1.8-ui-hardware
 ```
 
 Current release artifacts on this machine live in:
@@ -80,7 +82,7 @@ Get-FileHash -Algorithm SHA256 .\ooonana-full-i3.iso
 Current full-i3 ISO SHA256:
 
 ```text
-b7992278567d5d55992cf91ef46bdefe17e5af382cc1f9233e4434965060404a
+462475a0bd4c32e1bb8a8de4859081ed6cceafbccc449bb7397ea1b6ec172729
 ```
 
 Minimal scratch installer ISO:
@@ -141,7 +143,16 @@ sha256sum -c SHA256SUMS.full-i3
 
 ## What Ooonana Is
 
-Ooonana OS is a small scratch-built Linux project. Target system is not Debian or Alpine. Debian/Ubuntu packages are only host build tools used from WSL while Ooonana grows its own userspace and package manager.
+Ooonana OS is a scratch-built Linux distribution. Target system has Ooonana identity, init, tools, package database, repositories, desktop policy, installer, and release pipeline. Debian/Ubuntu remain host build environments only. Selected Alpine binaries enter through Ooonana package conversion, dependency indexing, checksums, and repository metadata rather than Alpine package management.
+
+Design targets:
+
+- Lightweight base with minimal background work
+- Performance-focused kernel and responsive i3 desktop
+- AI-ready Python, provider routing, task tools, and native AI workspace
+- Own `ooonana` package lifecycle and cloud repository
+- BIOS, UEFI, Rufus ISO-mode, QEMU, VMware, WSL, and real-hardware paths
+- Explicit install boundaries: live mode does not modify internal disks
 
 Core pieces:
 
@@ -163,12 +174,15 @@ Working now:
 - Installer ISO opens a fallback shell on install failure or cancel
 - Installer has a serial-safe xterm UI with logo, disk picker, user/password, hostname, theme, cloud repo picker, progress, logs, fail shell, and reboot prompt
 - Live/install ISO keeps interactive prompts on the VGA console for VMware while smoke tests log through serial
-- GRUB uses a stable orange-on-black text menu with Ooonana logo text, BIOS/UEFI hybrid support, live/install/safe graphics menus, and a persistent USB boot entry. After a GRUB entry is selected, the live initramfs keeps an Ooonana logo and loading bar on the VGA console while it finds boot media, mounts the live rootfs read-only, creates the tmpfs overlay, and starts i3. Full-i3 does not force `gfxmode` or `gfxpayload=keep`, so VMware keeps its normal display size.
+- GRUB uses a stable orange-on-black menu with a centered Ooonana logo, BIOS/UEFI hybrid support, live/install/safe graphics menus, and a persistent USB boot entry. After selection, the live initramfs keeps the larger orange logo and loading bar visible while it finds boot media, mounts the live rootfs read-only, creates the tmpfs overlay, and starts i3. Full-i3 does not force a fixed `gfxmode`; it preserves the firmware framebuffer for a clean splash handoff.
 - Kernel config is tuned for desktop responsiveness: performance compiler mode, full preemption, dynamic preemption, high-resolution timers, 1000 Hz scheduler tick, and scheduler autogroup.
 - Rufus support has an ISO-mode note inside the ISO, USB-friendly volume labels, and `scripts/verify-rufus-iso.sh`
 - Full-i3 live starts eudev before Xorg and ships libinput config for PS/2 keyboard, mouse, and touchpad discovery
 - Full-i3 live mode does not format or write internal disks. It only reads boot media read-only and puts live changes in tmpfs unless the user explicitly launches the installer or chooses a persistent USB path.
-- Full-i3 now ships an Ooonana i3 baseline: polybar-first bar, rofi launcher, picom shadows/fades, dunst notifications, Chromium launcher, Nemo launcher, Wi-Fi/Bluetooth/settings helpers, wallpaper changer, and dark Ooonana colors
+- Full-i3 runs the desktop as the unprivileged `ooonana` user (UID 1000). Administrative commands use a validated wheel-only `doas` policy.
+- Full-i3 mounts `/run` and `/dev/shm` before desktop services, maps `/var/run` to `/run`, starts system D-Bus first, then starts NetworkManager and BlueZ. This runtime order supports Chromium, Wi-Fi, Bluetooth, and desktop applets from live USB and installed systems.
+- Full-i3 ships an Ooonana i3 desktop: icon-first polybar, application launcher, picom shadows/fades, dunst notifications, Chromium, Nemo, editor/media shortcuts, Wi-Fi, Bluetooth, audio, brightness, battery, window controls, power controls, wallpaper switching, and dark Ooonana colors.
+- Setup, Settings, Wi-Fi, Bluetooth, Packages, AI, controls, and application launcher are native GTK3 apps with a shared black/orange design. The panel status scripts degrade cleanly when a VM has no battery, radio, audio, or backlight hardware.
 - Installed disk boots in QEMU
 - `ooonana-install` can partition a raw/whole disk, install to an existing root partition, mount optional home/swap/EFI partitions, format or keep selected filesystems, copy rootfs, install kernel, write GRUB, and persist user, hostname, and theme
 - Generic `ooonana-rootfs.tar.gz` can be unpacked for chroot/container-style use
@@ -176,9 +190,11 @@ Working now:
 - `ooonana` package manager has repo add/remove/doctor, repo index, checksums, install/add, remove/uninstall, purge, upgrade, fix, check, files, verify
 - Minimal and full rootfs include Ooonana shell helpers: `bunana`, `clear`, installer-based `oonana` brickout game, and Ooonana neofetch logo fallback
 - `ooonana update` can sync local repos, HTTP repos, and GitHub Release repo tarballs into cache
+- Cloud builds include `ooonana-core`; `ooonana update && ooonana upgrade` updates CLI, native apps, services, defaults, and the `oonana` game without downloading every application archive
 - Alpine `.apk` packages can be imported into Ooonana `.pkg` repos
 - Full-i3 branding assets, package profiles, input drivers, package-installed rootfs, boot disk, live/install ISO, GUI installer wizard, AI desktop launcher, and real QEMU boot proof exist as a separate edition path
-- First-boot setup can create a user, prompt for password, write basic network config, and add a cloud package repo
+- First-boot setup can create the everyday account, set a password, choose DHCP/static networking or Wi-Fi, select theme defaults, and add the GitLab cloud package repo. Repository signing is supported when CI signing keys are configured; current public repo publishes checksums but is not yet signed.
+- GitLab Pages repo is default source: `https://ooonana.gitlab.io/ooonana-repo`. Normal maintenance is `ooonana update && ooonana upgrade`; package archives download only when install or upgrade needs them.
 - `ooonana-ai` supports NVIDIA NIM, Google Gemini, tools, tasks, audit, shell fallback for scratch WSL, and a full-i3 GUI app with home/actions/ask/chat/provider-model/log panels
 
 Next work:
@@ -298,7 +314,9 @@ oonana                 # Ooonana brickout game, two-o command
 neofetch               # Ooonana logo fallback
 ```
 
-`oonana` starts the terminal brickout game from the installer game engine. Bricks spell `OOONANA OS`, the ball is the Ooonana logo sprite, supported terminals use ANSI cursor-home redraw, and repeated hits build combo scoring. The game uses multiple colors for bricks, HUD, paddle, and ball when color is available. Controls are `a/d`, left/right arrows, and `q` quit.
+`oonana` starts the terminal brickout game from the installer game engine. Bricks spell `OOONANA OS`, the ball is a compact Ooonana logo sprite, and ANSI row-diff rendering repaints only changed lines for smoother play. Repeated hits build combo scoring. Controls are `a/d` or arrows to move, `p` pause, `r` restart, `1/2/3` speed, and `q` quit.
+
+Fresh systems track the native `ooonana-core` package. Repo updates remain metadata-only; package archives download only when a package is installed or has a newer version.
 
 Install package flow:
 
@@ -492,7 +510,7 @@ PACKAGE_PROFILE=          # optional override
 OOONANA_REPO_NAME=gitlab
 OOONANA_PAGES_REPO_URL=https://ooonana.gitlab.io/ooonana-repo
 OOONANA_KERNEL_VERSION=6.18.37
-OOONANA_KERNEL_PACKAGE_URL=https://github.com/Ooonana/Ooonana-OS/releases/download/v0.1.6-full-i3-xterm-fix/vmlinuz-ooonana
+OOONANA_KERNEL_PACKAGE_URL=https://github.com/Ooonana/Ooonana-OS/releases/download/v0.1.8-ui-hardware/vmlinuz-ooonana
 ```
 
 GitLab Pages uses the generated `public/` directory. GitLab.com Pages currently has a 1 GB maximum site size, so the full package repo is close to the limit. The CI fails before publishing if `public/` grows past `OOONANA_PAGES_MAX_BYTES`; the default uses 1 GiB in bytes.
@@ -826,7 +844,9 @@ VMware note:
 No EFI environment detected
 ```
 
-This line is harmless only for legacy BIOS boot. Hybrid BIOS/UEFI ISO support needs `grub-efi-amd64-bin` installed before `grub-mkrescue`. Current full-i3 GRUB uses console text output with orange on black, the Ooonana logo, and serial fallback; it does not set `gfxmode` or keep a graphics payload, because that can resize VMware displays. Full-i3 live now uses a tiny initramfs plus `/images/ooonana-full-i3-live-rootfs.ext4`, so the desktop rootfs is no longer unpacked into RAM. QEMU BIOS and UEFI live smoke both pass at 2048 MB, and the kernel fragment enables EFI/simple framebuffer plus USB HID/storage for native/Rufus boot. If you see `Initramfs unpacking failed: write error` or `libxcb.so.1` errors, you are booting an old ISO. If live boot reaches `Run /init` and then looks stuck, rebuild with the latest console fix; interactive init mounts `/proc` before choosing `tty1`, and smoke logs use `ttyS0` directly. If persistent live drops to shell with `mkdir: not found`, rebuild the full-i3 rootfs/ISO; package install can overwrite early boot applet links, and the current builder restores BusyBox links for `/bin/mkdir`, `/bin/cat`, `/bin/sleep`, and other init-critical commands. If i3 starts but input is dead, rebuild the full-i3 package repo/rootfs; the profile now includes eudev and starts it before Xorg. The full-i3 panel includes Wi-Fi, Bluetooth, network, audio, brightness, battery, date, and tray items. The full-i3 installer auto-detects `/dev/vd*`, `/dev/sd*`, `/dev/xvd*`, and `/dev/nvme*` targets, then installed GRUB boots by `PARTUUID` instead of hardcoding `/dev/vda1`. If install fails or is cancelled outside smoke mode, the ISO opens a BusyBox shell instead of rebooting. The release ISO should not include `ooonana.smoke=1`; smoke ISOs are only for automated QEMU proof and reboot after markers.
+This line is harmless only for legacy BIOS boot. Hybrid BIOS/UEFI ISO support needs `grub-efi-amd64-bin` before `grub-mkrescue`. Current full-i3 GRUB uses an orange-on-black graphical menu with console and serial fallbacks, avoids a fixed `gfxmode`, and keeps the firmware framebuffer for the boot splash. Full-i3 live uses a small initramfs plus `/images/ooonana-full-i3-live-rootfs.ext4`, so the desktop rootfs is not unpacked into RAM. The release image boots through BIOS and UEFI to Xorg/i3 in QEMU, and the kernel fragment enables EFI/simple framebuffer plus USB HID/storage for native/Rufus boot.
+
+If you see `Initramfs unpacking failed: write error`, `libxcb.so.1`, `mkdir: not found`, or a root desktop, you are booting an old ISO. The current rootfs restores init-critical BusyBox links, starts eudev before Xorg, runs i3 as UID 1000, and provides an active `/etc/doas.conf`. The full-i3 installer detects `/dev/vd*`, `/dev/sd*`, `/dev/xvd*`, and `/dev/nvme*` targets, then boots the installed system by `PARTUUID`. Live mode does not write internal disks unless installation is explicitly started. Installer failure or cancellation opens a BusyBox recovery shell. Release GRUB must not contain `ooonana.smoke=1`; smoke arguments are only for automated test images.
 
 Non-interactive installed-disk proof path:
 

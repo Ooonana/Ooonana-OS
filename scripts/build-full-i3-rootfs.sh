@@ -10,6 +10,7 @@ SCRATCH_ROOTFS="$WORK_DIR/scratch-rootfs"
 ROOTFS="$WORK_DIR/full-i3-rootfs"
 TARBALL="$WORK_DIR/ooonana-full-i3-rootfs.tar.gz"
 REPO="$WORK_DIR/full-i3-repo"
+OS_VERSION="${OOONANA_OS_VERSION:-0.1.8}"
 FORCE=0
 
 usage() {
@@ -47,6 +48,12 @@ write_start_script() {
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/start-ooonana-i3" <<'EOF'
 #!/bin/sh
 set -eu
+
+SESSION_USER=""
+if [ "${1:-}" = "--user" ]; then
+  SESSION_USER="${2:-}"
+  shift 2
+fi
 
 case "${HOME:-}" in
   ""|/) export HOME="/root" ;;
@@ -89,6 +96,12 @@ if grep -q 'ooonana.install=1' /proc/cmdline 2>/dev/null; then
   exec /usr/bin/ooonana-install-wizard
 fi
 
+if [ -z "$SESSION_USER" ] &&
+  [ "$(id -u 2>/dev/null || echo 1)" = "0" ] &&
+  grep -q '^ooonana:' /etc/passwd 2>/dev/null; then
+  SESSION_USER="ooonana"
+fi
+
 is_wsl_session() {
   [ -n "${WSL_DISTRO_NAME:-}" ] && return 0
   [ -n "${WSL_INTEROP:-}" ] && return 0
@@ -101,11 +114,17 @@ if is_wsl_session &&
   [ -n "${DISPLAY:-}" ] &&
   command -v i3 >/dev/null 2>&1 &&
   [ -x /usr/bin/ooonana-i3-session ]; then
+  if [ -n "$SESSION_USER" ]; then
+    exec /usr/bin/ooonana-i3-session --user "$SESSION_USER"
+  fi
   exec /usr/bin/ooonana-i3-session
 fi
 
 if command -v startx >/dev/null 2>&1 && command -v i3 >/dev/null 2>&1; then
   prepare_xorg_video_config
+  if [ -n "$SESSION_USER" ]; then
+    exec startx /usr/bin/ooonana-i3-session --user "$SESSION_USER"
+  fi
   exec startx /usr/bin/ooonana-i3-session
 fi
 
@@ -194,11 +213,29 @@ SETTINGS
 @define-color ooonana_bg $OOONANA_BG;
 @define-color ooonana_fg $OOONANA_FG;
 @define-color ooonana_accent #ffb21a;
+@define-color ooonana_panel #11161d;
+@define-color ooonana_panel_alt #171e27;
+@define-color ooonana_border #364252;
+@define-color ooonana_muted #9ba5b4;
 window, dialog, .background { background-color: @ooonana_bg; color: @ooonana_fg; }
-button { background: #1a2029; color: @ooonana_accent; border: 1px solid @ooonana_accent; border-radius: 4px; padding: 6px 10px; }
-button:hover { background: #2a3442; }
-entry, textview, treeview, list { background: #10141a; color: @ooonana_fg; }
-label { color: @ooonana_fg; }
+headerbar { background: @ooonana_panel; color: @ooonana_accent; border-bottom: 1px solid @ooonana_border; padding: 4px 8px; }
+headerbar .title { font-weight: bold; }
+headerbar .subtitle { color: @ooonana_muted; }
+button { background: @ooonana_panel_alt; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 4px; padding: 7px 12px; }
+button:hover { background: #222c38; border-color: @ooonana_accent; }
+button:checked, button.suggested-action { background: @ooonana_accent; color: #080a0d; border-color: @ooonana_accent; }
+entry, textview, treeview, list { background: #0d1117; color: @ooonana_fg; border-color: @ooonana_border; }
+entry { padding: 8px; border-radius: 4px; }
+treeview header button { background: @ooonana_panel_alt; color: @ooonana_accent; }
+treeview:selected, row:selected { background: #283441; color: #ffffff; }
+notebook header { background: #0d1117; }
+notebook tab { padding: 8px 14px; }
+notebook tab:checked { color: @ooonana_accent; border-bottom: 2px solid @ooonana_accent; }
+scale highlight { background: @ooonana_accent; }
+scale trough { background: #2a3442; min-height: 6px; border-radius: 3px; }
+scrollbar slider { background: #4d5a69; border-radius: 4px; min-width: 7px; min-height: 7px; }
+scrollbar slider:hover { background: @ooonana_accent; }
+tooltip { background: @ooonana_panel; color: @ooonana_fg; border: 1px solid @ooonana_accent; }
 CSS
     xsetroot -solid "$OOONANA_BG" 2>/dev/null || true
     wallpaper="/usr/share/ooonana/wallpapers/ooonana-wallpaper.png"
@@ -271,13 +308,18 @@ EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/root/.config/gtk-3.0/gtk.css" <<'EOF'
 @define-color ooonana_bg #050505;
-@define-color ooonana_fg #ffb21a;
+@define-color ooonana_fg #f7ead0;
 @define-color ooonana_accent #ffb21a;
+@define-color ooonana_panel #11161d;
+@define-color ooonana_border #364252;
 window, dialog, .background { background-color: @ooonana_bg; color: @ooonana_fg; }
-button { background: #1a2029; color: @ooonana_accent; border: 1px solid @ooonana_accent; border-radius: 4px; padding: 6px 10px; }
-button:hover { background: #2a3442; }
-entry, textview, treeview, list { background: #10141a; color: @ooonana_fg; }
-label { color: @ooonana_fg; }
+headerbar { background: @ooonana_panel; color: @ooonana_accent; border-bottom: 1px solid @ooonana_border; }
+button { background: #171e27; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 4px; padding: 7px 12px; }
+button:hover { background: #222c38; border-color: @ooonana_accent; }
+button:checked, button.suggested-action { background: @ooonana_accent; color: #080a0d; }
+entry, textview, treeview, list { background: #0d1117; color: @ooonana_fg; border-color: @ooonana_border; }
+treeview:selected, row:selected { background: #283441; color: #ffffff; }
+scale highlight { background: @ooonana_accent; }
 EOF
 }
 
@@ -293,6 +335,43 @@ for cmd in "$@"; do
 done
 printf 'missing app: %s\n' "$*" >&2
 exit 1
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-apps" <<'EOF'
+#!/bin/sh
+set -eu
+NATIVE_APP="/usr/lib/ooonana/ui/launcher_app.py"
+if [ -x /usr/bin/python3 ] && [ -f "$NATIVE_APP" ] &&
+  /usr/bin/python3 -c 'import gi; gi.require_version("Gtk", "3.0")' >/dev/null 2>&1; then
+  exec /usr/bin/python3 "$NATIVE_APP" "$@"
+fi
+exec rofi -show drun -theme /etc/ooonana/rofi.rasi
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-run-admin" <<'EOF'
+#!/bin/sh
+set -eu
+
+if [ "${1:-}" = "--dry-run" ]; then
+  echo "root: direct"
+  echo "user: doas with wheel policy"
+  echo "OOONANA_ADMIN_HELPER_OK"
+  exit 0
+fi
+
+[ "$#" -gt 0 ] || {
+  echo "usage: ooonana-run-admin COMMAND [ARGS...]" >&2
+  exit 2
+}
+
+if [ "$(id -u 2>/dev/null || echo 1)" = "0" ]; then
+  exec "$@"
+fi
+if command -v doas >/dev/null 2>&1; then
+  exec doas "$@"
+fi
+echo "admin helper unavailable: install doas" >&2
+exit 126
 EOF
 
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-browser" <<'EOF'
@@ -327,6 +406,10 @@ export PATH
 LOG="${OOONANA_HARDWARE_LOG:-/var/log/ooonana-hardware.log}"
 mkdir -p /run /var/log
 
+if [ "$(id -u 2>/dev/null || echo 1)" != "0" ]; then
+  exec ooonana-run-admin "$0" "$@"
+fi
+
 log() {
   printf '%s\n' "$*" >>"$LOG" 2>/dev/null || true
 }
@@ -354,6 +437,12 @@ fi
 
 unblock_rfkill
 
+if command -v modprobe >/dev/null 2>&1; then
+  for module in bluetooth btusb btintel btrtl btqca; do
+    modprobe "$module" >>"$LOG" 2>&1 || true
+  done
+fi
+
 rebind_driver() {
   driver="$1"
   for dir in /sys/bus/*/drivers/"$driver"; do
@@ -373,11 +462,13 @@ rebind_driver() {
   done
 }
 
-for driver in \
-  iwlwifi rtw89_pci rtw88_pci mt7921e ath10k_pci ath11k_pci ath12k_pci \
-  brcmfmac rtl8xxxu mt7921u btusb; do
-  rebind_driver "$driver"
-done
+if [ "$force" -eq 1 ]; then
+  for driver in \
+    iwlwifi rtw89_pci rtw88_pci mt7921e ath10k_pci ath11k_pci ath12k_pci \
+    brcmfmac rtl8xxxu mt7921u btusb; do
+    rebind_driver "$driver"
+  done
+fi
 
 if command -v udevadm >/dev/null 2>&1; then
   udevadm trigger --action=add >/dev/null 2>&1 || true
@@ -394,10 +485,21 @@ EOF
 set -eu
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
+if [ "$(id -u 2>/dev/null || echo 1)" != "0" ]; then
+  exec ooonana-run-admin "$0" "$@"
+fi
 
 LOG="${OOONANA_SERVICE_LOG:-/var/log/ooonana-services.log}"
-mkdir -p /run/dbus /var/lib/dbus /var/log /run/NetworkManager /var/lib/NetworkManager /var/lib/bluetooth /etc
-chmod 0777 /run/dbus 2>/dev/null || true
+mkdir -p /run/dbus /var/lib/dbus /var/log /run/NetworkManager /var/lib/NetworkManager /var/lib/bluetooth /etc /dev/shm
+chmod 0755 /run/dbus 2>/dev/null || true
+chmod 1777 /dev/shm 2>/dev/null || true
+if [ ! -L /var/run ]; then
+  rm -rf /var/run
+  ln -s /run /var/run
+fi
+if ! grep -q '[[:space:]]/dev/shm[[:space:]]' /proc/mounts 2>/dev/null; then
+  mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /dev/shm >>"$LOG" 2>&1 || true
+fi
 
 log() {
   printf '%s\n' "$*" >>"$LOG" 2>/dev/null || true
@@ -437,12 +539,18 @@ network_manager_daemon() {
   return 1
 }
 
+device_manager_running() {
+  [ -S /run/udev/control ] ||
+    pidof udevd >/dev/null 2>&1 ||
+    pidof eudevd >/dev/null 2>&1
+}
+
 start_device_manager() {
   mkdir -p /run/udev
-  if command -v udevd >/dev/null 2>&1 && ! pidof udevd >/dev/null 2>&1; then
+  device_manager_running && return 0
+  if command -v udevd >/dev/null 2>&1; then
     udevd --daemon >>"$LOG" 2>&1 || true
-  fi
-  if command -v eudevd >/dev/null 2>&1 && ! pidof eudevd >/dev/null 2>&1; then
+  elif command -v eudevd >/dev/null 2>&1; then
     eudevd --daemon >>"$LOG" 2>&1 || true
   fi
   if command -v udevadm >/dev/null 2>&1; then
@@ -479,14 +587,38 @@ wait_for() {
   return 1
 }
 
+start_blueman_mechanism() {
+  mechanism=/usr/libexec/blueman-mechanism
+  pid_file=/run/blueman-mechanism.pid
+  if [ -s "$pid_file" ]; then
+    read -r mechanism_pid < "$pid_file" || mechanism_pid=""
+    [ -n "$mechanism_pid" ] && kill -0 "$mechanism_pid" 2>/dev/null && return 0
+  fi
+  [ -x "$mechanism" ] || return 0
+  "$mechanism" >>"$LOG" 2>&1 &
+  echo "$!" > "$pid_file"
+  sleep 1
+}
+
 ensure_identity
 
 start_device_manager
 
+if [ "${1:-}" = "force" ] || [ "${1:-}" = "--force" ]; then
+  if pidof bluetoothd >/dev/null 2>&1; then
+    /bin/busybox killall bluetoothd >>"$LOG" 2>&1 || true
+    sleep 1
+  fi
+fi
+
 if command -v dbus-daemon >/dev/null 2>&1 && [ ! -S /run/dbus/system_bus_socket ]; then
   dbus-daemon --system --fork --nopidfile --address=unix:path=/run/dbus/system_bus_socket >>"$LOG" 2>&1 || log "dbus-daemon failed"
 fi
-wait_for dbus test -S /run/dbus/system_bus_socket || true
+if ! wait_for dbus test -S /run/dbus/system_bus_socket; then
+  log "system D-Bus unavailable"
+  exit 1
+fi
+start_blueman_mechanism
 
 command -v ooonana-hardware-reprobe >/dev/null 2>&1 && ooonana-hardware-reprobe "${1:-}" >>"$LOG" 2>&1 || true
 unblock_rfkill
@@ -511,6 +643,9 @@ if [ -n "$bt_daemon" ]; then
   fi
   wait_for bluetoothd bluetoothctl show || true
   bluetoothctl power on >>"$LOG" 2>&1 || true
+  if command -v btmgmt >/dev/null 2>&1; then
+    btmgmt power on >>"$LOG" 2>&1 || true
+  fi
 else
   log "bluetoothd missing"
 fi
@@ -523,6 +658,9 @@ EOF
 set -eu
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
+if command -v ooonana-wifi-panel >/dev/null 2>&1; then
+  exec ooonana-wifi-panel "$@"
+fi
 command -v ooonana-service-repair >/dev/null 2>&1 && ooonana-service-repair wifi >/dev/null 2>&1 || true
 if command -v nm-connection-editor >/dev/null 2>&1; then
   exec nm-connection-editor
@@ -538,6 +676,9 @@ EOF
 set -eu
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
+if command -v ooonana-bluetooth-panel >/dev/null 2>&1; then
+  exec ooonana-bluetooth-panel "$@"
+fi
 command -v ooonana-service-repair >/dev/null 2>&1 && ooonana-service-repair bluetooth >/dev/null 2>&1 || true
 if command -v blueman-manager >/dev/null 2>&1; then
   exec blueman-manager
@@ -676,6 +817,11 @@ EOF
 set -eu
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
+NATIVE_APP="/usr/lib/ooonana/ui/wifi_app.py"
+if [ -x /usr/bin/python3 ] && [ -f "$NATIVE_APP" ] &&
+  /usr/bin/python3 -c 'import gi; gi.require_version("Gtk", "3.0")' >/dev/null 2>&1; then
+  exec /usr/bin/python3 "$NATIVE_APP" "$@"
+fi
 command -v ooonana-service-repair >/dev/null 2>&1 && ooonana-service-repair wifi >/dev/null 2>&1 || true
 if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
   nm_state="$(nmcli -t -f STATE general 2>/dev/null | head -n 1 || true)"
@@ -732,11 +878,39 @@ fi
 exec ooonana-rofi-wifi
 EOF
 
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-wifi-status" <<'EOF'
+#!/bin/sh
+set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+if ! command -v nmcli >/dev/null 2>&1; then
+  printf '\357\207\253 --\n'
+  exit 0
+fi
+radio="$(nmcli -t -f WIFI radio 2>/dev/null | head -n 1 || true)"
+case "$radio" in
+  enabled)
+    name="$(nmcli -t -f TYPE,NAME connection show --active 2>/dev/null | awk -F: '$1 == "802-11-wireless" { print $2; exit }')"
+    if [ -n "$name" ]; then
+      printf '\357\207\253 %s\n' "$name"
+    else
+      printf '\357\207\253\n'
+    fi
+    ;;
+  *) printf '\357\207\253 off\n' ;;
+esac
+EOF
+
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-bluetooth-panel" <<'EOF'
 #!/bin/sh
 set -eu
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
+NATIVE_APP="/usr/lib/ooonana/ui/bluetooth_app.py"
+if [ -x /usr/bin/python3 ] && [ -f "$NATIVE_APP" ] &&
+  /usr/bin/python3 -c 'import gi; gi.require_version("Gtk", "3.0")' >/dev/null 2>&1; then
+  exec /usr/bin/python3 "$NATIVE_APP" "$@"
+fi
 command -v ooonana-service-repair >/dev/null 2>&1 && ooonana-service-repair bluetooth >/dev/null 2>&1 || true
 if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
   bt_state="$(bluetoothctl show 2>/dev/null | awk -F': ' '/Powered/ {print $2; exit}' || true)"
@@ -792,6 +966,22 @@ fi
 exec ooonana-rofi-bluetooth
 EOF
 
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-bluetooth-status" <<'EOF'
+#!/bin/sh
+set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+if ! command -v bluetoothctl >/dev/null 2>&1; then
+  printf '\357\212\223 --\n'
+  exit 0
+fi
+powered="$({ bluetoothctl show || true; } 2>/dev/null | awk -F': ' '/Powered:/ { print $2; exit }')"
+case "$powered" in
+  yes) printf '\357\212\223\n' ;;
+  *) printf '\357\212\223 off\n' ;;
+esac
+EOF
+
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-rofi-brightness" <<'EOF'
 #!/bin/sh
 set -eu
@@ -818,6 +1008,11 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-brightness-panel" <<'EOF'
 #!/bin/sh
 set -eu
+NATIVE_APP="/usr/lib/ooonana/ui/controls_app.py"
+if [ -x /usr/bin/python3 ] && [ -f "$NATIVE_APP" ] &&
+  /usr/bin/python3 -c 'import gi; gi.require_version("Gtk", "3.0")' >/dev/null 2>&1; then
+  exec /usr/bin/python3 "$NATIVE_APP" brightness "$@"
+fi
 if ! command -v brightnessctl >/dev/null 2>&1; then
   exec ooonana-theme-env xterm -e sh -lc 'echo "brightnessctl missing"; echo "run: ooonana get brightnessctl"; exec sh'
 fi
@@ -839,6 +1034,11 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-audio-panel" <<'EOF'
 #!/bin/sh
 set -eu
+NATIVE_APP="/usr/lib/ooonana/ui/controls_app.py"
+if [ -x /usr/bin/python3 ] && [ -f "$NATIVE_APP" ] &&
+  /usr/bin/python3 -c 'import gi; gi.require_version("Gtk", "3.0")' >/dev/null 2>&1; then
+  exec /usr/bin/python3 "$NATIVE_APP" audio "$@"
+fi
 current="50"
 if command -v pactl >/dev/null 2>&1; then
   current="$(pactl get-sink-volume @DEFAULT_SINK@ 2>/dev/null | awk -F/ 'NR==1 {gsub(/[% ]/,"",$2); print $2; exit}')"
@@ -861,6 +1061,56 @@ if command -v pavucontrol >/dev/null 2>&1; then
   exec pavucontrol
 fi
 exec ooonana-theme-env xterm -e sh -lc 'pactl info 2>/dev/null || echo "pactl missing"; exec sh'
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-audio-status" <<'EOF'
+#!/bin/sh
+set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+if command -v pactl >/dev/null 2>&1 && pactl info >/dev/null 2>&1; then
+  muted="$(pactl get-sink-mute @DEFAULT_SINK@ 2>/dev/null | awk '{ print $2 }')"
+  volume="$(pactl get-sink-volume @DEFAULT_SINK@ 2>/dev/null | awk -F/ 'NR == 1 { gsub(/[ %]/, "", $2); print $2; exit }')"
+  case "$volume" in ''|*[!0-9]*) volume=0 ;; esac
+  if [ "$muted" = "yes" ]; then
+    printf '\357\200\246 muted\n'
+  elif [ "$volume" -ge 60 ]; then
+    printf '\357\200\250 %s%%\n' "$volume"
+  elif [ "$volume" -gt 0 ]; then
+    printf '\357\200\247 %s%%\n' "$volume"
+  else
+    printf '\357\200\246 0%%\n'
+  fi
+  exit 0
+fi
+if command -v amixer >/dev/null 2>&1; then
+  volume="$(amixer get Master 2>/dev/null | awk -F'[][]' '/%/ { print $2; exit }')"
+  [ -n "$volume" ] && { printf '\357\200\247 %s\n' "$volume"; exit 0; }
+fi
+printf '\357\200\246 --\n'
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-battery-status" <<'EOF'
+#!/bin/sh
+set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+bat=""
+for path in /sys/class/power_supply/BAT*; do
+  [ -d "$path" ] || continue
+  bat="$path"
+  break
+done
+[ -n "$bat" ] || { printf '\357\211\204 --\n'; exit 0; }
+capacity="$(cat "$bat/capacity" 2>/dev/null || printf '')"
+status="$(cat "$bat/status" 2>/dev/null || printf '')"
+case "$capacity" in ''|*[!0-9]*) capacity=0 ;; esac
+case "$status" in
+  Charging) icon='\357\207\246' ;;
+  Full) icon='\357\211\200' ;;
+  *) icon='\357\211\204' ;;
+esac
+printf '%b %s%%\n' "$icon" "$capacity"
 EOF
 
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-volume" <<'EOF'
@@ -893,6 +1143,11 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-power-menu" <<'EOF'
 #!/bin/sh
 set -eu
+NATIVE_APP="/usr/lib/ooonana/ui/controls_app.py"
+if [ -x /usr/bin/python3 ] && [ -f "$NATIVE_APP" ] &&
+  /usr/bin/python3 -c 'import gi; gi.require_version("Gtk", "3.0")' >/dev/null 2>&1; then
+  exec /usr/bin/python3 "$NATIVE_APP" power "$@"
+fi
 exec ooonana-rofi-power "$@"
 EOF
 
@@ -1062,8 +1317,16 @@ set -eu
 if [ "${1:-}" = "--dry-run" ]; then
   echo "yad packages app"
   echo "actions: update search install remove upgrade sources doctor"
+  echo "native GTK app: /usr/lib/ooonana/ui/packages_app.py"
+  echo "OOONANA_PACKAGES_NATIVE_OK"
   echo "OOONANA_PACKAGES_APP_OK"
   exit 0
+fi
+
+NATIVE_APP="/usr/lib/ooonana/ui/packages_app.py"
+if [ -x /usr/bin/python3 ] && [ -f "$NATIVE_APP" ] &&
+  /usr/bin/python3 -c 'import gi; gi.require_version("Gtk", "3.0")' >/dev/null 2>&1; then
+  exec /usr/bin/python3 "$NATIVE_APP" "$@"
 fi
 
 open_term() {
@@ -1161,8 +1424,16 @@ if [ "${1:-}" = "--dry-run" ]; then
   echo "safe launchers: terminal browser files ai packages"
   echo "GitLab Pages repo: https://ooonana.gitlab.io/ooonana-repo"
   echo "OOONANA_SETTINGS_THEME_OK"
+  echo "native GTK app: /usr/lib/ooonana/ui/settings_app.py"
+  echo "OOONANA_SETTINGS_NATIVE_OK"
   echo "OOONANA_SETTINGS_GUI_OK"
   exit 0
+fi
+
+NATIVE_APP="/usr/lib/ooonana/ui/settings_app.py"
+if [ -x /usr/bin/python3 ] && [ -f "$NATIVE_APP" ] &&
+  /usr/bin/python3 -c 'import gi; gi.require_version("Gtk", "3.0")' >/dev/null 2>&1; then
+  exec /usr/bin/python3 "$NATIVE_APP" "$@"
 fi
 
 open_term() {
@@ -1540,8 +1811,8 @@ EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/polybar.ini" <<'EOF'
 [colors]
-background = #10141a
-background-alt = #1a2029
+background = #080a0d
+background-alt = #151a21
 foreground = #ffb21a
 accent = #ffd37a
 muted = #7a5014
@@ -1550,7 +1821,7 @@ cool = #5eb6ff
 
 [bar/ooonana]
 width = 100%
-height = 30
+height = 34
 offset-x = 0
 offset-y = 0
 radius = 0
@@ -1571,9 +1842,9 @@ font-2 = "Font Awesome 6 Free Solid:size=10;2"
 font-3 = "Font Awesome 5 Free Solid:size=10;2"
 font-4 = "Font Awesome 6 Brands:size=10;2"
 font-5 = "Font Awesome 5 Brands:size=10;2"
-modules-left = brand terminal browser files editor media win-close win-min win-full title
+modules-left = brand workspaces terminal browser files editor media title win-min win-full win-close
 modules-center =
-modules-right = audio brightness battery bluetooth network wifi date power
+modules-right = audio brightness battery bluetooth wifi date power
 tray-position = right
 tray-padding = 2
 wm-restack = i3
@@ -1586,7 +1857,8 @@ content = Ooonana
 content-foreground = ${colors.foreground}
 content-background = ${colors.background}
 content-padding = 2
-click-left = rofi -show drun -theme /etc/ooonana/rofi.rasi
+click-left = ooonana-apps
+click-right = ooonana-settings-launch
 
 [module/launcher]
 type = custom/text
@@ -1594,7 +1866,7 @@ content = Ooonana
 content-foreground = ${colors.cool}
 content-background = ${colors.background-alt}
 content-padding = 2
-click-left = rofi -show drun -theme /etc/ooonana/rofi.rasi
+click-left = ooonana-apps
 
 [module/terminal]
 type = custom/text
@@ -1694,20 +1966,25 @@ label-background = ${colors.background}
 label-padding = 2
 
 [module/wifi]
-type = custom/text
-content = 
-content-foreground = ${colors.accent}
-content-background = ${colors.background-alt}
-content-padding = 2
+type = custom/script
+exec = ooonana-wifi-status
+interval = 3
+label = %output%
+label-foreground = ${colors.accent}
+label-background = ${colors.background-alt}
+label-padding = 2
 click-left = ooonana-wifi-panel
 
 [module/bluetooth]
-type = custom/text
-content = 
-content-foreground = ${colors.accent}
-content-background = ${colors.background-alt}
-content-padding = 2
+type = custom/script
+exec = ooonana-bluetooth-status
+interval = 3
+label = %output%
+label-foreground = ${colors.accent}
+label-background = ${colors.background-alt}
+label-padding = 2
 click-left = ooonana-bluetooth-panel
+click-right = blueman-manager
 
 [module/network]
 type = internal/network
@@ -1722,15 +1999,16 @@ label-disconnected-background = ${colors.background-alt}
 label-disconnected-padding = 2
 
 [module/audio]
-type = internal/pulseaudio
-format-volume =  <label-volume>
-format-volume-background = ${colors.background-alt}
-format-volume-padding = 2
-label-muted = 
-label-muted-foreground = ${colors.muted}
-label-muted-background = ${colors.background-alt}
-label-muted-padding = 2
+type = custom/script
+exec = ooonana-audio-status
+interval = 2
+label = %output%
+label-foreground = ${colors.accent}
+label-background = ${colors.background-alt}
+label-padding = 2
 click-left = ooonana-audio-panel
+scroll-up = pactl set-sink-volume @DEFAULT_SINK@ +5%
+scroll-down = pactl set-sink-volume @DEFAULT_SINK@ -5%
 
 [module/brightness]
 type = custom/script
@@ -1746,25 +2024,20 @@ scroll-down = brightnessctl set 5%-
 
 [module/power]
 type = custom/text
-content = ⏻
+content = 
 content-foreground = ${colors.foreground}
 content-background = ${colors.background-alt}
 content-padding = 2
 click-left = ooonana-power-menu
 
 [module/battery]
-type = internal/battery
-battery = BAT0
-adapter = AC
-format-charging = bat <label-charging>
-format-discharging = bat <label-discharging>
-format-full = bat full
-format-charging-background = ${colors.background-alt}
-format-discharging-background = ${colors.background-alt}
-format-full-background = ${colors.background-alt}
-format-charging-padding = 2
-format-discharging-padding = 2
-format-full-padding = 2
+type = custom/script
+exec = ooonana-battery-status
+interval = 10
+label = %output%
+label-foreground = ${colors.accent}
+label-background = ${colors.background-alt}
+label-padding = 2
 
 [module/date]
 type = internal/date
@@ -2052,6 +2325,10 @@ case "$mode" in
     ;;
 esac
 
+if [ "$(id -u 2>/dev/null || echo 1)" != "0" ]; then
+  set -- ooonana-run-admin "$@"
+fi
+
 tmp_dir="${TMPDIR:-/tmp}/ooonana-installer-gui.$$"
 mkdir -p "$tmp_dir"
 preview="$tmp_dir/preview.txt"
@@ -2158,7 +2435,11 @@ DEFAULT_CLOUD_REPO="${OOONANA_DEFAULT_CLOUD_REPO:-https://ooonana.gitlab.io/ooon
 PASSWORD_VALUE=""
 YES=0
 DRY_RUN=0
-LOG_FILE="/var/log/ooonana-install-wizard.log"
+if [ "$(id -u 2>/dev/null || echo 1)" = "0" ]; then
+  LOG_FILE="/var/log/ooonana-install-wizard.log"
+else
+  LOG_FILE="${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/install-wizard.log"
+fi
 
 usage() {
   cat <<'USAGE'
@@ -2285,6 +2566,9 @@ run_installer() {
   fi
   if [ -n "$PASSWORD_VALUE" ]; then
     set -- "$@" --password-stdin
+  fi
+  if [ "$(id -u 2>/dev/null || echo 1)" != "0" ]; then
+    set -- ooonana-run-admin "$@"
   fi
 
   printf 'Target disk: %s\n' "$TARGET"
@@ -2484,6 +2768,55 @@ EOF
 #!/bin/sh
 set -eu
 
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+
+if [ "${1:-}" = "--user" ]; then
+  desktop_user="${2:-}"
+  [ -n "$desktop_user" ] || {
+    echo "missing desktop user" >&2
+    exit 2
+  }
+  case "$desktop_user" in
+    *[!a-zA-Z0-9_-]*)
+      echo "invalid desktop user: $desktop_user" >&2
+      exit 2
+      ;;
+  esac
+  if [ "$(id -u 2>/dev/null || echo 1)" = "0" ]; then
+    desktop_line="$(grep "^$desktop_user:" /etc/passwd 2>/dev/null | head -n 1 || true)"
+    [ -n "$desktop_line" ] || {
+      echo "desktop user missing: $desktop_user" >&2
+      exit 1
+    }
+    desktop_uid="$(printf '%s\n' "$desktop_line" | cut -d: -f3)"
+    desktop_gid="$(printf '%s\n' "$desktop_line" | cut -d: -f4)"
+    desktop_home="$(printf '%s\n' "$desktop_line" | cut -d: -f6)"
+    [ -n "$desktop_home" ] || desktop_home="/home/$desktop_user"
+    mkdir -p "$desktop_home" "/run/user/$desktop_uid"
+    chown "$desktop_uid:$desktop_gid" "$desktop_home" "/run/user/$desktop_uid"
+    chmod 0700 "/run/user/$desktop_uid"
+    if [ -n "${XAUTHORITY:-}" ] && [ -f "$XAUTHORITY" ]; then
+      chown "$desktop_uid:$desktop_gid" "$XAUTHORITY" 2>/dev/null || true
+      chmod 0600 "$XAUTHORITY" 2>/dev/null || true
+    fi
+    export HOME="$desktop_home"
+    export USER="$desktop_user"
+    export LOGNAME="$desktop_user"
+    export SHELL=/bin/sh
+    export XDG_CONFIG_HOME="$desktop_home/.config"
+    export XDG_CACHE_HOME="$desktop_home/.cache"
+    export XDG_STATE_HOME="$desktop_home/.local/state"
+    export XDG_RUNTIME_DIR="/run/user/$desktop_uid"
+    exec /bin/busybox su -m -s /bin/sh "$desktop_user" -c 'exec /usr/bin/ooonana-i3-session --user-session'
+  fi
+  shift 2
+fi
+
+if [ "${1:-}" = "--user-session" ]; then
+  shift
+fi
+
 if [ -z "${OOONANA_DBUS_SESSION:-}" ] &&
   [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] &&
   command -v dbus-run-session >/dev/null 2>&1; then
@@ -2496,8 +2829,18 @@ if [ -x /usr/bin/ooonana-theme-env ]; then
   ooonana-theme-env apply
 fi
 
+mkdir -p "${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana"
+if command -v pulseaudio >/dev/null 2>&1; then
+  pulseaudio --start --exit-idle-time=-1 >/dev/null 2>&1 || true
+  pulse_wait=0
+  while command -v pactl >/dev/null 2>&1 && ! pactl info >/dev/null 2>&1 && [ "$pulse_wait" -lt 10 ]; do
+    pulse_wait=$((pulse_wait + 1))
+    sleep 1
+  done
+fi
+
 if command -v ooonana-setup >/dev/null 2>&1; then
-  ooonana-setup --first-boot --gui >/var/log/ooonana-setup.log 2>&1 &
+  ooonana-setup --first-boot --gui >"${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/setup.log" 2>&1 &
 fi
 
 exec i3
@@ -2559,6 +2902,17 @@ Name=Ooonana Settings
 Exec=ooonana-settings-launch
 Terminal=false
 Categories=Settings;System;
+EOF
+
+  install -D -m 0644 /dev/stdin "$ROOTFS/usr/share/applications/ooonana-apps.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Ooonana Applications
+Comment=Search and launch installed applications
+Exec=ooonana-apps
+Icon=/usr/share/ooonana/logo.png
+Terminal=false
+Categories=System;Utility;
 EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/usr/share/applications/ooonana-packages.desktop" <<'EOF'
@@ -2626,7 +2980,14 @@ mount -t sysfs sysfs /sys 2>/dev/null || true
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
 mkdir -p /dev/pts
 mount -t devpts devpts /dev/pts 2>/dev/null || true
+mkdir -p /dev/shm
+mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /dev/shm 2>/dev/null || true
 mount -t tmpfs tmpfs /run 2>/dev/null || true
+mkdir -p /run/dbus /var
+if [ ! -L /var/run ]; then
+  rm -rf /var/run
+  ln -s /run /var/run
+fi
 
 start_device_manager() {
   mkdir -p /run/udev
@@ -2650,7 +3011,7 @@ start_system_services() {
     return 0
   fi
   mkdir -p /run/dbus /var/lib/dbus /etc
-  chmod 0777 /run/dbus 2>/dev/null || true
+  chmod 0755 /run/dbus 2>/dev/null || true
   grep -q '^messagebus:' /etc/group 2>/dev/null || echo 'messagebus:x:81:' >>/etc/group
   grep -q '^messagebus:' /etc/passwd 2>/dev/null || echo 'messagebus:x:81:81:DBus Message Bus:/run/dbus:/bin/false' >>/etc/passwd
   if [ ! -s /etc/machine-id ]; then
@@ -2664,8 +3025,9 @@ start_system_services() {
     cp /etc/machine-id /var/lib/dbus/machine-id 2>/dev/null || true
   fi
   if command -v dbus-daemon >/dev/null 2>&1 && [ ! -S /run/dbus/system_bus_socket ]; then
-    dbus-daemon --system --fork --nopidfile >/dev/null 2>&1 || true
+    dbus-daemon --system --fork --nopidfile --address=unix:path=/run/dbus/system_bus_socket >/var/log/dbus.log 2>&1 || true
   fi
+  test -S /run/dbus/system_bus_socket || return 1
   if command -v NetworkManager >/dev/null 2>&1 && ! pidof NetworkManager >/dev/null 2>&1; then
     NetworkManager --no-daemon >/var/log/NetworkManager.log 2>&1 &
   fi
@@ -2807,8 +3169,14 @@ fi
 [ -n "$host" ] || host="ooonana"
 hostname "$host" 2>/dev/null || true
 
-if [ -f /usr/share/ooonana/logo.txt ]; then
+if [ -f /usr/share/ooonana/boot-logo.txt ]; then
+  printf '\033]P3ffb21a\033[1;33m'
+  cat /usr/share/ooonana/boot-logo.txt
+  printf '\033[0m'
+elif [ -f /usr/share/ooonana/logo.txt ]; then
+  printf '\033]P3ffb21a\033[1;33m'
   cat /usr/share/ooonana/logo.txt
+  printf '\033[0m'
 fi
 echo "Ooonana full i3 rootfs"
 
@@ -2848,7 +3216,16 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
 fi
 
 if [ -x /usr/bin/start-ooonana-i3 ]; then
-  /usr/bin/start-ooonana-i3 || true
+  desktop_user="ooonana"
+  if ! grep -q 'ooonana.live=1' /proc/cmdline 2>/dev/null &&
+    [ -s /etc/ooonana/default-user ]; then
+    read -r desktop_user </etc/ooonana/default-user || desktop_user="ooonana"
+  fi
+  if grep -q "^$desktop_user:" /etc/passwd 2>/dev/null; then
+    /usr/bin/start-ooonana-i3 --user "$desktop_user" || true
+  else
+    /usr/bin/start-ooonana-i3 || true
+  fi
 fi
 
 echo "Ooonana full i3 fallback shell"
@@ -2884,6 +3261,12 @@ install_downloader_fallbacks() {
 exec /bin/busybox wget "$@"
 EOF
   fi
+}
+
+fix_blueman_activation() {
+  local service="$ROOTFS/usr/share/dbus-1/system-services/org.blueman.Mechanism.service"
+  [[ -f "$service" ]] || return 0
+  sed -i '/^SystemdService=/d' "$service"
 }
 
 shell_escape() {
@@ -2994,6 +3377,7 @@ write_full_groups() {
   touch "$group_file"
   for entry in \
     'root:x:0:' \
+    'wheel:x:10:' \
     'tty:x:5:' \
     'disk:x:6:' \
     'lp:x:7:' \
@@ -3001,6 +3385,9 @@ write_full_groups() {
     'audio:x:29:' \
     'video:x:44:' \
     'input:x:97:' \
+    'users:x:100:' \
+    'netdev:x:101:' \
+    'plugdev:x:102:' \
     'kmem:x:9:' \
     'cdrom:x:11:' \
     'tape:x:26:' \
@@ -3015,6 +3402,80 @@ write_full_groups() {
   grep -q '^messagebus:' "$passwd_file" 2>/dev/null ||
     printf '%s\n' 'messagebus:x:81:81:DBus Message Bus:/run/dbus:/bin/false' >> "$passwd_file"
 
+  mkdir -p "$ROOTFS/var" "$ROOTFS/run"
+  rm -rf "$ROOTFS/var/run"
+  ln -s ../run "$ROOTFS/var/run"
+
+  local live_user="ooonana"
+  local live_uid="1000"
+  local live_gid="1000"
+  local home_dir="$ROOTFS/home/$live_user"
+  if ! grep -q "^$live_user:" "$group_file" 2>/dev/null; then
+    printf '%s:x:%s:\n' "$live_user" "$live_gid" >> "$group_file"
+  fi
+  if ! grep -q "^$live_user:" "$passwd_file" 2>/dev/null; then
+    printf '%s:x:%s:%s:Ooonana Live User:/home/%s:/bin/sh\n' "$live_user" "$live_uid" "$live_gid" "$live_user" >> "$passwd_file"
+  fi
+
+  add_group_member() {
+    local group_name="$1"
+    local member="$2"
+    local tmp_file="$group_file.tmp.$$"
+    awk -F: -v OFS=: -v group_name="$group_name" -v member="$member" '
+      $1 == group_name {
+        n = split($4, members, ",")
+        found = 0
+        for (i = 1; i <= n; i++) if (members[i] == member) found = 1
+        if (!found) $4 = ($4 == "" ? member : $4 "," member)
+      }
+      { print }
+    ' "$group_file" > "$tmp_file"
+    mv "$tmp_file" "$group_file"
+  }
+  for group_name in wheel audio video input lp netdev plugdev users; do
+    add_group_member "$group_name" "$live_user"
+  done
+
+  local shadow_file="$ROOTFS/etc/shadow"
+  touch "$shadow_file"
+  grep -q "^$live_user:" "$shadow_file" 2>/dev/null ||
+    printf '%s:!:20000:0:99999:7:::\n' "$live_user" >> "$shadow_file"
+  chmod 0600 "$shadow_file"
+
+  mkdir -p "$home_dir/.config/ooonana" "$home_dir/.cache" "$home_dir/.local/state/ooonana" "$home_dir/Desktop" "$home_dir/Downloads" "$home_dir/Pictures/Ooonana"
+  if [[ "$(id -u)" -eq 0 ]]; then
+    chown -R "$live_uid:$live_gid" "$home_dir"
+  else
+    chmod -R u+rwX "$home_dir"
+  fi
+
+  install -D -m 0400 /dev/stdin "$ROOTFS/etc/doas.d/ooonana.conf" <<'DOAS'
+permit nopass keepenv :wheel
+DOAS
+  install -D -m 0400 /dev/stdin "$ROOTFS/etc/doas.conf" <<'DOAS'
+permit nopass keepenv :wheel
+DOAS
+  cat > "$ROOTFS/etc/os-release" <<EOF
+NAME="Ooonana OS"
+ID=ooonana
+PRETTY_NAME="Ooonana OS $OS_VERSION"
+VERSION="$OS_VERSION"
+VERSION_ID="$OS_VERSION"
+HOME_URL="https://github.com/Ooonana/Ooonana-OS"
+SUPPORT_URL="https://github.com/Ooonana/Ooonana-OS/issues"
+EOF
+  printf '%s\n' "$live_user" > "$ROOTFS/etc/ooonana/default-user"
+  cat > "$ROOTFS/etc/wsl.conf" <<'WSL'
+[boot]
+systemd=false
+
+[automount]
+mountFsTab=false
+
+[user]
+default=ooonana
+WSL
+
   mkdir -p "$ROOTFS/var/lib/dbus"
   printf '%s\n' '11111111111111111111111111111111' > "$ROOTFS/etc/machine-id"
   cp "$ROOTFS/etc/machine-id" "$ROOTFS/var/lib/dbus/machine-id"
@@ -3027,8 +3488,6 @@ write_tarball() {
     --sort=name \
     --mtime='UTC 1970-01-01' \
     --numeric-owner \
-    --owner=0 \
-    --group=0 \
     --pax-option=delete=atime,delete=ctime \
     --exclude='./dev/*' \
     --exclude='./proc/*' \
@@ -3085,6 +3544,11 @@ main() {
   "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$ROOTFS/usr/lib/ooonana/repo" >/dev/null
   "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$REPO" >/dev/null
   install_full_i3_packages
+  if [[ -x "$ROOTFS/usr/bin/python3" ]]; then
+    rm -f "$ROOTFS/usr/bin/python"
+    ln -s python3 "$ROOTFS/usr/bin/python"
+  fi
+  fix_blueman_activation
   install_downloader_fallbacks
   write_default_cloud_source
   compile_glib_schemas
@@ -3102,7 +3566,6 @@ main() {
   write_full_init_script
   printf 'packages-installed\n' > "$ROOTFS/etc/ooonana/edition-state"
   write_tarball
-  chmod -R a+rwX "$ROOTFS" 2>/dev/null || true
 
   ooonana_log "full-i3 rootfs ready: $ROOTFS"
   ooonana_log "full-i3 rootfs tarball ready: $TARBALL"

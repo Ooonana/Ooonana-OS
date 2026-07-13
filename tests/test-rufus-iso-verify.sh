@@ -41,6 +41,7 @@ function ooonana_progress_bar {
 }
 set theme=/boot/grub/theme.txt
 export theme
+set gfxpayload=keep
 set timeout_style=menu
 set timeout=5
 cat /boot/grub/ooonana-logo.txt

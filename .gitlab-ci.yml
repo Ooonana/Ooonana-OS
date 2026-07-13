@@ -14,7 +14,8 @@ variables:
   OOONANA_REPO_NAME: "gitlab"
   OOONANA_PAGES_MAX_BYTES: "1073741824"
   OOONANA_KERNEL_VERSION: "6.18.37"
-  OOONANA_KERNEL_PACKAGE_URL: "https://github.com/Ooonana/Ooonana-OS/releases/download/v0.1.6-full-i3-xterm-fix/vmlinuz-ooonana"
+  OOONANA_CORE_VERSION: "0.8.1"
+  OOONANA_KERNEL_PACKAGE_URL: "https://github.com/Ooonana/Ooonana-OS/releases/download/v0.1.8-ui-hardware/vmlinuz-ooonana"
 
 ci-smoke:
   image: alpine:3.20
@@ -97,6 +98,7 @@ deploy-package-repo:
         --packages "${PACKAGES:-}" \
         --cloud-url "$repo_url" \
         --repo-name "$OOONANA_REPO_NAME" \
+        --core-version "$OOONANA_CORE_VERSION" \
         --clean \
         $full_i3_arg \
         $sign_args \
