@@ -22,6 +22,7 @@ from gi.repository import GdkPixbuf  # noqa: E402
 class AiWindow(Gtk.Window):
     ACTIONS = [
         ("New chat", "document-new-symbolic", "new"),
+        ("Offline Intel", "computer-symbolic", "offline"),
         ("Status", "emblem-system-symbolic", "status"),
         ("Tools", "applications-engineering-symbolic", "tools"),
         ("Tasks", "view-list-symbolic", "tasks"),
@@ -46,7 +47,7 @@ class AiWindow(Gtk.Window):
         self.headerbar = header(
             self,
             "Ooonana AI",
-            "Local desktop workbench",
+            "Cloud and offline Intel workbench",
             "system-search-symbolic",
         )
         self.provider_label = label("provider: checking", "muted")
@@ -113,6 +114,23 @@ class AiWindow(Gtk.Window):
             False,
             0,
         )
+
+        provider_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        provider_row.pack_start(label("Provider", "muted"), False, False, 0)
+        self.provider_combo = Gtk.ComboBoxText()
+        self.provider_combo.append("nim", "NVIDIA NIM")
+        self.provider_combo.append("gemini", "Google Gemini")
+        self.provider_combo.append("openvino", "OpenVINO Local")
+        self.provider_combo.set_active_id("nim")
+        self.provider_combo.connect("changed", self.change_provider)
+        provider_row.pack_start(self.provider_combo, False, False, 0)
+        provider_row.pack_start(
+            button("Offline setup", "computer-symbolic", lambda *_: self.offline_dialog()),
+            False,
+            False,
+            0,
+        )
+        main.pack_start(provider_row, False, False, 0)
 
         self.transcript = Gtk.TextView()
         self.transcript.set_editable(False)
@@ -200,6 +218,30 @@ class AiWindow(Gtk.Window):
         _model_rc, model = run(["ooonana-ai", "model"], timeout=5)
         self.provider_label.set_text(f"provider: {provider.splitlines()[-1] if provider else 'auto'}")
         self.model_label.set_text(f"model: {model.splitlines()[-1] if model else 'default'}")
+        active = next(
+            (line.split(":", 1)[1].strip() for line in provider.splitlines() if line.startswith("active:")),
+            "nim",
+        )
+        self.provider_combo.handler_block_by_func(self.change_provider)
+        self.provider_combo.set_active_id(active)
+        self.provider_combo.handler_unblock_by_func(self.change_provider)
+
+    def change_provider(self, combo):
+        provider = combo.get_active_id()
+        if not provider:
+            return
+
+        def done(rc, output):
+            self.append(
+                "Provider",
+                output or (f"Using {provider}." if rc == 0 else "Provider change failed."),
+                self.ai_tag if rc == 0 else self.meta_tag,
+            )
+            self.refresh_model()
+            if rc == 0 and provider == "openvino":
+                self.offline_dialog()
+
+        run_async(["ooonana-ai", "provider", "set", provider], done, timeout=15)
 
     def clear_composer(self, *_args):
         self.composer.get_buffer().set_text("")
@@ -243,10 +285,111 @@ class AiWindow(Gtk.Window):
 
         run_async(["ooonana-ai", *args], done, timeout=120)
 
+    def offline_status(self):
+        if not Path("/usr/bin/openvino").exists():
+            return "Package: missing\n\nInstall openvino-chat from Ooonana repo."
+        doctor_rc, doctor = run(["openvino", "doctor"], timeout=30)
+        api_rc, api = run(["openvino", "api", "status"], timeout=20)
+        return (
+            "OpenVINO local AI\n\n"
+            + (doctor or f"Doctor exit: {doctor_rc}")
+            + "\n\n"
+            + (api or f"API status exit: {api_rc}")
+            + "\n\nModels download once. Inference then works offline."
+        )
+
+    def offline_terminal(self, title, command):
+        launch(
+            [
+                "ooonana-theme-env",
+                "xterm",
+                "-title",
+                title,
+                "-e",
+                "sh",
+                "-lc",
+                command + "; printf '\nPress Enter to close.'; read answer",
+            ]
+        )
+
+    def start_offline_api(self, device):
+        model = "/root/.openvino/models/gemma-4-e2b-it-qat-int4-ov"
+        self.activity.start()
+
+        def started(rc, output):
+            if rc != 0:
+                self.activity.stop()
+                self.append("Offline Intel", output or "OpenVINO API failed.", self.meta_tag)
+                return
+
+            def selected(select_rc, select_output):
+                self.activity.stop()
+                self.append(
+                    "Offline Intel",
+                    (output + "\n" + select_output).strip(),
+                    self.ai_tag if select_rc == 0 else self.meta_tag,
+                )
+                self.refresh_model()
+
+            run_async(
+                ["ooonana-ai", "provider", "set", "openvino"],
+                selected,
+                timeout=15,
+            )
+
+        run_async(
+            ["openvino", "--model-dir", model, "api", "start", "--device", device],
+            started,
+            timeout=180,
+        )
+
+    def offline_dialog(self):
+        dialog = Gtk.Dialog(title="Offline Intel AI", transient_for=self, flags=0)
+        dialog.set_default_size(720, 480)
+        dialog.add_button("Close", Gtk.ResponseType.CLOSE)
+        dialog.add_button("Install package", 1)
+        dialog.add_button("Setup runtime", 2)
+        dialog.add_button("Download tiny model", 3)
+        dialog.add_button("Start GPU", 4)
+        dialog.add_button("Start NPU", 5)
+        dialog.add_button("Stop API", 6)
+        view = Gtk.TextView()
+        view.set_editable(False)
+        view.set_cursor_visible(False)
+        view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        view.set_left_margin(16)
+        view.set_right_margin(16)
+        view.set_top_margin(16)
+        view.get_buffer().set_text(self.offline_status())
+        scroll = Gtk.ScrolledWindow()
+        scroll.add(view)
+        dialog.get_content_area().pack_start(scroll, True, True, 0)
+        dialog.show_all()
+        response = dialog.run()
+        dialog.destroy()
+        if response == 1:
+            self.offline_terminal(
+                "Install Ooonana Offline AI",
+                "ooonana get openvino-chat && openvino setup",
+            )
+        elif response == 2:
+            self.offline_terminal("Setup OpenVINO runtime", "openvino setup")
+        elif response == 3:
+            self.offline_terminal("Download tiny OpenVINO model", "openvino download tiny")
+        elif response == 4:
+            self.start_offline_api("GPU")
+        elif response == 5:
+            self.start_offline_api("NPU")
+        elif response == 6:
+            self.run_action("Offline Intel", ["provider", "set", "nim"])
+            run_async(["openvino", "api", "stop"], lambda _rc, _output: None, timeout=30)
+
     def sidebar_action(self, action):
         if action == "new":
             self.transcript.get_buffer().set_text("")
             self.append("Ooonana", "New chat started.", self.ai_tag)
+        elif action == "offline":
+            self.offline_dialog()
         elif action in ("status", "tools", "tasks", "sessions", "desktop"):
             self.run_action(action.title(), [action])
         elif action == "permissions":
@@ -277,8 +420,9 @@ class AiWindow(Gtk.Window):
 def main():
     if "--dry-run" in sys.argv:
         print("native GTK Ooonana AI")
-        print("layout: sidebar chat transcript composer provider model actions")
-        print("actions: new status tools tasks sessions desktop permissions logs setup")
+        print("layout: sidebar chat transcript composer provider model offline actions")
+        print("actions: new offline status tools tasks sessions desktop permissions logs setup")
+        print("offline: install runtime model GPU NPU local API")
         print("OOONANA_AI_NATIVE_OK")
         return 0
     apply_theme()

@@ -1,6 +1,8 @@
 # Ooonana full-i3 cloud package repo seed.
 python3
 py3-pip
+bubblewrap
+xz
 curl
 wget
 ca-certificates

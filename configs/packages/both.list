@@ -7,6 +7,8 @@ wget
 ca-certificates
 python3
 py3-pip
+bubblewrap
+xz
 dbus
 xorg-server
 xinit

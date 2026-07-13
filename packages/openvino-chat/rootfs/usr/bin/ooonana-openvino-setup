@@ -1,0 +1,136 @@
+#!/bin/sh
+set -eu
+
+STATE_DIR="${OOONANA_OPENVINO_STATE_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/ooonana-openvino}"
+ROOTFS="$STATE_DIR/rootfs"
+PROJECT="/usr/lib/ooonana/openvino-chat"
+BASE_URL="${OOONANA_OPENVINO_ROOTFS_URL:-https://cloud-images.ubuntu.com/minimal/releases/noble/release}"
+ROOTFS_NAME="ubuntu-24.04-minimal-cloudimg-amd64-root.tar.xz"
+FORCE=0
+DRY_RUN=0
+
+usage() {
+  cat <<'EOF'
+Install Ooonana OpenVINO local AI runtime.
+
+Usage:
+  openvino setup [--force] [--dry-run]
+
+Downloads Ubuntu 24.04 minimal userspace, verifies Ubuntu SHA256SUMS, installs
+OpenVINO Chat plus Intel GPU runtime, then keeps runtime in user home.
+EOF
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --force) FORCE=1 ;;
+    --dry-run) DRY_RUN=1 ;;
+    -h|--help) usage; exit 0 ;;
+    *) printf 'openvino setup: unknown option: %s\n' "$1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+if [ "$DRY_RUN" -eq 1 ]; then
+  printf 'state: %s\n' "$STATE_DIR"
+  printf 'rootfs: %s\n' "$ROOTFS"
+  printf 'download: %s/%s\n' "$BASE_URL" "$ROOTFS_NAME"
+  printf 'verify: %s/SHA256SUMS\n' "$BASE_URL"
+  printf 'install: Ubuntu Python venv + openvino-genai + Intel OpenCL runtime\n'
+  printf 'OOONANA_OPENVINO_SETUP_DRY_OK\n'
+  exit 0
+fi
+
+[ "$(uname -m)" = x86_64 ] || {
+  printf 'openvino setup: x86_64 Intel systems only\n' >&2
+  exit 1
+}
+[ -x /usr/bin/bwrap ] || {
+  printf 'openvino setup: bubblewrap missing; reinstall openvino-chat\n' >&2
+  exit 1
+}
+[ -d "$PROJECT/src/openvino_chat" ] || {
+  printf 'openvino setup: package payload missing\n' >&2
+  exit 1
+}
+
+mkdir -p "$STATE_DIR"
+
+run_inside() {
+  target="$1"
+  /usr/bin/bwrap \
+    --unshare-all \
+    --share-net \
+    --uid 0 \
+    --gid 0 \
+    --bind "$target" / \
+    --dev-bind /dev /dev \
+    --proc /proc \
+    --ro-bind /sys /sys \
+    --ro-bind "$PROJECT" /opt/openvino-chat \
+    --tmpfs /run \
+    --tmpfs /tmp \
+    --setenv HOME /root \
+    --setenv DEBIAN_FRONTEND noninteractive \
+    --setenv PATH /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    --chdir / \
+    /bin/bash -lc '
+      set -e
+      printf "APT::Sandbox::User \"root\";\n" >/etc/apt/apt.conf.d/99ooonana-root
+      apt-get update
+      apt-get install -y --no-install-recommends \
+        ca-certificates python3 python3-venv python3-pip \
+        libgl1 libnuma1 libtbb12 ocl-icd-libopencl1 intel-opencl-icd clinfo pciutils procps
+      rm -rf /var/lib/apt/lists/*
+      if [ ! -x /opt/openvino-venv/bin/python ]; then
+        python3 -m venv /opt/openvino-venv
+      fi
+      /opt/openvino-venv/bin/python -m pip install --no-cache-dir --upgrade pip
+      /opt/openvino-venv/bin/python -m pip install --no-cache-dir --upgrade /opt/openvino-chat
+      /opt/openvino-venv/bin/python -c "import openvino, openvino_genai, openvino_chat; print(\"OpenVINO runtime ready\")"
+      touch /.ooonana-openvino-ready
+    '
+}
+
+if [ -f "$ROOTFS/.ooonana-openvino-ready" ] && [ "$FORCE" -eq 0 ]; then
+  printf 'Updating OpenVINO runtime...\n'
+  run_inside "$ROOTFS"
+  printf 'ready: %s\n' "$ROOTFS"
+  exit 0
+fi
+
+work="$(mktemp -d "$STATE_DIR/.setup.XXXXXX")"
+candidate="$work/rootfs"
+archive="$work/$ROOTFS_NAME"
+checksums="$work/SHA256SUMS"
+cleanup() {
+  rm -rf "$work"
+}
+trap cleanup EXIT INT TERM
+
+printf 'Downloading verified Ubuntu userspace...\n'
+curl -fL --retry 5 --retry-delay 3 "$BASE_URL/SHA256SUMS" -o "$checksums"
+curl -fL --retry 5 --retry-delay 3 "$BASE_URL/$ROOTFS_NAME" -o "$archive"
+expected="$(awk -v file="$ROOTFS_NAME" '{name=$2; sub(/^\*/, "", name); if (name==file) {print $1; exit}}' "$checksums")"
+[ -n "$expected" ] || {
+  printf 'openvino setup: checksum entry missing\n' >&2
+  exit 1
+}
+actual="$(sha256sum "$archive" | awk '{print $1}')"
+[ "$actual" = "$expected" ] || {
+  printf 'openvino setup: Ubuntu rootfs checksum mismatch\n' >&2
+  exit 1
+}
+
+mkdir -p "$candidate"
+tar --no-same-owner -xJf "$archive" -C "$candidate"
+rm -f "$candidate/etc/resolv.conf"
+cp /etc/resolv.conf "$candidate/etc/resolv.conf"
+run_inside "$candidate"
+
+rm -rf "$ROOTFS"
+mv "$candidate" "$ROOTFS"
+printf 'OpenVINO local AI ready.\n'
+printf 'Next: openvino download tiny\n'
+printf 'Then: openvino chat --device GPU\n'
+printf 'NPU:  openvino chat --device NPU\n'

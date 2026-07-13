@@ -1,0 +1,89 @@
+#!/bin/sh
+set -eu
+
+STATE_DIR="${OOONANA_OPENVINO_STATE_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/ooonana-openvino}"
+ROOTFS="$STATE_DIR/rootfs"
+PROJECT="/usr/lib/ooonana/openvino-chat"
+OPENVINO_HOME="${OOONANA_OPENVINO_HOME:-$HOME/.openvino}"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/ooonana-openvino"
+WORKSPACE="${OOONANA_OPENVINO_WORKSPACE:-$PWD}"
+
+usage() {
+  cat <<'EOF'
+Ooonana OpenVINO Chat
+
+Usage:
+  openvino setup [--force]
+  openvino doctor
+  openvino status
+  openvino download tiny|qwen|gemma
+  openvino chat [--device GPU|NPU|CPU]
+  openvino api start|status|stop [--device GPU|NPU|CPU]
+
+Runtime and model files live outside package database in user home.
+Inference works offline after runtime and model download finish.
+EOF
+}
+
+case "${1:-}" in
+  -h|--help)
+    usage
+    exit 0
+    ;;
+  setup)
+    shift
+    exec /usr/bin/ooonana-openvino-setup "$@"
+    ;;
+  doctor)
+    printf 'Ooonana OpenVINO doctor\n'
+    printf 'runtime: %s\n' "$([ -f "$ROOTFS/.ooonana-openvino-ready" ] && printf ready || printf missing)"
+    printf 'bubblewrap: %s\n' "$([ -x /usr/bin/bwrap ] && printf ready || printf missing)"
+    printf 'gpu: %s\n' "$([ -d /dev/dri ] && printf detected || printf missing)"
+    printf 'npu: %s\n' "$([ -d /dev/accel ] && printf detected || printf missing)"
+    if [ ! -f "$ROOTFS/.ooonana-openvino-ready" ]; then
+      printf 'next: openvino setup\n'
+      exit 1
+    fi
+    set -- status
+    ;;
+esac
+
+[ -x /usr/bin/bwrap ] || {
+  printf 'openvino: bubblewrap missing; run: ooonana fix openvino-chat --reinstall\n' >&2
+  exit 1
+}
+[ -f "$ROOTFS/.ooonana-openvino-ready" ] || {
+  printf 'openvino: runtime missing; run: openvino setup\n' >&2
+  exit 1
+}
+[ -d "$PROJECT/src/openvino_chat" ] || {
+  printf 'openvino: package payload missing; reinstall openvino-chat\n' >&2
+  exit 1
+}
+[ -d "$WORKSPACE" ] || WORKSPACE="$HOME"
+
+mkdir -p "$OPENVINO_HOME" "$CACHE_DIR"
+
+exec /usr/bin/bwrap \
+  --unshare-user \
+  --unshare-uts \
+  --unshare-ipc \
+  --uid 0 \
+  --gid 0 \
+  --bind "$ROOTFS" / \
+  --dev-bind /dev /dev \
+  --proc /proc \
+  --ro-bind /sys /sys \
+  --ro-bind "$PROJECT" /opt/openvino-chat \
+  --bind "$OPENVINO_HOME" /root/.openvino \
+  --bind "$CACHE_DIR" /root/.cache \
+  --bind "$WORKSPACE" /workspace \
+  --tmpfs /run \
+  --tmpfs /tmp \
+  --setenv HOME /root \
+  --setenv OPENVINO_HOME /root/.openvino \
+  --setenv HF_HOME /root/.cache/huggingface \
+  --setenv PATH /opt/openvino-venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+  --setenv TERM "${TERM:-xterm-256color}" \
+  --chdir /workspace \
+  /opt/openvino-venv/bin/openvino "$@"

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-VERSION="0.8.3"
+VERSION="0.8.4"
 HOME_DIR="${HOME:-/root}"
 if [ -n "${OOONANA_AI_CONFIG:-}" ]; then
   AI_CONFIG="$OOONANA_AI_CONFIG"
@@ -252,6 +252,17 @@ AI flow:
   ooonana ai model list
   ooonana ai ask "fix this command"
   ooonana ai chat
+
+Offline Intel GPU/NPU:
+  ooonana get openvino-chat
+  openvino setup
+  openvino download tiny
+  openvino --model-dir /root/.openvino/models/gemma-4-e2b-it-qat-int4-ov api start --device GPU
+  ooonana ai provider set openvino
+  ooonana ai chat
+
+Offline controls also live in ooonana-ai-app. Runtime and model download once;
+later inference uses localhost and works without network.
 
 Full i3 app:
   ooonana-ai-app

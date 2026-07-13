@@ -2,13 +2,15 @@
 
 `docs/ooonana.pdf` is reserved for the bootable Ooonana OS PDF.
 
-The target is based on [ading2210/linuxpdf](https://github.com/ading2210/linuxpdf):
+Current 0.2 build is based on [ading2210/linuxpdf](https://github.com/ading2210/linuxpdf):
 
 - PDF JavaScript runs TinyEMU.
 - TinyEMU boots a RISC-V Linux kernel.
 - The PDF exposes a simple framebuffer plus on-page keyboard controls.
 - Boot is slow, often 30-60 seconds.
 - Chromium PDF viewer is the main target.
+- Injected shell payload carries Ooonana package manager 0.8.4 and current logo/help.
+- Boot console prints `OOONANA_PDF_BOOT_OK` after Ooonana init starts.
 
 Ooonana cannot embed the current x86_64 QEMU kernel directly. linuxpdf boots
 RISC-V, so the PDF path injects the minimal Ooonana shell payload into the
@@ -34,12 +36,10 @@ python3 scripts/generate-ooonana-pdf.py
 
 That writes `docs/ooonana-guide.pdf`.
 
-## TODO
+## Status
 
-- Build and verify `docs/ooonana.pdf` in Chromium. First Chrome smoke proof
-  loads the OoonanaPDF UI and reaches the RISC-V kernel boot path.
+- Build and Chromium smoke verification are automated by included scripts.
 - Add RISC-V native Ooonana kernel/rootfs instead of linuxpdf's prebuilt root.
-- Add an Ooonana boot marker in the PDF console.
 - Reduce payload size for faster PDF load.
 - Add release artifact upload for `ooonana.pdf`.
 

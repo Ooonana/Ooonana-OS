@@ -21,6 +21,7 @@ body="$(<"$SCRIPT")"
 assert_contains "$body" "Test Ooonana OS PDF in Chrome"
 assert_contains "$body" "--headless=new"
 assert_contains "$body" "--screenshot="
+assert_contains "$body" "Start-Sleep -Milliseconds 100"
 assert_contains "$body" "ooonana.pdf"
 
 if command -v powershell.exe >/dev/null 2>&1; then

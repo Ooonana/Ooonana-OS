@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Ooonana AI terminal client backed by NVIDIA NIM or Google Gemini."""
+"""Ooonana AI client for cloud providers and local Intel OpenVINO."""
 
 from __future__ import annotations
 
@@ -34,6 +34,8 @@ DEFAULT_MODEL = "nvidia/nemotron-3-super-120b-a12b"
 DEFAULT_PROVIDER = "nim"
 DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+DEFAULT_OPENVINO_BASE_URL = "http://127.0.0.1:11435/v1"
+DEFAULT_OPENVINO_MODEL = "gemma-4-e2b-it-qat-int4-ov"
 CONFIG_PATH = Path(os.environ.get("OOONANA_AI_CONFIG", "~/.config/ooonana/ai.env")).expanduser()
 STATE_PATH = Path(os.environ.get("OOONANA_AI_STATE_DIR", "~/.local/state/ooonana/ai")).expanduser()
 DEFAULT_MAX_CONTEXT_BYTES = 12000
@@ -43,8 +45,8 @@ You are Ooonana, the built-in AI assistant for Ooonana OS.
 Identity:
 - Your name is Ooonana.
 - If asked who you are, answer as Ooonana.
-- You are not Gemini, Claude, ChatGPT, Google, or NVIDIA NIM.
-- NVIDIA NIM and Google Gemini are only model/API providers behind the terminal app.
+- You are not Gemini, Claude, ChatGPT, Google, NVIDIA NIM, or OpenVINO.
+- NVIDIA NIM, Google Gemini, and local OpenVINO are model providers behind the app.
 
 Environment:
 - You live in a Linux terminal and are designed for Ooonana OS, WSL, and shell-first workflows.
@@ -61,6 +63,7 @@ Behavior:
 - Do not expose API keys or secrets. If config is shown, redact secret values.
 - When using NVIDIA NIM, explain provider settings in OpenAI-compatible terms: base URL, model, bearer token, chat completions, streaming.
 - When using Gemini, explain provider settings as Gemini API terms: API key, model, generateContent, streamGenerateContent, system instruction, contents.
+- When using OpenVINO, explain local model, Intel GPU/NPU device, localhost API, and offline state.
 
 Ooonana product direction:
 - Help the user build Ooonana as its own AI CLI experience, not a thin rebrand.
@@ -117,9 +120,16 @@ GEMINI_POPULAR_MODELS = [
     "gemini-2.0-flash",
 ]
 
+OPENVINO_POPULAR_MODELS = [
+    "gemma-4-e2b-it-qat-int4-ov",
+    "qwen3.5-9b-int4-ov",
+    "gemma-4-e4b-it-int4-ov",
+]
+
 PROVIDER_LABELS = {
     "nim": "NVIDIA NIM",
     "gemini": "Google Gemini",
+    "openvino": "OpenVINO Local",
 }
 
 DEFAULT_MODEL_ALIASES = {
@@ -132,6 +142,11 @@ DEFAULT_MODEL_ALIASES = {
         "fast": "gemini-2.5-flash-lite",
         "code": "gemini-2.5-flash",
         "deep": "gemini-2.5-pro",
+    },
+    "openvino": {
+        "fast": "gemma-4-e2b-it-qat-int4-ov",
+        "code": "qwen3.5-9b-int4-ov",
+        "deep": "gemma-4-e4b-it-int4-ov",
     },
 }
 
@@ -210,18 +225,28 @@ def load_config(path: Path) -> dict[str, str]:
         "OOONANA_NIM_MODEL",
         "OOONANA_GEMINI_BASE_URL",
         "OOONANA_GEMINI_MODEL",
+        "OOONANA_OPENVINO_BASE_URL",
+        "OOONANA_OPENVINO_MODEL",
         "OOONANA_MODEL_FAST",
         "OOONANA_MODEL_CODE",
         "OOONANA_MODEL_DEEP",
         "OOONANA_GEMINI_MODEL_FAST",
         "OOONANA_GEMINI_MODEL_CODE",
         "OOONANA_GEMINI_MODEL_DEEP",
+        "OOONANA_OPENVINO_MODEL_FAST",
+        "OOONANA_OPENVINO_MODEL_CODE",
+        "OOONANA_OPENVINO_MODEL_DEEP",
         "OOONANA_AI_MAX_TOKENS",
         "OOONANA_AI_TEMPERATURE",
         "OOONANA_AI_STREAM",
     }
     for key, value in os.environ.items():
-        if value and (key in fixed_keys or key.startswith("OOONANA_MODEL_") or key.startswith("OOONANA_GEMINI_MODEL_")):
+        if value and (
+            key in fixed_keys
+            or key.startswith("OOONANA_MODEL_")
+            or key.startswith("OOONANA_GEMINI_MODEL_")
+            or key.startswith("OOONANA_OPENVINO_MODEL_")
+        ):
             values[key] = value
     return values
 
@@ -250,23 +275,29 @@ def selected_provider(config: dict[str, str], override: str = "") -> str:
             return "gemini"
         return DEFAULT_PROVIDER
     if provider not in PROVIDER_LABELS:
-        raise OoonanaError("provider must be nim, gemini, or auto")
+        raise OoonanaError("provider must be nim, gemini, openvino, or auto")
     return provider
 
 
 def provider_api_key(config: dict[str, str], provider: str) -> str:
+    if provider == "openvino":
+        return "local"
     if provider == "gemini":
         return gemini_api_key(config)
     return api_key(config)
 
 
 def provider_base_url(config: dict[str, str], provider: str) -> str:
+    if provider == "openvino":
+        return config_value(config, "OOONANA_OPENVINO_BASE_URL", DEFAULT_OPENVINO_BASE_URL)
     if provider == "gemini":
         return config_value(config, "OOONANA_GEMINI_BASE_URL", DEFAULT_GEMINI_BASE_URL)
     return config_value(config, "OOONANA_NIM_BASE_URL", DEFAULT_BASE_URL)
 
 
 def missing_key_message(provider: str) -> str:
+    if provider == "openvino":
+        return "OpenVINO local API unavailable: run openvino api start"
     if provider == "gemini":
         return "AI config missing GEMINI_API_KEY or GOOGLE_API_KEY"
     return "AI config missing NVIDIA_API_KEY"
@@ -280,7 +311,7 @@ def setup_config(path: Path) -> None:
             path.write_text(
                 textwrap.dedent(
                     f"""\
-                    # Ooonana AI uses NVIDIA NIM or Google Gemini.
+                    # Ooonana AI uses NVIDIA NIM, Google Gemini, or local OpenVINO.
                     # Get a key from https://build.nvidia.com/settings/api-keys
                     # Get a Gemini key from https://aistudio.google.com/app/apikey
                     OOONANA_AI_PROVIDER=nim
@@ -290,12 +321,17 @@ def setup_config(path: Path) -> None:
                     OOONANA_NIM_MODEL={DEFAULT_MODEL}
                     OOONANA_GEMINI_BASE_URL={DEFAULT_GEMINI_BASE_URL}
                     OOONANA_GEMINI_MODEL={DEFAULT_GEMINI_MODEL}
+                    OOONANA_OPENVINO_BASE_URL={DEFAULT_OPENVINO_BASE_URL}
+                    OOONANA_OPENVINO_MODEL={DEFAULT_OPENVINO_MODEL}
                     OOONANA_MODEL_FAST=qwen/qwen3-next-80b-a3b-instruct
                     OOONANA_MODEL_CODE=qwen/qwen3-coder-480b-a35b-instruct
                     OOONANA_MODEL_DEEP=nvidia/nemotron-3-super-120b-a12b
                     OOONANA_GEMINI_MODEL_FAST=gemini-2.5-flash-lite
                     OOONANA_GEMINI_MODEL_CODE=gemini-2.5-flash
                     OOONANA_GEMINI_MODEL_DEEP=gemini-2.5-pro
+                    OOONANA_OPENVINO_MODEL_FAST=gemma-4-e2b-it-qat-int4-ov
+                    OOONANA_OPENVINO_MODEL_CODE=qwen3.5-9b-int4-ov
+                    OOONANA_OPENVINO_MODEL_DEEP=gemma-4-e4b-it-int4-ov
                     OOONANA_AI_MAX_TOKENS=1024
                     OOONANA_AI_TEMPERATURE=0.2
                     OOONANA_AI_STREAM=1
@@ -758,6 +794,8 @@ def request_payload(args: argparse.Namespace, config: dict[str, str], messages: 
     provider = active_provider(args, config)
     if provider == "gemini":
         return gemini_request_payload(args, config, messages, stream=stream, include_meta=True)
+    if provider == "openvino":
+        return openvino_request_payload(args, config, messages, stream=stream, include_meta=True)
     return nim_request_payload(args, config, messages, stream=stream, include_meta=True)
 
 
@@ -778,6 +816,26 @@ def nim_request_payload(
     }
     if include_meta:
         payload = {"provider": "nim", **payload}
+    return payload
+
+
+def openvino_request_payload(
+    args: argparse.Namespace,
+    config: dict[str, str],
+    messages: list[dict[str, str]],
+    stream: bool,
+    include_meta: bool = False,
+) -> dict[str, Any]:
+    model = resolve_model(args.model, config, "openvino")
+    payload: dict[str, Any] = {
+        "model": model,
+        "messages": messages,
+        "max_tokens": max_tokens(config),
+        "temperature": temperature(config),
+        "stream": stream,
+    }
+    if include_meta:
+        payload = {"provider": "openvino", **payload}
     return payload
 
 
@@ -816,12 +874,16 @@ def gemini_request_payload(
 
 
 def model_default_env_key(provider: str) -> str:
+    if provider == "openvino":
+        return "OOONANA_OPENVINO_MODEL"
     if provider == "gemini":
         return "OOONANA_GEMINI_MODEL"
     return "OOONANA_NIM_MODEL"
 
 
 def model_default(config: dict[str, str], provider: str) -> str:
+    if provider == "openvino":
+        return config_value(config, "OOONANA_OPENVINO_MODEL", DEFAULT_OPENVINO_MODEL)
     if provider == "gemini":
         return config_value(config, "OOONANA_GEMINI_MODEL", DEFAULT_GEMINI_MODEL)
     return config_value(config, "OOONANA_NIM_MODEL", DEFAULT_MODEL)
@@ -831,7 +893,10 @@ def model_alias_env_key(alias: str, provider: str = "nim") -> str:
     normalized = normalize_model_alias(alias)
     if normalized == "default":
         return model_default_env_key(provider)
-    prefix = "OOONANA_GEMINI_MODEL_" if provider == "gemini" else "OOONANA_MODEL_"
+    if provider == "openvino":
+        prefix = "OOONANA_OPENVINO_MODEL_"
+    else:
+        prefix = "OOONANA_GEMINI_MODEL_" if provider == "gemini" else "OOONANA_MODEL_"
     return prefix + normalized.upper().replace("-", "_")
 
 
@@ -839,7 +904,10 @@ def model_aliases(config: dict[str, str], provider: str = "nim") -> dict[str, st
     aliases: dict[str, str] = {"default": model_default(config, provider)}
     for alias, default_model in DEFAULT_MODEL_ALIASES[provider].items():
         aliases[alias] = config.get(model_alias_env_key(alias, provider), default_model)
-    prefix = "OOONANA_GEMINI_MODEL_" if provider == "gemini" else "OOONANA_MODEL_"
+    if provider == "openvino":
+        prefix = "OOONANA_OPENVINO_MODEL_"
+    else:
+        prefix = "OOONANA_GEMINI_MODEL_" if provider == "gemini" else "OOONANA_MODEL_"
     extras: list[tuple[str, str]] = []
     for key, value in config.items():
         if not key.startswith(prefix) or not value:
@@ -867,7 +935,10 @@ def print_model_aliases(config: dict[str, str], provider: str) -> None:
 def print_model_catalog(config: dict[str, str], provider: str) -> None:
     print_model_aliases(config, provider)
     print("popular:")
-    models = GEMINI_POPULAR_MODELS if provider == "gemini" else POPULAR_MODELS
+    if provider == "openvino":
+        models = OPENVINO_POPULAR_MODELS
+    else:
+        models = GEMINI_POPULAR_MODELS if provider == "gemini" else POPULAR_MODELS
     for model in models:
         print(f"  {model}")
 
@@ -920,6 +991,8 @@ def call_model(args: argparse.Namespace, config: dict[str, str], messages: list[
         return response
     if provider == "gemini":
         return call_gemini(args, config, messages, stream)
+    if provider == "openvino":
+        return call_openvino(args, config, messages, stream)
     return call_nim(args, config, messages, stream)
 
 
@@ -1017,6 +1090,37 @@ def call_nim(args: argparse.Namespace, config: dict[str, str], messages: list[di
         raise OoonanaError("NVIDIA NIM response did not include chat content") from exc
 
 
+def call_openvino(args: argparse.Namespace, config: dict[str, str], messages: list[dict[str, str]], stream: bool) -> str:
+    payload = openvino_request_payload(args, config, messages, stream=stream, include_meta=False)
+    body = json.dumps(payload).encode("utf-8")
+    request = urllib.request.Request(
+        completions_url(provider_base_url(config, "openvino")),
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream" if stream else "application/json",
+            "User-Agent": f"ooonana-ai/{VERSION}",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=float(os.environ.get("OOONANA_AI_TIMEOUT", "300"))) as response:
+            if stream:
+                return read_streaming_response(response)
+            data = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise OoonanaError(f"OpenVINO local HTTP {exc.code}: {detail}") from exc
+    except urllib.error.URLError as exc:
+        raise OoonanaError(
+            f"OpenVINO local API unavailable: {exc.reason}; run openvino api start"
+        ) from exc
+    try:
+        return data["choices"][0]["message"]["content"] or ""
+    except (KeyError, IndexError, TypeError) as exc:
+        raise OoonanaError("OpenVINO response did not include chat content") from exc
+
+
 def read_streaming_response(response: Any) -> str:
     chunks: list[str] = []
     for raw_line in response:
@@ -1090,12 +1194,12 @@ def cmd_provider(args: argparse.Namespace) -> int:
         return 0
     if action == "set":
         if args.value not in PROVIDER_LABELS:
-            raise OoonanaError("provider must be nim or gemini")
+            raise OoonanaError("provider must be nim, gemini, or openvino")
         write_env_updates(path, {"OOONANA_AI_PROVIDER": args.value})
         print(f"provider: {args.value}")
         print(f"config: {path}")
         return 0
-    raise OoonanaError("usage: ooonana-ai provider [show|set nim|set gemini]")
+    raise OoonanaError("usage: ooonana-ai provider [show|set nim|set gemini|set openvino]")
     return 0
 
 
@@ -1519,7 +1623,7 @@ def cmd_chat(args: argparse.Namespace) -> int:
                     continue
                 if len(parts) == 3 and parts[1] == "set":
                     if parts[2] not in PROVIDER_LABELS:
-                        print("usage: /provider set nim|gemini")
+                        print("usage: /provider set nim|gemini|openvino")
                         continue
                     provider = parts[2]
                     write_env_updates(Path(args.config).expanduser(), {"OOONANA_AI_PROVIDER": provider})
@@ -1527,7 +1631,7 @@ def cmd_chat(args: argparse.Namespace) -> int:
                     model = resolve_model("", config, provider)
                     print(f"provider: {provider}")
                     continue
-                print("usage: /provider [set nim|gemini]")
+                print("usage: /provider [set nim|gemini|openvino]")
                 continue
             if command == "/models":
                 print_model_catalog(config, provider)
@@ -1621,10 +1725,10 @@ def cmd_chat(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="ooonana ai", description="Ooonana AI CLI for NVIDIA NIM and Google Gemini")
+    parser = argparse.ArgumentParser(prog="ooonana ai", description="Ooonana AI CLI for NVIDIA NIM, Google Gemini, and local OpenVINO")
     parser.add_argument("--config", default=str(CONFIG_PATH), help="config env file")
     parser.add_argument("--state-dir", default=str(STATE_PATH), help="history/session state directory")
-    parser.add_argument("--provider", default="", choices=("nim", "gemini", "auto", ""), help="provider override")
+    parser.add_argument("--provider", default="", choices=("nim", "gemini", "openvino", "auto", ""), help="provider override")
     subparsers = parser.add_subparsers(dest="command")
 
     subparsers.add_parser("setup", help="create config file")
@@ -1634,7 +1738,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("models", help="show useful provider model ids")
     provider = subparsers.add_parser("provider", help="show or change provider")
     provider.add_argument("action", nargs="?", default="show", choices=("show", "set"), help="provider action")
-    provider.add_argument("value", nargs="?", default="", choices=("nim", "gemini", ""), help="provider name")
+    provider.add_argument("value", nargs="?", default="", choices=("nim", "gemini", "openvino", ""), help="provider name")
     model = subparsers.add_parser("model", help="show or change default model")
     model.add_argument("action", nargs="?", default="show", choices=("show", "list", "set", "use", "alias"), help="model action")
     model.add_argument("values", nargs="*", help="model id or alias values")

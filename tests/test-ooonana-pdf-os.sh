@@ -25,6 +25,7 @@ assert_contains "$help" "Build bootable Ooonana OS PDF"
 assert_contains "$help" "docs/ooonana.pdf"
 assert_contains "$help" "linuxpdf is GPLv3"
 assert_contains "$help" "--prepare-only"
+assert_contains "$(<"$INJECTOR")" 'exec sudo bash "$0" "$TARGET_ROOT"'
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -34,7 +35,7 @@ assert_contains "$dry" "would build Ooonana OS PDF"
 assert_contains "$dry" "git clone"
 assert_contains "$dry" "OOONANA_SOURCE_ROOT="
 assert_contains "$dry" "OOONANA_PDF_BITS="
-assert_contains "$dry" "install -m 0644"
+assert_contains "$dry" "cp -f"
 
 rootfs="$tmp/rootfs"
 mkdir -p "$rootfs"
@@ -45,8 +46,13 @@ assert_contains "$inject" "injected Ooonana PDF rootfs"
 [[ -f "$rootfs/usr/share/ooonana/logo.txt" ]] || fail "missing injected logo"
 [[ -f "$rootfs/etc/os-release" ]] || fail "missing injected os-release"
 assert_contains "$(<"$rootfs/sbin/init")" "Ooonana OS PDF Minimal"
+assert_contains "$(<"$rootfs/sbin/init")" "OOONANA_PDF_BOOT_OK"
 assert_contains "$(<"$rootfs/root/.profile")" "ooonana help packages"
+assert_contains "$(<"$rootfs/root/.profile")" "ooonana ai status"
 assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS PDF Minimal"'
+assert_contains "$(<"$rootfs/etc/os-release")" 'VERSION_ID="0.2-pdf"'
+[[ -f "$rootfs/etc/ooonana/pdf-release" ]] || fail "missing PDF release metadata"
+assert_contains "$(<"$rootfs/etc/ooonana/pdf-release")" 'OOONANA_PDF_PACKAGE_MANAGER="0.8.4"'
 
 if [[ -f "$PDF" ]]; then
   head="$(LC_ALL=C head -c 5 "$PDF")"

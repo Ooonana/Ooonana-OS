@@ -69,7 +69,32 @@ run() {
 patch_linuxpdf() {
   local build_sh="$SRC/build.sh"
   local gen_pdf="$SRC/gen_pdf.py"
-  grep -q 'OOONANA_SOURCE_ROOT' "$build_sh" 2>/dev/null && return 0
+  if grep -q 'OOONANA_SOURCE_ROOT' "$build_sh" 2>/dev/null; then
+    python3 - "$build_sh" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+build = Path(sys.argv[1])
+text = build.read_text()
+text = text.replace(
+    '  bash "$OOONANA_SOURCE_ROOT/scripts/inject-ooonana-pdf-root.sh" "$root_dir"',
+    '  sudo bash "$OOONANA_SOURCE_ROOT/scripts/inject-ooonana-pdf-root.sh" "$root_dir"',
+)
+text = text.replace(
+    '  rm -rf build/files\n  mkdir -p build/files/root\n',
+    '  sudo rm -rf build/files\n  sudo mkdir -p build/files/root\n',
+)
+text = re.sub(
+    r'^(?:sudo )*cp vm_\$BITS\.cfg build/vm/bbl\$BITS\.bin build/vm/kernel-riscv\$BITS\.bin build/files$',
+    'sudo cp vm_$BITS.cfg build/vm/bbl$BITS.bin build/vm/kernel-riscv$BITS.bin build/files',
+    text,
+    flags=re.MULTILINE,
+)
+build.write_text(text)
+PY
+    return 0
+  fi
   python3 - "$build_sh" "$gen_pdf" <<'PY'
 from pathlib import Path
 import sys
@@ -81,12 +106,12 @@ text = text.replace('BITS="32"', 'BITS="${OOONANA_PDF_BITS:-32}"')
 needle = "build_files\ncp vm_$BITS.cfg build/vm/bbl$BITS.bin build/vm/kernel-riscv$BITS.bin build/files\n"
 insert = """build_files
 if [ -n "${OOONANA_SOURCE_ROOT:-}" ]; then
-  bash "$OOONANA_SOURCE_ROOT/scripts/inject-ooonana-pdf-root.sh" "$root_dir"
-  rm -rf build/files
-  mkdir -p build/files/root
+  sudo bash "$OOONANA_SOURCE_ROOT/scripts/inject-ooonana-pdf-root.sh" "$root_dir"
+  sudo rm -rf build/files
+  sudo mkdir -p build/files/root
   sudo build/build_files "$root_dir" build/files/root
 fi
-cp vm_$BITS.cfg build/vm/bbl$BITS.bin build/vm/kernel-riscv$BITS.bin build/files
+sudo cp vm_$BITS.cfg build/vm/bbl$BITS.bin build/vm/kernel-riscv$BITS.bin build/files
 """
 if needle not in text:
     raise SystemExit("linuxpdf build.sh patch point missing")
@@ -119,7 +144,7 @@ else
 fi
 
 if [[ "$FORCE" -eq 1 ]]; then
-  run rm -rf "$SRC/build/root" "$SRC/build/files" "$SRC/out/linux.pdf"
+  run sudo rm -rf "$SRC/build/root" "$SRC/build/files" "$SRC/out/linux.pdf"
 fi
 
 if [[ "$PREPARE_ONLY" -eq 1 ]]; then
@@ -131,7 +156,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   printf '+ python3 -m venv %q\n' "$SRC/.venv"
   printf '+ pip install -r %q\n' "$SRC/requirements.txt"
   printf '+ OOONANA_SOURCE_ROOT=%q OOONANA_PDF_BITS=%q ./build.sh\n' "$ROOT" "$BITS"
-  printf '+ install -m 0644 %q %q\n' "$SRC/out/linux.pdf" "$OUT"
+  printf '+ cp -f %q %q\n' "$SRC/out/linux.pdf" "$OUT"
   exit 0
 fi
 
@@ -141,5 +166,7 @@ python3 -m venv "$SRC/.venv"
   cd "$SRC"
   OOONANA_SOURCE_ROOT="$ROOT" OOONANA_PDF_BITS="$BITS" ./build.sh
 )
-install -D -m 0644 "$SRC/out/linux.pdf" "$OUT"
+mkdir -p "$(dirname "$OUT")"
+cp -f "$SRC/out/linux.pdf" "$OUT"
+chmod 0644 "$OUT" 2>/dev/null || true
 printf 'Ooonana OS PDF ready: %s\n' "$OUT"

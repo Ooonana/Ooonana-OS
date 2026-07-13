@@ -47,7 +47,7 @@ while [ "$#" -gt 0 ]; do
       shift
       ;;
     --provider)
-      [ "$#" -ge 2 ] || { printf 'ooonana-ai: --provider requires nim, gemini, or auto\n' >&2; exit 1; }
+      [ "$#" -ge 2 ] || { printf 'ooonana-ai: --provider requires nim, gemini, openvino, or auto\n' >&2; exit 1; }
       PROVIDER_OPT="--provider"
       PROVIDER_VAL="$2"
       shift 2

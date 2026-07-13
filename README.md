@@ -444,13 +444,14 @@ Minimal seed profile:
 configs/packages/ooonana-cloud.list
 ```
 
-The combined seed includes `python3` so AI and repo tooling can run once the cloud repo is published.
+The combined seed includes `python3`, `bubblewrap`, and `xz`. Repo builds also add the native `openvino-chat` package for local Intel GPU/NPU AI.
 
 This creates:
 
 ```text
 /tmp/ooonana-repo/nano.pkg
 /tmp/ooonana-repo/ooonana-kernel.pkg
+/tmp/ooonana-repo/openvino-chat.pkg
 /tmp/ooonana-repo/archives/*.tar.gz
 /tmp/ooonana-repo/index.tsv
 /tmp/ooonana-repo/SHA256SUMS
@@ -458,7 +459,7 @@ This creates:
 /tmp/ooonana-repo/cloud.repo
 ```
 
-`scripts/import-apk-package.sh` is the low-level APK importer. `scripts/build-kernel-package.sh` wraps a built Ooonana kernel as `ooonana-kernel`. `scripts/build-package-repo.sh` is the normal repo builder. It loads a profile, adds extra package names, imports dependencies, optionally adds the kernel package, writes indexes and checksums, and can write cloud repo hints. `ooonana update` and remote installs use `curl`, `wget`, or Python 3 as HTTPS download fallbacks, so GitLab Pages repos still work in small BusyBox systems where `wget` lacks TLS support.
+`scripts/import-apk-package.sh` is the low-level APK importer. `scripts/build-kernel-package.sh` wraps a built Ooonana kernel as `ooonana-kernel`. `scripts/build-openvino-chat-package.sh` packages offline Intel AI. `scripts/build-package-repo.sh` assembles all native and imported packages, indexes, checksums, kernel package, and cloud hints. `ooonana update` and remote installs use `curl`, `wget`, or Python 3 as HTTPS download fallbacks.
 
 Publish the generated repo to Cloudflare R2:
 
@@ -925,6 +926,7 @@ ooonana ai doctor
 ooonana ai status
 ooonana ai provider
 ooonana ai provider set gemini
+ooonana ai provider set openvino
 ooonana ai models
 ooonana ai model
 ooonana ai agents
@@ -939,6 +941,20 @@ ooonana-ai --model code "write a shell script"
 ooonana-ai chat
 ```
 
+Offline Intel GPU/NPU flow:
+
+```bash
+ooonana update
+ooonana get openvino-chat
+openvino setup
+openvino download tiny
+openvino --model-dir /root/.openvino/models/gemma-4-e2b-it-qat-int4-ov api start --device GPU
+ooonana ai provider set openvino
+ooonana-ai chat
+```
+
+Use `--device NPU` when Intel NPU appears under `/dev/accel`. Runtime and model download once; inference then stays local. Native Ooonana AI app has package install, runtime setup, model download, GPU/NPU start, stop, and provider controls.
+
 Full-i3 includes an Ooonana AI app launcher:
 
 ```text
@@ -948,8 +964,7 @@ Full-i3 includes an Ooonana AI app launcher:
 i3 shortcut: Mod+Shift+a
 ```
 
-The launcher opens a `yad` AI workbench when the full desktop is available,
-then falls back to the native terminal dashboard. The workbench is chat-first:
+The launcher opens native GTK AI workbench when Python GTK is available, then falls back to `yad` and terminal paths. Workbench is chat-first:
 it has a transcript pane, prompt flow, action rail, context panel, permissions,
 and logs. It can show status, tools registry, task board, audit/history,
 desktop context, desktop control, provider/model, permissions, and env output
@@ -969,7 +984,7 @@ Config:
 docs/ooonana-ai.env.example
 ```
 
-Minimal WSL does not include `python3` yet. `provider`, `status`, and `tools` still work through shell fallback. Full-i3 WSL carries the full package-installed rootfs, GUI scripts, wallpaper, and current `ooonana-ai` desktop context tool; full chat and live provider calls still need `python3` present in that package set.
+Ooonana package sets include Python 3. Shell fallback still handles basic provider, status, and tools commands when Python is damaged or missing.
 
 More:
 

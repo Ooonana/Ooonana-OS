@@ -8,11 +8,13 @@ Ooonana AI is the terminal assistant for Ooonana. It is currently a standalone O
 - Opens as a full-i3 terminal dashboard through `ooonana-ai-app`
 - Uses NVIDIA NIM's OpenAI-compatible chat completions API
 - Uses Google Gemini's `generateContent` and `streamGenerateContent` REST API
+- Uses local OpenVINO Chat through an OpenAI-compatible localhost API
 - Reads `NVIDIA_API_KEY`, `NVIDIA_NIM_API_KEY`, `GEMINI_API_KEY`, or `GOOGLE_API_KEY`
 - Sends a system prompt that says the assistant's name is `Ooonana`
 - Sends a Linux/WSL environment snapshot with each request
 - Supports one-shot ask, code prompt alias, interactive chat, status, model listing, config inspection, persistent history, rewind, and local context agents
 - Provides a native app dashboard with quick actions for chat, ask, tools, tasks, sessions, setup, and shell fallback
+- Provides offline Intel package/runtime/model controls in the native app
 - Keeps a BusyBox/scratch shell fallback for `provider`, `status`, `tools`, and basic inspection when `python3` is not present
 
 ## Quick Start
@@ -105,19 +107,24 @@ OOONANA_NIM_BASE_URL=https://integrate.api.nvidia.com/v1
 OOONANA_NIM_MODEL=nvidia/nemotron-3-super-120b-a12b
 OOONANA_GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
 OOONANA_GEMINI_MODEL=gemini-2.5-flash
+OOONANA_OPENVINO_BASE_URL=http://127.0.0.1:11435/v1
+OOONANA_OPENVINO_MODEL=gemma-4-e2b-it-qat-int4-ov
 OOONANA_MODEL_CODE=qwen/qwen3-coder-480b-a35b-instruct
 OOONANA_MODEL_FAST=qwen/qwen3-next-80b-a3b-instruct
 OOONANA_MODEL_DEEP=nvidia/nemotron-3-super-120b-a12b
 OOONANA_GEMINI_MODEL_CODE=gemini-2.5-flash
 OOONANA_GEMINI_MODEL_FAST=gemini-2.5-flash-lite
 OOONANA_GEMINI_MODEL_DEEP=gemini-2.5-pro
+OOONANA_OPENVINO_MODEL_FAST=gemma-4-e2b-it-qat-int4-ov
+OOONANA_OPENVINO_MODEL_CODE=qwen3.5-9b-int4-ov
+OOONANA_OPENVINO_MODEL_DEEP=gemma-4-e4b-it-int4-ov
 OOONANA_MODEL_TINY=meta/llama-3.3-70b-instruct
 OOONANA_AI_STREAM=1
 ```
 
 ### API Settings
 
-Ooonana AI talks to NVIDIA NIM using OpenAI-compatible chat completions. It talks to Gemini using the REST `generateContent` shape with `x-goog-api-key`, `system_instruction`, and `contents`.
+Ooonana AI talks to NVIDIA NIM and local OpenVINO using OpenAI-compatible chat completions. It talks to Gemini using the REST `generateContent` shape with `x-goog-api-key`, `system_instruction`, and `contents`.
 
 | Setting | Default | Purpose |
 | --- | --- | --- |
@@ -125,11 +132,13 @@ Ooonana AI talks to NVIDIA NIM using OpenAI-compatible chat completions. It talk
 | `NVIDIA_NIM_API_KEY` | empty | Alternative key name. Takes precedence if both are set. |
 | `GEMINI_API_KEY` | empty | Gemini API key. |
 | `GOOGLE_API_KEY` | empty | Alternative Gemini key name. Takes precedence if both are set. |
-| `OOONANA_AI_PROVIDER` | `nim` | `nim`, `gemini`, or `auto`. |
+| `OOONANA_AI_PROVIDER` | `nim` | `nim`, `gemini`, `openvino`, or `auto`. |
 | `OOONANA_NIM_BASE_URL` | `https://integrate.api.nvidia.com/v1` | API base URL. Ooonana appends `/chat/completions` when needed. |
 | `OOONANA_NIM_MODEL` | `nvidia/nemotron-3-super-120b-a12b` | Default chat model. |
 | `OOONANA_GEMINI_BASE_URL` | `https://generativelanguage.googleapis.com/v1beta` | Gemini API base URL. |
 | `OOONANA_GEMINI_MODEL` | `gemini-2.5-flash` | Default Gemini chat model. |
+| `OOONANA_OPENVINO_BASE_URL` | `http://127.0.0.1:11435/v1` | Local OpenVINO Chat API. |
+| `OOONANA_OPENVINO_MODEL` | `gemma-4-e2b-it-qat-int4-ov` | Default local model ID. |
 | `OOONANA_MODEL_CODE` | `qwen/qwen3-coder-480b-a35b-instruct` | Model alias for coding prompts. |
 | `OOONANA_MODEL_FAST` | `qwen/qwen3-next-80b-a3b-instruct` | Model alias for quick answers. |
 | `OOONANA_MODEL_DEEP` | `nvidia/nemotron-3-super-120b-a12b` | Model alias for deeper reasoning. |
@@ -138,6 +147,7 @@ Ooonana AI talks to NVIDIA NIM using OpenAI-compatible chat completions. It talk
 | `OOONANA_GEMINI_MODEL_FAST` | `gemini-2.5-flash-lite` | Gemini model alias for quick answers. |
 | `OOONANA_GEMINI_MODEL_DEEP` | `gemini-2.5-pro` | Gemini model alias for deeper reasoning. |
 | `OOONANA_GEMINI_MODEL_<ALIAS>` | empty | Custom Gemini model alias. |
+| `OOONANA_OPENVINO_MODEL_<ALIAS>` | empty | Custom local OpenVINO model alias. |
 | `OOONANA_AI_MAX_TOKENS` | `1024` | Maximum generated tokens. |
 | `OOONANA_AI_TEMPERATURE` | `0.2` | Sampling temperature. |
 | `OOONANA_AI_STREAM` | `1` | Stream responses when possible. Set `0` to disable. |
@@ -201,6 +211,44 @@ ooonana-ai --provider gemini "summarize this Linux system"
 ooonana-ai --provider nim "summarize this Linux system"
 ```
 
+### Offline Intel GPU/NPU
+
+Install package from Ooonana repo:
+
+```bash
+ooonana update
+ooonana get openvino-chat
+openvino setup
+openvino download tiny
+```
+
+`openvino setup` downloads a verified Ubuntu 24.04 userspace because OpenVINO Linux wheels require glibc while Ooonana uses musl. Bubblewrap keeps that runtime under user home. Model files live in `~/.openvino`.
+
+Start local API on Intel GPU:
+
+```bash
+openvino --model-dir /root/.openvino/models/gemma-4-e2b-it-qat-int4-ov api start --device GPU
+ooonana-ai provider set openvino
+ooonana-ai chat
+```
+
+Use Intel NPU when `/dev/accel` exists:
+
+```bash
+openvino --model-dir /root/.openvino/models/gemma-4-e2b-it-qat-int4-ov api start --device NPU
+ooonana-ai provider set openvino
+```
+
+Check hardware/runtime:
+
+```bash
+openvino doctor
+openvino api status
+```
+
+Runtime and model need network once. Chat inference is offline afterward. OpenVINO requires Intel device drivers; NPU support needs a supported Intel NPU and host kernel driver.
+Runtime sandbox keeps host PID namespace so `openvino api start` remains alive after launcher exits. Filesystem, UTS, IPC, and user identities remain isolated with Bubblewrap.
+
 Change the default model without opening the config file:
 
 ```bash
@@ -241,6 +289,7 @@ Useful chat commands:
 /rewind 2
 /provider
 /provider set gemini
+/provider set openvino
 /models
 /model code
 /model set deep
@@ -499,8 +548,8 @@ ooonana ai ask --dry-run --model code "what environment am I in?"
 Ooonana's built-in system prompt is intentionally explicit:
 
 - The assistant's name is `Ooonana`.
-- It must not claim to be Gemini, Claude, ChatGPT, Google, or NVIDIA NIM.
-- NVIDIA NIM and Google Gemini are described only as model/API providers.
+- It must not claim to be Gemini, Claude, ChatGPT, Google, NVIDIA NIM, or OpenVINO.
+- NVIDIA NIM, Google Gemini, and OpenVINO are described only as model providers.
 - It should treat the provided Linux environment snapshot as authoritative context.
 - It should notice hostname, OS release, current directory, available commands, workspace files, and package state.
 - It should give concrete commands, paths, config keys, and exact next steps.

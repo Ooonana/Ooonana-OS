@@ -142,6 +142,8 @@ setup="$(OOONANA_AI_CONFIG="$config" "$CLI" ai setup)"
 assert_contains "$setup" "AI config:"
 assert_contains "$(<"$config")" "NVIDIA_API_KEY="
 assert_contains "$(<"$config")" "GEMINI_API_KEY="
+assert_contains "$(<"$config")" "OOONANA_OPENVINO_BASE_URL=http://127.0.0.1:11435/v1"
+assert_contains "$(<"$config")" "OOONANA_OPENVINO_MODEL=gemma-4-e2b-it-qat-int4-ov"
 assert_contains "$(<"$config")" "OOONANA_AI_PROVIDER=nim"
 assert_contains "$(<"$config")" "OOONANA_NIM_MODEL=nvidia/nemotron-3-super-120b-a12b"
 assert_contains "$(<"$config")" "OOONANA_MODEL_CODE=qwen/qwen3-coder-480b-a35b-instruct"
@@ -287,6 +289,35 @@ assert_contains "$gemini_chat_ui" "active provider: gemini"
 assert_contains "$gemini_chat_ui" "provider: nim"
 assert_contains "$gemini_chat_ui" "provider: gemini"
 assert_contains "$gemini_chat_ui" "gemini-2.5-flash"
+
+openvino_config="$tmp/openvino.env"
+cat > "$openvino_config" <<'EOF'
+OOONANA_AI_PROVIDER=openvino
+OOONANA_OPENVINO_BASE_URL=http://127.0.0.1:11435/v1
+OOONANA_OPENVINO_MODEL=gemma-4-e2b-it-qat-int4-ov
+OOONANA_OPENVINO_MODEL_CODE=qwen3.5-9b-int4-ov
+OOONANA_AI_MAX_TOKENS=256
+OOONANA_AI_TEMPERATURE=0.1
+OOONANA_AI_STREAM=0
+EOF
+
+openvino_doctor="$(OOONANA_AI_CONFIG="$openvino_config" "$CLI" ai doctor)"
+assert_contains "$openvino_doctor" "AI config: ok"
+assert_contains "$openvino_doctor" "provider: OpenVINO Local"
+assert_contains "$openvino_doctor" "base_url: http://127.0.0.1:11435/v1"
+
+openvino_dry_run="$(OOONANA_AI_CONFIG="$openvino_config" "$AI_WRAPPER" --provider openvino --dry-run "hello offline")"
+assert_contains "$openvino_dry_run" '"provider": "openvino"'
+assert_contains "$openvino_dry_run" '"model": "gemma-4-e2b-it-qat-int4-ov"'
+assert_contains "$openvino_dry_run" '"stream": false'
+assert_contains "$openvino_dry_run" "hello offline"
+
+openvino_model_set="$(OOONANA_AI_CONFIG="$openvino_config" "$AI_WRAPPER" model set code)"
+assert_contains "$openvino_model_set" "default model: qwen3.5-9b-int4-ov"
+assert_contains "$(<"$openvino_config")" "OOONANA_OPENVINO_MODEL=qwen3.5-9b-int4-ov"
+
+openvino_mock="$(OOONANA_AI_CONFIG="$openvino_config" OOONANA_AI_MOCK=1 "$AI_WRAPPER" --provider openvino --no-stream "mock local")"
+assert_contains "$openvino_mock" "Ooonana mock response"
 
 agents="$("$AI_WRAPPER" agents)"
 assert_contains "$agents" "system"

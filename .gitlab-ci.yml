@@ -14,7 +14,8 @@ variables:
   OOONANA_REPO_NAME: "gitlab"
   OOONANA_PAGES_MAX_BYTES: "1073741824"
   OOONANA_KERNEL_VERSION: "6.18.37"
-  OOONANA_CORE_VERSION: "0.8.3"
+  OOONANA_CORE_VERSION: "0.8.4"
+  OOONANA_OPENVINO_CHAT_VERSION: "0.1.0"
   OOONANA_KERNEL_PACKAGE_URL: "https://github.com/Ooonana/Ooonana-OS/releases/download/v0.1.8-ui-hardware/vmlinuz-ooonana"
 
 ci-smoke:
@@ -99,6 +100,7 @@ deploy-package-repo:
         --cloud-url "$repo_url" \
         --repo-name "$OOONANA_REPO_NAME" \
         --core-version "$OOONANA_CORE_VERSION" \
+        --openvino-version "$OOONANA_OPENVINO_CHAT_VERSION" \
         --clean \
         $full_i3_arg \
         $sign_args \

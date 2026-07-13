@@ -66,6 +66,9 @@ $outDir = Split-Path -Parent $outPath
 if ($outDir) {
   New-Item -ItemType Directory -Path $outDir -Force | Out-Null
 }
+if (Test-Path -LiteralPath $outPath) {
+  Remove-Item -LiteralPath $outPath -Force
+}
 
 $uri = (New-Object System.Uri($pdfPath)).AbsoluteUri
 $chromeArgs = @(
@@ -90,6 +93,10 @@ try {
   }
   if ($exitCode -ne 0) {
     throw "browser exited $exitCode"
+  }
+  $deadline = [DateTime]::UtcNow.AddSeconds(15)
+  while (!(Test-Path -LiteralPath $outPath) -and [DateTime]::UtcNow -lt $deadline) {
+    Start-Sleep -Milliseconds 100
   }
   if (!(Test-Path -LiteralPath $outPath)) {
     throw "screenshot missing: $outPath"

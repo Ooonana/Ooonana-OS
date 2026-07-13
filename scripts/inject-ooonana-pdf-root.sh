@@ -20,6 +20,13 @@ fi
 
 [[ -n "$TARGET_ROOT" ]] || { usage >&2; exit 1; }
 [[ -d "$TARGET_ROOT" ]] || { printf 'missing rootfs: %s\n' "$TARGET_ROOT" >&2; exit 1; }
+if [[ ! -w "$TARGET_ROOT" ]]; then
+  command -v sudo >/dev/null 2>&1 || {
+    printf 'rootfs is not writable and sudo is missing: %s\n' "$TARGET_ROOT" >&2
+    exit 1
+  }
+  exec sudo bash "$0" "$TARGET_ROOT"
+fi
 
 install -d \
   "$TARGET_ROOT/etc" \
@@ -30,6 +37,8 @@ install -d \
   "$TARGET_ROOT/usr/share/ooonana" \
   "$TARGET_ROOT/var/cache/ooonana" \
   "$TARGET_ROOT/var/lib/ooonana/packages/installed"
+
+BUILD_REF="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || printf working-tree)"
 
 cp -a "$ROOT/packages/ooonana/." "$TARGET_ROOT/"
 chmod 0755 "$TARGET_ROOT/usr/bin/ooonana" "$TARGET_ROOT/usr/bin/ooonana-ai" "$TARGET_ROOT/usr/sbin/ooonana-install" 2>/dev/null || true
@@ -45,7 +54,13 @@ cat > "$TARGET_ROOT/etc/os-release" <<'EOF'
 NAME="Ooonana OS"
 ID=ooonana
 PRETTY_NAME="Ooonana OS PDF Minimal"
-VERSION_ID="0.1-pdf"
+VERSION_ID="0.2-pdf"
+EOF
+
+cat > "$TARGET_ROOT/etc/ooonana/pdf-release" <<EOF
+OOONANA_PDF_EDITION="minimal-riscv"
+OOONANA_PDF_BUILD_REF="$BUILD_REF"
+OOONANA_PDF_PACKAGE_MANAGER="0.8.4"
 EOF
 
 cat > "$TARGET_ROOT/etc/hostname" <<'EOF'
@@ -63,6 +78,7 @@ echo "  ooonana me"
 echo "  ooonana version"
 echo "  ooonana help packages"
 echo "  ooonana list"
+echo "  ooonana ai status"
 echo
 EOF
 
@@ -89,13 +105,13 @@ while /bin/true; do
     echo "Ooonana OS"
   fi
   echo
-  echo "Ooonana OS PDF Minimal"
-  echo "RISC-V TinyEMU PDF live system"
+  echo "Ooonana OS PDF Minimal 0.2"
+  echo "RISC-V TinyEMU live system | package manager 0.8.4"
   echo
   /usr/bin/ooonana version 2>/dev/null || true
-  /usr/bin/ooonana me >/dev/null 2>&1 || true
+  echo "OOONANA_PDF_BOOT_OK"
   echo
-  echo "Try: ooonana help"
+  echo "Try: ooonana help, ooonana list, ooonana ai status"
   echo "Type exit to redraw this screen."
   echo
   setsid sh

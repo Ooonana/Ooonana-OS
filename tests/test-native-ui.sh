@@ -53,6 +53,10 @@ assert_contains "$packages" '["ooonana", "update"]'
 assert_contains "$packages" '["ooonana", "upgrade"]'
 assert_contains "$ai" "Chat"
 assert_contains "$ai" '["ooonana-ai", "ask", prompt]'
+assert_contains "$ai" "Offline Intel"
+assert_contains "$ai" '["openvino", "doctor"]'
+assert_contains "$ai" '["openvino", "--model-dir", model, "api", "start", "--device", device]'
+assert_contains "$ai" '["ooonana-ai", "provider", "set", "openvino"]'
 assert_contains "$controls" "BrightnessWindow"
 assert_contains "$controls" "AudioWindow"
 assert_contains "$controls" "PowerWindow"

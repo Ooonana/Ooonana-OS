@@ -6,3 +6,5 @@ curl
 wget
 ca-certificates
 python3
+bubblewrap
+xz
