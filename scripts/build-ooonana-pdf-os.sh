@@ -186,7 +186,12 @@ if "OOONANA_SERIAL_TERMINAL_LAYOUT" not in pdf:
     new_layout = '''  fields = []
   terminal_rows = 30  # OOONANA_SERIAL_TERMINAL_LAYOUT
   for i in range(0, terminal_rows):
-    field = create_field(f"field_{i}", 8, 225 + i*13, width*scale-24, 13, "", display=True)
+    initial = ""
+    if i == terminal_rows - 1:
+      initial = "Ooonana OS PDF 0.5"
+    elif i == terminal_rows - 2:
+      initial = "Starting JavaScript..."
+    field = create_field(f"field_{i}", 8, 225 + i*13, width*scale-24, 13, initial, display=True)
     fields.append(field)
 '''
     if old_layout not in pdf:
@@ -255,6 +260,10 @@ var terminal_row = 0;
 var terminal_col = 0;
 var terminal_escape = "";
 var terminal_dirty = 0;
+var vm_serial_seen = false;
+var vm_boot_complete = false;
+var vm_serial_tail = "";
+var vm_started_at = null;
 
 function render_terminal() {
   for (let row = 0; row < terminal_height; row++) {
@@ -341,7 +350,13 @@ function terminal_put(char) {
   }
 }
 
-function terminal_write(str) { // OOONANA_SERIAL_TERMINAL
+function terminal_write(str, serial_output = false) { // OOONANA_SERIAL_TERMINAL
+  if (serial_output) {
+    vm_serial_seen = true;
+    vm_serial_tail = (vm_serial_tail + str).slice(-256);
+    if (vm_serial_tail.indexOf("OOONANA_PDF_BOOT_OK") >= 0)
+      vm_boot_complete = true;
+  }
   let saw_newline = false;
   for (let char of str) {
     if (terminal_escape !== "") {
@@ -452,7 +467,13 @@ if "OOONANA_TERMINAL_RENDER_BATCH" not in js:
   terminal_dirty = terminal_width;
 }''',
     )
-    batched_terminal = r'''function terminal_write(str) { // OOONANA_SERIAL_TERMINAL
+    batched_terminal = r'''function terminal_write(str, serial_output = false) { // OOONANA_SERIAL_TERMINAL
+  if (serial_output) {
+    vm_serial_seen = true;
+    vm_serial_tail = (vm_serial_tail + str).slice(-256);
+    if (vm_serial_tail.indexOf("OOONANA_PDF_BOOT_OK") >= 0)
+      vm_boot_complete = true;
+  }
   let saw_newline = false;
   for (let char of str) {
     if (terminal_escape !== "") {
@@ -488,15 +509,17 @@ function queue_console_text'''
 if "OOONANA_BOOT_MESSAGE" not in js:
     needle = "function start() {\n  update_framebuffer"
     replacement = '''function start() {
-  terminal_write("Ooonana OS PDF 0.4\\nBooting kernel...\\n"); // OOONANA_BOOT_MESSAGE
+  terminal_write("Ooonana OS PDF 0.5\\nBooting kernel... 0s\\n"); // OOONANA_BOOT_MESSAGE
   update_framebuffer'''
     if needle not in js:
         raise SystemExit("linuxpdf boot message patch point missing")
     js = js.replace(needle, replacement)
 if "OOONANA_VM_BATCH" not in js:
     needle = "  total_instrs += _virt_machine_run(m_ptr);"
-    replacement = '''  // OOONANA_VM_BATCH: bounded VM slice keeps PDF controls responsive.
-  total_instrs += _virt_machine_run(m_ptr);'''
+    replacement = '''  // OOONANA_VM_BATCH: accelerate boot, then preserve shell responsiveness.
+  let batches = vm_boot_complete ? 2 : 8;
+  for (let batch = 0; batch < batches; batch++)
+    total_instrs += _virt_machine_run(m_ptr);'''
     if needle not in js:
         raise SystemExit("linuxpdf VM batch patch point missing")
     js = js.replace(needle, replacement)
@@ -504,9 +527,67 @@ js = js.replace(
     '''  // OOONANA_VM_BATCH: fewer PDF timer round trips during boot.
   for (let batch = 0; batch < 4; batch++)
     total_instrs += _virt_machine_run(m_ptr);''',
+    '''  // OOONANA_VM_BATCH: accelerate boot, then preserve shell responsiveness.
+  let batches = vm_boot_complete ? 2 : 8;
+  for (let batch = 0; batch < batches; batch++)
+    total_instrs += _virt_machine_run(m_ptr);''',
+)
+js = js.replace(
     '''  // OOONANA_VM_BATCH: bounded VM slice keeps PDF controls responsive.
   total_instrs += _virt_machine_run(m_ptr);''',
+    '''  // OOONANA_VM_BATCH: accelerate boot, then preserve shell responsiveness.
+  let batches = vm_boot_complete ? 2 : 8;
+  for (let batch = 0; batch < batches; batch++)
+    total_instrs += _virt_machine_run(m_ptr);''',
 )
+if "OOONANA_BOOT_HEARTBEAT" not in js:
+    if "var vm_serial_seen" not in js:
+        js = js.replace(
+            'var terminal_dirty = 0;\n',
+            '''var terminal_dirty = 0;
+var vm_serial_seen = false;
+var vm_boot_complete = false;
+var vm_serial_tail = "";
+var vm_started_at = null;
+''',
+            1,
+        )
+    js = js.replace(
+        'function terminal_write(str) { // OOONANA_SERIAL_TERMINAL',
+        'function terminal_write(str, serial_output = false) { // OOONANA_SERIAL_TERMINAL',
+    )
+    js = js.replace(
+        '''function terminal_write(str, serial_output = false) { // OOONANA_SERIAL_TERMINAL
+  let saw_newline = false;''',
+        '''function terminal_write(str, serial_output = false) { // OOONANA_SERIAL_TERMINAL
+  if (serial_output) {
+    vm_serial_seen = true;
+    vm_serial_tail = (vm_serial_tail + str).slice(-256);
+    if (vm_serial_tail.indexOf("OOONANA_PDF_BOOT_OK") >= 0)
+      vm_boot_complete = true;
+  }
+  let saw_newline = false;''',
+    )
+    js = js.replace(
+        '''    globalThis.getField("speed_indicator").value = `Speed: ${k_ips} kIPS`;
+    total_instrs = 0;''',
+        '''    globalThis.getField("speed_indicator").value = `Speed: ${k_ips} kIPS`;
+    if (!vm_serial_seen) {
+      let elapsed = Math.max(0, Math.round((now - vm_started_at) / 1000));
+      terminal_lines[1] = `Booting kernel... ${elapsed}s | ${k_ips} kIPS`;
+      terminal_dirty = terminal_width;
+      render_terminal(); // OOONANA_BOOT_HEARTBEAT
+    }
+    total_instrs = 0;''',
+    )
+    js = js.replace(
+        '''  print_msg("starting the machine. please be patient...")
+  last_updated = Date.now();''',
+        '''  print_msg("starting the machine. please be patient...")
+  vm_started_at = Date.now();
+  last_updated = vm_started_at;''',
+    )
+js = js.replace('Ooonana OS PDF 0.4\\nBooting kernel...\\n', 'Ooonana OS PDF 0.5\\nBooting kernel... 0s\\n')
 display.write_text(js)
 
 vm = Path(sys.argv[4])
@@ -537,10 +618,14 @@ if "OOONANA_SERIAL_CONSOLE_WRITE" not in lib:
       }
       //term.write(str);'''
     new_console = '''      var str = String.fromCharCode.apply(String, HEAPU8.subarray(buf, buf + len));
-      terminal_write(str); // OOONANA_SERIAL_CONSOLE_WRITE'''
+      terminal_write(str, true); // OOONANA_SERIAL_CONSOLE_WRITE'''
     if old_console not in lib:
         raise SystemExit("tinyemu serial console patch point missing")
     lib = lib.replace(old_console, new_console)
+lib = lib.replace(
+    'terminal_write(str); // OOONANA_SERIAL_CONSOLE_WRITE',
+    'terminal_write(str, true); // OOONANA_SERIAL_CONSOLE_WRITE',
+)
 tinyemu.write_text(lib)
 PY
 }

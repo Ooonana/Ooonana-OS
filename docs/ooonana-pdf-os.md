@@ -2,12 +2,12 @@
 
 `docs/ooonana.pdf` is reserved for the bootable Ooonana OS PDF.
 
-Current 0.4 build is based on [ading2210/linuxpdf](https://github.com/ading2210/linuxpdf):
+Current 0.5 build is based on [ading2210/linuxpdf](https://github.com/ading2210/linuxpdf):
 
 - PDF JavaScript runs TinyEMU.
 - TinyEMU boots a RISC-V Linux kernel.
 - The PDF exposes a real 80x30 serial terminal plus on-page keyboard controls.
-- Boot is slow, often 1-3 minutes depending on Chromium CPU scheduling.
+- Boot uses accelerated VM batches and shows live elapsed time before kernel logs.
 - Chromium PDF viewer is the main target.
 - Injected shell payload carries Ooonana package manager 0.8.4 and current logo/help.
 - Boot console prints `OOONANA_PDF_BOOT_OK` after Ooonana init starts.

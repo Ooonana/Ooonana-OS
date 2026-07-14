@@ -54,7 +54,7 @@ cat > "$TARGET_ROOT/etc/os-release" <<'EOF'
 NAME="Ooonana OS"
 ID=ooonana
 PRETTY_NAME="Ooonana OS PDF Minimal"
-VERSION_ID="0.4-pdf"
+VERSION_ID="0.5-pdf"
 EOF
 
 cat > "$TARGET_ROOT/etc/ooonana/pdf-release" <<EOF
@@ -111,7 +111,7 @@ while /bin/true; do
   else
     echo "Ooonana OS"
   fi
-  echo "PDF Minimal 0.4 | pkg 0.8.4"
+  echo "PDF Minimal 0.5 | pkg 0.8.4"
   echo "OOONANA_PDF_BOOT_OK"
   echo "Run: ooonana help"
   if command -v cttyhack >/dev/null 2>&1; then

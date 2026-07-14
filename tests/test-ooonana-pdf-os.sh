@@ -38,6 +38,10 @@ assert_contains "$(<"$BUILDER")" "OOONANA_SERIAL_CONSOLE_WRITE"
 assert_contains "$(<"$BUILDER")" "OOONANA_BOOT_MESSAGE"
 assert_contains "$(<"$BUILDER")" "OOONANA_VM_BATCH"
 assert_contains "$(<"$BUILDER")" "OOONANA_TERMINAL_RENDER_BATCH"
+assert_contains "$(<"$BUILDER")" "OOONANA_BOOT_HEARTBEAT"
+assert_contains "$(<"$BUILDER")" "vm_boot_complete ? 2 : 8"
+assert_contains "$(<"$BUILDER")" "Starting JavaScript..."
+assert_contains "$(<"$BUILDER")" "terminal_write(str, true)"
 assert_contains "$(<"$BUILDER")" "loglevel=7 ignore_loglevel"
 
 tmp="$(mktemp -d)"
@@ -65,13 +69,13 @@ assert_contains "$inject" "injected Ooonana PDF rootfs"
 [[ -f "$rootfs/etc/os-release" ]] || fail "missing injected os-release"
 assert_contains "$(<"$rootfs/sbin/init")" "OOONANA_PDF_BOOT_OK"
 assert_contains "$(<"$rootfs/sbin/init")" "stty cols 80 rows 30"
-assert_contains "$(<"$rootfs/sbin/init")" "PDF Minimal 0.4 | pkg 0.8.4"
+assert_contains "$(<"$rootfs/sbin/init")" "PDF Minimal 0.5 | pkg 0.8.4"
 assert_contains "$(<"$rootfs/sbin/init")" "exec </dev/hvc0 >/dev/hvc0 2>&1"
 assert_contains "$(<"$rootfs/sbin/init")" "--- Ooonana userspace ready ---"
 assert_contains "$(<"$rootfs/root/.profile")" "ooonana help packages"
 assert_contains "$(<"$rootfs/root/.profile")" "ooonana ai status"
 assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS PDF Minimal"'
-assert_contains "$(<"$rootfs/etc/os-release")" 'VERSION_ID="0.4-pdf"'
+assert_contains "$(<"$rootfs/etc/os-release")" 'VERSION_ID="0.5-pdf"'
 [[ -f "$rootfs/etc/ooonana/pdf-release" ]] || fail "missing PDF release metadata"
 assert_contains "$(<"$rootfs/etc/ooonana/pdf-release")" 'OOONANA_PDF_PACKAGE_MANAGER="0.8.4"'
 
