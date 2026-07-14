@@ -437,6 +437,10 @@ fi
 
 unblock_rfkill
 
+if [ -w /sys/bus/pci/rescan ]; then
+  printf '1' >/sys/bus/pci/rescan 2>>"$LOG" || true
+fi
+
 if command -v modprobe >/dev/null 2>&1; then
   for module in bluetooth btusb btintel btrtl btqca; do
     modprobe "$module" >>"$LOG" 2>&1 || true
@@ -462,6 +466,44 @@ rebind_driver() {
   done
 }
 
+bind_unclaimed_intel_wifi() {
+  bind=/sys/bus/pci/drivers/iwlwifi/bind
+  [ -w "$bind" ] || return 0
+  for dev in /sys/bus/pci/devices/*; do
+    [ -d "$dev" ] || continue
+    [ -L "$dev/driver" ] && continue
+    [ "$(cat "$dev/vendor" 2>/dev/null || true)" = "0x8086" ] || continue
+    case "$(cat "$dev/class" 2>/dev/null || true)" in
+      0x0280*) ;;
+      *) continue ;;
+    esac
+    dev_id="${dev##*/}"
+    printf '%s' "$dev_id" >"$bind" 2>>"$LOG" || true
+    log "requested iwlwifi bind $dev_id"
+  done
+}
+
+bind_unclaimed_intel_bluetooth() {
+  bind=/sys/bus/usb/drivers/btusb/bind
+  [ -w "$bind" ] || return 0
+  for interface in /sys/bus/usb/devices/*:*; do
+    [ -d "$interface" ] || continue
+    [ -L "$interface/driver" ] && continue
+    parent="${interface%:*}"
+    [ "$(cat "$parent/idVendor" 2>/dev/null || true)" = "8087" ] || continue
+    class="$(cat "$interface/bInterfaceClass" 2>/dev/null || true)"
+    subclass="$(cat "$interface/bInterfaceSubClass" 2>/dev/null || true)"
+    protocol="$(cat "$interface/bInterfaceProtocol" 2>/dev/null || true)"
+    case "$class:$subclass:$protocol" in
+      e0:01:01|ff:01:01) ;;
+      *) continue ;;
+    esac
+    interface_id="${interface##*/}"
+    printf '%s' "$interface_id" >"$bind" 2>>"$LOG" || true
+    log "requested btusb bind $interface_id"
+  done
+}
+
 if [ "$force" -eq 1 ]; then
   for driver in \
     iwlwifi rtw89_pci rtw88_pci mt7921e ath10k_pci ath11k_pci ath12k_pci \
@@ -470,14 +512,94 @@ if [ "$force" -eq 1 ]; then
   done
 fi
 
+bind_unclaimed_intel_wifi
+bind_unclaimed_intel_bluetooth
+
 if command -v udevadm >/dev/null 2>&1; then
   udevadm trigger --action=add >/dev/null 2>&1 || true
+  udevadm trigger --subsystem-match=pci --action=add >/dev/null 2>&1 || true
+  udevadm trigger --subsystem-match=usb --action=add >/dev/null 2>&1 || true
+  udevadm trigger --subsystem-match=rfkill --action=change >/dev/null 2>&1 || true
   udevadm trigger --subsystem-match=net --action=add >/dev/null 2>&1 || true
   udevadm trigger --subsystem-match=bluetooth --action=add >/dev/null 2>&1 || true
   udevadm settle --timeout=8 >/dev/null 2>&1 || true
 fi
 
 touch /run/ooonana-hardware-reprobe.done 2>/dev/null || true
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-wireless-diagnose" <<'EOF'
+#!/bin/sh
+set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+
+LOG="${OOONANA_WIRELESS_LOG:-/var/log/ooonana-wireless-diagnose.log}"
+mkdir -p "${LOG%/*}"
+
+if [ "$(id -u 2>/dev/null || echo 1)" != "0" ]; then
+  exec ooonana-run-admin "$0" "$@"
+fi
+
+collect() {
+  echo "Ooonana wireless diagnostic"
+  date 2>/dev/null || true
+  uname -a 2>/dev/null || true
+  echo
+  echo "== kernel command line =="
+  cat /proc/cmdline 2>/dev/null || true
+  echo
+  echo "== firmware overlay =="
+  cat /usr/share/ooonana/intel-wireless-firmware.version 2>/dev/null || echo "current Intel firmware overlay missing"
+  echo
+  echo "== rfkill =="
+  rfkill list 2>/dev/null || echo "rfkill unavailable"
+  echo
+  echo "== network interfaces =="
+  ip -brief link 2>/dev/null || ifconfig -a 2>/dev/null || true
+  echo
+  echo "== NetworkManager =="
+  nmcli general status 2>/dev/null || true
+  nmcli device status 2>/dev/null || true
+  echo
+  echo "== Bluetooth =="
+  bluetoothctl show 2>/dev/null || true
+  btmgmt info 2>/dev/null || true
+  echo
+  echo "== PCI network devices =="
+  if command -v lspci >/dev/null 2>&1; then
+    lspci -nnk 2>/dev/null | sed -n '/Network controller/,+4p;/Wireless/,+4p'
+  fi
+  for dev in /sys/bus/pci/devices/*; do
+    [ -d "$dev" ] || continue
+    case "$(cat "$dev/class" 2>/dev/null || true)" in
+      0x0280*) ;;
+      *) continue ;;
+    esac
+    printf '%s vendor=%s device=%s driver=%s\n' "${dev##*/}" \
+      "$(cat "$dev/vendor" 2>/dev/null || echo unknown)" \
+      "$(cat "$dev/device" 2>/dev/null || echo unknown)" \
+      "$(basename "$(readlink "$dev/driver" 2>/dev/null || echo unbound)")"
+  done
+  echo
+  echo "== USB Bluetooth candidates =="
+  if command -v lsusb >/dev/null 2>&1; then
+    lsusb 2>/dev/null || true
+  fi
+  for dev in /sys/bus/usb/devices/*; do
+    [ -f "$dev/idVendor" ] || continue
+    printf '%s %s:%s product=%s\n' "${dev##*/}" \
+      "$(cat "$dev/idVendor" 2>/dev/null || echo unknown)" \
+      "$(cat "$dev/idProduct" 2>/dev/null || echo unknown)" \
+      "$(cat "$dev/product" 2>/dev/null || echo unknown)"
+  done
+  echo
+  echo "== relevant kernel messages =="
+  dmesg 2>/dev/null | grep -Ei 'iwlwifi|firmware|bluetooth|btusb|btintel|rfkill|wlan|wifi|cnvi' | tail -160 || true
+}
+
+collect >"$LOG" 2>&1
+cat "$LOG"
 EOF
 
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-service-repair" <<'EOF'
@@ -648,6 +770,12 @@ if [ -n "$bt_daemon" ]; then
   fi
 else
   log "bluetoothd missing"
+fi
+
+if ! find /sys/class/net -maxdepth 1 -name 'wl*' 2>/dev/null | grep -q . ||
+  ! find /sys/class/bluetooth -maxdepth 1 -name 'hci*' 2>/dev/null | grep -q .; then
+  command -v ooonana-wireless-diagnose >/dev/null 2>&1 &&
+    ooonana-wireless-diagnose >>"$LOG" 2>&1 || true
 fi
 
 exit 0
@@ -3544,6 +3672,8 @@ main() {
   "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$ROOTFS/usr/lib/ooonana/repo" >/dev/null
   "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$REPO" >/dev/null
   install_full_i3_packages
+  bash "$ROOT/scripts/install-intel-wireless-firmware.sh" \
+    "$ROOTFS" "$(dirname "$ROOTFS")/firmware-cache"
   if [[ -x "$ROOTFS/usr/bin/python3" ]]; then
     rm -f "$ROOTFS/usr/bin/python"
     ln -s python3 "$ROOTFS/usr/bin/python"

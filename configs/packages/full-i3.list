@@ -68,6 +68,8 @@ iw
 wireless-tools
 wpa_supplicant
 wireless-regdb
+pciutils
+usbutils
 linux-firmware
 linux-firmware-i915
 linux-firmware-intel

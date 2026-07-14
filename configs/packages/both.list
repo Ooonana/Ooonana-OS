@@ -47,6 +47,8 @@ geany
 networkmanager
 networkmanager-cli
 networkmanager-tui
+pciutils
+usbutils
 network-manager-applet
 blueman
 bluez

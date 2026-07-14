@@ -45,6 +45,7 @@ assert_contains "$script_src" "mkfontscale"
 assert_contains "$script_src" "fc-cache -r /usr/share/fonts"
 assert_contains "$patch_src" 'rcS|/etc/init.d/rcS|0100755'
 assert_contains "$patch_src" 'ooonana-hardware-reprobe|/usr/bin/ooonana-hardware-reprobe|0100755'
+assert_contains "$patch_src" 'ooonana-wireless-diagnose|/usr/bin/ooonana-wireless-diagnose|0100755'
 assert_contains "$patch_src" 'ooonana-service-repair|/usr/bin/ooonana-service-repair|0100755'
 assert_contains "$patch_src" 'ooonana-run-admin|/usr/bin/ooonana-run-admin|0100755'
 assert_contains "$patch_src" 'ln -s ../run "$mount_dir/var/run"'
@@ -84,6 +85,7 @@ for required_package in \
   python3 curl wget ca-certificates dbus doas py3-gobject3 gtk+3.0 eudev \
   networkmanager networkmanager-cli networkmanager-tui network-manager-applet \
   blueman bluez iw wireless-tools wpa_supplicant wireless-regdb \
+  pciutils usbutils \
   linux-firmware linux-firmware-i915 linux-firmware-ath10k linux-firmware-ath11k \
   linux-firmware-ath12k linux-firmware-mediatek linux-firmware-rtw88 \
   linux-firmware-rtw89 linux-firmware-rtl_bt linux-firmware-rtl_nic \
@@ -214,6 +216,7 @@ fi
 [[ -x "$rootfs/usr/bin/ooonana-wifi" ]] || fail "missing wifi helper"
 [[ -x "$rootfs/usr/bin/ooonana-bluetooth" ]] || fail "missing bluetooth helper"
 [[ -x "$rootfs/usr/bin/ooonana-hardware-reprobe" ]] || fail "missing hardware reprobe helper"
+[[ -x "$rootfs/usr/bin/ooonana-wireless-diagnose" ]] || fail "missing wireless diagnostic helper"
 [[ -x "$rootfs/usr/bin/ooonana-service-repair" ]] || fail "missing service repair helper"
 [[ -x "$rootfs/usr/bin/ooonana-run-admin" ]] || fail "missing admin helper"
 [[ -x "$rootfs/usr/bin/ooonana-apps" ]] || fail "missing app launcher"
@@ -480,6 +483,13 @@ assert_contains "$bt_panel" "rfkill list bluetooth"
 assert_contains "$bt_panel" "bluetoothctl devices"
 hardware_reprobe="$(<"$rootfs/usr/bin/ooonana-hardware-reprobe")"
 assert_contains "$hardware_reprobe" "rfkill unblock all"
+assert_contains "$hardware_reprobe" "/sys/bus/pci/rescan"
+assert_contains "$hardware_reprobe" "bind_unclaimed_intel_wifi"
+assert_contains "$hardware_reprobe" "bind_unclaimed_intel_bluetooth"
+
+wireless_diagnose="$(<"$rootfs/usr/bin/ooonana-wireless-diagnose")"
+assert_contains "$wireless_diagnose" "intel-wireless-firmware.version"
+assert_contains "$wireless_diagnose" "relevant kernel messages"
 assert_contains "$hardware_reprobe" "/sys/class/rfkill"
 assert_contains "$hardware_reprobe" "iwlwifi"
 assert_contains "$hardware_reprobe" 'if [ "$force" -eq 1 ]; then'

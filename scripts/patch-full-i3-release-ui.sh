@@ -229,6 +229,7 @@ ooonana-rofi-wifi|/usr/bin/ooonana-rofi-wifi|0100755
 ooonana-rofi-bluetooth|/usr/bin/ooonana-rofi-bluetooth|0100755
 ooonana-rofi-brightness|/usr/bin/ooonana-rofi-brightness|0100755
 ooonana-hardware-reprobe|/usr/bin/ooonana-hardware-reprobe|0100755
+ooonana-wireless-diagnose|/usr/bin/ooonana-wireless-diagnose|0100755
 ooonana-service-repair|/usr/bin/ooonana-service-repair|0100755
 ooonana-run-admin|/usr/bin/ooonana-run-admin|0100755
 start-ooonana-i3|/usr/bin/start-ooonana-i3|0100755
@@ -331,6 +332,7 @@ EOF
   extract_block '$ROOTFS/usr/bin/ooonana-rofi-bluetooth' "$payload/ooonana-rofi-bluetooth"
   extract_block '$ROOTFS/usr/bin/ooonana-rofi-brightness' "$payload/ooonana-rofi-brightness"
   extract_block '$ROOTFS/usr/bin/ooonana-hardware-reprobe' "$payload/ooonana-hardware-reprobe"
+  extract_block '$ROOTFS/usr/bin/ooonana-wireless-diagnose' "$payload/ooonana-wireless-diagnose"
   extract_block '$ROOTFS/usr/bin/ooonana-service-repair' "$payload/ooonana-service-repair"
   extract_block '$ROOTFS/usr/bin/ooonana-run-admin' "$payload/ooonana-run-admin"
   extract_block '$ROOTFS/usr/bin/start-ooonana-i3' "$payload/start-ooonana-i3"
@@ -450,6 +452,9 @@ EOF
     tar -xzf "$runtime_apk" -C "$payload/root"
   done
   rm -f "$payload/root/.PKGINFO" "$payload/root"/.SIGN.* "$payload/root"/.INSTALL 2>/dev/null || true
+
+  bash "$ROOT/scripts/install-intel-wireless-firmware.sh" \
+    "$payload/root" "$WORK/firmware-cache"
 
   install -D -m 0400 /dev/stdin "$payload/root/etc/doas.d/ooonana.conf" <<'EOF'
 permit nopass keepenv :wheel
