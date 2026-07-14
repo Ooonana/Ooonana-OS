@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILDER="$ROOT/scripts/build-ooonana-pdf-os.sh"
 INJECTOR="$ROOT/scripts/inject-ooonana-pdf-root.sh"
 PDF="$ROOT/docs/ooonana.pdf"
+VM_TEST="$ROOT/scripts/test-ooonana-pdf-vm.js"
 
 fail() {
   printf 'FAIL: %s\n' "$*" >&2
@@ -19,6 +20,7 @@ assert_contains() {
 
 [[ -x "$BUILDER" ]] || fail "missing executable PDF OS builder"
 [[ -x "$INJECTOR" ]] || fail "missing executable PDF root injector"
+[[ -f "$VM_TEST" ]] || fail "missing PDF VM boot test"
 
 help="$(bash "$BUILDER" --help)"
 assert_contains "$help" "Build bootable Ooonana OS PDF"
@@ -26,6 +28,17 @@ assert_contains "$help" "docs/ooonana.pdf"
 assert_contains "$help" "linuxpdf is GPLv3"
 assert_contains "$help" "--prepare-only"
 assert_contains "$(<"$INJECTOR")" 'exec sudo bash "$0" "$TARGET_ROOT"'
+assert_contains "$(<"$BUILDER")" "OOONANA_FRAMEBUFFER_CACHE"
+assert_contains "$(<"$BUILDER")" "OOONANA_AMBER_PALETTE"
+assert_contains "$(<"$BUILDER")" "OOONANA_MONO_FRAMEBUFFER"
+assert_contains "$(<"$BUILDER")" "OOONANA_INDIRECT_WIDGETS"
+assert_contains "$(<"$BUILDER")" "OOONANA_SERIAL_TERMINAL_LAYOUT"
+assert_contains "$(<"$BUILDER")" "OOONANA_SERIAL_TERMINAL"
+assert_contains "$(<"$BUILDER")" "OOONANA_SERIAL_CONSOLE_WRITE"
+assert_contains "$(<"$BUILDER")" "OOONANA_BOOT_MESSAGE"
+assert_contains "$(<"$BUILDER")" "OOONANA_VM_BATCH"
+assert_contains "$(<"$BUILDER")" "OOONANA_TERMINAL_RENDER_BATCH"
+assert_contains "$(<"$BUILDER")" "loglevel=7 ignore_loglevel"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -38,19 +51,27 @@ assert_contains "$dry" "OOONANA_PDF_BITS="
 assert_contains "$dry" "cp -f"
 
 rootfs="$tmp/rootfs"
-mkdir -p "$rootfs"
+mkdir -p "$rootfs/bin" "$rootfs/usr/bin"
+printf 'riscv-busybox\n' > "$rootfs/bin/busybox"
+chmod 0755 "$rootfs/bin/busybox"
+ln -s ../../bin/busybox "$rootfs/usr/bin/clear"
 inject="$(bash "$INJECTOR" "$rootfs")"
 assert_contains "$inject" "injected Ooonana PDF rootfs"
+[[ "$(<"$rootfs/bin/busybox")" == "riscv-busybox" ]] || fail "package overlay replaced target busybox"
+[[ ! -L "$rootfs/usr/bin/clear" ]] || fail "clear shim remained a busybox symlink"
 [[ -x "$rootfs/usr/bin/ooonana" ]] || fail "missing injected ooonana CLI"
 [[ -x "$rootfs/sbin/init" ]] || fail "missing injected init"
 [[ -f "$rootfs/usr/share/ooonana/logo.txt" ]] || fail "missing injected logo"
 [[ -f "$rootfs/etc/os-release" ]] || fail "missing injected os-release"
-assert_contains "$(<"$rootfs/sbin/init")" "Ooonana OS PDF Minimal"
 assert_contains "$(<"$rootfs/sbin/init")" "OOONANA_PDF_BOOT_OK"
+assert_contains "$(<"$rootfs/sbin/init")" "stty cols 80 rows 30"
+assert_contains "$(<"$rootfs/sbin/init")" "PDF Minimal 0.4 | pkg 0.8.4"
+assert_contains "$(<"$rootfs/sbin/init")" "exec </dev/hvc0 >/dev/hvc0 2>&1"
+assert_contains "$(<"$rootfs/sbin/init")" "--- Ooonana userspace ready ---"
 assert_contains "$(<"$rootfs/root/.profile")" "ooonana help packages"
 assert_contains "$(<"$rootfs/root/.profile")" "ooonana ai status"
 assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS PDF Minimal"'
-assert_contains "$(<"$rootfs/etc/os-release")" 'VERSION_ID="0.2-pdf"'
+assert_contains "$(<"$rootfs/etc/os-release")" 'VERSION_ID="0.4-pdf"'
 [[ -f "$rootfs/etc/ooonana/pdf-release" ]] || fail "missing PDF release metadata"
 assert_contains "$(<"$rootfs/etc/ooonana/pdf-release")" 'OOONANA_PDF_PACKAGE_MANAGER="0.8.4"'
 

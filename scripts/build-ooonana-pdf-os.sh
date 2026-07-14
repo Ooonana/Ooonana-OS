@@ -69,14 +69,31 @@ run() {
 patch_linuxpdf() {
   local build_sh="$SRC/build.sh"
   local gen_pdf="$SRC/gen_pdf.py"
-  if grep -q 'OOONANA_SOURCE_ROOT' "$build_sh" 2>/dev/null; then
-    python3 - "$build_sh" <<'PY'
+  local display_js="$SRC/pdflinux.js"
+  local vm_cfg="$SRC/vm_32.cfg"
+  local tinyemu_lib="$SRC/tinyemu/js/lib.js"
+  python3 - "$build_sh" "$gen_pdf" "$display_js" "$vm_cfg" "$tinyemu_lib" <<'PY'
 from pathlib import Path
 import re
 import sys
 
 build = Path(sys.argv[1])
 text = build.read_text()
+text = text.replace('BITS="32"', 'BITS="${OOONANA_PDF_BITS:-32}"')
+if 'OOONANA_SOURCE_ROOT' not in text:
+    needle = "build_files\ncp vm_$BITS.cfg build/vm/bbl$BITS.bin build/vm/kernel-riscv$BITS.bin build/files\n"
+    insert = """build_files
+if [ -n "${OOONANA_SOURCE_ROOT:-}" ]; then
+  sudo bash "$OOONANA_SOURCE_ROOT/scripts/inject-ooonana-pdf-root.sh" "$root_dir"
+  sudo rm -rf build/files
+  sudo mkdir -p build/files/root
+  sudo build/build_files "$root_dir" build/files/root
+fi
+sudo cp vm_$BITS.cfg build/vm/bbl$BITS.bin build/vm/kernel-riscv$BITS.bin build/files
+"""
+    if needle not in text:
+        raise SystemExit("linuxpdf build.sh patch point missing")
+    text = text.replace(needle, insert)
 text = text.replace(
     '  bash "$OOONANA_SOURCE_ROOT/scripts/inject-ooonana-pdf-root.sh" "$root_dir"',
     '  sudo bash "$OOONANA_SOURCE_ROOT/scripts/inject-ooonana-pdf-root.sh" "$root_dir"',
@@ -92,36 +109,439 @@ text = re.sub(
     flags=re.MULTILINE,
 )
 build.write_text(text)
-PY
-    return 0
-  fi
-  python3 - "$build_sh" "$gen_pdf" <<'PY'
-from pathlib import Path
-import sys
 
-build = Path(sys.argv[1])
 gen = Path(sys.argv[2])
-text = build.read_text()
-text = text.replace('BITS="32"', 'BITS="${OOONANA_PDF_BITS:-32}"')
-needle = "build_files\ncp vm_$BITS.cfg build/vm/bbl$BITS.bin build/vm/kernel-riscv$BITS.bin build/files\n"
-insert = """build_files
-if [ -n "${OOONANA_SOURCE_ROOT:-}" ]; then
-  sudo bash "$OOONANA_SOURCE_ROOT/scripts/inject-ooonana-pdf-root.sh" "$root_dir"
-  sudo rm -rf build/files
-  sudo mkdir -p build/files/root
-  sudo build/build_files "$root_dir" build/files/root
-fi
-sudo cp vm_$BITS.cfg build/vm/bbl$BITS.bin build/vm/kernel-riscv$BITS.bin build/files
-"""
-if needle not in text:
-    raise SystemExit("linuxpdf build.sh patch point missing")
-build.write_text(text.replace(needle, insert))
-
 pdf = gen.read_text()
 pdf = pdf.replace('"LinuxPDF"', '"OoonanaPDF"')
 pdf = pdf.replace('"Source code: https://github.com/ading2210/linuxpdf"', '"Ooonana OS in PDF | based on linuxpdf"')
 pdf = pdf.replace('"Note: This PDF only works in Chromium-based browsers."', '"Works best in Chromium PDF viewer. Boot can take 30-60s."')
+if "OOONANA_MONO_FRAMEBUFFER" not in pdf:
+    pdf = pdf.replace(
+        "from pdfrw.objects.pdfarray import PdfArray\n",
+        "from pdfrw.objects.pdfarray import PdfArray\nfrom pdfrw.objects.pdfobject import PdfObject\n",
+    )
+    pdf = pdf.replace(
+        'def create_field(name, x, y, width, height, value="", f_type=PdfName.Tx):',
+        'def create_field(name, x, y, width, height, value="", f_type=PdfName.Tx, display=False):',
+    )
+    pdf = pdf.replace(
+        "  annotation.BS.W = 0\n\n  appearance = PdfDict()",
+        """  annotation.BS.W = 0
+
+  # OOONANA_MONO_FRAMEBUFFER: fixed metrics stop Chromium glyph drift.
+  if display:
+    annotation.Ff = 1
+    annotation.DA = PdfString.encode(\"/FMono 8 Tf 1 0.62 0 rg\")
+    annotation.Q = 0
+    annotation.MK = PdfDict()
+    annotation.MK.BG = PdfArray([0.015, 0.015, 0.015])
+
+  appearance = PdfDict()""",
+    )
+    pdf = pdf.replace(
+        'field = create_field(f"field_{i}", 0, i*scale + 220, width*scale-8, scale, "")',
+        'field = create_field(f"field_{i}", 0, i*scale + 220, width*scale-8, scale, "", display=True)',
+    )
+    pdf = pdf.replace(
+        "  page.Annots = PdfArray(fields)\n  writer.addpage(page)\n  writer.write(sys.argv[2])",
+        """  page.Contents.stream = (
+    f\"0.015 0.015 0.015 rg\\n0 220 {width*scale-8} {height*scale} re f\\n\"
+    + page.Contents.stream
+  )
+  page.Annots = PdfArray(fields)
+  writer.addpage(page)
+
+  mono_font = PdfDict(
+    Type=PdfName.Font,
+    Subtype=PdfName.Type1,
+    BaseFont=PdfName.Courier,
+  )
+  writer.trailer.Root.AcroForm = PdfDict(
+    Fields=PdfArray(fields),
+    NeedAppearances=PdfObject(\"true\"),
+    DA=PdfString.encode(\"/FMono 10 Tf 0 g\"),
+    DR=PdfDict(Font=PdfDict(FMono=mono_font)),
+  )
+  writer.write(sys.argv[2])""",
+    )
+if "OOONANA_INDIRECT_WIDGETS" not in pdf:
+    needle = "  annotation = PdfDict()\n"
+    if needle not in pdf:
+        raise SystemExit("linuxpdf annotation patch point missing")
+    pdf = pdf.replace(
+        needle,
+        "  annotation = PdfDict()\n  annotation.indirect = True  # OOONANA_INDIRECT_WIDGETS\n",
+        1,
+    )
+if "OOONANA_SERIAL_TERMINAL_LAYOUT" not in pdf:
+    pdf = pdf.replace(
+        'annotation.DA = PdfString.encode("/FMono 2 Tf 185 Tz 1 0.55 0 rg")',
+        'annotation.DA = PdfString.encode("/FMono 8 Tf 1 0.62 0 rg")',
+    )
+    old_layout = '''  fields = []
+  for i in range(0, height):
+    field = create_field(f"field_{i}", 0, i*scale + 220, width*scale-8, scale, "", display=True)
+    fields.append(field)
+'''
+    new_layout = '''  fields = []
+  terminal_rows = 30  # OOONANA_SERIAL_TERMINAL_LAYOUT
+  for i in range(0, terminal_rows):
+    field = create_field(f"field_{i}", 8, 225 + i*13, width*scale-24, 13, "", display=True)
+    fields.append(field)
+'''
+    if old_layout not in pdf:
+        raise SystemExit("linuxpdf terminal field patch point missing")
+    pdf = pdf.replace(old_layout, new_layout)
 gen.write_text(pdf)
+
+display = Path(sys.argv[3])
+js = display.read_text()
+if "OOONANA_FRAMEBUFFER_CACHE" not in js:
+    js = js.replace(
+        'var line_buffer = "";\n',
+        'var line_buffer = "";\nvar framebuffer_rows = []; // OOONANA_FRAMEBUFFER_CACHE\n',
+    )
+    js = js.replace(
+        '    let old_row = row.join("");',
+        '    let old_row = framebuffer_rows[y] || "";',
+    )
+    old_palette = """      //note - these ascii characters were all picked because they have the same width in the sans-serif font that chrome decided to use for text fields
+      if (avg > 200)
+        row[x] = "_";
+      else if (avg > 150)
+        row[x] = "::";
+      else if (avg > 100)
+        row[x] = "?";
+      else if (avg > 50)
+        row[x] = "//";
+      else if (avg > 25)
+        row[x] = "b";
+      else
+        row[x] = "#";"""
+    new_palette = """      // OOONANA_AMBER_PALETTE: one monospaced glyph per framebuffer pixel.
+      if (avg > 224)
+        row[x] = "@";
+      else if (avg > 192)
+        row[x] = "O";
+      else if (avg > 160)
+        row[x] = "o";
+      else if (avg > 128)
+        row[x] = "*";
+      else if (avg > 96)
+        row[x] = "+";
+      else if (avg > 64)
+        row[x] = ":";
+      else if (avg > 32)
+        row[x] = ".";
+      else
+        row[x] = " ";"""
+    if old_palette not in js:
+        raise SystemExit("linuxpdf framebuffer palette patch point missing")
+    js = js.replace(old_palette, new_palette)
+    js = js.replace(
+        "    if (row_str !== old_row)\n      globalThis.getField(\"field_\"+(height-y-1)).value = row_str;",
+        """    if (row_str !== old_row) {
+      framebuffer_rows[y] = row_str;
+      globalThis.getField(\"field_\"+(height-y-1)).value = row_str;
+    }""",
+    )
+if "OOONANA_SERIAL_TERMINAL" not in js:
+    terminal_js = r'''
+var terminal_width = 80;
+var terminal_height = 30;
+var terminal_lines = Array(terminal_height).fill("");
+var terminal_rendered = Array(terminal_height).fill(null);
+var terminal_row = 0;
+var terminal_col = 0;
+var terminal_escape = "";
+var terminal_dirty = 0;
+
+function render_terminal() {
+  for (let row = 0; row < terminal_height; row++) {
+    if (terminal_rendered[row] === terminal_lines[row])
+      continue;
+    terminal_rendered[row] = terminal_lines[row];
+    globalThis.getField("field_" + (terminal_height-row-1)).value = terminal_lines[row];
+  }
+}
+
+function terminal_scroll() {
+  while (terminal_row >= terminal_height) {
+    terminal_lines.shift();
+    terminal_lines.push("");
+    terminal_row--;
+  }
+}
+
+function terminal_clear() {
+  terminal_lines = Array(terminal_height).fill("");
+  terminal_row = 0;
+  terminal_col = 0;
+  terminal_dirty = terminal_width;
+}
+
+function terminal_csi(sequence) {
+  let match = sequence.match(/^\x1b\[([0-9;?]*)([A-Za-z~])$/);
+  if (!match)
+    return;
+  let raw = match[1].replace(/^\?/, "");
+  let params = raw === "" ? [] : raw.split(";").map(Number);
+  let command = match[2];
+  let amount = params[0] || 1;
+  if (command === "J") {
+    terminal_clear();
+  } else if (command === "H" || command === "f") {
+    terminal_row = Math.max(0, Math.min(terminal_height-1, (params[0] || 1)-1));
+    terminal_col = Math.max(0, Math.min(terminal_width-1, (params[1] || 1)-1));
+  } else if (command === "K") {
+    terminal_lines[terminal_row] = terminal_lines[terminal_row].slice(0, terminal_col);
+  } else if (command === "A") {
+    terminal_row = Math.max(0, terminal_row-amount);
+  } else if (command === "B") {
+    terminal_row = Math.min(terminal_height-1, terminal_row+amount);
+  } else if (command === "C") {
+    terminal_col = Math.min(terminal_width-1, terminal_col+amount);
+  } else if (command === "D") {
+    terminal_col = Math.max(0, terminal_col-amount);
+  }
+}
+
+function terminal_put(char) {
+  if (char === "\r") {
+    terminal_col = 0;
+    return;
+  }
+  if (char === "\n") {
+    terminal_row++;
+    terminal_col = 0;
+    terminal_scroll();
+    return;
+  }
+  if (char === "\b" || char.charCodeAt(0) === 127) {
+    terminal_col = Math.max(0, terminal_col-1);
+    terminal_lines[terminal_row] = terminal_lines[terminal_row].slice(0, terminal_col);
+    return;
+  }
+  if (char === "\t") {
+    terminal_col = Math.min(terminal_width-1, (Math.floor(terminal_col/8)+1)*8);
+    return;
+  }
+  let code = char.charCodeAt(0);
+  if (code < 32 || code > 126)
+    return;
+  let line = terminal_lines[terminal_row];
+  if (line.length < terminal_col)
+    line += " ".repeat(terminal_col-line.length);
+  terminal_lines[terminal_row] = line.slice(0, terminal_col) + char + line.slice(terminal_col+1);
+  terminal_col++;
+  if (terminal_col >= terminal_width) {
+    terminal_col = 0;
+    terminal_row++;
+    terminal_scroll();
+  }
+}
+
+function terminal_write(str) { // OOONANA_SERIAL_TERMINAL
+  let saw_newline = false;
+  for (let char of str) {
+    if (terminal_escape !== "") {
+      terminal_escape += char;
+      if (/[@-~]/.test(char) && terminal_escape.length > 2) {
+        terminal_csi(terminal_escape);
+        terminal_escape = "";
+      } else if (terminal_escape.length > 24) {
+        terminal_escape = "";
+      }
+    } else if (char === "\x1b") {
+      terminal_escape = char;
+    } else {
+      terminal_put(char);
+      terminal_dirty++;
+      if (char === "\n")
+        saw_newline = true;
+    }
+  }
+  if (saw_newline || terminal_dirty >= terminal_width) {
+    render_terminal(); // OOONANA_TERMINAL_RENDER_BATCH
+    terminal_dirty = 0;
+  }
+}
+
+function queue_console_text(text) {
+  for (let char of text)
+    _console_queue_char(char.charCodeAt(0));
+}
+
+function serial_button(key) {
+  let special = {
+    "Esc": "\x1b", "Backspace": "\x7f", "Tab": "\t", "Enter": "\r",
+    "Space": " ", "ArrowUp": "\x1b[A", "ArrowDown": "\x1b[B",
+    "ArrowRight": "\x1b[C", "ArrowLeft": "\x1b[D", "Home": "\x1b[H",
+    "End": "\x1b[F", "Delete": "\x1b[3~", "Insert": "\x1b[2~",
+    "PgUp": "\x1b[5~", "PgDn": "\x1b[6~"
+  };
+  if (special[key]) {
+    queue_console_text(special[key]);
+    return;
+  }
+  if (key.length === 1)
+    queue_console_text(key);
+}
+'''
+    if "\nfunction start() {" not in js:
+        raise SystemExit("linuxpdf terminal insertion point missing")
+    js = js.replace("\nfunction start() {", terminal_js + "\nfunction start() {")
+    js = re.sub(
+        r'function update_framebuffer\(width, height, data, start_y, updated_height\) \{.*?\n\}\n\nvar key_to_input_map',
+        '''function update_framebuffer(width, height, data, start_y, updated_height) {
+  // Serial terminal owns display; simplefb updates are intentionally ignored.
+}
+
+var key_to_input_map''',
+        js,
+        flags=re.DOTALL,
+    )
+    js = re.sub(
+        r'function button_down\(key_str\) \{.*?\n\}\n\nfunction button_up\(key_str\) \{.*?\n\}',
+        '''function button_down(key_str) {
+  serial_button(key_str);
+}
+
+function button_up(key_str) {
+}''',
+        js,
+        flags=re.DOTALL,
+    )
+    js = re.sub(
+        r'var pressed_list = \[\];\nfunction button_toggle\(key_str\) \{.*?\n\}',
+        '''var pressed_list = [];
+function button_toggle(key_str) {
+  let index = pressed_list.indexOf(key_str);
+  if (index >= 0)
+    pressed_list.splice(index, 1);
+  else
+    pressed_list.push(key_str);
+  globalThis.getField("key_status").value = "Pressed: " + pressed_list.join(", ");
+}''',
+        js,
+        flags=re.DOTALL,
+    )
+    js = re.sub(
+        r'function key_pressed\(key_str\) \{.*?\n\}',
+        '''function key_pressed(key_str) {
+  queue_console_text(key_str);
+}''',
+        js,
+        flags=re.DOTALL,
+    )
+if "OOONANA_TERMINAL_RENDER_BATCH" not in js:
+    js = js.replace(
+        'var terminal_escape = "";\n',
+        'var terminal_escape = "";\nvar terminal_dirty = 0;\n',
+    )
+    js = js.replace(
+        '''function terminal_clear() {
+  terminal_lines = Array(terminal_height).fill("");
+  terminal_row = 0;
+  terminal_col = 0;
+}''',
+        '''function terminal_clear() {
+  terminal_lines = Array(terminal_height).fill("");
+  terminal_row = 0;
+  terminal_col = 0;
+  terminal_dirty = terminal_width;
+}''',
+    )
+    batched_terminal = r'''function terminal_write(str) { // OOONANA_SERIAL_TERMINAL
+  let saw_newline = false;
+  for (let char of str) {
+    if (terminal_escape !== "") {
+      terminal_escape += char;
+      if (/[@-~]/.test(char) && terminal_escape.length > 2) {
+        terminal_csi(terminal_escape);
+        terminal_escape = "";
+      } else if (terminal_escape.length > 24) {
+        terminal_escape = "";
+      }
+    } else if (char === "\x1b") {
+      terminal_escape = char;
+    } else {
+      terminal_put(char);
+      terminal_dirty++;
+      if (char === "\n")
+        saw_newline = true;
+    }
+  }
+  if (saw_newline || terminal_dirty >= terminal_width) {
+    render_terminal(); // OOONANA_TERMINAL_RENDER_BATCH
+    terminal_dirty = 0;
+  }
+}
+
+function queue_console_text'''
+    js = re.sub(
+        r'function terminal_write\(str\) \{ // OOONANA_SERIAL_TERMINAL\n.*?\n\}\n\nfunction queue_console_text',
+        lambda _match: batched_terminal,
+        js,
+        flags=re.DOTALL,
+    )
+if "OOONANA_BOOT_MESSAGE" not in js:
+    needle = "function start() {\n  update_framebuffer"
+    replacement = '''function start() {
+  terminal_write("Ooonana OS PDF 0.4\\nBooting kernel...\\n"); // OOONANA_BOOT_MESSAGE
+  update_framebuffer'''
+    if needle not in js:
+        raise SystemExit("linuxpdf boot message patch point missing")
+    js = js.replace(needle, replacement)
+if "OOONANA_VM_BATCH" not in js:
+    needle = "  total_instrs += _virt_machine_run(m_ptr);"
+    replacement = '''  // OOONANA_VM_BATCH: bounded VM slice keeps PDF controls responsive.
+  total_instrs += _virt_machine_run(m_ptr);'''
+    if needle not in js:
+        raise SystemExit("linuxpdf VM batch patch point missing")
+    js = js.replace(needle, replacement)
+js = js.replace(
+    '''  // OOONANA_VM_BATCH: fewer PDF timer round trips during boot.
+  for (let batch = 0; batch < 4; batch++)
+    total_instrs += _virt_machine_run(m_ptr);''',
+    '''  // OOONANA_VM_BATCH: bounded VM slice keeps PDF controls responsive.
+  total_instrs += _virt_machine_run(m_ptr);''',
+)
+display.write_text(js)
+
+vm = Path(sys.argv[4])
+cfg = vm.read_text()
+cfg = cfg.replace(
+    'cmdline: "loglevel=6 swiotlb=1 console=tty0',
+    'cmdline: "loglevel=7 ignore_loglevel printk.time=1 consoleblank=0 swiotlb=1 console=hvc0',
+)
+cfg = cfg.replace('console=tty0', 'console=hvc0')
+cfg = cfg.replace(
+    'quiet loglevel=3 vt.global_cursor_default=0 consoleblank=0 swiotlb=1 console=hvc0',
+    'loglevel=7 ignore_loglevel printk.time=1 consoleblank=0 swiotlb=1 console=hvc0',
+)
+vm.write_text(cfg)
+
+tinyemu = Path(sys.argv[5])
+lib = tinyemu.read_text()
+if "OOONANA_SERIAL_CONSOLE_WRITE" not in lib:
+    old_console = '''      var str = String.fromCharCode.apply(String, HEAPU8.subarray(buf, buf + len));
+      for (let char of str) {
+        if (str === "\\n") {
+          Module.print(line_buffer);
+          line_buffer = "";
+        }
+        else {
+          line_buffer += char;
+        }
+      }
+      //term.write(str);'''
+    new_console = '''      var str = String.fromCharCode.apply(String, HEAPU8.subarray(buf, buf + len));
+      terminal_write(str); // OOONANA_SERIAL_CONSOLE_WRITE'''
+    if old_console not in lib:
+        raise SystemExit("tinyemu serial console patch point missing")
+    lib = lib.replace(old_console, new_console)
+tinyemu.write_text(lib)
 PY
 }
 

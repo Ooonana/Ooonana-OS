@@ -2,15 +2,18 @@
 
 `docs/ooonana.pdf` is reserved for the bootable Ooonana OS PDF.
 
-Current 0.2 build is based on [ading2210/linuxpdf](https://github.com/ading2210/linuxpdf):
+Current 0.4 build is based on [ading2210/linuxpdf](https://github.com/ading2210/linuxpdf):
 
 - PDF JavaScript runs TinyEMU.
 - TinyEMU boots a RISC-V Linux kernel.
-- The PDF exposes a simple framebuffer plus on-page keyboard controls.
+- The PDF exposes a real 80x30 serial terminal plus on-page keyboard controls.
 - Boot is slow, often 30-60 seconds.
 - Chromium PDF viewer is the main target.
 - Injected shell payload carries Ooonana package manager 0.8.4 and current logo/help.
 - Boot console prints `OOONANA_PDF_BOOT_OK` after Ooonana init starts.
+- Terminal uses bright orange monospaced text on black.
+- Kernel log stays visible during boot, then hands off to Ooonana shell.
+- Full boot logs and fixed 80x30 terminal geometry keep status readable.
 
 Ooonana cannot embed the current x86_64 QEMU kernel directly. linuxpdf boots
 RISC-V, so the PDF path injects the minimal Ooonana shell payload into the
@@ -20,6 +23,7 @@ Build:
 
 ```bash
 bash scripts/build-ooonana-pdf-os.sh --force
+node scripts/test-ooonana-pdf-vm.js /var/tmp/ooonana-os/linuxpdf/linuxpdf/out/compiled.js
 ```
 
 Keep the work dir outside the repo:
