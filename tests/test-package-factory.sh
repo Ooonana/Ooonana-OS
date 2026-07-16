@@ -92,6 +92,7 @@ assert_contains "$full_i3_profile" "nemo"
 assert_contains "$full_i3_profile" "geany"
 assert_contains "$full_i3_profile" "networkmanager"
 assert_contains "$full_i3_profile" "networkmanager-cli"
+assert_contains "$full_i3_profile" "py3-cairo"
 assert_contains "$full_i3_profile" "networkmanager-tui"
 assert_contains "$full_i3_profile" "network-manager-applet"
 assert_contains "$full_i3_profile" "blueman"
@@ -294,7 +295,7 @@ core_upgrade="$(OOONANA_REPO_DIR="$tmp/repo" \
 assert_contains "$core_upgrade" "installed ooonana-core-runtime"
 assert_contains "$core_upgrade" "upgraded ooonana-core 0.8.1"
 [[ -x "$core_upgrade_root/usr/bin/ooonana" ]] || fail "core migration removed upgraded CLI"
-assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.8.4"
+assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.8.5"
 assert_contains "$(<"$tmp/repo/cloud.repo")" 'OOONANA_REPO_URI="https://example.test/repo"'
 assert_contains "$(<"$tmp/repo/README.txt")" "ooonana update"
 

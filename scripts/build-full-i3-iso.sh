@@ -220,11 +220,14 @@ stage_iso_tree() {
   install -m 0644 "$LIVE_INITRAMFS" "$ISO_TREE/boot/live-initramfs.cpio.gz"
   stage_large_file "$LIVE_ROOTFS_IMAGE" "$ISO_TREE/images/ooonana-full-i3-live-rootfs.ext4"
   gzip -n -c "$DISK_IMAGE" > "$ISO_TREE/images/$DISK_IMAGE_STAGED"
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    pad=$(( (80 - ${#line}) / 2 ))
-    (( pad < 0 )) && pad=0
-    printf '%*s%s\n' "$pad" '' "$line"
-  done < "$ROOT/packages/ooonana/usr/share/ooonana/boot-logo.txt" > "$ISO_TREE/boot/grub/ooonana-logo.txt"
+  awk '
+    { lines[NR] = $0; if (length($0) > width) width = length($0) }
+    END {
+      pad = int((80 - width) / 2)
+      if (pad < 0) pad = 0
+      for (line = 1; line <= NR; line++) printf "%*s%s\n", pad, "", lines[line]
+    }
+  ' "$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt" > "$ISO_TREE/boot/grub/ooonana-logo.txt"
   chmod 0644 "$ISO_TREE/boot/grub/ooonana-logo.txt"
   write_rufus_note
   cat > "$ISO_TREE/boot/grub/theme.txt" <<'EOF'

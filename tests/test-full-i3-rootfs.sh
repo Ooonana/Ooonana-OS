@@ -38,8 +38,7 @@ assert_contains "$script_src" "refresh_font_caches()"
 assert_contains "$script_src" 'ln -s python3 "$ROOTFS/usr/bin/python"'
 assert_contains "$script_src" "fix_blueman_activation()"
 assert_contains "$script_src" "sed -i '/^SystemdService=/d'"
-assert_contains "$script_src" "start_blueman_mechanism()"
-assert_contains "$script_src" '/usr/libexec/blueman-mechanism'
+assert_not_contains "$script_src" "start_blueman_mechanism()"
 assert_contains "$script_src" 'PRETTY_NAME="Ooonana OS $OS_VERSION"'
 assert_contains "$script_src" "mkfontscale"
 assert_contains "$script_src" "fc-cache -r /usr/share/fonts"
@@ -61,7 +60,12 @@ assert_contains "$patch_src" 'oonana_game.py|/usr/lib/ooonana/oonana_game.py|010
 assert_contains "$patch_src" 'yad-wrapper|/usr/local/bin/yad|0100755'
 assert_contains "$patch_src" 'gtk-settings.ini|/etc/gtk-3.0/settings.ini|0100644'
 assert_contains "$patch_src" 'NetworkManager.conf|/etc/NetworkManager/NetworkManager.conf|0100644'
+assert_contains "$patch_src" 'cp -a "$WORK/payload/root/lib/firmware/." "$tree/lib/firmware/"'
 assert_contains "$patch_src" 'bluetooth-main.conf|/etc/bluetooth/main.conf|0100644'
+assert_contains "$patch_src" 'sudoers-ooonana|/etc/sudoers.d/ooonana|0100440'
+assert_contains "$patch_src" 'grub-logo.txt|/boot/grub/ooonana-logo.txt|0100644'
+assert_contains "$patch_src" 'width = length($0)'
+assert_contains "$patch_src" '> "$payload/grub-logo.txt"'
 assert_contains "$patch_src" 'ooonana-i3-session|/usr/bin/ooonana-i3-session|0100755'
 assert_contains "$patch_src" 'i3.config|/etc/i3/config|0100644'
 assert_contains "$patch_src" 'i3.config.keycodes|/etc/i3/config.keycodes|0100644'
@@ -78,18 +82,22 @@ assert_contains "$patch_src" "normalize_ext4_permissions"
 assert_contains "$patch_src" "repair_ext4_image"
 assert_contains "$patch_src" "need e2fsck"
 assert_contains "$patch_src" "doas-6.8.2-r7.apk"
+assert_contains "$patch_src" "sudo-1.9.15_p5-r0.apk"
+assert_contains "$patch_src" "util-linux-login-2.40.1-r1.apk"
+assert_contains "$patch_src" "alsa-ucm-conf-1.2.11-r1.apk"
+assert_contains "$patch_src" "alsa-topology-conf-1.2.5.1-r1.apk"
 assert_contains "$patch_src" 'payload/root/etc/doas.conf'
 assert_contains "$patch_src" 'payload/root/etc/os-release'
 assert_contains "$patch_src" "messagebus:x:81:"
 for required_package in \
-  python3 curl wget ca-certificates dbus doas py3-gobject3 gtk+3.0 eudev \
+  python3 curl wget ca-certificates dbus doas sudo util-linux-login py3-gobject3 gtk+3.0 eudev \
   networkmanager networkmanager-cli networkmanager-tui network-manager-applet \
   blueman bluez iw wireless-tools wpa_supplicant wireless-regdb \
   pciutils usbutils \
   linux-firmware linux-firmware-i915 linux-firmware-ath10k linux-firmware-ath11k \
   linux-firmware-ath12k linux-firmware-mediatek linux-firmware-rtw88 \
   linux-firmware-rtw89 linux-firmware-rtl_bt linux-firmware-rtl_nic \
-  sof-firmware pulseaudio font-dejavu; do
+  sof-firmware pulseaudio alsa-ucm-conf alsa-topology-conf font-dejavu; do
   assert_contains "$full_i3_packages" "$required_package"
 done
 for required_runtime_package in networkmanager-wifi networkmanager-bluetooth bluez-btmgmt bluez-hid2hci bluez-obexd pulseaudio pulseaudio-alsa pulseaudio-bluez libnotify xdg-utils; do
@@ -120,7 +128,7 @@ EOF
 chmod +x "$scratch/bin/busybox"
 cat > "$scratch/usr/bin/ooonana" <<'EOF'
 #!/bin/sh
-echo ooonana 0.8.4
+echo ooonana 0.8.5
 EOF
 chmod +x "$scratch/usr/bin/ooonana"
 cat > "$scratch/usr/bin/ooonana-setup" <<'EOF'
@@ -263,6 +271,7 @@ fi
 [[ -f "$rootfs/etc/bluetooth/main.conf" ]] || fail "missing Bluetooth config"
 [[ -f "$rootfs/etc/doas.d/ooonana.conf" ]] || fail "missing doas policy"
 [[ -f "$rootfs/etc/doas.conf" ]] || fail "missing active doas policy"
+[[ -f "$rootfs/etc/sudoers.d/ooonana" ]] || fail "missing sudo policy"
 [[ -f "$rootfs/etc/ooonana/default-user" ]] || fail "missing default desktop user"
 [[ -d "$rootfs/home/ooonana" ]] || fail "missing live user home"
 for native_app in common setup_app settings_app wifi_app bluetooth_app packages_app ai_app controls_app launcher_app; do
@@ -297,6 +306,7 @@ assert_contains "$(<"$rootfs/etc/passwd")" "ooonana:x:1000:1000:Ooonana Live Use
 assert_contains "$(<"$rootfs/etc/passwd")" "messagebus:x:81:81:DBus Message Bus:/run/dbus:/bin/false"
 assert_contains "$(<"$rootfs/etc/doas.d/ooonana.conf")" "permit nopass keepenv :wheel"
 assert_contains "$(<"$rootfs/etc/doas.conf")" "permit nopass keepenv :wheel"
+assert_contains "$(<"$rootfs/etc/sudoers.d/ooonana")" '%wheel ALL=(ALL:ALL) NOPASSWD: ALL'
 assert_contains "$(<"$rootfs/etc/wsl.conf")" "default=ooonana"
 assert_contains "$(<"$rootfs/etc/wsl.conf")" "mountFsTab=false"
 assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS 0.1.8"'
@@ -486,6 +496,8 @@ assert_contains "$hardware_reprobe" "rfkill unblock all"
 assert_contains "$hardware_reprobe" "/sys/bus/pci/rescan"
 assert_contains "$hardware_reprobe" "bind_unclaimed_intel_wifi"
 assert_contains "$hardware_reprobe" "bind_unclaimed_intel_bluetooth"
+assert_contains "$hardware_reprobe" 'printf '\''on'\'' >"$dev/power/control"'
+assert_contains "$hardware_reprobe" 'printf '\''1'\'' >"$parent/authorized"'
 
 wireless_diagnose="$(<"$rootfs/usr/bin/ooonana-wireless-diagnose")"
 assert_contains "$wireless_diagnose" "intel-wireless-firmware.version"
@@ -496,22 +508,47 @@ assert_contains "$hardware_reprobe" 'if [ "$force" -eq 1 ]; then'
 assert_contains "$hardware_reprobe" "btusb"
 assert_contains "$hardware_reprobe" "udevadm trigger"
 service_repair="$(<"$rootfs/usr/bin/ooonana-service-repair")"
+admin_helper="$(<"$rootfs/usr/bin/ooonana-run-admin")"
+assert_contains "$admin_helper" "sudo -n /bin/true"
+assert_contains "$admin_helper" 'exec sudo -n "$@"'
+assert_contains "$admin_helper" "doas -n /bin/true"
 assert_contains "$service_repair" 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
 assert_contains "$service_repair" 'exec ooonana-run-admin "$0" "$@"'
 assert_contains "$service_repair" "dbus-daemon --system"
+assert_contains "$service_repair" "dbus_ready()"
 assert_contains "$service_repair" "network_manager_daemon()"
 assert_contains "$service_repair" "/usr/sbin/NetworkManager"
-assert_contains "$service_repair" "--address=unix:path=/run/dbus/system_bus_socket"
-assert_contains "$service_repair" "system D-Bus unavailable"
+assert_contains "$service_repair" "network_manager_ready()"
+assert_contains "$service_repair" "nmcli -t -f STATE general"
+assert_contains "$service_repair" "force-wifi"
+assert_contains "$service_repair" "force-bluetooth"
+assert_contains "$service_repair" "run_limited 20 ooonana-hardware-reprobe --force"
 assert_contains "$service_repair" "device_manager_running()"
+assert_contains "$service_repair" "process_running()"
+assert_contains "$service_repair" "/bin/busybox pidof"
 assert_contains "$service_repair" "/run/udev/control"
 assert_contains "$service_repair" "bluetooth_daemon"
 assert_contains "$service_repair" "/usr/lib/bluetooth/bluetoothd"
 assert_contains "$service_repair" '"$nm_daemon" --no-daemon'
 assert_contains "$service_repair" '"$bt_daemon" -n'
+assert_contains "$service_repair" "bluez_ready()"
+assert_not_contains "$service_repair" "wait_for bluetoothd bluetoothctl show"
 assert_contains "$service_repair" "nmcli radio wifi on"
 assert_contains "$service_repair" "bluetoothctl power on"
 assert_contains "$service_repair" "btmgmt power on"
+rofi_power="$(<"$rootfs/usr/bin/ooonana-rofi-power")"
+assert_contains "$rofi_power" "Lock"
+assert_contains "$rofi_power" "Log out"
+assert_contains "$rofi_power" "Restart i3"
+assert_contains "$rofi_power" "Reboot"
+assert_contains "$rofi_power" "Shut down"
+assert_contains "$rofi_power" "Cancel"
+assert_contains "$rofi_power" "OOONANA_POWER_MENU_OK"
+assert_contains "$rofi_power" "exec bunana --shutdown"
+assert_contains "$rofi_power" "exec bunana --restart"
+[[ "$(OOONANA_POWER_ACTION=Cancel "$rootfs/usr/bin/ooonana-rofi-power" --dry-run)" == "OOONANA_POWER_MENU_OK" ]] || fail "power menu dry-run failed"
+power_menu="$(<"$rootfs/usr/bin/ooonana-power-menu")"
+assert_contains "$power_menu" "exec ooonana-rofi-power"
 settings_helper="$(<"$rootfs/usr/bin/ooonana-settings")"
 settings_launcher="$(<"$rootfs/usr/bin/ooonana-settings-launch")"
 assert_contains "$settings_helper" "yad --center --title \"Ooonana Settings\""
@@ -757,7 +794,7 @@ assert_contains "$wizard_dry" "Step 6/8 choose source root: /"
 assert_contains "$wizard_dry" "Step 7/8 confirm erase: INSTALL"
 assert_contains "$wizard_dry" "Step 8/8 install, log, reboot"
 assert_contains "$wizard_dry" "Progress log: "
-assert_contains "$wizard_dry" "ooonana/install-wizard.log"
+assert_contains "$wizard_dry" "ooonana-install-wizard.log"
 assert_contains "$wizard_dry" "/usr/sbin/ooonana-install --target /dev/vdb --source / --hostname ooonana-lab --user ryan --theme dark --cloud-repo https://example.test/repo --yes"
 assert_contains "$wizard_dry" "OOONANA_INSTALL_WIZARD_OK"
 

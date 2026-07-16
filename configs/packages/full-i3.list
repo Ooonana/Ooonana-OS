@@ -1,6 +1,7 @@
 # Ooonana full-i3 cloud package repo seed.
 python3
 py3-pip
+py3-cairo
 bubblewrap
 xz
 curl
@@ -8,6 +9,8 @@ wget
 ca-certificates
 dbus
 doas
+sudo
+util-linux-login
 py3-gobject3
 gtk+3.0
 xorg-server
@@ -91,6 +94,8 @@ mesa-dri-gallium
 mesa-va-gallium
 mesa-vulkan-intel
 alsa-utils
+alsa-ucm-conf
+alsa-topology-conf
 arandr
 pavucontrol
 maim

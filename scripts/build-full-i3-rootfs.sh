@@ -354,7 +354,7 @@ set -eu
 
 if [ "${1:-}" = "--dry-run" ]; then
   echo "root: direct"
-  echo "user: doas with wheel policy"
+  echo "user: passwordless sudo, doas fallback"
   echo "OOONANA_ADMIN_HELPER_OK"
   exit 0
 fi
@@ -367,10 +367,17 @@ fi
 if [ "$(id -u 2>/dev/null || echo 1)" = "0" ]; then
   exec "$@"
 fi
-if command -v doas >/dev/null 2>&1; then
-  exec doas "$@"
+if command -v sudo >/dev/null 2>&1; then
+  if sudo -n /bin/true >/dev/null 2>&1; then
+    exec sudo -n "$@"
+  fi
 fi
-echo "admin helper unavailable: install doas" >&2
+if command -v doas >/dev/null 2>&1; then
+  if doas -n /bin/true >/dev/null 2>&1; then
+    exec doas -n "$@"
+  fi
+fi
+echo "admin helper unavailable: install doas or sudo" >&2
 exit 126
 EOF
 
@@ -477,6 +484,7 @@ bind_unclaimed_intel_wifi() {
       0x0280*) ;;
       *) continue ;;
     esac
+    [ -w "$dev/power/control" ] && printf 'on' >"$dev/power/control" 2>/dev/null || true
     dev_id="${dev##*/}"
     printf '%s' "$dev_id" >"$bind" 2>>"$LOG" || true
     log "requested iwlwifi bind $dev_id"
@@ -491,6 +499,8 @@ bind_unclaimed_intel_bluetooth() {
     [ -L "$interface/driver" ] && continue
     parent="${interface%:*}"
     [ "$(cat "$parent/idVendor" 2>/dev/null || true)" = "8087" ] || continue
+    [ -w "$parent/authorized" ] && printf '1' >"$parent/authorized" 2>/dev/null || true
+    [ -w "$parent/power/control" ] && printf 'on' >"$parent/power/control" 2>/dev/null || true
     class="$(cat "$interface/bInterfaceClass" 2>/dev/null || true)"
     subclass="$(cat "$interface/bInterfaceSubClass" 2>/dev/null || true)"
     protocol="$(cat "$interface/bInterfaceProtocol" 2>/dev/null || true)"
@@ -612,7 +622,7 @@ if [ "$(id -u 2>/dev/null || echo 1)" != "0" ]; then
 fi
 
 LOG="${OOONANA_SERVICE_LOG:-/var/log/ooonana-services.log}"
-mkdir -p /run/dbus /var/lib/dbus /var/log /run/NetworkManager /var/lib/NetworkManager /var/lib/bluetooth /etc /dev/shm
+mkdir -p /run/dbus /var/lib/dbus /var/log /run/NetworkManager /run/wpa_supplicant /var/lib/NetworkManager /var/lib/bluetooth /etc /dev/shm
 chmod 0755 /run/dbus 2>/dev/null || true
 chmod 1777 /dev/shm 2>/dev/null || true
 if [ ! -L /var/run ]; then
@@ -663,8 +673,17 @@ network_manager_daemon() {
 
 device_manager_running() {
   [ -S /run/udev/control ] ||
-    pidof udevd >/dev/null 2>&1 ||
-    pidof eudevd >/dev/null 2>&1
+    process_running udevd ||
+    process_running eudevd
+}
+
+process_running() {
+  name="$1"
+  if command -v pidof >/dev/null 2>&1; then
+    pidof "$name" >/dev/null 2>&1
+  else
+    /bin/busybox pidof "$name" >/dev/null 2>&1
+  fi
 }
 
 start_device_manager() {
@@ -676,8 +695,8 @@ start_device_manager() {
     eudevd --daemon >>"$LOG" 2>&1 || true
   fi
   if command -v udevadm >/dev/null 2>&1; then
-    udevadm trigger --action=add >>"$LOG" 2>&1 || true
-    udevadm settle --timeout=8 >>"$LOG" 2>&1 || true
+    run_limited 4 udevadm trigger --action=add >>"$LOG" 2>&1 || true
+    run_limited 6 udevadm settle --timeout=5 >>"$LOG" 2>&1 || true
   fi
 }
 
@@ -700,7 +719,7 @@ wait_for() {
   desc="$1"
   shift
   i=0
-  while [ "$i" -lt 10 ]; do
+  while [ "$i" -lt 5 ]; do
     "$@" >/dev/null 2>&1 && return 0
     sleep 1
     i=$((i + 1))
@@ -709,68 +728,171 @@ wait_for() {
   return 1
 }
 
-start_blueman_mechanism() {
-  mechanism=/usr/libexec/blueman-mechanism
-  pid_file=/run/blueman-mechanism.pid
-  if [ -s "$pid_file" ]; then
-    read -r mechanism_pid < "$pid_file" || mechanism_pid=""
-    [ -n "$mechanism_pid" ] && kill -0 "$mechanism_pid" 2>/dev/null && return 0
+run_limited() {
+  limit="$1"
+  shift
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$limit" "$@"
+  else
+    "$@"
   fi
-  [ -x "$mechanism" ] || return 0
-  "$mechanism" >>"$LOG" 2>&1 &
-  echo "$!" > "$pid_file"
-  sleep 1
 }
 
-ensure_identity
-
-start_device_manager
-
-if [ "${1:-}" = "force" ] || [ "${1:-}" = "--force" ]; then
-  if pidof bluetoothd >/dev/null 2>&1; then
-    /bin/busybox killall bluetoothd >>"$LOG" 2>&1 || true
-    sleep 1
+dbus_ready() {
+  [ -S /run/dbus/system_bus_socket ] || return 1
+  if command -v dbus-send >/dev/null 2>&1; then
+    run_limited 3 dbus-send --system --print-reply \
+      --dest=org.freedesktop.DBus / org.freedesktop.DBus.ListNames >/dev/null 2>&1
+    return $?
   fi
-fi
+  process_running dbus-daemon
+}
 
-if command -v dbus-daemon >/dev/null 2>&1 && [ ! -S /run/dbus/system_bus_socket ]; then
-  dbus-daemon --system --fork --nopidfile --address=unix:path=/run/dbus/system_bus_socket >>"$LOG" 2>&1 || log "dbus-daemon failed"
-fi
-if ! wait_for dbus test -S /run/dbus/system_bus_socket; then
-  log "system D-Bus unavailable"
+start_dbus() {
+  dbus_ready && return 0
+  rm -f /run/dbus/system_bus_socket /run/dbus/pid
+  command -v dbus-daemon >/dev/null 2>&1 || {
+    log "dbus-daemon missing"
+    return 1
+  }
+  dbus-daemon --system --fork --nopidfile >>"$LOG" 2>&1 || true
+  wait_for "system D-Bus" dbus_ready
+}
+
+stop_daemon() {
+  name="$1"
+  process_running "$name" || return 0
+  /bin/busybox killall "$name" >>"$LOG" 2>&1 || true
+  i=0
+  while process_running "$name" && [ "$i" -lt 3 ]; do
+    sleep 1
+    i=$((i + 1))
+  done
+  if process_running "$name"; then
+    /bin/busybox killall -9 "$name" >>"$LOG" 2>&1 || true
+  fi
+}
+
+network_manager_ready() {
+  process_running NetworkManager || return 1
+  command -v nmcli >/dev/null 2>&1 || return 0
+  run_limited 3 nmcli -t -f STATE general >/dev/null 2>&1
+}
+
+start_network_manager() {
+  nm_daemon="$(network_manager_daemon || true)"
+  [ -n "$nm_daemon" ] || {
+    log "NetworkManager missing from PATH and standard sbin paths"
+    return 1
+  }
+  if [ "$FORCE_WIFI" -eq 1 ]; then
+    stop_daemon NetworkManager
+  fi
+  if ! process_running NetworkManager; then
+    mkdir -p /run/NetworkManager
+    "$nm_daemon" --no-daemon >/var/log/NetworkManager.log 2>&1 &
+    echo "$!" >/run/NetworkManager/ooonana.pid
+  fi
+  if ! wait_for NetworkManager network_manager_ready; then
+    log "NetworkManager failed readiness check"
+    tail -80 /var/log/NetworkManager.log >>"$LOG" 2>/dev/null || true
+    return 1
+  fi
+  run_limited 4 nmcli networking on >>"$LOG" 2>&1 || true
+  run_limited 4 nmcli radio wifi on >>"$LOG" 2>&1 || true
+  for interface in /sys/class/net/wl*; do
+    [ -d "$interface" ] || continue
+    interface="${interface##*/}"
+    run_limited 4 nmcli device set "$interface" managed yes >>"$LOG" 2>&1 || true
+    run_limited 4 ip link set dev "$interface" up >>"$LOG" 2>&1 || true
+    if command -v iw >/dev/null 2>&1; then
+      run_limited 4 iw dev "$interface" set power_save off >>"$LOG" 2>&1 || true
+    fi
+    run_limited 15 nmcli device wifi rescan ifname "$interface" >>"$LOG" 2>&1 || true
+  done
+  return 0
+}
+
+bluez_ready() {
+  process_running bluetoothd
+}
+
+start_bluetooth() {
+  bt_daemon="$(bluetooth_daemon || true)"
+  [ -n "$bt_daemon" ] || {
+    log "bluetoothd missing"
+    return 1
+  }
+  if [ "$FORCE_BLUETOOTH" -eq 1 ]; then
+    stop_daemon bluetoothd
+  fi
+  if ! process_running bluetoothd; then
+    "$bt_daemon" -n >/var/log/bluetoothd.log 2>&1 &
+    echo "$!" >/run/ooonana/bluetoothd.pid
+  fi
+  if ! wait_for bluetoothd bluez_ready; then
+    log "bluetoothd failed readiness check"
+    tail -80 /var/log/bluetoothd.log >>"$LOG" 2>/dev/null || true
+    return 1
+  fi
+  if find /sys/class/bluetooth -maxdepth 1 -name 'hci*' 2>/dev/null | grep -q .; then
+    run_limited 4 bluetoothctl power on >>"$LOG" 2>&1 || true
+    if command -v btmgmt >/dev/null 2>&1; then
+      run_limited 4 btmgmt power on >>"$LOG" 2>&1 || true
+    fi
+  else
+    log "bluetoothd ready; no Bluetooth controller detected"
+  fi
+  return 0
+}
+
+MODE="${1:-all}"
+FORCE_WIFI=0
+FORCE_BLUETOOTH=0
+case "$MODE" in
+  boot|all) MODE=all ;;
+  wifi) MODE=wifi ;;
+  bluetooth) MODE=bluetooth ;;
+  force|--force) MODE=all; FORCE_WIFI=1; FORCE_BLUETOOTH=1 ;;
+  force-wifi) MODE=wifi; FORCE_WIFI=1 ;;
+  force-bluetooth) MODE=bluetooth; FORCE_BLUETOOTH=1 ;;
+  status)
+    printf 'dbus=%s\n' "$(dbus_ready && echo running || echo stopped)"
+    printf 'networkmanager=%s\n' "$(network_manager_ready && echo running || echo stopped)"
+    printf 'bluetoothd=%s\n' "$(bluez_ready && echo running || echo stopped)"
+    exit 0
+    ;;
+  *) echo "usage: ooonana-service-repair [all|wifi|bluetooth|force|force-wifi|force-bluetooth|status]" >&2; exit 2 ;;
+esac
+
+mkdir -p /run/ooonana /run/lock /etc/NetworkManager/conf.d /etc/wpa_supplicant
+log "service repair mode=$MODE force_wifi=$FORCE_WIFI force_bluetooth=$FORCE_BLUETOOTH"
+ensure_identity
+start_device_manager
+if ! start_dbus; then
+  echo "ooonana: system D-Bus failed; see $LOG" >&2
   exit 1
 fi
-start_blueman_mechanism
 
-command -v ooonana-hardware-reprobe >/dev/null 2>&1 && ooonana-hardware-reprobe "${1:-}" >>"$LOG" 2>&1 || true
+if [ "${1:-}" = "boot" ] || [ "$FORCE_WIFI" -eq 1 ] || [ "$FORCE_BLUETOOTH" -eq 1 ]; then
+  command -v ooonana-hardware-reprobe >/dev/null 2>&1 &&
+    run_limited 20 ooonana-hardware-reprobe --force >>"$LOG" 2>&1 || true
+fi
 unblock_rfkill
 
-nm_daemon="$(network_manager_daemon || true)"
-if [ -n "$nm_daemon" ]; then
-  if ! pidof NetworkManager >/dev/null 2>&1; then
-    "$nm_daemon" --no-daemon >>"$LOG" 2>&1 &
-  fi
-  wait_for NetworkManager nmcli general status || true
-  nmcli networking on >>"$LOG" 2>&1 || true
-  nmcli radio wifi on >>"$LOG" 2>&1 || true
-  nmcli device wifi rescan >>"$LOG" 2>&1 || true
-else
-  log "NetworkManager missing from PATH and standard sbin paths"
-fi
-
-bt_daemon="$(bluetooth_daemon || true)"
-if [ -n "$bt_daemon" ]; then
-  if ! pidof bluetoothd >/dev/null 2>&1; then
-    "$bt_daemon" -n >>"$LOG" 2>&1 &
-  fi
-  wait_for bluetoothd bluetoothctl show || true
-  bluetoothctl power on >>"$LOG" 2>&1 || true
-  if command -v btmgmt >/dev/null 2>&1; then
-    btmgmt power on >>"$LOG" 2>&1 || true
-  fi
-else
-  log "bluetoothd missing"
-fi
+result=0
+case "$MODE" in
+  wifi)
+    start_network_manager || result=1
+    ;;
+  bluetooth)
+    start_bluetooth || result=1
+    ;;
+  all)
+    start_network_manager || result=1
+    start_bluetooth || result=1
+    ;;
+esac
 
 if ! find /sys/class/net -maxdepth 1 -name 'wl*' 2>/dev/null | grep -q . ||
   ! find /sys/class/bluetooth -maxdepth 1 -name 'hci*' 2>/dev/null | grep -q .; then
@@ -778,6 +900,10 @@ if ! find /sys/class/net -maxdepth 1 -name 'wl*' 2>/dev/null | grep -q . ||
     ooonana-wireless-diagnose >>"$LOG" 2>&1 || true
 fi
 
+if [ "$result" -ne 0 ]; then
+  echo "ooonana: service start failed; see $LOG" >&2
+  exit "$result"
+fi
 exit 0
 EOF
 
@@ -1250,20 +1376,42 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-rofi-power" <<'EOF'
 #!/bin/sh
 set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
 choose() {
+  if [ -n "${OOONANA_POWER_ACTION:-}" ]; then
+    printf '%s\n' "$OOONANA_POWER_ACTION"
+    return 0
+  fi
   if [ -n "${DISPLAY:-}" ] && command -v rofi >/dev/null 2>&1; then
-    printf ' Lock\n Exit i3\n Restart i3\n Reboot\n Shutdown\n' | rofi -dmenu -i -p "Power" -theme /etc/ooonana/rofi.rasi 2>/dev/null || true
-  else
-    printf 'Exit i3\n'
+    printf 'Lock\nLog out\nRestart i3\nReboot\nShut down\nCancel\n' |
+      rofi -dmenu -i -p "Power" -theme /etc/ooonana/rofi.rasi 2>/dev/null || true
+    return 0
+  fi
+  if [ -t 0 ]; then
+    printf '1) Lock\n2) Log out\n3) Restart i3\n4) Reboot\n5) Shut down\n6) Cancel\n> ' >&2
+    read -r answer || answer=6
+    case "$answer" in
+      1) echo Lock ;;
+      2) echo 'Log out' ;;
+      3) echo 'Restart i3' ;;
+      4) echo Reboot ;;
+      5) echo 'Shut down' ;;
+      *) echo Cancel ;;
+    esac
   fi
 }
+if [ "${1:-}" = "--dry-run" ]; then
+  echo "OOONANA_POWER_MENU_OK"
+  exit 0
+fi
 action="$(choose)"
 case "$action" in
-  *Lock*) command -v i3lock >/dev/null 2>&1 && i3lock || true ;;
-  *"Exit i3"*) command -v i3-msg >/dev/null 2>&1 && i3-msg exit >/dev/null 2>&1 || true ;;
-  *"Restart i3"*) command -v i3-msg >/dev/null 2>&1 && i3-msg restart >/dev/null 2>&1 || true ;;
-  *Reboot*) exec bunana --restart ;;
-  *Shutdown*) exec bunana --shutdown ;;
+  Lock) command -v i3lock >/dev/null 2>&1 && exec i3lock ;;
+  "Log out") command -v i3-msg >/dev/null 2>&1 && i3-msg exit >/dev/null 2>&1 || true ;;
+  "Restart i3") command -v i3-msg >/dev/null 2>&1 && i3-msg restart >/dev/null 2>&1 || true ;;
+  Reboot) exec bunana --restart ;;
+  "Shut down") exec bunana --shutdown ;;
 esac
 exit 0
 EOF
@@ -1271,11 +1419,6 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-power-menu" <<'EOF'
 #!/bin/sh
 set -eu
-NATIVE_APP="/usr/lib/ooonana/ui/controls_app.py"
-if [ -x /usr/bin/python3 ] && [ -f "$NATIVE_APP" ] &&
-  /usr/bin/python3 -c 'import gi; gi.require_version("Gtk", "3.0")' >/dev/null 2>&1; then
-  exec /usr/bin/python3 "$NATIVE_APP" power "$@"
-fi
 exec ooonana-rofi-power "$@"
 EOF
 
@@ -1923,6 +2066,9 @@ EOF
 Name = Ooonana
 ControllerMode = dual
 FastConnectable = true
+DiscoverableTimeout = 180
+PairableTimeout = 0
+JustWorksRepairing = always
 
 [Policy]
 AutoEnable = true
@@ -3156,10 +3302,10 @@ start_system_services() {
     dbus-daemon --system --fork --nopidfile --address=unix:path=/run/dbus/system_bus_socket >/var/log/dbus.log 2>&1 || true
   fi
   test -S /run/dbus/system_bus_socket || return 1
-  if command -v NetworkManager >/dev/null 2>&1 && ! pidof NetworkManager >/dev/null 2>&1; then
+  if command -v NetworkManager >/dev/null 2>&1 && ! /bin/busybox pidof NetworkManager >/dev/null 2>&1; then
     NetworkManager --no-daemon >/var/log/NetworkManager.log 2>&1 &
   fi
-  if command -v bluetoothd >/dev/null 2>&1 && ! pidof bluetoothd >/dev/null 2>&1; then
+  if command -v bluetoothd >/dev/null 2>&1 && ! /bin/busybox pidof bluetoothd >/dev/null 2>&1; then
     bluetoothd >/var/log/bluetoothd.log 2>&1 &
   fi
 }
@@ -3322,7 +3468,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
     reboot -f
   fi
   echo "OOONANA_DOWNLOADERS_OK python3 curl wget"
-  if /usr/bin/ooonana version | grep -q 'ooonana 0.8.4' &&
+  if /usr/bin/ooonana version | grep -q 'ooonana 0.8.5' &&
     /usr/bin/ooonana list --installed | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else
@@ -3583,6 +3729,9 @@ DOAS
   install -D -m 0400 /dev/stdin "$ROOTFS/etc/doas.conf" <<'DOAS'
 permit nopass keepenv :wheel
 DOAS
+  install -D -m 0440 /dev/stdin "$ROOTFS/etc/sudoers.d/ooonana" <<'SUDOERS'
+%wheel ALL=(ALL:ALL) NOPASSWD: ALL
+SUDOERS
   cat > "$ROOTFS/etc/os-release" <<EOF
 NAME="Ooonana OS"
 ID=ooonana

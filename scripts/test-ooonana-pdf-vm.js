@@ -71,17 +71,27 @@ function terminalText() {
 vm.runInContext(fs.readFileSync(compiled, "utf8"), sandbox, { filename: compiled });
 
 let sentInput = false;
+let sentEnter = false;
+let sentUpdate = false;
 const monitor = setInterval(() => {
   const output = terminalText();
-  if (output.includes("Kernel panic")) {
+  if (output.includes("Kernel panic") || output.includes("Function not implemented") || output.includes("can't rename")) {
     console.error(output);
     process.exit(1);
   }
   if (!sentInput && output.includes("OOONANA_PDF_BOOT_OK")) {
-    sandbox.queue_console_text("echo OOONANA_PDF_INPUT_OK\r");
+    sandbox.queue_console_text("echo $((12345+54321))");
     sentInput = true;
   }
-  if (output.includes("OOONANA_PDF_INPUT_OK")) {
+  if (sentInput && !sentEnter && output.includes("echo $((12345+54321))")) {
+    sandbox.queue_console_text("\r");
+    sentEnter = true;
+  }
+  if (sentEnter && !sentUpdate && output.includes("66666")) {
+    sandbox.queue_console_text("ooonana update\r");
+    sentUpdate = true;
+  }
+  if (sentUpdate && output.includes("ooonana repo: synced")) {
     clearInterval(monitor);
     console.log("ok ooonana-pdf-vm");
     process.exit(0);

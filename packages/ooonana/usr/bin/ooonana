@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-VERSION="0.8.4"
+VERSION="0.8.5"
 HOME_DIR="${HOME:-/root}"
 if [ -n "${OOONANA_AI_CONFIG:-}" ]; then
   AI_CONFIG="$OOONANA_AI_CONFIG"
@@ -374,6 +374,20 @@ have() {
 die() {
   printf 'ooonana: %s\n' "$*" >&2
   exit 1
+}
+
+replace_file() {
+  source_file="$1"
+  target_file="$2"
+  if mv "$source_file" "$target_file" 2>/dev/null; then
+    return 0
+  fi
+  if cp "$source_file" "$target_file" 2>/dev/null; then
+    rm -f "$source_file"
+    return 0
+  fi
+  cat "$source_file" > "$target_file"
+  rm -f "$source_file"
 }
 
 ensure_pkg_dirs() {
@@ -985,8 +999,8 @@ cmd_repo_index() {
   done
   sort -u "$index_tmp" -o "$index_tmp"
   sort -u "$sums_tmp" -o "$sums_tmp"
-  mv "$index_tmp" "$repo_path/index.tsv"
-  mv "$sums_tmp" "$repo_path/SHA256SUMS"
+  replace_file "$index_tmp" "$repo_path/index.tsv"
+  replace_file "$sums_tmp" "$repo_path/SHA256SUMS"
   sign_repo_index "$repo_path" "$sign_key"
   printf 'indexed %s package(s): %s\n' "$count" "$repo_path"
   [ -n "$sign_key" ] && printf 'signed repo: %s\n' "$repo_path/SHA256SUMS.sig"
@@ -1499,8 +1513,8 @@ cmd_update() {
       done
     fi
   done < "$sources_tmp"
-  mv "$sources_tmp" "$CACHE_DIR/sources.tsv"
-  mv "$tmp" "$CACHE_DIR/index.tsv"
+  replace_file "$sources_tmp" "$CACHE_DIR/sources.tsv"
+  replace_file "$tmp" "$CACHE_DIR/index.tsv"
   count="$(wc -l < "$CACHE_DIR/index.tsv" | tr -d ' ')"
   printf 'ooonana repo: synced %s package(s) from %s source(s)\n' "$count" "$repo_count"
   printf 'ooonana repo: remote update is metadata-only; package archives download on install\n'
@@ -2266,7 +2280,7 @@ cmd_ai_env_set() {
   if [ "$found" -eq 0 ]; then
     printf '%s=%s\n' "$key" "$value" >> "$tmp"
   fi
-  mv "$tmp" "$AI_CONFIG"
+  replace_file "$tmp" "$AI_CONFIG"
   chmod 600 "$AI_CONFIG"
 }
 

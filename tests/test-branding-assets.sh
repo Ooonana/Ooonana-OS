@@ -24,16 +24,20 @@ assert_png() {
 logo_svg="$ROOT/branding/logo.svg"
 wallpaper_svg="$ROOT/branding/wallpaper.svg"
 i3_config="$ROOT/branding/i3/config"
+grub_logo="$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt"
 
 [[ -f "$logo_svg" ]] || fail "missing logo.svg"
 [[ -f "$wallpaper_svg" ]] || fail "missing wallpaper.svg"
 [[ -f "$i3_config" ]] || fail "missing i3 config"
+[[ -f "$grub_logo" ]] || fail "missing GRUB logo"
 assert_png "$ROOT/branding/logo.png"
 assert_png "$ROOT/branding/wallpaper.png"
 
 logo="$(<"$logo_svg")"
 wallpaper="$(<"$wallpaper_svg")"
 config="$(<"$i3_config")"
+grub="$(<"$grub_logo")"
+readme_grub="$(awk '/^```$/ { if (inside) exit; inside=1; next } inside { print }' "$ROOT/README.md")"
 
 assert_contains "$logo" "<svg"
 assert_contains "$logo" "Ooonana OS"
@@ -42,6 +46,9 @@ assert_contains "$logo" "ooonana-ascii"
 assert_contains "$logo" "#ffb21a"
 assert_contains "$logo" '      __________________'
 assert_contains "$logo" '  /  |     \______/     | \'
+assert_contains "$grub" '      __________________'
+assert_contains "$grub" '  /  |     \______/     | \'
+[[ "$grub" == "$readme_grub" ]] || fail "GRUB logo must exactly match README logo"
 [[ "$logo" != *'<path'* ]] || fail "logo must be ASCII rendered, not vector face"
 assert_contains "$wallpaper" 'viewBox="0 0 1920 1080"'
 assert_contains "$wallpaper" "Ooonana OS"

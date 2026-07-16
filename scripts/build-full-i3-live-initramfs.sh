@@ -54,7 +54,7 @@ done
 
 main() {
   ooonana_require_linux
-  ooonana_require_commands cpio du find gzip install ln mkdir mke2fs rm truncate
+  ooonana_require_commands cp cpio dirname du find gzip install ln mkdir mke2fs rm truncate
   [[ -d "$ROOTFS" ]] || ooonana_die "missing full-i3 rootfs: $ROOTFS"
   [[ -f "$ROOTFS/etc/ooonana/edition" ]] || ooonana_die "missing full-i3 edition marker: $ROOTFS"
   grep -qx 'full-i3' "$ROOTFS/etc/ooonana/edition" || ooonana_die "rootfs is not full-i3: $ROOTFS"
@@ -106,7 +106,12 @@ main() {
     [[ -d "$ROOTFS/lib/firmware" ]] || return 0
     while IFS= read -r -d '' fw; do
       rel="${fw#$ROOTFS/lib/firmware/}"
-      install -D -m 0644 "$fw" "$LIVE_INIT_TREE/lib/firmware/$rel"
+      if [[ -L "$fw" ]]; then
+        mkdir -p "$(dirname "$LIVE_INIT_TREE/lib/firmware/$rel")"
+        cp -a "$fw" "$LIVE_INIT_TREE/lib/firmware/$rel"
+      else
+        install -D -m 0644 "$fw" "$LIVE_INIT_TREE/lib/firmware/$rel"
+      fi
     done < <(
       find "$ROOTFS/lib/firmware" \
         \( -name 'iwlwifi-*' \
@@ -123,7 +128,7 @@ main() {
         -o -path "$ROOTFS/lib/firmware/mediatek/*" \
         -o -path "$ROOTFS/lib/firmware/brcm/*" \
         -o -name 'regulatory.db*' \) \
-        -type f -print0
+        \( -type f -o -type l \) -print0
     )
   }
   copy_early_firmware
@@ -268,7 +273,7 @@ mount -t ext4 -o ro /dev/loop0 /mnt/root-ro || fail "cannot mount live rootfs im
 splash "creating writable overlay" 6
 mount -t tmpfs -o mode=0755 tmpfs /cow || fail "cannot mount writable tmpfs overlay"
 mkdir -p /cow/upper /cow/work /newroot
-mount -t overlay overlay -o lowerdir=/mnt/root-ro,upperdir=/cow/upper,workdir=/cow/work /newroot || fail "cannot mount overlay root"
+mount -t overlay overlay -o suid,dev,exec,lowerdir=/mnt/root-ro,upperdir=/cow/upper,workdir=/cow/work /newroot || fail "cannot mount overlay root"
 
 splash "starting desktop" 9
 mkdir -p /newroot/proc /newroot/sys /newroot/dev /newroot/run/ooonana-live/iso /newroot/run/ooonana-live/root-ro /newroot/run/ooonana-live/cow

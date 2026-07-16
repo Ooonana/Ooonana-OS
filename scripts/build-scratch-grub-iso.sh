@@ -175,7 +175,14 @@ stage_iso_tree() {
 
   install -m 0644 "$KERNEL" "$ISO_TREE/boot/vmlinuz"
   install -m 0644 "$INITRAMFS" "$ISO_TREE/boot/initramfs.cpio.gz"
-  install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/logo.txt" "$ISO_TREE/boot/grub/ooonana-logo.txt"
+  awk '
+    { lines[NR] = $0; if (length($0) > width) width = length($0) }
+    END {
+      pad = int((80 - width) / 2)
+      if (pad < 0) pad = 0
+      for (line = 1; line <= NR; line++) printf "%*s%s\n", pad, "", lines[line]
+    }
+  ' "$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt" > "$ISO_TREE/boot/grub/ooonana-logo.txt"
   write_rufus_note
   cat > "$ISO_TREE/boot/grub/theme.txt" <<'EOF'
 title-text: "Ooonana OS Minimal"

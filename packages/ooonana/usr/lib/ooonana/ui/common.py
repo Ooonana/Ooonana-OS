@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import signal
 import shutil
 import subprocess
 import threading
@@ -129,26 +130,66 @@ def admin_command(argv):
     return [helper, *argv] if helper else list(argv)
 
 
-def run(argv, admin=False, timeout=15, env=None):
+def run(argv, admin=False, timeout=15, env=None, input_text=None):
     command = admin_command(argv) if admin else list(argv)
     try:
-        result = subprocess.run(
-            command,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            timeout=timeout,
-            env=env,
-            check=False,
-        )
-        return result.returncode, result.stdout.strip()
-    except (OSError, subprocess.TimeoutExpired) as exc:
+        owns_session = True
+        try:
+            process = subprocess.Popen(
+                command,
+                text=True,
+                stdin=subprocess.PIPE if input_text is not None else None,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                env=env,
+                start_new_session=True,
+            )
+        except PermissionError:
+            owns_session = False
+            process = subprocess.Popen(
+                command,
+                text=True,
+                stdin=subprocess.PIPE if input_text is not None else None,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                env=env,
+            )
+        try:
+            output, _ = process.communicate(input=input_text, timeout=timeout)
+            return process.returncode, output.strip()
+        except subprocess.TimeoutExpired:
+            if owns_session:
+                os.killpg(process.pid, signal.SIGKILL)
+            else:
+                process.kill()
+            output, _ = process.communicate()
+            detail = output.strip()
+            suffix = f"\nTimed out after {timeout} seconds" if detail else f"Timed out after {timeout} seconds"
+            return 124, detail + suffix
+    except OSError as exc:
         return 124, str(exc)
 
 
-def run_async(argv, callback, admin=False, timeout=30, env=None):
+def run_async(argv, callback, admin=False, timeout=30, env=None, input_text=None):
     def worker():
-        result = run(argv, admin=admin, timeout=timeout, env=env)
+        result = run(
+            argv,
+            admin=admin,
+            timeout=timeout,
+            env=env,
+            input_text=input_text,
+        )
+        GLib.idle_add(callback, *result)
+
+    threading.Thread(target=worker, daemon=True).start()
+
+
+def run_async_task(task, callback):
+    def worker():
+        try:
+            result = task()
+        except Exception as exc:  # Keep worker failures visible in the UI.
+            result = (1, str(exc))
         GLib.idle_add(callback, *result)
 
     threading.Thread(target=worker, daemon=True).start()
@@ -157,7 +198,10 @@ def run_async(argv, callback, admin=False, timeout=30, env=None):
 def launch(argv, admin=False):
     command = admin_command(argv) if admin else list(argv)
     try:
-        subprocess.Popen(command, start_new_session=True)
+        try:
+            subprocess.Popen(command, start_new_session=True)
+        except PermissionError:
+            subprocess.Popen(command)
         return True
     except OSError:
         return False

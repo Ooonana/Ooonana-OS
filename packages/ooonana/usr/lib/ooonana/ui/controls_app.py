@@ -74,6 +74,7 @@ class AudioWindow(Gtk.Window):
         header(self, "Sound", "Default audio output", "audio-volume-high-symbolic")
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
         root.set_border_width(22)
+        self.add(root)
         self.value_label = label("Volume", "card-title")
         root.pack_start(self.value_label, False, False, 0)
         self.scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 150, 1)

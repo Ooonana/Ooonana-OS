@@ -46,7 +46,7 @@ export OOONANA_STATE_DIR="$tmp/state"
 export OOONANA_CACHE_DIR="$tmp/cache"
 
 help="$("$CLI" help)"
-assert_contains "$help" "ooonana 0.8.4"
+assert_contains "$help" "ooonana 0.8.5"
 assert_contains "$help" "Usage: ooonana [options] command"
 assert_contains "$help" "Most used commands:"
 assert_contains "$help" "  list - list packages based on names or installed state"
@@ -169,6 +169,21 @@ clean_run="$("$CLI" clean)"
 assert_contains "$clean_run" "ooonana cache cleaned"
 [[ ! -e "$OOONANA_CACHE_DIR/index.tsv" ]] || fail "clean left index"
 [[ ! -e "$OOONANA_CACHE_DIR/sources.tsv" ]] || fail "clean left sources"
+
+mkdir -p "$tmp/no-rename-bin"
+cat > "$tmp/no-rename-bin/mv" <<'EOF'
+#!/bin/sh
+exit 38
+EOF
+chmod +x "$tmp/no-rename-bin/mv"
+no_rename_update="$(
+  PATH="$tmp/no-rename-bin:$PATH" \
+    OOONANA_CACHE_DIR="$tmp/no-rename-cache" \
+    "$CLI" update
+)"
+assert_contains "$no_rename_update" "ooonana repo: synced"
+[[ -f "$tmp/no-rename-cache/index.tsv" ]] || fail "rename fallback missing index"
+[[ -f "$tmp/no-rename-cache/sources.tsv" ]] || fail "rename fallback missing sources"
 
 sources="$("$CLI" sources)"
 assert_contains "$sources" "builtin"

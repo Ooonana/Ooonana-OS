@@ -10,6 +10,8 @@ BITS="32"
 FORCE=0
 DRY_RUN=0
 PREPARE_ONLY=0
+LITE=0
+OUT_SET=0
 
 usage() {
   cat <<'USAGE'
@@ -25,6 +27,7 @@ Options:
   --work-dir PATH   Work dir outside repo (default: /var/tmp/ooonana-os/linuxpdf)
   --out PATH        Output PDF (default: docs/ooonana.pdf)
   --bits 32|64      linuxpdf machine width (default: 32, faster)
+  --lite            Build terminal-only docs/ooonana-lite.pdf
   --prepare-only    Clone/patch/inject but do not run old Emscripten build
   --dry-run         Print actions only
   --force           Rebuild linuxpdf out/files and overwrite output
@@ -39,8 +42,9 @@ USAGE
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --work-dir) WORK_DIR="$2"; shift 2 ;;
-    --out) OUT="$2"; shift 2 ;;
+    --out) OUT="$2"; OUT_SET=1; shift 2 ;;
     --bits) BITS="$2"; shift 2 ;;
+    --lite) LITE=1; shift ;;
     --prepare-only) PREPARE_ONLY=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     --force) FORCE=1; shift ;;
@@ -48,6 +52,10 @@ while [[ $# -gt 0 ]]; do
     *) printf 'build-ooonana-pdf-os: unknown option: %s\n' "$1" >&2; exit 1 ;;
   esac
 done
+
+if [[ "$LITE" -eq 1 && "$OUT_SET" -eq 0 ]]; then
+  OUT="$ROOT/docs/ooonana-lite.pdf"
+fi
 
 case "$BITS" in
   32|64) ;;
@@ -108,6 +116,17 @@ text = re.sub(
     text,
     flags=re.MULTILINE,
 )
+if "OOONANA_PDF_LITE_GENERATOR" not in text:
+    needle = "python3 gen_pdf.py out/compiled.js out/linux.pdf"
+    replacement = '''# OOONANA_PDF_LITE_GENERATOR
+if [ "${OOONANA_PDF_LITE:-0}" = "1" ]; then
+  python3 gen_pdf_lite.py out/compiled.js out/linux.pdf
+else
+  python3 gen_pdf.py out/compiled.js out/linux.pdf
+fi'''
+    if needle not in text:
+        raise SystemExit("linuxpdf PDF generator patch point missing")
+    text = text.replace(needle, replacement)
 build.write_text(text)
 
 gen = Path(sys.argv[2])
@@ -198,6 +217,83 @@ if "OOONANA_SERIAL_TERMINAL_LAYOUT" not in pdf:
         raise SystemExit("linuxpdf terminal field patch point missing")
     pdf = pdf.replace(old_layout, new_layout)
 gen.write_text(pdf)
+
+lite_gen = gen.with_name("gen_pdf_lite.py")
+lite_gen.write_text(r"""import sys
+
+from pdfrw import PdfWriter
+from pdfrw.objects.pdfarray import PdfArray
+from pdfrw.objects.pdfdict import PdfDict
+from pdfrw.objects.pdfname import PdfName
+from pdfrw.objects.pdfobject import PdfObject
+from pdfrw.objects.pdfstring import PdfString
+
+from gen_pdf import create_field, create_page, create_script
+
+
+with open(sys.argv[1]) as source:
+  js = source.read()
+
+page_width = 712
+page_height = 440
+terminal_rows = 30
+writer = PdfWriter()
+page = create_page(page_width, page_height)
+page.AA = PdfDict(O=create_script(js))
+
+fields = []
+for index in range(terminal_rows):
+  initial = ""
+  if index == terminal_rows - 1:
+    initial = "Ooonana OS PDF Lite 0.5"
+  elif index == terminal_rows - 2:
+    initial = "Starting JavaScript..."
+  fields.append(create_field(
+    f"field_{index}", 8, 40 + index * 13, page_width - 16, 13,
+    initial, display=True,
+  ))
+
+# TinyEMU JavaScript still writes loader status and speed fields. Keep them
+# outside MediaBox so lite page shows terminal and command input only.
+for index in range(25):
+  fields.append(create_field(f"console_{index}", -20, -20, 1, 1, ""))
+fields.append(create_field("speed_indicator", -20, -20, 1, 1, ""))
+
+command_input = create_field(
+  "key_input", 8, 8, page_width - 16, 24,
+  "Type command, press Enter",
+)
+command_input.Ff = 0
+command_input.DA = PdfString.encode("/FMono 11 Tf 1 0.62 0 rg")
+command_input.MK = PdfDict(BG=PdfArray([0.015, 0.015, 0.015]))
+command_input.AA = PdfDict()
+command_input.AA.K = create_script("if (event.change) key_pressed(event.change)")
+command_input.AA.V = create_script("queue_console_text('\\r'); event.target.value = ''")
+fields.append(command_input)
+
+page.Contents = PdfDict()
+page.Contents.stream = f'''0.015 0.015 0.015 rg
+0 0 {page_width} {page_height} re f
+1 0.62 0 RG
+1 w
+6 6 {page_width - 12} 28 re S
+'''
+page.Annots = PdfArray(fields)
+writer.addpage(page)
+
+mono_font = PdfDict(
+  Type=PdfName.Font,
+  Subtype=PdfName.Type1,
+  BaseFont=PdfName.Courier,
+)
+writer.trailer.Root.AcroForm = PdfDict(
+  Fields=PdfArray(fields),
+  NeedAppearances=PdfObject("true"),
+  DA=PdfString.encode("/FMono 10 Tf 1 0.62 0 rg"),
+  DR=PdfDict(Font=PdfDict(FMono=mono_font)),
+)
+writer.write(sys.argv[2])
+""")
 
 display = Path(sys.argv[3])
 js = display.read_text()
@@ -506,6 +602,11 @@ function queue_console_text'''
         js,
         flags=re.DOTALL,
     )
+if "OOONANA_INTERACTIVE_ECHO" not in js:
+    js = js.replace(
+        "if (saw_newline || terminal_dirty >= terminal_width) {",
+        "if (saw_newline || terminal_dirty >= terminal_width || (serial_output && vm_boot_complete && terminal_dirty > 0)) { // OOONANA_INTERACTIVE_ECHO",
+    )
 if "OOONANA_BOOT_MESSAGE" not in js:
     needle = "function start() {\n  update_framebuffer"
     replacement = '''function start() {
@@ -635,6 +736,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   printf 'repo: %s\n' "$LINUXPDF_REPO"
   printf 'work: %s\n' "$SRC"
   printf 'out: %s\n' "$OUT"
+  printf 'lite: %s\n' "$LITE"
 fi
 
 if [[ ! -d "$SRC/.git" ]]; then
@@ -660,7 +762,7 @@ fi
 if [[ "$DRY_RUN" -eq 1 ]]; then
   printf '+ python3 -m venv %q\n' "$SRC/.venv"
   printf '+ pip install -r %q\n' "$SRC/requirements.txt"
-  printf '+ OOONANA_SOURCE_ROOT=%q OOONANA_PDF_BITS=%q ./build.sh\n' "$ROOT" "$BITS"
+  printf '+ OOONANA_SOURCE_ROOT=%q OOONANA_PDF_BITS=%q OOONANA_PDF_LITE=%q ./build.sh\n' "$ROOT" "$BITS" "$LITE"
   printf '+ cp -f %q %q\n' "$SRC/out/linux.pdf" "$OUT"
   exit 0
 fi
@@ -669,7 +771,7 @@ python3 -m venv "$SRC/.venv"
 "$SRC/.venv/bin/pip" install -r "$SRC/requirements.txt"
 (
   cd "$SRC"
-  OOONANA_SOURCE_ROOT="$ROOT" OOONANA_PDF_BITS="$BITS" ./build.sh
+  OOONANA_SOURCE_ROOT="$ROOT" OOONANA_PDF_BITS="$BITS" OOONANA_PDF_LITE="$LITE" ./build.sh
 )
 mkdir -p "$(dirname "$OUT")"
 cp -f "$SRC/out/linux.pdf" "$OUT"

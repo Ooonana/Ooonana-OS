@@ -83,10 +83,10 @@ write_grub_config() {
   local append
   append="$(kernel_append)"
   mkdir -p "$target/boot/grub"
-  if [[ -f "$target/usr/share/ooonana/logo.txt" ]]; then
-    install -m 0644 "$target/usr/share/ooonana/logo.txt" "$target/boot/grub/ooonana-logo.txt"
-  elif [[ -f "$ROOT/packages/ooonana/usr/share/ooonana/logo.txt" ]]; then
-    install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/logo.txt" "$target/boot/grub/ooonana-logo.txt"
+  if [[ -f "$target/usr/share/ooonana/grub-logo.txt" ]]; then
+    install -m 0644 "$target/usr/share/ooonana/grub-logo.txt" "$target/boot/grub/ooonana-logo.txt"
+  elif [[ -f "$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt" ]]; then
+    install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt" "$target/boot/grub/ooonana-logo.txt"
   fi
   cat > "$target/boot/grub/theme.txt" <<'EOF'
 title-text: "Ooonana OS Minimal"

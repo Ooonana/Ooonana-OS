@@ -56,6 +56,9 @@ printf 'regdb\n' > "$tmp/rootfs/lib/firmware/regulatory.db"
 printf 'regsig\n' > "$tmp/rootfs/lib/firmware/regulatory.db.p7s"
 printf 'iwl\n' > "$tmp/rootfs/lib/firmware/iwlwifi-test.ucode"
 mkdir -p "$tmp/rootfs/lib/firmware/intel" "$tmp/rootfs/lib/firmware/rtl_bt" "$tmp/rootfs/lib/firmware/rtw89"
+ln -s intel/iwlwifi/iwlwifi-test.ucode "$tmp/rootfs/lib/firmware/iwlwifi-test-link.ucode"
+mkdir -p "$tmp/rootfs/lib/firmware/intel/iwlwifi"
+printf 'iwl-target\n' > "$tmp/rootfs/lib/firmware/intel/iwlwifi/iwlwifi-test.ucode"
 printf 'ibt\n' > "$tmp/rootfs/lib/firmware/intel/ibt-test.sfi"
 printf 'rtlbt\n' > "$tmp/rootfs/lib/firmware/rtl_bt/rtl8761bu_fw.bin"
 printf 'rtw89\n' > "$tmp/rootfs/lib/firmware/rtw89/rtw8852b_fw.bin"
@@ -105,10 +108,13 @@ assert_contains "$script_src" "libc.musl-x86_64.so.1"
 assert_contains "$script_src" "regulatory.db"
 assert_contains "$script_src" "copy_early_firmware"
 assert_contains "$script_src" "iwlwifi-*"
+assert_contains "$script_src" '-type l'
+assert_contains "$script_src" 'cp -a "$fw"'
 assert_contains "$script_src" "intel/ibt-*"
 assert_contains "$script_src" "rtl_bt"
 assert_contains "$script_src" "rtw89"
 assert_contains "$script_src" '[ -e /proc/sys/kernel/hotplug ]'
+assert_contains "$script_src" 'suid,dev,exec,lowerdir='
 
 kernel_fragment="$(<"$ROOT/configs/kernel/ooonana-minimal-x86_64.fragment")"
 assert_contains "$kernel_fragment" "CONFIG_BLK_DEV_LOOP=y"
@@ -117,5 +123,9 @@ assert_contains "$kernel_fragment" "CONFIG_BLK_DEV_SR=y"
 assert_contains "$kernel_fragment" "CONFIG_SCSI=y"
 assert_contains "$kernel_fragment" "CONFIG_BLK_DEV_SD=y"
 assert_contains "$kernel_fragment" "CONFIG_BLK_DEV_NVME=y"
+assert_contains "$kernel_fragment" "CONFIG_USB_XHCI_PCI=y"
+assert_contains "$kernel_fragment" "CONFIG_BT_HCIBTUSB_POLL_SYNC=y"
+assert_contains "$kernel_fragment" "CONFIG_BT_INTEL_PCIE=y"
+assert_contains "$kernel_fragment" "CONFIG_INTEL_MEI_ME=y"
 
 printf 'ok full-i3-live-initramfs\n'

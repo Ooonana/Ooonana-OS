@@ -7,9 +7,13 @@ wget
 ca-certificates
 python3
 py3-pip
+py3-cairo
 bubblewrap
 xz
 dbus
+doas
+sudo
+util-linux-login
 xorg-server
 xinit
 libxcb
@@ -80,6 +84,8 @@ mesa-dri-gallium
 mesa-va-gallium
 mesa-vulkan-intel
 alsa-utils
+alsa-ucm-conf
+alsa-topology-conf
 arandr
 pavucontrol
 maim

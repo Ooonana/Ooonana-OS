@@ -27,6 +27,7 @@ assert_contains "$help" "Build bootable Ooonana OS PDF"
 assert_contains "$help" "docs/ooonana.pdf"
 assert_contains "$help" "linuxpdf is GPLv3"
 assert_contains "$help" "--prepare-only"
+assert_contains "$help" "--lite"
 assert_contains "$(<"$INJECTOR")" 'exec sudo bash "$0" "$TARGET_ROOT"'
 assert_contains "$(<"$BUILDER")" "OOONANA_FRAMEBUFFER_CACHE"
 assert_contains "$(<"$BUILDER")" "OOONANA_AMBER_PALETTE"
@@ -38,11 +39,16 @@ assert_contains "$(<"$BUILDER")" "OOONANA_SERIAL_CONSOLE_WRITE"
 assert_contains "$(<"$BUILDER")" "OOONANA_BOOT_MESSAGE"
 assert_contains "$(<"$BUILDER")" "OOONANA_VM_BATCH"
 assert_contains "$(<"$BUILDER")" "OOONANA_TERMINAL_RENDER_BATCH"
+assert_contains "$(<"$BUILDER")" "OOONANA_INTERACTIVE_ECHO"
+assert_contains "$(<"$BUILDER")" "serial_output && vm_boot_complete"
 assert_contains "$(<"$BUILDER")" "OOONANA_BOOT_HEARTBEAT"
 assert_contains "$(<"$BUILDER")" "vm_boot_complete ? 2 : 8"
 assert_contains "$(<"$BUILDER")" "Starting JavaScript..."
 assert_contains "$(<"$BUILDER")" "terminal_write(str, true)"
 assert_contains "$(<"$BUILDER")" "loglevel=7 ignore_loglevel"
+assert_contains "$(<"$BUILDER")" "OOONANA_PDF_LITE_GENERATOR"
+assert_contains "$(<"$BUILDER")" "gen_pdf_lite.py"
+assert_contains "$(<"$BUILDER")" "Type command, press Enter"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -53,6 +59,11 @@ assert_contains "$dry" "git clone"
 assert_contains "$dry" "OOONANA_SOURCE_ROOT="
 assert_contains "$dry" "OOONANA_PDF_BITS="
 assert_contains "$dry" "cp -f"
+
+lite_dry="$(bash "$BUILDER" --work-dir "$tmp/lite-work" --dry-run --lite --force)"
+assert_contains "$lite_dry" "ooonana-lite.pdf"
+assert_contains "$lite_dry" "lite: 1"
+assert_contains "$lite_dry" "OOONANA_PDF_LITE=1"
 
 rootfs="$tmp/rootfs"
 mkdir -p "$rootfs/bin" "$rootfs/usr/bin"
@@ -69,7 +80,7 @@ assert_contains "$inject" "injected Ooonana PDF rootfs"
 [[ -f "$rootfs/etc/os-release" ]] || fail "missing injected os-release"
 assert_contains "$(<"$rootfs/sbin/init")" "OOONANA_PDF_BOOT_OK"
 assert_contains "$(<"$rootfs/sbin/init")" "stty cols 80 rows 30"
-assert_contains "$(<"$rootfs/sbin/init")" "PDF Minimal 0.5 | pkg 0.8.4"
+assert_contains "$(<"$rootfs/sbin/init")" "PDF Minimal 0.5 | pkg 0.8.5"
 assert_contains "$(<"$rootfs/sbin/init")" "exec </dev/hvc0 >/dev/hvc0 2>&1"
 assert_contains "$(<"$rootfs/sbin/init")" "--- Ooonana userspace ready ---"
 assert_contains "$(<"$rootfs/root/.profile")" "ooonana help packages"
@@ -77,7 +88,7 @@ assert_contains "$(<"$rootfs/root/.profile")" "ooonana ai status"
 assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS PDF Minimal"'
 assert_contains "$(<"$rootfs/etc/os-release")" 'VERSION_ID="0.5-pdf"'
 [[ -f "$rootfs/etc/ooonana/pdf-release" ]] || fail "missing PDF release metadata"
-assert_contains "$(<"$rootfs/etc/ooonana/pdf-release")" 'OOONANA_PDF_PACKAGE_MANAGER="0.8.4"'
+assert_contains "$(<"$rootfs/etc/ooonana/pdf-release")" 'OOONANA_PDF_PACKAGE_MANAGER="0.8.5"'
 
 if [[ -f "$PDF" ]]; then
   head="$(LC_ALL=C head -c 5 "$PDF")"

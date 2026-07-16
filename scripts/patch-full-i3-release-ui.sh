@@ -195,7 +195,10 @@ normalize_ext4_permissions() {
   fi
   chmod 1777 "$mount_dir/tmp" "$mount_dir/var/tmp" 2>/dev/null || true
   chmod 4755 "$mount_dir/usr/bin/doas" 2>/dev/null || true
+  chmod 4755 "$mount_dir/usr/bin/sudo" 2>/dev/null || true
+  chmod 4755 "$mount_dir/bin/su" 2>/dev/null || true
   chmod 4755 "$mount_dir/usr/lib/chromium/chrome-sandbox" 2>/dev/null || true
+  chmod 0440 "$mount_dir/etc/sudoers.d/ooonana" 2>/dev/null || true
   chown -R 1000:1000 "$mount_dir/home/ooonana" 2>/dev/null || true
   if [ -x "$mount_dir/usr/bin/fc-cache" ]; then
     chroot "$mount_dir" /usr/bin/fc-cache -r /usr/share/fonts >/dev/null 2>&1 || true
@@ -263,6 +266,8 @@ gtk-root-settings.ini|/root/.config/gtk-3.0/settings.ini|0100644
 gtk.css|/root/.config/gtk-3.0/gtk.css|0100644
 NetworkManager.conf|/etc/NetworkManager/NetworkManager.conf|0100644
 bluetooth-main.conf|/etc/bluetooth/main.conf|0100644
+sudoers-ooonana|/etc/sudoers.d/ooonana|0100440
+grub-logo.txt|/boot/grub/ooonana-logo.txt|0100644
 ooonana-setup|/usr/bin/ooonana-setup|0100755
 wget|/usr/bin/wget|0100755
 ooonana-gui-installer|/usr/bin/ooonana-gui-installer|0100755
@@ -306,6 +311,16 @@ build_payload() {
   rm -rf "$payload"
   mkdir -p "$payload/root"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/boot-logo.txt" "$payload/root/usr/share/ooonana/boot-logo.txt"
+  install -D -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt" "$payload/root/usr/share/ooonana/grub-logo.txt"
+  awk '
+    { lines[NR] = $0; if (length($0) > width) width = length($0) }
+    END {
+      pad = int((80 - width) / 2)
+      if (pad < 0) pad = 0
+      for (line = 1; line <= NR; line++) printf "%*s%s\n", pad, "", lines[line]
+    }
+  ' "$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt" > "$payload/grub-logo.txt"
+  chmod 0644 "$payload/grub-logo.txt"
   install -D -m 0644 "$ROOT/packages/ooonana/var/lib/ooonana/packages/installed/ooonana-core.pkg" "$payload/root/var/lib/ooonana/packages/installed/ooonana-core.pkg"
   install -D -m 0644 /dev/stdin "$payload/root/usr/share/dbus-1/system-services/org.blueman.Mechanism.service" <<'EOF'
 [D-BUS Service]
@@ -366,6 +381,9 @@ EOF
   extract_block '$ROOTFS/root/.config/gtk-3.0/gtk.css' "$payload/gtk.css"
   extract_block '$ROOTFS/etc/NetworkManager/NetworkManager.conf' "$payload/NetworkManager.conf"
   extract_block '$ROOTFS/etc/bluetooth/main.conf' "$payload/bluetooth-main.conf"
+  cat > "$payload/sudoers-ooonana" <<'EOF'
+%wheel ALL=(ALL:ALL) NOPASSWD: ALL
+EOF
   install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana-setup" "$payload/ooonana-setup"
   cat > "$payload/wget" <<'EOF'
 #!/bin/sh
@@ -400,7 +418,7 @@ EOF
   install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana-ai-app" "$payload/ooonana-ai-app"
   install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana-ai-launch" "$payload/ooonana-ai-launch"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ui/__init__.py" "$payload/root/usr/lib/ooonana/ui/__init__.py"
-  for app in common setup_app settings_app wifi_app bluetooth_app packages_app ai_app controls_app launcher_app; do
+  for app in common wireless_utils signal_map setup_app settings_app wifi_app bluetooth_app packages_app ai_app controls_app launcher_app; do
     install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ui/$app.py" "$payload/root/usr/lib/ooonana/ui/$app.py"
   done
   install -D -m 0644 /dev/stdin "$payload/root/usr/share/applications/ooonana-apps.desktop" <<'EOF'
@@ -446,10 +464,11 @@ EOF
   chmod 4755 "$payload/root/usr/bin/doas"
 
   local runtime_apk
-  for runtime_url in "https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/networkmanager-wifi-1.46.6-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/bluez-btmgmt-5.76-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/bluez-hid2hci-5.76-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/font-dejavu-2.37-r5.apk"; do
+  for runtime_url in "https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/networkmanager-wifi-1.46.6-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/bluez-btmgmt-5.76-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/bluez-hid2hci-5.76-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/alsa-ucm-conf-1.2.11-r1.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/alsa-topology-conf-1.2.5.1-r1.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/py3-cairo-1.26.0-r1.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/font-dejavu-2.37-r5.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/sudo-1.9.15_p5-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/util-linux-login-2.40.1-r1.apk"; do
     runtime_apk="$WORK/${runtime_url##*/}"
     wget -q -O "$runtime_apk" "$runtime_url"
-    tar -xzf "$runtime_apk" -C "$payload/root"
+    tar --warning=no-unknown-keyword --exclude=.PKGINFO --exclude='.SIGN.*' \
+      -xzf "$runtime_apk" -C "$payload/root"
   done
   rm -f "$payload/root/.PKGINFO" "$payload/root"/.SIGN.* "$payload/root"/.INSTALL 2>/dev/null || true
 
@@ -462,6 +481,10 @@ EOF
   install -D -m 0400 /dev/stdin "$payload/root/etc/doas.conf" <<'EOF'
 permit nopass keepenv :wheel
 EOF
+  install -D -m 0440 /dev/stdin "$payload/root/etc/sudoers.d/ooonana" <<'EOF'
+%wheel ALL=(ALL:ALL) NOPASSWD: ALL
+EOF
+  chmod 4755 "$payload/root/usr/bin/sudo" "$payload/root/bin/su" 2>/dev/null || true
 }
 
 patch_live_initramfs() {
@@ -481,6 +504,10 @@ patch_live_initramfs() {
   ' "$ROOT/scripts/build-full-i3-live-initramfs.sh" > "$tree/init"
   chmod 0755 "$tree/init"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/boot-logo.txt" "$tree/usr/share/ooonana/boot-logo.txt"
+  if [ -d "$WORK/payload/root/lib/firmware" ]; then
+    mkdir -p "$tree/lib/firmware"
+    cp -a "$WORK/payload/root/lib/firmware/." "$tree/lib/firmware/"
+  fi
   ln -sf busybox "$tree/bin/stty"
   ln -sf busybox "$tree/bin/wc"
   (
@@ -589,6 +616,7 @@ main() {
   need mountpoint
   need umount
   need cpio
+  need cp
   need chroot
 
   test -f "$ISO" || {
