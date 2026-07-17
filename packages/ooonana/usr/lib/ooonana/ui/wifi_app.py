@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -24,6 +25,7 @@ from wireless_utils import (  # noqa: E402
     parse_iw_wifi,
     parse_nmcli_wifi,
     security_kind,
+    split_nmcli_terse,
 )
 
 
@@ -306,7 +308,6 @@ class WifiWindow(Gtk.Window):
         active_rc, active = self.nmcli("-t", "--escape", "yes", "-f", "NAME,DEVICE", "connection", "show", "--active", timeout=5)
         self.wifi_devices = []
         if devices_rc == 0:
-            from wireless_utils import split_nmcli_terse
             for line in devices.splitlines():
                 parts = split_nmcli_terse(line)
                 if len(parts) == 3 and parts[1] == "wifi":
@@ -461,50 +462,104 @@ class WifiWindow(Gtk.Window):
     def connect_task(self, network, credentials):
         ssid = network["ssid"]
         device = network.get("device") or (self.wifi_devices[0] if self.wifi_devices else "")
-        if device:
-            run(["nmcli", "device", "wifi", "rescan", "ifname", device, "ssid", ssid], admin=True, timeout=25)
+        self.prepare_device(device, ssid)
         if network["security_kind"] == "enterprise":
             return self.connect_enterprise(network, credentials, device)
         if network["security_kind"] == "owe":
             return self.connect_owe(network, device)
+        return self.connect_standard(network, credentials, device)
 
-        profile = self.profile_name(ssid)
-        base = ["nmcli", "--wait", "35", "device", "wifi", "connect", ssid]
-        if credentials.get("password"):
-            base.extend(["password", credentials["password"]])
-        if network["security_kind"] == "wep":
-            password = credentials.get("password", "")
-            is_hex = len(password) in (10, 26) and all(char in "0123456789abcdefABCDEF" for char in password)
-            base.extend(["wep-key-type", "key" if len(password) in (5, 13) or is_hex else "phrase"])
-        if device:
-            base.extend(["ifname", device])
-        base.extend(["name", profile])
-        if network.get("hidden"):
-            base.extend(["hidden", "yes"])
+    @staticmethod
+    def prepare_device(device, ssid):
+        run(["nmcli", "networking", "on"], admin=True, timeout=8)
+        run(["nmcli", "radio", "wifi", "on"], admin=True, timeout=8)
+        if not device:
+            return
+        run(["nmcli", "device", "set", device, "managed", "yes"], admin=True, timeout=8)
+        run(["ip", "link", "set", "dev", device, "up"], admin=True, timeout=8)
+        run(["iw", "dev", device, "set", "power_save", "off"], admin=True, timeout=8)
+        run(
+            ["nmcli", "device", "wifi", "rescan", "ifname", device, "ssid", ssid],
+            admin=True,
+            timeout=30,
+        )
+        # rescan requests are asynchronous. Give NetworkManager time to publish
+        # the access point before profile activation.
+        time.sleep(2)
 
-        candidates = [item for item in network.get("access_points", []) if item.get("security_kind") == network["security_kind"]]
-        errors = []
-        for access_point in candidates:
-            run(["nmcli", "connection", "delete", profile], admin=True, timeout=12)
-            command = [*base, "bssid", access_point["bssid"]]
-            rc, output = run(command, admin=True, timeout=45)
-            if rc == 0:
-                return rc, output
-            errors.append(f"{access_point['bssid']}: {output}")
+    @staticmethod
+    def profile_uuid(profile):
+        rc, output = run(
+            ["nmcli", "-g", "connection.uuid", "connection", "show", profile],
+            admin=True,
+            timeout=10,
+        )
+        return output.splitlines()[0].strip() if rc == 0 and output.strip() else ""
+
+    @staticmethod
+    def add_wifi_profile(profile, ssid, device):
         run(["nmcli", "connection", "delete", profile], admin=True, timeout=12)
-        rc, output = run(base, admin=True, timeout=45)
-        if rc == 0:
-            return rc, output
-        errors.append(output)
-        return rc, "\n".join(item for item in errors if item)
-
-    def connect_owe(self, network, device):
-        profile = self.profile_name(network["ssid"])
-        run(["nmcli", "connection", "delete", profile], admin=True, timeout=12)
-        command = ["nmcli", "connection", "add", "type", "wifi", "con-name", profile, "ssid", network["ssid"]]
+        command = [
+            "nmcli", "connection", "add", "type", "wifi",
+            "con-name", profile, "ssid", ssid,
+        ]
         if device:
             command.extend(["ifname", device])
         rc, output = run(command, admin=True, timeout=20)
+        if rc != 0:
+            return rc, output
+        properties = [
+            "connection.autoconnect", "yes",
+            "ipv4.method", "auto",
+            "ipv6.method", "auto",
+            "802-11-wireless.mode", "infrastructure",
+            # Directed probing avoids SSID_NOT_FOUND when iw sees an AP before
+            # NetworkManager's scan cache catches up.
+            "802-11-wireless.hidden", "yes",
+            "802-11-wireless.powersave", "2",
+        ]
+        return run(
+            ["nmcli", "connection", "modify", profile, *properties],
+            admin=True,
+            timeout=20,
+        )
+
+    def connect_standard(self, network, credentials, device):
+        profile = self.profile_name(network["ssid"])
+        rc, output = self.add_wifi_profile(profile, network["ssid"], device)
+        if rc != 0:
+            return rc, output
+
+        properties = []
+        password = credentials.get("password", "")
+        if network["security_kind"] == "personal":
+            raw_security = (network.get("security") or "").upper()
+            key_mgmt = "sae" if "SAE" in raw_security or ("WPA3" in raw_security and "WPA2" not in raw_security) else "wpa-psk"
+            properties = [
+                "802-11-wireless-security.key-mgmt", key_mgmt,
+                "802-11-wireless-security.psk", password,
+            ]
+        elif network["security_kind"] == "wep":
+            is_hex = len(password) in (10, 26) and all(char in "0123456789abcdefABCDEF" for char in password)
+            key_type = "1" if len(password) in (5, 13) or is_hex else "2"
+            properties = [
+                "802-11-wireless-security.key-mgmt", "none",
+                "802-11-wireless-security.wep-key0", password,
+                "802-11-wireless-security.wep-key-type", key_type,
+            ]
+        if properties:
+            rc, output = run(
+                ["nmcli", "connection", "modify", profile, *properties],
+                admin=True,
+                timeout=20,
+            )
+            if rc != 0:
+                return rc, output
+        return self.activate_profile(profile, network, device, network["security_kind"])
+
+    def connect_owe(self, network, device):
+        profile = self.profile_name(network["ssid"])
+        rc, output = self.add_wifi_profile(profile, network["ssid"], device)
         if rc != 0:
             return rc, output
         rc, output = run(
@@ -523,33 +578,56 @@ class WifiWindow(Gtk.Window):
         return self.activate_profile(profile, network, device, "owe")
 
     def activate_profile(self, profile, network, device, security):
+        uuid = self.profile_uuid(profile)
+        identifier = ["uuid", uuid] if uuid else ["id", profile]
         errors = []
         candidates = [item for item in network.get("access_points", []) if item.get("security_kind") == security]
         for access_point in candidates:
-            up = ["nmcli", "--wait", "40", "connection", "up", profile]
+            up = ["nmcli", "--wait", "60", "connection", "up", *identifier]
             if device:
                 up.extend(["ifname", device])
             up.extend(["ap", access_point["bssid"]])
-            rc, output = run(up, admin=True, timeout=50)
+            rc, output = run(up, admin=True, timeout=70)
             if rc == 0:
                 return rc, output
             errors.append(f"{access_point['bssid']}: {output}")
-        up = ["nmcli", "--wait", "40", "connection", "up", profile]
+            if device:
+                run(
+                    ["nmcli", "device", "wifi", "rescan", "ifname", device, "ssid", network["ssid"]],
+                    admin=True,
+                    timeout=30,
+                )
+                time.sleep(1)
+        up = ["nmcli", "--wait", "60", "connection", "up", *identifier]
         if device:
             up.extend(["ifname", device])
-        rc, output = run(up, admin=True, timeout=50)
+        rc, output = run(up, admin=True, timeout=70)
         if rc == 0:
             return rc, output
         errors.append(output)
+        errors.append(self.connection_diagnostics(device))
         return rc, "\n".join(item for item in errors if item)
+
+    @staticmethod
+    def connection_diagnostics(device):
+        if not device:
+            return "No Wi-Fi device selected."
+        rc, output = run(
+            [
+                "nmcli", "-f",
+                "GENERAL.DEVICE,GENERAL.TYPE,GENERAL.STATE,GENERAL.REASON,GENERAL.FIRMWARE-MISSING",
+                "device", "show", device,
+            ],
+            admin=True,
+            timeout=12,
+        )
+        if rc != 0:
+            return f"Device diagnostics failed: {output}"
+        return "Device state:\n" + output
 
     def connect_enterprise(self, network, credentials, device):
         profile = self.profile_name(network["ssid"])
-        run(["nmcli", "connection", "delete", profile], admin=True, timeout=12)
-        command = ["nmcli", "connection", "add", "type", "wifi", "con-name", profile, "ssid", network["ssid"]]
-        if device:
-            command.extend(["ifname", device])
-        rc, output = run(command, admin=True, timeout=20)
+        rc, output = self.add_wifi_profile(profile, network["ssid"], device)
         if rc != 0:
             return rc, output
 
@@ -561,8 +639,6 @@ class WifiWindow(Gtk.Window):
             "802-1x.eap", credentials["eap"],
             "802-1x.identity", credentials["identity"],
         ]
-        if network.get("hidden"):
-            properties.extend(["802-11-wireless.hidden", "yes"])
         if credentials["anonymous_identity"]:
             properties.extend(["802-1x.anonymous-identity", credentials["anonymous_identity"]])
         if credentials["domain"]:
@@ -591,7 +667,6 @@ class WifiWindow(Gtk.Window):
 
     def disconnect_active(self):
         rc, active = self.nmcli("-t", "--escape", "yes", "-f", "NAME,TYPE", "connection", "show", "--active")
-        from wireless_utils import split_nmcli_terse
         names = [fields[0] for fields in (split_nmcli_terse(line) for line in active.splitlines()) if len(fields) == 2 and fields[1] == "802-11-wireless"]
         if rc != 0 or not names:
             message(self, "Wi-Fi", "No active Wi-Fi connection.")

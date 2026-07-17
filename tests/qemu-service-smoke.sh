@@ -120,6 +120,23 @@ done
 /usr/bin/ooonana-service-repair status
 /bin/busybox pidof NetworkManager >/dev/null 2>&1 || fail "NetworkManager stopped"
 /bin/busybox pidof bluetoothd >/dev/null 2>&1 || fail "bluetoothd stopped"
+
+nmcli connection add type wifi con-name Ooonana-WiFi-Smoke ssid Ooonana-WiFi-Smoke >/dev/null ||
+  fail "Wi-Fi profile creation"
+nmcli connection modify Ooonana-WiFi-Smoke \
+  connection.autoconnect yes \
+  ipv4.method auto \
+  ipv6.method auto \
+  802-11-wireless.mode infrastructure \
+  802-11-wireless.hidden yes \
+  802-11-wireless.powersave 2 \
+  802-11-wireless-security.key-mgmt wpa-psk \
+  802-11-wireless-security.psk ooonana-smoke >/dev/null ||
+  fail "Wi-Fi profile settings"
+wifi_uuid="$(nmcli -g connection.uuid connection show Ooonana-WiFi-Smoke)"
+[ -n "$wifi_uuid" ] || fail "Wi-Fi profile UUID"
+nmcli connection delete uuid "$wifi_uuid" >/dev/null || fail "Wi-Fi profile cleanup"
+
 [ -r /proc/asound/cards ] || fail "ALSA cards file missing"
 grep -Eq '^[[:space:]]*[0-9]+[[:space:]]+\[' /proc/asound/cards || fail "Intel HDA card not detected"
 aplay -l >/dev/null 2>&1 || fail "ALSA playback device unavailable"

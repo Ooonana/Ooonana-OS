@@ -46,7 +46,7 @@ export OOONANA_STATE_DIR="$tmp/state"
 export OOONANA_CACHE_DIR="$tmp/cache"
 
 help="$("$CLI" help)"
-assert_contains "$help" "ooonana 0.8.5"
+assert_contains "$help" "ooonana 0.8.6"
 assert_contains "$help" "Usage: ooonana [options] command"
 assert_contains "$help" "Most used commands:"
 assert_contains "$help" "  list - list packages based on names or installed state"

@@ -15,6 +15,12 @@ assert_contains() {
   [[ "$haystack" == *"$needle"* ]] || fail "missing: $needle"
 }
 
+assert_not_contains() {
+  local haystack="$1"
+  local needle="$2"
+  [[ "$haystack" != *"$needle"* ]] || fail "unexpected: $needle"
+}
+
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
@@ -55,6 +61,10 @@ assert_contains "$wifi" '"--rescan"'
 assert_contains "$wifi" 'parse_iw_scan'
 assert_contains "$wifi" '"Scan", "edit-find-symbolic"'
 assert_contains "$wifi" '"IN-USE,BSSID,SSID,SIGNAL,SECURITY,DEVICE"'
+assert_contains "$wifi" '"802-11-wireless.hidden", "yes"'
+assert_contains "$wifi" '"connection", "up", *identifier'
+assert_contains "$wifi" '"uuid", uuid'
+assert_not_contains "$wifi" '"device", "wifi", "connect", ssid'
 assert_contains "$wifi" "WifiCredentialsDialog"
 assert_contains "$wifi" "802-1x.domain-suffix-match"
 assert_contains "$wifi" "group_wifi_access_points"
@@ -62,7 +72,7 @@ assert_contains "$wifi" 'button("3D mode"'
 assert_contains "$wifi" "ruvnet/RuView"
 assert_contains "$wifi" 'connection", "delete", profile'
 assert_contains "$wifi" '"802-11-wireless-security.key-mgmt", "owe"'
-assert_contains "$wifi" '"wep-key-type"'
+assert_contains "$wifi" '"802-11-wireless-security.wep-key-type"'
 assert_contains "$bluetooth" '["bluetoothctl"'
 assert_contains "$bluetooth" "pair"
 assert_contains "$bluetooth" "trust"

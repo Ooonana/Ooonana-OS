@@ -3468,7 +3468,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
     reboot -f
   fi
   echo "OOONANA_DOWNLOADERS_OK python3 curl wget"
-  if /usr/bin/ooonana version | grep -q 'ooonana 0.8.5' &&
+  if /usr/bin/ooonana version | grep -q 'ooonana 0.8.6' &&
     /usr/bin/ooonana list --installed | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else

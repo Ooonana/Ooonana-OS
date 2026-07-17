@@ -23,7 +23,7 @@ KERNEL_PACKAGE_SCRIPT="${OOONANA_KERNEL_PACKAGE_SCRIPT:-$ROOT/scripts/build-kern
 CORE_PACKAGE_SCRIPT="${OOONANA_CORE_PACKAGE_SCRIPT:-$ROOT/scripts/build-ooonana-core-package.sh}"
 OPENVINO_CHAT_PACKAGE_SCRIPT="${OOONANA_OPENVINO_CHAT_PACKAGE_SCRIPT:-$ROOT/scripts/build-openvino-chat-package.sh}"
 OPENVINO_CHAT_PACKAGE_VERSION="${OOONANA_OPENVINO_CHAT_VERSION:-0.1.1}"
-CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.8.5}"
+CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.8.6}"
 KERNEL_PACKAGE_PATH="${OOONANA_KERNEL_PACKAGE_PATH:-}"
 KERNEL_PACKAGE_URL="${OOONANA_KERNEL_PACKAGE_URL:-}"
 KERNEL_PACKAGE_VERSION="${OOONANA_KERNEL_VERSION:-6.18.37}"
@@ -48,7 +48,7 @@ Options:
   --kernel PATH           Add Ooonana kernel package from local kernel image
   --kernel-url URL        Add Ooonana kernel package from remote kernel image
   --kernel-version VER    Kernel package version (default: 6.18.37)
-  --core-version VER      Ooonana system update package version (default: 0.8.5)
+  --core-version VER      Ooonana system update package version (default: 0.8.6)
   --openvino-version VER  OpenVINO Chat package version (default: 0.1.1)
   --clean                 Delete output dir before build
   --dry-run               Print resolved build command only
