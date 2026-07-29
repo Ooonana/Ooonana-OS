@@ -47,15 +47,23 @@ assert_contains "$installer_help" "--gui-smoke"
 assert_contains "$installer_help" "/run/ooonana-target"
 
 installer_dry_run="$(bash "$INSTALLER" --dry-run --yes --target /tmp/ooonana-test-disk.raw --source /tmp/ooonana-source --kernel /tmp/vmlinuz-ooonana --hostname ooonana-lab --user ryan --theme dark --cloud-repo https://example.test/repo --smoke --gui-smoke)"
-assert_contains "$installer_dry_run" "parted -s /tmp/ooonana-test-disk.raw mklabel msdos mkpart primary ext4 1MiB 100% set 1 boot on"
+assert_contains "$installer_dry_run" "parted -s /tmp/ooonana-test-disk.raw mklabel gpt"
+assert_contains "$installer_dry_run" "mkpart BIOSBOOT 1MiB 3MiB set 1 bios_grub on"
+assert_contains "$installer_dry_run" "mkpart ESP fat32 3MiB 515MiB set 2 esp on"
+assert_contains "$installer_dry_run" "mkpart ROOT ext4 515MiB 100%"
 assert_contains "$installer_dry_run" "losetup --find --show --partscan /tmp/ooonana-test-disk.raw"
-assert_contains "$installer_dry_run" "mkfs.ext4 -F -L OOONANA_ROOT LOOP_PARTITION"
-assert_contains "$installer_dry_run" "mount LOOP_PARTITION /run/ooonana-target"
+assert_contains "$installer_dry_run" "mkfs.ext4 -F -L OOONANA_ROOT LOOP_ROOT_PARTITION"
+assert_contains "$installer_dry_run" "mount LOOP_ROOT_PARTITION /run/ooonana-target"
+assert_contains "$installer_dry_run" "mkfs.vfat -F 32 -n OOONANA_EFI LOOP_EFI_PARTITION"
+assert_contains "$installer_dry_run" "mount LOOP_EFI_PARTITION /run/ooonana-target/boot/efi"
 assert_contains "$installer_dry_run" "rsync -aHAX"
 assert_contains "$installer_dry_run" "--exclude /dev/\\*"
 assert_contains "$installer_dry_run" "install -m 0644 /tmp/vmlinuz-ooonana /run/ooonana-target/boot/vmlinuz"
 assert_contains "$installer_dry_run" "grub.cfg: linux /boot/vmlinuz root=PARTUUID=TARGET_PARTUUID rw console=tty0 console=ttyS0 panic=1 init=/sbin/init ooonana.edition=full-i3 ooonana.smoke=1 ooonana.gui-smoke=1"
 assert_contains "$installer_dry_run" "grub-install --target=i386-pc"
+assert_contains "$installer_dry_run" "--modules=part_gpt\\ biosdisk\\ ext2\\ normal\\ linux\\ configfile"
+assert_contains "$installer_dry_run" "grub-install --target=x86_64-efi"
+assert_contains "$installer_dry_run" "--removable --no-nvram"
 assert_contains "$installer_dry_run" "write hostname ooonana-lab"
 assert_contains "$installer_dry_run" "create user ryan"
 assert_contains "$installer_dry_run" "write theme dark"
@@ -65,6 +73,19 @@ assert_contains "$installer_dry_run" "OOONANA_INSTALL_OK"
 
 installer_dry_run_normal="$(bash "$INSTALLER" --dry-run --yes --target /tmp/ooonana-test-disk.raw --source /tmp/ooonana-source --kernel /tmp/vmlinuz-ooonana)"
 assert_contains "$installer_dry_run_normal" "grub.cfg: linux /boot/vmlinuz root=PARTUUID=TARGET_PARTUUID rw console=ttyS0 console=tty0 panic=1 init=/sbin/init ooonana.edition=full-i3"
+
+for whole_disk in /dev/nvme0n1 /dev/mmcblk0 /dev/loop0; do
+  whole_disk_dry_run="$(bash "$INSTALLER" --dry-run --yes --target "$whole_disk" --source /tmp/ooonana-source --kernel /tmp/vmlinuz-ooonana)"
+  assert_contains "$whole_disk_dry_run" "parted -s $whole_disk mklabel gpt"
+done
+
+by_id_dry_run="$(bash "$INSTALLER" --dry-run --yes --target /dev/disk/by-id/ooonana-test --source /tmp/ooonana-source --kernel /tmp/vmlinuz-ooonana)"
+assert_contains "$by_id_dry_run" "mount /dev/disk/by-id/ooonana-test-part3 /run/ooonana-target"
+assert_contains "$by_id_dry_run" "mount /dev/disk/by-id/ooonana-test-part2 /run/ooonana-target/boot/efi"
+
+nvme_partition_dry_run="$(bash "$INSTALLER" --dry-run --yes --target /dev/nvme0n1p3 --source /tmp/ooonana-source --bootloader none --keep-root)"
+assert_contains "$nvme_partition_dry_run" "keep root filesystem: /dev/nvme0n1p3"
+assert_not_contains "$nvme_partition_dry_run" "parted -s /dev/nvme0n1p3"
 
 custom_dry_run="$(bash "$INSTALLER" --dry-run --yes \
   --target /dev/sda2 \
@@ -92,6 +113,19 @@ assert_contains "$custom_dry_run" "umount /run/ooonana-target/boot/efi"
 assert_contains "$custom_dry_run" "umount /run/ooonana-target/home"
 assert_not_contains "$custom_dry_run" "grub-install"
 
+uefi_partition_dry_run="$(bash "$INSTALLER" --dry-run --yes \
+  --target /dev/sda2 \
+  --source /tmp/ooonana-source \
+  --efi-part /dev/sda1 \
+  --keep-root \
+  --keep-efi \
+  --bootloader grub)"
+assert_contains "$uefi_partition_dry_run" "grub-install --target=x86_64-efi"
+assert_contains "$uefi_partition_dry_run" "--efi-directory=/run/ooonana-target/boot/efi"
+assert_contains "$uefi_partition_dry_run" "grub.cfg: linux /boot/vmlinuz root=PARTUUID=TARGET_PARTUUID"
+assert_contains "$uefi_partition_dry_run" "/dev/sda2 / ext4 defaults 0 1"
+assert_not_contains "$uefi_partition_dry_run" "grub-install --target=i386-pc"
+
 duplicate_part="$(bash "$INSTALLER" --dry-run --yes \
   --target /dev/sda2 \
   --bootloader none \
@@ -105,8 +139,21 @@ wiped_extra="$(bash "$INSTALLER" --dry-run --yes \
 assert_contains "$wiped_extra" "extra partition would be wiped by disk target: /dev/sda3 on /dev/sda"
 
 installer_src="$(<"$INSTALLER")"
+assert_contains "$installer_src" "smbios --type 1 --get-string 4 --set ooonana_manufacturer"
+assert_contains "$installer_src" "snd_intel_dspcfg.dsp_driver=3"
 assert_contains "$installer_src" "refusing current root partition target"
 assert_contains "$installer_src" "refusing current root disk target"
+assert_contains "$installer_src" "refusing live boot media target"
+prepare_target_src="$(sed -n '/^prepare_target()/,/^}/p' "$INSTALLER")"
+root_guard_line="$(grep -n 'validate_current_root_safety' <<<"$prepare_target_src" | head -n 1 | cut -d: -f1)"
+live_guard_line="$(grep -n 'validate_live_media_safety' <<<"$prepare_target_src" | head -n 1 | cut -d: -f1)"
+partition_line="$(grep -n 'parted -s' <<<"$prepare_target_src" | head -n 1 | cut -d: -f1)"
+[[ -n "$root_guard_line" && -n "$live_guard_line" && -n "$partition_line" &&
+  "$root_guard_line" -lt "$partition_line" && "$live_guard_line" -lt "$partition_line" ]] ||
+  fail "disk guards must run before partitioning"
+assert_contains "$installer_src" "target disk or child partition is mounted"
+assert_contains "$installer_src" "install partition is mounted"
+assert_contains "$installer_src" '[[ "$TARGET_MODE" == "disk" || -n "$EFI_PART" ]]'
 assert_contains "$installer_src" "terminal_input console serial"
 assert_contains "$installer_src" "terminal_output console serial"
 assert_contains "$installer_src" "terminal_output gfxterm serial"

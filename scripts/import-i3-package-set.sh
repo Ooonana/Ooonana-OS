@@ -9,7 +9,8 @@ OUT_DIR="$ROOT/packages/ooonana/usr/lib/ooonana/repo"
 REPO_ARGS=()
 DEFAULT_I3_PROFILE="$ROOT/configs/packages/full-i3.list"
 I3_PACKAGES=""
-BRANDING_VERSION="0.1.0"
+BRANDING_VERSION="0.1.2"
+SOF_REPO_URL="https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64"
 
 usage() {
   cat <<'USAGE'
@@ -119,7 +120,15 @@ main() {
   [[ -n "$I3_PACKAGES" ]] || I3_PACKAGES="$(load_default_packages)"
 
   # shellcheck disable=SC2086
-  bash "$ROOT/scripts/import-apk-package.sh" "${REPO_ARGS[@]}" --out-dir "$OUT_DIR" $I3_PACKAGES
+  bash "$ROOT/scripts/import-apk-package.sh" "${REPO_ARGS[@]}" --out-dir "$OUT_DIR" --no-index $I3_PACKAGES
+
+  # Alpine v3.20 SOF predates Meteor Lake DMIC fixes. This package contains
+  # only firmware data, so importing it from edge does not mix userland ABIs.
+  bash "$ROOT/scripts/import-apk-package.sh" \
+    --repo-url "$SOF_REPO_URL" \
+    --out-dir "$OUT_DIR" \
+    --no-index \
+    sof-firmware
 
   work="$(mktemp -d)"
   trap 'rm -rf "$work"' EXIT

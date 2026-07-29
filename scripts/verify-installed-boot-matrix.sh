@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DISK=""
 ISO=""
 MEMORY="2048"
@@ -70,7 +69,7 @@ elif [[ -f /usr/share/OVMF/OVMF_CODE_4M.fd && -f /usr/share/OVMF/OVMF_VARS_4M.fd
     trap 'rm -f "$OVMF_VARS_WORK"' EXIT
   fi
   qemu_uefi+=(
-    -drive if=pflash,format=raw,unit=0,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd
+    -drive "if=pflash,format=raw,unit=0,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd"
     -drive "if=pflash,format=raw,unit=1,file=$OVMF_VARS_WORK"
   )
 else

@@ -30,7 +30,10 @@ if [ "${1:-}" = "--dry-run" ]; then
 fi
 
 NATIVE_APP="/usr/lib/ooonana/ui/ai_app.py"
-if [ -x /usr/bin/python3 ] && [ -f "$NATIVE_APP" ] &&
+if [ "${OOONANA_AI_APP_NO_X:-0}" != "1" ] &&
+  [ "${OOONANA_AI_APP_GUI:-1}" = "1" ] &&
+  [ "${OOONANA_AI_APP_TERMINAL:-0}" != "1" ] &&
+  [ -x /usr/bin/python3 ] && [ -f "$NATIVE_APP" ] &&
   /usr/bin/python3 -c 'import gi; gi.require_version("Gtk", "3.0")' >/dev/null 2>&1; then
   exec /usr/bin/python3 "$NATIVE_APP" "$@"
 fi
@@ -433,8 +436,7 @@ open_gui() {
         continue
         ;;
       chat)
-        show_chat_home || true
-        continue
+        chat_gui || open_action_terminal chat || true
         ;;
       ask)
         show_chat_prompt
@@ -485,14 +487,8 @@ open_gui() {
       env)
         run_gui_text "Ooonana AI Env" env
         ;;
-      ask)
-        ask_gui
-        ;;
       shell)
         open_action_terminal shell || return 1
-        ;;
-      chat)
-        chat_gui || open_action_terminal chat || return 1
         ;;
       setup)
         open_action_terminal setup || return 1
@@ -601,12 +597,8 @@ run_action() {
       run_ai status
       pause_if_interactive
       ;;
-    history)
+    10|history)
       run_ai history
-      pause_if_interactive
-      ;;
-    audit)
-      run_ai audit
       pause_if_interactive
       ;;
     7|shell)
@@ -618,10 +610,6 @@ run_action() {
       ;;
     9|audit)
       run_ai audit
-      pause_if_interactive
-      ;;
-    10|history)
-      run_ai history
       pause_if_interactive
       ;;
     11|provider)
@@ -651,7 +639,7 @@ run_action() {
       printf 'desktop-control: terminal browser files settings restart-i3\n'
       pause_if_interactive
       ;;
-    0|status)
+    0)
       render_status
       pause_if_interactive
       ;;

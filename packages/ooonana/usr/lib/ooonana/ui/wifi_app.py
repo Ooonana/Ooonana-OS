@@ -497,7 +497,7 @@ class WifiWindow(Gtk.Window):
         return output.splitlines()[0].strip() if rc == 0 and output.strip() else ""
 
     @staticmethod
-    def add_wifi_profile(profile, ssid, device):
+    def add_wifi_profile(profile, ssid, device, hidden=False):
         run(["nmcli", "connection", "delete", profile], admin=True, timeout=12)
         command = [
             "nmcli", "connection", "add", "type", "wifi",
@@ -513,9 +513,9 @@ class WifiWindow(Gtk.Window):
             "ipv4.method", "auto",
             "ipv6.method", "auto",
             "802-11-wireless.mode", "infrastructure",
-            # Directed probing avoids SSID_NOT_FOUND when iw sees an AP before
-            # NetworkManager's scan cache catches up.
-            "802-11-wireless.hidden", "yes",
+            # Scan results shown by this UI are visible networks. Marking every
+            # profile hidden makes roaming campus APs fail with SSID_NOT_FOUND.
+            "802-11-wireless.hidden", "yes" if hidden else "no",
             "802-11-wireless.powersave", "2",
         ]
         return run(
@@ -526,7 +526,7 @@ class WifiWindow(Gtk.Window):
 
     def connect_standard(self, network, credentials, device):
         profile = self.profile_name(network["ssid"])
-        rc, output = self.add_wifi_profile(profile, network["ssid"], device)
+        rc, output = self.add_wifi_profile(profile, network["ssid"], device, network.get("hidden", False))
         if rc != 0:
             return rc, output
 
@@ -534,7 +534,13 @@ class WifiWindow(Gtk.Window):
         password = credentials.get("password", "")
         if network["security_kind"] == "personal":
             raw_security = (network.get("security") or "").upper()
-            key_mgmt = "sae" if "SAE" in raw_security or ("WPA3" in raw_security and "WPA2" not in raw_security) else "wpa-psk"
+            # Transition networks advertise SAE and PSK together. Prefer PSK
+            # there; reserve SAE for WPA3-only access points.
+            key_mgmt = "sae" if (
+                ("SAE" in raw_security or "WPA3" in raw_security)
+                and "PSK" not in raw_security
+                and "WPA2" not in raw_security
+            ) else "wpa-psk"
             properties = [
                 "802-11-wireless-security.key-mgmt", key_mgmt,
                 "802-11-wireless-security.psk", password,
@@ -559,7 +565,7 @@ class WifiWindow(Gtk.Window):
 
     def connect_owe(self, network, device):
         profile = self.profile_name(network["ssid"])
-        rc, output = self.add_wifi_profile(profile, network["ssid"], device)
+        rc, output = self.add_wifi_profile(profile, network["ssid"], device, network.get("hidden", False))
         if rc != 0:
             return rc, output
         rc, output = run(
@@ -582,6 +588,18 @@ class WifiWindow(Gtk.Window):
         identifier = ["uuid", uuid] if uuid else ["id", profile]
         errors = []
         candidates = [item for item in network.get("access_points", []) if item.get("security_kind") == security]
+
+        # Let NetworkManager choose the strongest matching BSSID first. This is
+        # required for roaming networks where one SSID is advertised by many APs.
+        up = ["nmcli", "--wait", "60", "connection", "up", *identifier]
+        if device:
+            up.extend(["ifname", device])
+        rc, output = run(up, admin=True, timeout=70)
+        if rc == 0:
+            return rc, output
+        errors.append(output)
+
+        # BSSID retries remain useful for stale scan caches and mixed AP fleets.
         for access_point in candidates:
             up = ["nmcli", "--wait", "60", "connection", "up", *identifier]
             if device:
@@ -598,13 +616,6 @@ class WifiWindow(Gtk.Window):
                     timeout=30,
                 )
                 time.sleep(1)
-        up = ["nmcli", "--wait", "60", "connection", "up", *identifier]
-        if device:
-            up.extend(["ifname", device])
-        rc, output = run(up, admin=True, timeout=70)
-        if rc == 0:
-            return rc, output
-        errors.append(output)
         errors.append(self.connection_diagnostics(device))
         return rc, "\n".join(item for item in errors if item)
 
@@ -627,7 +638,7 @@ class WifiWindow(Gtk.Window):
 
     def connect_enterprise(self, network, credentials, device):
         profile = self.profile_name(network["ssid"])
-        rc, output = self.add_wifi_profile(profile, network["ssid"], device)
+        rc, output = self.add_wifi_profile(profile, network["ssid"], device, network.get("hidden", False))
         if rc != 0:
             return rc, output
 
@@ -701,16 +712,21 @@ class WifiWindow(Gtk.Window):
         ])
 
     def launch_ruview(self, _widget):
-        runtime = ""
-        for candidate in ("ruview-pointcloud", "wifi-densepose-pointcloud"):
-            if command_exists(candidate):
-                runtime = candidate
-                break
-        if runtime:
-            launch([runtime, "serve", "--bind", "127.0.0.1:9880"])
+        # RuView's supported native server is sensing-server. Pointcloud is a
+        # workspace-only crate and does not provide the old `serve --bind` CLI.
+        if command_exists("sensing-server"):
+            command = [
+                "sensing-server", "--source", "simulate",
+                "--http-port", "3000", "--ws-port", "3001",
+            ]
+            for ui_path in ("/usr/share/ruview/ui", "/opt/ruview/ui"):
+                if Path(ui_path).is_dir():
+                    command.extend(["--ui-path", ui_path])
+                    break
+            launch(command)
 
             def open_viewer():
-                launch(["xdg-open", "http://127.0.0.1:9880"])
+                launch(["ooonana-browser", "http://127.0.0.1:3000/ui/index.html"])
                 return False
 
             GLib.timeout_add_seconds(2, open_viewer)
@@ -724,8 +740,9 @@ class WifiWindow(Gtk.Window):
             text="RuView 3D runtime is not installed",
         )
         dialog.format_secondary_text(
-            "Full 3D sensing needs CSI hardware such as ESP32-S3 or a supported research NIC. "
-            "This laptop can use the RSSI signal map; RuView can also run simulated data."
+            "RuView is not bundled. Full 3D sensing needs CSI hardware such as ESP32-S3, "
+            "Intel 5300, or Atheros AR9580. This laptop can use the RSSI signal map. "
+            "A separately installed sensing-server can run a simulated 3D demo."
         )
         dialog.add_button("Close", Gtk.ResponseType.CLOSE)
         dialog.add_button("Open RuView", Gtk.ResponseType.OK)

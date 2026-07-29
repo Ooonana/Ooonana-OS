@@ -87,10 +87,16 @@ message-color: "#ffb21a"
 + boot_menu {
   left = 16%
   item_color = "#ffb21a"
-  selected_item_color = "#ffffff"
+  selected_item_color = "#ffd37a"
   visible = true
   item_font = "Unifont Regular 16"
   scrollbar = false
+}
++ label {
+  id = "ooonana-logo-1"
+}
++ label {
+  id = "ooonana-logo-8"
 }
 + progress_bar {
   id = "__timeout__"

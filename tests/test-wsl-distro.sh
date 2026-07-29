@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_SCRIPT="$ROOT/scripts/build-wsl-rootfs.sh"
 INSTALL_SCRIPT="$ROOT/scripts/install-wsl-distro.sh"
+UPDATE_SCRIPT="$ROOT/scripts/update-installed-wsl.sh"
 
 fail() {
   printf 'FAIL: %s\n' "$*" >&2
@@ -18,6 +19,20 @@ assert_contains() {
 
 [[ -x "$BUILD_SCRIPT" ]] || fail "missing executable WSL rootfs builder"
 [[ -x "$INSTALL_SCRIPT" ]] || fail "missing executable WSL distro installer"
+[[ -x "$UPDATE_SCRIPT" ]] || fail "missing executable WSL updater"
+assert_contains "$(<"$UPDATE_SCRIPT")" 'packages/ooonana/usr/bin/*'
+assert_contains "$(<"$UPDATE_SCRIPT")" 'packages/ooonana/usr/lib/ooonana/ui/*.py'
+assert_contains "$(<"$UPDATE_SCRIPT")" 'doas-6.8.2-r7.apk'
+assert_contains "$(<"$UPDATE_SCRIPT")" 'refusing non-Ooonana distro'
+assert_contains "$(<"$UPDATE_SCRIPT")" "overlay_tree \"\$unpack\""
+if guard_output="$(WSL_DISTRO_NAME=Ubuntu sh "$UPDATE_SCRIPT" 2>&1)"; then
+  fail "WSL updater accepted non-Ooonana distro"
+fi
+assert_contains "$guard_output" "refusing non-Ooonana distro: Ubuntu"
+if guard_output="$(WSL_DISTRO_NAME='' sh "$UPDATE_SCRIPT" 2>&1)"; then
+  fail "WSL updater accepted non-Ooonana operating system"
+fi
+assert_contains "$guard_output" "refusing target OS:"
 
 build_help="$(bash "$BUILD_SCRIPT" --help)"
 assert_contains "$build_help" "Build Ooonana WSL rootfs tarball"

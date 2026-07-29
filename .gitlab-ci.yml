@@ -14,9 +14,10 @@ variables:
   OOONANA_REPO_NAME: "gitlab"
   OOONANA_PAGES_MAX_BYTES: "1073741824"
   OOONANA_KERNEL_VERSION: "6.18.37"
-  OOONANA_CORE_VERSION: "0.8.6"
+  OOONANA_CORE_VERSION: "0.8.7"
   OOONANA_OPENVINO_CHAT_VERSION: "0.1.1"
-  OOONANA_KERNEL_PACKAGE_URL: "https://github.com/Ooonana/Ooonana-OS/releases/download/v0.1.8-ui-hardware/vmlinuz-ooonana"
+  OOONANA_KERNEL_PACKAGE_URL: ""
+  OOONANA_KERNEL_PACKAGE_SHA256: ""
 
 ci-smoke:
   image: alpine:3.20
@@ -86,7 +87,14 @@ deploy-package-repo:
 
       kernel_args=""
       if [ -n "${OOONANA_KERNEL_PACKAGE_URL:-}" ]; then
-        kernel_args="$kernel_args --kernel-url $OOONANA_KERNEL_PACKAGE_URL"
+        [ -n "${OOONANA_KERNEL_PACKAGE_SHA256:-}" ] || {
+          echo "OOONANA_KERNEL_PACKAGE_SHA256 required with kernel URL" >&2
+          exit 1
+        }
+        kernel_args="$kernel_args --kernel-url $OOONANA_KERNEL_PACKAGE_URL --kernel-sha256 $OOONANA_KERNEL_PACKAGE_SHA256"
+      elif [ -n "${OOONANA_KERNEL_PACKAGE_SHA256:-}" ]; then
+        echo "OOONANA_KERNEL_PACKAGE_URL required with kernel SHA-256" >&2
+        exit 1
       fi
       if [ -n "${OOONANA_KERNEL_VERSION:-}" ]; then
         kernel_args="$kernel_args --kernel-version $OOONANA_KERNEL_VERSION"

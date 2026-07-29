@@ -61,7 +61,8 @@ assert_contains "$wifi" '"--rescan"'
 assert_contains "$wifi" 'parse_iw_scan'
 assert_contains "$wifi" '"Scan", "edit-find-symbolic"'
 assert_contains "$wifi" '"IN-USE,BSSID,SSID,SIGNAL,SECURITY,DEVICE"'
-assert_contains "$wifi" '"802-11-wireless.hidden", "yes"'
+assert_contains "$wifi" '"802-11-wireless.hidden", "yes" if hidden else "no"'
+assert_contains "$wifi" "Let NetworkManager choose the strongest matching BSSID first"
 assert_contains "$wifi" '"connection", "up", *identifier'
 assert_contains "$wifi" '"uuid", uuid'
 assert_not_contains "$wifi" '"device", "wifi", "connect", ssid'
@@ -70,6 +71,9 @@ assert_contains "$wifi" "802-1x.domain-suffix-match"
 assert_contains "$wifi" "group_wifi_access_points"
 assert_contains "$wifi" 'button("3D mode"'
 assert_contains "$wifi" "ruvnet/RuView"
+assert_contains "$wifi" '"sensing-server", "--source", "simulate"'
+assert_contains "$wifi" 'http://127.0.0.1:3000/ui/index.html'
+assert_not_contains "$wifi" 'ruview-pointcloud'
 assert_contains "$wifi" 'connection", "delete", profile'
 assert_contains "$wifi" '"802-11-wireless-security.key-mgmt", "owe"'
 assert_contains "$wifi" '"802-11-wireless-security.wep-key-type"'
@@ -96,8 +100,12 @@ assert_contains "$ai" '["openvino", "--model-dir", model, "api", "start", "--dev
 assert_contains "$ai" '["ooonana-ai", "provider", "set", "openvino"]'
 assert_contains "$controls" "BrightnessWindow"
 assert_contains "$controls" "AudioWindow"
+assert_contains "$controls" "audio_command"
+assert_contains "$controls" "pulseaudio"
 assert_contains "$controls" 'self.add(root)'
 assert_contains "$controls" "PowerWindow"
+power_window="$(sed -n '/^class PowerWindow/,/^def main/p' "$UI_DIR/controls_app.py")"
+assert_contains "$power_window" 'self.add(root)'
 assert_contains "$controls" 'run_async(command, done, timeout=20)'
 assert_contains "$setup" "SetupWindow"
 assert_contains "$setup" "Apply setup"

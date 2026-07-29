@@ -1,3 +1,4 @@
+# shellcheck shell=sh
 # Ooonana shell helpers.
 
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin${PATH:+:$PATH}"

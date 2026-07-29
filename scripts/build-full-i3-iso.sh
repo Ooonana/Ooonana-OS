@@ -73,7 +73,7 @@ done
 write_grub_config() {
   local console_args="console=tty0 console=ttyS0"
   if [[ "$SMOKE" -eq 0 ]]; then
-    console_args="$console_args quiet loglevel=3 vt.global_cursor_default=0"
+    console_args="$console_args loglevel=6"
   fi
   local live_append="$console_args panic=1 rdinit=/init ooonana.live=1 ooonana.edition=full-i3"
   local persistent_append="$live_append ooonana.persistence=1"
@@ -102,6 +102,16 @@ terminal_output console serial
 terminal_output gfxterm serial
 set color_normal=yellow/black
 set color_highlight=black/yellow
+set ooonana_hardware_args=
+if [ "\$grub_platform" = "efi" ]; then
+  if insmod smbios; then
+    if smbios --type 1 --get-string 4 --set ooonana_manufacturer; then
+      if regexp --ignore-case 'samsung' "\$ooonana_manufacturer"; then
+        set ooonana_hardware_args='snd_intel_dspcfg.dsp_driver=3'
+      fi
+    fi
+  fi
+fi
 function ooonana_progress_bar {
   echo '                         [#####-----] booting Ooonana OS'
 }
@@ -133,22 +143,22 @@ set timeout=5
 set default=$default_entry
 
 menuentry 'Ooonana OS Full i3 Live' {
-  linux /boot/vmlinuz $live_append
+  linux /boot/vmlinuz $live_append \$ooonana_hardware_args
   initrd /boot/live-initramfs.cpio.gz
 }
 
 menuentry 'Ooonana OS Full i3 Live (persistent USB)' {
-  linux /boot/vmlinuz $persistent_append
+  linux /boot/vmlinuz $persistent_append \$ooonana_hardware_args
   initrd /boot/live-initramfs.cpio.gz
 }
 
 menuentry 'Install Ooonana OS Full i3' {
-  linux /boot/vmlinuz $install_append
+  linux /boot/vmlinuz $install_append \$ooonana_hardware_args
   initrd $install_initrd
 }
 
 menuentry 'Install Ooonana OS Full i3 (safe graphics)' {
-  linux /boot/vmlinuz $safe_install_append
+  linux /boot/vmlinuz $safe_install_append \$ooonana_hardware_args
   initrd $install_initrd
 }
 EOF
@@ -239,16 +249,112 @@ terminal-font: "Unifont Regular 16"
 message-color: "#ffb21a"
 message-bg-color: "#050505"
 
++ label {
+  id = "ooonana-logo-1"
+  text = "Ooonana OS"
+  left = 0%
+  top = 10
+  width = 100%
+  height = 20
+  color = "#ffb21a"
+  font = "Unifont Regular 16"
+  align = "center"
+}
+
++ label {
+  id = "ooonana-logo-2"
+  text = "__________________"
+  left = 0%
+  top = 30
+  width = 100%
+  height = 20
+  color = "#ffb21a"
+  font = "Unifont Regular 16"
+  align = "center"
+}
+
++ label {
+  id = "ooonana-logo-3"
+  text = "|    __      __    |"
+  left = 0%
+  top = 50
+  width = 100%
+  height = 20
+  color = "#ffb21a"
+  font = "Unifont Regular 16"
+  align = "center"
+}
+
++ label {
+  id = "ooonana-logo-4"
+  text = "|   /  \\    /  \\   |"
+  left = 0%
+  top = 70
+  width = 100%
+  height = 20
+  color = "#ffb21a"
+  font = "Unifont Regular 16"
+  align = "center"
+}
+
++ label {
+  id = "ooonana-logo-5"
+  text = "/ |                  |\\"
+  left = 0%
+  top = 90
+  width = 100%
+  height = 20
+  color = "#ffb21a"
+  font = "Unifont Regular 16"
+  align = "center"
+}
+
++ label {
+  id = "ooonana-logo-6"
+  text = "/  |     \\______/     | \\"
+  left = 0%
+  top = 110
+  width = 100%
+  height = 20
+  color = "#ffb21a"
+  font = "Unifont Regular 16"
+  align = "center"
+}
+
++ label {
+  id = "ooonana-logo-7"
+  text = "|__________________|"
+  left = 0%
+  top = 130
+  width = 100%
+  height = 20
+  color = "#ffb21a"
+  font = "Unifont Regular 16"
+  align = "center"
+}
+
++ label {
+  id = "ooonana-logo-8"
+  text = "|        |"
+  left = 0%
+  top = 150
+  width = 100%
+  height = 20
+  color = "#ffb21a"
+  font = "Unifont Regular 16"
+  align = "center"
+}
+
 + boot_menu {
   left = 16%
-  top = 28%
+  top = 38%
   width = 68%
   height = 44%
   visible = true
   item_font = "Unifont Regular 16"
   selected_item_font = "Unifont Regular 16"
   item_color = "#ffb21a"
-  selected_item_color = "#ffffff"
+  selected_item_color = "#ffd37a"
   item_height = 30
   item_padding = 6
   item_spacing = 4

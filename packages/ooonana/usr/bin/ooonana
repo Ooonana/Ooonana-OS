@@ -1,7 +1,9 @@
 #!/bin/sh
+# Package metadata paths are validated at runtime; BusyBox ash provides local.
+# shellcheck disable=SC1090,SC3043
 set -eu
 
-VERSION="0.8.6"
+VERSION="0.8.7"
 HOME_DIR="${HOME:-/root}"
 if [ -n "${OOONANA_AI_CONFIG:-}" ]; then
   AI_CONFIG="$OOONANA_AI_CONFIG"
@@ -24,21 +26,25 @@ root_join() {
 script_dir() {
   path="$0"
   while [ -L "$path" ] && command -v readlink >/dev/null 2>&1; do
-    dir="$(CDPATH= cd -- "$(dirname -- "$path")" && pwd)"
+    dir="$(CDPATH='' cd -- "$(dirname -- "$path")" && pwd)"
     target="$(readlink "$path")" || break
     case "$target" in
       /*) path="$target" ;;
       *) path="$dir/$target" ;;
     esac
   done
-  CDPATH= cd -- "$(dirname -- "$path")" && pwd
+  CDPATH='' cd -- "$(dirname -- "$path")" && pwd
 }
 
 SCRIPT_DIR="$(script_dir)"
 LOCAL_AI_APP="${SCRIPT_DIR%/bin}/lib/ooonana/ai/ooonana_ai.py"
-AI_APP="${OOONANA_AI_APP:-$LOCAL_AI_APP}"
-if [ ! -f "$AI_APP" ]; then
-  AI_APP="$(root_join /usr/lib/ooonana/ai/ooonana_ai.py)"
+if [ "${OOONANA_AI_APP+x}" = x ]; then
+  AI_APP="$OOONANA_AI_APP"
+else
+  AI_APP="$LOCAL_AI_APP"
+  if [ ! -f "$AI_APP" ]; then
+    AI_APP="$(root_join /usr/lib/ooonana/ai/ooonana_ai.py)"
+  fi
 fi
 
 REPO_DIR="${OOONANA_REPO_DIR:-$(root_join /usr/lib/ooonana/repo)}"
@@ -769,7 +775,10 @@ use_pkg_candidate() {
 
 find_pkg_file() {
   id="$1"
-  if [ -f "$REPO_DIR/$id.pkg" ]; then
+  target_version="$(available_pkg_version "$id" || true)"
+  [ -n "$target_version" ] || return 1
+  candidate_version="$(available_pkg_version_from_repo "$REPO_DIR" "$id" 2>/dev/null || true)"
+  if [ "$candidate_version" = "$target_version" ] && [ -f "$REPO_DIR/$id.pkg" ]; then
     use_pkg_candidate "$REPO_DIR/$id.pkg" "$REPO_DIR" "builtin" "" "${OOONANA_BUILTIN_REPO_KEY:-}" && return 0
   fi
 
@@ -779,19 +788,22 @@ find_pkg_file() {
     load_repo_source_file "$source_file"
     if repo_is_tarball "$OOONANA_REPO_URI"; then
       remote_dir="$(tarball_repo_cached_dir "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI")"
-      if [ -f "$remote_dir/index.tsv" ] && awk -v id="$id" 'BEGIN { FS = "\t" } $1 == id { found = 1 } END { exit found ? 0 : 1 }' "$remote_dir/index.tsv"; then
+      candidate_version="$(available_pkg_version_from_repo "$remote_dir" "$id" 2>/dev/null || true)"
+      if [ "$candidate_version" = "$target_version" ]; then
         [ -f "$remote_dir/$id.pkg" ] || die "missing repo file: $id.pkg"
         use_pkg_candidate "$remote_dir/$id.pkg" "$remote_dir" "$OOONANA_REPO_NAME" "" "$OOONANA_REPO_KEY" && return 0
       fi
     elif repo_is_remote "$OOONANA_REPO_URI"; then
       remote_dir="$(remote_repo_cached_dir "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI")"
-      if [ -f "$remote_dir/index.tsv" ] && awk -v id="$id" 'BEGIN { FS = "\t" } $1 == id { found = 1 } END { exit found ? 0 : 1 }' "$remote_dir/index.tsv"; then
+      candidate_version="$(available_pkg_version_from_repo "$remote_dir" "$id" 2>/dev/null || true)"
+      if [ "$candidate_version" = "$target_version" ]; then
         remote_repo_cache_file "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI" "$id.pkg" >/dev/null
         use_pkg_candidate "$remote_dir/$id.pkg" "$remote_dir" "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI" "$OOONANA_REPO_KEY" && return 0
       fi
     else
       [ -d "$OOONANA_REPO_URI" ] || die "missing repo source: $OOONANA_REPO_NAME $OOONANA_REPO_URI"
-      if [ -f "$OOONANA_REPO_URI/$id.pkg" ]; then
+      candidate_version="$(available_pkg_version_from_repo "$OOONANA_REPO_URI" "$id" 2>/dev/null || true)"
+      if [ "$candidate_version" = "$target_version" ] && [ -f "$OOONANA_REPO_URI/$id.pkg" ]; then
         use_pkg_candidate "$OOONANA_REPO_URI/$id.pkg" "$OOONANA_REPO_URI" "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI" "$OOONANA_REPO_KEY" && return 0
       fi
     fi
@@ -807,6 +819,8 @@ load_pkg() {
   . "$LOADED_PKG_FILE"
   [ "$OOONANA_PKG_ID" = "$id" ] || die "bad package metadata: $id"
   [ -n "$OOONANA_PKG_VERSION" ] || die "package missing version: $id"
+  [ "$OOONANA_PKG_VERSION" = "$target_version" ] ||
+    die "repo index version mismatch: $id $target_version != $OOONANA_PKG_VERSION"
   [ -n "$OOONANA_PKG_SUMMARY" ] || die "package missing summary: $id"
 }
 
@@ -828,6 +842,28 @@ installed_pkg_version() {
   id="$1"
   load_installed_pkg "$id"
   printf '%s\n' "$OOONANA_PKG_VERSION"
+}
+
+version_compare() {
+  left="$1"
+  right="$2"
+  [ "$left" != "$right" ] || { printf '=\n'; return 0; }
+  if have apk; then
+    result="$(apk version -t "$left" "$right" 2>/dev/null || true)"
+    case "$result" in
+      '<'|'>'|'=') printf '%s\n' "$result"; return 0 ;;
+    esac
+  fi
+  first="$(printf '%s\n%s\n' "$left" "$right" | sort -V 2>/dev/null | sed -n '1p')"
+  if [ "$first" = "$left" ]; then
+    printf '<\n'
+  else
+    printf '>\n'
+  fi
+}
+
+version_is_newer() {
+  [ "$(version_compare "$1" "$2")" = '<' ]
 }
 
 sha256_file() {
@@ -1190,23 +1226,28 @@ available_pkg_version_from_repo() {
 
 available_pkg_version() {
   id="$1"
-  available_pkg_version_from_repo "$REPO_DIR" "$id" && return 0
+  best="$(available_pkg_version_from_repo "$REPO_DIR" "$id" 2>/dev/null || true)"
 
-  [ -d "$SOURCES_DIR" ] || return 1
-  for source_file in "$SOURCES_DIR"/*.repo; do
-    [ -f "$source_file" ] || continue
-    load_repo_source_file "$source_file"
-    if repo_is_tarball "$OOONANA_REPO_URI"; then
-      repo_path="$(tarball_repo_cached_dir "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI")"
-    elif repo_is_remote "$OOONANA_REPO_URI"; then
-      repo_path="$(remote_repo_cached_dir "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI")"
-    else
-      repo_path="$OOONANA_REPO_URI"
-      [ -d "$repo_path" ] || die "missing repo source: $OOONANA_REPO_NAME $OOONANA_REPO_URI"
-    fi
-    available_pkg_version_from_repo "$repo_path" "$id" && return 0
-  done
-  return 1
+  if [ -d "$SOURCES_DIR" ]; then
+    for source_file in "$SOURCES_DIR"/*.repo; do
+      [ -f "$source_file" ] || continue
+      load_repo_source_file "$source_file"
+      if repo_is_tarball "$OOONANA_REPO_URI"; then
+        repo_path="$(tarball_repo_cached_dir "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI")"
+      elif repo_is_remote "$OOONANA_REPO_URI"; then
+        repo_path="$(remote_repo_cached_dir "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI")"
+      else
+        repo_path="$OOONANA_REPO_URI"
+        [ -d "$repo_path" ] || die "missing repo source: $OOONANA_REPO_NAME $OOONANA_REPO_URI"
+      fi
+      candidate="$(available_pkg_version_from_repo "$repo_path" "$id" 2>/dev/null || true)"
+      if [ -n "$candidate" ] && { [ -z "$best" ] || version_is_newer "$best" "$candidate"; }; then
+        best="$candidate"
+      fi
+    done
+  fi
+  [ -n "$best" ] || return 1
+  printf '%s\n' "$best"
 }
 
 safe_pkg_id() {
@@ -1443,6 +1484,24 @@ cmd_setup() {
   exec "$setup_bin" "$@"
 }
 
+select_best_index_entries() {
+  input="$1"
+  output="$2"
+  cut -f2 "$input" | sort -u | while IFS= read -r wanted_id; do
+    [ -n "$wanted_id" ] || continue
+    best_line=""
+    best_version=""
+    while IFS='	' read -r repo_name pkg_id pkg_version pkg_kind pkg_summary; do
+      [ "$pkg_id" = "$wanted_id" ] || continue
+      if [ -z "$best_version" ] || version_is_newer "$best_version" "$pkg_version"; then
+        best_version="$pkg_version"
+        best_line="$(printf '%s\t%s\t%s\t%s\t%s' "$repo_name" "$pkg_id" "$pkg_version" "$pkg_kind" "$pkg_summary")"
+      fi
+    done < "$input"
+    [ -z "$best_line" ] || printf '%s\n' "$best_line"
+  done > "$output"
+}
+
 cmd_update() {
   ensure_pkg_dirs
   tmp="$CACHE_DIR/index.tsv.tmp"
@@ -1513,6 +1572,9 @@ cmd_update() {
       done
     fi
   done < "$sources_tmp"
+  best_tmp="$CACHE_DIR/index.tsv.best.$$"
+  select_best_index_entries "$tmp" "$best_tmp"
+  replace_file "$best_tmp" "$tmp"
   replace_file "$sources_tmp" "$CACHE_DIR/sources.tsv"
   replace_file "$tmp" "$CACHE_DIR/index.tsv"
   count="$(wc -l < "$CACHE_DIR/index.tsv" | tr -d ' ')"
@@ -1597,7 +1659,7 @@ cmd_list() {
       [ -f "$file" ] || return 0
       id="$(basename "$file" .pkg)"
       old_version="$(installed_pkg_version "$id")"
-      if new_version="$(available_pkg_version "$id")" && [ "$old_version" != "$new_version" ]; then
+      if new_version="$(available_pkg_version "$id")" && version_is_newer "$old_version" "$new_version"; then
         load_pkg "$id"
         printf '%s %s -> %s %s\n' "$id" "$old_version" "$OOONANA_PKG_VERSION" "$OOONANA_PKG_SUMMARY"
       fi
@@ -1824,8 +1886,17 @@ install_one_pkg() {
     printf 'already installed %s\n' "$id"
     return 0
   fi
+  if [ "$dry_run" -eq 1 ]; then
+    case " ${OOONANA_PLANNED:-} " in
+      *" $id "*) return 0 ;;
+    esac
+  fi
   load_pkg "$id"
   check_pkg_conflicts "$id"
+
+  if [ "$dry_run" -eq 1 ]; then
+    OOONANA_PLANNED="${OOONANA_PLANNED:-} $id"
+  fi
 
   deps="$OOONANA_PKG_DEPS"
   conflicts="$OOONANA_PKG_CONFLICTS"
@@ -1860,6 +1931,7 @@ install_one_pkg() {
 cmd_get() {
   dry_run=0
   packages=""
+  OOONANA_PLANNED=""
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --dry-run) dry_run=1 ;;
@@ -1892,12 +1964,25 @@ upgrade_one_pkg() {
   esac
   pkg_installed "$id" || die "package not installed: $id"
 
+  if [ "$dry_run" -eq 1 ]; then
+    case " ${OOONANA_UPGRADE_PLANNED:-} " in
+      *" $id "*) return 0 ;;
+    esac
+  fi
+
   old_version="$(installed_pkg_version "$id")"
   load_pkg "$id"
   new_version="$OOONANA_PKG_VERSION"
   if [ "$old_version" = "$new_version" ]; then
     printf 'already current %s %s\n' "$id" "$new_version"
     return 0
+  fi
+  if ! version_is_newer "$old_version" "$new_version"; then
+    printf 'installed version newer %s %s > %s\n' "$id" "$old_version" "$new_version"
+    return 0
+  fi
+  if [ "$dry_run" -eq 1 ]; then
+    OOONANA_UPGRADE_PLANNED="${OOONANA_UPGRADE_PLANNED:-} $id"
   fi
   if [ "$dry_run" -eq 0 ] && [ -n "$OOONANA_PKG_ARCHIVE" ]; then
     ensure_pkg_archive_available
@@ -1937,6 +2022,8 @@ upgrade_one_pkg() {
 cmd_upgrade() {
   dry_run=0
   packages=""
+  OOONANA_PLANNED=""
+  OOONANA_UPGRADE_PLANNED=""
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --dry-run) dry_run=1 ;;
@@ -1951,7 +2038,7 @@ cmd_upgrade() {
       [ -f "$file" ] || { printf 'no packages installed\n'; return 0; }
       id="$(basename "$file" .pkg)"
       old_version="$(installed_pkg_version "$id")"
-      if new_version="$(available_pkg_version "$id")" && [ "$old_version" != "$new_version" ]; then
+      if new_version="$(available_pkg_version "$id")" && version_is_newer "$old_version" "$new_version"; then
         packages="$packages $id"
       fi
     done
@@ -2163,7 +2250,7 @@ find_repo_build_script() {
     printf '%s\n' "$OOONANA_SOURCE_ROOT/scripts/build-package-repo.sh"
     return 0
   fi
-  repo_root="$(CDPATH= cd "$SCRIPT_DIR/../../../.." 2>/dev/null && pwd || true)"
+  repo_root="$(CDPATH='' cd "$SCRIPT_DIR/../../../.." 2>/dev/null && pwd || true)"
   if [ -n "$repo_root" ] && [ -x "$repo_root/scripts/build-package-repo.sh" ]; then
     printf '%s\n' "$repo_root/scripts/build-package-repo.sh"
     return 0
@@ -2451,11 +2538,11 @@ cmd_ai() {
         ;;
       --state-dir)
         [ "$#" -ge 2 ] || die "ooonana ai --state-dir requires a path"
-        OOONANA_AI_STATE_DIR="$2"
+        export OOONANA_AI_STATE_DIR="$2"
         shift 2
         ;;
       --state-dir=*)
-        OOONANA_AI_STATE_DIR="${1#--state-dir=}"
+        export OOONANA_AI_STATE_DIR="${1#--state-dir=}"
         shift
         ;;
       --provider)

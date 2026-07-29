@@ -7,6 +7,7 @@ source "$ROOT/scripts/lib/common.sh"
 
 OUT_DIR="$ROOT/packages/ooonana/usr/lib/ooonana/repo"
 KERNEL=""
+KERNEL_SHA256="${OOONANA_KERNEL_SHA256:-}"
 VERSION="${OOONANA_KERNEL_VERSION:-6.18.37}"
 PKG_ID="ooonana-kernel"
 SUMMARY="Ooonana Linux kernel"
@@ -21,6 +22,7 @@ Usage:
 
 Options:
   --kernel PATH_OR_URL  Kernel image path or URL
+  --sha256 SHA256       Require this SHA-256 for the kernel image
   --out-dir PATH        Repo output directory
   --version VERSION     Package version
   --id NAME             Package id (default: ooonana-kernel)
@@ -33,6 +35,7 @@ USAGE
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --kernel) KERNEL="$2"; shift 2 ;;
+    --sha256) KERNEL_SHA256="$2"; shift 2 ;;
     --out-dir) OUT_DIR="$2"; shift 2 ;;
     --version) VERSION="$2"; shift 2 ;;
     --id) PKG_ID="$2"; shift 2 ;;
@@ -89,12 +92,21 @@ main() {
   ooonana_require_commands chmod cp gzip mkdir rm sed sha256sum tar
   [[ -n "$KERNEL" ]] || ooonana_die "missing --kernel"
   safe_pkg_id "$PKG_ID" || ooonana_die "bad package id: $PKG_ID"
+  if [[ -n "$KERNEL_SHA256" && ! "$KERNEL_SHA256" =~ ^[0-9A-Fa-f]{64}$ ]]; then
+    ooonana_die "bad kernel SHA-256"
+  fi
+  case "$KERNEL" in
+    http://*|https://*)
+      [[ -n "$KERNEL_SHA256" ]] || ooonana_die "--sha256 required for remote kernel"
+      ;;
+  esac
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf 'out: %s\n' "$OUT_DIR"
     printf 'id: %s\n' "$PKG_ID"
     printf 'version: %s\n' "$VERSION"
     printf 'kernel: %s\n' "$KERNEL"
+    [[ -n "$KERNEL_SHA256" ]] && printf 'sha256: %s\n' "$KERNEL_SHA256"
     return 0
   fi
 
@@ -107,6 +119,10 @@ main() {
 
   mkdir -p "$OUT_DIR/archives" "$work/root/boot"
   fetch_kernel "$KERNEL" "$work/root/boot/vmlinuz"
+  if [[ -n "$KERNEL_SHA256" ]]; then
+    printf '%s  %s\n' "$KERNEL_SHA256" "$work/root/boot/vmlinuz" |
+      sha256sum -c - >/dev/null || ooonana_die "kernel SHA-256 mismatch"
+  fi
   cp "$work/root/boot/vmlinuz" "$work/root/boot/vmlinuz-ooonana"
   cat > "$work/root/boot/ooonana-kernel.env" <<EOF
 OOONANA_KERNEL_PACKAGE="$PKG_ID"

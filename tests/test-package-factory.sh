@@ -54,6 +54,7 @@ assert_contains "$default_profile" "curl"
 assert_contains "$default_profile" "python3"
 assert_contains "$both_profile" "nano"
 assert_contains "$both_profile" "bash"
+assert_contains "$both_profile" "perl"
 assert_contains "$both_profile" "curl"
 assert_contains "$both_profile" "ca-certificates"
 assert_contains "$both_profile" "bubblewrap"
@@ -76,6 +77,11 @@ assert_contains "$full_i3_profile" "xf86-video-fbdev"
 assert_contains "$full_i3_profile" "xf86-input-libinput"
 assert_contains "$full_i3_profile" "xf86-input-evdev"
 assert_contains "$full_i3_profile" "eudev"
+assert_contains "$full_i3_profile" "bash"
+assert_contains "$full_i3_profile" "perl"
+assert_contains "$full_i3_profile" "i3lock"
+assert_contains "$full_i3_profile" "xset"
+assert_contains "$full_i3_profile" "grub-efi"
 assert_contains "$full_i3_profile" "xsetroot"
 assert_contains "$full_i3_profile" "xinput"
 assert_contains "$full_i3_profile" "python3"
@@ -86,6 +92,7 @@ assert_contains "$full_i3_profile" "picom"
 assert_contains "$full_i3_profile" "font-awesome-free"
 assert_contains "$full_i3_profile" "font-awesome-brands"
 assert_contains "$full_i3_profile" "font-misc-misc"
+assert_contains "$full_i3_profile" "adwaita-icon-theme"
 assert_contains "$full_i3_profile" "dunst"
 assert_contains "$full_i3_profile" "chromium"
 assert_contains "$full_i3_profile" "nemo"
@@ -161,6 +168,7 @@ assert_contains "$workflow" "--sign-key"
 assert_contains "$workflow" "--public-key"
 assert_contains "$workflow" "--kernel-url"
 assert_contains "$workflow" "--kernel-version"
+assert_contains "$workflow" "--kernel-sha256"
 assert_contains "$workflow" 'pages_url="https://${OWNER}.github.io/${REPO_NAME}"'
 assert_contains "$workflow" 'release_url="https://github.com/${OWNER}/${REPO_NAME}/releases/download/${RELEASE_TAG}/ooonana-package-repo.tar.gz"'
 assert_contains "$workflow" 'cloud_url="$release_url"'
@@ -190,9 +198,13 @@ assert_contains "$gitlab_ci" "OOONANA_REPO_SIGN_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_REPO_PUBLIC_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_CORE_VERSION"
+assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.8.7"'
 assert_contains "$gitlab_ci" "OOONANA_OPENVINO_CHAT_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_URL"
+assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_SHA256"
+assert_contains "$gitlab_ci" 'OOONANA_KERNEL_PACKAGE_URL: ""'
 assert_contains "$gitlab_ci" "--kernel-url"
+assert_contains "$gitlab_ci" "--kernel-sha256"
 assert_contains "$gitlab_ci" "--kernel-version"
 assert_contains "$gitlab_ci" "configs/packages/ooonana-cloud.list"
 assert_contains "$gitlab_ci" "configs/packages/full-i3.list"
@@ -206,6 +218,7 @@ assert_contains "$builder_help" "--sign-key PATH"
 assert_contains "$builder_help" "--public-key PATH"
 assert_contains "$builder_help" "--kernel PATH"
 assert_contains "$builder_help" "--kernel-url URL"
+assert_contains "$builder_help" "--kernel-sha256 SHA256"
 assert_contains "$builder_help" "--core-version VER"
 assert_contains "$builder_help" "--openvino-version VER"
 builder_dry="$(bash "$BUILDER" --dry-run --package-profile "$CLOUD_PROFILE" --repo-url file:///apk --cloud-url https://example.test/ooonana nano vim)"
@@ -214,13 +227,18 @@ assert_contains "$builder_dry" "cloud: cloud https://example.test/ooonana"
 assert_contains "$builder_dry" "scripts/import-apk-package.sh"
 assert_contains "$builder_dry" "scripts/build-ooonana-core-package.sh"
 assert_contains "$builder_dry" "scripts/build-openvino-chat-package.sh"
-builder_kernel_dry="$(bash "$BUILDER" --dry-run --package-profile "$CLOUD_PROFILE" --kernel-url https://example.test/vmlinuz --kernel-version 9.9.9 nano)"
+builder_kernel_dry="$(bash "$BUILDER" --dry-run --package-profile "$CLOUD_PROFILE" --kernel-url https://example.test/vmlinuz --kernel-sha256 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef --kernel-version 9.9.9 nano)"
 assert_contains "$builder_kernel_dry" "kernel-url: https://example.test/vmlinuz"
+assert_contains "$builder_kernel_dry" "kernel-sha256: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 assert_contains "$builder_kernel_dry" "scripts/build-kernel-package.sh"
 assert_contains "$builder_kernel_dry" "--version 9.9.9"
 kernel_builder_help="$(bash "$KERNEL_PACKAGER" --help)"
 assert_contains "$kernel_builder_help" "Build an Ooonana kernel package"
 assert_contains "$kernel_builder_help" "--kernel PATH_OR_URL"
+assert_contains "$kernel_builder_help" "--sha256 SHA256"
+if bash "$KERNEL_PACKAGER" --dry-run --kernel https://example.test/vmlinuz >/dev/null 2>&1; then
+  fail "remote kernel package accepted without SHA-256"
+fi
 kernel_builder_dry="$(bash "$KERNEL_PACKAGER" --dry-run --kernel /tmp/vmlinuz --out-dir /tmp/repo --version 9.9.9)"
 assert_contains "$kernel_builder_dry" "id: ooonana-kernel"
 assert_contains "$kernel_builder_dry" "version: 9.9.9"
@@ -264,6 +282,7 @@ OOONANA_TEST_ROOT="$ROOT" OOONANA_IMPORT_APK_SCRIPT="$stub" bash "$BUILDER" \
   --cloud-url https://example.test/repo \
   --clean >/dev/null
 [[ -f "$tmp/repo/nano.pkg" ]] || fail "builder did not run importer"
+[[ -f "$tmp/repo/base.pkg" ]] || fail "builder missing scratch base metadata"
 [[ -f "$tmp/repo/ooonana-core.pkg" ]] || fail "builder missing core meta package"
 [[ -f "$tmp/repo/ooonana-core-runtime.pkg" ]] || fail "builder missing core runtime package"
 [[ -f "$tmp/repo/openvino-chat.pkg" ]] || fail "builder missing OpenVINO Chat package"
@@ -295,19 +314,62 @@ core_upgrade="$(OOONANA_REPO_DIR="$tmp/repo" \
 assert_contains "$core_upgrade" "installed ooonana-core-runtime"
 assert_contains "$core_upgrade" "upgraded ooonana-core 0.8.1"
 [[ -x "$core_upgrade_root/usr/bin/ooonana" ]] || fail "core migration removed upgraded CLI"
-assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.8.6"
+assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.8.7"
 assert_contains "$(<"$tmp/repo/cloud.repo")" 'OOONANA_REPO_URI="https://example.test/repo"'
 assert_contains "$(<"$tmp/repo/README.txt")" "ooonana update"
 
+full_stub="$tmp/import-full-stub.sh"
+cat > "$full_stub" <<'EOF'
+#!/bin/sh
+out=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --out-dir) out="$2"; shift 2 ;;
+    --repo-url|--packages) shift 2 ;;
+    *) shift ;;
+  esac
+done
+mkdir -p "$out"
+cat > "$out/full-i3.pkg" <<'PKG'
+OOONANA_PKG_ID="full-i3"
+OOONANA_PKG_VERSION="1.0"
+OOONANA_PKG_KIND="profile"
+OOONANA_PKG_SUMMARY="full i3"
+OOONANA_PKG_DEPS="base"
+OOONANA_PKG_ARCHIVE=""
+OOONANA_PKG_SHA256=""
+PKG
+EOF
+chmod +x "$full_stub"
+OOONANA_TEST_ROOT="$ROOT" OOONANA_IMPORT_I3_SCRIPT="$full_stub" bash "$BUILDER" \
+  --out-dir "$tmp/full-repo" \
+  --package-profile /dev/null \
+  --packages nano \
+  --full-i3 \
+  --clean >/dev/null
+[[ -f "$tmp/full-repo/base.pkg" ]] || fail "full repo missing base dependency"
+OOONANA_REPO_DIR="$tmp/full-repo" \
+  OOONANA_SOURCES_DIR="$tmp/empty-sources" \
+  OOONANA_STATE_DIR="$tmp/full-state" \
+  OOONANA_CACHE_DIR="$tmp/full-cache" \
+  "$ROOT/packages/ooonana/usr/bin/ooonana" install full-i3 --dry-run >/dev/null ||
+  fail "full repo dependency closure is broken"
+
 printf 'kernel-test\n' > "$tmp/vmlinuz"
+kernel_sha256="$(sha256sum "$tmp/vmlinuz" | awk '{print $1}')"
 bash "$KERNEL_PACKAGER" \
   --out-dir "$tmp/kernel-repo" \
   --kernel "$tmp/vmlinuz" \
+  --sha256 "$kernel_sha256" \
   --version 9.9.9 >/dev/null
 [[ -f "$tmp/kernel-repo/ooonana-kernel.pkg" ]] || fail "kernel package missing"
 [[ -f "$tmp/kernel-repo/archives/ooonana-kernel-9.9.9.tar.gz" ]] || fail "kernel archive missing"
 assert_contains "$(<"$tmp/kernel-repo/index.tsv")" $'ooonana-kernel\t9.9.9\tkernel'
 tar -tzf "$tmp/kernel-repo/archives/ooonana-kernel-9.9.9.tar.gz" | grep -q 'boot/vmlinuz' || fail "kernel archive missing /boot/vmlinuz"
+if bash "$KERNEL_PACKAGER" --out-dir "$tmp/bad-kernel-repo" --kernel "$tmp/vmlinuz" \
+  --sha256 0000000000000000000000000000000000000000000000000000000000000000 >/dev/null 2>&1; then
+  fail "kernel package accepted mismatched SHA-256"
+fi
 
 OOONANA_TEST_ROOT="$ROOT" OOONANA_IMPORT_APK_SCRIPT="$stub" bash "$BUILDER" \
   --out-dir "$tmp/repo-with-kernel" \
@@ -340,6 +402,7 @@ assert_contains "$(<"$tmp/r2.repo")" 'OOONANA_REPO_URI="https://packages.example
 
 i3_importer="$(<"$ROOT/scripts/import-i3-package-set.sh")"
 assert_contains "$i3_importer" "configs/packages/full-i3.list"
+assert_contains "$i3_importer" "alpine/edge/community/x86_64"
 assert_contains "$full_i3_profile" "xf86-video-vesa"
 assert_contains "$full_i3_profile" "libxcb"
 assert_contains "$full_i3_profile" "libxau"

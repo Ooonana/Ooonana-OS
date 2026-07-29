@@ -1,4 +1,6 @@
 # Ooonana full-i3 cloud package repo seed.
+bash
+perl
 python3
 py3-pip
 py3-cairo
@@ -21,6 +23,7 @@ libxdmcp
 xf86-video-vesa
 xf86-video-fbdev
 i3wm
+i3lock
 i3status
 polybar
 rofi
@@ -29,6 +32,7 @@ shared-mime-info
 gdk-pixbuf
 gdk-pixbuf-loaders
 hicolor-icon-theme
+adwaita-icon-theme
 font-awesome-free
 font-awesome-brands
 font-dejavu
@@ -40,6 +44,7 @@ feh
 xterm
 alacritty
 xsetroot
+xset
 xrandr
 xinput
 xf86-input-libinput
@@ -109,6 +114,7 @@ brightnessctl
 coreutils
 parted
 grub-bios
+grub-efi
 e2fsprogs
 dosfstools
 rsync

@@ -13,6 +13,7 @@ from common import (  # noqa: E402
     message,
     run,
     run_async,
+    run_async_task,
 )
 
 
@@ -87,7 +88,9 @@ class AudioWindow(Gtk.Window):
         actions.pack_start(button("Mixer", "multimedia-volume-control-symbolic", lambda *_: launch(["pavucontrol"])), False, False, 0)
         actions.pack_end(button("Apply", "object-select-symbolic", self.apply, "suggested-action"), False, False, 0)
         root.pack_start(actions, False, False, 0)
-        rc, output = run(["pactl", "get-sink-volume", "@DEFAULT_SINK@"], timeout=4)
+        self.status = label("Checking audio service...", "muted")
+        root.pack_start(self.status, False, False, 0)
+        rc, output = self.audio_command("get-sink-volume", "@DEFAULT_SINK@")
         current = 50
         if rc == 0 and "/" in output:
             try:
@@ -98,7 +101,16 @@ class AudioWindow(Gtk.Window):
         mute_rc, mute = run(["pactl", "get-sink-mute", "@DEFAULT_SINK@"], timeout=4)
         self.muted = mute_rc == 0 and mute.endswith("yes")
         self.update_mute_label()
+        self.status.set_text("Audio ready" if rc == 0 else (output or "No audio output detected"))
         self.connect("destroy", Gtk.main_quit)
+
+    @staticmethod
+    def audio_command(*arguments):
+        rc, output = run(["pactl", *arguments], timeout=6)
+        if rc == 0:
+            return rc, output
+        run(["pulseaudio", "--start", "--exit-idle-time=-1"], timeout=8)
+        return run(["pactl", *arguments], timeout=8)
 
     def value_changed(self, scale):
         self.value_label.set_text(f"Volume  {int(scale.get_value())}%")
@@ -107,7 +119,10 @@ class AudioWindow(Gtk.Window):
         self.mute_button.set_label("Unmute" if self.muted else "Mute")
 
     def toggle_mute(self, _widget):
-        run(["pactl", "set-sink-mute", "@DEFAULT_SINK@", "toggle"], timeout=6)
+        rc, output = self.audio_command("set-sink-mute", "@DEFAULT_SINK@", "toggle")
+        if rc != 0:
+            message(self, "Sound failed", output or "PulseAudio has no usable output", Gtk.MessageType.ERROR)
+            return
         self.muted = not self.muted
         self.update_mute_label()
 
@@ -120,7 +135,10 @@ class AudioWindow(Gtk.Window):
             if rc != 0:
                 message(self, "Sound failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)
 
-        run_async(["pactl", "set-sink-volume", "@DEFAULT_SINK@", f"{value}%"], done, timeout=15)
+        def task():
+            return self.audio_command("set-sink-volume", "@DEFAULT_SINK@", f"{value}%")
+
+        run_async_task(task, done)
 
 
 class PowerWindow(Gtk.Window):
@@ -132,6 +150,7 @@ class PowerWindow(Gtk.Window):
         header(self, "Power", "Session and computer", "system-shutdown-symbolic")
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
         root.set_border_width(22)
+        self.add(root)
         root.pack_start(label("What should Ooonana do?", "page-title"), False, False, 0)
         grid = Gtk.Grid(column_spacing=12, row_spacing=12)
         grid.set_column_homogeneous(True)

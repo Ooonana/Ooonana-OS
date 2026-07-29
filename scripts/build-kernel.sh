@@ -157,9 +157,34 @@ OOONANA_KERNEL_DEFCONFIG=$DEFCONFIG
 EOF
 }
 
+verify_required_config() {
+  local symbol
+  local required=(
+    BLK_DEV_INITRD DEVTMPFS EXT4_FS ISO9660_FS OVERLAY_FS
+    EFI EFI_STUB EFIVAR_FS
+    USER_NS SECCOMP_FILTER
+    HID_MULTITOUCH I2C_HID_ACPI SAMSUNG_GALAXYBOOK
+    CFG80211 MAC80211 IWLWIFI IWLMVM FW_LOADER_COMPRESS_ZSTD
+    BT BT_HCIBTUSB
+    SND_HDA_INTEL SND_SOC_SOF_HDA_LINK SND_SOC_SOF_METEORLAKE
+    SND_SOC_INTEL_SOUNDWIRE_SOF_MACH SND_SOC_MAX98390
+    DRM_I915 DRM_AMDGPU DRM_NOUVEAU USB_XHCI_HCD USB_ROLE_SWITCH
+    TYPEC TYPEC_UCSI UCSI_ACPI BLK_DEV_NVME MMC_SDHCI_ACPI R8169
+    IPV6 VLAN_8021Q TUN
+    VFAT_FS EXFAT_FS SND_USB_AUDIO USB_VIDEO_CLASS USB_RTL8152
+  )
+
+  [[ "$DRY_RUN" -eq 0 ]] || return 0
+  [[ "${OOONANA_VERIFY_HARDWARE_CONFIG:-1}" = "1" ]] || return 0
+  for symbol in "${required[@]}"; do
+    grep -qx "CONFIG_${symbol}=y" "$KERNEL_BUILD/.config" ||
+      ooonana_die "required kernel option did not resolve: CONFIG_${symbol}=y"
+  done
+}
+
 main() {
   ooonana_require_linux
-  ooonana_require_commands make install cp mkdir dirname chmod mktemp
+  ooonana_require_commands make install cp mkdir dirname chmod mktemp grep
   validate_source
 
   if [[ "$FORCE" -eq 1 ]]; then
@@ -177,6 +202,7 @@ main() {
 
   apply_config_fragments
   run_cmd make -C "$KERNEL_SOURCE" O="$KERNEL_BUILD" olddefconfig
+  verify_required_config
   run_cmd make -C "$KERNEL_SOURCE" O="$KERNEL_BUILD" -j "$JOBS" bzImage
 
   if [[ "$DRY_RUN" -eq 1 ]]; then

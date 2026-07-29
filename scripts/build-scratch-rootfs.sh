@@ -315,7 +315,7 @@ if grep -q 'ooonana.install=1' /proc/cmdline 2>/dev/null; then
 fi
 
 if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
-  if /usr/bin/ooonana version | grep -q 'ooonana 0.8.6' &&
+  if /usr/bin/ooonana version | grep -q 'ooonana 0.8.7' &&
     /usr/bin/ooonana me | grep -q 'Ooonana OS' &&
     /usr/bin/ooonana list | grep -q 'gui' &&
     /usr/bin/ooonana list --installed | grep -q 'base'; then
@@ -385,13 +385,14 @@ create_image() {
 
 main() {
   ooonana_require_linux
-  ooonana_require_commands install cp chmod ln mkdir truncate mkfs.ext4
+  ooonana_require_commands install cp chmod ln mkdir stat truncate mkfs.ext4
 
   local busybox_path
   busybox_path="$(find_busybox)"
 
   mkdir -p "$WORK_DIR"
-  chmod a+rwx "$WORK_DIR" 2>/dev/null || true
+  ooonana_require_unix_permissions "$WORK_DIR"
+  chmod u+rwx,go+rx "$WORK_DIR" 2>/dev/null || true
 
   if [[ "$FORCE" -eq 1 ]]; then
     rm -rf "$ROOTFS"
@@ -407,8 +408,9 @@ main() {
   create_device_nodes
   install_ooonana_payload
   write_init_files
+  chmod -R go-w "$ROOTFS" 2>/dev/null || true
+  chmod 1777 "$ROOTFS/tmp"
   create_image
-  chmod -R a+rwX "$ROOTFS" 2>/dev/null || true
 
   ooonana_log "scratch rootfs ready: $ROOTFS"
   [[ "$NO_IMAGE" -eq 1 ]] || ooonana_log "scratch image ready: $IMAGE"

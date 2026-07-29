@@ -26,7 +26,8 @@ assert_not_contains() {
 script_src="$(<"$SCRIPT")"
 assert_not_contains "$script_src" "debootstrap"
 assert_not_contains "$script_src" "apt-get"
-assert_contains "$script_src" 'chmod -R a+rwX "$ROOTFS"'
+assert_contains "$script_src" 'ooonana_require_unix_permissions "$WORK_DIR"'
+assert_contains "$script_src" 'chmod -R go-w "$ROOTFS"'
 assert_contains "$script_src" 'mount -t devpts devpts /dev/pts'
 assert_contains "$script_src" 'mknod -m 600 "$ROOTFS/dev/console" c 5 1 || : > "$ROOTFS/dev/console"'
 

@@ -66,13 +66,13 @@ run_cmd() {
 }
 
 partition_path() {
-  printf '%sp1\n' "$1"
+  printf '%sp%s\n' "$1" "${2:-1}"
 }
 
 wait_for_block() {
   local path="$1"
-  local i
-  for i in $(seq 1 50); do
+  local _
+  for _ in $(seq 1 50); do
     [[ -b "$path" ]] && return 0
     sleep 0.1
   done
@@ -123,6 +123,16 @@ terminal_input console serial
 terminal_output console serial
 set color_normal=yellow/black
 set color_highlight=black/yellow
+set ooonana_hardware_args=
+if [ "\$grub_platform" = "efi" ]; then
+  if insmod smbios; then
+    if smbios --type 1 --get-string 4 --set ooonana_manufacturer; then
+      if regexp --ignore-case 'samsung' "\$ooonana_manufacturer"; then
+        set ooonana_hardware_args='snd_intel_dspcfg.dsp_driver=3'
+      fi
+    fi
+  fi
+fi
 if terminal_output gfxterm serial; then
   true
 fi
@@ -135,7 +145,7 @@ set timeout=5
 set default=0
 
 menuentry 'Ooonana OS Full i3' {
-  linux /boot/vmlinuz $append
+  linux /boot/vmlinuz $append \$ooonana_hardware_args
 }
 EOF
 }
@@ -146,12 +156,16 @@ write_disk_metadata() {
   printf 'full-i3\n' > "$MOUNT_POINT/etc/ooonana/edition"
   cat > "$MOUNT_POINT/etc/fstab" <<'EOF'
 LABEL=OOONANA_ROOT / ext4 defaults 0 1
+LABEL=OOONANA_EFI /boot/efi vfat umask=0077 0 1
 proc /proc proc defaults 0 0
 EOF
 }
 
 cleanup() {
   if [[ "$DRY_RUN" -eq 0 ]]; then
+    if mountpoint -q "$MOUNT_POINT/boot/efi" 2>/dev/null; then
+      umount "$MOUNT_POINT/boot/efi"
+    fi
     if mountpoint -q "$MOUNT_POINT" 2>/dev/null; then
       umount "$MOUNT_POINT"
     fi
@@ -171,20 +185,28 @@ main() {
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
     run_cmd truncate -s "$SIZE" "$DISK_IMAGE"
-    run_cmd parted -s "$DISK_IMAGE" mklabel msdos mkpart primary ext4 1MiB 100% set 1 boot on
+    run_cmd parted -s "$DISK_IMAGE" mklabel gpt \
+      mkpart BIOSBOOT 1MiB 3MiB set 1 bios_grub on \
+      mkpart ESP fat32 3MiB 515MiB set 2 esp on \
+      mkpart ROOT ext4 515MiB 100%
     run_cmd losetup --find --show --partscan "$DISK_IMAGE"
-    run_cmd mkfs.ext4 -F -L OOONANA_ROOT LOOP_PARTITION
-    run_cmd mount LOOP_PARTITION "$MOUNT_POINT"
+    run_cmd mkfs.vfat -F 32 -n OOONANA_EFI LOOP_EFI_PARTITION
+    run_cmd mkfs.ext4 -F -L OOONANA_ROOT LOOP_ROOT_PARTITION
+    run_cmd mount LOOP_ROOT_PARTITION "$MOUNT_POINT"
+    run_cmd mkdir -p "$MOUNT_POINT/boot/efi"
+    run_cmd mount LOOP_EFI_PARTITION "$MOUNT_POINT/boot/efi"
     run_cmd cp -a "$ROOTFS/." "$MOUNT_POINT/"
     run_cmd install -m 0644 "$KERNEL" "$MOUNT_POINT/boot/vmlinuz"
     printf 'grub.cfg: linux /boot/vmlinuz %s\n' "$(kernel_append "PARTUUID=TARGET_PARTUUID")"
-    run_cmd grub-install --target=i386-pc --boot-directory="$MOUNT_POINT/boot" --modules="part_msdos ext2" --no-floppy LOOP_DEVICE
+    run_cmd grub-install --target=i386-pc --boot-directory="$MOUNT_POINT/boot" --modules="part_gpt biosdisk ext2 normal linux configfile" --no-floppy LOOP_DEVICE
+    run_cmd grub-install --target=x86_64-efi --efi-directory="$MOUNT_POINT/boot/efi" \
+      --boot-directory="$MOUNT_POINT/boot" --bootloader-id=Ooonana --removable --no-nvram
     printf 'OOONANA_FULL_I3_DISK_OK\n'
     return 0
   fi
 
   ooonana_reexec_as_root "${ORIGINAL_ARGS[@]}"
-  ooonana_require_commands truncate parted losetup mkfs.ext4 mount umount grub-install cp grep install sync blkid
+  ooonana_require_commands truncate parted losetup mkfs.ext4 mkfs.vfat mount umount grub-install cp grep install sync blkid
 
   if [[ -e "$DISK_IMAGE" && "$FORCE" -ne 1 ]]; then
     ooonana_die "disk image exists: $DISK_IMAGE (use --force)"
@@ -198,24 +220,34 @@ main() {
   rm -f "$DISK_IMAGE"
 
   truncate -s "$SIZE" "$DISK_IMAGE"
-  parted -s "$DISK_IMAGE" mklabel msdos mkpart primary ext4 1MiB 100% set 1 boot on
+  parted -s "$DISK_IMAGE" mklabel gpt \
+    mkpart BIOSBOOT 1MiB 3MiB set 1 bios_grub on \
+    mkpart ESP fat32 3MiB 515MiB set 2 esp on \
+    mkpart ROOT ext4 515MiB 100%
 
   LOOP_DEV="$(losetup --find --show --partscan "$DISK_IMAGE")"
   partprobe "$LOOP_DEV" 2>/dev/null || true
-  part="$(partition_path "$LOOP_DEV")"
-  wait_for_block "$part" || ooonana_die "missing loop partition: $part"
+  efi_part="$(partition_path "$LOOP_DEV" 2)"
+  part="$(partition_path "$LOOP_DEV" 3)"
+  wait_for_block "$efi_part" || ooonana_die "missing EFI loop partition: $efi_part"
+  wait_for_block "$part" || ooonana_die "missing root loop partition: $part"
 
+  mkfs.vfat -F 32 -n OOONANA_EFI "$efi_part"
   mkfs.ext4 -F -L OOONANA_ROOT "$part"
   partuuid="$(blkid -s PARTUUID -o value "$part" 2>/dev/null || true)"
   [[ -n "$partuuid" ]] || ooonana_die "missing PARTUUID for $part"
   mount "$part" "$MOUNT_POINT"
   cp -a "$ROOTFS/." "$MOUNT_POINT/"
-  mkdir -p "$MOUNT_POINT/boot"
+  mkdir -p "$MOUNT_POINT/boot/efi"
+  mount "$efi_part" "$MOUNT_POINT/boot/efi"
   install -m 0644 "$KERNEL" "$MOUNT_POINT/boot/vmlinuz"
   write_disk_metadata
   write_grub_config "$MOUNT_POINT" "PARTUUID=$partuuid"
-  grub-install --target=i386-pc --boot-directory="$MOUNT_POINT/boot" --modules="part_msdos ext2" --no-floppy "$LOOP_DEV"
+  grub-install --target=i386-pc --boot-directory="$MOUNT_POINT/boot" --modules="part_gpt biosdisk ext2 normal linux configfile" --no-floppy "$LOOP_DEV"
+  grub-install --target=x86_64-efi --efi-directory="$MOUNT_POINT/boot/efi" \
+    --boot-directory="$MOUNT_POINT/boot" --bootloader-id=Ooonana --removable --no-nvram
   sync
+  umount "$MOUNT_POINT/boot/efi"
   umount "$MOUNT_POINT"
   losetup -d "$LOOP_DEV"
   LOOP_DEV=""

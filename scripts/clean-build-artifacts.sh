@@ -50,7 +50,7 @@ resolve_path() {
 assert_safe_work_dir() {
   local real="$1"
   case "$real" in
-    */ooonana-os/build|*/Ooonana/ooonana-os/build|*/OoonanaOS/build) ;;
+    */ooonana-os/build|*/OoonanaOS/build) ;;
     *) ooonana_die "refusing unsafe build dir: $real" ;;
   esac
 }

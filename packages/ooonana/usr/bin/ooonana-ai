@@ -4,14 +4,14 @@ set -eu
 script_dir() {
   path="$0"
   while [ -L "$path" ] && command -v readlink >/dev/null 2>&1; do
-    dir="$(CDPATH= cd -- "$(dirname -- "$path")" && pwd)"
+    dir="$(CDPATH='' cd -- "$(dirname -- "$path")" && pwd)"
     target="$(readlink "$path")" || break
     case "$target" in
       /*) path="$target" ;;
       *) path="$dir/$target" ;;
     esac
   done
-  CDPATH= cd -- "$(dirname -- "$path")" && pwd
+  CDPATH='' cd -- "$(dirname -- "$path")" && pwd
 }
 
 SCRIPT_DIR="$(script_dir)"

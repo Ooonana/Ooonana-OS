@@ -10,6 +10,7 @@ REPO_URLS=""
 OUT_DIR="$ROOT/packages/ooonana/usr/lib/ooonana/repo"
 ARCH="x86_64"
 PACKAGES=""
+INDEX_REPO=1
 
 usage() {
   cat <<'USAGE'
@@ -23,6 +24,7 @@ Options:
                    (default: Alpine v3.20 main and community x86_64)
   --out-dir PATH   Ooonana repo output directory
   --arch ARCH      Expected Alpine arch (default: x86_64)
+  --no-index       Leave repo indexing to caller
   -h, --help       Show help
 USAGE
 }
@@ -32,6 +34,7 @@ while [[ $# -gt 0 ]]; do
     --repo-url) REPO_URLS="$REPO_URLS $2"; shift 2 ;;
     --out-dir) OUT_DIR="$2"; shift 2 ;;
     --arch) ARCH="$2"; shift 2 ;;
+    --no-index) INDEX_REPO=0; shift ;;
     -h|--help) usage; exit 0 ;;
     *) PACKAGES="$PACKAGES $1"; shift ;;
   esac
@@ -47,7 +50,7 @@ fetch_url() {
     file://*) cp "${url#file://}" "$out" ;;
     http://*|https://*)
       if command -v curl >/dev/null 2>&1; then
-        curl -fsSL --retry 5 --retry-delay 3 --connect-timeout 30 "$url" -o "$out" && return 0
+        curl -fsSL --retry 5 --retry-delay 3 --connect-timeout 30 --max-time 900 "$url" -o "$out" && return 0
       fi
       if command -v wget >/dev/null 2>&1; then
         wget -q --tries=5 --timeout=60 -O "$out" "$url" && return 0
@@ -60,8 +63,7 @@ fetch_url() {
 
 repo_join() {
   local repo_url="$1"
-  local rel="$1"
-  rel="$2"
+  local rel="$2"
   case "$repo_url" in
     http://*|https://*) printf '%s/%s\n' "${repo_url%/}" "$rel" ;;
     file://*) printf 'file://%s/%s\n' "${repo_url#file://}" "$rel" ;;
@@ -76,26 +78,11 @@ shell_escape() {
 apk_field() {
   local name="$1"
   local field="$2"
-  awk -v pkg="$name" -v key="$field" '
-    BEGIN { RS = ""; FS = "\n" }
-    {
-      found = 0
-      for (i = 1; i <= NF; i++) {
-        if ($i == "P:" pkg) {
-          found = 1
-        }
-      }
-      if (!found) {
-        next
-      }
-      for (i = 1; i <= NF; i++) {
-        if (index($i, key ":") == 1) {
-          print substr($i, length(key) + 2)
-          exit
-        }
-      }
-    }
-  ' "$APKINDEX"
+  local record="$INDEX_DIR/$name"
+  [[ -f "$record" ]] || return 0
+  awk -v key="$field:" '
+    index($0, key) == 1 { print substr($0, length(key) + 1); exit }
+  ' "$record"
 }
 
 normalize_deps() {
@@ -125,47 +112,43 @@ normalize_deps() {
 
 apk_pkg_exists() {
   local name="$1"
-  awk -v pkg="$name" '
-    BEGIN { RS = ""; FS = "\n" }
-    {
-      for (i = 1; i <= NF; i++) {
-        if ($i == "P:" pkg) {
-          found = 1
-          exit
-        }
-      }
-    }
-    END { exit found ? 0 : 1 }
-  ' "$APKINDEX"
+  [[ -f "$INDEX_DIR/$name" ]]
 }
 
 provider_pkg() {
   local provider="$1"
-  awk -v provider="$provider" '
+  awk -F '\t' -v provider="$provider" '
+    $1 == provider { print $2; exit }
+  ' "$PROVIDER_INDEX"
+}
+
+build_index_cache() {
+  INDEX_DIR="$WORK/index"
+  PROVIDER_INDEX="$WORK/providers.tsv"
+  mkdir -p "$INDEX_DIR"
+  : > "$PROVIDER_INDEX"
+  awk -v index_dir="$INDEX_DIR" -v provider_index="$PROVIDER_INDEX" '
     BEGIN { RS = ""; FS = "\n" }
     {
       pkg = ""
-      matched = 0
       for (i = 1; i <= NF; i++) {
-        if (index($i, "P:") == 1) {
-          pkg = substr($i, 3)
-        }
-        if (index($i, "p:") == 1) {
-          provides = substr($i, 3)
-          n = split(provides, fields, /[[:space:]]+/)
-          for (j = 1; j <= n; j++) {
-            candidate = fields[j]
-            sub(/[<>=~].*$/, "", candidate)
-            if (candidate == provider) {
-              matched = 1
-            }
-          }
+        if (index($i, "P:") == 1) pkg = substr($i, 3)
+      }
+      if (pkg == "" || seen[pkg]++) next
+      record = index_dir "/" pkg
+      print $0 > record
+      close(record)
+      for (i = 1; i <= NF; i++) {
+        if (index($i, "p:") != 1) continue
+        provides = substr($i, 3)
+        count = split(provides, fields, /[[:space:]]+/)
+        for (j = 1; j <= count; j++) {
+          candidate = fields[j]
+          sub(/[<>=~].*$/, "", candidate)
+          if (candidate != "") print candidate "\t" pkg >> provider_index
         }
       }
-      if (matched && pkg != "") {
-        print pkg
-        exit
-      }
+      close(provider_index)
     }
   ' "$APKINDEX"
 }
@@ -192,6 +175,30 @@ OOONANA_PKG_NOTES="Imported from Alpine package $(shell_escape "$origin")"
 EOF
 }
 
+metadata_value() {
+  local file="$1"
+  local key="$2"
+  sed -n "s/^${key}=\"\([^\"]*\)\"$/\1/p" "$file" | head -n 1
+}
+
+reuse_cached_archive() {
+  local pkg_file="$1"
+  local archive_path="$2"
+  local version="$3"
+  local archive_rel="$4"
+  local cached_version cached_archive cached_sha archive_sha
+
+  [[ -f "$pkg_file" && -f "$archive_path" ]] || return 1
+  cached_version="$(metadata_value "$pkg_file" OOONANA_PKG_VERSION)"
+  cached_archive="$(metadata_value "$pkg_file" OOONANA_PKG_ARCHIVE)"
+  cached_sha="$(metadata_value "$pkg_file" OOONANA_PKG_SHA256)"
+  [[ "$cached_version" == "$version" ]] || return 1
+  [[ "$cached_archive" == "$archive_rel" ]] || return 1
+  [[ "$cached_sha" =~ ^[0-9a-f]{64}$ ]] || return 1
+  archive_sha="$(sha256sum "$archive_path" | awk '{print $1}')"
+  [[ "$archive_sha" == "$cached_sha" ]]
+}
+
 import_one() {
   local name="$1"
   local version apk_arch origin summary raw_deps deps archive_name archive_rel archive_path apk_repo
@@ -212,10 +219,19 @@ import_one() {
   archive_rel="archives/$name-$version.tar.gz"
   archive_path="$OUT_DIR/$archive_rel"
   mkdir -p "$OUT_DIR/archives" "$WORK/extract-$name"
+  if reuse_cached_archive "$OUT_DIR/$name.pkg" "$archive_path" "$version" "$archive_rel"; then
+    archive_sha="$(sha256sum "$archive_path" | awk '{print $1}')"
+    write_pkg_metadata "$name" "$version" "$summary" "$deps" "$archive_rel" "$archive_sha" "$origin"
+    for dep in $deps; do
+      printf '%s\n' "$dep"
+    done
+    return 0
+  fi
+  rm -f "$archive_path"
   fetch_url "$(repo_join "$apk_repo" "$archive_name")" "$WORK/$archive_name"
   rm -rf "$WORK/extract-$name"
   mkdir -p "$WORK/extract-$name"
-  tar -xzf "$WORK/$archive_name" -C "$WORK/extract-$name"
+  tar --warning=no-unknown-keyword -xzf "$WORK/$archive_name" -C "$WORK/extract-$name"
   find "$WORK/extract-$name" -maxdepth 1 \( \
     -name '.PKGINFO' -o \
     -name '.SIGN.*' -o \
@@ -245,10 +261,21 @@ main() {
   ooonana_require_linux
   ooonana_require_commands awk basename chmod cp find gzip mkdir rm sed sha256sum sort tar tr
   mkdir -p "$OUT_DIR"
+  LOCK_DIR="$OUT_DIR/.import.lock"
+  if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+    lock_pid="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
+    if [[ "$lock_pid" =~ ^[0-9]+$ ]] && kill -0 "$lock_pid" 2>/dev/null; then
+      ooonana_die "package import already running for $OUT_DIR (pid $lock_pid)"
+    fi
+    rm -rf "$LOCK_DIR"
+    mkdir "$LOCK_DIR"
+  fi
+  printf '%s\n' "$$" > "$LOCK_DIR/pid"
   WORK="$(mktemp -d)"
   cleanup() {
     chmod -R u+rwX "$WORK" 2>/dev/null || true
     rm -rf "$WORK"
+    rm -rf "$LOCK_DIR"
   }
   trap cleanup EXIT
   APKINDEX="$WORK/APKINDEX"
@@ -263,6 +290,7 @@ main() {
       NF { print $0 "\nX:" repo_url }
     ' "$WORK/APKINDEX.$repo_i" >> "$APKINDEX"
   done
+  build_index_cache
 
   imported="$WORK/imported"
   queue="$WORK/queue"
@@ -280,7 +308,9 @@ main() {
     import_one "$pkg" >> "$queue"
   done < "$queue"
 
-  "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$OUT_DIR" >/dev/null
+  if [[ "$INDEX_REPO" -eq 1 ]]; then
+    "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$OUT_DIR" >/dev/null
+  fi
   count="$(wc -l < "$imported" | tr -d ' ')"
   ooonana_log "imported $count apk package(s): $OUT_DIR"
 }

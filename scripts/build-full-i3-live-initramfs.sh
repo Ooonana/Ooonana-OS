@@ -71,7 +71,7 @@ main() {
 
   mkdir -p "$(dirname "$INITRAMFS")" "$(dirname "$ROOTFS_IMAGE")" "$ROOTFS/boot" "$ROOTFS/dev" "$ROOTFS/proc" "$ROOTFS/sys" "$ROOTFS/run" "$ROOTFS/tmp"
   install -m 0644 "$KERNEL" "$ROOTFS/boot/vmlinuz"
-  rm -rf "$ROOTFS/dev/"* "$ROOTFS/proc/"* "$ROOTFS/sys/"* "$ROOTFS/run/"* "$ROOTFS/tmp/"* 2>/dev/null || true
+  rm -rf "${ROOTFS:?}/dev/"* "${ROOTFS:?}/proc/"* "${ROOTFS:?}/sys/"* "${ROOTFS:?}/run/"* "${ROOTFS:?}/tmp/"* 2>/dev/null || true
   rm -f "$INITRAMFS" "$ROOTFS_IMAGE"
 
   local used_kb image_kb
@@ -253,7 +253,12 @@ splash "finding boot media" 2
 tries=0
 while [ "$tries" -lt 40 ]; do
   mdev -s 2>/dev/null || true
-  for dev in /dev/sr0 /dev/sr1 /dev/cdrom /dev/hdc /dev/sd? /dev/sd?? /dev/vd? /dev/vd?? /dev/xvd? /dev/xvd?? /dev/nvme?n? /dev/nvme?n?p?; do
+  candidates="/dev/sr0 /dev/sr1 /dev/cdrom /dev/hdc"
+  for devpath in /sys/class/block/*; do
+    [ -e "$devpath" ] || continue
+    candidates="$candidates /dev/${devpath##*/}"
+  done
+  for dev in $candidates; do
     [ -b "$dev" ] || continue
     if mount -t iso9660 -o ro "$dev" /mnt/iso 2>/dev/null || mount -o ro,noload "$dev" /mnt/iso 2>/dev/null || mount -o ro "$dev" /mnt/iso 2>/dev/null; then
       if [ -f "/mnt/iso$LIVE_IMAGE" ]; then

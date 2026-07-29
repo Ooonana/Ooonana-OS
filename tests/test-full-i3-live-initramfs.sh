@@ -102,6 +102,8 @@ assert_contains "$script_src" "stty size"
 assert_contains "$script_src" "start_row"
 assert_contains "$script_src" "P3ffb21a"
 assert_contains "$script_src" "mount -o ro,noload"
+assert_contains "$script_src" "/sys/class/block/*"
+assert_contains "$script_src" 'candidates="$candidates /dev/${devpath##*/}"'
 assert_contains "$script_src" "usr/share/ooonana/logo.txt"
 assert_contains "$script_src" "ld-musl-x86_64.so.1"
 assert_contains "$script_src" "libc.musl-x86_64.so.1"

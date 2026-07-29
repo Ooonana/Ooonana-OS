@@ -39,6 +39,21 @@ ooonana_require_commands() {
   done
 }
 
+ooonana_require_unix_permissions() {
+  local directory="$1"
+  local probe="$directory/.ooonana-permission-probe.$$"
+  local mode
+
+  mkdir -p "$directory"
+  : > "$probe"
+  chmod 0600 "$probe"
+  mode="$(stat -c '%a' "$probe" 2>/dev/null || true)"
+  rm -f "$probe"
+
+  [[ "$mode" == "600" ]] ||
+    ooonana_die "build path lacks Unix permissions: $directory (mount drvfs with -o metadata)"
+}
+
 ooonana_read_package_profile() {
   local profile="$1"
   [[ -f "$profile" ]] || ooonana_die "missing package profile: $profile"

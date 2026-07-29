@@ -46,7 +46,7 @@ export OOONANA_STATE_DIR="$tmp/state"
 export OOONANA_CACHE_DIR="$tmp/cache"
 
 help="$("$CLI" help)"
-assert_contains "$help" "ooonana 0.8.6"
+assert_contains "$help" "ooonana 0.8.7"
 assert_contains "$help" "Usage: ooonana [options] command"
 assert_contains "$help" "Most used commands:"
 assert_contains "$help" "  list - list packages based on names or installed state"
@@ -836,6 +836,27 @@ OOONANA_PKG_KIND="tool"
 OOONANA_PKG_SUMMARY="App using thing library"
 OOONANA_PKG_DEPS="libthing"
 EOF
+cat > "$dep_repo/branchleft.pkg" <<'EOF'
+OOONANA_PKG_ID="branchleft"
+OOONANA_PKG_VERSION="1.0.0"
+OOONANA_PKG_KIND="tool"
+OOONANA_PKG_SUMMARY="Left dependency branch"
+OOONANA_PKG_DEPS="libthing"
+EOF
+cat > "$dep_repo/branchright.pkg" <<'EOF'
+OOONANA_PKG_ID="branchright"
+OOONANA_PKG_VERSION="1.0.0"
+OOONANA_PKG_KIND="tool"
+OOONANA_PKG_SUMMARY="Right dependency branch"
+OOONANA_PKG_DEPS="libthing"
+EOF
+cat > "$dep_repo/diamond.pkg" <<'EOF'
+OOONANA_PKG_ID="diamond"
+OOONANA_PKG_VERSION="1.0.0"
+OOONANA_PKG_KIND="profile"
+OOONANA_PKG_SUMMARY="Diamond dependency profile"
+OOONANA_PKG_DEPS="branchleft branchright"
+EOF
 cat > "$dep_repo/left.pkg" <<'EOF'
 OOONANA_PKG_ID="left"
 OOONANA_PKG_VERSION="1.0.0"
@@ -902,6 +923,15 @@ apk_cycle_dry="$(OOONANA_REPO_DIR="$dep_repo" \
 assert_contains "$apk_cycle_dry" "dependency cycle tolerated: apkcyclea"
 assert_contains "$apk_cycle_dry" "would install apkcycleb"
 assert_contains "$apk_cycle_dry" "would install apkcyclea"
+
+diamond_dry="$(OOONANA_REPO_DIR="$dep_repo" \
+  OOONANA_STATE_DIR="$tmp/diamond-state-dry" \
+  OOONANA_CACHE_DIR="$tmp/diamond-cache-dry" \
+  OOONANA_ROOT="$tmp/diamond-root-dry" \
+  "$CLI" get diamond --dry-run)"
+[[ "$(printf '%s\n' "$diamond_dry" | grep -c '^would install libthing ')" -eq 1 ]] ||
+  fail "dry-run planned shared dependency more than once"
+assert_contains "$diamond_dry" "would install diamond"
 
 OOONANA_REPO_DIR="$dep_repo" \
   OOONANA_STATE_DIR="$tmp/dep-state" \
@@ -1187,5 +1217,81 @@ upgrade_bad="$(OOONANA_REPO_DIR="$upgrade_repo" \
 assert_contains "$upgrade_bad" "sha256 mismatch: updemo"
 [[ "$(cat "$upgrade_root/usr/share/updemo/version.txt")" == "two" ]] || fail "failed upgrade damaged installed files"
 assert_contains "$(<"$upgrade_state/installed/updemo.pkg")" 'OOONANA_PKG_VERSION="2.0.0"'
+
+cat > "$upgrade_repo/updemo.pkg" <<EOF
+OOONANA_PKG_ID="updemo"
+OOONANA_PKG_VERSION="1.0.0"
+OOONANA_PKG_KIND="archive"
+OOONANA_PKG_SUMMARY="Older demo package"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_ARCHIVE="updemo.tar.gz"
+OOONANA_PKG_SHA256="$upgrade_sha"
+EOF
+downgrade_list="$(OOONANA_REPO_DIR="$upgrade_repo" \
+  OOONANA_STATE_DIR="$upgrade_state" \
+  OOONANA_CACHE_DIR="$upgrade_cache" \
+  OOONANA_ROOT="$upgrade_root" \
+  "$CLI" list --upgradeable)"
+[[ -z "$downgrade_list" ]] || fail "older repo version listed as upgradeable: $downgrade_list"
+downgrade_all="$(OOONANA_REPO_DIR="$upgrade_repo" \
+  OOONANA_STATE_DIR="$upgrade_state" \
+  OOONANA_CACHE_DIR="$upgrade_cache" \
+  OOONANA_ROOT="$upgrade_root" \
+  "$CLI" upgrade --dry-run)"
+assert_contains "$downgrade_all" "no upgrades"
+downgrade_explicit="$(OOONANA_REPO_DIR="$upgrade_repo" \
+  OOONANA_STATE_DIR="$upgrade_state" \
+  OOONANA_CACHE_DIR="$upgrade_cache" \
+  OOONANA_ROOT="$upgrade_root" \
+  "$CLI" upgrade updemo --dry-run)"
+assert_contains "$downgrade_explicit" "installed version newer updemo 2.0.0 > 1.0.0"
+
+choice_builtin="$tmp/choice-builtin"
+choice_two="$tmp/choice-two"
+choice_three="$tmp/choice-three"
+choice_sources="$tmp/choice-sources"
+mkdir -p "$choice_builtin" "$choice_two" "$choice_three" "$choice_sources"
+for spec in "$choice_builtin:1.0.0" "$choice_two:2.0.0" "$choice_three:3.0.0"; do
+  repo_path="${spec%:*}"
+  repo_version="${spec##*:}"
+  cat >"$repo_path/choice.pkg" <<EOF
+OOONANA_PKG_ID="choice"
+OOONANA_PKG_VERSION="$repo_version"
+OOONANA_PKG_KIND="profile"
+OOONANA_PKG_SUMMARY="Repository choice $repo_version"
+OOONANA_PKG_DEPS=""
+EOF
+done
+cat >"$choice_sources/two.repo" <<EOF
+OOONANA_REPO_NAME="two"
+OOONANA_REPO_URI="$choice_two"
+EOF
+cat >"$choice_sources/three.repo" <<EOF
+OOONANA_REPO_NAME="three"
+OOONANA_REPO_URI="$choice_three"
+EOF
+choice_show="$(OOONANA_REPO_DIR="$choice_builtin" \
+  OOONANA_SOURCES_DIR="$choice_sources" \
+  OOONANA_STATE_DIR="$tmp/choice-state" \
+  OOONANA_CACHE_DIR="$tmp/choice-cache" \
+  OOONANA_ROOT="$tmp/choice-root" \
+  "$CLI" show choice)"
+assert_contains "$choice_show" "version: 3.0.0"
+assert_contains "$choice_show" "Repository choice 3.0.0"
+choice_update="$(OOONANA_REPO_DIR="$choice_builtin" \
+  OOONANA_SOURCES_DIR="$choice_sources" \
+  OOONANA_STATE_DIR="$tmp/choice-state" \
+  OOONANA_CACHE_DIR="$tmp/choice-cache" \
+  OOONANA_ROOT="$tmp/choice-root" \
+  "$CLI" update)"
+assert_contains "$choice_update" "synced 1 package(s)"
+choice_list="$(OOONANA_REPO_DIR="$choice_builtin" \
+  OOONANA_SOURCES_DIR="$choice_sources" \
+  OOONANA_STATE_DIR="$tmp/choice-state" \
+  OOONANA_CACHE_DIR="$tmp/choice-cache" \
+  OOONANA_ROOT="$tmp/choice-root" \
+  "$CLI" list)"
+assert_contains "$choice_list" "choice         3.0.0"
+[[ "$(printf '%s\n' "$choice_list" | grep -c '^choice')" -eq 1 ]] || fail "choice listed more than once"
 
 printf 'ok ooonana-pkg\n'

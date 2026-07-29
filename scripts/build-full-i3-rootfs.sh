@@ -385,8 +385,20 @@ EOF
 #!/bin/sh
 set -eu
 url="${1:-about:blank}"
+if [ -z "${OOONANA_BROWSER_DBUS:-}" ] &&
+  [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] &&
+  command -v dbus-run-session >/dev/null 2>&1; then
+  export OOONANA_BROWSER_DBUS=1
+  exec dbus-run-session -- "$0" "$@"
+fi
 if command -v chromium >/dev/null 2>&1; then
-  exec chromium --no-first-run --disable-default-apps "$url"
+  log="${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/chromium.log"
+  mkdir -p "${log%/*}"
+  chromium --no-first-run --disable-default-apps --disable-dev-shm-usage "$url" 2>"$log" && exit 0
+  printf '\nNormal GPU launch failed; retrying software rendering.\n' >>"$log"
+  chromium --no-first-run --disable-default-apps --disable-dev-shm-usage \
+    --disable-gpu --use-gl=disabled "$url" 2>>"$log" && exit 0
+  exec ooonana-theme-env xterm -e sh -lc 'echo "Chromium failed:"; tail -80 "${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/chromium.log"; echo; echo "Log saved. Press Enter."; read _'
 fi
 if command -v chromium-browser >/dev/null 2>&1; then
   exec chromium-browser "$url"
@@ -434,8 +446,10 @@ unblock_rfkill() {
 }
 
 case "${1:-}" in
-  --force|force) force=1 ;;
-  *) force=0 ;;
+  --force|force) force=1; mode=all ;;
+  --force-wifi|force-wifi) force=1; mode=wifi ;;
+  --force-bluetooth|force-bluetooth) force=1; mode=bluetooth ;;
+  *) force=0; mode=all ;;
 esac
 
 if [ "$force" -eq 0 ] && [ -f /run/ooonana-hardware-reprobe.done ]; then
@@ -449,9 +463,18 @@ if [ -w /sys/bus/pci/rescan ]; then
 fi
 
 if command -v modprobe >/dev/null 2>&1; then
-  for module in bluetooth btusb btintel btrtl btqca; do
-    modprobe "$module" >>"$LOG" 2>&1 || true
-  done
+  if [ "$mode" != "bluetooth" ]; then
+    for module in \
+      iwlwifi rtw89_pci rtw88_pci mt7921e ath10k_pci ath11k_pci ath12k_pci \
+      brcmfmac rtl8xxxu mt7921u; do
+      modprobe "$module" >>"$LOG" 2>&1 || true
+    done
+  fi
+  if [ "$mode" != "wifi" ]; then
+    for module in bluetooth btusb btintel btrtl btqca; do
+      modprobe "$module" >>"$LOG" 2>&1 || true
+    done
+  fi
 fi
 
 rebind_driver() {
@@ -515,15 +538,20 @@ bind_unclaimed_intel_bluetooth() {
 }
 
 if [ "$force" -eq 1 ]; then
-  for driver in \
-    iwlwifi rtw89_pci rtw88_pci mt7921e ath10k_pci ath11k_pci ath12k_pci \
-    brcmfmac rtl8xxxu mt7921u btusb; do
-    rebind_driver "$driver"
-  done
+  if [ "$mode" != "bluetooth" ]; then
+    for driver in \
+      iwlwifi rtw89_pci rtw88_pci mt7921e ath10k_pci ath11k_pci ath12k_pci \
+      brcmfmac rtl8xxxu mt7921u; do
+      rebind_driver "$driver"
+    done
+  fi
+  if [ "$mode" != "wifi" ]; then
+    rebind_driver btusb
+  fi
 fi
 
-bind_unclaimed_intel_wifi
-bind_unclaimed_intel_bluetooth
+[ "$mode" = "bluetooth" ] || bind_unclaimed_intel_wifi
+[ "$mode" = "wifi" ] || bind_unclaimed_intel_bluetooth
 
 if command -v udevadm >/dev/null 2>&1; then
   udevadm trigger --action=add >/dev/null 2>&1 || true
@@ -703,6 +731,11 @@ start_device_manager() {
 ensure_identity() {
   grep -q '^messagebus:' /etc/group 2>/dev/null || echo 'messagebus:x:81:' >>/etc/group
   grep -q '^messagebus:' /etc/passwd 2>/dev/null || echo 'messagebus:x:81:81:DBus Message Bus:/run/dbus:/bin/false' >>/etc/passwd
+  grep -q '^pulse:' /etc/group 2>/dev/null || echo 'pulse:x:70:' >>/etc/group
+  grep -q '^pulse-access:' /etc/group 2>/dev/null || echo 'pulse-access:x:71:' >>/etc/group
+  grep -q '^pulse:' /etc/passwd 2>/dev/null || echo 'pulse:x:70:70:PulseAudio:/run/pulse:/bin/false' >>/etc/passwd
+  mkdir -p /run/pulse
+  chown 70:70 /run/pulse 2>/dev/null || true
   if [ ! -s /etc/machine-id ]; then
     if command -v dbus-uuidgen >/dev/null 2>&1; then
       dbus-uuidgen >/etc/machine-id 2>/dev/null || true
@@ -710,7 +743,8 @@ ensure_identity() {
       cat /proc/sys/kernel/random/uuid 2>/dev/null | tr -d '-' >/etc/machine-id || true
     fi
   fi
-  if [ -s /etc/machine-id ] && [ ! -s /var/lib/dbus/machine-id ]; then
+  if [ -s /etc/machine-id ] &&
+    { [ ! -s /var/lib/dbus/machine-id ] || ! /bin/busybox cmp -s /etc/machine-id /var/lib/dbus/machine-id; }; then
     cp /etc/machine-id /var/lib/dbus/machine-id 2>/dev/null || true
   fi
 }
@@ -874,9 +908,19 @@ if ! start_dbus; then
   exit 1
 fi
 
-if [ "${1:-}" = "boot" ] || [ "$FORCE_WIFI" -eq 1 ] || [ "$FORCE_BLUETOOTH" -eq 1 ]; then
+reprobe_mode=""
+if [ "${1:-}" = "boot" ]; then
+  reprobe_mode="boot"
+elif [ "$FORCE_WIFI" -eq 1 ] && [ "$FORCE_BLUETOOTH" -eq 1 ]; then
+  reprobe_mode="--force"
+elif [ "$FORCE_WIFI" -eq 1 ]; then
+  reprobe_mode="--force-wifi"
+elif [ "$FORCE_BLUETOOTH" -eq 1 ]; then
+  reprobe_mode="--force-bluetooth"
+fi
+if [ -n "$reprobe_mode" ]; then
   command -v ooonana-hardware-reprobe >/dev/null 2>&1 &&
-    run_limited 20 ooonana-hardware-reprobe --force >>"$LOG" 2>&1 || true
+    run_limited 20 ooonana-hardware-reprobe "$reprobe_mode" >>"$LOG" 2>&1 || true
 fi
 unblock_rfkill
 
@@ -1123,7 +1167,7 @@ if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
   case "$rc" in
     0) exec ooonana-wifi ;;
     2) nmcli dev wifi rescan >/dev/null 2>&1 || true; exec ooonana-wifi-panel ;;
-    3) ooonana-service-repair force >/dev/null 2>&1 || true; exec ooonana-wifi-panel ;;
+    3) ooonana-service-repair force-wifi >/dev/null 2>&1 || true; exec ooonana-wifi-panel ;;
     4) exec ooonana-wifi-panel ;;
     5) nmcli networking on >/dev/null 2>&1 || true; nmcli radio wifi on >/dev/null 2>&1 || true; exec ooonana-wifi-panel ;;
   esac
@@ -1212,7 +1256,7 @@ if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
     0) exec ooonana-bluetooth ;;
     2) bluetoothctl power on >/dev/null 2>&1 || true ;;
     3) bluetoothctl power off >/dev/null 2>&1 || true ;;
-    4) ooonana-service-repair force >/dev/null 2>&1 || true; exec ooonana-bluetooth-panel ;;
+    4) ooonana-service-repair force-bluetooth >/dev/null 2>&1 || true; exec ooonana-bluetooth-panel ;;
     5) exec ooonana-bluetooth-panel ;;
   esac
   exit 0
@@ -1241,7 +1285,7 @@ EOF
 set -eu
 choose() {
   if [ -n "${DISPLAY:-}" ] && command -v rofi >/dev/null 2>&1; then
-    printf ' 25%\n 50%\n 75%\n 100%\n Up 5%\n Down 5%\n▰ Slider\n' | rofi -dmenu -i -p "Brightness" -theme /etc/ooonana/rofi.rasi 2>/dev/null || true
+    printf ' 25%%\n 50%%\n 75%%\n 100%%\n Up 5%%\n Down 5%%\n▰ Slider\n' | rofi -dmenu -i -p "Brightness" -theme /etc/ooonana/rofi.rasi 2>/dev/null || true
   else
     printf 'Slider\n'
   fi
@@ -1419,6 +1463,14 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-power-menu" <<'EOF'
 #!/bin/sh
 set -eu
+NATIVE_APP="/usr/lib/ooonana/ui/controls_app.py"
+if [ "${1:-}" = "--dry-run" ] || [ -n "${OOONANA_POWER_ACTION:-}" ]; then
+  exec ooonana-rofi-power "$@"
+fi
+if [ -x /usr/bin/python3 ] && [ -f "$NATIVE_APP" ] &&
+  /usr/bin/python3 -c 'import gi; gi.require_version("Gtk", "3.0")' >/dev/null 2>&1; then
+  exec /usr/bin/python3 "$NATIVE_APP" power "$@"
+fi
 exec ooonana-rofi-power "$@"
 EOF
 
@@ -2498,6 +2550,7 @@ if [ "${1:-}" = "--dry-run" ]; then
   echo "yad installer gui"
   echo "modes: erase-disk custom-existing-partitions"
   echo "fields: target home swap efi format-root format-home format-swap format-efi user password hostname theme repo source"
+  echo "custom bootloader: UEFI GRUB requires an EFI partition"
   echo "OOONANA_INSTALLER_GUI_OK"
   exit 0
 fi
@@ -2516,8 +2569,17 @@ for dev in /dev/vdb /dev/sdb /dev/xvdb /dev/nvme0n2; do
 done
 
 parent_disk() {
+  if command -v lsblk >/dev/null 2>&1 && [ -b "$1" ]; then
+    parent="$(lsblk -no PKNAME "$1" 2>/dev/null | sed -n '1p' || true)"
+    if [ -n "$parent" ]; then
+      printf '/dev/%s\n' "$parent"
+      return 0
+    fi
+  fi
   case "$1" in
     /dev/nvme*n*p[0-9]*) printf '%s\n' "${1%p[0-9]*}" ;;
+    /dev/mmcblk*p[0-9]*|/dev/loop*p[0-9]*) printf '%s\n' "${1%p[0-9]*}" ;;
+    /dev/disk/by-id/*-part[0-9]*|/dev/disk/by-path/*-part[0-9]*) printf '%s\n' "${1%-part[0-9]*}" ;;
     /dev/*[0-9]) printf '%s\n' "${1%[0-9]*}" ;;
     *) printf '%s\n' "$1" ;;
   esac
@@ -2585,10 +2647,15 @@ set -- /usr/sbin/ooonana-install --target "$target" --source "$source_root" --ho
 
 case "$mode" in
   custom-existing-partitions)
-    set -- "$@" --bootloader none
+    if [ -z "$efi_part" ]; then
+      yad --center --title "Install Ooonana OS" \
+        --text "Custom partition mode needs an EFI partition for a bootable install. Use erase-disk mode for automatic BIOS and UEFI setup."
+      exit 1
+    fi
+    set -- "$@" --bootloader grub
     [ -n "$home_part" ] && set -- "$@" --home-part "$home_part"
     [ -n "$swap_part" ] && set -- "$@" --swap-part "$swap_part"
-    [ -n "$efi_part" ] && set -- "$@" --efi-part "$efi_part"
+    set -- "$@" --efi-part "$efi_part"
     [ "$format_root" = "TRUE" ] || set -- "$@" --keep-root
     [ "$format_home" = "TRUE" ] || set -- "$@" --keep-home
     [ "$format_swap" = "TRUE" ] || set -- "$@" --keep-swap
@@ -2789,8 +2856,17 @@ list_targets() {
 }
 
 parent_disk() {
+  if command -v lsblk >/dev/null 2>&1 && [ -b "$1" ]; then
+    parent="$(lsblk -no PKNAME "$1" 2>/dev/null | sed -n '1p' || true)"
+    if [ -n "$parent" ]; then
+      printf '/dev/%s\n' "$parent"
+      return 0
+    fi
+  fi
   case "$1" in
     /dev/nvme*n*p[0-9]*) printf '%s\n' "${1%p[0-9]*}" ;;
+    /dev/mmcblk*p[0-9]*|/dev/loop*p[0-9]*) printf '%s\n' "${1%p[0-9]*}" ;;
+    /dev/disk/by-id/*-part[0-9]*|/dev/disk/by-path/*-part[0-9]*) printf '%s\n' "${1%-part[0-9]*}" ;;
     /dev/*[0-9]) printf '%s\n' "${1%[0-9]*}" ;;
     *) printf '%s\n' "$1" ;;
   esac
@@ -3070,9 +3146,15 @@ if [ "${1:-}" = "--user" ]; then
     mkdir -p "$desktop_home" "/run/user/$desktop_uid"
     chown "$desktop_uid:$desktop_gid" "$desktop_home" "/run/user/$desktop_uid"
     chmod 0700 "/run/user/$desktop_uid"
-    if [ -n "${XAUTHORITY:-}" ] && [ -f "$XAUTHORITY" ]; then
-      chown "$desktop_uid:$desktop_gid" "$XAUTHORITY" 2>/dev/null || true
-      chmod 0600 "$XAUTHORITY" 2>/dev/null || true
+    source_authority="${XAUTHORITY:-${HOME:-/root}/.Xauthority}"
+    target_authority="$desktop_home/.Xauthority"
+    if [ -f "$source_authority" ]; then
+      if [ "$source_authority" != "$target_authority" ]; then
+        cp "$source_authority" "$target_authority" 2>/dev/null || true
+      fi
+      chown "$desktop_uid:$desktop_gid" "$target_authority" 2>/dev/null || true
+      chmod 0600 "$target_authority" 2>/dev/null || true
+      export XAUTHORITY="$target_authority"
     fi
     export HOME="$desktop_home"
     export USER="$desktop_user"
@@ -3263,6 +3345,82 @@ if [ ! -L /var/run ]; then
   ln -s /run /var/run
 fi
 
+start_persistence() {
+  grep -q 'ooonana.persistence=1' /proc/cmdline 2>/dev/null || return 0
+  mkdir -p /mnt/persist
+  persist_dev=""
+  persist_wait=0
+  while [ -z "$persist_dev" ] && [ "$persist_wait" -lt 12 ]; do
+    for candidate in \
+      /dev/disk/by-label/OOONANA_PERSIST \
+      /dev/disk/by-label/ooonana-persist \
+      /dev/disk/by-label/OOONANA-PERSIST; do
+      if [ -e "$candidate" ]; then
+        persist_dev="$candidate"
+        break
+      fi
+    done
+    if [ -z "$persist_dev" ] && command -v blkid >/dev/null 2>&1; then
+      persist_dev="$(blkid -L OOONANA_PERSIST 2>/dev/null || true)"
+    fi
+    [ -n "$persist_dev" ] && break
+    persist_wait=$((persist_wait + 1))
+    mdev -s 2>/dev/null || true
+    sleep 1
+  done
+  if [ -z "$persist_dev" ]; then
+    echo "OOONANA_PERSISTENCE_WAIT"
+    return 0
+  fi
+  if mount "$persist_dev" /mnt/persist 2>/dev/null; then
+    mkdir -p \
+      /mnt/persist/home \
+      /mnt/persist/etc-ooonana \
+      /mnt/persist/network-connections \
+      /mnt/persist/var-lib-NetworkManager \
+      /mnt/persist/var-lib-bluetooth \
+      /mnt/persist/var-lib-ooonana \
+      /mnt/persist/var-cache-ooonana
+    mkdir -p \
+      /home \
+      /etc/NetworkManager/system-connections \
+      /etc/ooonana \
+      /var/lib/NetworkManager \
+      /var/lib/bluetooth \
+      /var/lib/ooonana \
+      /var/cache/ooonana
+    seed_persistent_dir() {
+      key="$1"
+      source_dir="$2"
+      target_dir="$3"
+      marker="/mnt/persist/.ooonana-seeded-$key"
+      [ -e "$marker" ] && return 0
+      if [ -d "$source_dir" ]; then
+        cp -a "$source_dir/." "$target_dir/" 2>/dev/null || return 1
+      fi
+      : >"$marker"
+    }
+    seed_persistent_dir home /home /mnt/persist/home || true
+    seed_persistent_dir etc-ooonana /etc/ooonana /mnt/persist/etc-ooonana || true
+    seed_persistent_dir network-connections /etc/NetworkManager/system-connections /mnt/persist/network-connections || true
+    seed_persistent_dir network-state /var/lib/NetworkManager /mnt/persist/var-lib-NetworkManager || true
+    seed_persistent_dir bluetooth-state /var/lib/bluetooth /mnt/persist/var-lib-bluetooth || true
+    seed_persistent_dir package-state /var/lib/ooonana /mnt/persist/var-lib-ooonana || true
+    seed_persistent_dir package-cache /var/cache/ooonana /mnt/persist/var-cache-ooonana || true
+    mount --bind /mnt/persist/home /home 2>/dev/null || true
+    mount --bind /mnt/persist/etc-ooonana /etc/ooonana 2>/dev/null || true
+    mount --bind /mnt/persist/network-connections /etc/NetworkManager/system-connections 2>/dev/null || true
+    mount --bind /mnt/persist/var-lib-NetworkManager /var/lib/NetworkManager 2>/dev/null || true
+    mount --bind /mnt/persist/var-lib-bluetooth /var/lib/bluetooth 2>/dev/null || true
+    mount --bind /mnt/persist/var-lib-ooonana /var/lib/ooonana 2>/dev/null || true
+    mount --bind /mnt/persist/var-cache-ooonana /var/cache/ooonana 2>/dev/null || true
+    chmod 0700 /etc/NetworkManager/system-connections /var/lib/bluetooth 2>/dev/null || true
+    echo "OOONANA_PERSISTENCE_OK"
+  else
+    echo "OOONANA_PERSISTENCE_FAIL"
+  fi
+}
+
 start_device_manager() {
   mkdir -p /run/udev
   if command -v udevd >/dev/null 2>&1 && command -v udevadm >/dev/null 2>&1; then
@@ -3278,6 +3436,12 @@ start_device_manager() {
 }
 
 start_device_manager
+start_persistence
+
+if grep -qx '11111111111111111111111111111111' /etc/machine-id 2>/dev/null; then
+  : >/etc/machine-id
+  : >/var/lib/dbus/machine-id
+fi
 
 start_system_services() {
   if command -v ooonana-service-repair >/dev/null 2>&1; then
@@ -3288,6 +3452,9 @@ start_system_services() {
   chmod 0755 /run/dbus 2>/dev/null || true
   grep -q '^messagebus:' /etc/group 2>/dev/null || echo 'messagebus:x:81:' >>/etc/group
   grep -q '^messagebus:' /etc/passwd 2>/dev/null || echo 'messagebus:x:81:81:DBus Message Bus:/run/dbus:/bin/false' >>/etc/passwd
+  grep -q '^pulse:' /etc/group 2>/dev/null || echo 'pulse:x:70:' >>/etc/group
+  grep -q '^pulse-access:' /etc/group 2>/dev/null || echo 'pulse-access:x:71:' >>/etc/group
+  grep -q '^pulse:' /etc/passwd 2>/dev/null || echo 'pulse:x:70:70:PulseAudio:/run/pulse:/bin/false' >>/etc/passwd
   if [ ! -s /etc/machine-id ]; then
     if command -v dbus-uuidgen >/dev/null 2>&1; then
       dbus-uuidgen >/etc/machine-id 2>/dev/null || true
@@ -3295,7 +3462,8 @@ start_system_services() {
       cat /proc/sys/kernel/random/uuid 2>/dev/null | tr -d '-' >/etc/machine-id || true
     fi
   fi
-  if [ -s /etc/machine-id ] && [ ! -s /var/lib/dbus/machine-id ]; then
+  if [ -s /etc/machine-id ] &&
+    { [ ! -s /var/lib/dbus/machine-id ] || ! /bin/busybox cmp -s /etc/machine-id /var/lib/dbus/machine-id; }; then
     cp /etc/machine-id /var/lib/dbus/machine-id 2>/dev/null || true
   fi
   if command -v dbus-daemon >/dev/null 2>&1 && [ ! -S /run/dbus/system_bus_socket ]; then
@@ -3327,6 +3495,10 @@ start_network_fallback() {
     ifconfig lo up >/dev/null 2>&1 || true
   fi
 
+  if /bin/busybox pidof NetworkManager >/dev/null 2>&1; then
+    return 0
+  fi
+
   for devpath in /sys/class/net/*; do
     [ -e "$devpath" ] || continue
     iface="${devpath##*/}"
@@ -3356,38 +3528,6 @@ start_network_fallback() {
 }
 
 start_network_fallback
-
-start_persistence() {
-  grep -q 'ooonana.persistence=1' /proc/cmdline 2>/dev/null || return 0
-  mkdir -p /mnt/persist
-  persist_dev=""
-  for candidate in \
-    /dev/disk/by-label/OOONANA_PERSIST \
-    /dev/disk/by-label/ooonana-persist \
-    /dev/disk/by-label/OOONANA-PERSIST; do
-    if [ -e "$candidate" ]; then
-      persist_dev="$candidate"
-      break
-    fi
-  done
-  if [ -z "$persist_dev" ]; then
-    echo "OOONANA_PERSISTENCE_WAIT"
-    return 0
-  fi
-  if mount "$persist_dev" /mnt/persist 2>/dev/null; then
-    mkdir -p /mnt/persist/home /mnt/persist/etc-ooonana /mnt/persist/var-lib-ooonana /mnt/persist/var-cache-ooonana
-    mkdir -p /home /etc/ooonana /var/lib/ooonana /var/cache/ooonana
-    mount --bind /mnt/persist/home /home 2>/dev/null || true
-    mount --bind /mnt/persist/etc-ooonana /etc/ooonana 2>/dev/null || true
-    mount --bind /mnt/persist/var-lib-ooonana /var/lib/ooonana 2>/dev/null || true
-    mount --bind /mnt/persist/var-cache-ooonana /var/cache/ooonana 2>/dev/null || true
-    echo "OOONANA_PERSISTENCE_OK"
-  else
-    echo "OOONANA_PERSISTENCE_FAIL"
-  fi
-}
-
-start_persistence
 
 ensure_glib_schemas() {
   if command -v glib-compile-schemas >/dev/null 2>&1 &&
@@ -3468,7 +3608,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
     reboot -f
   fi
   echo "OOONANA_DOWNLOADERS_OK python3 curl wget"
-  if /usr/bin/ooonana version | grep -q 'ooonana 0.8.6' &&
+  if /usr/bin/ooonana version | grep -q 'ooonana 0.8.7' &&
     /usr/bin/ooonana list --installed | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else
@@ -3666,7 +3806,9 @@ write_full_groups() {
     'cdrom:x:11:' \
     'tape:x:26:' \
     'kvm:x:34:' \
-    'messagebus:x:81:'; do
+    'messagebus:x:81:' \
+    'pulse:x:70:' \
+    'pulse-access:x:71:'; do
     name="${entry%%:*}"
     grep -q "^$name:" "$group_file" 2>/dev/null || printf '%s\n' "$entry" >> "$group_file"
   done
@@ -3675,6 +3817,8 @@ write_full_groups() {
   touch "$passwd_file"
   grep -q '^messagebus:' "$passwd_file" 2>/dev/null ||
     printf '%s\n' 'messagebus:x:81:81:DBus Message Bus:/run/dbus:/bin/false' >> "$passwd_file"
+  grep -q '^pulse:' "$passwd_file" 2>/dev/null ||
+    printf '%s\n' 'pulse:x:70:70:PulseAudio:/run/pulse:/bin/false' >> "$passwd_file"
 
   mkdir -p "$ROOTFS/var" "$ROOTFS/run"
   rm -rf "$ROOTFS/var/run"
@@ -3777,9 +3921,28 @@ write_tarball() {
   chmod a+rw "$TARBALL"
 }
 
+normalize_rootfs_permissions() {
+  mkdir -p "$ROOTFS/tmp"
+  chmod -R go-w "$ROOTFS" 2>/dev/null || true
+  chmod 1777 "$ROOTFS/tmp"
+
+  local setuid_path
+  for setuid_path in \
+    "$ROOTFS/usr/bin/doas" \
+    "$ROOTFS/usr/bin/sudo" \
+    "$ROOTFS/usr/bin/su" \
+    "$ROOTFS/bin/su"; do
+    [[ -f "$setuid_path" ]] && chmod 4755 "$setuid_path"
+  done
+
+  if [[ -f "$ROOTFS/usr/lib/chromium/chrome-sandbox" ]]; then
+    chmod 4755 "$ROOTFS/usr/lib/chromium/chrome-sandbox"
+  fi
+}
+
 main() {
   ooonana_require_linux
-  ooonana_require_commands awk chmod cp gzip install mkdir rm sed sha256sum tar
+  ooonana_require_commands awk chmod cp gzip install mkdir rm sed sha256sum stat tar
   [[ -d "$SCRATCH_ROOTFS" ]] || ooonana_die "missing scratch rootfs: $SCRATCH_ROOTFS"
   [[ -x "$SCRATCH_ROOTFS/bin/sh" ]] || ooonana_die "invalid scratch rootfs: missing /bin/sh"
   [[ -f "$ROOT/branding/logo.svg" ]] || ooonana_die "missing branding/logo.svg"
@@ -3787,6 +3950,9 @@ main() {
   [[ -f "$ROOT/branding/wallpaper.svg" ]] || ooonana_die "missing branding/wallpaper.svg"
   [[ -f "$ROOT/branding/wallpaper.png" ]] || ooonana_die "missing branding/wallpaper.png"
   [[ -f "$ROOT/branding/i3/config" ]] || ooonana_die "missing branding/i3/config"
+
+  mkdir -p "$(dirname "$ROOTFS")"
+  ooonana_require_unix_permissions "$(dirname "$ROOTFS")"
 
   if [[ "$FORCE" -eq 1 ]]; then
     rm -rf "$ROOTFS"
@@ -3844,6 +4010,7 @@ main() {
   write_xorg_video_config
   write_full_init_script
   printf 'packages-installed\n' > "$ROOTFS/etc/ooonana/edition-state"
+  normalize_rootfs_permissions
   write_tarball
 
   ooonana_log "full-i3 rootfs ready: $ROOTFS"

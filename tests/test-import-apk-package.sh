@@ -21,6 +21,11 @@ assert_not_contains() {
   [[ "$haystack" != *"$needle"* ]] || fail "unexpected: $needle"
 }
 
+assert_contains "$(<"$SCRIPT")" "--max-time 900"
+assert_contains "$(<"$SCRIPT")" '.import.lock'
+assert_contains "$(<"$SCRIPT")" '--warning=no-unknown-keyword'
+assert_contains "$(<"$SCRIPT")" '--no-index'
+
 make_fake_apk() {
   local path="$1"
   local name="$2"
@@ -143,5 +148,14 @@ assert_contains "$index" $'pkgconf\t1.0-r0\tapk'
 assert_contains "$index" $'gtk+3.0\t3.24-r0\tapk'
 grep -q 'archives/nano-1.0-r0.tar.gz' "$out/SHA256SUMS" || fail "missing archive checksum"
 grep -q 'gtk+3.0.pkg' "$out/SHA256SUMS" || fail "missing plus package checksum"
+
+# Completed package archives must be reusable after an interrupted build.
+rm -f "$repo"/*.apk "$repo_extra"/*.apk
+rm -f "$out/index.tsv" "$out/SHA256SUMS"
+bash "$SCRIPT" --repo-url "file://$repo" --repo-url "file://$repo_extra" --out-dir "$out" --no-index nano
+[[ -f "$out/archives/nano-1.0-r0.tar.gz" ]] || fail "cached nano archive disappeared"
+[[ -f "$out/archives/libncurses-1.0-r0.tar.gz" ]] || fail "cached dependency archive disappeared"
+[[ ! -e "$out/index.tsv" ]] || fail "--no-index unexpectedly wrote index.tsv"
+[[ ! -e "$out/SHA256SUMS" ]] || fail "--no-index unexpectedly wrote SHA256SUMS"
 
 printf 'ok import-apk-package\n'

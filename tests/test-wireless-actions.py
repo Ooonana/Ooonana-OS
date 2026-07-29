@@ -54,6 +54,8 @@ def fake_run(command, **_kwargs):
         return 0, "11111111-2222-3333-4444-555555555555"
     if "up" in command and "AA:BB:CC:DD:EE:01" in command:
         return 10, "SSID not found"
+    if "up" in command and "ap" not in command:
+        return 10, "initial roaming activation failed"
     return 0, "ok"
 
 
@@ -67,17 +69,40 @@ try:
     check(rc == 0, "personal connection retries next access point")
     connects = [command for command in commands if "connection" in command and "up" in command]
     deletes = [command for command in commands if command[1:3] == ["connection", "delete"]]
-    check(len(connects) == 2, "two BSSID attempts")
+    check(len(connects) == 3, "generic activation plus two BSSID retries")
     check(len(deletes) == 1, "stale profile removed before profile creation")
-    check(connects[0][-2:] == ["ap", "AA:BB:CC:DD:EE:01"], "first BSSID")
-    check(connects[1][-2:] == ["ap", "AA:BB:CC:DD:EE:02"], "second BSSID")
+    check("ap" not in connects[0], "generic activation has no BSSID lock")
+    check(connects[1][-2:] == ["ap", "AA:BB:CC:DD:EE:01"], "first BSSID retry")
+    check(connects[2][-2:] == ["ap", "AA:BB:CC:DD:EE:02"], "second BSSID retry")
     check(all("device" not in command or "connect" not in command for command in commands), "SSID shortcut removed")
     add = next(command for command in commands if command[1:4] == ["connection", "add", "type"])
     check("School WiFi" in add and "wlan0" in add, "profile binds SSID and adapter")
     modify = [command for command in commands if command[1:3] == ["connection", "modify"]]
-    check(any("802-11-wireless.hidden" in command and "yes" in command for command in modify), "directed probing enabled")
+    check(any("802-11-wireless.hidden" in command and "no" in command for command in modify), "visible profile enabled")
     check(any("wpa-psk" in command and "school-secret" in command for command in modify), "personal security profile")
     check(all("uuid" in command for command in connects), "profile activated by UUID")
+
+    commands.clear()
+    rc, _output = target.add_wifi_profile("Hidden profile", "Hidden WiFi", "wlan0", True)
+    check(rc == 0, "hidden profile creation")
+    modify = [command for command in commands if command[1:3] == ["connection", "modify"]]
+    check(any("802-11-wireless.hidden" in command and "yes" in command for command in modify), "hidden profile enabled")
+
+    commands.clear()
+    transition = network("personal")
+    transition["security"] = "WPA2 WPA3 SAE PSK"
+    rc, _output = target.connect_standard(transition, {"password": "transition-secret"}, "wlan0")
+    check(rc == 0, "WPA2/WPA3 transition connection")
+    modify = [command for command in commands if command[1:3] == ["connection", "modify"]]
+    check(any("wpa-psk" in command for command in modify), "transition network prefers compatible PSK")
+
+    commands.clear()
+    wpa3 = network("personal")
+    wpa3["security"] = "WPA3 SAE"
+    rc, _output = target.connect_standard(wpa3, {"password": "wpa3-secret"}, "wlan0")
+    check(rc == 0, "WPA3-only connection")
+    modify = [command for command in commands if command[1:3] == ["connection", "modify"]]
+    check(any("sae" in command for command in modify), "WPA3-only network uses SAE")
 
     commands.clear()
     credentials = {

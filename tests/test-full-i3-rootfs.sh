@@ -34,6 +34,8 @@ assert_contains "$script_src" 'glib-compile-schemas "$ROOTFS/usr/share/glib-2.0/
 assert_contains "$script_src" "refresh_gtk_caches()"
 assert_contains "$script_src" 'update-mime-database "$ROOTFS/usr/share/mime"'
 assert_contains "$script_src" "gdk-pixbuf-query-loaders"
+assert_contains "$script_src" "normalize_rootfs_permissions()"
+assert_contains "$script_src" 'chmod 4755 "$setuid_path"'
 assert_contains "$script_src" "refresh_font_caches()"
 assert_contains "$script_src" 'ln -s python3 "$ROOTFS/usr/bin/python"'
 assert_contains "$script_src" "fix_blueman_activation()"
@@ -87,6 +89,8 @@ assert_contains "$patch_src" "util-linux-login-2.40.1-r1.apk"
 assert_contains "$patch_src" "alsa-ucm-conf-1.2.11-r1.apk"
 assert_contains "$patch_src" "alsa-topology-conf-1.2.5.1-r1.apk"
 assert_contains "$patch_src" 'payload/root/etc/doas.conf'
+assert_contains "$patch_src" 'pulseaudio-17.0-r0.apk'
+assert_contains "$patch_src" 'pulseaudio-bluez-17.0-r0.apk'
 assert_contains "$patch_src" 'payload/root/etc/os-release'
 assert_contains "$patch_src" "messagebus:x:81:"
 for required_package in \
@@ -128,7 +132,7 @@ EOF
 chmod +x "$scratch/bin/busybox"
 cat > "$scratch/usr/bin/ooonana" <<'EOF'
 #!/bin/sh
-echo ooonana 0.8.6
+echo ooonana 0.8.7
 EOF
 chmod +x "$scratch/usr/bin/ooonana"
 cat > "$scratch/usr/bin/ooonana-setup" <<'EOF'
@@ -299,11 +303,14 @@ assert_contains "$(<"$rootfs/etc/group")" "input:x:97:"
 assert_contains "$(<"$rootfs/etc/group")" "tape:x:26:"
 assert_contains "$(<"$rootfs/etc/group")" "kvm:x:34:"
 assert_contains "$(<"$rootfs/etc/group")" "messagebus:x:81:"
+assert_contains "$(<"$rootfs/etc/group")" "pulse:x:70:"
+assert_contains "$(<"$rootfs/etc/group")" "pulse-access:x:71:"
 assert_contains "$(<"$rootfs/etc/group")" "wheel:x:10:ooonana"
 assert_contains "$(<"$rootfs/etc/group")" "audio:x:29:ooonana"
 assert_contains "$(<"$rootfs/etc/group")" "video:x:44:ooonana"
 assert_contains "$(<"$rootfs/etc/passwd")" "ooonana:x:1000:1000:Ooonana Live User:/home/ooonana:/bin/sh"
 assert_contains "$(<"$rootfs/etc/passwd")" "messagebus:x:81:81:DBus Message Bus:/run/dbus:/bin/false"
+assert_contains "$(<"$rootfs/etc/passwd")" "pulse:x:70:70:PulseAudio:/run/pulse:/bin/false"
 assert_contains "$(<"$rootfs/etc/doas.d/ooonana.conf")" "permit nopass keepenv :wheel"
 assert_contains "$(<"$rootfs/etc/doas.conf")" "permit nopass keepenv :wheel"
 assert_contains "$(<"$rootfs/etc/sudoers.d/ooonana")" '%wheel ALL=(ALL:ALL) NOPASSWD: ALL'
@@ -362,6 +369,8 @@ assert_contains "$i3_session" '/bin/busybox su -m -s /bin/sh'
 assert_contains "$i3_session" 'XDG_RUNTIME_DIR="/run/user/$desktop_uid"'
 assert_contains "$i3_session" "--user-session"
 assert_contains "$i3_session" "pulseaudio --start"
+assert_contains "$i3_session" 'source_authority="${XAUTHORITY:-${HOME:-/root}/.Xauthority}"'
+assert_contains "$i3_session" 'export XAUTHORITY="$target_authority"'
 assert_contains "$i3_session" "ooonana-theme-env apply"
 assert_contains "$i3_session" "dbus-run-session"
 assert_contains "$i3_session" "OOONANA_DBUS_SESSION"
@@ -448,6 +457,10 @@ assert_contains "$(<"$rootfs/etc/bluetooth/main.conf")" "AutoEnable = true"
 
 browser_helper="$(<"$rootfs/usr/bin/ooonana-browser")"
 assert_contains "$browser_helper" "chromium --no-first-run"
+assert_contains "$browser_helper" "--disable-gpu"
+assert_contains "$browser_helper" "--use-gl=disabled"
+assert_contains "$browser_helper" "dbus-run-session"
+assert_contains "$browser_helper" "chromium.log"
 files_helper="$(<"$rootfs/usr/bin/ooonana-files")"
 assert_contains "$files_helper" 'exec nemo "$path"'
 wifi_helper="$(<"$rootfs/usr/bin/ooonana-wifi")"
@@ -504,7 +517,10 @@ assert_contains "$wireless_diagnose" "intel-wireless-firmware.version"
 assert_contains "$wireless_diagnose" "relevant kernel messages"
 assert_contains "$hardware_reprobe" "/sys/class/rfkill"
 assert_contains "$hardware_reprobe" "iwlwifi"
+assert_contains "$hardware_reprobe" "modprobe \"\$module\""
 assert_contains "$hardware_reprobe" 'if [ "$force" -eq 1 ]; then'
+assert_contains "$hardware_reprobe" "--force-wifi"
+assert_contains "$hardware_reprobe" "--force-bluetooth"
 assert_contains "$hardware_reprobe" "btusb"
 assert_contains "$hardware_reprobe" "udevadm trigger"
 service_repair="$(<"$rootfs/usr/bin/ooonana-service-repair")"
@@ -514,15 +530,22 @@ assert_contains "$admin_helper" 'exec sudo -n "$@"'
 assert_contains "$admin_helper" "doas -n /bin/true"
 assert_contains "$service_repair" 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
 assert_contains "$service_repair" 'exec ooonana-run-admin "$0" "$@"'
+assert_contains "$service_repair" "pulse:x:70"
+assert_contains "$service_repair" "pulse-access:x:71"
 assert_contains "$service_repair" "dbus-daemon --system"
 assert_contains "$service_repair" "dbus_ready()"
+assert_contains "$service_repair" "/bin/busybox cmp -s /etc/machine-id /var/lib/dbus/machine-id"
 assert_contains "$service_repair" "network_manager_daemon()"
 assert_contains "$service_repair" "/usr/sbin/NetworkManager"
 assert_contains "$service_repair" "network_manager_ready()"
 assert_contains "$service_repair" "nmcli -t -f STATE general"
 assert_contains "$service_repair" "force-wifi"
 assert_contains "$service_repair" "force-bluetooth"
-assert_contains "$service_repair" "run_limited 20 ooonana-hardware-reprobe --force"
+assert_contains "$service_repair" 'run_limited 20 ooonana-hardware-reprobe "$reprobe_mode"'
+assert_contains "$service_repair" 'reprobe_mode="--force-wifi"'
+assert_contains "$service_repair" 'reprobe_mode="--force-bluetooth"'
+assert_contains "$wifi_panel" "ooonana-service-repair force-wifi"
+assert_contains "$bt_panel" "ooonana-service-repair force-bluetooth"
 assert_contains "$service_repair" "device_manager_running()"
 assert_contains "$service_repair" "process_running()"
 assert_contains "$service_repair" "/bin/busybox pidof"
@@ -534,6 +557,7 @@ assert_contains "$service_repair" '"$bt_daemon" -n'
 assert_contains "$service_repair" "bluez_ready()"
 assert_not_contains "$service_repair" "wait_for bluetoothd bluetoothctl show"
 assert_contains "$service_repair" "nmcli radio wifi on"
+assert_contains "$service_repair" 'reprobe_mode="boot"'
 assert_contains "$service_repair" "bluetoothctl power on"
 assert_contains "$service_repair" "btmgmt power on"
 rofi_power="$(<"$rootfs/usr/bin/ooonana-rofi-power")"
@@ -710,6 +734,11 @@ assert_contains "$polybar_cfg" "content = "
 assert_contains "$polybar_cfg" "click-left = ooonana-power-menu"
 assert_contains "$polybar_cfg" "label = %time%"
 
+power_menu="$(<"$rootfs/usr/bin/ooonana-power-menu")"
+assert_contains "$power_menu" "controls_app.py"
+assert_contains "$power_menu" 'exec /usr/bin/python3 "$NATIVE_APP" power'
+assert_contains "$power_menu" "ooonana-rofi-power"
+
 i3_keycodes="$(<"$rootfs/etc/i3/config.keycodes")"
 assert_contains "$i3_keycodes" "Ooonana OS"
 assert_contains "$i3_keycodes" "[ -S /run/dbus/system_bus_socket ] && nm-applet"
@@ -756,6 +785,9 @@ assert_contains "$installer_gui" "--swap-part"
 assert_contains "$installer_gui" "--efi-part"
 assert_contains "$installer_gui" "--keep-root"
 assert_contains "$installer_gui" "--format-efi"
+assert_contains "$installer_gui" "--bootloader grub"
+assert_contains "$installer_gui" "Custom partition mode needs an EFI partition"
+assert_not_contains "$installer_gui" 'set -- "$@" --bootloader none'
 assert_contains "$installer_gui" "OOONANA_INSTALLER_GUI_OK"
 assert_contains "$installer_gui" "OOONANA_INSTALL_ALLOW_ROOT_TARGET"
 assert_contains "$installer_gui" "Target looks like the current root disk"
@@ -808,6 +840,7 @@ assert_contains "$gui_dry" "OOONANA_GUI_INSTALLER_OK"
 installer_gui_dry="$("$rootfs/usr/bin/ooonana-installer-gui" --dry-run)"
 assert_contains "$installer_gui_dry" "yad installer gui"
 assert_contains "$installer_gui_dry" "custom-existing-partitions"
+assert_contains "$installer_gui_dry" "custom bootloader: UEFI GRUB requires an EFI partition"
 assert_contains "$installer_gui_dry" "OOONANA_INSTALLER_GUI_OK"
 
 settings_dry="$("$rootfs/usr/bin/ooonana-settings" --dry-run)"
@@ -848,17 +881,28 @@ assert_contains "$rcs" "messagebus:x:81:"
 assert_contains "$rcs" "chmod 0755 /run/dbus"
 assert_contains "$rcs" "dbus-uuidgen"
 assert_contains "$rcs" "/etc/machine-id"
+assert_contains "$rcs" "11111111111111111111111111111111"
 assert_contains "$rcs" "dbus-daemon --system --fork --nopidfile"
 assert_contains "$rcs" "test -S /run/dbus/system_bus_socket"
 assert_contains "$rcs" "NetworkManager --no-daemon"
 assert_contains "$rcs" "bluetoothd"
 assert_contains "$rcs" "start_network_fallback()"
+assert_contains "$rcs" "pidof NetworkManager"
 assert_contains "$rcs" "udhcpc -q -n -i"
 assert_contains "$rcs" "nameserver 1.1.1.1"
 assert_contains "$rcs" "start_persistence()"
 assert_contains "$rcs" "ooonana.persistence=1"
 assert_contains "$rcs" "OOONANA_PERSIST"
 assert_contains "$rcs" "OOONANA_PERSISTENCE_OK"
+assert_contains "$rcs" "/mnt/persist/network-connections"
+assert_contains "$rcs" "/etc/NetworkManager/system-connections"
+assert_contains "$rcs" "/mnt/persist/var-lib-bluetooth"
+assert_contains "$rcs" "seed_persistent_dir()"
+assert_contains "$rcs" 'persist_wait" -lt 12'
+assert_contains "$rcs" "blkid -L OOONANA_PERSIST"
+assert_contains "$rcs" "seed_persistent_dir etc-ooonana /etc/ooonana /mnt/persist/etc-ooonana"
+assert_contains "$rcs" "seed_persistent_dir package-state /var/lib/ooonana /mnt/persist/var-lib-ooonana"
+assert_contains "$rcs" '.ooonana-seeded-$key'
 assert_contains "$rcs" "ensure_glib_schemas()"
 assert_contains "$rcs" "gschemas.compiled"
 assert_contains "$rcs" "glib-compile-schemas /usr/share/glib-2.0/schemas"
@@ -905,5 +949,20 @@ assert_contains "$contents" "./usr/bin/ooonana-settings-launch"
 assert_contains "$contents" "./usr/bin/ooonana-i3-session"
 assert_contains "$contents" "./usr/bin/start-ooonana-i3"
 assert_contains "$contents" "./usr/share/ooonana/wallpapers/ooonana-wallpaper.png"
+
+shell_script_count=0
+while IFS= read -r -d '' generated; do
+  interpreter="$(head -n 1 "$generated")"
+  case "$interpreter" in
+    '#!'*/bash|'#!'*'env bash') bash -n "$generated" ;;
+    '#!'*/sh) sh -n "$generated" ;;
+    *) continue ;;
+  esac
+  if [[ "${OOONANA_SHELLCHECK_GENERATED:-0}" = "1" ]] && command -v shellcheck >/dev/null 2>&1; then
+    shellcheck -S warning "$generated"
+  fi
+  shell_script_count=$((shell_script_count + 1))
+done < <(find "$rootfs" -type f -perm /111 -print0)
+[[ "$shell_script_count" -ge 20 ]] || fail "too few generated shell scripts checked: $shell_script_count"
 
 printf 'ok full-i3-rootfs\n'

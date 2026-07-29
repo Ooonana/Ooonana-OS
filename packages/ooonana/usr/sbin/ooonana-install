@@ -96,16 +96,19 @@ require_commands() {
 }
 
 partition_path() {
-  case "$1" in
-    /dev/nvme*n[0-9]|/dev/mmcblk[0-9]*|/dev/loop[0-9]*) printf '%sp1\n' "$1" ;;
-    *) printf '%s1\n' "$1" ;;
+  local device="$1"
+  local number="${2:-1}"
+  case "$device" in
+    /dev/disk/by-id/*|/dev/disk/by-path/*) printf '%s-part%s\n' "$device" "$number" ;;
+    /dev/nvme[0-9]*n[0-9]*|/dev/mmcblk[0-9]*|/dev/loop[0-9]*) printf '%sp%s\n' "$device" "$number" ;;
+    *) printf '%s%s\n' "$device" "$number" ;;
   esac
 }
 
 wait_for_block() {
   local path="$1"
-  local i
-  for i in $(seq 1 50); do
+  local _
+  for _ in $(seq 1 50); do
     [[ -b "$path" ]] && return 0
     sleep 0.1
   done
@@ -114,7 +117,9 @@ wait_for_block() {
 
 looks_like_partition() {
   case "$1" in
-    /dev/nvme*n*p[0-9]*|/dev/mmcblk*p[0-9]*|/dev/loop*p[0-9]*|/dev/*[0-9]) return 0 ;;
+    /dev/nvme[0-9]*n[0-9]*p[0-9]*|/dev/mmcblk[0-9]*p[0-9]*|/dev/loop[0-9]*p[0-9]*|\
+    /dev/sd[a-z][0-9]*|/dev/hd[a-z][0-9]*|/dev/vd[a-z][0-9]*|/dev/xvd[a-z][0-9]*|\
+    /dev/disk/by-id/*-part[0-9]*|/dev/disk/by-path/*-part[0-9]*) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -200,6 +205,16 @@ terminal_input console serial
 terminal_output console serial
 set color_normal=yellow/black
 set color_highlight=black/yellow
+set ooonana_hardware_args=
+if [ "\$grub_platform" = "efi" ]; then
+  if insmod smbios; then
+    if smbios --type 1 --get-string 4 --set ooonana_manufacturer; then
+      if regexp --ignore-case 'samsung' "\$ooonana_manufacturer"; then
+        set ooonana_hardware_args='snd_intel_dspcfg.dsp_driver=3'
+      fi
+    fi
+  fi
+fi
 if terminal_output gfxterm serial; then
   true
 fi
@@ -212,7 +227,7 @@ set timeout=5
 set default=0
 
 menuentry 'Ooonana OS Full i3' {
-  linux /boot/vmlinuz $append
+  linux /boot/vmlinuz $append \$ooonana_hardware_args
 }
 EOF
 }
@@ -281,7 +296,8 @@ current_root_source() {
 }
 
 validate_unique_install_parts() {
-  local seen="" label part
+  local label part existing
+  local -a seen=()
   for label in root home swap efi; do
     case "$label" in
       root) part="$TARGET_PART" ;;
@@ -290,11 +306,33 @@ validate_unique_install_parts() {
       efi) part="$EFI_PART" ;;
     esac
     [[ -n "$part" ]] || continue
-    case " $seen " in
-      *" $part "*) die "partition reused for install roles: $part" ;;
-    esac
-    seen="$seen $part"
+    for existing in "${seen[@]}"; do
+      same_target_path "$part" "$existing" &&
+        die "partition reused for install roles: $part"
+    done
+    seen+=("$part")
   done
+}
+
+validate_live_media_safety() {
+  local source live_disk target_disk
+  [[ "$ALLOW_CURRENT_ROOT" -eq 0 && "$DRY_RUN" -eq 0 ]] || return 0
+  command -v findmnt >/dev/null 2>&1 || return 0
+  source="$(findmnt -n -o SOURCE /run/ooonana-live/iso 2>/dev/null | sed -n '1p' || true)"
+  source="${source%%\[*}"
+  case "$source" in
+    /dev/*) ;;
+    *) return 0 ;;
+  esac
+  live_disk="$(partition_owner_disk "$source" || printf '%s\n' "$source")"
+  if [[ "$TARGET_MODE" == "disk" ]]; then
+    target_disk="$(partition_owner_disk "$TARGET" || printf '%s\n' "$TARGET")"
+  else
+    target_disk="$(partition_owner_disk "$TARGET_PART" || printf '%s\n' "$TARGET_PART")"
+  fi
+  if same_target_path "$TARGET_PART" "$source" || same_target_path "$target_disk" "$live_disk"; then
+    die "refusing live boot media target: $TARGET"
+  fi
 }
 
 validate_disk_extra_parts() {
@@ -330,6 +368,25 @@ validate_current_root_safety() {
       die "refusing current root disk target: $target_disk"
     fi
   fi
+}
+
+validate_target_unmounted() {
+  local mounts
+  [[ "$TARGET_MODE" == "disk" && "$DRY_RUN" -eq 0 && -b "$TARGET" ]] || return 0
+  command -v lsblk >/dev/null 2>&1 || return 0
+  mounts="$(lsblk -nr -o MOUNTPOINTS "$TARGET" 2>/dev/null | sed '/^[[:space:]]*$/d' || true)"
+  [[ -z "$mounts" ]] || die "target disk or child partition is mounted: $TARGET"
+}
+
+validate_install_partitions_unmounted() {
+  local part mounts
+  [[ "$TARGET_MODE" == "partition" && "$DRY_RUN" -eq 0 ]] || return 0
+  command -v lsblk >/dev/null 2>&1 || return 0
+  for part in "$TARGET_PART" "$HOME_PART" "$SWAP_PART" "$EFI_PART"; do
+    [[ -n "$part" ]] || continue
+    mounts="$(lsblk -nr -o MOUNTPOINTS "$part" 2>/dev/null | sed '/^[[:space:]]*$/d' || true)"
+    [[ -z "$mounts" ]] || die "install partition is mounted: $part"
+  done
 }
 
 mount_extra_partitions() {
@@ -373,7 +430,11 @@ fstab_device() {
 }
 
 build_fstab() {
-  printf 'LABEL=OOONANA_ROOT / ext4 defaults 0 1\n'
+  if [[ "$FORMAT_ROOT" -eq 1 ]]; then
+    printf 'LABEL=OOONANA_ROOT / ext4 defaults 0 1\n'
+  else
+    printf '%s / ext4 defaults 0 1\n' "$TARGET_PART"
+  fi
   if [[ -n "$HOME_PART" ]]; then
     printf '%s /home ext4 defaults 0 2\n' "$(fstab_device OOONANA_HOME "$HOME_PART" "$FORMAT_HOME")"
   fi
@@ -557,15 +618,38 @@ prepare_target() {
   require_block_or_dry "$SWAP_PART" "--swap-part"
   require_block_or_dry "$EFI_PART" "--efi-part"
   case "$TARGET_MODE" in
+    disk) INSTALL_DEVICE="$TARGET" ;;
+    partition) TARGET_PART="$TARGET" ;;
+  esac
+  # Run every disk guard before the first partition-table write.
+  validate_current_root_safety
+  validate_live_media_safety
+  validate_target_unmounted
+  validate_install_partitions_unmounted
+  validate_disk_extra_parts
+  case "$TARGET_MODE" in
     disk)
-      require_commands parted mkfs.ext4 mount rsync grub-install install
+      require_commands parted mkfs.ext4 mkfs.vfat mount rsync grub-install install
       if [[ "$DRY_RUN" -eq 1 ]]; then
-        run_cmd parted -s "$TARGET" mklabel msdos mkpart primary ext4 1MiB 100% set 1 boot on
-        run_cmd losetup --find --show --partscan "$TARGET"
-        INSTALL_DEVICE="LOOP_DEVICE"
-        TARGET_PART="LOOP_PARTITION"
+        run_cmd parted -s "$TARGET" mklabel gpt \
+          mkpart BIOSBOOT 1MiB 3MiB set 1 bios_grub on \
+          mkpart ESP fat32 3MiB 515MiB set 2 esp on \
+          mkpart ROOT ext4 515MiB 100%
+        if [[ "$TARGET" == /dev/* ]]; then
+          INSTALL_DEVICE="$TARGET"
+          EFI_PART="$(partition_path "$INSTALL_DEVICE" 2)"
+          TARGET_PART="$(partition_path "$INSTALL_DEVICE" 3)"
+        else
+          run_cmd losetup --find --show --partscan "$TARGET"
+          INSTALL_DEVICE="LOOP_DEVICE"
+          EFI_PART="LOOP_EFI_PARTITION"
+          TARGET_PART="LOOP_ROOT_PARTITION"
+        fi
       else
-        parted -s "$TARGET" mklabel msdos mkpart primary ext4 1MiB 100% set 1 boot on
+        parted -s "$TARGET" mklabel gpt \
+          mkpart BIOSBOOT 1MiB 3MiB set 1 bios_grub on \
+          mkpart ESP fat32 3MiB 515MiB set 2 esp on \
+          mkpart ROOT ext4 515MiB 100%
         if [[ -f "$TARGET" ]]; then
           require_commands losetup
           LOOP_DEV="$(losetup --find --show --partscan "$TARGET")"
@@ -575,24 +659,25 @@ prepare_target() {
         else
           INSTALL_DEVICE="$TARGET"
           partprobe "$TARGET" 2>/dev/null || true
-          TARGET_PART="$(partition_path "$TARGET")"
         fi
+        EFI_PART="$(partition_path "$INSTALL_DEVICE" 2)"
+        TARGET_PART="$(partition_path "$INSTALL_DEVICE" 3)"
+        wait_for_block "$EFI_PART" || die "missing EFI partition: $EFI_PART"
         wait_for_block "$TARGET_PART" || die "missing target partition: $TARGET_PART"
       fi
+      FORMAT_EFI=1
       ;;
     partition)
       require_commands mkfs.ext4 mount rsync
       INSTALL_DEVICE=""
       TARGET_PART="$TARGET"
-      if [[ "$BOOTLOADER" == "grub" ]]; then
-        die "--bootloader grub requires whole disk target"
+      if [[ "$BOOTLOADER" == "grub" && -z "$EFI_PART" ]]; then
+        die "--bootloader grub requires a whole disk or --efi-part"
       fi
       ;;
     *) die "unknown target mode: $TARGET_MODE" ;;
   esac
   validate_unique_install_parts
-  validate_disk_extra_parts
-  validate_current_root_safety
 
   if [[ "$TARGET_MODE" == "partition" && "$FORMAT_ROOT" -eq 0 ]]; then
     printf 'keep root filesystem: %s\n' "$TARGET_PART"
@@ -601,7 +686,7 @@ prepare_target() {
   fi
   if [[ "$DRY_RUN" -eq 1 ]]; then
     TARGET_PARTUUID="TARGET_PARTUUID"
-  elif [[ "$TARGET_MODE" == "disk" ]]; then
+  elif [[ "$TARGET_MODE" == "disk" || -n "$EFI_PART" ]]; then
     require_commands blkid
     TARGET_PARTUUID="$(blkid -s PARTUUID -o value "$TARGET_PART" 2>/dev/null || true)"
     [[ -n "$TARGET_PARTUUID" ]] || die "missing PARTUUID for $TARGET_PART"
@@ -616,10 +701,11 @@ install_bootloader() {
   case "$BOOTLOADER" in
     none) return 0 ;;
     auto)
-      [[ "$TARGET_MODE" == "disk" ]] || return 0
+      [[ "$TARGET_MODE" == "disk" || -n "$EFI_PART" ]] || return 0
       ;;
     grub)
-      [[ "$TARGET_MODE" == "disk" ]] || die "--bootloader grub requires whole disk target"
+      [[ "$TARGET_MODE" == "disk" || -n "$EFI_PART" ]] ||
+        die "--bootloader grub requires a whole disk or --efi-part"
       ;;
     *) die "bootloader must be auto, grub, or none" ;;
   esac
@@ -631,7 +717,16 @@ install_bootloader() {
   else
     write_grub_config "$MOUNT_POINT" "PARTUUID=$TARGET_PARTUUID"
   fi
-  run_cmd grub-install --target=i386-pc --boot-directory="$MOUNT_POINT/boot" --modules="part_msdos ext2" --no-floppy "$INSTALL_DEVICE"
+  if [[ "$TARGET_MODE" == "disk" ]]; then
+    run_cmd grub-install --target=i386-pc --boot-directory="$MOUNT_POINT/boot" \
+      --modules="part_gpt biosdisk ext2 normal linux configfile" --no-floppy "$INSTALL_DEVICE"
+  fi
+  if [[ -n "$EFI_PART" ]]; then
+    run_cmd grub-install --target=x86_64-efi \
+      --efi-directory="$MOUNT_POINT/boot/efi" \
+      --boot-directory="$MOUNT_POINT/boot" \
+      --bootloader-id=Ooonana --removable --no-nvram
+  fi
 }
 
 while [[ $# -gt 0 ]]; do

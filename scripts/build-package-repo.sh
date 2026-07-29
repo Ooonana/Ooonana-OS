@@ -23,9 +23,10 @@ KERNEL_PACKAGE_SCRIPT="${OOONANA_KERNEL_PACKAGE_SCRIPT:-$ROOT/scripts/build-kern
 CORE_PACKAGE_SCRIPT="${OOONANA_CORE_PACKAGE_SCRIPT:-$ROOT/scripts/build-ooonana-core-package.sh}"
 OPENVINO_CHAT_PACKAGE_SCRIPT="${OOONANA_OPENVINO_CHAT_PACKAGE_SCRIPT:-$ROOT/scripts/build-openvino-chat-package.sh}"
 OPENVINO_CHAT_PACKAGE_VERSION="${OOONANA_OPENVINO_CHAT_VERSION:-0.1.1}"
-CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.8.6}"
+CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.8.7}"
 KERNEL_PACKAGE_PATH="${OOONANA_KERNEL_PACKAGE_PATH:-}"
 KERNEL_PACKAGE_URL="${OOONANA_KERNEL_PACKAGE_URL:-}"
+KERNEL_PACKAGE_SHA256="${OOONANA_KERNEL_SHA256:-}"
 KERNEL_PACKAGE_VERSION="${OOONANA_KERNEL_VERSION:-6.18.37}"
 
 usage() {
@@ -47,8 +48,9 @@ Options:
   --public-key PATH       Copy public key to repo.pub for distribution
   --kernel PATH           Add Ooonana kernel package from local kernel image
   --kernel-url URL        Add Ooonana kernel package from remote kernel image
+  --kernel-sha256 SHA256  Require this SHA-256 for the kernel image
   --kernel-version VER    Kernel package version (default: 6.18.37)
-  --core-version VER      Ooonana system update package version (default: 0.8.6)
+  --core-version VER      Ooonana system update package version (default: 0.8.7)
   --openvino-version VER  OpenVINO Chat package version (default: 0.1.1)
   --clean                 Delete output dir before build
   --dry-run               Print resolved build command only
@@ -76,6 +78,7 @@ while [[ $# -gt 0 ]]; do
     --public-key) PUBLIC_KEY="$2"; shift 2 ;;
     --kernel) KERNEL_PACKAGE_PATH="$2"; shift 2 ;;
     --kernel-url) KERNEL_PACKAGE_URL="$2"; shift 2 ;;
+    --kernel-sha256) KERNEL_PACKAGE_SHA256="$2"; shift 2 ;;
     --kernel-version) KERNEL_PACKAGE_VERSION="$2"; shift 2 ;;
     --core-version) CORE_PACKAGE_VERSION="$2"; shift 2 ;;
     --openvino-version) OPENVINO_CHAT_PACKAGE_VERSION="$2"; shift 2 ;;
@@ -144,9 +147,44 @@ ooonana get PACKAGE
 EOF
 }
 
+seed_builtin_metadata() {
+  local builtin_repo="$ROOT/packages/ooonana/usr/lib/ooonana/repo"
+  local package target
+
+  for package in "$builtin_repo"/*.pkg; do
+    [[ -f "$package" ]] || continue
+    target="$OUT_DIR/$(basename "$package")"
+    [[ -e "$target" ]] || cp "$package" "$target"
+  done
+}
+
+verify_repo_profile() {
+  local profile="$1"
+  local work
+
+  work="$(mktemp -d)"
+  mkdir -p "$work/sources" "$work/state" "$work/cache"
+  if ! OOONANA_REPO_DIR="$OUT_DIR" \
+    OOONANA_SOURCES_DIR="$work/sources" \
+    OOONANA_STATE_DIR="$work/state" \
+    OOONANA_CACHE_DIR="$work/cache" \
+    "$ROOT/packages/ooonana/usr/bin/ooonana" install "$profile" --dry-run >/dev/null; then
+    rm -rf "$work"
+    ooonana_die "package repo has an incomplete $profile dependency closure"
+  fi
+  rm -rf "$work"
+}
+
 main() {
   ooonana_require_linux
-  ooonana_require_commands awk cat mkdir rm sed tr
+  ooonana_require_commands awk basename cat cp mkdir mktemp rm sed tr
+
+  if [[ -n "$KERNEL_PACKAGE_URL" && -z "$KERNEL_PACKAGE_SHA256" ]]; then
+    ooonana_die "--kernel-sha256 required with --kernel-url"
+  fi
+  if [[ -n "$KERNEL_PACKAGE_SHA256" && -z "$KERNEL_PACKAGE_PATH$KERNEL_PACKAGE_URL" ]]; then
+    ooonana_die "kernel path or URL required with --kernel-sha256"
+  fi
 
   profile_packages="$(load_profile_packages "$PACKAGE_PROFILE" | tr '\n' ' ')"
   package_list="$(normalize_package_list "$profile_packages" "$PACKAGES")"
@@ -167,6 +205,7 @@ main() {
     [[ -n "$PUBLIC_KEY" ]] && printf 'public-key: %s\n' "$PUBLIC_KEY"
     [[ -n "$KERNEL_PACKAGE_PATH" ]] && printf 'kernel: %s\n' "$KERNEL_PACKAGE_PATH"
     [[ -n "$KERNEL_PACKAGE_URL" ]] && printf 'kernel-url: %s\n' "$KERNEL_PACKAGE_URL"
+    [[ -n "$KERNEL_PACKAGE_SHA256" ]] && printf 'kernel-sha256: %s\n' "$KERNEL_PACKAGE_SHA256"
     if [[ -n "$KERNEL_PACKAGE_PATH$KERNEL_PACKAGE_URL" ]]; then
       printf 'kernel-version: %s\n' "$KERNEL_PACKAGE_VERSION"
     fi
@@ -178,7 +217,7 @@ main() {
     if [[ -n "$KERNEL_PACKAGE_PATH" || -n "$KERNEL_PACKAGE_URL" ]]; then
       kernel_source="$KERNEL_PACKAGE_PATH"
       [[ -n "$kernel_source" ]] || kernel_source="$KERNEL_PACKAGE_URL"
-      ooonana_print_command bash "$KERNEL_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --kernel "$kernel_source" --version "$KERNEL_PACKAGE_VERSION"
+      ooonana_print_command bash "$KERNEL_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --kernel "$kernel_source" --sha256 "$KERNEL_PACKAGE_SHA256" --version "$KERNEL_PACKAGE_VERSION"
     fi
     ooonana_print_command bash "$CORE_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$CORE_PACKAGE_VERSION"
     ooonana_print_command bash "$OPENVINO_CHAT_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$OPENVINO_CHAT_PACKAGE_VERSION"
@@ -199,16 +238,21 @@ main() {
     bash "$KERNEL_PACKAGE_SCRIPT" \
       --out-dir "$OUT_DIR" \
       --kernel "$kernel_source" \
+      --sha256 "$KERNEL_PACKAGE_SHA256" \
       --version "$KERNEL_PACKAGE_VERSION"
   fi
   bash "$CORE_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$CORE_PACKAGE_VERSION"
   bash "$OPENVINO_CHAT_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$OPENVINO_CHAT_PACKAGE_VERSION"
+  seed_builtin_metadata
   if [[ -n "$PUBLIC_KEY" ]]; then
     [[ -f "$PUBLIC_KEY" ]] || ooonana_die "missing public key: $PUBLIC_KEY"
     cp "$PUBLIC_KEY" "$OUT_DIR/repo.pub"
     chmod 0644 "$OUT_DIR/repo.pub" 2>/dev/null || true
   fi
   "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$OUT_DIR" >/dev/null
+  if [[ "$FULL_I3" -eq 1 ]]; then
+    verify_repo_profile full-i3
+  fi
   if [[ -n "$SIGN_KEY" ]]; then
     "$ROOT/packages/ooonana/usr/bin/ooonana" repo index --sign-key "$SIGN_KEY" "$OUT_DIR" >/dev/null
   fi

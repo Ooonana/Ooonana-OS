@@ -15,6 +15,12 @@ assert_contains() {
   [[ "$haystack" == *"$needle"* ]] || fail "missing: $needle"
 }
 
+assert_not_contains() {
+  local haystack="$1"
+  local needle="$2"
+  [[ "$haystack" != *"$needle"* ]] || fail "unexpected: $needle"
+}
+
 [[ -x "$SCRIPT" ]] || fail "missing executable full-i3 ISO builder"
 
 script_src="$(<"$SCRIPT")"
@@ -114,7 +120,10 @@ expected_grub_logo="$(while IFS= read -r line || [[ -n "$line" ]]; do printf '%2
 assert_contains "$normal_cfg" "set gfxpayload=keep"
 assert_contains "$normal_cfg" "set color_normal=yellow/black"
 assert_contains "$normal_cfg" "set color_highlight=black/yellow"
-assert_contains "$normal_cfg" "console=tty0 console=ttyS0 quiet loglevel=3 vt.global_cursor_default=0"
+assert_contains "$normal_cfg" "console=tty0 console=ttyS0 loglevel=6"
+assert_not_contains "$normal_cfg" " quiet "
+assert_contains "$normal_cfg" "smbios --type 1 --get-string 4 --set ooonana_manufacturer"
+assert_contains "$normal_cfg" "snd_intel_dspcfg.dsp_driver=3"
 assert_contains "$normal_cfg" "set default=0"
 assert_contains "$normal_cfg" "set timeout_style=menu"
 assert_contains "$normal_cfg" "set timeout=5"
@@ -127,7 +136,9 @@ assert_contains "$theme" "+ progress_bar"
 assert_contains "$theme" 'id = "__timeout__"'
 assert_contains "$theme" 'desktop-image: "/boot/grub/background.png"'
 assert_contains "$theme" 'item_color = "#ffb21a"'
-assert_contains "$theme" 'selected_item_color = "#ffffff"'
+assert_contains "$theme" 'selected_item_color = "#ffd37a"'
+assert_contains "$theme" 'id = "ooonana-logo-1"'
+assert_contains "$theme" 'id = "ooonana-logo-8"'
 assert_contains "$theme" 'visible = true'
 assert_contains "$theme" 'item_font = "Unifont Regular 16"'
 assert_contains "$theme" "item_height = 30"

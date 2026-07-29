@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 ALPINE="https://dl-cdn.alpinelinux.org/alpine/v3.20"
 APK_DIR="${OOONANA_RUNTIME_APK_DIR:-}"
 
@@ -14,6 +14,35 @@ if [ "$(id -u)" -ne 0 ]; then
   echo "update-installed-wsl: run as root" >&2
   exit 126
 fi
+
+case "${WSL_DISTRO_NAME:-}" in
+  Ooonana) ;;
+  "") ;;
+  *)
+    echo "update-installed-wsl: refusing non-Ooonana distro: $WSL_DISTRO_NAME" >&2
+    exit 2
+    ;;
+esac
+
+os_id="$(sed -n 's/^ID=//p' /etc/os-release 2>/dev/null | head -n 1 | tr -d '"')"
+if [ "$os_id" != "ooonana" ]; then
+  echo "update-installed-wsl: refusing target OS: ${os_id:-unknown}" >&2
+  exit 2
+fi
+
+overlay_tree() {
+  source_root="$1"
+  for source in "$source_root"/*; do
+    [ -e "$source" ] || [ -L "$source" ] || continue
+    target="/${source##*/}"
+    if [ -d "$source" ] && [ ! -L "$source" ]; then
+      mkdir -p "$target"
+      cp -a "$source/." "$target/"
+    else
+      cp -a "$source" "$target"
+    fi
+  done
+}
 
 extract_block() {
   marker="$1"
@@ -30,16 +59,30 @@ extract_block() {
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
-install -m 0755 "$ROOT/packages/ooonana/usr/bin/bunana" /usr/bin/bunana
-install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana" /usr/bin/ooonana
+install -d -m 0755 \
+  /usr/lib/ooonana/ai \
+  /usr/lib/ooonana/ui \
+  /usr/share/applications \
+  /usr/share/ooonana \
+  /var/lib/ooonana/packages/installed
+for source in "$ROOT"/packages/ooonana/usr/bin/*; do
+  [ -f "$source" ] || continue
+  install -m 0755 "$source" "/usr/bin/${source##*/}"
+done
 install -m 0755 "$ROOT/packages/ooonana/usr/lib/ooonana/oonana_game.py" /usr/lib/ooonana/oonana_game.py
-install -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ui/common.py" /usr/lib/ooonana/ui/common.py
-install -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ui/wifi_app.py" /usr/lib/ooonana/ui/wifi_app.py
-install -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ui/bluetooth_app.py" /usr/lib/ooonana/ui/bluetooth_app.py
-install -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ui/wireless_utils.py" /usr/lib/ooonana/ui/wireless_utils.py
-install -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ui/signal_map.py" /usr/lib/ooonana/ui/signal_map.py
-install -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ui/controls_app.py" /usr/lib/ooonana/ui/controls_app.py
-install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt" /usr/share/ooonana/grub-logo.txt
+install -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ai/ooonana_ai.py" /usr/lib/ooonana/ai/ooonana_ai.py
+for source in "$ROOT"/packages/ooonana/usr/lib/ooonana/ui/*.py; do
+  install -m 0644 "$source" "/usr/lib/ooonana/ui/${source##*/}"
+done
+for source in "$ROOT"/packages/ooonana/usr/share/applications/*.desktop; do
+  install -m 0644 "$source" "/usr/share/applications/${source##*/}"
+done
+for source in "$ROOT"/packages/ooonana/usr/share/ooonana/*.txt; do
+  install -m 0644 "$source" "/usr/share/ooonana/${source##*/}"
+done
+install -m 0644 \
+  "$ROOT/packages/ooonana/var/lib/ooonana/packages/installed/ooonana-core.pkg" \
+  /var/lib/ooonana/packages/installed/ooonana-core.pkg
 
 if ! python3 -c 'import cairo' >/dev/null 2>&1; then
   url="$ALPINE/main/x86_64/py3-cairo-1.26.0-r1.apk"
@@ -53,7 +96,7 @@ if ! python3 -c 'import cairo' >/dev/null 2>&1; then
   fi
   tar -xzf "$apk" -C "$unpack"
   rm -f "$unpack/.PKGINFO" "$unpack"/.SIGN.*
-  cp -a "$unpack/." /
+  overlay_tree "$unpack"
 fi
 
 for helper in \
@@ -64,8 +107,11 @@ for helper in \
   install -m 0755 "$work/$helper" "/usr/bin/$helper"
 done
 
-if ! command -v sudo >/dev/null 2>&1 || ! command -v su >/dev/null 2>&1; then
+if ! command -v doas >/dev/null 2>&1 ||
+  ! command -v sudo >/dev/null 2>&1 ||
+  ! command -v su >/dev/null 2>&1; then
   for url in \
+    "$ALPINE/main/x86_64/doas-6.8.2-r7.apk" \
     "$ALPINE/community/x86_64/sudo-1.9.15_p5-r0.apk" \
     "$ALPINE/main/x86_64/util-linux-login-2.40.1-r1.apk"; do
     apk="$work/${url##*/}"
@@ -78,7 +124,7 @@ if ! command -v sudo >/dev/null 2>&1 || ! command -v su >/dev/null 2>&1; then
     fi
     tar -xzf "$apk" -C "$unpack"
     rm -f "$unpack/.PKGINFO" "$unpack"/.SIGN.*
-    cp -a "$unpack/." /
+    overlay_tree "$unpack"
   done
 fi
 
