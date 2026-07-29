@@ -34,3 +34,5 @@ configs/kernel/*.fragment text eol=lf
 branding/i3/config text eol=lf
 .gitignore text eol=lf
 .gitattributes text eol=lf
+
+packages/openvino-chat/rootfs/usr/bin/* text eol=lf
