@@ -6,7 +6,7 @@ for GAME in \
   "/usr/lib/ooonana/oonana_game.py" \
   "$SCRIPT_DIR/../lib/ooonana/oonana_game.py"
 do
-  if [ -x "$GAME" ] && command -v python3 >/dev/null 2>&1; then
+  if [ -r "$GAME" ] && command -v python3 >/dev/null 2>&1; then
     exec python3 "$GAME" "$@"
   fi
 done

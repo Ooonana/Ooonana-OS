@@ -1,5 +1,5 @@
 OOONANA_PKG_ID="ooonana-core"
-OOONANA_PKG_VERSION="0.8.15"
+OOONANA_PKG_VERSION="0.8.16"
 OOONANA_PKG_KIND="archive"
 OOONANA_PKG_SUMMARY="Ooonana OS CLI, desktop apps, services, game, and defaults"
 OOONANA_PKG_DEPS=""

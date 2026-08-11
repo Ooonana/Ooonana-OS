@@ -205,7 +205,7 @@ assert_contains "$gitlab_ci" "OOONANA_REPO_SIGN_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_REPO_PUBLIC_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_CORE_VERSION"
-assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.8.15"'
+assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.8.16"'
 assert_contains "$gitlab_ci" "OOONANA_OPENVINO_CHAT_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_URL"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_SHA256"
@@ -313,6 +313,8 @@ tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-audio-start' >/dev/nu
 tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-game-launch' >/dev/null || fail "core runtime missing game launcher"
 [[ "$(tar -tvzf "$core_runtime_archive" ./usr/bin/ooonana-game-launch | awk '{print $1}')" == "-rwxr-xr-x" ]] ||
   fail "core runtime game launcher is not executable"
+[[ "$(tar -tvzf "$core_runtime_archive" ./usr/lib/ooonana/oonana_game.py | awk '{print $1}')" == "-rwxr-xr-x" ]] ||
+  fail "core runtime Python game is not executable"
 tar -tzf "$core_runtime_archive" | grep './usr/bin/which' >/dev/null || fail "core runtime missing which helper"
 tar -tzf "$core_runtime_archive" | grep './usr/bin/strings' >/dev/null || fail "core runtime missing strings helper"
 tar -tzf "$core_runtime_archive" | grep './etc/i3/config' >/dev/null || fail "core runtime missing updated i3 config"
@@ -339,7 +341,7 @@ core_upgrade="$(OOONANA_REPO_DIR="$tmp/repo" \
 assert_contains "$core_upgrade" "installed ooonana-core-runtime"
 assert_contains "$core_upgrade" "upgraded ooonana-core 0.8.1"
 [[ -x "$core_upgrade_root/usr/bin/ooonana" ]] || fail "core migration removed upgraded CLI"
-assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.8.15"
+assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.8.16"
 assert_contains "$(<"$tmp/repo/cloud.repo")" 'OOONANA_REPO_URI="https://example.test/repo"'
 assert_contains "$(<"$tmp/repo/README.txt")" "ooonana update"
 
