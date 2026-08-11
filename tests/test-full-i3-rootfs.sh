@@ -107,7 +107,7 @@ for required_package in \
   networkmanager networkmanager-cli networkmanager-tui network-manager-applet \
   blueman bluez iw wireless-tools wpa_supplicant wireless-regdb \
   pciutils usbutils \
-  linux-firmware linux-firmware-i915 linux-firmware-ath10k linux-firmware-ath11k \
+  linux-firmware-i915 linux-firmware-ath10k linux-firmware-ath11k \
   linux-firmware-ath12k linux-firmware-mediatek linux-firmware-rtw88 \
   linux-firmware-rtw89 linux-firmware-rtl_bt linux-firmware-rtl_nic \
   sof-firmware pulseaudio pipewire pipewire-alsa pipewire-pulse pipewire-spa-bluez wireplumber \

@@ -89,7 +89,6 @@ iw
 wireless-tools
 wpa_supplicant
 wireless-regdb
-linux-firmware
 linux-firmware-i915
 linux-firmware-intel
 linux-firmware-amdgpu

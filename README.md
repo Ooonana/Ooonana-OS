@@ -561,7 +561,7 @@ Default full-i3 apps and tools:
 chromium, nemo, python3, py3-pip, alacritty
 polybar, rofi, yad, font-awesome-free, picom, dunst, feh
 networkmanager, network-manager-applet, blueman
-bluez, wpa_supplicant, wireless-regdb, linux-firmware
+bluez, wpa_supplicant, wireless-regdb, targeted hardware firmware
 linux-firmware-i915, linux-firmware-amdgpu, linux-firmware-brcm
 linux-firmware-rtlwifi, sof-firmware, mesa-dri-gallium
 mesa-va-gallium, mesa-vulkan-intel, alsa-utils
