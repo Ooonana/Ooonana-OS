@@ -4,6 +4,7 @@
 import os
 import random
 import select
+import shutil
 import sys
 import time
 
@@ -15,10 +16,12 @@ except ImportError:
     tty = None
 
 
-WIDTH = 80
-HEIGHT = 26
-PADDLE_WIDTH = 14
-PADDLE_Y = HEIGHT - 4
+DEFAULT_WIDTH = 112
+DEFAULT_HEIGHT = 38
+MIN_WIDTH = 68
+MAX_WIDTH = 160
+MIN_HEIGHT = 26
+MAX_HEIGHT = 48
 BRICK_TOP = 4
 
 BRICKS_MAP = [
@@ -76,7 +79,11 @@ def color(code, text):
 
 
 class Game:
-    def __init__(self, speed=2):
+    def __init__(self, speed=2, width=DEFAULT_WIDTH, height=DEFAULT_HEIGHT):
+        self.width = max(MIN_WIDTH, int(width))
+        self.height = max(MIN_HEIGHT, int(height))
+        self.paddle_width = max(14, min(24, self.width // 6))
+        self.paddle_y = self.height - 4
         self.speed = speed
         self.restart()
 
@@ -87,13 +94,18 @@ class Game:
         self.paused = False
         self.game_over = False
         self.victory = False
-        self.paddle_x = (WIDTH - PADDLE_WIDTH) // 2
+        self.paddle_x = (self.width - self.paddle_width) // 2
         self.bricks = [list(row) for row in BRICKS_MAP]
         self.reset_ball(initial=True)
 
     def reset_ball(self, initial=False):
-        self.ball_x = WIDTH / 2
-        self.ball_y = 15.0
+        self.ball_x = self.width / 2
+        self.ball_y = float(
+            max(
+                BRICK_TOP + len(BRICKS_MAP) + 5,
+                min(self.paddle_y - 8, int(self.height * 0.48)),
+            )
+        )
         self.ball_vx = random.choice((-0.58, 0.58))
         self.ball_vy = -0.48
         self.effect = "normal" if initial else "death"
@@ -141,7 +153,9 @@ class Game:
         if key == "left":
             self.paddle_x = max(1, self.paddle_x - 4)
         elif key == "right":
-            self.paddle_x = min(WIDTH - PADDLE_WIDTH - 1, self.paddle_x + 4)
+            self.paddle_x = min(
+                self.width - self.paddle_width - 1, self.paddle_x + 4
+            )
         return True
 
     def hit_bricks(self):
@@ -154,7 +168,7 @@ class Game:
             return False
 
         brick_row = probe_y - BRICK_TOP
-        brick_start = (WIDTH - len(BRICKS_MAP[0])) // 2
+        brick_start = (self.width - len(BRICKS_MAP[0])) // 2
         ball_left = int(round(self.ball_x)) - self.ball_half_width
         ball_right = int(round(self.ball_x)) + self.ball_half_width
         hits = []
@@ -185,7 +199,7 @@ class Game:
         self.ball_y += self.ball_vy
 
         min_x = 1 + self.ball_half_width
-        max_x = WIDTH - 2 - self.ball_half_width
+        max_x = self.width - 2 - self.ball_half_width
         if self.ball_x < min_x:
             self.ball_x = float(min_x)
             self.ball_vx = abs(self.ball_vx)
@@ -205,21 +219,21 @@ class Game:
 
         ball_left = self.ball_x - self.ball_half_width
         ball_right = self.ball_x + self.ball_half_width
-        paddle_right = self.paddle_x + PADDLE_WIDTH - 1
+        paddle_right = self.paddle_x + self.paddle_width - 1
         if (
             self.ball_vy > 0
-            and previous_bottom < PADDLE_Y <= self.ball_bottom
+            and previous_bottom < self.paddle_y <= self.ball_bottom
             and ball_right >= self.paddle_x
             and ball_left <= paddle_right
         ):
-            self.ball_y -= max(0, self.ball_bottom - PADDLE_Y + 1)
+            self.ball_y -= max(0, self.ball_bottom - self.paddle_y + 1)
             self.ball_vy = -abs(self.ball_vy)
-            hit_position = (self.ball_x - self.paddle_x) / PADDLE_WIDTH
+            hit_position = (self.ball_x - self.paddle_x) / self.paddle_width
             self.ball_vx = max(-0.82, min(0.82, (hit_position - 0.5) * 1.5))
             self.combo = 0
             self.set_hit_effect()
 
-        if self.ball_top > PADDLE_Y + 1:
+        if self.ball_top > self.paddle_y + 1:
             self.lives -= 1
             if self.lives <= 0:
                 self.game_over = True
@@ -233,13 +247,16 @@ class Game:
             f"Ooonana OS Breakout | OOONANA OS | Score:{self.score} | Lives:{self.lives} "
             f"| combo:{self.combo} | Speed: {self.speed} | {state}"
         )
-        lines = [color(YELLOW, header[:WIDTH].center(WIDTH)), color(CYAN, "=" * WIDTH)]
+        lines = [
+            color(YELLOW, header[: self.width].center(self.width)),
+            color(CYAN, "=" * self.width),
+        ]
         face = self.ball_face()
-        brick_start = (WIDTH - len(BRICKS_MAP[0])) // 2
+        brick_start = (self.width - len(BRICKS_MAP[0])) // 2
         sprite_top = self.ball_top
 
-        for y in range(2, HEIGHT - 1):
-            line = [" "] * WIDTH
+        for y in range(2, self.height - 1):
+            line = [" "] * self.width
             line[0] = color(YELLOW, "|")
             line[-1] = color(YELLOW, "|")
 
@@ -247,11 +264,11 @@ class Game:
                 row = self.bricks[y - BRICK_TOP]
                 for col, char in enumerate(row):
                     x = brick_start + col
-                    if char != " " and 0 < x < WIDTH - 1:
+                    if char != " " and 0 < x < self.width - 1:
                         line[x] = color(BRICK_COLORS.get(char, WHITE), char)
 
-            if y == PADDLE_Y:
-                paddle = "[" + "=" * (PADDLE_WIDTH - 2) + "]"
+            if y == self.paddle_y:
+                paddle = "[" + "=" * (self.paddle_width - 2) + "]"
                 for offset, char in enumerate(paddle):
                     line[self.paddle_x + offset] = color(CYAN, char)
 
@@ -260,14 +277,14 @@ class Game:
                 sprite_left = int(round(self.ball_x)) - len(sprite_line) // 2
                 for offset, char in enumerate(sprite_line):
                     x = sprite_left + offset
-                    if char != " " and 0 < x < WIDTH - 1:
+                    if char != " " and 0 < x < self.width - 1:
                         line[x] = color(GREEN, char)
 
             lines.append("".join(line))
 
-        lines.append(color(CYAN, "=" * WIDTH))
+        lines.append(color(CYAN, "=" * self.width))
         footer = " A/D or arrows move | P pause | R restart | 1/2/3 speed | Q quit "
-        lines.append(color(MAGENTA, footer.center(WIDTH)))
+        lines.append(color(MAGENTA, footer.center(self.width)))
         return lines
 
     def render(self):
@@ -306,17 +323,12 @@ Options:
     )
 
 
-def get_key(timeout):
-    if not select.select([sys.stdin], [], [], timeout)[0]:
-        return None
-    char = sys.stdin.read(1)
+def decode_key(char, sequence=""):
     if char == "\x1b":
-        if select.select([sys.stdin], [], [], 0.04)[0]:
-            sequence = sys.stdin.read(2)
-            if sequence == "[D":
-                return "left"
-            if sequence == "[C":
-                return "right"
+        if sequence in ("OD", "[D") or sequence.endswith("D"):
+            return "left"
+        if sequence in ("OC", "[C") or sequence.endswith("C"):
+            return "right"
         return None
     return {
         "a": "left",
@@ -336,9 +348,34 @@ def get_key(timeout):
     }.get(char)
 
 
+def get_key(timeout):
+    if not select.select([sys.stdin], [], [], timeout)[0]:
+        return None
+    char = os.read(sys.stdin.fileno(), 1).decode("utf-8", "ignore")
+    if char == "\x1b":
+        sequence = ""
+        deadline = time.monotonic() + 0.12
+        while len(sequence) < 16:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0 or not select.select([sys.stdin], [], [], remaining)[0]:
+                break
+            sequence += os.read(sys.stdin.fileno(), 1).decode("utf-8", "ignore")
+            if sequence[-1:] in ("C", "D", "~"):
+                break
+        return decode_key(char, sequence)
+    return decode_key(char)
+
+
+def game_dimensions():
+    terminal = shutil.get_terminal_size((DEFAULT_WIDTH, DEFAULT_HEIGHT + 2))
+    width = max(MIN_WIDTH, min(MAX_WIDTH, terminal.columns))
+    height = max(MIN_HEIGHT, min(MAX_HEIGHT, terminal.lines - 2))
+    return width, height
+
+
 def snapshot():
     random.seed(7)
-    game = Game()
+    game = Game(width=DEFAULT_WIDTH, height=DEFAULT_HEIGHT)
     print(game.render())
     if not sys.stdin.isatty() and sys.stdin.read(1).lower() == "q":
         print(f"bye. score:{game.score}")
@@ -348,7 +385,8 @@ def run():
     if termios is None or tty is None:
         snapshot()
         return
-    game = Game()
+    width, height = game_dimensions()
+    game = Game(width=width, height=height)
     previous = None
     old_settings = None
     sys.stdout.write("\033[?25l\033[2J")
@@ -368,7 +406,7 @@ def run():
     finally:
         if old_settings is not None:
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
-        sys.stdout.write(f"\033[{HEIGHT + 3};1H\033[?25h\033[0m\n")
+        sys.stdout.write(f"\033[{game.height + 3};1H\033[?25h\033[0m\n")
         sys.stdout.flush()
 
     if game.victory:

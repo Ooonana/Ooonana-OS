@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT="$ROOT/scripts/build-full-i3-iso.sh"
+RELEASE_SCRIPT="$ROOT/scripts/rebuild-full-i3-release.sh"
 
 fail() {
   printf 'FAIL: %s\n' "$*" >&2
@@ -22,11 +23,18 @@ assert_not_contains() {
 }
 
 [[ -x "$SCRIPT" ]] || fail "missing executable full-i3 ISO builder"
+[[ -f "$RELEASE_SCRIPT" ]] || fail "missing full-i3 release builder"
+
+release_help="$(bash "$RELEASE_SCRIPT" --help)"
+assert_contains "$release_help" "--resume-after-iso"
 
 script_src="$(<"$SCRIPT")"
 assert_contains "$script_src" 'DISK_IMAGE_STAGED="ooonana-full-i3-disk.raw.gz"'
 assert_contains "$script_src" 'ooonana.install.image=/mnt/install/images/$DISK_IMAGE_STAGED'
 assert_contains "$script_src" "gzip -n -c"
+assert_contains "$script_src" 'MAX_RELEASE_ISO_BYTES="${OOONANA_MAX_ISO_BYTES:-4500000000}"'
+assert_contains "$script_src" "release ISO exceeds 4.5 GB limit"
+assert_contains "$script_src" "OOONANA_MAX_ISO_BYTES must be a positive integer"
 assert_contains "$script_src" "Ooonana OS Full i3 Live"
 assert_contains "$script_src" "Ooonana OS Full i3 Live (persistent USB)"
 assert_contains "$script_src" "ooonana.persistence=1"
@@ -42,6 +50,7 @@ assert_contains "$script_src" "hybrid BIOS/UEFI ISO"
 [[ "$script_src" != *"insmod gfxmenu"* ]] || fail "full-i3 GRUB must not load gfxmenu"
 [[ "$script_src" != *"set gfxmode="* ]] || fail "full-i3 GRUB must not force VM framebuffer size"
 assert_contains "$script_src" "terminal_output gfxterm serial"
+assert_contains "$script_src" "if terminal_output gfxterm serial; then"
 assert_contains "$script_src" "terminal_output console serial"
 assert_contains "$script_src" "set gfxpayload=keep"
 assert_contains "$script_src" "set theme=/boot/grub/theme.txt"
@@ -64,6 +73,7 @@ assert_contains "$help" "--iso"
 assert_contains "$help" "--install-target"
 assert_contains "$help" "--live-smoke"
 assert_contains "$help" "--uefi"
+[[ "$script_src" != *"building BIOS-only ISO"* ]] || fail "full ISO must require UEFI modules"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -101,6 +111,8 @@ PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
   --force >/dev/null
 
 normal_cfg="$(<"$tmp/build/full-i3-iso-tree/boot/grub/grub.cfg")"
+[[ ! -e "$tmp/build/full-i3-iso-tree/images/ooonana-full-i3-disk.raw.gz" ]] ||
+  fail "normal release ISO must not contain duplicate installed-disk image"
 assert_contains "$normal_cfg" "terminal_input console serial"
 assert_contains "$normal_cfg" "terminal_output gfxterm serial"
 assert_contains "$normal_cfg" "terminal_output console serial"
@@ -137,8 +149,20 @@ assert_contains "$theme" 'id = "__timeout__"'
 assert_contains "$theme" 'desktop-image: "/boot/grub/background.png"'
 assert_contains "$theme" 'item_color = "#ffb21a"'
 assert_contains "$theme" 'selected_item_color = "#ffd37a"'
-assert_contains "$theme" 'id = "ooonana-logo-1"'
-assert_contains "$theme" 'id = "ooonana-logo-8"'
+logo_index=0
+while IFS= read -r logo_line || [[ -n "$logo_line" ]]; do
+  logo_index=$((logo_index + 1))
+  escaped_logo_line="${logo_line//\\/\\\\}"
+  escaped_logo_line="${escaped_logo_line//\"/\\\"}"
+  assert_contains "$theme" "id = \"ooonana-logo-$logo_index\""
+  assert_contains "$theme" "text = \"$escaped_logo_line\""
+done < "$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt"
+[[ "$logo_index" -eq 8 ]] || fail "GRUB logo must have eight canonical lines"
+[[ "$(grep -c 'id = \"ooonana-logo-' "$tmp/build/full-i3-iso-tree/boot/grub/theme.txt")" -eq 8 ]] ||
+  fail "GRUB theme must contain only eight logo labels"
+assert_contains "$theme" 'left = 50%-108'
+assert_contains "$theme" 'width = 216'
+assert_contains "$theme" 'align = "left"'
 assert_contains "$theme" 'visible = true'
 assert_contains "$theme" 'item_font = "Unifont Regular 16"'
 assert_contains "$theme" "item_height = 30"

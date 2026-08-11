@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+export LC_ALL=C LANG=C
 
 OOONANA_ROOT="${OOONANA_ROOT:-/}"
 DRY_RUN=0
@@ -9,6 +10,7 @@ DONE=0
 USER_NAME=""
 PASSWORD_SETUP=0
 NETWORK_MODE=""
+NETWORK_INTERFACE=""
 ADDRESS=""
 GATEWAY=""
 DNS_SERVERS=""
@@ -28,7 +30,8 @@ Options:
   --gui                 Open setup GUI when DISPLAY is available
   --user NAME           Create user
   --password            Prompt for created user password
-  --network dhcp|static Configure eth0 network
+  --network dhcp|static Configure wired network
+  --interface DEVICE    Wired interface (default: auto-detect)
   --address CIDR        Static address, for example 10.0.2.15/24
   --gateway IP          Static gateway
   --dns LIST            Comma-separated DNS servers
@@ -272,8 +275,28 @@ write_network() {
     [ -n "$ADDRESS" ] || die "--address required for static network"
     [ -n "$GATEWAY" ] || die "--gateway required for static network"
   fi
+  if [ -n "$NETWORK_INTERFACE" ]; then
+    case "$NETWORK_INTERFACE" in
+      lo|*[!A-Za-z0-9_.:-]*) die "bad network interface: $NETWORK_INTERFACE" ;;
+    esac
+  elif [ "$OOONANA_ROOT" = "/" ] && have nmcli; then
+    NETWORK_INTERFACE="$(nmcli -t --escape no -f DEVICE,TYPE device status 2>/dev/null |
+      awk -F: '$2 == "ethernet" && $1 != "lo" { print $1; exit }')"
+  fi
+  if [ -z "$NETWORK_INTERFACE" ] && [ "$OOONANA_ROOT" = "/" ]; then
+    for candidate in /sys/class/net/*; do
+      [ -e "$candidate" ] || continue
+      device="${candidate##*/}"
+      [ "$device" != lo ] || continue
+      [ -e "$candidate/device" ] || continue
+      [ ! -d "$candidate/wireless" ] || continue
+      NETWORK_INTERFACE="$device"
+      break
+    done
+  fi
+  NETWORK_INTERFACE="${NETWORK_INTERFACE:-eth0}"
   if [ "$DRY_RUN" -eq 1 ]; then
-    printf 'would configure %s network\n' "$NETWORK_MODE"
+    printf 'would configure %s network on %s\n' "$NETWORK_MODE" "$NETWORK_INTERFACE"
     return 0
   fi
 
@@ -283,11 +306,11 @@ write_network() {
   {
     printf 'auto lo\n'
     printf 'iface lo inet loopback\n\n'
-    printf 'auto eth0\n'
+    printf 'auto %s\n' "$NETWORK_INTERFACE"
     if [ "$NETWORK_MODE" = "dhcp" ]; then
-      printf 'iface eth0 inet dhcp\n'
+      printf 'iface %s inet dhcp\n' "$NETWORK_INTERFACE"
     else
-      printf 'iface eth0 inet static\n'
+      printf 'iface %s inet static\n' "$NETWORK_INTERFACE"
       printf '    address %s\n' "$ADDRESS"
       printf '    gateway %s\n' "$GATEWAY"
       if [ -n "$DNS_SERVERS" ]; then
@@ -297,11 +320,35 @@ write_network() {
   } > "$interfaces"
   {
     printf 'OOONANA_NETWORK_MODE="%s"\n' "$NETWORK_MODE"
+    printf 'OOONANA_NETWORK_INTERFACE="%s"\n' "$(shell_escape "$NETWORK_INTERFACE")"
     [ -n "$ADDRESS" ] && printf 'OOONANA_NETWORK_ADDRESS="%s"\n' "$(shell_escape "$ADDRESS")"
     [ -n "$GATEWAY" ] && printf 'OOONANA_NETWORK_GATEWAY="%s"\n' "$(shell_escape "$GATEWAY")"
     [ -n "$DNS_SERVERS" ] && printf 'OOONANA_NETWORK_DNS="%s"\n' "$(shell_escape "$DNS_SERVERS")"
   } > "$network_conf"
-  printf 'network: %s\n' "$NETWORK_MODE"
+
+  if [ "$OOONANA_ROOT" = "/" ] && have nmcli &&
+    nmcli -t --escape no -f DEVICE,TYPE device status 2>/dev/null |
+      awk -F: -v device="$NETWORK_INTERFACE" \
+        '$1 == device && $2 == "ethernet" { found = 1 } END { exit !found }'; then
+    profile="Ooonana Wired ($NETWORK_INTERFACE)"
+    nmcli connection delete "$profile" >/dev/null 2>&1 || true
+    nmcli connection add type ethernet ifname "$NETWORK_INTERFACE" con-name "$profile" >/dev/null ||
+      die "could not create NetworkManager profile for $NETWORK_INTERFACE"
+    if [ "$NETWORK_MODE" = "dhcp" ]; then
+      nmcli connection modify "$profile" \
+        connection.autoconnect yes ipv4.method auto ipv6.method auto >/dev/null ||
+        die "could not configure DHCP for $NETWORK_INTERFACE"
+    else
+      set -- connection.autoconnect yes ipv4.method manual \
+        ipv4.addresses "$ADDRESS" ipv4.gateway "$GATEWAY" ipv6.method auto
+      if [ -n "$DNS_SERVERS" ]; then
+        set -- "$@" ipv4.dns "$(printf '%s' "$DNS_SERVERS" | tr ',' ' ')"
+      fi
+      nmcli connection modify "$profile" "$@" >/dev/null ||
+        die "could not configure static network for $NETWORK_INTERFACE"
+    fi
+  fi
+  printf 'network: %s on %s\n' "$NETWORK_MODE" "$NETWORK_INTERFACE"
 }
 
 write_theme() {
@@ -418,6 +465,7 @@ while [ "$#" -gt 0 ]; do
     --user) USER_NAME="$2"; shift 2 ;;
     --password) PASSWORD_SETUP=1; shift ;;
     --network) NETWORK_MODE="$2"; shift 2 ;;
+    --interface) NETWORK_INTERFACE="$2"; shift 2 ;;
     --address) ADDRESS="$2"; shift 2 ;;
     --gateway) GATEWAY="$2"; shift 2 ;;
     --dns) DNS_SERVERS="$2"; shift 2 ;;

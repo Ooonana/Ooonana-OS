@@ -19,7 +19,7 @@ INSTALL_TARGET="auto"
 SMOKE=0
 LIVE_SMOKE=0
 FORCE=0
-UEFI_MODE="auto"
+MAX_RELEASE_ISO_BYTES="${OOONANA_MAX_ISO_BYTES:-4500000000}"
 
 usage() {
   cat <<'USAGE'
@@ -36,14 +36,14 @@ Options:
                        Full-i3 live initramfs path
   --live-rootfs-image PATH
                        Full-i3 live ext4 rootfs image
-  --disk-image PATH    Full-i3 bootable raw disk image
+  --disk-image PATH    Full-i3 bootable raw disk image (installer smoke only)
   --iso-tree PATH      ISO staging directory (default: WORK_DIR/full-i3-iso-tree)
   --iso PATH           ISO output path (default: WORK_DIR/ooonana-full-i3.iso)
   --volume NAME        ISO volume label (default: OOONANAUSB, 11 chars or less for USB tools)
   --install-target DEV Installer target device, or auto (default: auto)
   --smoke              Add smoke boot kernel argument
   --live-smoke         Smoke-test live i3 path instead of installer path
-  --uefi               Require GRUB x86_64 EFI modules for UEFI boot
+  --uefi               Require GRUB x86_64 EFI modules (default)
   --force              Delete existing ISO staging tree and ISO first
   -h, --help           Show help
 USAGE
@@ -63,7 +63,7 @@ while [[ $# -gt 0 ]]; do
     --install-target) INSTALL_TARGET="$2"; shift 2 ;;
     --smoke) SMOKE=1; shift ;;
     --live-smoke) LIVE_SMOKE=1; shift ;;
-    --uefi) UEFI_MODE="on"; shift ;;
+    --uefi) shift ;;
     --force) FORCE=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) ooonana_die "unknown option: $1" ;;
@@ -99,7 +99,11 @@ fi
 serial --unit=0 --speed=115200
 terminal_input console serial
 terminal_output console serial
-terminal_output gfxterm serial
+if terminal_output gfxterm serial; then
+  true
+else
+  terminal_output console serial
+fi
 set color_normal=yellow/black
 set color_highlight=black/yellow
 set ooonana_hardware_args=
@@ -213,7 +217,9 @@ stage_iso_tree() {
   [[ -f "$INITRAMFS" ]] || ooonana_die "missing initramfs: $INITRAMFS"
   [[ -f "$LIVE_INITRAMFS" ]] || ooonana_die "missing live initramfs: $LIVE_INITRAMFS"
   [[ -f "$LIVE_ROOTFS_IMAGE" ]] || ooonana_die "missing live rootfs image: $LIVE_ROOTFS_IMAGE"
-  [[ -f "$DISK_IMAGE" ]] || ooonana_die "missing full-i3 disk image: $DISK_IMAGE"
+  if [[ "$SMOKE" -eq 1 && "$LIVE_SMOKE" -eq 0 ]]; then
+    [[ -f "$DISK_IMAGE" ]] || ooonana_die "missing full-i3 disk image: $DISK_IMAGE"
+  fi
 
   rm -rf "$ISO_TREE"
   mkdir -p "$ISO_TREE/boot/grub" "$ISO_TREE/images"
@@ -229,7 +235,10 @@ stage_iso_tree() {
   install -m 0644 "$INITRAMFS" "$ISO_TREE/boot/install-initramfs.cpio.gz"
   install -m 0644 "$LIVE_INITRAMFS" "$ISO_TREE/boot/live-initramfs.cpio.gz"
   stage_large_file "$LIVE_ROOTFS_IMAGE" "$ISO_TREE/images/ooonana-full-i3-live-rootfs.ext4"
-  gzip -n -c "$DISK_IMAGE" > "$ISO_TREE/images/$DISK_IMAGE_STAGED"
+  rm -f "$ISO_TREE/images/$DISK_IMAGE_STAGED"
+  if [[ "$SMOKE" -eq 1 && "$LIVE_SMOKE" -eq 0 ]]; then
+    gzip -n -c "$DISK_IMAGE" > "$ISO_TREE/images/$DISK_IMAGE_STAGED"
+  fi
   awk '
     { lines[NR] = $0; if (length($0) > width) width = length($0) }
     END {
@@ -248,103 +257,33 @@ desktop-color: "#050505"
 terminal-font: "Unifont Regular 16"
 message-color: "#ffb21a"
 message-bg-color: "#050505"
+EOF
+
+  local logo_index=0
+  local logo_top=10
+  local logo_line escaped_logo_line
+  while IFS= read -r logo_line || [[ -n "$logo_line" ]]; do
+    logo_index=$((logo_index + 1))
+    escaped_logo_line="${logo_line//\\/\\\\}"
+    escaped_logo_line="${escaped_logo_line//\"/\\\"}"
+    cat >> "$ISO_TREE/boot/grub/theme.txt" <<EOF
 
 + label {
-  id = "ooonana-logo-1"
-  text = "Ooonana OS"
-  left = 0%
-  top = 10
-  width = 100%
+  id = "ooonana-logo-$logo_index"
+  text = "$escaped_logo_line"
+  left = 50%-108
+  top = $logo_top
+  width = 216
   height = 20
   color = "#ffb21a"
   font = "Unifont Regular 16"
-  align = "center"
+  align = "left"
 }
+EOF
+    logo_top=$((logo_top + 20))
+  done < "$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt"
 
-+ label {
-  id = "ooonana-logo-2"
-  text = "__________________"
-  left = 0%
-  top = 30
-  width = 100%
-  height = 20
-  color = "#ffb21a"
-  font = "Unifont Regular 16"
-  align = "center"
-}
-
-+ label {
-  id = "ooonana-logo-3"
-  text = "|    __      __    |"
-  left = 0%
-  top = 50
-  width = 100%
-  height = 20
-  color = "#ffb21a"
-  font = "Unifont Regular 16"
-  align = "center"
-}
-
-+ label {
-  id = "ooonana-logo-4"
-  text = "|   /  \\    /  \\   |"
-  left = 0%
-  top = 70
-  width = 100%
-  height = 20
-  color = "#ffb21a"
-  font = "Unifont Regular 16"
-  align = "center"
-}
-
-+ label {
-  id = "ooonana-logo-5"
-  text = "/ |                  |\\"
-  left = 0%
-  top = 90
-  width = 100%
-  height = 20
-  color = "#ffb21a"
-  font = "Unifont Regular 16"
-  align = "center"
-}
-
-+ label {
-  id = "ooonana-logo-6"
-  text = "/  |     \\______/     | \\"
-  left = 0%
-  top = 110
-  width = 100%
-  height = 20
-  color = "#ffb21a"
-  font = "Unifont Regular 16"
-  align = "center"
-}
-
-+ label {
-  id = "ooonana-logo-7"
-  text = "|__________________|"
-  left = 0%
-  top = 130
-  width = 100%
-  height = 20
-  color = "#ffb21a"
-  font = "Unifont Regular 16"
-  align = "center"
-}
-
-+ label {
-  id = "ooonana-logo-8"
-  text = "|        |"
-  left = 0%
-  top = 150
-  width = 100%
-  height = 20
-  color = "#ffb21a"
-  font = "Unifont Regular 16"
-  align = "center"
-}
-
+  cat >> "$ISO_TREE/boot/grub/theme.txt" <<'EOF'
 + boot_menu {
   left = 16%
   top = 38%
@@ -390,25 +329,37 @@ EOF
 }
 
 build_iso() {
+  local iso_size
   mkdir -p "$(dirname "$ISO")"
   rm -f "$ISO"
   grub-mkrescue -volid "$VOLUME" -iso-level 3 -o "$ISO" "$ISO_TREE"
+  if [[ "$SMOKE" -eq 0 ]]; then
+    iso_size="$(file_size_bytes "$ISO")" || ooonana_die "could not stat release ISO: $ISO"
+    if (( iso_size >= MAX_RELEASE_ISO_BYTES )); then
+      rm -f "$ISO"
+      ooonana_die "release ISO exceeds 4.5 GB limit: $iso_size bytes"
+    fi
+    ooonana_log "release ISO size gate passed: $iso_size bytes (< $MAX_RELEASE_ISO_BYTES)"
+  fi
 }
 
 validate_grub_modules() {
   [[ -d /usr/lib/grub/i386-pc ]] || ooonana_die "missing GRUB BIOS modules: install grub-pc-bin"
   if [[ -d /usr/lib/grub/x86_64-efi ]]; then
     ooonana_log "GRUB EFI modules found: building hybrid BIOS/UEFI ISO"
-  elif [[ "$UEFI_MODE" == "on" ]]; then
-    ooonana_die "missing GRUB EFI modules: install grub-efi-amd64-bin"
   else
-    ooonana_log "GRUB EFI modules missing: building BIOS-only ISO"
+    ooonana_die "missing GRUB EFI modules: install grub-efi-amd64-bin"
   fi
 }
 
 main() {
   ooonana_require_linux
   ooonana_require_commands find gzip grub-mkrescue install stat
+  case "$MAX_RELEASE_ISO_BYTES" in
+    ''|*[!0-9]*) ooonana_die "OOONANA_MAX_ISO_BYTES must be a positive integer" ;;
+  esac
+  (( MAX_RELEASE_ISO_BYTES > 0 )) ||
+    ooonana_die "OOONANA_MAX_ISO_BYTES must be a positive integer"
   validate_grub_modules
 
   if [[ "$FORCE" -eq 1 ]]; then

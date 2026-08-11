@@ -40,6 +40,7 @@ assert_contains "$help" "Ooonana first-boot setup"
 assert_contains "$help" "--first-boot"
 assert_contains "$help" "--cloud-repo URI"
 assert_contains "$help" "--network dhcp|static"
+assert_contains "$help" "--interface DEVICE"
 assert_contains "$help" "--user NAME"
 assert_contains "$help" "--password"
 assert_contains "$help" "--theme dark|light"
@@ -79,6 +80,7 @@ EOF
 real_run="$(OOONANA_ROOT="$rootfs" "$SETUP" \
   --user ryan \
   --network static \
+  --interface enp2s0 \
   --address 10.0.2.15/24 \
   --gateway 10.0.2.2 \
   --dns 1.1.1.1,8.8.8.8 \
@@ -94,10 +96,11 @@ assert_contains "$real_run" "OOONANA_SETUP_OK"
 assert_contains "$(<"$rootfs/etc/passwd")" "ryan:x:1000:1000:Ooonana User:/home/ryan:/bin/sh"
 assert_contains "$(<"$rootfs/etc/group")" "ryan:x:1000:"
 [[ -d "$rootfs/home/ryan" ]] || fail "missing user home"
-assert_contains "$(<"$rootfs/etc/network/interfaces")" "iface eth0 inet static"
+assert_contains "$(<"$rootfs/etc/network/interfaces")" "iface enp2s0 inet static"
 assert_contains "$(<"$rootfs/etc/network/interfaces")" "address 10.0.2.15/24"
 assert_contains "$(<"$rootfs/etc/network/interfaces")" "gateway 10.0.2.2"
 assert_contains "$(<"$rootfs/etc/network/interfaces")" "dns-nameservers 1.1.1.1 8.8.8.8"
+assert_contains "$(<"$rootfs/etc/ooonana/network.conf")" 'OOONANA_NETWORK_INTERFACE="enp2s0"'
 [[ "$(<"$rootfs/etc/ooonana/theme")" == "light" ]] || fail "wrong setup theme"
 assert_contains "$(<"$rootfs/etc/ooonana/theme.conf")" 'OOONANA_THEME="light"'
 assert_contains "$(<"$rootfs/etc/ooonana/sources.d/cloud.repo")" 'OOONANA_REPO_NAME="cloud"'

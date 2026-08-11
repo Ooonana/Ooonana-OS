@@ -8,6 +8,17 @@ APK="linux-firmware-intel-$VERSION.apk"
 URL="https://dl-cdn.alpinelinux.org/alpine/edge/main/x86_64/$APK"
 SHA256="ef55b4c4292d568b01fe796337991a44ba501aa99731b1f819b2754385fa4d63"
 STAGE="$CACHE_DIR/linux-firmware-intel-$VERSION"
+DOWNLOAD_TIMEOUT="${OOONANA_FIRMWARE_DOWNLOAD_TIMEOUT:-30}"
+DOWNLOAD_TRIES="${OOONANA_FIRMWARE_DOWNLOAD_TRIES:-3}"
+
+[[ "$DOWNLOAD_TIMEOUT" =~ ^[1-9][0-9]*$ ]] || {
+  printf 'invalid firmware download timeout: %s\n' "$DOWNLOAD_TIMEOUT" >&2
+  exit 1
+}
+[[ "$DOWNLOAD_TRIES" =~ ^[1-9][0-9]*$ ]] || {
+  printf 'invalid firmware download tries: %s\n' "$DOWNLOAD_TRIES" >&2
+  exit 1
+}
 
 for command_name in wget tar sha256sum unzstd; do
   command -v "$command_name" >/dev/null 2>&1 || {
@@ -21,7 +32,8 @@ mkdir -p "$CACHE_DIR" "$TARGET_ROOT/lib/firmware/intel/iwlwifi" "$TARGET_ROOT/us
 if [[ ! -f "$CACHE_DIR/$APK" ]] ||
   [[ "$(sha256sum "$CACHE_DIR/$APK" | awk '{print $1}')" != "$SHA256" ]]; then
   rm -f "$CACHE_DIR/$APK" "$CACHE_DIR/$APK.part"
-  wget -q -O "$CACHE_DIR/$APK.part" "$URL"
+  wget -q --timeout="$DOWNLOAD_TIMEOUT" --tries="$DOWNLOAD_TRIES" \
+    -O "$CACHE_DIR/$APK.part" "$URL"
   mv "$CACHE_DIR/$APK.part" "$CACHE_DIR/$APK"
 fi
 

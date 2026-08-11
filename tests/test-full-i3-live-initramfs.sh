@@ -88,6 +88,8 @@ gzip -dc "$tmp/live.cpio.gz" | grep -q "fake cpio" || fail "cpio output not comp
 
 script_src="$(<"$SCRIPT")"
 assert_contains "$script_src" "/images/ooonana-full-i3-live-rootfs.ext4"
+assert_contains "$script_src" 'used_kb / 8 + 131072'
+assert_contains "$script_src" "-m 0 -O '^has_journal'"
 assert_contains "$script_src" "mount -t iso9660"
 assert_contains "$script_src" "losetup /dev/loop0"
 assert_contains "$script_src" "mount -t overlay overlay"
@@ -128,6 +130,8 @@ assert_contains "$kernel_fragment" "CONFIG_BLK_DEV_NVME=y"
 assert_contains "$kernel_fragment" "CONFIG_USB_XHCI_PCI=y"
 assert_contains "$kernel_fragment" "CONFIG_BT_HCIBTUSB_POLL_SYNC=y"
 assert_contains "$kernel_fragment" "CONFIG_BT_INTEL_PCIE=y"
+assert_contains "$kernel_fragment" "CONFIG_UHID=y"
+assert_contains "$kernel_fragment" "CONFIG_INPUT_UINPUT=y"
 assert_contains "$kernel_fragment" "CONFIG_INTEL_MEI_ME=y"
 
 printf 'ok full-i3-live-initramfs\n'

@@ -16,6 +16,7 @@ CONFIG_FRAGMENTS=()
 JOBS="${OOONANA_KERNEL_JOBS:-$(command -v nproc >/dev/null 2>&1 && nproc || printf '2')}"
 DRY_RUN=0
 FORCE=0
+RESUME=0
 FRAGMENT_STAGE=""
 
 cleanup() {
@@ -43,6 +44,7 @@ Options:
   --config-fragment PATH  Merge or append kernel config fragment
   --jobs N          Parallel make jobs (default: nproc)
   --dry-run         Print build commands only
+  --resume          Continue an interrupted build with existing .config
   --force           Delete kernel build/output before building
   -h, --help        Show help
 USAGE
@@ -60,6 +62,7 @@ while [[ $# -gt 0 ]]; do
     --config-fragment) CONFIG_FRAGMENTS+=("$2"); shift 2 ;;
     --jobs) JOBS="$2"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
+    --resume) RESUME=1; shift ;;
     --force) FORCE=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) ooonana_die "unknown option: $1" ;;
@@ -149,11 +152,16 @@ apply_config_fragments() {
 }
 
 write_kernel_env() {
+  local resolved_config="$KERNEL_OUT/config-ooonana"
+  local config_sha
+  config_sha="$(sha256sum "$resolved_config" | awk '{ print $1 }')"
   cat > "$KERNEL_OUT/kernel.env" <<EOF
 OOONANA_KERNEL=$KERNEL
 OOONANA_KERNEL_SOURCE=$KERNEL_SOURCE
 OOONANA_KERNEL_BUILD=$KERNEL_BUILD
 OOONANA_KERNEL_DEFCONFIG=$DEFCONFIG
+OOONANA_KERNEL_CONFIG=$resolved_config
+OOONANA_KERNEL_CONFIG_SHA256=$config_sha
 EOF
 }
 
@@ -165,7 +173,7 @@ verify_required_config() {
     USER_NS SECCOMP_FILTER
     HID_MULTITOUCH I2C_HID_ACPI SAMSUNG_GALAXYBOOK
     CFG80211 MAC80211 IWLWIFI IWLMVM FW_LOADER_COMPRESS_ZSTD
-    BT BT_HCIBTUSB
+    BT BT_HCIBTUSB UHID INPUT_UINPUT
     SND_HDA_INTEL SND_SOC_SOF_HDA_LINK SND_SOC_SOF_METEORLAKE
     SND_SOC_INTEL_SOUNDWIRE_SOF_MACH SND_SOC_MAX98390
     DRM_I915 DRM_AMDGPU DRM_NOUVEAU USB_XHCI_HCD USB_ROLE_SWITCH
@@ -184,24 +192,31 @@ verify_required_config() {
 
 main() {
   ooonana_require_linux
-  ooonana_require_commands make install cp mkdir dirname chmod mktemp grep
+  ooonana_require_commands awk make install cp mkdir dirname chmod mktemp grep rm sha256sum
   validate_source
+  [[ "$RESUME" -eq 0 || "$FORCE" -eq 0 ]] ||
+    ooonana_die "--resume and --force cannot be combined"
 
   if [[ "$FORCE" -eq 1 ]]; then
     rm -rf "$KERNEL_BUILD"
-    rm -f "$KERNEL" "$KERNEL_OUT/kernel.env"
+    rm -f "$KERNEL" "$KERNEL_OUT/kernel.env" "$KERNEL_OUT/config-ooonana"
   fi
 
   mkdir -p "$KERNEL_BUILD" "$KERNEL_OUT" "$(dirname "$KERNEL")"
 
-  if [[ -n "$CONFIG" ]]; then
+  if [[ "$RESUME" -eq 1 ]]; then
+    [[ -s "$KERNEL_BUILD/.config" ]] ||
+      ooonana_die "cannot resume: missing $KERNEL_BUILD/.config"
+  elif [[ -n "$CONFIG" ]]; then
     run_cmd cp "$CONFIG" "$KERNEL_BUILD/.config"
   else
     run_cmd make -C "$KERNEL_SOURCE" O="$KERNEL_BUILD" "$DEFCONFIG"
   fi
 
-  apply_config_fragments
-  run_cmd make -C "$KERNEL_SOURCE" O="$KERNEL_BUILD" olddefconfig
+  if [[ "$RESUME" -eq 0 ]]; then
+    apply_config_fragments
+    run_cmd make -C "$KERNEL_SOURCE" O="$KERNEL_BUILD" olddefconfig
+  fi
   verify_required_config
   run_cmd make -C "$KERNEL_SOURCE" O="$KERNEL_BUILD" -j "$JOBS" bzImage
 
@@ -213,8 +228,9 @@ main() {
 
   [[ -f "$KERNEL_BUILD/arch/x86/boot/bzImage" ]] || ooonana_die "kernel build did not produce bzImage"
   install -m 0644 "$KERNEL_BUILD/arch/x86/boot/bzImage" "$KERNEL"
+  install -m 0644 "$KERNEL_BUILD/.config" "$KERNEL_OUT/config-ooonana"
   write_kernel_env
-  chmod a+r "$KERNEL" "$KERNEL_OUT/kernel.env"
+  chmod a+r "$KERNEL" "$KERNEL_OUT/config-ooonana" "$KERNEL_OUT/kernel.env"
 
   ooonana_log "kernel ready: $KERNEL"
 }

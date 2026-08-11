@@ -9,7 +9,9 @@ xz
 curl
 wget
 ca-certificates
+ca-certificates-bundle
 dbus
+dbus-daemon-launch-helper
 doas
 sudo
 util-linux-login
@@ -36,7 +38,9 @@ adwaita-icon-theme
 font-awesome-free
 font-awesome-brands
 font-dejavu
+font-noto-cjk
 font-misc-misc
+musl-locales
 picom
 dunst
 dmenu
@@ -70,6 +74,11 @@ pulseaudio-utils
 pulseaudio
 pulseaudio-alsa
 pulseaudio-bluez
+pipewire
+pipewire-alsa
+pipewire-pulse
+pipewire-spa-bluez
+wireplumber
 libnotify
 xdg-utils
 iw

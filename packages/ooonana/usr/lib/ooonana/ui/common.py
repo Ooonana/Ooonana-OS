@@ -10,7 +10,9 @@ import gi
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
-from gi.repository import Gdk, GLib, Gtk  # noqa: E402
+gi.require_version("Pango", "1.0")
+gi.require_version("PangoCairo", "1.0")
+from gi.repository import Gdk, GLib, Gtk, Pango, PangoCairo  # noqa: E402
 
 
 CSS = b"""
@@ -34,9 +36,15 @@ headerbar .subtitle { color: #9ba5b4; }
 .status-bad { color: #ff675c; font-weight: 700; }
 button { background: #171e27; color: #f7ead0; border: 1px solid #364252; border-radius: 4px; padding: 7px 12px; }
 button:hover { background: #222c38; border-color: #ffb21a; }
+button:disabled { background: #11161d; color: #66717f; border-color: #242d38; }
 button.suggested-action { background: #ffb21a; color: #080a0d; border-color: #ffb21a; font-weight: 700; }
+button.suggested-action:disabled { background: #3a301e; color: #81745c; border-color: #4a3d24; }
 button.destructive-action { background: #351918; color: #ff8b82; border-color: #76332f; }
-entry, textview, treeview, list { background: #0d1117; color: #f7ead0; border-color: #364252; }
+entry, textview, textview text, textview.view, textview.view text, treeview, list {
+  background: #0d1117;
+  color: #f7ead0;
+  border-color: #364252;
+}
 entry { padding: 8px; border-radius: 4px; }
 combobox button { min-height: 28px; }
 checkbutton, radiobutton { padding: 4px 0; }
@@ -47,6 +55,9 @@ notebook tab { padding: 8px 14px; }
 notebook tab:checked { color: #ffb21a; border-bottom: 2px solid #ffb21a; }
 scale highlight { background: #ffb21a; }
 scale trough { background: #2a3442; min-height: 6px; border-radius: 3px; }
+progressbar trough { background: #202833; min-height: 8px; border-radius: 3px; }
+progressbar progress { background: #ffb21a; border-radius: 3px; }
+progressbar text { color: #f7ead0; font-weight: 700; }
 scrollbar slider { background: #4d5a69; border-radius: 4px; min-width: 7px; min-height: 7px; }
 scrollbar slider:hover { background: #ffb21a; }
 separator { background: #29313c; }
@@ -79,14 +90,55 @@ def button(label_text, icon_name=None, callback=None, style=None):
     return widget
 
 
+def flow_row(widgets, max_children=8):
+    row = Gtk.FlowBox()
+    row.set_selection_mode(Gtk.SelectionMode.NONE)
+    row.set_homogeneous(False)
+    row.set_row_spacing(8)
+    row.set_column_spacing(8)
+    row.set_min_children_per_line(1)
+    row.set_max_children_per_line(max_children)
+    row.set_valign(Gtk.Align.START)
+    for widget in widgets:
+        row.insert(widget, -1)
+    return row
+
+
 def header(window, title, subtitle="", icon_name="preferences-system-symbolic"):
+    window.set_resizable(True)
     bar = Gtk.HeaderBar()
     bar.set_show_close_button(True)
     bar.set_title(title)
     bar.set_subtitle(subtitle)
-    bar.set_decoration_layout("menu:minimize,maximize,close")
+    bar.set_decoration_layout("menu:close")
     if icon_name:
         bar.pack_start(icon(icon_name, Gtk.IconSize.LARGE_TOOLBAR))
+
+    def minimize(_widget):
+        if os.environ.get("I3SOCK") and command_exists("i3-msg"):
+            launch(["i3-msg", "move", "scratchpad"])
+        else:
+            window.iconify()
+
+    def maximize(_widget):
+        if os.environ.get("I3SOCK") and command_exists("i3-msg"):
+            launch(["i3-msg", "fullscreen", "toggle"])
+        elif window.is_maximized():
+            window.unmaximize()
+        else:
+            window.maximize()
+
+    maximize_button = Gtk.Button()
+    maximize_button.set_image(icon("view-fullscreen-symbolic"))
+    maximize_button.set_tooltip_text("Toggle fullscreen")
+    maximize_button.connect("clicked", maximize)
+    bar.pack_end(maximize_button)
+
+    minimize_button = Gtk.Button()
+    minimize_button.set_image(icon("window-minimize-symbolic"))
+    minimize_button.set_tooltip_text("Minimize to scratchpad")
+    minimize_button.connect("clicked", minimize)
+    bar.pack_end(minimize_button)
     window.set_titlebar(bar)
     return bar
 
@@ -132,16 +184,23 @@ def admin_command(argv):
 
 def run(argv, admin=False, timeout=15, env=None, input_text=None):
     command = admin_command(argv) if admin else list(argv)
+    command_env = os.environ.copy()
+    if env:
+        command_env.update(env)
+    command_env["LC_ALL"] = "C"
+    command_env["LANG"] = "C"
     try:
         owns_session = True
         try:
             process = subprocess.Popen(
                 command,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 stdin=subprocess.PIPE if input_text is not None else None,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
-                env=env,
+                env=command_env,
                 start_new_session=True,
             )
         except PermissionError:
@@ -149,10 +208,12 @@ def run(argv, admin=False, timeout=15, env=None, input_text=None):
             process = subprocess.Popen(
                 command,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 stdin=subprocess.PIPE if input_text is not None else None,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
-                env=env,
+                env=command_env,
             )
         try:
             output, _ = process.communicate(input=input_text, timeout=timeout)
@@ -168,6 +229,23 @@ def run(argv, admin=False, timeout=15, env=None, input_text=None):
             return 124, detail + suffix
     except OSError as exc:
         return 124, str(exc)
+
+
+def system_dbus_ready():
+    if not Path("/run/dbus/system_bus_socket").exists():
+        return False
+    rc, _output = run(
+        [
+            "dbus-send",
+            "--system",
+            "--print-reply",
+            "--dest=org.freedesktop.DBus",
+            "/",
+            "org.freedesktop.DBus.ListNames",
+        ],
+        timeout=3,
+    )
+    return rc == 0
 
 
 def run_async(argv, callback, admin=False, timeout=30, env=None, input_text=None):

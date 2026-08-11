@@ -54,6 +54,8 @@ assert_contains "$fragment_src" "CONFIG_BT=y"
 assert_contains "$fragment_src" "CONFIG_BT_HCIBTUSB=y"
 assert_contains "$fragment_src" "CONFIG_BT_INTEL=y"
 assert_contains "$fragment_src" "CONFIG_BT_RTL=y"
+assert_contains "$fragment_src" "CONFIG_UHID=y"
+assert_contains "$fragment_src" "CONFIG_INPUT_UINPUT=y"
 assert_contains "$fragment_src" "CONFIG_MMC=y"
 assert_contains "$fragment_src" "CONFIG_MMC_SDHCI_PCI=y"
 assert_contains "$fragment_src" "CONFIG_MMC_REALTEK_PCI=y"
@@ -125,6 +127,8 @@ assert_contains "$fragment_src" "CONFIG_TUN=y"
 kernel_builder_src="$(<"$SCRIPT")"
 assert_contains "$kernel_builder_src" "verify_required_config"
 assert_contains "$kernel_builder_src" "required kernel option did not resolve"
+assert_contains "$kernel_builder_src" "BT BT_HCIBTUSB UHID INPUT_UINPUT"
+assert_contains "$kernel_builder_src" 'install -m 0644 "$KERNEL_BUILD/.config" "$KERNEL_OUT/config-ooonana"'
 
 help="$(bash "$SCRIPT" --help)"
 assert_contains "$help" "Build Ooonana Linux kernel"
@@ -132,6 +136,8 @@ assert_contains "$help" "--source"
 assert_contains "$help" "--kernel"
 assert_contains "$help" "--config-fragment"
 assert_contains "$help" "--dry-run"
+assert_contains "$help" "--resume"
+assert_contains "$kernel_builder_src" 'cannot resume: missing $KERNEL_BUILD/.config'
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -230,10 +236,13 @@ bash "$SCRIPT" \
 [[ "$(<"$tmp/out/custom-vmlinuz")" == "fake kernel" ]] || fail "wrong kernel payload"
 grep -q 'CONFIG_DEVTMPFS=y' "$tmp/build/.config" || fail "missing config fragment"
 [[ -f "$tmp/out/kernel.env" ]] || fail "missing kernel env"
+[[ -f "$tmp/out/config-ooonana" ]] || fail "missing resolved kernel config"
 
 env_file="$(<"$tmp/out/kernel.env")"
 assert_contains "$env_file" "OOONANA_KERNEL=$tmp/out/custom-vmlinuz"
 assert_contains "$env_file" "OOONANA_KERNEL_SOURCE=$tmp/source"
 assert_contains "$env_file" "OOONANA_KERNEL_DEFCONFIG=x86_64_defconfig"
+assert_contains "$env_file" "OOONANA_KERNEL_CONFIG=$tmp/out/config-ooonana"
+assert_contains "$env_file" "OOONANA_KERNEL_CONFIG_SHA256="
 
 printf 'ok kernel-build\n'

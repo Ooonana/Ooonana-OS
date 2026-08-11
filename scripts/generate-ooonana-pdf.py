@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import textwrap
 from pathlib import Path
 
@@ -145,8 +146,13 @@ def write_pdf(pages: list[list[str]], out: Path) -> None:
 
 
 def main() -> None:
-    write_pdf(paginate(build_lines()), OUT)
-    print(OUT)
+    parser = argparse.ArgumentParser(description="Generate the Ooonana OS field guide PDF")
+    parser.add_argument("--output", type=Path, default=OUT)
+    args = parser.parse_args()
+
+    output = args.output.expanduser().resolve()
+    write_pdf(paginate(build_lines()), output)
+    print(output)
 
 
 if __name__ == "__main__":

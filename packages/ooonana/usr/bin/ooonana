@@ -3,7 +3,7 @@
 # shellcheck disable=SC1090,SC3043
 set -eu
 
-VERSION="0.8.7"
+VERSION="0.8.15"
 HOME_DIR="${HOME:-/root}"
 if [ -n "${OOONANA_AI_CONFIG:-}" ]; then
   AI_CONFIG="$OOONANA_AI_CONFIG"
@@ -55,6 +55,18 @@ INSTALLED_DIR="$STATE_DIR/installed"
 DOWNLOAD_CONNECT_TIMEOUT="${OOONANA_DOWNLOAD_CONNECT_TIMEOUT:-10}"
 DOWNLOAD_MAX_TIME="${OOONANA_DOWNLOAD_MAX_TIME:-90}"
 DOWNLOAD_RETRIES="${OOONANA_DOWNLOAD_RETRIES:-1}"
+CHECKSUM_CACHE_DIR="${TMPDIR:-/tmp}/ooonana-checksums.$$"
+
+cleanup_checksum_cache() {
+  case "$CHECKSUM_CACHE_DIR" in
+    "${TMPDIR:-/tmp}"/ooonana-checksums.*) rm -rf "$CHECKSUM_CACHE_DIR" ;;
+  esac
+}
+
+trap cleanup_checksum_cache EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 usage_main() {
   cat <<USAGE
@@ -416,6 +428,7 @@ reset_pkg_vars() {
   LOADED_REPO_NAME=""
   LOADED_REPO_URI=""
   LOADED_REPO_KEY=""
+  LOADED_PKG_VERIFIED=0
 }
 
 reset_repo_vars() {
@@ -757,6 +770,50 @@ repo_checksum_entry_missing() {
   return 0
 }
 
+runtime_cache_path() {
+  source_file="$1"
+  cache_kind="$2"
+  have cksum && have cp || return 1
+  cache_key="$(printf '%s\n' "$source_file" | cksum | awk '{ print $1 "-" $2 }')"
+  printf '%s/%s-%s\n' "$CHECKSUM_CACHE_DIR" "$cache_kind" "$cache_key"
+}
+
+runtime_cached_copy() {
+  source_file="$1"
+  cache_kind="$2"
+  cache_file="$(runtime_cache_path "$source_file" "$cache_kind" || true)"
+  if [ -z "$cache_file" ]; then
+    printf '%s\n' "$source_file"
+    return 0
+  fi
+  mkdir -p "$CHECKSUM_CACHE_DIR"
+  if [ ! -f "$cache_file" ]; then
+    cp "$source_file" "$cache_file.tmp"
+    mv "$cache_file.tmp" "$cache_file"
+  fi
+  printf '%s\n' "$cache_file"
+}
+
+cache_verified_pkg_candidate() {
+  pkg_file="$1"
+  repo_dir="$2"
+  repo_key="${3:-}"
+  rel_path="$(basename "$pkg_file")"
+  cache_file="$(runtime_cache_path "$pkg_file" pkg || true)"
+  if [ -z "$cache_file" ]; then
+    verify_repo_checksum "$repo_dir" "$rel_path" "$repo_key"
+    printf '%s\n' "$pkg_file"
+    return 0
+  fi
+  mkdir -p "$CHECKSUM_CACHE_DIR"
+  if [ ! -f "$cache_file" ]; then
+    verify_repo_checksum "$repo_dir" "$rel_path" "$repo_key"
+    cp "$pkg_file" "$cache_file.tmp"
+    mv "$cache_file.tmp" "$cache_file"
+  fi
+  printf '%s\n' "$cache_file"
+}
+
 use_pkg_candidate() {
   pkg_file="$1"
   repo_dir="$2"
@@ -765,7 +822,9 @@ use_pkg_candidate() {
   repo_key="${5:-}"
   rel_path="$(basename "$pkg_file")"
   repo_checksum_entry_missing "$repo_dir" "$rel_path" && return 1
+  pkg_file="$(cache_verified_pkg_candidate "$pkg_file" "$repo_dir" "$repo_key")"
   LOADED_PKG_FILE="$pkg_file"
+  LOADED_PKG_VERIFIED=1
   LOADED_REPO_DIR="$repo_dir"
   LOADED_REPO_NAME="$repo_name"
   LOADED_REPO_URI="$repo_uri"
@@ -875,7 +934,25 @@ sha256_file() {
 repo_checksum_expected() {
   sums_file="$1"
   rel_path="$2"
-  awk -v rel="$rel_path" '$2 == rel { print $1; found = 1; exit } END { if (!found) exit 1 }' "$sums_file"
+  lookup_file="$sums_file"
+  if have cksum && have cp; then
+    checksum_key="$(printf '%s\n' "$sums_file" | cksum | awk '{ print $1 "-" $2 }')"
+    mkdir -p "$CHECKSUM_CACHE_DIR"
+    lookup_file="$CHECKSUM_CACHE_DIR/$checksum_key"
+    if [ ! -f "$lookup_file" ]; then
+      cp "$sums_file" "$lookup_file.tmp"
+      mv "$lookup_file.tmp" "$lookup_file"
+    fi
+  fi
+  awk -v rel="$rel_path" '{
+    path = $2
+    sub(/\r$/, "", path)
+    if (path == rel) {
+      print $1
+      found = 1
+      exit
+    }
+  } END { if (!found) exit 1 }' "$lookup_file"
 }
 
 repo_signature_key() {
@@ -935,6 +1012,7 @@ verify_repo_checksum() {
 verify_loaded_pkg_file() {
   [ -n "${LOADED_REPO_DIR:-}" ] || return 0
   [ -n "${LOADED_PKG_FILE:-}" ] || return 0
+  [ "${LOADED_PKG_VERIFIED:-0}" = "1" ] && return 0
   rel_path="$(basename "$LOADED_PKG_FILE")"
   verify_repo_checksum "$LOADED_REPO_DIR" "$rel_path" "${LOADED_REPO_KEY:-}"
 }
@@ -1023,8 +1101,8 @@ cmd_repo_index() {
     esac
   done
   [ -d "$repo_path" ] || die "missing repo: $repo_path"
-  index_tmp="$repo_path/index.tsv.tmp"
-  sums_tmp="$repo_path/SHA256SUMS.tmp"
+  index_tmp="$repo_path/index.tsv.tmp.$$"
+  sums_tmp="$repo_path/SHA256SUMS.tmp.$$"
   : > "$index_tmp"
   : > "$sums_tmp"
   count=0
@@ -1194,7 +1272,8 @@ repo_index_version() {
   repo_path="$1"
   id="$2"
   [ -f "$repo_path/index.tsv" ] || return 1
-  awk -v id="$id" 'BEGIN { FS = "\t" } $1 == id { print $2; found = 1; exit } END { exit found ? 0 : 1 }' "$repo_path/index.tsv"
+  index_file="$(runtime_cached_copy "$repo_path/index.tsv" index)"
+  awk -v id="$id" 'BEGIN { FS = "\t" } $1 == id { print $2; found = 1; exit } END { exit found ? 0 : 1 }' "$index_file"
 }
 
 pkg_file_version() (
@@ -1512,7 +1591,6 @@ cmd_update() {
   while IFS='	' read -r repo_name repo_path repo_key; do
     [ -n "$repo_name" ] || continue
     repo_count=$((repo_count + 1))
-    repo_remote=0
     if repo_is_tarball "$repo_path"; then
       repo_uri="$repo_path"
       if repo_path="$(sync_tarball_repo "$repo_name" "$repo_uri")"; then
@@ -1529,7 +1607,6 @@ cmd_update() {
         fi
       fi
     elif repo_is_remote "$repo_path"; then
-      repo_remote=1
       repo_uri="$repo_path"
       if repo_path="$(sync_remote_repo "$repo_name" "$repo_uri")"; then
         :
@@ -1554,10 +1631,6 @@ cmd_update() {
         [ -n "$pkg_summary" ] || die "repo index missing summary: $repo_path"
         [ "$pkg_deps" = "-" ] && pkg_deps=""
         [ "$pkg_archive" = "-" ] && pkg_archive=""
-        if [ "$repo_remote" -eq 0 ]; then
-          verify_repo_checksum "$repo_path" "$pkg_id.pkg" "${repo_key:-}"
-          [ -z "$pkg_archive" ] || verify_repo_checksum "$repo_path" "$pkg_archive" "${repo_key:-}"
-        fi
         printf '%s\t%s\t%s\t%s\t%s\n' "$repo_name" "$pkg_id" "$pkg_version" "${pkg_kind:-bundle}" "$pkg_summary" >> "$tmp"
       done < "$repo_path/index.tsv"
     else

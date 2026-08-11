@@ -41,6 +41,7 @@ script_src="$(<"$SCRIPT")"
 assert_contains "$script_src" "configs/packages/full-i3.list"
 assert_contains "$script_src" "alpine/edge/community/x86_64"
 assert_contains "$script_src" "sof-firmware"
+assert_contains "$script_src" "--no-index"
 profile_src="$(<"$ROOT/configs/packages/full-i3.list")"
 both_profile="$ROOT/configs/packages/both.list"
 [[ -f "$both_profile" ]] || fail "missing combined package profile"
@@ -64,6 +65,7 @@ assert_contains "$profile_src" "coreutils"
 assert_contains "$profile_src" "curl"
 assert_contains "$profile_src" "wget"
 assert_contains "$profile_src" "ca-certificates"
+assert_contains "$profile_src" "ca-certificates-bundle"
 assert_contains "$profile_src" "python3"
 assert_contains "$profile_src" "py3-pip"
 assert_contains "$profile_src" "networkmanager-cli"
@@ -75,6 +77,11 @@ assert_contains "$profile_src" "util-linux-misc"
 assert_contains "$profile_src" "util-linux-login"
 assert_contains "$profile_src" "sudo"
 assert_contains "$profile_src" "pulseaudio-utils"
+assert_contains "$profile_src" "pipewire-alsa"
+assert_contains "$profile_src" "pipewire-spa-bluez"
+assert_contains "$profile_src" "wireplumber"
+assert_contains "$profile_src" "font-noto-cjk"
+assert_contains "$profile_src" "musl-locales"
 assert_contains "$profile_src" "alsa-ucm-conf"
 assert_contains "$profile_src" "alsa-topology-conf"
 assert_contains "$profile_src" "iw"
@@ -130,6 +137,7 @@ bash "$SCRIPT" --repo-url "file://$apk_repo" --out-dir "$out" --packages "i3wm i
 [[ -f "$out/i3.pkg" ]] || fail "missing i3 wrapper"
 [[ -f "$out/branding.pkg" ]] || fail "missing branding wrapper"
 [[ -f "$out/full-i3.pkg" ]] || fail "missing full-i3 wrapper"
+[[ -f "$out/base.pkg" ]] || fail "missing base dependency metadata"
 [[ -f "$out/archives/ooonana-branding-0.1.2.tar.gz" ]] || fail "missing branding archive"
 [[ -f "$out/index.tsv" ]] || fail "missing index"
 [[ -f "$out/SHA256SUMS" ]] || fail "missing checksums"
@@ -144,6 +152,13 @@ assert_contains "$branding_pkg" 'OOONANA_PKG_VERSION="0.1.2"'
 assert_contains "$branding_pkg" 'OOONANA_PKG_ARCHIVE="archives/ooonana-branding-0.1.2.tar.gz"'
 assert_contains "$full_pkg" 'OOONANA_PKG_VERSION="0.1.2"'
 assert_contains "$full_pkg" 'OOONANA_PKG_DEPS="base branding i3"'
+
+bash "$ROOT/scripts/import-i3-package-set.sh" \
+  --out-dir "$out" \
+  --packages "i3wm i3status" \
+  --metadata-only
+assert_contains "$(<"$out/i3.pkg")" 'OOONANA_PKG_DEPS="i3wm i3status"'
+grep -q '^base	' "$out/index.tsv" || fail "base missing from repo index"
 
 branding_contents="$(tar -tzf "$out/archives/ooonana-branding-0.1.2.tar.gz" | sort)"
 assert_contains "$branding_contents" "./etc/i3/config"

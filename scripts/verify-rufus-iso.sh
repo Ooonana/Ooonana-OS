@@ -50,6 +50,11 @@ need_contains() {
   grep -qF "$needle" "$path" || fail "missing in $path: $needle"
 }
 
+need_iso_file() {
+  local path="$1"
+  grep -qxF "$path" <<<"$iso_files" || fail "ISO payload missing: $path"
+}
+
 done_item() {
   printf '[done] %s\n' "$*"
 }
@@ -64,6 +69,25 @@ fi
 [[ "$report" == *"-eltorito-alt-boot"* ]] || fail "ISO missing alternate El Torito boot catalog"
 [[ "$report" == *"-e '/efi.img'"* || "$report" == *'-e "/efi.img"'* ]] || fail "ISO missing UEFI EFI image"
 done_item "ISOHybrid BIOS and UEFI boot paths"
+
+iso_files="$(xorriso -indev "$ISO" -sh_style_result on -find / -type f 2>/dev/null)" ||
+  fail "could not list ISO payload"
+need_iso_file "/boot/vmlinuz"
+case "$EDITION" in
+  full-i3)
+    need_iso_file "/boot/install-initramfs.cpio.gz"
+    need_iso_file "/boot/live-initramfs.cpio.gz"
+    need_iso_file "/images/ooonana-full-i3-live-rootfs.ext4"
+    ;;
+  minimal)
+    need_iso_file "/boot/initramfs.cpio.gz"
+    if ! grep -qxF "/images/ooonana-scratch.ext4" <<<"$iso_files" &&
+      ! grep -qxF "/images/ooonana-scratch-disk.raw" <<<"$iso_files"; then
+      fail "ISO payload missing minimal rootfs or disk image"
+    fi
+    ;;
+esac
+done_item "kernel, initramfs, live rootfs, and installer payloads"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -81,6 +105,7 @@ case "$EDITION" in
     need_contains "$tmp/grub.cfg" "[#####-----]"
     need_contains "$tmp/grub.cfg" "terminal_output console serial"
     need_contains "$tmp/grub.cfg" "terminal_output gfxterm serial"
+    need_contains "$tmp/grub.cfg" "if terminal_output gfxterm serial; then"
     need_contains "$tmp/grub.cfg" "insmod png"
     need_contains "$tmp/grub.cfg" "set theme=/boot/grub/theme.txt"
     if grep -q 'set gfxmode=\|insmod gfxmenu' "$tmp/grub.cfg"; then

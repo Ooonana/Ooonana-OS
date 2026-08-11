@@ -15,6 +15,7 @@ from common import (  # noqa: E402
     launch,
     run,
     run_async,
+    run_async_task,
 )
 from gi.repository import GdkPixbuf  # noqa: E402
 
@@ -214,17 +215,27 @@ class AiWindow(Gtk.Window):
         self.transcript_path.write_text(text, encoding="utf-8")
 
     def refresh_model(self):
-        _provider_rc, provider = run(["ooonana-ai", "provider"], timeout=5)
-        _model_rc, model = run(["ooonana-ai", "model"], timeout=5)
-        self.provider_label.set_text(f"provider: {provider.splitlines()[-1] if provider else 'auto'}")
-        self.model_label.set_text(f"model: {model.splitlines()[-1] if model else 'default'}")
-        active = next(
-            (line.split(":", 1)[1].strip() for line in provider.splitlines() if line.startswith("active:")),
-            "nim",
-        )
-        self.provider_combo.handler_block_by_func(self.change_provider)
-        self.provider_combo.set_active_id(active)
-        self.provider_combo.handler_unblock_by_func(self.change_provider)
+        self.provider_label.set_text("provider: checking...")
+        self.model_label.set_text("model: checking...")
+
+        def task():
+            _provider_rc, provider = run(["ooonana-ai", "provider"], timeout=5)
+            _model_rc, model = run(["ooonana-ai", "model"], timeout=5)
+            return 0, (provider, model)
+
+        def done(_rc, values):
+            provider, model = values
+            self.provider_label.set_text(f"provider: {provider.splitlines()[-1] if provider else 'auto'}")
+            self.model_label.set_text(f"model: {model.splitlines()[-1] if model else 'default'}")
+            active = next(
+                (line.split(":", 1)[1].strip() for line in provider.splitlines() if line.startswith("active:")),
+                "nim",
+            )
+            self.provider_combo.handler_block_by_func(self.change_provider)
+            self.provider_combo.set_active_id(active)
+            self.provider_combo.handler_unblock_by_func(self.change_provider)
+
+        run_async_task(task, done)
 
     def change_provider(self, combo):
         provider = combo.get_active_id()
@@ -313,7 +324,7 @@ class AiWindow(Gtk.Window):
         )
 
     def start_offline_api(self, device):
-        model = "/root/.openvino/models/gemma-4-e2b-it-qat-int4-ov"
+        model = str(Path.home() / ".openvino/models/gemma-4-e2b-it-qat-int4-ov")
         self.activity.start()
 
         def started(rc, output):
@@ -360,11 +371,20 @@ class AiWindow(Gtk.Window):
         view.set_left_margin(16)
         view.set_right_margin(16)
         view.set_top_margin(16)
-        view.get_buffer().set_text(self.offline_status())
+        status_buffer = view.get_buffer()
+        status_buffer.set_text("Checking OpenVINO runtime...")
         scroll = Gtk.ScrolledWindow()
         scroll.add(view)
         dialog.get_content_area().pack_start(scroll, True, True, 0)
         dialog.show_all()
+
+        def status_task():
+            return 0, self.offline_status()
+
+        def status_done(_rc, output):
+            status_buffer.set_text(output)
+
+        run_async_task(status_task, status_done)
         response = dialog.run()
         dialog.destroy()
         if response == 1:

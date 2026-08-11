@@ -1,0 +1,58 @@
+#!/bin/sh
+set -u
+
+uid="$(id -u 2>/dev/null || echo 0)"
+runtime="${XDG_RUNTIME_DIR:-/run/user/$uid}"
+state="${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana"
+mkdir -p "$runtime" "$state" 2>/dev/null || true
+chmod 0700 "$runtime" 2>/dev/null || true
+export XDG_RUNTIME_DIR="$runtime"
+
+running() {
+  /bin/busybox pidof "$1" >/dev/null 2>&1
+}
+
+use_pipewire=0
+if command -v pipewire >/dev/null 2>&1 &&
+  command -v wireplumber >/dev/null 2>&1 &&
+  command -v pipewire-pulse >/dev/null 2>&1; then
+  use_pipewire=1
+fi
+
+if [ "${1:-}" = "--restart" ]; then
+  for process in pipewire-pulse wireplumber pipewire pulseaudio; do
+    /bin/busybox killall "$process" >/dev/null 2>&1 || true
+  done
+  sleep 1
+elif [ "$use_pipewire" -eq 1 ] && running pulseaudio; then
+  /bin/busybox killall pulseaudio >/dev/null 2>&1 || true
+  sleep 1
+fi
+
+if command -v alsactl >/dev/null 2>&1; then
+  alsactl restore >/dev/null 2>&1 || alsactl init >/dev/null 2>&1 || true
+fi
+
+start_audio_process() {
+  name="$1"
+  shift
+  if ! running "$name"; then
+    "$@" >>"$state/audio.log" 2>&1 &
+  fi
+}
+
+if [ "$use_pipewire" -eq 1 ]; then
+  start_audio_process pipewire pipewire
+  sleep 1
+  start_audio_process wireplumber wireplumber
+  start_audio_process pipewire-pulse pipewire-pulse
+elif command -v pulseaudio >/dev/null 2>&1; then
+  pulseaudio --start --exit-idle-time=-1 >>"$state/audio.log" 2>&1 || true
+fi
+
+waited=0
+while command -v pactl >/dev/null 2>&1 && ! pactl info >/dev/null 2>&1 && [ "$waited" -lt 12 ]; do
+  waited=$((waited + 1))
+  sleep 1
+done
+command -v pactl >/dev/null 2>&1 && pactl info >/dev/null 2>&1

@@ -44,9 +44,10 @@ trap cleanup EXIT
 export OOONANA_REPO_DIR="$REPO"
 export OOONANA_STATE_DIR="$tmp/state"
 export OOONANA_CACHE_DIR="$tmp/cache"
+export OOONANA_ROOT="$tmp/root"
 
 help="$("$CLI" help)"
-assert_contains "$help" "ooonana 0.8.7"
+assert_contains "$help" "ooonana 0.8.15"
 assert_contains "$help" "Usage: ooonana [options] command"
 assert_contains "$help" "Most used commands:"
 assert_contains "$help" "  list - list packages based on names or installed state"
@@ -411,6 +412,38 @@ fresh_upgrade="$(OOONANA_REPO_DIR="$stale_builtin" \
 assert_not_contains "$fresh_upgrade" "missing checksum: alacritty.pkg"
 assert_contains "$fresh_upgrade" "would upgrade alacritty 0.1.0 -> 0.2.0"
 
+metadata_repo="$tmp/metadata-only-local"
+metadata_root="$tmp/metadata-only-root"
+metadata_state="$tmp/metadata-only-state"
+metadata_cache="$tmp/metadata-only-cache"
+metadata_sources="$tmp/metadata-only-sources"
+mkdir -p "$metadata_repo/archives" "$metadata_root" "$metadata_sources"
+cat > "$metadata_repo/local.pkg" <<'EOF'
+OOONANA_PKG_ID="local"
+OOONANA_PKG_VERSION="1.0"
+OOONANA_PKG_KIND="archive"
+OOONANA_PKG_SUMMARY="Local metadata-only update fixture"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_ARCHIVE="archives/local-1.0.tar.gz"
+EOF
+printf 'payload\n' > "$metadata_repo/archives/local-1.0.tar.gz"
+"$CLI" repo index "$metadata_repo" >/dev/null
+printf 'tampered\n' >> "$metadata_repo/archives/local-1.0.tar.gz"
+metadata_update="$(OOONANA_ROOT="$metadata_root" \
+  OOONANA_REPO_DIR="$metadata_repo" \
+  OOONANA_SOURCES_DIR="$metadata_sources" \
+  OOONANA_STATE_DIR="$metadata_state" \
+  OOONANA_CACHE_DIR="$metadata_cache" \
+  "$CLI" update)"
+assert_contains "$metadata_update" "metadata-only"
+metadata_install="$(OOONANA_ROOT="$metadata_root" \
+  OOONANA_REPO_DIR="$metadata_repo" \
+  OOONANA_SOURCES_DIR="$metadata_sources" \
+  OOONANA_STATE_DIR="$metadata_state" \
+  OOONANA_CACHE_DIR="$metadata_cache" \
+  "$CLI" install local 2>&1 || true)"
+assert_contains "$metadata_install" "sha256 mismatch: archives/local-1.0.tar.gz"
+
 http_root="$tmp/http-root"
 http_repo="$http_root/repo"
 http_payload="$tmp/http-payload"
@@ -770,6 +803,8 @@ OOONANA_PKG_SHA256="$index_archive_sha"
 EOF
 repo_index="$("$CLI" repo index "$index_repo")"
 assert_contains "$repo_index" "indexed 1 package(s)"
+assert_contains "$(<"$CLI")" 'index.tsv.tmp.$$'
+assert_contains "$(<"$CLI")" 'SHA256SUMS.tmp.$$'
 [[ -f "$index_repo/index.tsv" ]] || fail "missing repo index"
 [[ -f "$index_repo/SHA256SUMS" ]] || fail "missing repo checksums"
 assert_contains "$(<"$index_repo/index.tsv")" $'indexed\t2.1.0\tarchive\tIndexed repo package'
@@ -782,11 +817,19 @@ indexed_update="$(OOONANA_REPO_DIR="$index_repo" \
 assert_contains "$indexed_update" "synced 1 package(s)"
 assert_contains "$(<"$tmp/index-cache/index.tsv")" "indexed"
 
+awk '{ printf "%s\r\n", $0 }' "$index_repo/SHA256SUMS" >"$index_repo/SHA256SUMS.crlf"
+mv "$index_repo/SHA256SUMS.crlf" "$index_repo/SHA256SUMS"
+indexed_crlf_update="$(OOONANA_REPO_DIR="$index_repo" \
+  OOONANA_CACHE_DIR="$tmp/index-crlf-cache" \
+  "$CLI" update)"
+assert_contains "$indexed_crlf_update" "synced 1 package(s)"
+
 printf '# tamper\n' >> "$index_repo/indexed.pkg"
 indexed_bad="$(OOONANA_REPO_DIR="$index_repo" \
   OOONANA_CACHE_DIR="$tmp/index-bad-cache" \
   "$CLI" update 2>&1 || true)"
-assert_contains "$indexed_bad" "sha256 mismatch: indexed.pkg"
+assert_contains "$indexed_bad" "synced 1 package(s)"
+assert_not_contains "$indexed_bad" "sha256 mismatch: indexed.pkg"
 
 indexed_get_bad="$(OOONANA_REPO_DIR="$index_repo" \
   OOONANA_STATE_DIR="$tmp/index-bad-state" \

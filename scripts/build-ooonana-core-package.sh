@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR=""
-VERSION="0.8.7"
+VERSION="0.8.15"
 DRY_RUN=0
 
 usage() {
@@ -14,7 +14,7 @@ Usage:
   scripts/build-ooonana-core-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER  Package version (default: 0.8.7)
+  --version VER  Package version (default: 0.8.15)
   --dry-run      Print resolved package details
   -h, --help     Show help
 USAGE
@@ -53,6 +53,12 @@ mkdir -p "$OUT_DIR/archives"
 staging="$(mktemp -d)"
 trap 'rm -rf "$staging"' EXIT
 cp -a "$ROOT/packages/ooonana/." "$staging/"
+find "$staging" -type d -exec chmod 0755 {} +
+find "$staging" -type f -exec chmod 0644 {} +
+find "$staging/usr/bin" "$staging/usr/sbin" -type f -exec chmod 0755 {} +
+mkdir -p "$staging/etc/i3"
+install -m 0644 "$ROOT/branding/i3/config" "$staging/etc/i3/config"
+install -m 0644 "$ROOT/branding/i3/config" "$staging/etc/i3/config.keycodes"
 mkdir -p "$staging/var/lib/ooonana/packages/files"
 : > "$staging/var/lib/ooonana/packages/files/ooonana-core.list"
 tar -C "$staging" -czf "$archive" .
@@ -62,7 +68,7 @@ OOONANA_PKG_ID="$runtime_id"
 OOONANA_PKG_VERSION="$VERSION"
 OOONANA_PKG_KIND="archive"
 OOONANA_PKG_SUMMARY="Ooonana OS native CLI, desktop apps, services, game, and defaults"
-OOONANA_PKG_DEPS=""
+OOONANA_PKG_DEPS="dbus-daemon-launch-helper"
 OOONANA_PKG_ARCHIVE="$archive_rel"
 OOONANA_PKG_SHA256="$archive_sha"
 OOONANA_PKG_NOTES="Native Ooonana system payload; archives download only during install or upgrade"

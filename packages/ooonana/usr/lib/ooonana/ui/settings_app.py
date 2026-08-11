@@ -21,6 +21,7 @@ from common import (  # noqa: E402
     read_file,
     run,
     run_async,
+    run_async_task,
 )
 
 
@@ -367,33 +368,51 @@ class SettingsWindow(Gtk.Window):
         state = "good" if uid != 0 else "bad"
         self.set_status("session", f"{user} (uid {uid})" + (" - root session" if uid == 0 else " - protected desktop"), state)
         self.set_status("identity", f"User: {user}\nUID: {uid}\nHost: {socket.gethostname()}\nEdition: {read_file('/etc/ooonana/edition', 'full-i3')}", state)
-
-        nm_rc, nm_out = run(["nmcli", "-t", "-f", "STATE,CONNECTIVITY", "general"], timeout=3)
-        wifi_rc, wifi_out = run(["nmcli", "-t", "-f", "WIFI", "radio"], timeout=3)
-        nm_text = nm_out or "NetworkManager not ready"
-        wifi_text = wifi_out or "unknown"
-        self.set_status("network", nm_text, "good" if nm_rc == 0 else "bad")
-        self.set_status("wifi_detail", f"Service: {nm_text}\nWi-Fi radio: {wifi_text}", "good" if nm_rc == 0 else "bad")
-
-        bt_rc, bt_out = run(["bluetoothctl", "show"], admin=True, timeout=4)
-        if bt_rc == 0 and "Controller " in bt_out:
-            powered = next((line.split(":", 1)[1].strip() for line in bt_out.splitlines() if "Powered:" in line), "unknown")
-            bt_text = f"Controller ready - powered {powered}"
-            bt_state = "good" if powered == "yes" else "warn"
-        elif command_exists("bluetoothctl"):
-            bt_text = "BlueZ running; no Bluetooth controller detected"
-            bt_state = "bad"
-        else:
-            bt_text = "bluetoothctl missing"
-            bt_state = "bad"
-        self.set_status("bluetooth", bt_text, bt_state)
-        self.set_status("bluetooth_detail", bt_text, bt_state)
+        self.set_status("network", "Checking NetworkManager...", "warn")
+        self.set_status("wifi_detail", "Checking Wi-Fi service...", "warn")
+        self.set_status("bluetooth", "Checking BlueZ...", "warn")
+        self.set_status("bluetooth_detail", "Checking Bluetooth service...", "warn")
 
         repo = self.repo_uri()
         self.set_status("repo", repo, "good" if repo.startswith("http") else "warn")
         self.set_status("repo_detail", repo, "good" if repo.startswith("http") else "warn")
         if "wallpaper" in self.status_widgets:
             self.status_widgets["wallpaper"].set_text(self.current_wallpaper())
+
+        def task():
+            nm_rc, nm_out = run(["nmcli", "-t", "-f", "STATE,CONNECTIVITY", "general"], timeout=3)
+            wifi_rc, wifi_out = run(["nmcli", "-t", "-f", "WIFI", "radio"], timeout=3)
+            bt_rc, bt_out = run(["bluetoothctl", "show"], admin=True, timeout=4)
+            return 0, {
+                "nm_rc": nm_rc,
+                "nm_out": nm_out,
+                "wifi_rc": wifi_rc,
+                "wifi_out": wifi_out,
+                "bt_rc": bt_rc,
+                "bt_out": bt_out,
+            }
+
+        def done(_rc, data):
+            nm_text = data["nm_out"] or "NetworkManager not ready"
+            wifi_text = data["wifi_out"] or "unknown"
+            self.set_status("network", nm_text, "good" if data["nm_rc"] == 0 else "bad")
+            self.set_status("wifi_detail", f"Service: {nm_text}\nWi-Fi radio: {wifi_text}", "good" if data["nm_rc"] == 0 and data["wifi_rc"] == 0 else "bad")
+
+            bt_out = data["bt_out"]
+            if data["bt_rc"] == 0 and "Controller " in bt_out:
+                powered = next((line.split(":", 1)[1].strip() for line in bt_out.splitlines() if "Powered:" in line), "unknown")
+                bt_text = f"Controller ready - powered {powered}"
+                bt_state = "good" if powered == "yes" else "warn"
+            elif command_exists("bluetoothctl"):
+                bt_text = "BlueZ running; no Bluetooth controller detected"
+                bt_state = "bad"
+            else:
+                bt_text = "bluetoothctl missing"
+                bt_state = "bad"
+            self.set_status("bluetooth", bt_text, bt_state)
+            self.set_status("bluetooth_detail", bt_text, bt_state)
+
+        run_async_task(task, done)
 
     @staticmethod
     def repo_uri():

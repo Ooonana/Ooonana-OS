@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
+import re
+import unicodedata
 """Pure parsing helpers shared by the native wireless applications."""
+
+
+def clean_display_name(value):
+    text = unicodedata.normalize("NFC", str(value or ""))
+    return "".join(char for char in text if char >= " " and char != "\x7f").strip()
 
 
 def split_nmcli_terse(line):
@@ -68,6 +75,7 @@ def parse_nmcli_wifi(output):
         if len(fields) != 6:
             continue
         in_use, bssid, ssid, signal, security, device = fields
+        ssid = clean_display_name(ssid)
         if not ssid:
             continue
         try:
@@ -119,7 +127,7 @@ def parse_iw_wifi(output, device=""):
         elif current is None:
             continue
         elif line.startswith("SSID:"):
-            current["ssid"] = line.split(":", 1)[1].strip()
+            current["ssid"] = clean_display_name(line.split(":", 1)[1])
         elif line.startswith("signal:"):
             current["signal"] = line.split(":", 1)[1].strip().split()[0]
         elif line.startswith("capability:") and "Privacy" in line:
@@ -185,6 +193,7 @@ def parse_bluetooth_info(output):
         "paired": False,
         "trusted": False,
         "connected": False,
+        "services_resolved": False,
         "rssi": None,
         "name": "",
         "alias": "",
@@ -196,14 +205,76 @@ def parse_bluetooth_info(output):
             continue
         key, value = (part.strip() for part in line.split(":", 1))
         lowered = value.lower()
-        if key in ("Paired", "Trusted", "Connected"):
-            values[key.lower()] = lowered == "yes"
+        if key in ("Paired", "Trusted", "Connected", "ServicesResolved"):
+            normalized = "services_resolved" if key == "ServicesResolved" else key.lower()
+            values[normalized] = lowered == "yes"
         elif key == "RSSI":
             try:
                 values["rssi"] = int(value)
             except ValueError:
                 pass
         elif key.lower() in ("name", "alias", "icon"):
-            values[key.lower()] = value
+            values[key.lower()] = clean_display_name(value)
     values["signal"] = signal_percent(values["rssi"]) if values["rssi"] is not None else 0
     return values
+
+
+def parse_bluetooth_scan(output):
+    """Parse bluetoothctl discovery events, including transient RSSI values."""
+    devices = {}
+    ansi = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+    event = re.compile(
+        r"^\[(?:NEW|CHG)\]\s+Device\s+([0-9A-Fa-f:]{17})(?:\s+(.*))?$"
+    )
+    for raw_line in output.splitlines():
+        line = ansi.sub("", raw_line).strip()
+        match = event.match(line)
+        if not match:
+            continue
+        address = match.group(1).upper()
+        detail = (match.group(2) or "").strip()
+        values = devices.setdefault(
+            address,
+            {"address": address, "name": address, "rssi": None, "signal": 0},
+        )
+        if detail.startswith("RSSI:"):
+            try:
+                values["rssi"] = int(detail.split(":", 1)[1].strip())
+                values["signal"] = signal_percent(values["rssi"])
+            except ValueError:
+                pass
+        elif detail.startswith(("Name:", "Alias:")):
+            values["name"] = clean_display_name(detail.split(":", 1)[1]) or address
+        elif detail and ":" not in detail:
+            values["name"] = clean_display_name(detail)
+    return devices
+
+
+def parse_ip_neighbors(output):
+    """Return usable LAN peers from `ip neigh show` output."""
+    neighbors = []
+    seen = set()
+    ignored_states = {"FAILED", "INCOMPLETE", "NOARP"}
+    for raw_line in output.splitlines():
+        fields = raw_line.split()
+        if len(fields) < 5 or "lladdr" not in fields:
+            continue
+        state = fields[-1].upper()
+        if state in ignored_states:
+            continue
+        mac_index = fields.index("lladdr") + 1
+        if mac_index >= len(fields):
+            continue
+        address = fields[mac_index].upper()
+        if address in seen:
+            continue
+        seen.add(address)
+        interface = fields[fields.index("dev") + 1] if "dev" in fields else ""
+        neighbors.append(
+            {
+                "address": address,
+                "name": f"{fields[0]} ({interface})" if interface else fields[0],
+                "state": state,
+            }
+        )
+    return neighbors

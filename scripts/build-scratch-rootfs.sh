@@ -114,7 +114,7 @@ create_device_nodes() {
 install_ooonana_payload() {
   cp -a "$ROOT/packages/ooonana/." "$ROOTFS/"
   chmod 0755 "$ROOTFS/usr/bin/ooonana" "$ROOTFS/usr/bin/ooonana-setup" "$ROOTFS/usr/sbin/ooonana-install"
-  chmod 0755 "$ROOTFS/usr/bin/bunana" "$ROOTFS/usr/bin/oonana" "$ROOTFS/usr/bin/clear" "$ROOTFS/usr/bin/neofetch" "$ROOTFS/usr/bin/ooonana-neofetch"
+  chmod 0755 "$ROOTFS/usr/bin/bunana" "$ROOTFS/usr/bin/oonana" "$ROOTFS/usr/bin/clear" "$ROOTFS/usr/bin/neofetch" "$ROOTFS/usr/bin/ooonana-neofetch" "$ROOTFS/usr/bin/which" "$ROOTFS/usr/bin/strings"
   cp "$ROOTFS/usr/lib/ooonana/repo/base.pkg" "$ROOTFS/var/lib/ooonana/packages/installed/base.pkg"
 }
 
@@ -315,12 +315,19 @@ if grep -q 'ooonana.install=1' /proc/cmdline 2>/dev/null; then
 fi
 
 if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
-  if /usr/bin/ooonana version | grep -q 'ooonana 0.8.7' &&
-    /usr/bin/ooonana me | grep -q 'Ooonana OS' &&
-    /usr/bin/ooonana list | grep -q 'gui' &&
-    /usr/bin/ooonana list --installed | grep -q 'base'; then
+  cli_ok=1
+  version_output="$(/usr/bin/ooonana version 2>&1)" || cli_ok=0
+  me_output="$(/usr/bin/ooonana me 2>&1)" || cli_ok=0
+  list_output="$(/usr/bin/ooonana list 2>&1)" || cli_ok=0
+  installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
+  if [ "$cli_ok" -eq 1 ] &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.8.15' &&
+    printf '%s\n' "$me_output" | grep -q 'Ooonana OS' &&
+    printf '%s\n' "$list_output" | grep -q 'gui' &&
+    printf '%s\n' "$installed_output" | grep -q 'base'; then
     echo "OOONANA_CLI_OK"
   else
+    printf '%s\n' "$version_output" "$me_output" "$list_output" "$installed_output"
     echo "OOONANA_CLI_FAIL"
     sync
     sleep 1

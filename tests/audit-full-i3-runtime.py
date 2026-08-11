@@ -84,21 +84,29 @@ def main() -> int:
         "bluetoothctl",
         "pulseaudio",
         "pactl",
+        "pipewire",
+        "pipewire-pulse",
+        "wireplumber",
         "pavucontrol",
         "sudo",
         "doas",
         "su",
         "ooonana",
         "oonana",
+        "ooonana-game-launch",
         "bunana",
         "ooonana-wifi",
         "ooonana-bluetooth",
+        "ooonana-audio-start",
+        "which",
+        "strings",
         "ooonana-audio-panel",
         "ooonana-power-menu",
         "ooonana-settings-launch",
         "ooonana-ai-launch",
         "ooonana-hardware-reprobe",
         "ooonana-service-repair",
+        "ooonana-service-watchdog",
         "ooonana-run-admin",
         "ooonana-apps",
         "ooonana-files",
@@ -148,6 +156,10 @@ def main() -> int:
         "/etc/group",
         "/etc/shadow",
         "/etc/NetworkManager/NetworkManager.conf",
+        "/etc/ssl/cert.pem",
+        "/etc/ssl/certs/ca-certificates.crt",
+        "/usr/share/dbus-1/system-services/fi.w1.wpa_supplicant1.service",
+        "/usr/libexec/dbus-daemon-launch-helper",
         "/etc/bluetooth/main.conf",
         "/etc/i3/config",
         "/etc/ooonana/polybar.ini",
@@ -162,6 +174,11 @@ def main() -> int:
     for path in required_files:
         if not rooted(path).exists():
             fail(f"missing runtime file: {path}")
+
+    for path in ("/etc/ssl/cert.pem", "/etc/ssl/certs/ca-certificates.crt"):
+        candidate = rooted(path)
+        if candidate.exists() and candidate.stat().st_size == 0:
+            fail(f"empty certificate bundle: {path}")
 
     for grub_target in ("i386-pc", "x86_64-efi"):
         directory = rooted(f"/usr/lib/grub/{grub_target}")
@@ -192,6 +209,24 @@ def main() -> int:
         candidate = rooted(path)
         if candidate.exists() and not candidate.stat().st_mode & stat.S_ISUID:
             fail(f"setuid bit missing: {path}")
+
+    dbus_helper = rooted("/usr/libexec/dbus-daemon-launch-helper")
+    if dbus_helper.exists():
+        mode = stat.S_IMODE(dbus_helper.stat().st_mode)
+        if mode != 0o4750:
+            fail(
+                "wrong mode: /usr/libexec/dbus-daemon-launch-helper "
+                f"{mode:04o}, expected 4750"
+            )
+        if dbus_helper.stat().st_gid != 81:
+            fail("wrong group: /usr/libexec/dbus-daemon-launch-helper, expected messagebus (81)")
+
+    network_manager_conf = rooted("/etc/NetworkManager/NetworkManager.conf")
+    if network_manager_conf.exists():
+        network_manager_data = network_manager_conf.read_text(errors="replace")
+        for setting in ("wifi.backend=wpa_supplicant", "managed=1", "auth-polkit=false"):
+            if setting not in network_manager_data:
+                fail(f"NetworkManager setting missing: {setting}")
 
     mode_expectations = {
         "/etc/shadow": 0o600,

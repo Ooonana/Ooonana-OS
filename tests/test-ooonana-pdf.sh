@@ -3,7 +3,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GENERATOR="$ROOT/scripts/generate-ooonana-pdf.py"
-PDF="$ROOT/docs/ooonana-guide.pdf"
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+PDF="$tmp/ooonana-guide.pdf"
 
 fail() {
   printf 'FAIL: %s\n' "$*" >&2
@@ -17,7 +19,7 @@ assert_contains() {
 }
 
 [[ -x "$GENERATOR" ]] || fail "missing executable PDF generator"
-python3 "$GENERATOR" >/dev/null
+python3 "$GENERATOR" --output "$PDF" >/dev/null
 [[ -s "$PDF" ]] || fail "missing PDF"
 head="$(LC_ALL=C head -c 8 "$PDF")"
 [[ "$head" == "%PDF-1.4" ]] || fail "bad PDF header"

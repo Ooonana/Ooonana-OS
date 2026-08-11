@@ -10,6 +10,8 @@ SCRATCH_ROOTFS="$WORK_DIR/scratch-rootfs"
 ROOTFS="$WORK_DIR/full-i3-rootfs"
 TARBALL="$WORK_DIR/ooonana-full-i3-rootfs.tar.gz"
 REPO="$WORK_DIR/full-i3-repo"
+STAGED_REPO=""
+PACKAGE_PROFILE="$ROOT/configs/packages/full-i3.list"
 OS_VERSION="${OOONANA_OS_VERSION:-0.1.8}"
 FORCE=0
 
@@ -26,6 +28,8 @@ Options:
   --rootfs PATH         Full i3 rootfs output path
   --tarball PATH        Full i3 rootfs tarball output path
   --repo PATH           Ooonana repo containing branding/i3/full-i3 package metadata
+  --package-profile PATH
+                        Required full-edition package list
   --force               Delete existing rootfs and tarball first
   -h, --help            Show help
 USAGE
@@ -38,6 +42,7 @@ while [[ $# -gt 0 ]]; do
     --rootfs) ROOTFS="$2"; shift 2 ;;
     --tarball) TARBALL="$2"; shift 2 ;;
     --repo) REPO="$2"; shift 2 ;;
+    --package-profile) PACKAGE_PROFILE="$2"; shift 2 ;;
     --force) FORCE=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) ooonana_die "unknown option: $1" ;;
@@ -140,6 +145,9 @@ write_theme_helpers() {
 set -eu
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
+export LANG="${LANG:-C.UTF-8}"
+export LC_CTYPE="${LC_CTYPE:-C.UTF-8}"
+export PYTHONUTF8=1
 
 load_theme() {
   theme="${OOONANA_THEME:-}"
@@ -385,6 +393,10 @@ EOF
 #!/bin/sh
 set -eu
 url="${1:-about:blank}"
+case "${DBUS_SESSION_BUS_ADDRESS:-}" in
+  unix:*|tcp:*) ;;
+  *) unset DBUS_SESSION_BUS_ADDRESS ;;
+esac
 if [ -z "${OOONANA_BROWSER_DBUS:-}" ] &&
   [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] &&
   command -v dbus-run-session >/dev/null 2>&1; then
@@ -397,7 +409,8 @@ if command -v chromium >/dev/null 2>&1; then
   chromium --no-first-run --disable-default-apps --disable-dev-shm-usage "$url" 2>"$log" && exit 0
   printf '\nNormal GPU launch failed; retrying software rendering.\n' >>"$log"
   chromium --no-first-run --disable-default-apps --disable-dev-shm-usage \
-    --disable-gpu --use-gl=disabled "$url" 2>>"$log" && exit 0
+    --disable-gpu --disable-software-rasterizer --disable-features=Vulkan \
+    "$url" 2>>"$log" && exit 0
   exec ooonana-theme-env xterm -e sh -lc 'echo "Chromium failed:"; tail -80 "${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/chromium.log"; echo; echo "Log saved. Press Enter."; read _'
 fi
 if command -v chromium-browser >/dev/null 2>&1; then
@@ -436,9 +449,8 @@ log() {
 unblock_rfkill() {
   if command -v rfkill >/dev/null 2>&1; then
     rfkill unblock all >>"$LOG" 2>&1 || true
-    return 0
   fi
-  for state in /sys/class/rfkill/rfkill*/soft /sys/class/rfkill/rfkill*/hard; do
+  for state in /sys/class/rfkill/rfkill*/soft; do
     [ -e "$state" ] || continue
     [ -w "$state" ] || continue
     printf '0' >"$state" 2>/dev/null || true
@@ -471,7 +483,7 @@ if command -v modprobe >/dev/null 2>&1; then
     done
   fi
   if [ "$mode" != "wifi" ]; then
-    for module in bluetooth btusb btintel btrtl btqca; do
+    for module in bluetooth btusb btintel btrtl btqca uhid uinput; do
       modprobe "$module" >>"$LOG" 2>&1 || true
     done
   fi
@@ -579,6 +591,16 @@ if [ "$(id -u 2>/dev/null || echo 1)" != "0" ]; then
   exec ooonana-run-admin "$0" "$@"
 fi
 
+run_limited() {
+  limit="$1"
+  shift
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$limit" "$@"
+  else
+    "$@"
+  fi
+}
+
 collect() {
   echo "Ooonana wireless diagnostic"
   date 2>/dev/null || true
@@ -597,16 +619,16 @@ collect() {
   ip -brief link 2>/dev/null || ifconfig -a 2>/dev/null || true
   echo
   echo "== NetworkManager =="
-  nmcli general status 2>/dev/null || true
-  nmcli device status 2>/dev/null || true
+  run_limited 6 nmcli general status 2>/dev/null || true
+  run_limited 6 nmcli device status 2>/dev/null || true
   echo
   echo "== Bluetooth =="
-  bluetoothctl show 2>/dev/null || true
-  btmgmt info 2>/dev/null || true
+  run_limited 6 bluetoothctl show 2>/dev/null || true
+  run_limited 6 btmgmt info 2>/dev/null || true
   echo
   echo "== PCI network devices =="
   if command -v lspci >/dev/null 2>&1; then
-    lspci -nnk 2>/dev/null | sed -n '/Network controller/,+4p;/Wireless/,+4p'
+    run_limited 6 lspci -nnk 2>/dev/null | sed -n '/Network controller/,+4p;/Wireless/,+4p'
   fi
   for dev in /sys/bus/pci/devices/*; do
     [ -d "$dev" ] || continue
@@ -668,9 +690,8 @@ log() {
 unblock_rfkill() {
   if command -v rfkill >/dev/null 2>&1; then
     rfkill unblock all >>"$LOG" 2>&1 || true
-    return 0
   fi
-  for state in /sys/class/rfkill/rfkill*/soft /sys/class/rfkill/rfkill*/hard; do
+  for state in /sys/class/rfkill/rfkill*/soft; do
     [ -e "$state" ] || continue
     [ -w "$state" ] || continue
     printf '0' >"$state" 2>/dev/null || true
@@ -736,6 +757,10 @@ ensure_identity() {
   grep -q '^pulse:' /etc/passwd 2>/dev/null || echo 'pulse:x:70:70:PulseAudio:/run/pulse:/bin/false' >>/etc/passwd
   mkdir -p /run/pulse
   chown 70:70 /run/pulse 2>/dev/null || true
+  if grep -qx '11111111111111111111111111111111' /etc/machine-id 2>/dev/null; then
+    : >/etc/machine-id
+    : >/var/lib/dbus/machine-id
+  fi
   if [ ! -s /etc/machine-id ]; then
     if command -v dbus-uuidgen >/dev/null 2>&1; then
       dbus-uuidgen >/etc/machine-id 2>/dev/null || true
@@ -813,6 +838,70 @@ network_manager_ready() {
   run_limited 3 nmcli -t -f STATE general >/dev/null 2>&1
 }
 
+wpa_supplicant_ready() {
+  process_running wpa_supplicant || return 1
+  if command -v dbus-send >/dev/null 2>&1; then
+    run_limited 3 dbus-send --system --print-reply \
+      --dest=fi.w1.wpa_supplicant1 /fi/w1/wpa_supplicant1 \
+      org.freedesktop.DBus.Peer.Ping >/dev/null 2>&1
+    return $?
+  fi
+  return 0
+}
+
+dbus_activation_helper_ready() {
+  helper=/usr/libexec/dbus-daemon-launch-helper
+  [ -x "$helper" ] || {
+    log "D-Bus activation helper missing: $helper"
+    return 1
+  }
+  metadata="$(/bin/busybox stat -c '%u:%g:%a' "$helper" 2>/dev/null || true)"
+  [ "$metadata" = "0:81:4750" ] || {
+    log "D-Bus activation helper permissions invalid: ${metadata:-unknown}; expected 0:81:4750"
+    return 1
+  }
+}
+
+start_wpa_supplicant() {
+  wpa_supplicant_ready && return 0
+  dbus_activation_helper_ready || return 1
+  command -v dbus-send >/dev/null 2>&1 || {
+    log "dbus-send missing; cannot activate wpa_supplicant"
+    return 1
+  }
+  run_limited 8 dbus-send --system --print-reply \
+    --dest=org.freedesktop.DBus / org.freedesktop.DBus.StartServiceByName \
+    string:fi.w1.wpa_supplicant1 uint32:0 >>"$LOG" 2>&1 || return 1
+  if ! wait_for wpa_supplicant wpa_supplicant_ready; then
+    log "wpa_supplicant D-Bus activation failed"
+    return 1
+  fi
+}
+
+wifi_device_ready() {
+  interface="$1"
+  state="$(run_limited 4 nmcli -g GENERAL.STATE device show "$interface" 2>/dev/null || true)"
+  state="${state%% *}"
+  [ -n "$state" ] && [ "$state" -ge 30 ] 2>/dev/null
+}
+
+wait_for_wifi_device() {
+  interface="$1"
+  i=0
+  while [ "$i" -lt 30 ]; do
+    wifi_device_ready "$interface" && return 0
+    sleep 1
+    i=$((i + 1))
+  done
+  log "Wi-Fi device stayed unavailable: $interface"
+  run_limited 5 nmcli -f GENERAL.TYPE,GENERAL.NM-MANAGED,GENERAL.STATE,GENERAL.REASON,GENERAL.DRIVER,GENERAL.FIRMWARE-VERSION,WIFI-PROPERTIES \
+    device show "$interface" >>"$LOG" 2>&1 || true
+  rfkill list >>"$LOG" 2>&1 || true
+  iw dev "$interface" info >>"$LOG" 2>&1 || true
+  tail -120 /var/log/NetworkManager.log >>"$LOG" 2>/dev/null || true
+  return 1
+}
+
 start_network_manager() {
   nm_daemon="$(network_manager_daemon || true)"
   [ -n "$nm_daemon" ] || {
@@ -821,10 +910,13 @@ start_network_manager() {
   }
   if [ "$FORCE_WIFI" -eq 1 ]; then
     stop_daemon NetworkManager
+    stop_daemon wpa_supplicant
   fi
   if ! process_running NetworkManager; then
     mkdir -p /run/NetworkManager
-    "$nm_daemon" --no-daemon >/var/log/NetworkManager.log 2>&1 &
+    "$nm_daemon" --no-daemon --log-level=INFO \
+      --log-domains=PLATFORM,RFKILL,WIFI,WIFI_SCAN,SUPPLICANT,DEVICE \
+      >/var/log/NetworkManager.log 2>&1 &
     echo "$!" >/run/NetworkManager/ooonana.pid
   fi
   if ! wait_for NetworkManager network_manager_ready; then
@@ -832,13 +924,20 @@ start_network_manager() {
     tail -80 /var/log/NetworkManager.log >>"$LOG" 2>/dev/null || true
     return 1
   fi
+  # NetworkManager owns supplicant. Trigger its packaged D-Bus service only
+  # after NetworkManager is alive; never race it with a separately spawned daemon.
+  start_wpa_supplicant || {
+    tail -120 /var/log/NetworkManager.log >>"$LOG" 2>/dev/null || true
+    return 1
+  }
   run_limited 4 nmcli networking on >>"$LOG" 2>&1 || true
   run_limited 4 nmcli radio wifi on >>"$LOG" 2>&1 || true
   for interface in /sys/class/net/wl*; do
     [ -d "$interface" ] || continue
     interface="${interface##*/}"
-    run_limited 4 nmcli device set "$interface" managed yes >>"$LOG" 2>&1 || true
-    run_limited 4 ip link set dev "$interface" up >>"$LOG" 2>&1 || true
+    if ! wait_for_wifi_device "$interface"; then
+      return 1
+    fi
     if command -v iw >/dev/null 2>&1; then
       run_limited 4 iw dev "$interface" set power_save off >>"$LOG" 2>&1 || true
     fi
@@ -848,7 +947,14 @@ start_network_manager() {
 }
 
 bluez_ready() {
-  process_running bluetoothd
+  process_running bluetoothd || return 1
+  if command -v dbus-send >/dev/null 2>&1; then
+    run_limited 3 dbus-send --system --print-reply \
+      --dest=org.freedesktop.DBus / org.freedesktop.DBus.GetNameOwner \
+      string:org.bluez >/dev/null 2>&1
+    return $?
+  fi
+  return 0
 }
 
 start_bluetooth() {
@@ -883,6 +989,8 @@ start_bluetooth() {
 MODE="${1:-all}"
 FORCE_WIFI=0
 FORCE_BLUETOOTH=0
+REPROBE_WIFI=0
+REPROBE_BLUETOOTH=0
 case "$MODE" in
   boot|all) MODE=all ;;
   wifi) MODE=wifi ;;
@@ -890,17 +998,21 @@ case "$MODE" in
   force|--force) MODE=all; FORCE_WIFI=1; FORCE_BLUETOOTH=1 ;;
   force-wifi) MODE=wifi; FORCE_WIFI=1 ;;
   force-bluetooth) MODE=bluetooth; FORCE_BLUETOOTH=1 ;;
+  deep|--deep) MODE=all; FORCE_WIFI=1; FORCE_BLUETOOTH=1; REPROBE_WIFI=1; REPROBE_BLUETOOTH=1 ;;
+  deep-wifi) MODE=wifi; FORCE_WIFI=1; REPROBE_WIFI=1 ;;
+  deep-bluetooth) MODE=bluetooth; FORCE_BLUETOOTH=1; REPROBE_BLUETOOTH=1 ;;
   status)
     printf 'dbus=%s\n' "$(dbus_ready && echo running || echo stopped)"
     printf 'networkmanager=%s\n' "$(network_manager_ready && echo running || echo stopped)"
+    printf 'wpa_supplicant=%s\n' "$(wpa_supplicant_ready && echo running || echo stopped)"
     printf 'bluetoothd=%s\n' "$(bluez_ready && echo running || echo stopped)"
     exit 0
     ;;
-  *) echo "usage: ooonana-service-repair [all|wifi|bluetooth|force|force-wifi|force-bluetooth|status]" >&2; exit 2 ;;
+  *) echo "usage: ooonana-service-repair [all|wifi|bluetooth|force|force-wifi|force-bluetooth|deep|deep-wifi|deep-bluetooth|status]" >&2; exit 2 ;;
 esac
 
 mkdir -p /run/ooonana /run/lock /etc/NetworkManager/conf.d /etc/wpa_supplicant
-log "service repair mode=$MODE force_wifi=$FORCE_WIFI force_bluetooth=$FORCE_BLUETOOTH"
+log "service repair mode=$MODE force_wifi=$FORCE_WIFI force_bluetooth=$FORCE_BLUETOOTH reprobe_wifi=$REPROBE_WIFI reprobe_bluetooth=$REPROBE_BLUETOOTH"
 ensure_identity
 start_device_manager
 if ! start_dbus; then
@@ -909,13 +1021,11 @@ if ! start_dbus; then
 fi
 
 reprobe_mode=""
-if [ "${1:-}" = "boot" ]; then
-  reprobe_mode="boot"
-elif [ "$FORCE_WIFI" -eq 1 ] && [ "$FORCE_BLUETOOTH" -eq 1 ]; then
+if [ "$REPROBE_WIFI" -eq 1 ] && [ "$REPROBE_BLUETOOTH" -eq 1 ]; then
   reprobe_mode="--force"
-elif [ "$FORCE_WIFI" -eq 1 ]; then
+elif [ "$REPROBE_WIFI" -eq 1 ]; then
   reprobe_mode="--force-wifi"
-elif [ "$FORCE_BLUETOOTH" -eq 1 ]; then
+elif [ "$REPROBE_BLUETOOTH" -eq 1 ]; then
   reprobe_mode="--force-bluetooth"
 fi
 if [ -n "$reprobe_mode" ]; then
@@ -941,7 +1051,7 @@ esac
 if ! find /sys/class/net -maxdepth 1 -name 'wl*' 2>/dev/null | grep -q . ||
   ! find /sys/class/bluetooth -maxdepth 1 -name 'hci*' 2>/dev/null | grep -q .; then
   command -v ooonana-wireless-diagnose >/dev/null 2>&1 &&
-    ooonana-wireless-diagnose >>"$LOG" 2>&1 || true
+    run_limited 20 ooonana-wireless-diagnose >>"$LOG" 2>&1 || true
 fi
 
 if [ "$result" -ne 0 ]; then
@@ -949,6 +1059,73 @@ if [ "$result" -ne 0 ]; then
   exit "$result"
 fi
 exit 0
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-service-watchdog" <<'EOF'
+#!/bin/sh
+set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+
+interval="${OOONANA_SERVICE_WATCHDOG_INTERVAL:-30}"
+case "$interval" in
+  ''|*[!0-9]*) interval=30 ;;
+esac
+[ "$interval" -ge 10 ] 2>/dev/null || interval=10
+mkdir -p /run/ooonana /var/log
+pidfile=/run/ooonana/service-watchdog.pid
+if [ -s "$pidfile" ]; then
+  old_pid="$(cat "$pidfile" 2>/dev/null || true)"
+  [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null && exit 0
+fi
+echo "$$" >"$pidfile"
+trap 'rm -f "$pidfile"' EXIT INT TERM
+
+running() {
+  /bin/busybox pidof "$1" >/dev/null 2>&1
+}
+
+run_limited() {
+  seconds="$1"
+  shift
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$seconds" "$@"
+  elif [ -x /bin/busybox ]; then
+    /bin/busybox timeout "$seconds" "$@"
+  else
+    "$@"
+  fi
+}
+
+dbus_ready() {
+  [ -S /run/dbus/system_bus_socket ] || return 1
+  command -v dbus-send >/dev/null 2>&1 || return 0
+  run_limited 3 dbus-send --system --print-reply \
+    --dest=org.freedesktop.DBus / org.freedesktop.DBus.ListNames >/dev/null 2>&1
+}
+
+network_manager_ready() {
+  running NetworkManager || return 1
+  command -v nmcli >/dev/null 2>&1 || return 1
+  run_limited 5 nmcli -t -f STATE general >/dev/null 2>&1
+}
+
+bluez_ready() {
+  running bluetoothd || return 1
+  dbus_ready || return 1
+  run_limited 5 dbus-send --system --print-reply \
+    --dest=org.freedesktop.DBus / org.freedesktop.DBus.GetNameOwner \
+    string:org.bluez >/dev/null 2>&1
+}
+
+while sleep "$interval"; do
+  if ! dbus_ready || ! network_manager_ready; then
+    ooonana-service-repair force-wifi >>/var/log/ooonana-service-watchdog.log 2>&1 || true
+  fi
+  if ! bluez_ready; then
+    ooonana-service-repair force-bluetooth >>/var/log/ooonana-service-watchdog.log 2>&1 || true
+  fi
+done
 EOF
 
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-wifi" <<'EOF'
@@ -2105,8 +2282,12 @@ EOF
 [main]
 plugins=keyfile
 dhcp=internal
+auth-polkit=false
 
-[device]
+[device-ooonana-wifi]
+match-device=type:wifi
+managed=1
+wifi.backend=wpa_supplicant
 wifi.scan-rand-mac-address=no
 
 [ifupdown]
@@ -2294,7 +2475,7 @@ label-padding = 2
 [module/wifi]
 type = custom/script
 exec = ooonana-wifi-status
-interval = 3
+interval = 5
 label = %output%
 label-foreground = ${colors.accent}
 label-background = ${colors.background-alt}
@@ -2304,7 +2485,7 @@ click-left = ooonana-wifi-panel
 [module/bluetooth]
 type = custom/script
 exec = ooonana-bluetooth-status
-interval = 3
+interval = 5
 label = %output%
 label-foreground = ${colors.accent}
 label-background = ${colors.background-alt}
@@ -2327,7 +2508,7 @@ label-disconnected-padding = 2
 [module/audio]
 type = custom/script
 exec = ooonana-audio-status
-interval = 2
+interval = 5
 label = %output%
 label-foreground = ${colors.accent}
 label-background = ${colors.background-alt}
@@ -2339,7 +2520,7 @@ scroll-down = pactl set-sink-volume @DEFAULT_SINK@ -5%
 [module/brightness]
 type = custom/script
 exec = ooonana-brightness-status
-interval = 2
+interval = 5
 label = %output%
 label-foreground = ${colors.accent}
 label-background = ${colors.background-alt}
@@ -2359,7 +2540,7 @@ click-left = ooonana-power-menu
 [module/battery]
 type = custom/script
 exec = ooonana-battery-status
-interval = 10
+interval = 30
 label = %output%
 label-foreground = ${colors.accent}
 label-background = ${colors.background-alt}
@@ -2367,7 +2548,7 @@ label-padding = 2
 
 [module/date]
 type = internal/date
-interval = 1
+interval = 5
 date = %Y-%m-%d
 time = %H:%M
 label = %time%
@@ -2506,16 +2687,18 @@ EOF
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/picom.conf" <<'EOF'
 backend = "xrender";
 vsync = true;
-shadow = true;
+use-damage = true;
+unredir-if-possible = true;
+shadow = false;
 shadow-radius = 16;
 shadow-offset-x = -8;
 shadow-offset-y = -8;
 shadow-opacity = 0.36;
-fading = true;
+fading = false;
 fade-delta = 6;
 fade-in-step = 0.045;
 fade-out-step = 0.045;
-inactive-opacity = 0.94;
+inactive-opacity = 1.0;
 active-opacity = 1.0;
 corner-radius = 0;
 EOF
@@ -2779,7 +2962,7 @@ DRY_RUN=0
 if [ "$(id -u 2>/dev/null || echo 1)" = "0" ]; then
   LOG_FILE="/var/log/ooonana-install-wizard.log"
 else
-  LOG_FILE="${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/install-wizard.log"
+  LOG_FILE="${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/ooonana-install-wizard.log"
 fi
 
 usage() {
@@ -3120,6 +3303,9 @@ set -eu
 
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
+export LANG="${LANG:-C.UTF-8}"
+export LC_CTYPE="${LC_CTYPE:-C.UTF-8}"
+export PYTHONUTF8=1
 
 if [ "${1:-}" = "--user" ]; then
   desktop_user="${2:-}"
@@ -3186,14 +3372,7 @@ if [ -x /usr/bin/ooonana-theme-env ]; then
 fi
 
 mkdir -p "${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana"
-if command -v pulseaudio >/dev/null 2>&1; then
-  pulseaudio --start --exit-idle-time=-1 >/dev/null 2>&1 || true
-  pulse_wait=0
-  while command -v pactl >/dev/null 2>&1 && ! pactl info >/dev/null 2>&1 && [ "$pulse_wait" -lt 10 ]; do
-    pulse_wait=$((pulse_wait + 1))
-    sleep 1
-  done
-fi
+command -v ooonana-audio-start >/dev/null 2>&1 && ooonana-audio-start >/dev/null 2>&1 || true
 
 if command -v ooonana-setup >/dev/null 2>&1; then
   ooonana-setup --first-boot --gui >"${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/setup.log" 2>&1 &
@@ -3365,7 +3544,11 @@ start_persistence() {
     fi
     [ -n "$persist_dev" ] && break
     persist_wait=$((persist_wait + 1))
-    mdev -s 2>/dev/null || true
+    if command -v udevadm >/dev/null 2>&1; then
+      udevadm settle --timeout=1 2>/dev/null || true
+    else
+      mdev -s 2>/dev/null || true
+    fi
     sleep 1
   done
   if [ -z "$persist_dev" ]; then
@@ -3438,47 +3621,44 @@ start_device_manager() {
 start_device_manager
 start_persistence
 
-if grep -qx '11111111111111111111111111111111' /etc/machine-id 2>/dev/null; then
-  : >/etc/machine-id
-  : >/var/lib/dbus/machine-id
-fi
-
-start_system_services() {
-  if command -v ooonana-service-repair >/dev/null 2>&1; then
-    ooonana-service-repair boot >/var/log/ooonana-service-repair.log 2>&1 || true
-    return 0
-  fi
-  mkdir -p /run/dbus /var/lib/dbus /etc
-  chmod 0755 /run/dbus 2>/dev/null || true
-  grep -q '^messagebus:' /etc/group 2>/dev/null || echo 'messagebus:x:81:' >>/etc/group
-  grep -q '^messagebus:' /etc/passwd 2>/dev/null || echo 'messagebus:x:81:81:DBus Message Bus:/run/dbus:/bin/false' >>/etc/passwd
-  grep -q '^pulse:' /etc/group 2>/dev/null || echo 'pulse:x:70:' >>/etc/group
-  grep -q '^pulse-access:' /etc/group 2>/dev/null || echo 'pulse-access:x:71:' >>/etc/group
-  grep -q '^pulse:' /etc/passwd 2>/dev/null || echo 'pulse:x:70:70:PulseAudio:/run/pulse:/bin/false' >>/etc/passwd
-  if [ ! -s /etc/machine-id ]; then
-    if command -v dbus-uuidgen >/dev/null 2>&1; then
-      dbus-uuidgen >/etc/machine-id 2>/dev/null || true
-    else
-      cat /proc/sys/kernel/random/uuid 2>/dev/null | tr -d '-' >/etc/machine-id || true
-    fi
-  fi
-  if [ -s /etc/machine-id ] &&
-    { [ ! -s /var/lib/dbus/machine-id ] || ! /bin/busybox cmp -s /etc/machine-id /var/lib/dbus/machine-id; }; then
-    cp /etc/machine-id /var/lib/dbus/machine-id 2>/dev/null || true
-  fi
-  if command -v dbus-daemon >/dev/null 2>&1 && [ ! -S /run/dbus/system_bus_socket ]; then
-    dbus-daemon --system --fork --nopidfile --address=unix:path=/run/dbus/system_bus_socket >/var/log/dbus.log 2>&1 || true
-  fi
-  test -S /run/dbus/system_bus_socket || return 1
-  if command -v NetworkManager >/dev/null 2>&1 && ! /bin/busybox pidof NetworkManager >/dev/null 2>&1; then
-    NetworkManager --no-daemon >/var/log/NetworkManager.log 2>&1 &
-  fi
-  if command -v bluetoothd >/dev/null 2>&1 && ! /bin/busybox pidof bluetoothd >/dev/null 2>&1; then
-    bluetoothd >/var/log/bluetoothd.log 2>&1 &
+configure_cpu_scaling() {
+  for policy in /sys/devices/system/cpu/cpufreq/policy*; do
+    [ -d "$policy" ] || continue
+    [ -w "$policy/scaling_governor" ] || continue
+    governors="$(cat "$policy/scaling_available_governors" 2>/dev/null || true)"
+    case " $governors " in
+      *" schedutil "*) governor="schedutil" ;;
+      *" ondemand "*) governor="ondemand" ;;
+      *) continue ;;
+    esac
+    printf '%s\n' "$governor" >"$policy/scaling_governor" 2>/dev/null || true
+  done
+  if [ -w /proc/sys/kernel/sched_autogroup_enabled ]; then
+    printf '1\n' >/proc/sys/kernel/sched_autogroup_enabled 2>/dev/null || true
   fi
 }
 
-start_system_services
+configure_cpu_scaling
+
+start_system_services() {
+  command -v ooonana-service-repair >/dev/null 2>&1 || {
+    printf '%s\n' 'ooonana-service-repair missing' >/var/log/ooonana-service-repair.log
+    return 1
+  }
+  ooonana-service-repair boot >/var/log/ooonana-service-repair.log 2>&1 && return 0
+  printf '%s\n' 'automatic service start failed; preserving hardware state for diagnostics' \
+    >>/var/log/ooonana-service-repair.log
+  return 1
+}
+
+start_system_services || true
+
+start_service_watchdog() {
+  command -v ooonana-service-watchdog >/dev/null 2>&1 || return 0
+  ooonana-service-watchdog >/var/log/ooonana-service-watchdog.log 2>&1 &
+}
+
+start_service_watchdog
 
 start_network_fallback() {
   mkdir -p /etc /var/log
@@ -3539,11 +3719,13 @@ ensure_glib_schemas() {
 
 refresh_gtk_caches() {
   if command -v update-mime-database >/dev/null 2>&1 &&
-    [ -d /usr/share/mime ]; then
+    [ -d /usr/share/mime ] &&
+    [ ! -s /usr/share/mime/mime.cache ]; then
     update-mime-database /usr/share/mime >/dev/null 2>&1 || true
   fi
   if command -v gdk-pixbuf-query-loaders >/dev/null 2>&1 &&
-    [ -d /usr/lib/gdk-pixbuf-2.0/2.10.0/loaders ]; then
+    [ -d /usr/lib/gdk-pixbuf-2.0/2.10.0/loaders ] &&
+    [ ! -s /usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache ]; then
     mkdir -p /usr/lib/gdk-pixbuf-2.0/2.10.0
     gdk-pixbuf-query-loaders >/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache 2>/dev/null || true
   fi
@@ -3551,24 +3733,33 @@ refresh_gtk_caches() {
     [ -d /usr/share/icons ]; then
     for theme in /usr/share/icons/*; do
       [ -d "$theme" ] || continue
-      gtk-update-icon-cache -q -t -f "$theme" >/dev/null 2>&1 || true
+      [ -s "$theme/icon-theme.cache" ] && continue
+      gtk-update-icon-cache -q -t "$theme" >/dev/null 2>&1 || true
     done
   fi
 }
 
 refresh_font_caches() {
+  font_cache=""
   [ -d /usr/share/fonts ] || return 0
+  for cache in /var/cache/fontconfig/*.cache-*; do
+    if [ -s "$cache" ]; then
+      font_cache="$cache"
+      break
+    fi
+  done
+  [ -n "$font_cache" ] && return 0
   if command -v mkfontscale >/dev/null 2>&1; then
     for font_dir in /usr/share/fonts/*; do
       [ -d "$font_dir" ] || continue
-      mkfontscale "$font_dir" >/dev/null 2>&1 || true
-      if command -v mkfontdir >/dev/null 2>&1; then
+      [ -s "$font_dir/fonts.scale" ] || mkfontscale "$font_dir" >/dev/null 2>&1 || true
+      if command -v mkfontdir >/dev/null 2>&1 && [ ! -s "$font_dir/fonts.dir" ]; then
         mkfontdir "$font_dir" >/dev/null 2>&1 || true
       fi
     done
   fi
   if command -v fc-cache >/dev/null 2>&1; then
-    fc-cache -r /usr/share/fonts >/dev/null 2>&1 || true
+    fc-cache /usr/share/fonts >/dev/null 2>&1 || true
   fi
 }
 
@@ -3608,10 +3799,15 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
     reboot -f
   fi
   echo "OOONANA_DOWNLOADERS_OK python3 curl wget"
-  if /usr/bin/ooonana version | grep -q 'ooonana 0.8.7' &&
-    /usr/bin/ooonana list --installed | grep -q 'full-i3'; then
+  cli_ok=1
+  version_output="$(/usr/bin/ooonana version 2>&1)" || cli_ok=0
+  installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
+  if [ "$cli_ok" -eq 1 ] &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.8.15' &&
+    printf '%s\n' "$installed_output" | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else
+    printf '%s\n' "$version_output" "$installed_output"
     echo "OOONANA_CLI_FAIL"
     sync
     sleep 1
@@ -3683,30 +3879,83 @@ fix_blueman_activation() {
   sed -i '/^SystemdService=/d' "$service"
 }
 
-shell_escape() {
-  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
-}
-
 install_full_i3_packages() {
   local sources_dir
   sources_dir="$(dirname "$ROOTFS")/full-i3-build-sources"
-  [[ -d "$REPO" ]] || ooonana_die "missing full-i3 repo: $REPO"
-  [[ -f "$REPO/full-i3.pkg" ]] || ooonana_die "missing full-i3 package metadata: $REPO/full-i3.pkg"
-  [[ -d "$ROOTFS/usr/lib/ooonana/repo" ]] || ooonana_die "missing rootfs builtin repo: $ROOTFS/usr/lib/ooonana/repo"
+  [[ -d "$STAGED_REPO" ]] || ooonana_die "missing staged full-i3 repo: $STAGED_REPO"
+  [[ -f "$STAGED_REPO/full-i3.pkg" ]] || ooonana_die "missing full-i3 package metadata: $STAGED_REPO/full-i3.pkg"
 
   rm -rf "$sources_dir"
   mkdir -p "$sources_dir" "$ROOTFS/var/cache/ooonana" "$ROOTFS/var/lib/ooonana/packages/installed"
-  {
-    printf 'OOONANA_REPO_NAME="full-i3-build"\n'
-    printf 'OOONANA_REPO_URI="%s"\n' "$(shell_escape "$REPO")"
-  } > "$sources_dir/full-i3.repo"
 
   OOONANA_ROOT="$ROOTFS" \
-    OOONANA_REPO_DIR="$ROOTFS/usr/lib/ooonana/repo" \
+    OOONANA_REPO_DIR="$STAGED_REPO" \
     OOONANA_SOURCES_DIR="$sources_dir" \
     OOONANA_STATE_DIR="$ROOTFS/var/lib/ooonana/packages" \
     OOONANA_CACHE_DIR="$ROOTFS/var/cache/ooonana" \
     "$ROOT/packages/ooonana/usr/bin/ooonana" get full-i3 >/dev/null
+}
+
+verify_full_i3_repo() {
+  local package work i3_deps
+  [[ -f "$REPO/base.pkg" ]] || ooonana_die "full-i3 repo missing base.pkg"
+  [[ -f "$REPO/full-i3.pkg" ]] || ooonana_die "full-i3 repo missing full-i3.pkg"
+  [[ -f "$REPO/i3.pkg" ]] || ooonana_die "full-i3 repo missing i3.pkg"
+  i3_deps="$(awk -F'"' '$1 == "OOONANA_PKG_DEPS=" { print $2; exit }' "$REPO/i3.pkg")"
+  while IFS= read -r package; do
+    [[ -f "$REPO/$package.pkg" ]] ||
+      ooonana_die "full-i3 repo missing profile package: $package"
+    case "$package" in
+      base|branding|i3|full-i3) continue ;;
+    esac
+    case " $i3_deps " in
+      *" $package "*) ;;
+      *) ooonana_die "stale i3.pkg: dependency missing from bundle: $package" ;;
+    esac
+  done < <(ooonana_read_package_profile "$PACKAGE_PROFILE")
+  work="$(mktemp -d)"
+  mkdir -p "$work/sources" "$work/state" "$work/cache"
+  if ! OOONANA_ROOT="$work/root" \
+    OOONANA_REPO_DIR="$STAGED_REPO" \
+    OOONANA_SOURCES_DIR="$work/sources" \
+    OOONANA_STATE_DIR="$work/state" \
+    OOONANA_CACHE_DIR="$work/cache" \
+    "$ROOT/packages/ooonana/usr/bin/ooonana" get full-i3 --dry-run >/dev/null; then
+    rm -rf "$work"
+    ooonana_die "full-i3 repo dependency closure is incomplete"
+  fi
+  rm -rf "$work"
+}
+
+stage_full_i3_repo_metadata() {
+  local archive file repo_abs target
+  STAGED_REPO="$(dirname "$ROOTFS")/full-i3-repo-metadata"
+  repo_abs="$(CDPATH='' cd -- "$REPO" && pwd)"
+  rm -rf "$STAGED_REPO"
+  mkdir -p "$STAGED_REPO"
+  for file in "$REPO"/*.pkg "$REPO/index.tsv" "$REPO/SHA256SUMS" \
+    "$REPO/SHA256SUMS.sig" "$REPO/repo.pub"; do
+    [[ -f "$file" ]] || continue
+    cp -a "$file" "$STAGED_REPO/"
+  done
+  if [[ -d "$REPO/hooks" ]]; then
+    cp -a "$REPO/hooks" "$STAGED_REPO/hooks"
+  fi
+  if [[ -d "$REPO/archives" ]]; then
+    ln -s "$repo_abs/archives" "$STAGED_REPO/archives"
+  fi
+  for file in "$REPO"/*.pkg; do
+    [[ -f "$file" ]] || continue
+    archive="$(awk -F'"' '$1 == "OOONANA_PKG_ARCHIVE=" { print $2; exit }' "$file")"
+    [[ -n "$archive" ]] || continue
+    case "$archive" in
+      archives/*) continue ;;
+      /*|../*|*/../*|..) ooonana_die "unsafe staged archive path: $archive" ;;
+    esac
+    target="$STAGED_REPO/$archive"
+    mkdir -p "$(dirname "$target")"
+    ln -s "$repo_abs/$archive" "$target"
+  done
 }
 
 write_default_cloud_source() {
@@ -3938,11 +4187,20 @@ normalize_rootfs_permissions() {
   if [[ -f "$ROOTFS/usr/lib/chromium/chrome-sandbox" ]]; then
     chmod 4755 "$ROOTFS/usr/lib/chromium/chrome-sandbox"
   fi
+
+  if [[ -f "$ROOTFS/usr/libexec/dbus-daemon-launch-helper" ]]; then
+    if chown 0:81 "$ROOTFS/usr/libexec/dbus-daemon-launch-helper" 2>/dev/null; then
+      chmod 4750 "$ROOTFS/usr/libexec/dbus-daemon-launch-helper"
+    else
+      # Unprivileged fixture builds cannot assign messagebus group 81.
+      chmod 4755 "$ROOTFS/usr/libexec/dbus-daemon-launch-helper"
+    fi
+  fi
 }
 
 main() {
   ooonana_require_linux
-  ooonana_require_commands awk chmod cp gzip install mkdir rm sed sha256sum stat tar
+  ooonana_require_commands awk chmod cp gzip install ln mkdir mktemp rm sed sha256sum stat tar
   [[ -d "$SCRATCH_ROOTFS" ]] || ooonana_die "missing scratch rootfs: $SCRATCH_ROOTFS"
   [[ -x "$SCRATCH_ROOTFS/bin/sh" ]] || ooonana_die "invalid scratch rootfs: missing /bin/sh"
   [[ -f "$ROOT/branding/logo.svg" ]] || ooonana_die "missing branding/logo.svg"
@@ -3950,6 +4208,12 @@ main() {
   [[ -f "$ROOT/branding/wallpaper.svg" ]] || ooonana_die "missing branding/wallpaper.svg"
   [[ -f "$ROOT/branding/wallpaper.png" ]] || ooonana_die "missing branding/wallpaper.png"
   [[ -f "$ROOT/branding/i3/config" ]] || ooonana_die "missing branding/i3/config"
+  if [[ ! -s "$REPO/index.tsv" || ! -s "$REPO/SHA256SUMS" ]]; then
+    ooonana_log "package repository metadata missing; indexing $REPO"
+    "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$REPO" >/dev/null
+  fi
+  stage_full_i3_repo_metadata
+  verify_full_i3_repo
 
   mkdir -p "$(dirname "$ROOTFS")"
   ooonana_require_unix_permissions "$(dirname "$ROOTFS")"
@@ -3964,9 +4228,6 @@ main() {
   mkdir -p "$(dirname "$ROOTFS")"
   cp -a "$SCRATCH_ROOTFS" "$ROOTFS"
   cp -a "$ROOT/packages/ooonana/." "$ROOTFS/"
-  rm -rf "$ROOTFS/usr/lib/ooonana/repo"
-  mkdir -p "$ROOTFS/usr/lib/ooonana/repo"
-  cp -a "$REPO/." "$ROOTFS/usr/lib/ooonana/repo/"
   chmod 0755 \
     "$ROOTFS/usr/bin/ooonana" \
     "$ROOTFS/usr/bin/ooonana-ai" \
@@ -3975,20 +4236,28 @@ main() {
     "$ROOTFS/usr/bin/ooonana-setup" \
     "$ROOTFS/usr/bin/bunana" \
     "$ROOTFS/usr/bin/oonana" \
+    "$ROOTFS/usr/bin/ooonana-game-launch" \
     "$ROOTFS/usr/lib/ooonana/oonana_game.py" \
     "$ROOTFS/usr/bin/clear" \
     "$ROOTFS/usr/bin/neofetch" \
     "$ROOTFS/usr/bin/ooonana-neofetch" \
+    "$ROOTFS/usr/bin/ooonana-audio-start" \
+    "$ROOTFS/usr/bin/which" \
+    "$ROOTFS/usr/bin/strings" \
     "$ROOTFS/usr/bin/ooonana-settings-launch" \
     "$ROOTFS/usr/sbin/ooonana-install"
   mkdir -p "$ROOTFS/etc/ooonana" "$ROOTFS/var/lib/ooonana/packages/installed" "$ROOTFS/var/log"
   printf '127.0.0.1 localhost ooonana\n' > "$ROOTFS/etc/hosts"
   printf 'full-i3\n' > "$ROOTFS/etc/ooonana/edition"
-  "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$ROOTFS/usr/lib/ooonana/repo" >/dev/null
-  "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$REPO" >/dev/null
   install_full_i3_packages
-  bash "$ROOT/scripts/install-intel-wireless-firmware.sh" \
-    "$ROOTFS" "$(dirname "$ROOTFS")/firmware-cache"
+  case "${OOONANA_SKIP_INTEL_FIRMWARE:-0}" in
+    0)
+      bash "$ROOT/scripts/install-intel-wireless-firmware.sh" \
+        "$ROOTFS" "${OOONANA_FIRMWARE_CACHE_DIR:-$(dirname "$ROOTFS")/firmware-cache}"
+      ;;
+    1) printf '[ooonana] Intel wireless firmware supplement skipped\n' ;;
+    *) ooonana_die "OOONANA_SKIP_INTEL_FIRMWARE must be 0 or 1" ;;
+  esac
   if [[ -x "$ROOTFS/usr/bin/python3" ]]; then
     rm -f "$ROOTFS/usr/bin/python"
     ln -s python3 "$ROOTFS/usr/bin/python"
@@ -4012,6 +4281,7 @@ main() {
   printf 'packages-installed\n' > "$ROOTFS/etc/ooonana/edition-state"
   normalize_rootfs_permissions
   write_tarball
+  rm -rf "$STAGED_REPO"
 
   ooonana_log "full-i3 rootfs ready: $ROOTFS"
   ooonana_log "full-i3 rootfs tarball ready: $TARBALL"

@@ -11,6 +11,8 @@ DEFAULT_I3_PROFILE="$ROOT/configs/packages/full-i3.list"
 I3_PACKAGES=""
 BRANDING_VERSION="0.1.2"
 SOF_REPO_URL="https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64"
+METADATA_ONLY=0
+INDEX_REPO=1
 
 usage() {
   cat <<'USAGE'
@@ -23,6 +25,8 @@ Options:
   --repo-url URL      Alpine APK repository URL or path. Can be repeated.
   --out-dir PATH      Ooonana repo output directory
   --packages "LIST"   Space-separated APK packages for the i3 bundle
+  --metadata-only     Refresh bundle metadata/index from packages already present
+  --no-index          Write package metadata without rebuilding repository index
   -h, --help          Show help
 USAGE
 }
@@ -32,6 +36,8 @@ while [[ $# -gt 0 ]]; do
     --repo-url) REPO_ARGS+=("--repo-url" "$2"); shift 2 ;;
     --out-dir) OUT_DIR="$2"; shift 2 ;;
     --packages) I3_PACKAGES="$2"; shift 2 ;;
+    --metadata-only) METADATA_ONLY=1; shift ;;
+    --no-index) INDEX_REPO=0; shift ;;
     -h|--help) usage; exit 0 ;;
     *) ooonana_die "unknown option: $1" ;;
   esac
@@ -110,7 +116,7 @@ build_branding_archive() {
 
 main() {
   ooonana_require_linux
-  ooonana_require_commands chmod gzip install mkdir sed sha256sum tar
+  ooonana_require_commands chmod cp gzip install mkdir sed sha256sum tar
   [[ -f "$ROOT/branding/logo.svg" ]] || ooonana_die "missing branding/logo.svg"
   [[ -f "$ROOT/branding/logo.png" ]] || ooonana_die "missing branding/logo.png"
   [[ -f "$ROOT/branding/wallpaper.svg" ]] || ooonana_die "missing branding/wallpaper.svg"
@@ -119,16 +125,24 @@ main() {
   mkdir -p "$OUT_DIR"
   [[ -n "$I3_PACKAGES" ]] || I3_PACKAGES="$(load_default_packages)"
 
-  # shellcheck disable=SC2086
-  bash "$ROOT/scripts/import-apk-package.sh" "${REPO_ARGS[@]}" --out-dir "$OUT_DIR" --no-index $I3_PACKAGES
+  if [[ "$METADATA_ONLY" -eq 0 ]]; then
+    # shellcheck disable=SC2086
+    bash "$ROOT/scripts/import-apk-package.sh" "${REPO_ARGS[@]}" --out-dir "$OUT_DIR" --no-index $I3_PACKAGES
 
-  # Alpine v3.20 SOF predates Meteor Lake DMIC fixes. This package contains
-  # only firmware data, so importing it from edge does not mix userland ABIs.
-  bash "$ROOT/scripts/import-apk-package.sh" \
-    --repo-url "$SOF_REPO_URL" \
-    --out-dir "$OUT_DIR" \
-    --no-index \
-    sof-firmware
+    # Alpine v3.20 SOF predates Meteor Lake DMIC fixes. This package contains
+    # only firmware data, so importing it from edge does not mix userland ABIs.
+    bash "$ROOT/scripts/import-apk-package.sh" \
+      --repo-url "$SOF_REPO_URL" \
+      --out-dir "$OUT_DIR" \
+      --no-index \
+      sof-firmware
+  else
+    local package
+    for package in $I3_PACKAGES; do
+      [[ -f "$OUT_DIR/$package.pkg" ]] ||
+        ooonana_die "metadata refresh missing package: $package"
+    done
+  fi
 
   work="$(mktemp -d)"
   trap 'rm -rf "$work"' EXIT
@@ -171,7 +185,15 @@ main() {
     "edition full-i3" \
     "Full edition marker package; minimal edition remains separate"
 
-  "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$OUT_DIR" >/dev/null
+  # Keep direct import-i3 outputs self-contained. Otherwise full-i3 depends on
+  # base metadata that only build-package-repo happens to seed later.
+  if [[ ! -f "$OUT_DIR/base.pkg" ]]; then
+    cp "$ROOT/packages/ooonana/usr/lib/ooonana/repo/base.pkg" "$OUT_DIR/base.pkg"
+  fi
+
+  if [[ "$INDEX_REPO" -eq 1 ]]; then
+    "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$OUT_DIR" >/dev/null
+  fi
   ooonana_log "full-i3 package set ready: $OUT_DIR"
 }
 

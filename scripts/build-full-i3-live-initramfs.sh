@@ -76,9 +76,10 @@ main() {
 
   local used_kb image_kb
   read -r used_kb _ < <(du -sk "$ROOTFS")
-  image_kb=$((used_kb + used_kb / 3 + 262144))
+  # Live writes go to overlayfs, so root image needs metadata headroom only.
+  image_kb=$((used_kb + used_kb / 8 + 131072))
   truncate -s "${image_kb}K" "$ROOTFS_IMAGE"
-  mke2fs -q -t ext4 -L OOONANA_LIVE -d "$ROOTFS" "$ROOTFS_IMAGE"
+  mke2fs -q -t ext4 -m 0 -O '^has_journal' -L OOONANA_LIVE -d "$ROOTFS" "$ROOTFS_IMAGE"
 
   LIVE_INIT_TREE="$(mktemp -d)"
   mkdir -p "$LIVE_INIT_TREE/bin" "$LIVE_INIT_TREE/sbin" "$LIVE_INIT_TREE/lib" "$LIVE_INIT_TREE/dev" "$LIVE_INIT_TREE/proc" "$LIVE_INIT_TREE/sys" "$LIVE_INIT_TREE/mnt/iso" "$LIVE_INIT_TREE/mnt/root-ro" "$LIVE_INIT_TREE/cow" "$LIVE_INIT_TREE/newroot" "$LIVE_INIT_TREE/usr/share/ooonana"

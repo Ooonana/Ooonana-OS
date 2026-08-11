@@ -35,7 +35,9 @@ assert_contains "$readme_logo" "\\______/"
 
 for logo_file in \
   "$ROOT/docs/logo.txt" \
-  "$ROOT/packages/ooonana/usr/share/ooonana/logo.txt"; do
+  "$ROOT/packages/ooonana/usr/share/ooonana/logo.txt" \
+  "$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt" \
+  "$ROOT/packages/ooonana/usr/share/ooonana/boot-logo.txt"; do
   [[ -f "$logo_file" ]] || fail "missing logo file: $logo_file"
   diff -u <(printf '%s\n' "$readme_logo") "$logo_file" || fail "logo mismatch: $logo_file"
 done

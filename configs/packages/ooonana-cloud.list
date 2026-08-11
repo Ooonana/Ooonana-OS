@@ -5,6 +5,7 @@ bash
 curl
 wget
 ca-certificates
+ca-certificates-bundle
 python3
 bubblewrap
 xz

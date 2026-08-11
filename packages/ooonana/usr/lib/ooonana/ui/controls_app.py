@@ -21,7 +21,6 @@ class BrightnessWindow(Gtk.Window):
     def __init__(self):
         super().__init__(title="Ooonana Brightness")
         self.set_default_size(540, 220)
-        self.set_resizable(False)
         self.set_position(Gtk.WindowPosition.CENTER)
         header(self, "Brightness", "Display backlight", "display-brightness-symbolic")
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
@@ -41,14 +40,17 @@ class BrightnessWindow(Gtk.Window):
         actions.pack_start(button("100%", callback=lambda *_: self.scale.set_value(100)), False, False, 0)
         actions.pack_end(button("Apply", "object-select-symbolic", self.apply, "suggested-action"), False, False, 0)
         root.pack_start(actions, False, False, 0)
-        rc, output = run(["brightnessctl", "-m"], timeout=4)
-        current = 75
-        if rc == 0:
+        self.scale.set_value(75)
+
+        def loaded(rc, output):
+            if rc != 0:
+                return
             try:
-                current = int(output.split(",")[3].rstrip("%"))
+                self.scale.set_value(int(output.split(",")[3].rstrip("%")))
             except (IndexError, ValueError):
                 pass
-        self.scale.set_value(current)
+
+        run_async(["brightnessctl", "-m"], loaded, timeout=4)
         self.connect("destroy", Gtk.main_quit)
 
     def value_changed(self, scale):
@@ -69,10 +71,9 @@ class BrightnessWindow(Gtk.Window):
 class AudioWindow(Gtk.Window):
     def __init__(self):
         super().__init__(title="Ooonana Sound")
-        self.set_default_size(560, 260)
-        self.set_resizable(False)
+        self.set_default_size(700, 440)
         self.set_position(Gtk.WindowPosition.CENTER)
-        header(self, "Sound", "Default audio output", "audio-volume-high-symbolic")
+        header(self, "Sound", "Outputs, inputs, and volume", "audio-volume-high-symbolic")
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
         root.set_border_width(22)
         self.add(root)
@@ -82,35 +83,152 @@ class AudioWindow(Gtk.Window):
         self.scale.set_draw_value(False)
         self.scale.connect("value-changed", self.value_changed)
         root.pack_start(self.scale, False, False, 0)
+
+        devices = Gtk.Grid(column_spacing=12, row_spacing=10)
+        devices.attach(label("Output"), 0, 0, 1, 1)
+        self.output_combo = Gtk.ComboBoxText()
+        self.output_combo.set_hexpand(True)
+        devices.attach(self.output_combo, 1, 0, 1, 1)
+        devices.attach(label("Input"), 0, 1, 1, 1)
+        self.input_combo = Gtk.ComboBoxText()
+        self.input_combo.set_hexpand(True)
+        devices.attach(self.input_combo, 1, 1, 1, 1)
+        root.pack_start(devices, False, False, 0)
+
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.mute_button = button("Mute", "audio-volume-muted-symbolic", self.toggle_mute)
         actions.pack_start(self.mute_button, False, False, 0)
         actions.pack_start(button("Mixer", "multimedia-volume-control-symbolic", lambda *_: launch(["pavucontrol"])), False, False, 0)
+        actions.pack_start(button("Repair audio", "view-refresh-symbolic", self.repair_audio), False, False, 0)
+        actions.pack_start(button("Diagnostics", "dialog-information-symbolic", self.show_diagnostics), False, False, 0)
         actions.pack_end(button("Apply", "object-select-symbolic", self.apply, "suggested-action"), False, False, 0)
         root.pack_start(actions, False, False, 0)
         self.status = label("Checking audio service...", "muted")
         root.pack_start(self.status, False, False, 0)
-        rc, output = self.audio_command("get-sink-volume", "@DEFAULT_SINK@")
-        current = 50
-        if rc == 0 and "/" in output:
-            try:
-                current = int(output.split("/")[1].strip().rstrip("%"))
-            except (IndexError, ValueError):
-                pass
-        self.scale.set_value(current)
-        mute_rc, mute = run(["pactl", "get-sink-mute", "@DEFAULT_SINK@"], timeout=4)
-        self.muted = mute_rc == 0 and mute.endswith("yes")
+        self.scale.set_value(50)
+        self.muted = False
         self.update_mute_label()
-        self.status.set_text("Audio ready" if rc == 0 else (output or "No audio output detected"))
         self.connect("destroy", Gtk.main_quit)
+        self.refresh_audio()
 
     @staticmethod
     def audio_command(*arguments):
         rc, output = run(["pactl", *arguments], timeout=6)
         if rc == 0:
             return rc, output
-        run(["pulseaudio", "--start", "--exit-idle-time=-1"], timeout=8)
+        run(["ooonana-audio-start"], timeout=18)
         return run(["pactl", *arguments], timeout=8)
+
+    @staticmethod
+    def list_audio_devices(kind):
+        rc, output = run(["pactl", "list", "short", kind], timeout=8)
+        if rc != 0:
+            return []
+        devices = []
+        for line in output.splitlines():
+            fields = line.split("\t")
+            if len(fields) >= 2 and fields[1]:
+                devices.append((fields[1], fields[1].replace("alsa_", "").replace("_", " ")))
+        return devices
+
+    def collect_audio_state(self):
+        service_rc, service_output = self.audio_command("info")
+        outputs = self.list_audio_devices("sinks")
+        inputs = self.list_audio_devices("sources")
+        default_output_rc, default_output = run(["pactl", "get-default-sink"], timeout=5)
+        default_input_rc, default_input = run(["pactl", "get-default-source"], timeout=5)
+        volume_rc, volume = self.audio_command("get-sink-volume", "@DEFAULT_SINK@")
+        mute_rc, mute = run(["pactl", "get-sink-mute", "@DEFAULT_SINK@"], timeout=4)
+        return {
+            "service_rc": service_rc,
+            "service_output": service_output,
+            "outputs": outputs,
+            "inputs": inputs,
+            "default_output": default_output.strip() if default_output_rc == 0 else "",
+            "default_input": default_input.strip() if default_input_rc == 0 else "",
+            "volume_rc": volume_rc,
+            "volume": volume,
+            "mute_rc": mute_rc,
+            "mute": mute,
+        }
+
+    def apply_audio_state(self, data):
+        self.output_combo.remove_all()
+        self.input_combo.remove_all()
+        outputs = data["outputs"]
+        inputs = data["inputs"]
+        for device_id, title in outputs:
+            self.output_combo.append(device_id, title)
+        for device_id, title in inputs:
+            self.input_combo.append(device_id, title)
+        if outputs:
+            if not data["default_output"] or not self.output_combo.set_active_id(data["default_output"]):
+                self.output_combo.set_active(0)
+        if inputs:
+            if not data["default_input"] or not self.input_combo.set_active_id(data["default_input"]):
+                self.input_combo.set_active(0)
+        if data["volume_rc"] == 0 and "/" in data["volume"]:
+            try:
+                self.scale.set_value(int(data["volume"].split("/")[1].strip().rstrip("%")))
+            except (IndexError, ValueError):
+                pass
+        self.muted = data["mute_rc"] == 0 and data["mute"].endswith("yes")
+        self.update_mute_label()
+        self.status.set_text(
+            f"Audio service ready | {len(outputs)} output(s) | {len(inputs)} input(s)"
+            if outputs or inputs
+            else data["service_output"] or "Audio service runs, but no output or input is exposed. Open Diagnostics."
+        )
+
+    def refresh_audio(self):
+        self.status.set_text("Checking audio service...")
+
+        def task():
+            return 0, self.collect_audio_state()
+
+        def done(rc, data):
+            if rc != 0:
+                self.status.set_text(str(data))
+                return
+            self.apply_audio_state(data)
+
+        run_async_task(task, done)
+
+    def refresh_devices(self):
+        self.refresh_audio()
+
+    def repair_audio(self, widget):
+        widget.set_sensitive(False)
+
+        def done(rc, output):
+            widget.set_sensitive(True)
+            self.refresh_audio()
+            if rc != 0:
+                message(self, "Audio repair failed", output or "Audio server did not become ready.", Gtk.MessageType.ERROR)
+
+        run_async(["ooonana-audio-start", "--restart"], done, timeout=25)
+
+    def show_diagnostics(self, _widget):
+        self.status.set_text("Collecting audio diagnostics...")
+
+        def task():
+            sections = []
+            for title, command in (
+                ("Audio server", ["pactl", "info"]),
+                ("Outputs", ["pactl", "list", "short", "sinks"]),
+                ("Inputs", ["pactl", "list", "short", "sources"]),
+                ("ALSA playback", ["aplay", "-l"]),
+                ("ALSA capture", ["arecord", "-l"]),
+            ):
+                rc, output = run(command, timeout=8)
+                sections.append(f"{title}:\n{output or 'unavailable'}" if rc == 0 else f"{title}:\n{output or 'failed'}")
+            return 0, "\n\n".join(sections)
+
+        def done(_rc, output):
+            self.status.set_text("Audio diagnostics ready")
+            message(self, "Sound diagnostics", output)
+
+        run_async_task(task, done)
 
     def value_changed(self, scale):
         self.value_label.set_text(f"Volume  {int(scale.get_value())}%")
@@ -119,15 +237,25 @@ class AudioWindow(Gtk.Window):
         self.mute_button.set_label("Unmute" if self.muted else "Mute")
 
     def toggle_mute(self, _widget):
-        rc, output = self.audio_command("set-sink-mute", "@DEFAULT_SINK@", "toggle")
-        if rc != 0:
-            message(self, "Sound failed", output or "PulseAudio has no usable output", Gtk.MessageType.ERROR)
-            return
-        self.muted = not self.muted
-        self.update_mute_label()
+        self.mute_button.set_sensitive(False)
+
+        def task():
+            return self.audio_command("set-sink-mute", "@DEFAULT_SINK@", "toggle")
+
+        def done(rc, output):
+            self.mute_button.set_sensitive(True)
+            if rc != 0:
+                message(self, "Sound failed", output or "PulseAudio has no usable output", Gtk.MessageType.ERROR)
+                return
+            self.muted = not self.muted
+            self.update_mute_label()
+
+        run_async_task(task, done)
 
     def apply(self, widget):
         value = int(self.scale.get_value())
+        output_id = self.output_combo.get_active_id()
+        input_id = self.input_combo.get_active_id()
         widget.set_sensitive(False)
 
         def done(rc, output):
@@ -136,6 +264,14 @@ class AudioWindow(Gtk.Window):
                 message(self, "Sound failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)
 
         def task():
+            if output_id:
+                rc, output = self.audio_command("set-default-sink", output_id)
+                if rc != 0:
+                    return rc, output
+            if input_id:
+                rc, output = self.audio_command("set-default-source", input_id)
+                if rc != 0:
+                    return rc, output
             return self.audio_command("set-sink-volume", "@DEFAULT_SINK@", f"{value}%")
 
         run_async_task(task, done)
@@ -145,7 +281,6 @@ class PowerWindow(Gtk.Window):
     def __init__(self):
         super().__init__(title="Ooonana Power")
         self.set_default_size(620, 320)
-        self.set_resizable(False)
         self.set_position(Gtk.WindowPosition.CENTER)
         header(self, "Power", "Session and computer", "system-shutdown-symbolic")
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)

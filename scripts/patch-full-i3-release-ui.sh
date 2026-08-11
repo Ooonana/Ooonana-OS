@@ -198,6 +198,8 @@ normalize_ext4_permissions() {
   chmod 4755 "$mount_dir/usr/bin/sudo" 2>/dev/null || true
   chmod 4755 "$mount_dir/bin/su" 2>/dev/null || true
   chmod 4755 "$mount_dir/usr/lib/chromium/chrome-sandbox" 2>/dev/null || true
+  chown 0:81 "$mount_dir/usr/libexec/dbus-daemon-launch-helper" 2>/dev/null || true
+  chmod 4750 "$mount_dir/usr/libexec/dbus-daemon-launch-helper" 2>/dev/null || true
   chmod 0440 "$mount_dir/etc/sudoers.d/ooonana" 2>/dev/null || true
   chown -R 1000:1000 "$mount_dir/home/ooonana" 2>/dev/null || true
   if [ -x "$mount_dir/usr/bin/fc-cache" ]; then
@@ -234,6 +236,7 @@ ooonana-rofi-brightness|/usr/bin/ooonana-rofi-brightness|0100755
 ooonana-hardware-reprobe|/usr/bin/ooonana-hardware-reprobe|0100755
 ooonana-wireless-diagnose|/usr/bin/ooonana-wireless-diagnose|0100755
 ooonana-service-repair|/usr/bin/ooonana-service-repair|0100755
+ooonana-service-watchdog|/usr/bin/ooonana-service-watchdog|0100755
 ooonana-run-admin|/usr/bin/ooonana-run-admin|0100755
 start-ooonana-i3|/usr/bin/start-ooonana-i3|0100755
 ooonana-apps|/usr/bin/ooonana-apps|0100755
@@ -349,6 +352,7 @@ EOF
   extract_block '$ROOTFS/usr/bin/ooonana-hardware-reprobe' "$payload/ooonana-hardware-reprobe"
   extract_block '$ROOTFS/usr/bin/ooonana-wireless-diagnose' "$payload/ooonana-wireless-diagnose"
   extract_block '$ROOTFS/usr/bin/ooonana-service-repair' "$payload/ooonana-service-repair"
+  extract_block '$ROOTFS/usr/bin/ooonana-service-watchdog' "$payload/ooonana-service-watchdog"
   extract_block '$ROOTFS/usr/bin/ooonana-run-admin' "$payload/ooonana-run-admin"
   extract_block '$ROOTFS/usr/bin/start-ooonana-i3' "$payload/start-ooonana-i3"
   extract_block '$ROOTFS/usr/bin/ooonana-apps' "$payload/ooonana-apps"
@@ -464,7 +468,7 @@ EOF
   chmod 4755 "$payload/root/usr/bin/doas"
 
   local runtime_apk
-  for runtime_url in "https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/networkmanager-wifi-1.46.6-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/bluez-btmgmt-5.76-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/bluez-hid2hci-5.76-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/alsa-ucm-conf-1.2.11-r1.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/alsa-topology-conf-1.2.5.1-r1.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/pulseaudio-17.0-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/pulseaudio-utils-17.0-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/pulseaudio-alsa-17.0-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/pulseaudio-bluez-17.0-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/py3-cairo-1.26.0-r1.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/font-dejavu-2.37-r5.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/sudo-1.9.15_p5-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/util-linux-login-2.40.1-r1.apk"; do
+  for runtime_url in "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/dbus-daemon-launch-helper-1.14.10-r1.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/networkmanager-wifi-1.46.6-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/bluez-btmgmt-5.76-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/bluez-hid2hci-5.76-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/alsa-ucm-conf-1.2.11-r1.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/alsa-topology-conf-1.2.5.1-r1.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/pulseaudio-17.0-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/pulseaudio-utils-17.0-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/pulseaudio-alsa-17.0-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/pulseaudio-bluez-17.0-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/py3-cairo-1.26.0-r1.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/font-dejavu-2.37-r5.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/sudo-1.9.15_p5-r0.apk" "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/util-linux-login-2.40.1-r1.apk"; do
     runtime_apk="$WORK/${runtime_url##*/}"
     wget -q -O "$runtime_apk" "$runtime_url"
     tar --warning=no-unknown-keyword --exclude=.PKGINFO --exclude='.SIGN.*' \

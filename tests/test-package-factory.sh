@@ -107,6 +107,11 @@ assert_contains "$full_i3_profile" "bluez"
 assert_contains "$full_i3_profile" "iproute2"
 assert_contains "$full_i3_profile" "util-linux-misc"
 assert_contains "$full_i3_profile" "pulseaudio-utils"
+assert_contains "$full_i3_profile" "pipewire-alsa"
+assert_contains "$full_i3_profile" "pipewire-spa-bluez"
+assert_contains "$full_i3_profile" "wireplumber"
+assert_contains "$full_i3_profile" "font-noto-cjk"
+assert_contains "$full_i3_profile" "musl-locales"
 assert_contains "$full_i3_profile" "iw"
 assert_contains "$full_i3_profile" "wireless-tools"
 assert_contains "$full_i3_profile" "wpa_supplicant"
@@ -198,7 +203,7 @@ assert_contains "$gitlab_ci" "OOONANA_REPO_SIGN_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_REPO_PUBLIC_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_CORE_VERSION"
-assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.8.7"'
+assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.8.15"'
 assert_contains "$gitlab_ci" "OOONANA_OPENVINO_CHAT_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_URL"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_SHA256"
@@ -222,7 +227,7 @@ assert_contains "$builder_help" "--kernel-sha256 SHA256"
 assert_contains "$builder_help" "--core-version VER"
 assert_contains "$builder_help" "--openvino-version VER"
 builder_dry="$(bash "$BUILDER" --dry-run --package-profile "$CLOUD_PROFILE" --repo-url file:///apk --cloud-url https://example.test/ooonana nano vim)"
-assert_contains "$builder_dry" "packages: nano bash curl wget ca-certificates python3 bubblewrap xz vim"
+assert_contains "$builder_dry" "packages: nano bash curl wget ca-certificates ca-certificates-bundle python3 bubblewrap xz vim"
 assert_contains "$builder_dry" "cloud: cloud https://example.test/ooonana"
 assert_contains "$builder_dry" "scripts/import-apk-package.sh"
 assert_contains "$builder_dry" "scripts/build-ooonana-core-package.sh"
@@ -250,7 +255,7 @@ openvino_builder_dry="$(bash "$OPENVINO_PACKAGER" --dry-run --out-dir /tmp/repo 
 assert_contains "$openvino_builder_dry" "id: openvino-chat"
 assert_contains "$openvino_builder_dry" "version: 0.1.1"
 cli_dry="$(OOONANA_SOURCE_ROOT="$ROOT" "$ROOT/packages/ooonana/usr/bin/ooonana" repo build --dry-run --package-profile "$CLOUD_PROFILE" nano)"
-assert_contains "$cli_dry" "packages: nano bash curl wget ca-certificates python3 bubblewrap xz"
+assert_contains "$cli_dry" "packages: nano bash curl wget ca-certificates ca-certificates-bundle python3 bubblewrap xz"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -272,6 +277,15 @@ OOONANA_PKG_ID="nano"
 OOONANA_PKG_VERSION="1.0"
 OOONANA_PKG_SUMMARY="nano"
 PKG
+cat > "$out/dbus-daemon-launch-helper.pkg" <<'PKG'
+OOONANA_PKG_ID="dbus-daemon-launch-helper"
+OOONANA_PKG_VERSION="1.0"
+OOONANA_PKG_KIND="profile"
+OOONANA_PKG_SUMMARY="D-Bus activation helper"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_ARCHIVE=""
+OOONANA_PKG_SHA256=""
+PKG
 "$OOONANA_TEST_ROOT/packages/ooonana/usr/bin/ooonana" repo index "$out" >/dev/null
 EOF
 chmod +x "$stub"
@@ -288,10 +302,19 @@ OOONANA_TEST_ROOT="$ROOT" OOONANA_IMPORT_APK_SCRIPT="$stub" bash "$BUILDER" \
 [[ -f "$tmp/repo/openvino-chat.pkg" ]] || fail "builder missing OpenVINO Chat package"
 [[ -f "$tmp/repo/archives/openvino-chat-0.1.1.tar.gz" ]] || fail "builder missing OpenVINO Chat archive"
 assert_contains "$(<"$tmp/repo/ooonana-core.pkg")" 'OOONANA_PKG_DEPS="ooonana-core-runtime"'
+assert_contains "$(<"$tmp/repo/ooonana-core-runtime.pkg")" 'OOONANA_PKG_DEPS="dbus-daemon-launch-helper"'
 assert_contains "$(<"$tmp/repo/ooonana-core.pkg")" 'OOONANA_PKG_ARCHIVE=""'
 core_runtime_archive="$(find "$tmp/repo/archives" -maxdepth 1 -name 'ooonana-core-runtime-*.tar.gz' -print -quit)"
 [[ -f "$core_runtime_archive" ]] || fail "builder missing core runtime archive"
 tar -tzf "$core_runtime_archive" | grep 'var/lib/ooonana/packages/files/ooonana-core.list' >/dev/null || fail "core runtime missing legacy manifest guard"
+tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-audio-start' >/dev/null || fail "core runtime missing audio session helper"
+tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-game-launch' >/dev/null || fail "core runtime missing game launcher"
+[[ "$(tar -tvzf "$core_runtime_archive" ./usr/bin/ooonana-game-launch | awk '{print $1}')" == "-rwxr-xr-x" ]] ||
+  fail "core runtime game launcher is not executable"
+tar -tzf "$core_runtime_archive" | grep './usr/bin/which' >/dev/null || fail "core runtime missing which helper"
+tar -tzf "$core_runtime_archive" | grep './usr/bin/strings' >/dev/null || fail "core runtime missing strings helper"
+tar -tzf "$core_runtime_archive" | grep './etc/i3/config' >/dev/null || fail "core runtime missing updated i3 config"
+tar -tzf "$core_runtime_archive" | grep './etc/profile.d/00-ooonana-locale.sh' >/dev/null || fail "core runtime missing UTF-8 locale profile"
 [[ -f "$tmp/repo/index.tsv" ]] || fail "builder missing index"
 core_upgrade_root="$tmp/core-upgrade-root"
 core_upgrade_state="$core_upgrade_root/var/lib/ooonana/packages"
@@ -314,7 +337,7 @@ core_upgrade="$(OOONANA_REPO_DIR="$tmp/repo" \
 assert_contains "$core_upgrade" "installed ooonana-core-runtime"
 assert_contains "$core_upgrade" "upgraded ooonana-core 0.8.1"
 [[ -x "$core_upgrade_root/usr/bin/ooonana" ]] || fail "core migration removed upgraded CLI"
-assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.8.7"
+assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.8.15"
 assert_contains "$(<"$tmp/repo/cloud.repo")" 'OOONANA_REPO_URI="https://example.test/repo"'
 assert_contains "$(<"$tmp/repo/README.txt")" "ooonana update"
 
@@ -336,6 +359,15 @@ OOONANA_PKG_VERSION="1.0"
 OOONANA_PKG_KIND="profile"
 OOONANA_PKG_SUMMARY="full i3"
 OOONANA_PKG_DEPS="base"
+OOONANA_PKG_ARCHIVE=""
+OOONANA_PKG_SHA256=""
+PKG
+cat > "$out/dbus-daemon-launch-helper.pkg" <<'PKG'
+OOONANA_PKG_ID="dbus-daemon-launch-helper"
+OOONANA_PKG_VERSION="1.0"
+OOONANA_PKG_KIND="profile"
+OOONANA_PKG_SUMMARY="D-Bus activation helper"
+OOONANA_PKG_DEPS=""
 OOONANA_PKG_ARCHIVE=""
 OOONANA_PKG_SHA256=""
 PKG

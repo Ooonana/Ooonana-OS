@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+
+if command -v alacritty >/dev/null 2>&1; then
+  exec alacritty --class OonanaGame,OonanaGame --title "Ooonana Breakout" -e oonana
+fi
+
+if command -v xterm >/dev/null 2>&1; then
+  exec xterm -class OonanaGame -title "Ooonana Breakout" \
+    -bg '#050505' -fg '#ffb21a' -fa monospace -fs 12 -e oonana
+fi
+
+exec oonana
