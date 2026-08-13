@@ -216,6 +216,7 @@ gtk-icon-theme-name=Adwaita
 gtk-font-name=Sans 10
 gtk-button-images=1
 gtk-menu-images=1
+gtk-decoration-layout=menu:minimize,maximize,close
 SETTINGS
     cat >"$config_home/gtk-3.0/gtk.css" <<CSS
 @define-color ooonana_bg $OOONANA_BG;
@@ -246,7 +247,7 @@ scrollbar slider:hover { background: @ooonana_accent; }
 tooltip { background: @ooonana_panel; color: @ooonana_fg; border: 1px solid @ooonana_accent; }
 CSS
     xsetroot -solid "$OOONANA_BG" 2>/dev/null || true
-    wallpaper="/usr/share/ooonana/wallpapers/ooonana-wallpaper.png"
+    wallpaper="/usr/share/ooonana/wallpapers/ooonana-notes.jpg"
     if [ -n "${HOME:-}" ] && [ -f "$HOME/.config/ooonana/wallpaper" ]; then
       IFS= read -r saved_wallpaper <"$HOME/.config/ooonana/wallpaper" || saved_wallpaper=""
       [ -n "$saved_wallpaper" ] && wallpaper="$saved_wallpaper"
@@ -302,6 +303,7 @@ gtk-icon-theme-name=Adwaita
 gtk-font-name=Sans 10
 gtk-button-images=1
 gtk-menu-images=1
+gtk-decoration-layout=menu:minimize,maximize,close
 EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/root/.config/gtk-3.0/settings.ini" <<'EOF'
@@ -1959,7 +1961,7 @@ wallpaper_status() {
   if [ -f "${HOME:-/root}/.config/ooonana/wallpaper" ]; then
     read -r wallpaper <"${HOME:-/root}/.config/ooonana/wallpaper" || wallpaper=""
   else
-    wallpaper="/usr/share/ooonana/wallpapers/ooonana-wallpaper.png"
+    wallpaper="/usr/share/ooonana/wallpapers/ooonana-notes.jpg"
   fi
   printf '%s\n' "$wallpaper"
 }
@@ -2262,7 +2264,7 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-wallpaper" <<'EOF'
 #!/bin/sh
 set -eu
-wallpaper="${1:-/usr/share/ooonana/wallpapers/ooonana-wallpaper.png}"
+wallpaper="${1:-/usr/share/ooonana/wallpapers/ooonana-notes.jpg}"
 if [ ! -f "$wallpaper" ]; then
   printf 'missing wallpaper: %s\n' "$wallpaper" >&2
   exit 1
@@ -3803,7 +3805,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   version_output="$(/usr/bin/ooonana version 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.8.16' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.8.17' &&
     printf '%s\n' "$installed_output" | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else
@@ -3848,6 +3850,7 @@ install_branding() {
   install -D -m 0644 "$ROOT/branding/logo.png" "$ROOTFS/usr/share/ooonana/logo.png"
   install -D -m 0644 "$ROOT/branding/wallpaper.svg" "$ROOTFS/usr/share/ooonana/wallpapers/ooonana-wallpaper.svg"
   install -D -m 0644 "$ROOT/branding/wallpaper.png" "$ROOTFS/usr/share/ooonana/wallpapers/ooonana-wallpaper.png"
+  install -D -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/wallpapers/ooonana-notes.jpg" "$ROOTFS/usr/share/ooonana/wallpapers/ooonana-notes.jpg"
   install -D -m 0644 "$ROOT/branding/i3/config" "$ROOTFS/etc/i3/config"
   install -D -m 0644 "$ROOT/branding/i3/config" "$ROOTFS/etc/i3/config.keycodes"
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/xdg/autostart/nm-applet.desktop" <<'EOF'

@@ -166,6 +166,7 @@ assert_contains "$branding_contents" "./etc/i3/config"
 assert_contains "$branding_contents" "./usr/share/ooonana/logo.svg"
 assert_contains "$branding_contents" "./usr/share/ooonana/logo.png"
 assert_contains "$branding_contents" "./usr/share/ooonana/wallpapers/ooonana-wallpaper.png"
+assert_contains "$branding_contents" "./usr/share/ooonana/wallpapers/ooonana-notes.jpg"
 
 cat > "$sources/i3.repo" <<EOF
 OOONANA_REPO_NAME="i3test"

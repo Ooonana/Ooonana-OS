@@ -17,6 +17,7 @@ sys.modules["common"] = SimpleNamespace(
     Gtk=SimpleNamespace(Window=DummyWindow),
     Pango=SimpleNamespace(FontDescription=lambda *_args: None),
     PangoCairo=SimpleNamespace(),
+    header=lambda *_args, **_kwargs: None,
     label=lambda *_args, **_kwargs: None,
 )
 

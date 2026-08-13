@@ -99,6 +99,7 @@ build_branding_archive() {
   install -m 0644 "$ROOT/branding/logo.png" "$payload/usr/share/ooonana/logo.png"
   install -m 0644 "$ROOT/branding/wallpaper.svg" "$payload/usr/share/ooonana/wallpapers/ooonana-wallpaper.svg"
   install -m 0644 "$ROOT/branding/wallpaper.png" "$payload/usr/share/ooonana/wallpapers/ooonana-wallpaper.png"
+  install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/wallpapers/ooonana-notes.jpg" "$payload/usr/share/ooonana/wallpapers/ooonana-notes.jpg"
   install -m 0644 "$ROOT/branding/i3/config" "$payload/etc/i3/config"
   tar \
     --sort=name \

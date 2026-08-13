@@ -64,6 +64,7 @@ install -d -m 0755 \
   /usr/lib/ooonana/ui \
   /usr/share/applications \
   /usr/share/ooonana \
+  /usr/share/ooonana/wallpapers \
   /var/lib/ooonana/packages/installed
 for source in "$ROOT"/packages/ooonana/usr/bin/*; do
   [ -f "$source" ] || continue
@@ -80,9 +81,15 @@ done
 for source in "$ROOT"/packages/ooonana/usr/share/ooonana/*.txt; do
   install -m 0644 "$source" "/usr/share/ooonana/${source##*/}"
 done
+for source in "$ROOT"/packages/ooonana/usr/share/ooonana/wallpapers/*; do
+  [ -f "$source" ] || continue
+  install -m 0644 "$source" "/usr/share/ooonana/wallpapers/${source##*/}"
+done
 install -m 0644 \
   "$ROOT/packages/ooonana/var/lib/ooonana/packages/installed/ooonana-core.pkg" \
   /var/lib/ooonana/packages/installed/ooonana-core.pkg
+install -D -m 0644 "$ROOT/branding/i3/config" /etc/i3/config
+install -D -m 0644 "$ROOT/packages/ooonana/etc/gtk-3.0/settings.ini" /etc/gtk-3.0/settings.ini
 
 if ! python3 -c 'import cairo' >/dev/null 2>&1; then
   url="$ALPINE/main/x86_64/py3-cairo-1.26.0-r1.apk"
@@ -102,7 +109,8 @@ fi
 for helper in \
   ooonana-hardware-reprobe ooonana-wireless-diagnose ooonana-service-repair \
   ooonana-run-admin ooonana-wifi ooonana-wifi-panel ooonana-wifi-status \
-  ooonana-audio-panel ooonana-audio-status ooonana-rofi-power ooonana-power-menu; do
+  ooonana-audio-panel ooonana-audio-status ooonana-rofi-power ooonana-power-menu \
+  ooonana-apps ooonana-wallpaper; do
   extract_block "ROOTFS/usr/bin/$helper" "$work/$helper"
   install -m 0755 "$work/$helper" "/usr/bin/$helper"
 done

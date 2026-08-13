@@ -430,7 +430,7 @@ class SettingsWindow(Gtk.Window):
     @staticmethod
     def current_wallpaper():
         user_wallpaper = Path.home() / ".config/ooonana/wallpaper"
-        return read_file(user_wallpaper, "/usr/share/ooonana/wallpapers/ooonana-wallpaper.png")
+        return read_file(user_wallpaper, "/usr/share/ooonana/wallpapers/ooonana-notes.jpg")
 
     def open_terminal(self, *_args):
         launch(["ooonana-theme-env", "xterm"])
@@ -461,7 +461,7 @@ class SettingsWindow(Gtk.Window):
         dialog.destroy()
 
     def default_wallpaper(self, *_args):
-        path = "/usr/share/ooonana/wallpapers/ooonana-wallpaper.png"
+        path = "/usr/share/ooonana/wallpapers/ooonana-notes.jpg"
         launch(["ooonana-wallpaper", path])
         self.status_widgets["wallpaper"].set_text(path)
 

@@ -21,6 +21,8 @@ window, dialog, .background { background: #080a0d; color: #f7ead0; }
 headerbar { background: #11161d; color: #ffb21a; border-bottom: 1px solid #2a3442; padding: 4px 8px; }
 headerbar .title { font-weight: 700; }
 headerbar .subtitle { color: #9ba5b4; }
+.window-control { min-width: 18px; min-height: 18px; padding: 5px; border-radius: 4px; }
+.close-control:hover { background: #b83832; color: #ffffff; border-color: #e85b52; }
 .hero { background: #11161d; border-bottom: 1px solid #29313c; }
 .hero-title { font-size: 24pt; font-weight: 800; color: #ffb21a; }
 .badge { background: #2a2110; color: #ffca61; border: 1px solid #795a18; border-radius: 4px; padding: 3px 8px; }
@@ -61,6 +63,13 @@ progressbar text { color: #f7ead0; font-weight: 700; }
 scrollbar slider { background: #4d5a69; border-radius: 4px; min-width: 7px; min-height: 7px; }
 scrollbar slider:hover { background: #ffb21a; }
 separator { background: #29313c; }
+.spotlight { background: #080a0d; border: 2px solid #ffb21a; border-radius: 6px; }
+.spotlight-brand { color: #ffb21a; font-size: 12pt; font-weight: 800; }
+.spotlight-search { font-size: 16pt; padding: 13px 16px; border-radius: 5px; }
+.spotlight-results { background: #080a0d; }
+.spotlight-results row { padding: 9px 12px; border-top: 1px solid #202833; }
+.spotlight-results row:hover, .spotlight-results row:selected { background: #1b222c; color: #ffffff; }
+.spotlight-app-name { font-size: 11pt; font-weight: 700; }
 """
 
 
@@ -106,11 +115,13 @@ def flow_row(widgets, max_children=8):
 
 def header(window, title, subtitle="", icon_name="preferences-system-symbolic"):
     window.set_resizable(True)
+    window.set_wmclass("ooonana-app", "OoonanaApp")
     bar = Gtk.HeaderBar()
-    bar.set_show_close_button(True)
+    bar.set_show_close_button(False)
     bar.set_title(title)
     bar.set_subtitle(subtitle)
-    bar.set_decoration_layout("menu:close")
+    bar.set_decoration_layout("")
+    bar.set_spacing(4)
     if icon_name:
         bar.pack_start(icon(icon_name, Gtk.IconSize.LARGE_TOOLBAR))
 
@@ -132,13 +143,23 @@ def header(window, title, subtitle="", icon_name="preferences-system-symbolic"):
     maximize_button.set_image(icon("view-fullscreen-symbolic"))
     maximize_button.set_tooltip_text("Toggle fullscreen")
     maximize_button.connect("clicked", maximize)
+    maximize_button.get_style_context().add_class("window-control")
     bar.pack_end(maximize_button)
 
     minimize_button = Gtk.Button()
     minimize_button.set_image(icon("window-minimize-symbolic"))
     minimize_button.set_tooltip_text("Minimize to scratchpad")
     minimize_button.connect("clicked", minimize)
+    minimize_button.get_style_context().add_class("window-control")
     bar.pack_end(minimize_button)
+
+    close_button = Gtk.Button()
+    close_button.set_image(icon("window-close-symbolic"))
+    close_button.set_tooltip_text("Close")
+    close_button.connect("clicked", lambda _widget: window.close())
+    close_button.get_style_context().add_class("window-control")
+    close_button.get_style_context().add_class("close-control")
+    bar.pack_end(close_button)
     window.set_titlebar(bar)
     return bar
 

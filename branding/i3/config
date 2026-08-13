@@ -11,8 +11,8 @@ hide_edge_borders none
 default_border normal 2
 default_floating_border normal 2
 for_window [class="Yad"] floating enable
-for_window [class="Pavucontrol"] floating enable
-for_window [class="Blueman-manager"] floating enable
+for_window [class="^(OoonanaApp|OoonanaSpotlight)$"] floating enable, border normal 2, move position center
+for_window [class="^(Pavucontrol|Blueman-manager|Arandr|Nm-connection-editor)$"] floating enable, border normal 2, move position center
 for_window [window_role="pop-up"] floating enable
 for_window [class="^OonanaGame$"] fullscreen enable
 

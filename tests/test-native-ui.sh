@@ -53,6 +53,8 @@ assert_contains "$common" 'command_env["LC_ALL"] = "C"'
 assert_contains "$common" 'command_env["LANG"] = "C"'
 assert_contains "$common" "Minimize to scratchpad"
 assert_contains "$common" "Toggle fullscreen"
+assert_contains "$common" 'window-close-symbolic'
+assert_contains "$common" 'OoonanaApp'
 assert_contains "$common" "#ffb21a"
 assert_contains "$common" "decoration_layout"
 assert_contains "$common" "def flow_row"
@@ -182,7 +184,10 @@ assert_contains "$setup" "SetupWindow"
 assert_contains "$setup" "Apply setup"
 assert_contains "$setup" "admin_command"
 assert_contains "$launcher" "Gio.AppInfo.get_all"
-assert_contains "$launcher" "Search applications"
+assert_contains "$launcher" "Ooonana Spotlight"
+assert_contains "$launcher" "Search apps, settings, and commands"
+assert_contains "$launcher" "OoonanaSpotlight"
+assert_contains "$launcher" "Gdk.KEY_Down"
 
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-wireless-utils.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-wireless-actions.py"

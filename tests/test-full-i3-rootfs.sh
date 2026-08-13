@@ -142,7 +142,7 @@ EOF
 chmod +x "$scratch/bin/busybox"
 cat > "$scratch/usr/bin/ooonana" <<'EOF'
 #!/bin/sh
-echo ooonana 0.8.16
+echo ooonana 0.8.17
 EOF
 chmod +x "$scratch/usr/bin/ooonana"
 cat > "$scratch/usr/bin/ooonana-setup" <<'EOF'
@@ -294,6 +294,8 @@ fi
 [[ -f "$rootfs/usr/share/ooonana/logo.png" ]] || fail "missing rootfs logo png"
 [[ -f "$rootfs/usr/share/ooonana/boot-logo.txt" ]] || fail "missing rootfs boot logo"
 [[ -f "$rootfs/usr/share/ooonana/wallpapers/ooonana-wallpaper.png" ]] || fail "missing rootfs wallpaper"
+[[ -f "$rootfs/usr/share/ooonana/wallpapers/ooonana-notes.jpg" ]] || fail "missing Notes rootfs wallpaper"
+assert_contains "$(<"$rootfs/etc/gtk-3.0/settings.ini")" "gtk-decoration-layout=menu:minimize,maximize,close"
 [[ -f "$rootfs/etc/i3/config" ]] || fail "missing rootfs i3 config"
 [[ -f "$rootfs/etc/ooonana/polybar.ini" ]] || fail "missing polybar config"
 [[ -f "$rootfs/etc/ooonana/rofi.rasi" ]] || fail "missing rofi config"
@@ -1059,6 +1061,7 @@ assert_contains "$contents" "./usr/bin/ooonana-settings-launch"
 assert_contains "$contents" "./usr/bin/ooonana-i3-session"
 assert_contains "$contents" "./usr/bin/start-ooonana-i3"
 assert_contains "$contents" "./usr/share/ooonana/wallpapers/ooonana-wallpaper.png"
+assert_contains "$contents" "./usr/share/ooonana/wallpapers/ooonana-notes.jpg"
 
 shell_script_count=0
 while IFS= read -r -d '' generated; do

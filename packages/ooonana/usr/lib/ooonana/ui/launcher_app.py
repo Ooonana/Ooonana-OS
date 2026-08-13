@@ -3,68 +3,87 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import Gtk, apply_theme, header, icon, label, message  # noqa: E402
+from common import Gdk, GLib, Gtk, Pango, apply_theme, icon, label, message  # noqa: E402
 from gi.repository import Gio  # noqa: E402
 
 
 class LauncherWindow(Gtk.Window):
     def __init__(self):
-        super().__init__(title="Ooonana Apps")
-        self.set_default_size(920, 620)
-        self.set_position(Gtk.WindowPosition.CENTER)
-        header(self, "Applications", "Ooonana app launcher", "view-app-grid-symbolic")
+        super().__init__(title="Ooonana Spotlight")
+        self.set_default_size(760, 520)
+        self.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
+        self.set_decorated(False)
+        self.set_resizable(True)
+        self.set_keep_above(True)
+        self.set_skip_taskbar_hint(True)
+        self.set_type_hint(Gdk.WindowTypeHint.DIALOG)
+        self.set_wmclass("ooonana-spotlight", "OoonanaSpotlight")
 
-        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        root.set_border_width(16)
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        root.get_style_context().add_class("spotlight")
         self.add(root)
-        self.search = Gtk.SearchEntry()
-        self.search.set_placeholder_text("Search applications")
-        self.search.connect("search-changed", lambda *_: self.flow.invalidate_filter())
-        self.search.connect("activate", self.launch_first_visible)
-        root.pack_start(self.search, False, False, 0)
 
-        self.flow = Gtk.FlowBox()
-        self.flow.set_selection_mode(Gtk.SelectionMode.NONE)
-        self.flow.set_row_spacing(10)
-        self.flow.set_column_spacing(10)
-        self.flow.set_min_children_per_line(3)
-        self.flow.set_max_children_per_line(6)
-        self.flow.set_homogeneous(True)
-        self.flow.set_filter_func(self.filter_child)
+        top = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        top.set_border_width(12)
+        brand = label("OOONANA", "spotlight-brand")
+        top.pack_start(brand, False, False, 0)
+        count = label("", "muted", xalign=1.0)
+        top.pack_start(count, True, True, 0)
+        close_button = Gtk.Button()
+        close_button.set_image(icon("window-close-symbolic"))
+        close_button.set_tooltip_text("Close")
+        close_button.get_style_context().add_class("window-control")
+        close_button.get_style_context().add_class("close-control")
+        close_button.connect("clicked", lambda *_: self.close())
+        top.pack_end(close_button, False, False, 0)
+        root.pack_start(top, False, False, 0)
+
+        search_box = Gtk.Box()
+        search_box.set_border_width(12)
+        self.search = Gtk.SearchEntry()
+        self.search.set_placeholder_text("Search apps, settings, and commands")
+        self.search.get_style_context().add_class("spotlight-search")
+        self.search.connect("search-changed", self.search_changed)
+        self.search.connect("activate", self.launch_selected)
+        self.search.connect("key-press-event", self.search_key)
+        search_box.pack_start(self.search, True, True, 0)
+        root.pack_start(search_box, False, False, 0)
+
+        self.results = Gtk.ListBox()
+        self.results.get_style_context().add_class("spotlight-results")
+        self.results.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.results.set_activate_on_single_click(True)
+        self.results.set_filter_func(self.filter_row)
+        self.results.connect("row-activated", self.activate_row)
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scroll.add(self.flow)
+        scroll.add(self.results)
         root.pack_start(scroll, True, True, 0)
 
         apps = [
             app
             for app in Gio.AppInfo.get_all()
-            if app.should_show()
-            and not getattr(app, "get_nodisplay", lambda: False)()
+            if app.should_show() and not getattr(app, "get_nodisplay", lambda: False)()
         ]
         apps.sort(key=lambda app: (app.get_display_name() or app.get_name()).casefold())
         for app in apps:
             self.add_app(app)
+        count.set_text(f"{len(apps)} apps")
+        if apps:
+            self.results.select_row(self.results.get_row_at_index(0))
+        else:
+            self.results.add(label("No applications found", "status-bad"))
 
-        if not apps:
-            root.pack_start(
-                label("No desktop applications found.", "status-bad"),
-                False,
-                False,
-                0,
-            )
-        footer = label(
-            f"{len(apps)} applications  |  Mod+D opens launcher  |  Mod+Shift+D opens command view",
-            "muted",
-        )
-        root.pack_start(footer, False, False, 0)
+        self.connect("key-press-event", self.window_key)
         self.connect("destroy", Gtk.main_quit)
 
     def add_app(self, app):
         name = app.get_display_name() or app.get_name()
-        description = app.get_description() or ""
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=7)
-        box.set_border_width(8)
+        description = app.get_description() or app.get_executable() or "Application"
+        row = Gtk.ListBoxRow()
+        row.app = app
+        row.search_text = f"{name} {description} {app.get_executable() or ''}".casefold()
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
         gicon = app.get_icon()
         image = (
             Gtk.Image.new_from_gicon(gicon, Gtk.IconSize.DIALOG)
@@ -73,45 +92,79 @@ class LauncherWindow(Gtk.Window):
         )
         image.set_pixel_size(34)
         box.pack_start(image, False, False, 0)
-        name_label = label(name, xalign=0.5)
-        name_label.set_max_width_chars(18)
-        name_label.set_ellipsize(3)
-        box.pack_start(name_label, False, False, 0)
-        widget = Gtk.Button()
-        widget.set_size_request(138, 92)
-        widget.add(box)
-        widget.set_tooltip_text(description or name)
-        widget.connect("clicked", lambda _widget, target=app: self.launch_app(target))
-        child = Gtk.FlowBoxChild()
-        child.search_text = f"{name} {description} {app.get_executable() or ''}".casefold()
-        child.app = app
-        child.add(widget)
-        self.flow.add(child)
+        text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        name_label = label(name, "spotlight-app-name")
+        detail = label(description, "muted")
+        detail.set_ellipsize(Pango.EllipsizeMode.END)
+        detail.set_max_width_chars(72)
+        text.pack_start(name_label, False, False, 0)
+        text.pack_start(detail, False, False, 0)
+        box.pack_start(text, True, True, 0)
+        box.pack_end(icon("go-next-symbolic"), False, False, 0)
+        row.add(box)
+        self.results.add(row)
 
-    def filter_child(self, child):
+    def filter_row(self, row):
         query = self.search.get_text().strip().casefold()
-        return not query or query in child.search_text
+        return hasattr(row, "search_text") and (not query or query in row.search_text)
 
-    def visible_children(self):
-        return [child for child in self.flow.get_children() if child.get_visible()]
+    def visible_rows(self):
+        return [row for row in self.results.get_children() if row.get_child_visible()]
 
-    def launch_first_visible(self, *_args):
-        visible = self.visible_children()
-        if visible:
-            self.launch_app(visible[0].app)
+    def search_changed(self, *_args):
+        self.results.invalidate_filter()
+        GLib.idle_add(self.select_first)
+
+    def select_first(self):
+        rows = self.visible_rows()
+        self.results.select_row(rows[0] if rows else None)
+        return False
+
+    def search_key(self, _entry, event):
+        if event.keyval == Gdk.KEY_Escape:
+            self.close()
+            return True
+        if event.keyval not in (Gdk.KEY_Down, Gdk.KEY_Up):
+            return False
+        rows = self.visible_rows()
+        if not rows:
+            return True
+        selected = self.results.get_selected_row()
+        index = rows.index(selected) if selected in rows else 0
+        index = min(len(rows) - 1, index + 1) if event.keyval == Gdk.KEY_Down else max(0, index - 1)
+        self.results.select_row(rows[index])
+        rows[index].grab_focus()
+        return True
+
+    def window_key(self, _window, event):
+        if event.keyval == Gdk.KEY_Escape:
+            self.close()
+            return True
+        return False
+
+    def launch_selected(self, *_args):
+        row = self.results.get_selected_row()
+        if row is None:
+            rows = self.visible_rows()
+            row = rows[0] if rows else None
+        if row is not None:
+            self.launch_app(row.app)
+
+    def activate_row(self, _listbox, row):
+        self.launch_app(row.app)
 
     def launch_app(self, app):
         try:
             app.launch([], None)
-            self.destroy()
+            self.close()
         except Exception as exc:
             message(self, "Application failed", str(exc), Gtk.MessageType.ERROR)
 
 
 def main():
     if "--dry-run" in sys.argv:
-        print("native GTK Ooonana application launcher")
-        print("features: desktop entries icons search app grid")
+        print("native GTK Ooonana Spotlight launcher")
+        print("features: desktop entries icons instant search keyboard selection")
         print("OOONANA_LAUNCHER_NATIVE_OK")
         return 0
     apply_theme()

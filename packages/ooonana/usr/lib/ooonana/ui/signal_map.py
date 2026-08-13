@@ -4,7 +4,7 @@ import math
 
 import cairo  # Registers PyGObject's cairo.Context converter.
 
-from common import Gtk, Pango, PangoCairo, label
+from common import Gtk, Pango, PangoCairo, header, label
 
 
 class SignalMapWindow(Gtk.Window):
@@ -14,6 +14,7 @@ class SignalMapWindow(Gtk.Window):
         self.items = []
         self.set_default_size(720, 620)
         self.set_position(Gtk.WindowPosition.CENTER)
+        header(self, title, "Signal map", "find-location-symbolic")
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         root.set_border_width(14)
