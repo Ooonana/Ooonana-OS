@@ -10,7 +10,7 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Courier >>
 endobj
 4 0 obj
-<< /Length 2069 >>
+<< /Length 2122 >>
 stream
 BT
 /F1 10 Tf
@@ -34,7 +34,7 @@ T*
 T*
 () Tj
 T*
-(Ooonana OS v1 field guide) Tj
+(Ooonana OS 0.8.17 field guide) Tj
 T*
 () Tj
 T*
@@ -56,9 +56,9 @@ T*
 T*
 (line AI.) Tj
 T*
-(full-i3: minimal plus i3, Xorg package set, wallpaper, logo assets, GUI installer) Tj
+(full-i3: minimal plus i3, Xorg, Spotlight-style launcher, movable GTK apps, wallpaper,) Tj
 T*
-(wizard, AI desktop app, full WSL rootfs.) Tj
+(GUI installer, AI desktop app, and full WSL rootfs.) Tj
 T*
 () Tj
 T*
@@ -90,35 +90,35 @@ T*
 T*
 (Cloud repo) Tj
 T*
-(Default cloud path is GitHub Releases:) Tj
+(Default cloud path is the GitLab Pages direct repository:) Tj
 T*
-(ooonana-package-repo.tar.gz) Tj
+(https://ooonana.gitlab.io/ooonana-repo) Tj
 T*
-(https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-) Tj
+(Run ooonana update && ooonana upgrade. Metadata syncs first; package archives download) Tj
 T*
-(package-repo.tar.gz) Tj
+(only when install or upgrade needs them.) Tj
 T*
-(A repo tarball contains index.tsv, SHA256SUMS, *.pkg files, and archives/. ooonana) Tj
-T*
-(update extracts it into /var/cache/ooonana/repos/NAME.) Tj
-T*
-(Private GitHub repos need OOONANA_REPO_TOKEN or OOONANA_GITHUB_TOKEN for release) Tj
-T*
-(tarball sync.) Tj
+(GitHub Releases remains a backup tarball repository path.) Tj
 T*
 () Tj
 T*
 (Installer) Tj
 T*
-(Full-i3 live ISO boots i3 by default. The installer wizard has disk picker,) Tj
+(Full-i3 live ISO boots i3 by default. The installer wizard has disk picker, partition) Tj
 T*
-(user/password, hostname, theme picker, package repo picker, progress log, failure) Tj
+(controls, user/password, hostname, theme and repo pickers, progress log, failure) Tj
 T*
 (shell, and reboot prompt.) Tj
 T*
 () Tj
 T*
 (First boot) Tj
+T*
+(ooonana setup --first-boot --gui can create user, set password, write network config,) Tj
+T*
+(choose theme, add cloud repo, and mark setup complete.) Tj
+T*
+() Tj
 T*
 ET
 endstream
@@ -127,18 +127,12 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>
 endobj
 6 0 obj
-<< /Length 1118 >>
+<< /Length 1452 >>
 stream
 BT
 /F1 10 Tf
 13 TL
 54 744 Td
-(ooonana setup --first-boot --gui can create user, set password, write network config,) Tj
-T*
-(choose theme, add cloud repo, and mark setup complete.) Tj
-T*
-() Tj
-T*
 (WSL) Tj
 T*
 (Import full-i3 with scripts/install-wsl-distro.sh --distro Ooonana --tarball) Tj
@@ -149,19 +143,35 @@ T*
 T*
 (WSL GUI needs WSLg or an X server with DISPLAY set.) Tj
 T*
+(Update an imported distro with: ooonana update && ooonana upgrade) Tj
+T*
 () Tj
 T*
 (AI) Tj
 T*
-(Ooonana AI runs as ooonana ai ... or ooonana-ai. It supports provider setup, model) Tj
+(Ooonana AI runs as ooonana ai ... or ooonana-ai. It supports cloud providers, offline) Tj
 T*
-(aliases, ask/chat, tools, tasks, audit, history, status, and the full-i3 ooonana-ai-) Tj
+(Intel OpenVINO, ask/chat, tools, tasks, audit, history, status, and a native GUI.) Tj
 T*
-(app launcher.) Tj
+(The full-i3 desktop includes a ChatGPT-style AI workspace, Settings, Wi-Fi, Bluetooth,) Tj
 T*
-(ooonana-ai-app is now a native terminal dashboard with quick actions for chat, ask,) Tj
+(Packages, and Spotlight-style application launcher.) Tj
 T*
-(tools, tasks, sessions, setup, and shell fallback.) Tj
+() Tj
+T*
+(Desktop and hardware) Tj
+T*
+(The i3 desktop uses black/orange Ooonana styling, explicit close/minimize/fullscreen) Tj
+T*
+(controls, icon-first polybar, audio, brightness, power, Wi-Fi, Bluetooth, and) Tj
+T*
+(wallpaper controls.) Tj
+T*
+(Wi-Fi supports personal and enterprise profiles. NetworkManager, BlueZ, D-Bus, Intel) Tj
+T*
+(Wi-Fi/Bluetooth firmware, Chromium, Python 3, sudo, su, and doas are included in) Tj
+T*
+(full-i3.) Tj
 T*
 () Tj
 T*
@@ -192,11 +202,11 @@ xref
 0000000064 00000 n 
 0000000127 00000 n 
 0000000195 00000 n 
-0000002316 00000 n 
-0000002442 00000 n 
-0000003612 00000 n 
+0000002369 00000 n 
+0000002495 00000 n 
+0000003999 00000 n 
 trailer
 << /Size 8 /Root 1 0 R >>
 startxref
-3738
+4125
 %%EOF

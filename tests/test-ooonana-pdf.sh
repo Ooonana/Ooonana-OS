@@ -24,8 +24,8 @@ python3 "$GENERATOR" --output "$PDF" >/dev/null
 head="$(LC_ALL=C head -c 8 "$PDF")"
 [[ "$head" == "%PDF-1.4" ]] || fail "bad PDF header"
 pdf_text="$(LC_ALL=C strings "$PDF")"
-assert_contains "$pdf_text" "Ooonana OS v1 field guide"
-assert_contains "$pdf_text" "ooonana-package-repo.tar.gz"
+assert_contains "$pdf_text" "Ooonana OS 0.8.17 field guide"
+assert_contains "$pdf_text" "ooonana.gitlab.io/ooonana-repo"
 assert_contains "$pdf_text" "start-ooonana-i3"
 
 printf 'ok ooonana-pdf\n'
