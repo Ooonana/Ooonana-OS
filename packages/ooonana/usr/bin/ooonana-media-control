@@ -1,0 +1,123 @@
+#!/bin/sh
+set -eu
+
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+
+config_dir="${XDG_CONFIG_HOME:-${HOME:-/tmp}/.config}/mpd"
+state_dir="${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/mpd"
+music_dir="${XDG_MUSIC_DIR:-${HOME:-/tmp}/Music}"
+config_file="$config_dir/mpd.conf"
+
+write_config() {
+  mkdir -p "$config_dir" "$state_dir/playlists" "$music_dir"
+  [ -s "$config_file" ] && return 0
+  cat >"$config_file" <<EOF
+music_directory "$music_dir"
+playlist_directory "$state_dir/playlists"
+db_file "$state_dir/database"
+log_file "$state_dir/log"
+pid_file "$state_dir/pid"
+state_file "$state_dir/state"
+sticker_file "$state_dir/sticker.sql"
+bind_to_address "127.0.0.1"
+port "6600"
+auto_update "yes"
+restore_paused "yes"
+audio_output {
+  type "pulse"
+  name "Ooonana Sound"
+  mixer_type "software"
+}
+EOF
+}
+
+ensure_player() {
+  command -v mpc >/dev/null 2>&1 || {
+    echo "mpc missing; run: ooonana install mpc mpd"
+    return 1
+  }
+  mpc status >/dev/null 2>&1 && return 0
+  command -v mpd >/dev/null 2>&1 || {
+    echo "mpd missing; run: ooonana install mpd mpc"
+    return 1
+  }
+  write_config
+  command -v ooonana-audio-start >/dev/null 2>&1 &&
+    ooonana-audio-start >/dev/null 2>&1 || true
+  mpd "$config_file" >/dev/null 2>&1 || true
+  tries=0
+  while [ "$tries" -lt 8 ]; do
+    mpc status >/dev/null 2>&1 && return 0
+    tries=$((tries + 1))
+    sleep 1
+  done
+  echo "MPD did not start. Check $state_dir/log"
+  return 1
+}
+
+load_library() {
+  mpc update --wait >/dev/null 2>&1 || mpc update >/dev/null 2>&1 || true
+  [ -n "$(mpc playlist 2>/dev/null | sed -n '1p')" ] || mpc add / >/dev/null 2>&1 || true
+}
+
+action="${1:-status}"
+shift 2>/dev/null || true
+
+case "$action" in
+  --dry-run)
+    echo "Ooonana MPD media controller"
+    echo "actions: status play-pause previous next stop update volume open terminal"
+    echo OOONANA_MEDIA_CONTROL_OK
+    exit 0
+    ;;
+  open)
+    mkdir -p "$music_dir"
+    exec ooonana-files "$music_dir"
+    ;;
+  terminal)
+    exec ooonana-theme-env xterm -e ncmpcpp
+    ;;
+esac
+
+ensure_player
+
+case "$action" in
+  status)
+    mpc status
+    ;;
+  current)
+    mpc --format '%artist%\t%title%\t%file%' current
+    ;;
+  play-pause|toggle)
+    if mpc status 2>/dev/null | grep -q '\[playing\]'; then
+      mpc pause >/dev/null
+    else
+      load_library
+      mpc play >/dev/null
+    fi
+    ;;
+  previous|prev)
+    mpc prev >/dev/null
+    ;;
+  next)
+    mpc next >/dev/null
+    ;;
+  stop)
+    mpc stop >/dev/null
+    ;;
+  update|refresh)
+    load_library
+    ;;
+  volume)
+    value="${1:-}"
+    case "$value" in
+      +[0-9]*|-[0-9]*|[0-9]*) mpc volume "$value" >/dev/null ;;
+      *) echo "usage: ooonana-media-control volume +5|-5|50" >&2; exit 2 ;;
+    esac
+    ;;
+  *)
+    echo "usage: ooonana-media-control status|current|play-pause|previous|next|stop|update|volume|open|terminal" >&2
+    exit 2
+    ;;
+esac

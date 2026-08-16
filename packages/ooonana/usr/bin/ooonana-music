@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+
+NATIVE_APP="/usr/lib/ooonana/ui/controls_app.py"
+if [ "${1:-}" = "--dry-run" ]; then
+  echo "Ooonana native music player with MPD/ncmpcpp fallback"
+  echo OOONANA_MUSIC_OK
+  exit 0
+fi
+if [ -x /usr/bin/python3 ] && [ -f "$NATIVE_APP" ] &&
+  /usr/bin/python3 -c 'import gi; gi.require_version("Gtk", "3.0")' >/dev/null 2>&1; then
+  exec /usr/bin/python3 "$NATIVE_APP" media "$@"
+fi
+if command -v ncmpcpp >/dev/null 2>&1; then
+  exec ooonana-theme-env xterm -e ncmpcpp
+fi
+if command -v mpc >/dev/null 2>&1; then
+  exec ooonana-theme-env xterm -e sh -lc 'ooonana-media-control status; exec sh'
+fi
+exec ooonana-theme-env xterm -e sh -lc 'echo "music tools missing"; echo "run: ooonana install mpd mpc ncmpcpp"; exec sh'

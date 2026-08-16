@@ -167,6 +167,9 @@ assert_contains "$ai" '["openvino", "--model-dir", model, "api", "start", "--dev
 assert_contains "$ai" '["ooonana-ai", "provider", "set", "openvino"]'
 assert_contains "$controls" "BrightnessWindow"
 assert_contains "$controls" "AudioWindow"
+assert_contains "$controls" "MediaWindow"
+assert_contains "$controls" 'run_async(["ooonana-media-control", "status"]'
+assert_contains "$controls" 'GLib.timeout_add_seconds(2, self.periodic_refresh)'
 assert_contains "$controls" "audio_command"
 assert_contains "$controls" "ooonana-audio-start"
 assert_contains "$controls" "list_audio_devices"

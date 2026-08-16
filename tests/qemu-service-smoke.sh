@@ -80,6 +80,8 @@ if [ "$USE_ISO_RUNTIME" -eq 0 ]; then
   extract_block 'ROOTFS/usr/bin/ooonana-power-menu' "$WORK/patch/smoke-root/usr/bin/ooonana-power-menu"
   install -m 0755 "$ROOT/packages/ooonana/usr/bin/bunana" "$WORK/patch/smoke-root/usr/bin/bunana"
   install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana-audio-start" "$WORK/patch/smoke-root/usr/bin/ooonana-audio-start"
+  install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana-media-control" "$WORK/patch/smoke-root/usr/bin/ooonana-media-control"
+  install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana-media-status" "$WORK/patch/smoke-root/usr/bin/ooonana-media-status"
 
   for url in \
     "$ALPINE/community/x86_64/sudo-1.9.15_p5-r0.apk" \
@@ -143,7 +145,8 @@ echo OOONANA_SERVICE_SMOKE_BEGIN
 step command-audit
 for command in \
   dbus-daemon dbus-run-session NetworkManager nmcli bluetoothctl ooonana-service-watchdog \
-  doas sudo su aplay pulseaudio pactl ooonana-audio-start chromium \
+  doas sudo su aplay pulseaudio pactl ooonana-audio-start mpd mpc \
+  ooonana-media-control ooonana-media-status chromium \
   python3 Xorg startx i3 rofi polybar alacritty xterm nemo; do
   command -v "$command" >/dev/null 2>&1 || fail "missing $command"
 done
@@ -339,6 +342,8 @@ for app in wifi_app.py bluetooth_app.py settings_app.py; do
 done
 python3 /usr/lib/ooonana/ui/controls_app.py audio --dry-run >/tmp/controls_app.py.log 2>&1 ||
   fail "controls app dry-run: $(tail -20 /tmp/controls_app.py.log 2>/dev/null)"
+/usr/bin/ooonana-media-control --dry-run | grep -q OOONANA_MEDIA_CONTROL_OK ||
+  fail "media controller dry-run"
 i3 -C -c /etc/i3/config >/tmp/ooonana-i3-check.log 2>&1 ||
   fail "i3 config: $(tail -40 /tmp/ooonana-i3-check.log 2>/dev/null)"
 rofi -version >/dev/null 2>&1 || fail "rofi dynamic libraries"

@@ -193,7 +193,9 @@ Persistence:
 
 Use `Ooonana OS Full i3 Live (persistent USB)`.
 Create an extra ext4 partition labeled `OOONANA_PERSIST`.
-Ooonana mounts persistent `/home`, `/etc/ooonana`, `/var/lib/ooonana`, and `/var/cache/ooonana`.
+Ooonana uses it as the writable live-root overlay, including user files, settings, and packages.
+The persistence partition must be on the same physical USB as Ooonana boot media.
+Normal live mode writes only to RAM. Installer writes disks only after confirmation.
 EOF
 }
 

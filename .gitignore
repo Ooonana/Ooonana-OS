@@ -7,3 +7,4 @@ docs/ooonana-pdf-chrome-*.png
 *.ext4
 __pycache__/
 *.pyc
+/tmp/

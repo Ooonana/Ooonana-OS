@@ -1,0 +1,31 @@
+#!/bin/sh
+set -eu
+
+if ! command -v mpc >/dev/null 2>&1; then
+  printf '\357\200\201\n'
+  exit 0
+fi
+
+status="$(mpc status 2>/dev/null || true)"
+if [ -z "$status" ]; then
+  printf '\357\200\201\n'
+  exit 0
+fi
+
+title="$(mpc --format '%title%' current 2>/dev/null | sed -n '1p')"
+[ -n "$title" ] || title="$(mpc --format '%file%' current 2>/dev/null | sed -n '1p')"
+title="$(printf '%s' "$title" | cut -c1-22)"
+
+if printf '%s\n' "$status" | grep -q '\[playing\]'; then
+  icon='\357\201\213'
+elif printf '%s\n' "$status" | grep -q '\[paused\]'; then
+  icon='\357\201\214'
+else
+  icon='\357\200\201'
+fi
+
+if [ -n "$title" ]; then
+  printf '%b %s\n' "$icon" "$title"
+else
+  printf '%b\n' "$icon"
+fi

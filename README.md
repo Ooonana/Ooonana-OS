@@ -174,11 +174,11 @@ Working now:
 - Installer ISO opens a fallback shell on install failure or cancel
 - Installer has a serial-safe xterm UI with logo, disk picker, user/password, hostname, theme, cloud repo picker, progress, logs, fail shell, and reboot prompt
 - Live/install ISO keeps interactive prompts on the VGA console for VMware while smoke tests log through serial
-- GRUB uses a stable orange-on-black menu with a centered Ooonana logo, BIOS/UEFI hybrid support, live/install/safe graphics menus, and a persistent USB boot entry. After selection, the live initramfs keeps the larger orange logo and loading bar visible while it finds boot media, mounts the live rootfs read-only, creates the tmpfs overlay, and starts i3. Full-i3 does not force a fixed `gfxmode`; it preserves the firmware framebuffer for a clean splash handoff.
+- GRUB uses a stable orange-on-black menu with a centered Ooonana logo, BIOS/UEFI hybrid support, live/install/safe graphics menus, and a persistent USB boot entry. After selection, the live initramfs keeps the larger orange logo and loading bar visible while it finds boot media, mounts the live rootfs read-only, creates a RAM or USB persistence overlay, and starts i3. Full-i3 does not force a fixed `gfxmode`; it preserves the firmware framebuffer for a clean splash handoff.
 - Kernel config is tuned for desktop responsiveness: performance compiler mode, full preemption, dynamic preemption, high-resolution timers, 1000 Hz scheduler tick, and scheduler autogroup.
 - Rufus support has an ISO-mode note inside the ISO, USB-friendly volume labels, and `scripts/verify-rufus-iso.sh`
 - Full-i3 live starts eudev before Xorg and ships libinput config for PS/2 keyboard, mouse, and touchpad discovery
-- Full-i3 live mode does not format or write internal disks. It only reads boot media read-only and puts live changes in tmpfs unless the user explicitly launches the installer or chooses a persistent USB path.
+- Full-i3 live mode does not format or write internal disks. Normal live writes use RAM. Persistent live accepts only an ext4 `OOONANA_PERSIST` partition on the same physical boot USB. Only the confirmed installer target can be partitioned or formatted.
 - Full-i3 runs the desktop as the unprivileged `ooonana` user (UID 1000). Administrative commands use a validated wheel-only `doas` policy.
 - Full-i3 mounts `/run` and `/dev/shm` before desktop services, maps `/var/run` to `/run`, starts system D-Bus first, then starts NetworkManager and BlueZ. This runtime order supports Chromium, Wi-Fi, Bluetooth, and desktop applets from live USB and installed systems.
 - Full-i3 ships an Ooonana i3 desktop: icon-first polybar, Spotlight-style searchable application launcher, movable Ooonana app windows with explicit close/minimize/fullscreen controls, picom shadows/fades, dunst notifications, Chromium, Nemo, editor/media shortcuts, Wi-Fi, Bluetooth, audio, brightness, battery, power controls, wallpaper switching, and dark Ooonana colors. The default wallpaper preserves aspect ratio, fits screen height, and uses black side bars instead of stretching.
@@ -721,7 +721,7 @@ Mod+Shift+O  Package manager app
 Mod+Shift+P  Wallpaper changer
 Print        Screenshot
 Mod+Shift+G  Geany/Vim editor
-Mod+Shift+M  MPD music client
+Mod+Shift+M  Ooonana Music player
 Mod+Shift+X  htop process monitor
 Mod+Shift+U  ranger file manager
 ```
@@ -736,7 +736,7 @@ Kernel arg: ooonana.persistence=1
 Persistence label: OOONANA_PERSIST
 ```
 
-For Rufus/native USB, flash the ISO normally, then add an ext4 persistence partition labeled `OOONANA_PERSIST`. Ooonana bind-mounts `/home`, `/etc/ooonana`, `/var/lib/ooonana`, and `/var/cache/ooonana` from that partition.
+For Rufus/native USB, flash the ISO normally, then add an ext4 persistence partition labeled `OOONANA_PERSIST`. Ooonana uses it as the full writable live-root overlay. User files, settings, Wi-Fi, Bluetooth pairings, installed packages, and system changes survive reboot. An internal disk carrying the same label is ignored.
 
 ## Rufus USB
 
@@ -779,7 +779,7 @@ GRUB entry: Ooonana OS Full i3 Live (persistent USB)
 Kernel arg: ooonana.persistence=1
 Required partition label: OOONANA_PERSIST
 Filesystem: ext4
-Persisted paths: /home, /etc/ooonana, /var/lib/ooonana, /var/cache/ooonana
+Persisted data: full writable live-root overlay; temporary /run, /tmp, and /dev/shm stay in RAM
 ```
 
 Rufus writes the bootable ISO. Persistence needs one extra Linux ext4 partition after the ISO area. Rufus may not create this correctly for Ooonana automatically.

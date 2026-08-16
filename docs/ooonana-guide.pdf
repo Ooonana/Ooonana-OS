@@ -10,7 +10,7 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Courier >>
 endobj
 4 0 obj
-<< /Length 2122 >>
+<< /Length 1928 >>
 stream
 BT
 /F1 10 Tf
@@ -34,7 +34,7 @@ T*
 T*
 () Tj
 T*
-(Ooonana OS 0.8.18 field guide) Tj
+(Ooonana OS 0.8.19 field guide) Tj
 T*
 () Tj
 T*
@@ -110,6 +110,37 @@ T*
 T*
 (shell, and reboot prompt.) Tj
 T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>
+endobj
+6 0 obj
+<< /Length 2239 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+54 744 Td
+() Tj
+T*
+(USB live modes) Tj
+T*
+(Normal live mode mounts ISO and rootfs read-only; session writes stay in RAM and) Tj
+T*
+(vanish at shutdown.) Tj
+T*
+(Persistent live mode accepts only an ext4 OOONANA_PERSIST partition on the same) Tj
+T*
+(physical boot USB. Its full writable overlay saves files, settings, Wi-Fi, Bluetooth) Tj
+T*
+(pairings, packages, and system changes.) Tj
+T*
+(Internal disks are ignored by both live modes. Only the confirmed installer target can) Tj
+T*
+(be partitioned or formatted.) Tj
+T*
 () Tj
 T*
 (First boot) Tj
@@ -120,19 +151,6 @@ T*
 T*
 () Tj
 T*
-ET
-endstream
-endobj
-5 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>
-endobj
-6 0 obj
-<< /Length 1511 >>
-stream
-BT
-/F1 10 Tf
-13 TL
-54 744 Td
 (WSL) Tj
 T*
 (Import full-i3 with scripts/install-wsl-distro.sh --distro Ooonana --tarball) Tj
@@ -163,9 +181,11 @@ T*
 T*
 (The i3 desktop uses black/orange Ooonana styling, explicit close/minimize/fullscreen) Tj
 T*
-(controls, icon-first polybar, audio, brightness, power, Wi-Fi, Bluetooth, and) Tj
+(controls, icon-first polybar, media playback, audio, brightness, power, Wi-Fi,) Tj
 T*
-(wallpaper modes. Default fit mode preserves aspect ratio with black side bars.) Tj
+(Bluetooth, and wallpaper modes. Default fit mode preserves aspect ratio with black) Tj
+T*
+(side bars.) Tj
 T*
 (Wi-Fi supports personal and enterprise profiles. NetworkManager, BlueZ, D-Bus, Intel) Tj
 T*
@@ -202,11 +222,11 @@ xref
 0000000064 00000 n 
 0000000127 00000 n 
 0000000195 00000 n 
-0000002369 00000 n 
-0000002495 00000 n 
-0000004058 00000 n 
+0000002175 00000 n 
+0000002301 00000 n 
+0000004592 00000 n 
 trailer
 << /Size 8 /Root 1 0 R >>
 startxref
-4184
+4718
 %%EOF

@@ -195,6 +195,13 @@ grep -q 'WPA2/WPA3 Enterprise' "$ROOT/packages/ooonana/usr/lib/ooonana/ui/wifi_a
 grep -q 'Wi-Fi routers (orange)' "$ROOT/packages/ooonana/usr/lib/ooonana/ui/signal_map.py"
 grep -q 'Nearby LAN devices (green)' "$ROOT/packages/ooonana/usr/lib/ooonana/ui/signal_map.py"
 grep -q 'wifi-3d-fusion' "$ROOT/packages/ooonana/usr/lib/ooonana/ui/wifi_app.py"
+grep -q '/newroot/mnt/ooonana-live/boot-device' "$ROOT/scripts/build-full-i3-live-initramfs.sh"
+grep -q 'parent_disk_name()' "$ROOT/scripts/build-full-i3-live-initramfs.sh"
+grep -q 'persistence_mode="usb"' "$ROOT/scripts/build-full-i3-live-initramfs.sh"
+grep -q '/persist/overlay/upper' "$ROOT/scripts/build-full-i3-live-initramfs.sh"
+! grep -q '/newroot/run/ooonana-live' "$ROOT/scripts/build-full-i3-live-initramfs.sh"
+grep -q 'class MediaWindow' "$ROOT/packages/ooonana/usr/lib/ooonana/ui/controls_app.py"
+grep -q 'exec = ooonana-media-status' "$ROOT/scripts/build-full-i3-rootfs.sh"
 bash "$ROOT/tests/test-logo-sync.sh"
 PYTHONDONTWRITEBYTECODE=1 bash "$ROOT/tests/test-native-ui.sh"
 bash "$ROOT/tests/test-qemu-service-smoke-source.sh"
@@ -270,6 +277,10 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
   grep -q 'org.freedesktop.DBus.StartServiceByName' "$ROOTFS/usr/bin/ooonana-service-repair"
   [[ -x "$ROOTFS/usr/bin/ooonana-service-watchdog" ]] ||
     die "generated rootfs missing: ooonana-service-watchdog"
+  [[ -x "$ROOTFS/usr/bin/ooonana-media-control" ]] ||
+    die "generated rootfs missing: ooonana-media-control"
+  [[ -x "$ROOTFS/usr/bin/ooonana-media-status" ]] ||
+    die "generated rootfs missing: ooonana-media-status"
   grep -q 'ooonana-service-repair force-wifi' "$ROOTFS/usr/bin/ooonana-service-watchdog"
   grep -q 'ooonana-service-repair force-bluetooth' "$ROOTFS/usr/bin/ooonana-service-watchdog"
   ! grep -q ' -f /var/log/wpa_supplicant.log' "$ROOTFS/usr/bin/ooonana-service-repair"
@@ -278,6 +289,8 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
     die "generated rootfs boot logo differs from canonical logo"
   grep -q 'shadow = false' "$ROOTFS/etc/ooonana/picom.conf"
   grep -q 'governor="schedutil"' "$ROOTFS/etc/init.d/rcS"
+  grep -q '/mnt/ooonana-live/persistence-mode' "$ROOTFS/etc/init.d/rcS"
+  grep -q 'mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /tmp' "$ROOTFS/etc/init.d/rcS"
   python3 "$ROOT/tests/audit-full-i3-runtime.py" "$ROOTFS"
   cp -f "$STAGE_DIR/ooonana-full-i3-rootfs.tar.gz" \
     "$BUILD_DIR/ooonana-full-i3-rootfs.tar.gz"

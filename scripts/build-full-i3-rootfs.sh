@@ -1724,17 +1724,9 @@ fi
 exec ooonana-theme-env xterm -e sh -lc 'echo "editor missing"; echo "run: ooonana get geany vim"; exec sh'
 EOF
 
-  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-music" <<'EOF'
-#!/bin/sh
-set -eu
-if command -v ncmpcpp >/dev/null 2>&1; then
-  exec ooonana-theme-env xterm -e ncmpcpp
-fi
-if command -v mpc >/dev/null 2>&1; then
-  exec ooonana-theme-env xterm -e sh -lc 'mpc status; exec sh'
-fi
-exec ooonana-theme-env xterm -e sh -lc 'echo "music tools missing"; echo "run: ooonana get mpd mpc ncmpcpp"; exec sh'
-EOF
+  install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana-music" "$ROOTFS/usr/bin/ooonana-music"
+  install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana-media-control" "$ROOTFS/usr/bin/ooonana-media-control"
+  install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana-media-status" "$ROOTFS/usr/bin/ooonana-media-status"
 
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-processes" <<'EOF'
 #!/bin/sh
@@ -2378,12 +2370,18 @@ content-padding = 2
 click-left = ooonana-editor
 
 [module/media]
-type = custom/text
-content = 
-content-foreground = ${colors.accent}
-content-background = ${colors.background-alt}
-content-padding = 2
+type = custom/script
+exec = ooonana-media-status
+interval = 2
+label = %output%
+label-foreground = ${colors.accent}
+label-background = ${colors.background-alt}
+label-padding = 2
 click-left = ooonana-music
+click-middle = ooonana-media-control play-pause
+click-right = ooonana-media-control next
+scroll-up = ooonana-media-control volume +5
+scroll-down = ooonana-media-control volume -5
 
 [module/win-close]
 type = custom/text
@@ -2484,6 +2482,8 @@ label-foreground = ${colors.accent}
 label-background = ${colors.background-alt}
 label-padding = 2
 click-left = ooonana-audio-panel
+click-middle = pactl set-sink-mute @DEFAULT_SINK@ toggle
+click-right = pavucontrol
 scroll-up = pactl set-sink-volume @DEFAULT_SINK@ +5%
 scroll-down = pactl set-sink-volume @DEFAULT_SINK@ -5%
 
@@ -2496,6 +2496,8 @@ label-foreground = ${colors.accent}
 label-background = ${colors.background-alt}
 label-padding = 2
 click-left = ooonana-brightness-panel
+click-middle = brightnessctl set 50%
+click-right = arandr
 scroll-up = brightnessctl set +5%
 scroll-down = brightnessctl set 5%-
 
@@ -2506,6 +2508,7 @@ content-foreground = ${colors.foreground}
 content-background = ${colors.background-alt}
 content-padding = 2
 click-left = ooonana-power-menu
+click-right = i3lock
 
 [module/battery]
 type = custom/script
@@ -2515,6 +2518,7 @@ label = %output%
 label-foreground = ${colors.accent}
 label-background = ${colors.background-alt}
 label-padding = 2
+click-left = ooonana-settings-launch
 
 [module/date]
 type = internal/date
@@ -3488,6 +3492,7 @@ mount -t devpts devpts /dev/pts 2>/dev/null || true
 mkdir -p /dev/shm
 mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /dev/shm 2>/dev/null || true
 mount -t tmpfs tmpfs /run 2>/dev/null || true
+mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /tmp 2>/dev/null || true
 mkdir -p /run/dbus /var
 if [ ! -L /var/run ]; then
   rm -rf /var/run
@@ -3496,82 +3501,15 @@ fi
 
 start_persistence() {
   grep -q 'ooonana.persistence=1' /proc/cmdline 2>/dev/null || return 0
-  mkdir -p /mnt/persist
-  persist_dev=""
-  persist_wait=0
-  while [ -z "$persist_dev" ] && [ "$persist_wait" -lt 12 ]; do
-    for candidate in \
-      /dev/disk/by-label/OOONANA_PERSIST \
-      /dev/disk/by-label/ooonana-persist \
-      /dev/disk/by-label/OOONANA-PERSIST; do
-      if [ -e "$candidate" ]; then
-        persist_dev="$candidate"
-        break
-      fi
-    done
-    if [ -z "$persist_dev" ] && command -v blkid >/dev/null 2>&1; then
-      persist_dev="$(blkid -L OOONANA_PERSIST 2>/dev/null || true)"
-    fi
-    [ -n "$persist_dev" ] && break
-    persist_wait=$((persist_wait + 1))
-    if command -v udevadm >/dev/null 2>&1; then
-      udevadm settle --timeout=1 2>/dev/null || true
-    else
-      mdev -s 2>/dev/null || true
-    fi
-    sleep 1
-  done
-  if [ -z "$persist_dev" ]; then
-    echo "OOONANA_PERSISTENCE_WAIT"
+  persistence_mode="$(cat /mnt/ooonana-live/persistence-mode 2>/dev/null || true)"
+  persistence_device="$(cat /mnt/ooonana-live/persistence-device 2>/dev/null || true)"
+  if [ "$persistence_mode" != "usb" ] || [ -z "$persistence_device" ]; then
+    echo "OOONANA_PERSISTENCE_SAFE_SKIP"
     return 0
   fi
-  if mount "$persist_dev" /mnt/persist 2>/dev/null; then
-    mkdir -p \
-      /mnt/persist/home \
-      /mnt/persist/etc-ooonana \
-      /mnt/persist/network-connections \
-      /mnt/persist/var-lib-NetworkManager \
-      /mnt/persist/var-lib-bluetooth \
-      /mnt/persist/var-lib-ooonana \
-      /mnt/persist/var-cache-ooonana
-    mkdir -p \
-      /home \
-      /etc/NetworkManager/system-connections \
-      /etc/ooonana \
-      /var/lib/NetworkManager \
-      /var/lib/bluetooth \
-      /var/lib/ooonana \
-      /var/cache/ooonana
-    seed_persistent_dir() {
-      key="$1"
-      source_dir="$2"
-      target_dir="$3"
-      marker="/mnt/persist/.ooonana-seeded-$key"
-      [ -e "$marker" ] && return 0
-      if [ -d "$source_dir" ]; then
-        cp -a "$source_dir/." "$target_dir/" 2>/dev/null || return 1
-      fi
-      : >"$marker"
-    }
-    seed_persistent_dir home /home /mnt/persist/home || true
-    seed_persistent_dir etc-ooonana /etc/ooonana /mnt/persist/etc-ooonana || true
-    seed_persistent_dir network-connections /etc/NetworkManager/system-connections /mnt/persist/network-connections || true
-    seed_persistent_dir network-state /var/lib/NetworkManager /mnt/persist/var-lib-NetworkManager || true
-    seed_persistent_dir bluetooth-state /var/lib/bluetooth /mnt/persist/var-lib-bluetooth || true
-    seed_persistent_dir package-state /var/lib/ooonana /mnt/persist/var-lib-ooonana || true
-    seed_persistent_dir package-cache /var/cache/ooonana /mnt/persist/var-cache-ooonana || true
-    mount --bind /mnt/persist/home /home 2>/dev/null || true
-    mount --bind /mnt/persist/etc-ooonana /etc/ooonana 2>/dev/null || true
-    mount --bind /mnt/persist/network-connections /etc/NetworkManager/system-connections 2>/dev/null || true
-    mount --bind /mnt/persist/var-lib-NetworkManager /var/lib/NetworkManager 2>/dev/null || true
-    mount --bind /mnt/persist/var-lib-bluetooth /var/lib/bluetooth 2>/dev/null || true
-    mount --bind /mnt/persist/var-lib-ooonana /var/lib/ooonana 2>/dev/null || true
-    mount --bind /mnt/persist/var-cache-ooonana /var/cache/ooonana 2>/dev/null || true
-    chmod 0700 /etc/NetworkManager/system-connections /var/lib/bluetooth 2>/dev/null || true
-    echo "OOONANA_PERSISTENCE_OK"
-  else
-    echo "OOONANA_PERSISTENCE_FAIL"
-  fi
+  mkdir -p /mnt/persist
+  mount --bind /mnt/ooonana-live/persist /mnt/persist 2>/dev/null || true
+  echo "OOONANA_PERSISTENCE_OK:$persistence_device"
 }
 
 start_device_manager() {
@@ -3773,7 +3711,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   version_output="$(/usr/bin/ooonana version 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.8.18' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.8.19' &&
     printf '%s\n' "$installed_output" | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else

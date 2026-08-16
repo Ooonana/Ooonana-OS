@@ -133,7 +133,7 @@ main() {
     )
   }
   copy_early_firmware
-  for applet in sh mount mkdir mknod sleep cat echo switch_root ls grep umount losetup mdev modprobe stty wc; do
+  for applet in sh mount mkdir mknod sleep cat echo switch_root ls grep umount losetup mdev modprobe stty wc readlink dirname basename blkid; do
     ln -sf busybox "$LIVE_INIT_TREE/bin/$applet"
   done
   ln -sf ../bin/busybox "$LIVE_INIT_TREE/sbin/mdev"
@@ -239,7 +239,7 @@ splash() {
 }
 
 splash "starting live boot" 1
-mkdir -p /dev/pts /mnt/iso /mnt/root-ro /cow/upper /cow/work /newroot
+mkdir -p /dev/pts /mnt/iso /mnt/root-ro /cow /persist /newroot
 mount -t devpts devpts /dev/pts 2>/dev/null || true
 [ -e /proc/sys/kernel/hotplug ] && echo /sbin/mdev >/proc/sys/kernel/hotplug 2>/dev/null || true
 mdev -s 2>/dev/null || true
@@ -252,6 +252,7 @@ modprobe overlay 2>/dev/null || true
 
 splash "finding boot media" 2
 tries=0
+boot_media_device=""
 while [ "$tries" -lt 40 ]; do
   mdev -s 2>/dev/null || true
   candidates="/dev/sr0 /dev/sr1 /dev/cdrom /dev/hdc"
@@ -263,6 +264,7 @@ while [ "$tries" -lt 40 ]; do
     [ -b "$dev" ] || continue
     if mount -t iso9660 -o ro "$dev" /mnt/iso 2>/dev/null || mount -o ro,noload "$dev" /mnt/iso 2>/dev/null || mount -o ro "$dev" /mnt/iso 2>/dev/null; then
       if [ -f "/mnt/iso$LIVE_IMAGE" ]; then
+        boot_media_device="$dev"
         break 2
       fi
       umount /mnt/iso 2>/dev/null || true
@@ -277,15 +279,63 @@ splash "attaching live rootfs" 4
 losetup /dev/loop0 "/mnt/iso$LIVE_IMAGE" || fail "cannot attach live rootfs image"
 mount -t ext4 -o ro /dev/loop0 /mnt/root-ro || fail "cannot mount live rootfs image"
 splash "creating writable overlay" 6
-mount -t tmpfs -o mode=0755 tmpfs /cow || fail "cannot mount writable tmpfs overlay"
-mkdir -p /cow/upper /cow/work /newroot
-mount -t overlay overlay -o suid,dev,exec,lowerdir=/mnt/root-ro,upperdir=/cow/upper,workdir=/cow/work /newroot || fail "cannot mount overlay root"
+overlay_upper="/cow/upper"
+overlay_work="/cow/work"
+persistence_mode="ram"
+persistence_device=""
+
+parent_disk_name() {
+  device="$(readlink -f "$1" 2>/dev/null || printf '%s\n' "$1")"
+  base="${device##*/}"
+  sys_path="$(readlink -f "/sys/class/block/$base" 2>/dev/null || true)"
+  parent="$(basename "$(dirname "$sys_path")")"
+  if [ -n "$parent" ] && [ -e "/sys/class/block/$parent" ]; then
+    printf '%s\n' "$parent"
+  else
+    printf '%s\n' "$base"
+  fi
+}
+
+if grep -q 'ooonana.persistence=1' /proc/cmdline 2>/dev/null; then
+  boot_parent="$(parent_disk_name "$boot_media_device")"
+  for devpath in /sys/class/block/*; do
+    [ -e "$devpath" ] || continue
+    candidate="/dev/${devpath##*/}"
+    [ -b "$candidate" ] || continue
+    [ "$(readlink -f "$candidate" 2>/dev/null || printf '%s\n' "$candidate")" != "$(readlink -f "$boot_media_device" 2>/dev/null || printf '%s\n' "$boot_media_device")" ] || continue
+    [ "$(parent_disk_name "$candidate")" = "$boot_parent" ] || continue
+    [ "$(blkid -s LABEL -o value "$candidate" 2>/dev/null || true)" = "OOONANA_PERSIST" ] || continue
+    [ "$(blkid -s TYPE -o value "$candidate" 2>/dev/null || true)" = "ext4" ] || continue
+    if mount -t ext4 -o rw "$candidate" /persist 2>/dev/null; then
+      mkdir -p /persist/overlay/upper /persist/overlay/work
+      overlay_upper="/persist/overlay/upper"
+      overlay_work="/persist/overlay/work"
+      persistence_mode="usb"
+      persistence_device="$candidate"
+      break
+    fi
+  done
+fi
+
+if [ "$persistence_mode" = "ram" ]; then
+  mount -t tmpfs -o mode=0755 tmpfs /cow || fail "cannot mount writable tmpfs overlay"
+  mkdir -p /cow/upper /cow/work
+fi
+mkdir -p /newroot
+mount -t overlay overlay -o suid,dev,exec,lowerdir=/mnt/root-ro,upperdir="$overlay_upper",workdir="$overlay_work" /newroot || fail "cannot mount overlay root"
 
 splash "starting desktop" 9
-mkdir -p /newroot/proc /newroot/sys /newroot/dev /newroot/run/ooonana-live/iso /newroot/run/ooonana-live/root-ro /newroot/run/ooonana-live/cow
-mount --bind /mnt/iso /newroot/run/ooonana-live/iso 2>/dev/null || true
-mount --bind /mnt/root-ro /newroot/run/ooonana-live/root-ro 2>/dev/null || true
-mount --bind /cow /newroot/run/ooonana-live/cow 2>/dev/null || true
+mkdir -p /newroot/proc /newroot/sys /newroot/dev /newroot/mnt/ooonana-live/iso /newroot/mnt/ooonana-live/root-ro /newroot/mnt/ooonana-live/cow
+printf '%s\n' "$boot_media_device" >/newroot/mnt/ooonana-live/boot-device
+printf '%s\n' "$persistence_mode" >/newroot/mnt/ooonana-live/persistence-mode
+printf '%s\n' "$persistence_device" >/newroot/mnt/ooonana-live/persistence-device
+mount --bind /mnt/iso /newroot/mnt/ooonana-live/iso 2>/dev/null || true
+mount --bind /mnt/root-ro /newroot/mnt/ooonana-live/root-ro 2>/dev/null || true
+mount --bind /cow /newroot/mnt/ooonana-live/cow 2>/dev/null || true
+if [ "$persistence_mode" = "usb" ]; then
+  mkdir -p /newroot/mnt/ooonana-live/persist
+  mount --bind /persist /newroot/mnt/ooonana-live/persist 2>/dev/null || true
+fi
 mount --move /proc /newroot/proc 2>/dev/null || true
 mount --move /sys /newroot/sys 2>/dev/null || true
 mount --move /dev /newroot/dev 2>/dev/null || true

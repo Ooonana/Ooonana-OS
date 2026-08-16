@@ -117,6 +117,8 @@ def main() -> int:
         "ooonana-screenshot",
         "ooonana-editor",
         "ooonana-music",
+        "ooonana-media-control",
+        "ooonana-media-status",
         "ooonana-processes",
         "ooonana-ranger",
         "ooonana-touchpad",

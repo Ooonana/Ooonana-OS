@@ -33,9 +33,19 @@ Filesystem: ext4
 ```
 
 After flashing with Rufus, create a second ext4 partition labeled
-`OOONANA_PERSIST` using Linux, GParted, or another partition tool. Ooonana
-bind-mounts persistent `/home`, `/etc/ooonana`, `/var/lib/ooonana`, and
-`/var/cache/ooonana`.
+`OOONANA_PERSIST` using Linux, GParted, or another partition tool. Ooonana uses
+it as the writable overlay for the live root, so user files, settings, Wi-Fi,
+Bluetooth pairings, installed packages, and system changes survive reboot.
+Persistence is accepted only when this partition belongs
+to the same physical USB device as the read-only Ooonana boot media. An
+internal disk with the same label is ignored.
+
+Disk-write safety:
+
+- Normal live mode mounts ISO and live rootfs read-only. Session writes use RAM.
+- Persistent live mode writes only to `OOONANA_PERSIST` on boot USB.
+- Neither live mode partitions, formats, or installs to internal disks.
+- Installer entries can write selected target only after installer confirmation.
 
 Verify an ISO:
 

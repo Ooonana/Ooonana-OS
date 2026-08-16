@@ -106,6 +106,22 @@ assert_contains "$script_src" "P3ffb21a"
 assert_contains "$script_src" "mount -o ro,noload"
 assert_contains "$script_src" "/sys/class/block/*"
 assert_contains "$script_src" 'candidates="$candidates /dev/${devpath##*/}"'
+assert_contains "$script_src" 'boot_media_device="$dev"'
+assert_contains "$script_src" '/newroot/mnt/ooonana-live/boot-device'
+assert_contains "$script_src" '/newroot/mnt/ooonana-live/persistence-mode'
+assert_contains "$script_src" '/newroot/mnt/ooonana-live/persistence-device'
+[[ "$script_src" != *'/newroot/run/ooonana-live'* ]] || fail "live mounts must survive /run tmpfs"
+assert_contains "$script_src" "parent_disk_name()"
+assert_contains "$script_src" '[ "$(parent_disk_name "$candidate")" = "$boot_parent" ] || continue'
+assert_contains "$script_src" 'blkid -s LABEL -o value'
+assert_contains "$script_src" '"OOONANA_PERSIST"'
+assert_contains "$script_src" 'blkid -s TYPE -o value'
+assert_contains "$script_src" '"ext4"'
+assert_contains "$script_src" 'mount -t ext4 -o rw "$candidate" /persist'
+assert_contains "$script_src" '/persist/overlay/upper'
+assert_contains "$script_src" 'lowerdir=/mnt/root-ro,upperdir="$overlay_upper",workdir="$overlay_work"'
+assert_contains "$script_src" 'persistence_mode="usb"'
+assert_contains "$script_src" 'persistence_mode="ram"'
 assert_contains "$script_src" "usr/share/ooonana/logo.txt"
 assert_contains "$script_src" "ld-musl-x86_64.so.1"
 assert_contains "$script_src" "libc.musl-x86_64.so.1"
@@ -119,6 +135,7 @@ assert_contains "$script_src" "rtl_bt"
 assert_contains "$script_src" "rtw89"
 assert_contains "$script_src" '[ -e /proc/sys/kernel/hotplug ]'
 assert_contains "$script_src" 'suid,dev,exec,lowerdir='
+assert_contains "$script_src" 'mount -t tmpfs -o mode=0755 tmpfs /cow'
 
 kernel_fragment="$(<"$ROOT/configs/kernel/ooonana-minimal-x86_64.fragment")"
 assert_contains "$kernel_fragment" "CONFIG_BLK_DEV_LOOP=y"

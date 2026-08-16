@@ -34,7 +34,7 @@ def page_stream(lines: list[str]) -> str:
     return "\n".join(body)
 
 
-def paginate(lines: list[str], per_page: int = 52) -> list[list[str]]:
+def paginate(lines: list[str], per_page: int = 47) -> list[list[str]]:
     pages: list[list[str]] = []
     current: list[str] = []
     for line in lines:
@@ -53,7 +53,7 @@ def build_lines() -> list[str]:
     return [
         *logo,
         "",
-        "Ooonana OS 0.8.18 field guide",
+        "Ooonana OS 0.8.19 field guide",
         "",
         "What it is",
         "Ooonana OS is a scratch-built Linux project with its own rootfs, boot flow, installer experiments, WSL export, and custom ooonana package manager.",
@@ -85,6 +85,11 @@ def build_lines() -> list[str]:
         "Installer",
         "Full-i3 live ISO boots i3 by default. The installer wizard has disk picker, partition controls, user/password, hostname, theme and repo pickers, progress log, failure shell, and reboot prompt.",
         "",
+        "USB live modes",
+        "Normal live mode mounts ISO and rootfs read-only; session writes stay in RAM and vanish at shutdown.",
+        "Persistent live mode accepts only an ext4 OOONANA_PERSIST partition on the same physical boot USB. Its full writable overlay saves files, settings, Wi-Fi, Bluetooth pairings, packages, and system changes.",
+        "Internal disks are ignored by both live modes. Only the confirmed installer target can be partitioned or formatted.",
+        "",
         "First boot",
         "ooonana setup --first-boot --gui can create user, set password, write network config, choose theme, add cloud repo, and mark setup complete.",
         "",
@@ -99,7 +104,7 @@ def build_lines() -> list[str]:
         "The full-i3 desktop includes a ChatGPT-style AI workspace, Settings, Wi-Fi, Bluetooth, Packages, and Spotlight-style application launcher.",
         "",
         "Desktop and hardware",
-        "The i3 desktop uses black/orange Ooonana styling, explicit close/minimize/fullscreen controls, icon-first polybar, audio, brightness, power, Wi-Fi, Bluetooth, and wallpaper modes. Default fit mode preserves aspect ratio with black side bars.",
+        "The i3 desktop uses black/orange Ooonana styling, explicit close/minimize/fullscreen controls, icon-first polybar, media playback, audio, brightness, power, Wi-Fi, Bluetooth, and wallpaper modes. Default fit mode preserves aspect ratio with black side bars.",
         "Wi-Fi supports personal and enterprise profiles. NetworkManager, BlueZ, D-Bus, Intel Wi-Fi/Bluetooth firmware, Chromium, Python 3, sudo, su, and doas are included in full-i3.",
         "",
         "Build proof markers",

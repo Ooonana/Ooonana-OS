@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
+import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (  # noqa: E402
+    GLib,
     Gtk,
     apply_theme,
     button,
@@ -277,6 +279,164 @@ class AudioWindow(Gtk.Window):
         run_async_task(task, done)
 
 
+class MediaWindow(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="Ooonana Music")
+        self.set_default_size(720, 460)
+        self.set_position(Gtk.WindowPosition.CENTER)
+        header(self, "Music", "Local library and playback", "multimedia-player-symbolic")
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        root.set_border_width(22)
+        self.add(root)
+
+        now_playing = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=18)
+        cover = Gtk.Image.new_from_icon_name("audio-x-generic-symbolic", Gtk.IconSize.DIALOG)
+        cover.set_size_request(96, 96)
+        now_playing.pack_start(cover, False, False, 0)
+        details = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.track_label = label("Nothing playing", "page-title")
+        self.artist_label = label("Add audio files to Music, then refresh library.", "muted")
+        self.state_label = label("Starting player...", "status-warn")
+        details.pack_start(self.track_label, False, False, 0)
+        details.pack_start(self.artist_label, False, False, 0)
+        details.pack_start(self.state_label, False, False, 0)
+        now_playing.pack_start(details, True, True, 0)
+        root.pack_start(now_playing, False, False, 0)
+
+        self.progress = Gtk.ProgressBar()
+        self.progress.set_show_text(True)
+        self.progress.set_text("Stopped")
+        root.pack_start(self.progress, False, False, 0)
+
+        playback = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        playback.set_halign(Gtk.Align.CENTER)
+        playback.pack_start(button("Previous", "media-skip-backward-symbolic", lambda widget: self.action(widget, "previous")), False, False, 0)
+        self.play_button = button("Play", "media-playback-start-symbolic", lambda widget: self.action(widget, "play-pause"), "suggested-action")
+        playback.pack_start(self.play_button, False, False, 0)
+        playback.pack_start(button("Next", "media-skip-forward-symbolic", lambda widget: self.action(widget, "next")), False, False, 0)
+        playback.pack_start(button("Stop", "media-playback-stop-symbolic", lambda widget: self.action(widget, "stop")), False, False, 0)
+        root.pack_start(playback, False, False, 0)
+
+        volume_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        volume_row.pack_start(label("Player volume"), False, False, 0)
+        self.volume = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
+        self.volume.set_hexpand(True)
+        self.volume.set_value(70)
+        volume_row.pack_start(self.volume, True, True, 0)
+        volume_row.pack_start(button("Apply", "object-select-symbolic", self.apply_volume), False, False, 0)
+        root.pack_start(volume_row, False, False, 0)
+
+        tools = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        tools.pack_start(button("Refresh library", "view-refresh-symbolic", self.refresh_library), False, False, 0)
+        tools.pack_start(button("Music folder", "folder-music-symbolic", lambda *_: launch(["ooonana-media-control", "open"])), False, False, 0)
+        tools.pack_start(button("Terminal player", "utilities-terminal-symbolic", lambda *_: launch(["ooonana-media-control", "terminal"])), False, False, 0)
+        root.pack_end(tools, False, False, 0)
+
+        self.refreshing = False
+        self.timer_id = GLib.timeout_add_seconds(2, self.periodic_refresh)
+        self.connect("destroy", self.destroyed)
+        run_async(["ooonana-media-control", "status"], self.player_started, timeout=20)
+
+    def destroyed(self, *_args):
+        if self.timer_id:
+            GLib.source_remove(self.timer_id)
+            self.timer_id = 0
+        Gtk.main_quit()
+
+    def player_started(self, rc, output):
+        if rc != 0:
+            self.state_label.set_text(output or "MPD failed to start")
+            return
+        self.refresh_state()
+
+    def periodic_refresh(self):
+        self.refresh_state()
+        return True
+
+    @staticmethod
+    def collect_state():
+        current_rc, current = run(["mpc", "--format", "%artist%\t%title%\t%file%", "current"], timeout=5)
+        status_rc, status = run(["mpc", "status"], timeout=5)
+        volume_rc, volume = run(["mpc", "volume"], timeout=5)
+        return 0, {
+            "current": current if current_rc == 0 else "",
+            "status": status if status_rc == 0 else "",
+            "volume": volume if volume_rc == 0 else "",
+        }
+
+    def refresh_state(self):
+        if self.refreshing:
+            return
+        self.refreshing = True
+
+        def done(_rc, data):
+            self.refreshing = False
+            fields = data["current"].split("\t", 2) if data["current"] else []
+            artist = fields[0].strip() if fields else ""
+            title = fields[1].strip() if len(fields) > 1 else ""
+            filename = fields[2].strip() if len(fields) > 2 else ""
+            self.track_label.set_text(title or filename or "Nothing playing")
+            self.artist_label.set_text(artist or ("Local music" if title or filename else "Add audio files to Music, then refresh library."))
+
+            status = data["status"]
+            if "[playing]" in status:
+                state = "Playing"
+                self.play_button.set_label("Pause")
+            elif "[paused]" in status:
+                state = "Paused"
+                self.play_button.set_label("Play")
+            else:
+                state = "Stopped"
+                self.play_button.set_label("Play")
+            percent = re.search(r"\((\d+)%\)", status)
+            fraction = min(100, int(percent.group(1))) / 100 if percent else 0
+            self.progress.set_fraction(fraction)
+            timing = re.search(r"(\d+:\d+)/(\d+:\d+)", status)
+            self.progress.set_text(f"{state}  {timing.group(1)} / {timing.group(2)}" if timing else state)
+            self.state_label.set_text("MPD ready" if status else "Player ready; library empty")
+
+            volume = re.search(r"volume:\s*(\d+)%", data["volume"])
+            if volume:
+                self.volume.set_value(int(volume.group(1)))
+
+        run_async_task(self.collect_state, done)
+
+    def action(self, widget, action):
+        widget.set_sensitive(False)
+
+        def done(rc, output):
+            widget.set_sensitive(True)
+            if rc != 0:
+                message(self, "Playback failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)
+            self.refresh_state()
+
+        run_async(["ooonana-media-control", action], done, timeout=20)
+
+    def apply_volume(self, widget):
+        value = int(self.volume.get_value())
+        widget.set_sensitive(False)
+
+        def done(rc, output):
+            widget.set_sensitive(True)
+            if rc != 0:
+                message(self, "Volume failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)
+            self.refresh_state()
+
+        run_async(["ooonana-media-control", "volume", str(value)], done, timeout=10)
+
+    def refresh_library(self, widget):
+        widget.set_sensitive(False)
+        self.state_label.set_text("Refreshing music library...")
+
+        def done(rc, output):
+            widget.set_sensitive(True)
+            if rc != 0:
+                message(self, "Library refresh failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)
+            self.refresh_state()
+
+        run_async(["ooonana-media-control", "update"], done, timeout=90)
+
+
 class PowerWindow(Gtk.Window):
     def __init__(self):
         super().__init__(title="Ooonana Power")
@@ -349,7 +509,7 @@ def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else "brightness"
     if "--dry-run" in sys.argv:
         print("native GTK Ooonana quick controls")
-        print("modes: brightness audio power")
+        print("modes: brightness audio media power")
         print("OOONANA_CONTROLS_NATIVE_OK")
         return 0
     apply_theme()
@@ -357,10 +517,12 @@ def main():
         window = BrightnessWindow()
     elif mode in ("audio", "sound", "volume"):
         window = AudioWindow()
+    elif mode in ("media", "music", "player"):
+        window = MediaWindow()
     elif mode == "power":
         window = PowerWindow()
     else:
-        print("usage: controls_app.py brightness|audio|power", file=sys.stderr)
+        print("usage: controls_app.py brightness|audio|media|power", file=sys.stderr)
         return 2
     window.show_all()
     Gtk.main()

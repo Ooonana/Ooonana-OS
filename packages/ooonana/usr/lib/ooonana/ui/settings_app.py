@@ -316,6 +316,7 @@ class SettingsWindow(Gtk.Window):
             ("Browser", "Chromium under unprivileged desktop user.", "web-browser-symbolic", ["ooonana-browser"]),
             ("Files", "Nemo file manager.", "system-file-manager-symbolic", ["ooonana-files"]),
             ("Editor", "Geany graphical editor.", "accessories-text-editor-symbolic", ["ooonana-editor"]),
+            ("Music", "Local library, playback, and volume.", "multimedia-player-symbolic", ["ooonana-music"]),
             ("Processes", "System process monitor.", "utilities-system-monitor-symbolic", ["ooonana-processes"]),
         ]
         for index, (title, description, icon_name, command) in enumerate(apps):
