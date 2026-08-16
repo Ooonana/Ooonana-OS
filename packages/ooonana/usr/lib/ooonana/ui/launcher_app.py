@@ -3,40 +3,42 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import Gdk, GLib, Gtk, Pango, apply_theme, icon, label, message  # noqa: E402
+from common import Gdk, GLib, Gtk, Pango, apply_theme, header, icon, label, launch, message  # noqa: E402
 from gi.repository import Gio  # noqa: E402
+
+
+PREFERRED_COMMANDS = {
+    "chromium.desktop": ["ooonana-browser"],
+    "nemo.desktop": ["ooonana-files"],
+    "geany.desktop": ["ooonana-editor"],
+    "xterm.desktop": ["ooonana-theme-env", "xterm"],
+    "uxterm.desktop": ["ooonana-theme-env", "xterm"],
+    "pavucontrol.desktop": ["ooonana-audio-panel"],
+    "blueman-manager.desktop": ["ooonana-bluetooth-panel"],
+    "nm-connection-editor.desktop": ["ooonana-wifi-panel"],
+}
 
 
 class LauncherWindow(Gtk.Window):
     def __init__(self):
         super().__init__(title="Ooonana Spotlight")
         self.set_default_size(760, 520)
-        self.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
-        self.set_decorated(False)
+        self.set_position(Gtk.WindowPosition.CENTER)
         self.set_resizable(True)
         self.set_keep_above(True)
-        self.set_skip_taskbar_hint(True)
-        self.set_type_hint(Gdk.WindowTypeHint.DIALOG)
+        self.set_skip_taskbar_hint(False)
+        self.set_type_hint(Gdk.WindowTypeHint.NORMAL)
+        self.titlebar = header(
+            self,
+            "Ooonana Spotlight",
+            "Applications",
+            "system-search-symbolic",
+        )
         self.set_wmclass("ooonana-spotlight", "OoonanaSpotlight")
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         root.get_style_context().add_class("spotlight")
         self.add(root)
-
-        top = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        top.set_border_width(12)
-        brand = label("OOONANA", "spotlight-brand")
-        top.pack_start(brand, False, False, 0)
-        count = label("", "muted", xalign=1.0)
-        top.pack_start(count, True, True, 0)
-        close_button = Gtk.Button()
-        close_button.set_image(icon("window-close-symbolic"))
-        close_button.set_tooltip_text("Close")
-        close_button.get_style_context().add_class("window-control")
-        close_button.get_style_context().add_class("close-control")
-        close_button.connect("clicked", lambda *_: self.close())
-        top.pack_end(close_button, False, False, 0)
-        root.pack_start(top, False, False, 0)
 
         search_box = Gtk.Box()
         search_box.set_border_width(12)
@@ -68,7 +70,7 @@ class LauncherWindow(Gtk.Window):
         apps.sort(key=lambda app: (app.get_display_name() or app.get_name()).casefold())
         for app in apps:
             self.add_app(app)
-        count.set_text(f"{len(apps)} apps")
+        self.titlebar.set_subtitle(f"{len(apps)} applications")
         if apps:
             self.results.select_row(self.results.get_row_at_index(0))
         else:
@@ -154,8 +156,25 @@ class LauncherWindow(Gtk.Window):
         self.launch_app(row.app)
 
     def launch_app(self, app):
+        app_id = app.get_id() or ""
+        preferred = PREFERRED_COMMANDS.get(app_id)
+        if preferred:
+            if launch(preferred):
+                self.close()
+            else:
+                message(
+                    self,
+                    "Application failed",
+                    f"Could not launch {' '.join(preferred)}",
+                    Gtk.MessageType.ERROR,
+                )
+            return
         try:
-            app.launch([], None)
+            display = Gdk.Display.get_default()
+            context = display.get_app_launch_context() if display else None
+            if context:
+                context.set_timestamp(Gtk.get_current_event_time())
+            app.launch([], context)
             self.close()
         except Exception as exc:
             message(self, "Application failed", str(exc), Gtk.MessageType.ERROR)

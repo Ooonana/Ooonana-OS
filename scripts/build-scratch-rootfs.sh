@@ -321,7 +321,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   list_output="$(/usr/bin/ooonana list 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.8.17' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.8.18' &&
     printf '%s\n' "$me_output" | grep -q 'Ooonana OS' &&
     printf '%s\n' "$list_output" | grep -q 'gui' &&
     printf '%s\n' "$installed_output" | grep -q 'base'; then

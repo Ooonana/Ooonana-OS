@@ -248,15 +248,30 @@ tooltip { background: @ooonana_panel; color: @ooonana_fg; border: 1px solid @ooo
 CSS
     xsetroot -solid "$OOONANA_BG" 2>/dev/null || true
     wallpaper="/usr/share/ooonana/wallpapers/ooonana-notes.jpg"
+    wallpaper_mode="fit"
     if [ -n "${HOME:-}" ] && [ -f "$HOME/.config/ooonana/wallpaper" ]; then
       IFS= read -r saved_wallpaper <"$HOME/.config/ooonana/wallpaper" || saved_wallpaper=""
       [ -n "$saved_wallpaper" ] && wallpaper="$saved_wallpaper"
     fi
+    if [ -n "${HOME:-}" ] && [ -f "$HOME/.config/ooonana/wallpaper-mode" ]; then
+      IFS= read -r wallpaper_mode <"$HOME/.config/ooonana/wallpaper-mode" || wallpaper_mode="fit"
+    fi
+    case "$wallpaper_mode" in
+      fit|fill|center|stretch|tile) ;;
+      *) wallpaper_mode="fit" ;;
+    esac
     if command -v hsetroot >/dev/null 2>&1 && [ -f "$wallpaper" ]; then
-      hsetroot -cover "$wallpaper" && exit 0 || true
+      hsetroot "-$wallpaper_mode" "$wallpaper" && exit 0 || true
     fi
     if command -v feh >/dev/null 2>&1 && [ -f "$wallpaper" ]; then
-      feh --bg-fill "$wallpaper" || true
+      xsetroot -solid "$OOONANA_BG" 2>/dev/null || true
+      case "$wallpaper_mode" in
+        fit) feh --bg-max "$wallpaper" || true ;;
+        fill) feh --bg-fill "$wallpaper" || true ;;
+        center) feh --bg-center "$wallpaper" || true ;;
+        stretch) feh --bg-scale "$wallpaper" || true ;;
+        tile) feh --bg-tile "$wallpaper" || true ;;
+      esac
     fi
     ;;
   toggle)
@@ -1653,37 +1668,7 @@ fi
 exec ooonana-rofi-power "$@"
 EOF
 
-  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/hsetroot" <<'EOF'
-#!/bin/sh
-set -eu
-color=""
-image=""
-while [ "$#" -gt 0 ]; do
-  case "$1" in
-    -solid)
-      color="${2:-}"
-      shift 2
-      ;;
-    -cover|-fill|-full)
-      image="${2:-}"
-      shift 2
-      ;;
-    *)
-      shift
-      ;;
-  esac
-done
-if [ -n "$image" ] && [ -f "$image" ] && command -v feh >/dev/null 2>&1; then
-  exec feh --bg-fill "$image"
-fi
-if [ -n "$color" ] && command -v xsetroot >/dev/null 2>&1; then
-  exec xsetroot -solid "$color"
-fi
-if command -v xsetroot >/dev/null 2>&1; then
-  exec xsetroot -name "Ooonana OS"
-fi
-exit 0
-EOF
+  install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/hsetroot" "$ROOTFS/usr/bin/hsetroot"
 
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/xsettingsd" <<'EOF'
 #!/bin/sh
@@ -2261,24 +2246,7 @@ cat "$log" 2>/dev/null || true
 exit "$status"
 EOF
 
-  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-wallpaper" <<'EOF'
-#!/bin/sh
-set -eu
-wallpaper="${1:-/usr/share/ooonana/wallpapers/ooonana-notes.jpg}"
-if [ ! -f "$wallpaper" ]; then
-  printf 'missing wallpaper: %s\n' "$wallpaper" >&2
-  exit 1
-fi
-mkdir -p "${HOME:-/root}/.config/ooonana"
-printf '%s\n' "$wallpaper" >"${HOME:-/root}/.config/ooonana/wallpaper"
-if command -v hsetroot >/dev/null 2>&1; then
-  exec hsetroot -cover "$wallpaper"
-fi
-if command -v feh >/dev/null 2>&1; then
-  exec feh --bg-fill "$wallpaper"
-fi
-exec ooonana-theme-env apply
-EOF
+  install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana-wallpaper" "$ROOTFS/usr/bin/ooonana-wallpaper"
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/NetworkManager/NetworkManager.conf" <<'EOF'
 [main]
@@ -3805,7 +3773,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   version_output="$(/usr/bin/ooonana version 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.8.17' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.8.18' &&
     printf '%s\n' "$installed_output" | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else

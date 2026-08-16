@@ -205,7 +205,7 @@ assert_contains "$gitlab_ci" "OOONANA_REPO_SIGN_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_REPO_PUBLIC_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_CORE_VERSION"
-assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.8.17"'
+assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.8.18"'
 assert_contains "$gitlab_ci" "OOONANA_OPENVINO_CHAT_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_URL"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_SHA256"
@@ -319,6 +319,9 @@ tar -tzf "$core_runtime_archive" | grep './etc/gtk-3.0/settings.ini' >/dev/null 
   fail "core runtime Python game is not executable"
 tar -tzf "$core_runtime_archive" | grep './usr/bin/which' >/dev/null || fail "core runtime missing which helper"
 tar -tzf "$core_runtime_archive" | grep './usr/bin/strings' >/dev/null || fail "core runtime missing strings helper"
+tar -tzf "$core_runtime_archive" | grep './usr/bin/hsetroot' >/dev/null || fail "core runtime missing wallpaper renderer"
+tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-wallpaper' >/dev/null || fail "core runtime missing wallpaper settings"
+tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-theme-env' >/dev/null || fail "core runtime missing desktop theme helper"
 tar -tzf "$core_runtime_archive" | grep './etc/i3/config' >/dev/null || fail "core runtime missing updated i3 config"
 tar -tzf "$core_runtime_archive" | grep './etc/profile.d/00-ooonana-locale.sh' >/dev/null || fail "core runtime missing UTF-8 locale profile"
 [[ -f "$tmp/repo/index.tsv" ]] || fail "builder missing index"
@@ -343,7 +346,7 @@ core_upgrade="$(OOONANA_REPO_DIR="$tmp/repo" \
 assert_contains "$core_upgrade" "installed ooonana-core-runtime"
 assert_contains "$core_upgrade" "upgraded ooonana-core 0.8.1"
 [[ -x "$core_upgrade_root/usr/bin/ooonana" ]] || fail "core migration removed upgraded CLI"
-assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.8.17"
+assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.8.18"
 assert_contains "$(<"$tmp/repo/cloud.repo")" 'OOONANA_REPO_URI="https://example.test/repo"'
 assert_contains "$(<"$tmp/repo/README.txt")" "ooonana update"
 

@@ -34,7 +34,7 @@ T*
 T*
 () Tj
 T*
-(Ooonana OS 0.8.17 field guide) Tj
+(Ooonana OS 0.8.18 field guide) Tj
 T*
 () Tj
 T*
@@ -127,7 +127,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>
 endobj
 6 0 obj
-<< /Length 1452 >>
+<< /Length 1511 >>
 stream
 BT
 /F1 10 Tf
@@ -165,7 +165,7 @@ T*
 T*
 (controls, icon-first polybar, audio, brightness, power, Wi-Fi, Bluetooth, and) Tj
 T*
-(wallpaper controls.) Tj
+(wallpaper modes. Default fit mode preserves aspect ratio with black side bars.) Tj
 T*
 (Wi-Fi supports personal and enterprise profiles. NetworkManager, BlueZ, D-Bus, Intel) Tj
 T*
@@ -204,9 +204,9 @@ xref
 0000000195 00000 n 
 0000002369 00000 n 
 0000002495 00000 n 
-0000003999 00000 n 
+0000004058 00000 n 
 trailer
 << /Size 8 /Root 1 0 R >>
 startxref
-4125
+4184
 %%EOF

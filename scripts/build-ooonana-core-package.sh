@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR=""
-VERSION="0.8.17"
+VERSION="0.8.18"
 DRY_RUN=0
 
 usage() {
@@ -14,7 +14,7 @@ Usage:
   scripts/build-ooonana-core-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER  Package version (default: 0.8.17)
+  --version VER  Package version (default: 0.8.18)
   --dry-run      Print resolved package details
   -h, --help     Show help
 USAGE
@@ -49,6 +49,18 @@ command -v tar >/dev/null 2>&1 || { printf 'missing command: tar\n' >&2; exit 1;
 command -v sha256sum >/dev/null 2>&1 || { printf 'missing command: sha256sum\n' >&2; exit 1; }
 [[ -x "$ROOT/packages/ooonana/usr/bin/ooonana" ]] || { printf 'missing Ooonana overlay\n' >&2; exit 1; }
 
+extract_helper() {
+  local marker="$1"
+  local output="$2"
+  awk -v marker="$marker" '
+    index($0, marker) { capture=1; next }
+    capture && $0 == "EOF" { exit }
+    capture { print }
+  ' "$ROOT/scripts/build-full-i3-rootfs.sh" >"$output"
+  [[ -s "$output" ]] || { printf 'missing generated helper: %s\n' "$marker" >&2; exit 1; }
+  chmod 0755 "$output"
+}
+
 mkdir -p "$OUT_DIR/archives"
 staging="$(mktemp -d)"
 trap 'rm -rf "$staging"' EXIT
@@ -60,6 +72,7 @@ chmod 0755 "$staging/usr/lib/ooonana/oonana_game.py"
 mkdir -p "$staging/etc/i3"
 install -m 0644 "$ROOT/branding/i3/config" "$staging/etc/i3/config"
 install -m 0644 "$ROOT/branding/i3/config" "$staging/etc/i3/config.keycodes"
+extract_helper 'ROOTFS/usr/bin/ooonana-theme-env' "$staging/usr/bin/ooonana-theme-env"
 mkdir -p "$staging/var/lib/ooonana/packages/files"
 : > "$staging/var/lib/ooonana/packages/files/ooonana-core.list"
 tar -C "$staging" -czf "$archive" .

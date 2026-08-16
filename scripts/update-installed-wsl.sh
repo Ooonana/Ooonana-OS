@@ -107,10 +107,11 @@ if ! python3 -c 'import cairo' >/dev/null 2>&1; then
 fi
 
 for helper in \
+  ooonana-theme-env \
   ooonana-hardware-reprobe ooonana-wireless-diagnose ooonana-service-repair \
   ooonana-run-admin ooonana-wifi ooonana-wifi-panel ooonana-wifi-status \
   ooonana-audio-panel ooonana-audio-status ooonana-rofi-power ooonana-power-menu \
-  ooonana-apps ooonana-wallpaper; do
+  ooonana-apps; do
   extract_block "ROOTFS/usr/bin/$helper" "$work/$helper"
   install -m 0755 "$work/$helper" "/usr/bin/$helper"
 done

@@ -1,0 +1,58 @@
+#!/bin/sh
+set -eu
+
+color="#050505"
+image=""
+mode="fit"
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -solid)
+      color="${2:-}"
+      shift 2
+      ;;
+    -cover|-fill|-full)
+      image="${2:-}"
+      mode="fill"
+      shift 2
+      ;;
+    -fit|-max)
+      image="${2:-}"
+      mode="fit"
+      shift 2
+      ;;
+    -center)
+      image="${2:-}"
+      mode="center"
+      shift 2
+      ;;
+    -stretch|-scale)
+      image="${2:-}"
+      mode="stretch"
+      shift 2
+      ;;
+    -tile)
+      image="${2:-}"
+      mode="tile"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+if [ -n "$image" ] && [ -f "$image" ] && command -v feh >/dev/null 2>&1; then
+  command -v xsetroot >/dev/null 2>&1 && xsetroot -solid "$color" 2>/dev/null || true
+  case "$mode" in
+    fit) exec feh --bg-max "$image" ;;
+    fill) exec feh --bg-fill "$image" ;;
+    center) exec feh --bg-center "$image" ;;
+    stretch) exec feh --bg-scale "$image" ;;
+    tile) exec feh --bg-tile "$image" ;;
+  esac
+fi
+if command -v xsetroot >/dev/null 2>&1; then
+  exec xsetroot -solid "$color"
+fi
+exit 0

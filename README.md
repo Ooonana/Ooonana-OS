@@ -181,7 +181,7 @@ Working now:
 - Full-i3 live mode does not format or write internal disks. It only reads boot media read-only and puts live changes in tmpfs unless the user explicitly launches the installer or chooses a persistent USB path.
 - Full-i3 runs the desktop as the unprivileged `ooonana` user (UID 1000). Administrative commands use a validated wheel-only `doas` policy.
 - Full-i3 mounts `/run` and `/dev/shm` before desktop services, maps `/var/run` to `/run`, starts system D-Bus first, then starts NetworkManager and BlueZ. This runtime order supports Chromium, Wi-Fi, Bluetooth, and desktop applets from live USB and installed systems.
-- Full-i3 ships an Ooonana i3 desktop: icon-first polybar, Spotlight-style searchable application launcher, movable Ooonana app windows with explicit close/minimize/fullscreen controls, picom shadows/fades, dunst notifications, Chromium, Nemo, editor/media shortcuts, Wi-Fi, Bluetooth, audio, brightness, battery, power controls, wallpaper switching, and dark Ooonana colors. The default wallpaper uses the hand-drawn orange Ooonana character on black.
+- Full-i3 ships an Ooonana i3 desktop: icon-first polybar, Spotlight-style searchable application launcher, movable Ooonana app windows with explicit close/minimize/fullscreen controls, picom shadows/fades, dunst notifications, Chromium, Nemo, editor/media shortcuts, Wi-Fi, Bluetooth, audio, brightness, battery, power controls, wallpaper switching, and dark Ooonana colors. The default wallpaper preserves aspect ratio, fits screen height, and uses black side bars instead of stretching.
 - Setup, Settings, Wi-Fi, Bluetooth, Packages, AI, controls, and application launcher are native GTK3 apps with a shared black/orange design. The panel status scripts degrade cleanly when a VM has no battery, radio, audio, or backlight hardware.
 - Wi-Fi groups repeated school/campus access points by exact SSID, shows real security instead of treating missing metadata as open, retries secured BSSIDs during roaming, and supports WPA/WPA2/WPA3 Personal, OWE, WEP, and 802.1X enterprise identity/password/CA/client-certificate profiles. Wi-Fi and Bluetooth include an RSSI proximity map. Optional `3D mode` launches RuView when its CSI point-cloud runtime is installed; normal laptop adapters remain RSSI-only.
 - Installed disk boots in QEMU
@@ -699,7 +699,7 @@ sudo ooonana-install \
   --yes
 ```
 
-Default full-i3 UI is dark: black background, orange text/cursor, Ooonana polybar/rofi/picom/dunst config, and a new black/orange Ooonana wallpaper. The panel uses an `Ooonana` launcher label plus icon buttons for terminal, browser, files, editor, media, audio, brightness, Wi-Fi, Bluetooth, battery, clock, and power. Brightness has scroll support and a clickable scale. `Mod+d` opens a patched Ooonana rofi launcher with orange selection, Ooonana labels, icon rows, and matching black/orange mode tabs. The old sunset look is light mode:
+Default full-i3 UI is dark: black background, orange text/cursor, Ooonana polybar/rofi/picom/dunst config, and a black/orange Ooonana wallpaper. The panel uses an `Ooonana` launcher label plus icon buttons for terminal, browser, files, editor, media, audio, brightness, Wi-Fi, Bluetooth, battery, clock, and power. Brightness has scroll support and a clickable scale. `Mod+d` opens the native Ooonana Spotlight launcher; `Mod+Shift+d` opens rofi. The old sunset look is light mode:
 
 ```bash
 ooonana help ui
@@ -726,7 +726,7 @@ Mod+Shift+X  htop process monitor
 Mod+Shift+U  ranger file manager
 ```
 
-`ooonana-settings` opens an Ooonana Control Center when `yad` is available. It starts with status cards for theme, wallpaper, display, audio, Wi-Fi, Bluetooth, and repo state, then opens grouped controls for System, Hardware, Apps, Ooonana, and Logs. It can switch theme, choose wallpaper, open display/audio/Wi-Fi/Bluetooth tools, open package manager, launch the AI workbench, open Chromium/Nemo/terminal, set brightness, take screenshots, open editor/music/process/file-manager helpers, write the GitLab Pages package repo source, and show logs/about info. It falls back to the terminal help path when GUI pieces are missing.
+`ooonana-settings` opens the native Ooonana Control Center. It starts with status cards for theme, wallpaper, display, audio, Wi-Fi, Bluetooth, and repo state, then opens grouped controls for System, Hardware, Apps, Ooonana, and Logs. Wallpaper layout choices are fit with black bars, fill/crop, center, stretch, and tile. It can open display/audio/Wi-Fi/Bluetooth tools, package manager, AI, Chromium, Nemo, terminal, screenshots, and system logs. It falls back to the terminal help path when GTK is missing.
 
 Persistent live USB:
 

@@ -57,6 +57,7 @@ assert_contains "$common" 'window-close-symbolic'
 assert_contains "$common" 'OoonanaApp'
 assert_contains "$common" "#ffb21a"
 assert_contains "$common" "decoration_layout"
+assert_not_contains "$common" "bar.set_spacing"
 assert_contains "$common" "def flow_row"
 assert_contains "$common" "button:disabled"
 assert_contains "$common" "textview text"
@@ -64,6 +65,9 @@ assert_contains "$common" "progressbar progress"
 assert_contains "$settings" "Desktop runs without root privileges"
 assert_contains "$settings" "ooonana-wifi-panel"
 assert_contains "$settings" "ooonana-bluetooth-panel"
+assert_contains "$settings" "Fit height / black bars"
+assert_contains "$settings" "current_wallpaper_mode"
+assert_contains "$settings" "apply_wallpaper_mode"
 assert_contains "$wifi" '["nmcli"'
 assert_contains "$wifi" "connect_selected"
 assert_contains "$wifi" "NetworkManager repair failed"
@@ -188,6 +192,10 @@ assert_contains "$launcher" "Ooonana Spotlight"
 assert_contains "$launcher" "Search apps, settings, and commands"
 assert_contains "$launcher" "OoonanaSpotlight"
 assert_contains "$launcher" "Gdk.KEY_Down"
+assert_contains "$launcher" "PREFERRED_COMMANDS"
+assert_contains "$launcher" '"chromium.desktop": ["ooonana-browser"]'
+assert_contains "$launcher" "get_app_launch_context"
+assert_contains "$launcher" "header("
 
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-wireless-utils.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-wireless-actions.py"

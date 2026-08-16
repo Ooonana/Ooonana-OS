@@ -142,7 +142,7 @@ EOF
 chmod +x "$scratch/bin/busybox"
 cat > "$scratch/usr/bin/ooonana" <<'EOF'
 #!/bin/sh
-echo ooonana 0.8.17
+echo ooonana 0.8.18
 EOF
 chmod +x "$scratch/usr/bin/ooonana"
 cat > "$scratch/usr/bin/ooonana-setup" <<'EOF'
@@ -489,7 +489,9 @@ assert_contains "$theme_helper" 'OOONANA_BG="#050505"'
 assert_contains "$theme_helper" 'OOONANA_BG="#ffb21a"'
 assert_contains "$theme_helper" "/etc/ooonana/theme"
 assert_contains "$theme_helper" ".config/ooonana/wallpaper"
-assert_contains "$theme_helper" "hsetroot -cover"
+assert_contains "$theme_helper" 'hsetroot "-$wallpaper_mode"'
+assert_contains "$theme_helper" "wallpaper-mode"
+assert_contains "$theme_helper" "feh --bg-max"
 assert_contains "$theme_helper" '-e /bin/sh -l'
 assert_contains "$theme_helper" 'exec xterm -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR"'
 assert_contains "$theme_helper" 'GTK_THEME="%s"'
@@ -722,11 +724,28 @@ assert_contains "$settings_helper" "ooonana-gui-installer"
 assert_contains "$settings_launcher" "OOONANA_SETTINGS_LAUNCH_OK"
 assert_contains "$settings_launcher" "ooonana-settings"
 wallpaper_helper="$(<"$rootfs/usr/bin/ooonana-wallpaper")"
-assert_contains "$wallpaper_helper" "feh --bg-fill"
-assert_contains "$wallpaper_helper" "hsetroot -cover"
+assert_contains "$wallpaper_helper" "feh --bg-max"
+assert_contains "$wallpaper_helper" 'hsetroot "-$mode"'
+assert_contains "$wallpaper_helper" "wallpaper-mode"
+assert_contains "$wallpaper_helper" "fit|fill|center|stretch|tile"
 hsetroot_helper="$(<"$rootfs/usr/bin/hsetroot")"
 assert_contains "$hsetroot_helper" "feh --bg-fill"
+assert_contains "$hsetroot_helper" "feh --bg-max"
 assert_contains "$hsetroot_helper" "xsetroot -solid"
+wallpaper_test="$tmp/wallpaper-test"
+mkdir -p "$wallpaper_test/bin" "$wallpaper_test/home"
+touch "$wallpaper_test/image.jpg"
+cat >"$wallpaper_test/bin/hsetroot" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" >"$OOONANA_WALLPAPER_TEST_LOG"
+EOF
+chmod +x "$wallpaper_test/bin/hsetroot"
+OOONANA_WALLPAPER_TEST_LOG="$wallpaper_test/args" \
+  HOME="$wallpaper_test/home" \
+  PATH="$wallpaper_test/bin:/usr/bin:/bin" \
+  "$rootfs/usr/bin/ooonana-wallpaper" --mode fit "$wallpaper_test/image.jpg"
+[[ "$(<"$wallpaper_test/args")" == "-fit $wallpaper_test/image.jpg" ]] || fail "wallpaper fit mode not applied"
+[[ "$(<"$wallpaper_test/home/.config/ooonana/wallpaper-mode")" == "fit" ]] || fail "wallpaper mode not saved"
 xsettingsd_helper="$(<"$rootfs/usr/bin/xsettingsd")"
 assert_contains "$xsettingsd_helper" "Ooonana xsettingsd compatibility daemon"
 screenshot_helper="$(<"$rootfs/usr/bin/ooonana-screenshot")"

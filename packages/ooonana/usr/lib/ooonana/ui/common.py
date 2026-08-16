@@ -121,7 +121,6 @@ def header(window, title, subtitle="", icon_name="preferences-system-symbolic"):
     bar.set_title(title)
     bar.set_subtitle(subtitle)
     bar.set_decoration_layout("")
-    bar.set_spacing(4)
     if icon_name:
         bar.pack_start(icon(icon_name, Gtk.IconSize.LARGE_TOOLBAR))
 

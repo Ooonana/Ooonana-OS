@@ -1,0 +1,84 @@
+#!/bin/sh
+set -eu
+
+config_dir="${HOME:-/root}/.config/ooonana"
+wallpaper=""
+mode=""
+apply_saved=0
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --mode)
+      mode="${2:-}"
+      shift 2
+      ;;
+    --apply-saved)
+      apply_saved=1
+      shift
+      ;;
+    -h|--help)
+      echo "usage: ooonana-wallpaper [--mode fit|fill|center|stretch|tile] [IMAGE]"
+      exit 0
+      ;;
+    -*)
+      echo "ooonana-wallpaper: unknown option: $1" >&2
+      exit 2
+      ;;
+    *)
+      wallpaper="$1"
+      shift
+      ;;
+  esac
+done
+
+if [ -z "$wallpaper" ]; then
+  wallpaper="/usr/share/ooonana/wallpapers/ooonana-notes.jpg"
+  if [ -f "$config_dir/wallpaper" ]; then
+    IFS= read -r saved <"$config_dir/wallpaper" || saved=""
+    [ -n "$saved" ] && wallpaper="$saved"
+  fi
+fi
+
+if [ -z "$mode" ]; then
+  mode="fit"
+  if [ -f "$config_dir/wallpaper-mode" ]; then
+    IFS= read -r saved_mode <"$config_dir/wallpaper-mode" || saved_mode="fit"
+    [ -n "$saved_mode" ] && mode="$saved_mode"
+  fi
+fi
+
+case "$mode" in
+  fit|fill|center|stretch|tile) ;;
+  *)
+    echo "ooonana-wallpaper: invalid mode: $mode" >&2
+    exit 2
+    ;;
+esac
+
+if [ ! -f "$wallpaper" ]; then
+  printf 'missing wallpaper: %s\n' "$wallpaper" >&2
+  exit 1
+fi
+
+if [ "$apply_saved" -eq 0 ]; then
+  mkdir -p "$config_dir"
+  printf '%s\n' "$wallpaper" >"$config_dir/wallpaper"
+  printf '%s\n' "$mode" >"$config_dir/wallpaper-mode"
+fi
+
+if command -v hsetroot >/dev/null 2>&1; then
+  exec hsetroot "-$mode" "$wallpaper"
+fi
+if command -v feh >/dev/null 2>&1; then
+  command -v xsetroot >/dev/null 2>&1 && xsetroot -solid '#050505' 2>/dev/null || true
+  case "$mode" in
+    fit) exec feh --bg-max "$wallpaper" ;;
+    fill) exec feh --bg-fill "$wallpaper" ;;
+    center) exec feh --bg-center "$wallpaper" ;;
+    stretch) exec feh --bg-scale "$wallpaper" ;;
+    tile) exec feh --bg-tile "$wallpaper" ;;
+  esac
+fi
+
+printf 'no wallpaper setter installed\n' >&2
+exit 1

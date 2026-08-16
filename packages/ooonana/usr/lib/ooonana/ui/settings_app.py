@@ -276,9 +276,25 @@ class SettingsWindow(Gtk.Window):
         theme.pack_start(row, False, False, 0)
         page.pack_start(theme, False, False, 0)
 
-        wallpaper = card("Wallpaper", "Choose image and apply it without restarting i3.", "preferences-desktop-wallpaper-symbolic")
-        self.status_widgets["wallpaper"] = label(self.current_wallpaper(), "muted")
+        wallpaper = card("Wallpaper", "Choose image and control scaling without restarting i3.", "preferences-desktop-wallpaper-symbolic")
+        self.status_widgets["wallpaper"] = label(self.wallpaper_status(), "muted")
         wallpaper.pack_start(self.status_widgets["wallpaper"], False, False, 0)
+        mode_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        self.wallpaper_mode_combo = Gtk.ComboBoxText()
+        self.wallpaper_mode_combo.append("fit", "Fit height / black bars")
+        self.wallpaper_mode_combo.append("fill", "Fill screen / crop")
+        self.wallpaper_mode_combo.append("center", "Center at original size")
+        self.wallpaper_mode_combo.append("stretch", "Stretch to screen")
+        self.wallpaper_mode_combo.append("tile", "Tile")
+        self.wallpaper_mode_combo.set_active_id(self.current_wallpaper_mode())
+        mode_row.pack_start(self.wallpaper_mode_combo, True, True, 0)
+        mode_row.pack_start(
+            button("Apply layout", "object-select-symbolic", self.apply_wallpaper_mode),
+            False,
+            False,
+            0,
+        )
+        wallpaper.pack_start(mode_row, False, False, 0)
         wallpaper.pack_start(
             self.actions(
                 button("Choose image", "document-open-symbolic", self.choose_wallpaper, "suggested-action"),
@@ -377,7 +393,7 @@ class SettingsWindow(Gtk.Window):
         self.set_status("repo", repo, "good" if repo.startswith("http") else "warn")
         self.set_status("repo_detail", repo, "good" if repo.startswith("http") else "warn")
         if "wallpaper" in self.status_widgets:
-            self.status_widgets["wallpaper"].set_text(self.current_wallpaper())
+            self.status_widgets["wallpaper"].set_text(self.wallpaper_status())
 
         def task():
             nm_rc, nm_out = run(["nmcli", "-t", "-f", "STATE,CONNECTIVITY", "general"], timeout=3)
@@ -432,6 +448,14 @@ class SettingsWindow(Gtk.Window):
         user_wallpaper = Path.home() / ".config/ooonana/wallpaper"
         return read_file(user_wallpaper, "/usr/share/ooonana/wallpapers/ooonana-notes.jpg")
 
+    @staticmethod
+    def current_wallpaper_mode():
+        mode = read_file(Path.home() / ".config/ooonana/wallpaper-mode", "fit")
+        return mode if mode in ("fit", "fill", "center", "stretch", "tile") else "fit"
+
+    def wallpaper_status(self):
+        return f"{self.current_wallpaper()}\nLayout: {self.current_wallpaper_mode()}"
+
     def open_terminal(self, *_args):
         launch(["ooonana-theme-env", "xterm"])
 
@@ -456,14 +480,22 @@ class SettingsWindow(Gtk.Window):
         dialog.add_filter(image_filter)
         dialog.set_current_folder("/usr/share/ooonana/wallpapers")
         if dialog.run() == Gtk.ResponseType.OK:
-            launch(["ooonana-wallpaper", dialog.get_filename()])
-            self.status_widgets["wallpaper"].set_text(dialog.get_filename())
+            mode = self.wallpaper_mode_combo.get_active_id() or "fit"
+            launch(["ooonana-wallpaper", "--mode", mode, dialog.get_filename()])
+            self.status_widgets["wallpaper"].set_text(f"{dialog.get_filename()}\nLayout: {mode}")
         dialog.destroy()
 
     def default_wallpaper(self, *_args):
         path = "/usr/share/ooonana/wallpapers/ooonana-notes.jpg"
-        launch(["ooonana-wallpaper", path])
-        self.status_widgets["wallpaper"].set_text(path)
+        self.wallpaper_mode_combo.set_active_id("fit")
+        launch(["ooonana-wallpaper", "--mode", "fit", path])
+        self.status_widgets["wallpaper"].set_text(f"{path}\nLayout: fit")
+
+    def apply_wallpaper_mode(self, *_args):
+        mode = self.wallpaper_mode_combo.get_active_id() or "fit"
+        wallpaper = self.current_wallpaper()
+        launch(["ooonana-wallpaper", "--mode", mode, wallpaper])
+        self.status_widgets["wallpaper"].set_text(f"{wallpaper}\nLayout: {mode}")
 
     def repair_services(self, widget):
         widget.set_sensitive(False)
