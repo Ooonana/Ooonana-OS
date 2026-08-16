@@ -26,8 +26,14 @@ source_text="$(<"$SCRIPT")"
   fail "service smoke lacks multi-threaded TCG fallback"
 [[ "$source_text" == *'-accel "$QEMU_ACCEL"'* ]] ||
   fail "service smoke does not apply selected accelerator"
+[[ "$source_text" == *'OOONANA_SERVICE_SMOKE_STEP'* ]] ||
+  fail "service smoke lacks progress markers"
 [[ "$source_text" == *'ooonana-audio-start --restart'* ]] ||
   fail "service smoke does not exercise Ooonana audio startup"
+[[ "$source_text" == *'file:///tmp/ooonana-chromium-input.html'* ]] ||
+  fail "service smoke does not use deterministic Chromium input"
+[[ "$source_text" != *'--disable-software-rasterizer'* ]] ||
+  fail "service smoke disables Chromium software rendering"
 [[ "$source_text" == *'audio default sink did not appear'* ]] ||
   fail "service smoke does not wait for audio device discovery"
 [[ "$source_text" == *'placeholder machine ID'* ]] ||

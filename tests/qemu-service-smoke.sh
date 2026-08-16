@@ -135,7 +135,12 @@ fail() {
   exit 1
 }
 
+step() {
+  echo "OOONANA_SERVICE_SMOKE_STEP: $*"
+}
+
 echo OOONANA_SERVICE_SMOKE_BEGIN
+step command-audit
 for command in \
   dbus-daemon dbus-run-session NetworkManager nmcli bluetoothctl ooonana-service-watchdog \
   doas sudo su aplay pulseaudio pactl ooonana-audio-start chromium \
@@ -159,6 +164,7 @@ done
 [ "$(stat -c %a /usr/libexec/dbus-daemon-launch-helper)" = 4750 ] || fail "D-Bus launch helper mode"
 [ "$(stat -c %g /usr/libexec/dbus-daemon-launch-helper)" = 81 ] || fail "D-Bus launch helper group"
 
+step service-repair
 /usr/bin/ooonana-service-repair boot || fail "service repair"
 /usr/bin/ooonana-service-repair force-wifi || fail "forced Wi-Fi repair"
 /usr/bin/ooonana-service-repair force-bluetooth || fail "forced Bluetooth repair"
@@ -175,6 +181,7 @@ fi
 /bin/busybox pidof NetworkManager >/dev/null 2>&1 || fail "NetworkManager stopped"
 /bin/busybox pidof bluetoothd >/dev/null 2>&1 || fail "bluetoothd stopped"
 
+step personal-wifi-profile
 nmcli connection add type wifi con-name Ooonana-WiFi-Smoke ssid Ooonana-WiFi-Smoke >/dev/null ||
   fail "Wi-Fi profile creation"
 nmcli connection modify Ooonana-WiFi-Smoke \
@@ -196,6 +203,7 @@ wifi_uuid="$(nmcli -g connection.uuid connection show Ooonana-WiFi-Smoke)"
   fail "Wi-Fi profile secret persistence"
 nmcli connection delete uuid "$wifi_uuid" >/dev/null || fail "Wi-Fi profile cleanup"
 
+step enterprise-wifi-profile
 nmcli connection add type wifi con-name Ooonana-EAP-Smoke ssid Ooonana-EAP-Smoke >/dev/null ||
   fail "enterprise Wi-Fi profile creation"
 nmcli connection modify Ooonana-EAP-Smoke \
@@ -221,6 +229,7 @@ eap_uuid="$(nmcli -g connection.uuid connection show Ooonana-EAP-Smoke)"
   fail "enterprise Wi-Fi secret persistence"
 nmcli connection delete uuid "$eap_uuid" >/dev/null || fail "enterprise Wi-Fi profile cleanup"
 
+step owe-wifi-profile
 nmcli connection add type wifi con-name Ooonana-OWE-Smoke ssid Ooonana-OWE-Smoke >/dev/null ||
   fail "OWE Wi-Fi profile creation"
 nmcli connection modify Ooonana-OWE-Smoke \
@@ -228,6 +237,7 @@ nmcli connection modify Ooonana-OWE-Smoke \
   fail "OWE Wi-Fi profile settings"
 nmcli connection delete Ooonana-OWE-Smoke >/dev/null || fail "OWE Wi-Fi profile cleanup"
 
+step advanced-wifi-profile
 nmcli connection add type wifi con-name Ooonana-Advanced-Smoke ssid Ooonana-Advanced-Smoke >/dev/null ||
   fail "advanced Wi-Fi profile creation"
 nmcli connection modify Ooonana-Advanced-Smoke \
@@ -249,6 +259,7 @@ nmcli connection modify Ooonana-Advanced-Smoke \
   fail "advanced Wi-Fi profile settings"
 nmcli connection delete Ooonana-Advanced-Smoke >/dev/null || fail "advanced Wi-Fi profile cleanup"
 
+step watchdog-recovery
 OOONANA_SERVICE_WATCHDOG_INTERVAL=10 ooonana-service-watchdog &
 watchdog_pid="$!"
 sleep 1
@@ -285,6 +296,7 @@ if [ "$i" -ge 45 ]; then
 fi
 kill "$watchdog_pid" >/dev/null 2>&1 || true
 
+step audio
 [ -r /proc/asound/cards ] || fail "ALSA cards file missing"
 grep -Eq '^[[:space:]]*[0-9]+[[:space:]]+\[' /proc/asound/cards || fail "Intel HDA card not detected"
 aplay -l >/dev/null 2>&1 || fail "ALSA playback device unavailable"
@@ -305,7 +317,10 @@ while ! /bin/su -s /bin/sh -c \
   sleep 1
 done
 
-/bin/su -s /bin/sh -c 'HOME=/home/ooonana XDG_RUNTIME_DIR=/run/user/1000 NO_AT_BRIDGE=1 dbus-run-session -- /bin/busybox timeout 60 chromium --headless=new --ozone-platform=headless --no-sandbox --no-first-run --disable-default-apps --disable-dev-shm-usage --disable-gpu --disable-software-rasterizer --disable-notifications --disable-background-networking --disable-features=Vulkan --user-data-dir=/tmp/ooonana-chromium-smoke --dump-dom "data:text/html,<title>Ooonana</title><p>chromium-ok</p>"' ooonana >/tmp/ooonana-chromium-smoke.html 2>/tmp/ooonana-chromium-smoke.log ||
+step chromium
+printf '%s\n' '<!doctype html><title>Ooonana</title><p>chromium-ok</p>' >/tmp/ooonana-chromium-input.html
+chown 1000:1000 /tmp/ooonana-chromium-input.html
+/bin/su -s /bin/sh -c 'HOME=/home/ooonana XDG_RUNTIME_DIR=/run/user/1000 NO_AT_BRIDGE=1 /bin/busybox timeout 90 chromium --headless=new --no-sandbox --no-first-run --disable-default-apps --disable-dev-shm-usage --disable-gpu --disable-notifications --disable-background-networking --disable-features=Vulkan --user-data-dir=/tmp/ooonana-chromium-smoke --dump-dom file:///tmp/ooonana-chromium-input.html' ooonana >/tmp/ooonana-chromium-smoke.html 2>/tmp/ooonana-chromium-smoke.log ||
   fail "Chromium headless launch: $(tail -20 /tmp/ooonana-chromium-smoke.log 2>/dev/null)"
 if ! grep -q 'chromium-ok' /tmp/ooonana-chromium-smoke.html; then
   echo '--- chromium output ---'
@@ -315,6 +330,7 @@ if ! grep -q 'chromium-ok' /tmp/ooonana-chromium-smoke.html; then
   fail "Chromium rendered output"
 fi
 
+step desktop-runtime
 python3 -c 'import gi; gi.require_version("Gtk", "3.0"); from gi.repository import Gtk; assert Gtk.MAJOR_VERSION == 3' ||
   fail "Python GTK import"
 for app in wifi_app.py bluetooth_app.py settings_app.py; do
@@ -344,6 +360,7 @@ for binary in /usr/bin/Xorg /usr/bin/i3 /usr/bin/rofi /usr/bin/polybar \
   fi
 done
 
+step privilege-and-power
 doas_result="$(/bin/su -s /bin/sh -c '/usr/bin/doas /usr/bin/id -u' ooonana)"
 [ "$doas_result" = 0 ] || fail "doas elevation"
 sudo_result="$(/bin/su -s /bin/sh -c '/usr/bin/sudo /usr/bin/id -u' ooonana)"
