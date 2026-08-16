@@ -14,7 +14,7 @@ source_text="$(<"$SCRIPT")"
   fail "service smoke does not accept packaged bluetoothd path"
 [[ "$source_text" == *'/usr/lib/bluetooth/bluetoothd'* ]] ||
   fail "service smoke missing Alpine bluetoothd path"
-[[ "$source_text" == *'OOONANA_QEMU_SERVICE_TIMEOUT:-420'* ]] ||
+[[ "$source_text" == *'OOONANA_QEMU_SERVICE_TIMEOUT:-900'* ]] ||
   fail "service smoke timeout is not configurable"
 [[ "$source_text" == *'timeout "$QEMU_TIMEOUT" qemu-system-x86_64'* ]] ||
   fail "service smoke does not apply configured timeout"

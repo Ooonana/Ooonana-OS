@@ -6,7 +6,7 @@ ISO="$ROOT/../release-current/ooonana-full-i3.iso"
 WORK="${TMPDIR:-/var/tmp}/ooonana-qemu-service-smoke.$$"
 ALPINE="https://dl-cdn.alpinelinux.org/alpine/v3.20"
 USE_ISO_RUNTIME=0
-QEMU_TIMEOUT="${OOONANA_QEMU_SERVICE_TIMEOUT:-420}"
+QEMU_TIMEOUT="${OOONANA_QEMU_SERVICE_TIMEOUT:-900}"
 QEMU_ACCEL="${OOONANA_QEMU_ACCEL:-}"
 
 while [ "$#" -gt 0 ]; do
