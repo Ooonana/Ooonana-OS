@@ -1,0 +1,85 @@
+#!/bin/sh
+set -eu
+
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+
+usage() {
+  cat <<'EOF'
+Ooonana Wi-Fi Aware (NAN) capability probe.
+
+Usage:
+  ooonana-wifi-aware [status|details|--gui]
+
+Reports whether the active Wi-Fi driver advertises NAN support. A supported
+driver and firmware are required before nearby Wi-Fi Aware connections work.
+EOF
+}
+
+find_interface() {
+  if [ -n "${OOONANA_WIFI_AWARE_INTERFACE:-}" ]; then
+    printf '%s\n' "$OOONANA_WIFI_AWARE_INTERFACE"
+    return
+  fi
+
+  iw dev 2>/dev/null | awk '$1 == "Interface" { print $2; exit }'
+}
+
+probe() {
+  iface="$(find_interface)"
+  [ -n "$iface" ] || {
+    printf 'Wi-Fi Aware: no Wi-Fi interface detected\n'
+    return 2
+  }
+  phy="$(iw dev "$iface" info 2>/dev/null | awk '$1 == "wiphy" { print "phy" $2; exit }')"
+  [ -n "$phy" ] || {
+    printf 'Wi-Fi Aware: cannot determine radio for %s\n' "$iface"
+    return 2
+  }
+  details="$(iw phy "$phy" info 2>/dev/null || true)"
+  if printf '%s\n' "$details" | grep -Eq '^[[:space:]]*\*[[:space:]]+NAN([[:space:]]|$)'; then
+    printf 'Wi-Fi Aware: supported on %s (%s)\n' "$iface" "$phy"
+    return 0
+  fi
+  printf 'Wi-Fi Aware: unavailable on %s (%s); driver or firmware has no NAN capability\n' "$iface" "$phy"
+  return 3
+}
+
+details() {
+  iface="$(find_interface)"
+  [ -n "$iface" ] || {
+    printf 'Wi-Fi Aware: no Wi-Fi interface detected\n'
+    return 2
+  }
+  phy="$(iw dev "$iface" info 2>/dev/null | awk '$1 == "wiphy" { print "phy" $2; exit }')"
+  [ -n "$phy" ] || {
+    printf 'Wi-Fi Aware: cannot determine radio for %s\n' "$iface"
+    return 2
+  }
+  probe || true
+  printf '\nInterface: %s\nRadio: %s\n\n' "$iface" "$phy"
+  iw phy "$phy" info 2>&1
+}
+
+gui() {
+  output="$(details 2>&1 || true)"
+  if command -v yad >/dev/null 2>&1 && [ -n "${DISPLAY:-}" ]; then
+    if printf '%s\n' "$output" | grep -q '^Wi-Fi Aware: supported'; then
+      yad --info --center --title 'Wi-Fi Aware' --width=700 \
+        --text="$output" --button=Close:0
+    else
+      yad --warning --center --title 'Wi-Fi Aware' --width=700 \
+        --text="$output" --button=Close:0
+    fi
+    return
+  fi
+  printf '%s\n' "$output"
+}
+
+case "${1:-status}" in
+  status) probe ;;
+  details) details ;;
+  --gui|gui) gui ;;
+  -h|--help|help) usage ;;
+  *) printf 'ooonana-wifi-aware: unknown command: %s\n' "$1" >&2; exit 2 ;;
+esac

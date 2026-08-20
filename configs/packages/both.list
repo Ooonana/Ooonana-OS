@@ -12,6 +12,8 @@ py3-pip
 py3-cairo
 bubblewrap
 xz
+nodejs
+flatpak
 dbus
 dbus-daemon-launch-helper
 doas

@@ -14,8 +14,8 @@ variables:
   OOONANA_REPO_NAME: "gitlab"
   OOONANA_PAGES_MAX_BYTES: "1073741824"
   OOONANA_KERNEL_VERSION: "6.18.37"
-  OOONANA_CORE_VERSION: "0.8.19"
-  OOONANA_OPENVINO_CHAT_VERSION: "0.1.1"
+  OOONANA_CORE_VERSION: "0.8.21"
+  OOONANA_OPENVINO_CHAT_VERSION: "0.1.2"
   OOONANA_KERNEL_PACKAGE_URL: ""
   OOONANA_KERNEL_PACKAGE_SHA256: ""
 
@@ -29,7 +29,7 @@ deploy-package-repo:
   image: alpine:3.20
   stage: deploy
   before_script:
-    - apk add --no-cache bash curl wget tar gzip coreutils findutils gawk grep sed openssl
+    - apk add --no-cache bash curl wget tar gzip coreutils findutils gawk grep sed openssl nodejs npm
   script:
     - |
       bash <<'BASH'

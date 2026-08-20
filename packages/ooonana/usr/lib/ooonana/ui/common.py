@@ -118,9 +118,9 @@ def header(window, title, subtitle="", icon_name="preferences-system-symbolic"):
     window.set_wmclass("ooonana-app", "OoonanaApp")
     bar = Gtk.HeaderBar()
     bar.set_show_close_button(False)
+    bar.set_decoration_layout("")
     bar.set_title(title)
     bar.set_subtitle(subtitle)
-    bar.set_decoration_layout("")
     if icon_name:
         bar.pack_start(icon(icon_name, Gtk.IconSize.LARGE_TOOLBAR))
 

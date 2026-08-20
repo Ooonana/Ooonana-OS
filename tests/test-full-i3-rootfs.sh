@@ -142,7 +142,7 @@ EOF
 chmod +x "$scratch/bin/busybox"
 cat > "$scratch/usr/bin/ooonana" <<'EOF'
 #!/bin/sh
-echo ooonana 0.8.19
+echo ooonana 0.8.21
 EOF
 chmod +x "$scratch/usr/bin/ooonana"
 cat > "$scratch/usr/bin/ooonana-setup" <<'EOF'
@@ -833,7 +833,9 @@ assert_contains "$polybar_cfg" "click-left = i3-msg move scratchpad"
 assert_contains "$polybar_cfg" "click-right = i3-msg scratchpad show"
 assert_contains "$polybar_cfg" "[module/win-full]"
 assert_contains "$polybar_cfg" "click-left = i3-msg fullscreen toggle"
-assert_contains "$polybar_cfg" "modules-left = brand workspaces terminal browser files editor media title win-min win-full win-close"
+assert_contains "$polybar_cfg" "modules-left = brand workspaces terminal browser files editor media windows win-min win-full win-close"
+assert_contains "$polybar_cfg" "[module/windows]"
+assert_contains "$polybar_cfg" "exec = ooonana-window-list"
 assert_contains "$polybar_cfg" "modules-right = audio brightness battery bluetooth wifi date power"
 assert_contains "$polybar_cfg" "exec = ooonana-audio-status"
 assert_contains "$polybar_cfg" "exec = ooonana-wifi-status"

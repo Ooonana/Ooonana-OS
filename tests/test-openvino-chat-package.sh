@@ -30,6 +30,11 @@ setup_dry="$("$PAYLOAD/usr/bin/ooonana-openvino-setup" --dry-run)"
 assert_contains "$setup_dry" "Ubuntu Python venv + openvino-genai"
 assert_contains "$setup_dry" "OOONANA_OPENVINO_SETUP_DRY_OK"
 
+setup_text="$(<"$PAYLOAD/usr/bin/ooonana-openvino-setup")"
+assert_contains "$setup_text" "/tmp/ooonana-openvino-src"
+assert_contains "$setup_text" "pip install --no-cache-dir --upgrade /tmp/ooonana-openvino-src"
+assert_contains "$setup_text" "--exclude='./dev/*'"
+
 launcher_help="$("$PAYLOAD/usr/bin/openvino" --help)"
 assert_contains "$launcher_help" "openvino chat [--device GPU|NPU|CPU]"
 assert_contains "$launcher_help" "Inference works offline"
@@ -41,17 +46,17 @@ assert_contains "$launcher_text" "--unshare-uts"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-built="$(bash "$BUILDER" --out-dir "$tmp/repo" --version 0.1.1)"
+built="$(bash "$BUILDER" --out-dir "$tmp/repo" --version 0.1.2)"
 assert_contains "$built" "openvino-chat.pkg"
 [[ -f "$tmp/repo/openvino-chat.pkg" ]] || fail "missing package metadata"
-[[ -f "$tmp/repo/archives/openvino-chat-0.1.1.tar.gz" ]] || fail "missing package archive"
+[[ -f "$tmp/repo/archives/openvino-chat-0.1.2.tar.gz" ]] || fail "missing package archive"
 
 metadata="$(<"$tmp/repo/openvino-chat.pkg")"
 assert_contains "$metadata" 'OOONANA_PKG_ID="openvino-chat"'
 assert_contains "$metadata" 'OOONANA_PKG_DEPS="bubblewrap xz curl ca-certificates coreutils"'
 assert_contains "$metadata" "Offline Ooonana AI"
 
-contents="$(tar -tzf "$tmp/repo/archives/openvino-chat-0.1.1.tar.gz")"
+contents="$(tar -tzf "$tmp/repo/archives/openvino-chat-0.1.2.tar.gz")"
 assert_contains "$contents" "./usr/bin/openvino"
 assert_contains "$contents" "./usr/bin/ooonana-openvino-setup"
 assert_contains "$contents" "./usr/lib/ooonana/openvino-chat/src/openvino_chat/cli.py"

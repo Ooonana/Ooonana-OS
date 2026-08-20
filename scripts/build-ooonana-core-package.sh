@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR=""
-VERSION="0.8.19"
+VERSION="0.8.21"
 DRY_RUN=0
 
 usage() {
@@ -14,7 +14,7 @@ Usage:
   scripts/build-ooonana-core-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER  Package version (default: 0.8.19)
+  --version VER  Package version (default: 0.8.21)
   --dry-run      Print resolved package details
   -h, --help     Show help
 USAGE
@@ -61,6 +61,18 @@ extract_helper() {
   chmod 0755 "$output"
 }
 
+extract_config() {
+  local marker="$1"
+  local output="$2"
+  awk -v marker="$marker" '
+    index($0, marker) { capture=1; next }
+    capture && $0 == "EOF" { exit }
+    capture { print }
+  ' "$ROOT/scripts/build-full-i3-rootfs.sh" >"$output"
+  [[ -s "$output" ]] || { printf 'missing generated config: %s\n' "$marker" >&2; exit 1; }
+  chmod 0644 "$output"
+}
+
 mkdir -p "$OUT_DIR/archives"
 staging="$(mktemp -d)"
 trap 'rm -rf "$staging"' EXIT
@@ -72,7 +84,35 @@ chmod 0755 "$staging/usr/lib/ooonana/oonana_game.py"
 mkdir -p "$staging/etc/i3"
 install -m 0644 "$ROOT/branding/i3/config" "$staging/etc/i3/config"
 install -m 0644 "$ROOT/branding/i3/config" "$staging/etc/i3/config.keycodes"
-extract_helper 'ROOTFS/usr/bin/ooonana-theme-env' "$staging/usr/bin/ooonana-theme-env"
+for helper in \
+  ooonana-theme-env ooonana-open ooonana-apps ooonana-run-admin \
+  ooonana-browser ooonana-files ooonana-hardware-reprobe \
+  ooonana-wireless-diagnose ooonana-service-repair ooonana-service-watchdog \
+  ooonana-wifi ooonana-bluetooth ooonana-touchpad ooonana-rofi-wifi \
+  ooonana-rofi-bluetooth ooonana-wifi-panel ooonana-wifi-status \
+  ooonana-bluetooth-panel ooonana-bluetooth-status ooonana-rofi-brightness \
+  ooonana-brightness-panel ooonana-audio-panel ooonana-audio-status \
+  ooonana-battery-status ooonana-volume ooonana-rofi-power \
+  ooonana-power-menu ooonana-screenshot ooonana-editor ooonana-processes \
+  ooonana-ranger ooonana-brightness ooonana-brightness-status \
+  ooonana-packages-app ooonana-packages ooonana-settings \
+  ooonana-settings-launch ooonana-installer-gui ooonana-gui-installer \
+  ooonana-install-wizard ooonana-i3-smoke-session ooonana-i3-session \
+  ooonana-i3-installer-session; do
+  extract_helper "ROOTFS/usr/bin/$helper" "$staging/usr/bin/$helper"
+done
+
+for config in \
+  etc/NetworkManager/NetworkManager.conf \
+  etc/bluetooth/main.conf \
+  etc/ooonana/xsettingsd.conf \
+  etc/ooonana/polybar.ini \
+  etc/ooonana/rofi.rasi \
+  etc/ooonana/picom.conf \
+  etc/ooonana/dunstrc; do
+  mkdir -p "$staging/$(dirname "$config")"
+  extract_config "ROOTFS/$config" "$staging/$config"
+done
 mkdir -p "$staging/var/lib/ooonana/packages/files"
 : > "$staging/var/lib/ooonana/packages/files/ooonana-core.list"
 tar -C "$staging" -czf "$archive" .

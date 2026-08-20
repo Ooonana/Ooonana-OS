@@ -117,6 +117,8 @@ main() {
       find "$ROOTFS/lib/firmware" \
         \( -name 'iwlwifi-*' \
         -o -path "$ROOTFS/lib/firmware/intel/ibt-*" \
+        -o -path "$ROOTFS/lib/firmware/intel/sof*" \
+        -o -path "$ROOTFS/lib/firmware/intel/avs/*" \
         -o -path "$ROOTFS/lib/firmware/rtl_bt/*" \
         -o -path "$ROOTFS/lib/firmware/rtl_nic/*" \
         -o -path "$ROOTFS/lib/firmware/rtlwifi/*" \

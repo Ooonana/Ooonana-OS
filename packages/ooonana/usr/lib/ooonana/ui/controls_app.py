@@ -157,8 +157,8 @@ class AudioWindow(Gtk.Window):
     def apply_audio_state(self, data):
         self.output_combo.remove_all()
         self.input_combo.remove_all()
-        outputs = data["outputs"]
-        inputs = data["inputs"]
+        outputs = [item for item in data["outputs"] if not item[0].startswith("auto_null")]
+        inputs = [item for item in data["inputs"] if not item[0].startswith("auto_null")]
         for device_id, title in outputs:
             self.output_combo.append(device_id, title)
         for device_id, title in inputs:
@@ -176,11 +176,12 @@ class AudioWindow(Gtk.Window):
                 pass
         self.muted = data["mute_rc"] == 0 and data["mute"].endswith("yes")
         self.update_mute_label()
-        self.status.set_text(
-            f"Audio service ready | {len(outputs)} output(s) | {len(inputs)} input(s)"
-            if outputs or inputs
-            else data["service_output"] or "Audio service runs, but no output or input is exposed. Open Diagnostics."
-        )
+        if outputs or inputs:
+            self.status.set_text(f"Audio ready | {len(outputs)} output(s) | {len(inputs)} input(s)")
+        elif data["service_rc"] == 0:
+            self.status.set_text("Audio server ready, but no physical ALSA card detected. Use Repair audio, then Diagnostics.")
+        else:
+            self.status.set_text(data["service_output"] or "Audio server is unavailable. Use Repair audio.")
 
     def refresh_audio(self):
         self.status.set_text("Checking audio service...")
@@ -202,13 +203,20 @@ class AudioWindow(Gtk.Window):
     def repair_audio(self, widget):
         widget.set_sensitive(False)
 
+        def task():
+            probe_rc, probe_output = run(["ooonana-audio-hardware-reprobe"], admin=True, timeout=35)
+            audio_rc, audio_output = run(["ooonana-audio-start", "--restart"], timeout=25)
+            if audio_rc != 0:
+                return audio_rc, audio_output
+            return probe_rc, probe_output
+
         def done(rc, output):
             widget.set_sensitive(True)
             self.refresh_audio()
             if rc != 0:
                 message(self, "Audio repair failed", output or "Audio server did not become ready.", Gtk.MessageType.ERROR)
 
-        run_async(["ooonana-audio-start", "--restart"], done, timeout=25)
+        run_async_task(task, done)
 
     def show_diagnostics(self, _widget):
         self.status.set_text("Collecting audio diagnostics...")
@@ -221,6 +229,7 @@ class AudioWindow(Gtk.Window):
                 ("Inputs", ["pactl", "list", "short", "sources"]),
                 ("ALSA playback", ["aplay", "-l"]),
                 ("ALSA capture", ["arecord", "-l"]),
+                ("Hardware probe", ["ooonana-audio-hardware-reprobe", "--report"]),
             ):
                 rc, output = run(command, timeout=8)
                 sections.append(f"{title}:\n{output or 'unavailable'}" if rc == 0 else f"{title}:\n{output or 'failed'}")

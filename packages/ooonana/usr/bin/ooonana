@@ -3,7 +3,7 @@
 # shellcheck disable=SC1090,SC3043
 set -eu
 
-VERSION="0.8.19"
+VERSION="0.8.21"
 HOME_DIR="${HOME:-/root}"
 if [ -n "${OOONANA_AI_CONFIG:-}" ]; then
   AI_CONFIG="$OOONANA_AI_CONFIG"
@@ -94,6 +94,7 @@ Most used commands:
   me - show Ooonana logo
   wsl - check WSL helper distro
   ai - open Ooonana AI commands
+  wine - run Windows applications through Wine compatibility
 
 Aliases:
   get/install/add install packages
@@ -173,6 +174,23 @@ What happens:
   - records installed metadata under /var/lib/ooonana/packages
 
 Only Ooonana repos are fetched. Target OS does not live-fetch Alpine APKs.
+USAGE
+}
+
+usage_wine() {
+  cat <<'USAGE'
+Windows application compatibility:
+  ooonana update
+  ooonana get wine
+  ooonana wine setup
+  ooonana wine run /path/to/installer.exe
+
+Optional bundled installer:
+  ooonana get ooonana-chat-windows
+  ooonana-chat-windows
+
+Wine runs Windows applications through a separate compatibility runtime. It
+does not convert an .exe into a native Linux application.
 USAGE
 }
 
@@ -371,6 +389,7 @@ cmd_help() {
     fix|repair) usage_upgrade ;;
     repo|repos|sources) usage_repo_help ;;
     ai|agent|agents) usage_ai_help ;;
+    wine|windows) usage_wine ;;
     ui|gui|i3|theme|desktop) usage_ui_help ;;
     all)
       usage_main
@@ -429,6 +448,7 @@ reset_pkg_vars() {
   LOADED_REPO_URI=""
   LOADED_REPO_KEY=""
   LOADED_PKG_VERIFIED=0
+  LOADED_ARCHIVE_SHA256=""
 }
 
 reset_repo_vars() {
@@ -752,13 +772,16 @@ load_repo_source_file() {
 }
 
 repo_sources() {
-  printf 'builtin\t%s\t%s\n' "$REPO_DIR" "${OOONANA_BUILTIN_REPO_KEY:-}"
-  [ -d "$SOURCES_DIR" ] || return 0
-  for source_file in "$SOURCES_DIR"/*.repo; do
-    [ -f "$source_file" ] || continue
-    load_repo_source_file "$source_file"
-    printf '%s\t%s\t%s\n' "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI" "$OOONANA_REPO_KEY"
-  done
+  {
+    printf 'builtin\t%s\t%s\n' "$REPO_DIR" "${OOONANA_BUILTIN_REPO_KEY:-}"
+    if [ -d "$SOURCES_DIR" ]; then
+      for source_file in "$SOURCES_DIR"/*.repo; do
+        [ -f "$source_file" ] || continue
+        load_repo_source_file "$source_file"
+        printf '%s\t%s\t%s\n' "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI" "$OOONANA_REPO_KEY"
+      done
+    fi
+  } | awk '!seen[$0]++'
 }
 
 repo_checksum_entry_missing() {
@@ -999,6 +1022,7 @@ verify_repo_checksum() {
   rel_path="$2"
   repo_key="${3:-}"
   sums_file="$repo_path/SHA256SUMS"
+  VERIFIED_REPO_SHA256=""
   [ -f "$sums_file" ] || return 0
   verify_repo_signature "$repo_path" "$repo_key"
   target="$repo_path/$rel_path"
@@ -1007,6 +1031,7 @@ verify_repo_checksum() {
   [ -n "$expected" ] || die "missing checksum: $rel_path"
   actual="$(sha256_file "$target")"
   [ "$actual" = "$expected" ] || die "sha256 mismatch: $rel_path"
+  VERIFIED_REPO_SHA256="$actual"
 }
 
 verify_loaded_pkg_file() {
@@ -1022,7 +1047,10 @@ verify_loaded_archive_file() {
   [ -n "${OOONANA_PKG_ARCHIVE:-}" ] || return 0
   case "$OOONANA_PKG_ARCHIVE" in
     /*) return 0 ;;
-    *) verify_repo_checksum "$LOADED_REPO_DIR" "$OOONANA_PKG_ARCHIVE" "${LOADED_REPO_KEY:-}" ;;
+    *)
+      verify_repo_checksum "$LOADED_REPO_DIR" "$OOONANA_PKG_ARCHIVE" "${LOADED_REPO_KEY:-}"
+      LOADED_ARCHIVE_SHA256="${VERIFIED_REPO_SHA256:-}"
+      ;;
   esac
 }
 
@@ -1376,18 +1404,35 @@ verify_pkg_archive() {
   archive_path="$2"
   [ -f "$archive_path" ] || die "missing archive: $OOONANA_PKG_ARCHIVE"
   if [ -n "$OOONANA_PKG_SHA256" ]; then
-    have sha256sum || die "missing command: sha256sum"
-    actual="$(sha256sum "$archive_path" | awk '{print $1}')"
+    if [ -n "${LOADED_ARCHIVE_SHA256:-}" ]; then
+      actual="$LOADED_ARCHIVE_SHA256"
+    else
+      have sha256sum || die "missing command: sha256sum"
+      actual="$(sha256sum "$archive_path" | awk '{print $1}')"
+    fi
     [ "$actual" = "$OOONANA_PKG_SHA256" ] || die "sha256 mismatch: $id"
   fi
 }
 
 tar_list_archive() {
   archive_path="$1"
-  if tar --quoting-style=literal -tzf "$archive_path" >/dev/null 2>&1; then
-    tar --quoting-style=literal -tzf "$archive_path"
+  if tar --absolute-names --quoting-style=literal -tzf "$archive_path" >/dev/null 2>&1; then
+    tar --absolute-names --quoting-style=literal -tzf "$archive_path"
+  elif tar -P -tzf "$archive_path" >/dev/null 2>&1; then
+    tar -P -tzf "$archive_path"
   else
     tar -tzf "$archive_path"
+  fi
+}
+
+tar_verbose_archive() {
+  archive_path="$1"
+  if tar --absolute-names --quoting-style=literal -tvzf "$archive_path" >/dev/null 2>&1; then
+    tar --absolute-names --quoting-style=literal -tvzf "$archive_path"
+  elif tar -P -tvzf "$archive_path" >/dev/null 2>&1; then
+    tar -P -tvzf "$archive_path"
+  else
+    tar -tvzf "$archive_path"
   fi
 }
 
@@ -1401,6 +1446,23 @@ validate_archive_entries() {
     case "$clean_entry" in
       /*|../*|*/../*|..)
         die "unsafe archive path in $id: $entry"
+        ;;
+    esac
+  done
+  tar_verbose_archive "$archive_path" | while IFS= read -r entry; do
+    entry_type="${entry%"${entry#?}"}"
+    case "$entry_type" in
+      b|c|p)
+        die "unsafe archive entry type in $id: $entry_type"
+        ;;
+      h)
+        case "$entry" in
+          *" link to "*) link_target="${entry##* link to }" ;;
+          *) die "unsafe archive hardlink in $id: missing target" ;;
+        esac
+        clean_target="${link_target#./}"
+        safe_manifest_entry "$clean_target" ||
+          die "unsafe archive hardlink in $id: $link_target"
         ;;
     esac
   done
@@ -1561,6 +1623,15 @@ cmd_setup() {
   fi
   [ -x "$setup_bin" ] || die "missing setup command: $setup_bin"
   exec "$setup_bin" "$@"
+}
+
+cmd_wine() {
+  wine_bin="${SCRIPT_DIR}/ooonana-wine"
+  if [ ! -x "$wine_bin" ]; then
+    wine_bin="$(root_join /usr/bin/ooonana-wine)"
+  fi
+  [ -x "$wine_bin" ] || die "Wine compatibility missing: run ooonana get wine"
+  exec "$wine_bin" "$@"
 }
 
 select_best_index_entries() {
@@ -2702,6 +2773,9 @@ main() {
     clean) cmd_clean "$@" ;;
     ai)
       cmd_ai "$@"
+      ;;
+    wine)
+      cmd_wine "$@"
       ;;
     help|usage|--help|-h) cmd_help "$@" ;;
     *) usage; exit 1 ;;

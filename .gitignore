@@ -8,3 +8,4 @@ docs/ooonana-pdf-chrome-*.png
 __pycache__/
 *.pyc
 /tmp/
+packages/ooonana-chat-windows/source/*.exe

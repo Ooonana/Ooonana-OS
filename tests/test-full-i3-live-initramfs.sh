@@ -60,6 +60,8 @@ ln -s intel/iwlwifi/iwlwifi-test.ucode "$tmp/rootfs/lib/firmware/iwlwifi-test-li
 mkdir -p "$tmp/rootfs/lib/firmware/intel/iwlwifi"
 printf 'iwl-target\n' > "$tmp/rootfs/lib/firmware/intel/iwlwifi/iwlwifi-test.ucode"
 printf 'ibt\n' > "$tmp/rootfs/lib/firmware/intel/ibt-test.sfi"
+mkdir -p "$tmp/rootfs/lib/firmware/intel/sof-ipc4/mtl"
+printf 'sof\n' > "$tmp/rootfs/lib/firmware/intel/sof-ipc4/mtl/sof-mtl.ri"
 printf 'rtlbt\n' > "$tmp/rootfs/lib/firmware/rtl_bt/rtl8761bu_fw.bin"
 printf 'rtw89\n' > "$tmp/rootfs/lib/firmware/rtw89/rtw8852b_fw.bin"
 printf 'full-i3\n' > "$tmp/rootfs/etc/ooonana/edition"
@@ -131,6 +133,8 @@ assert_contains "$script_src" "iwlwifi-*"
 assert_contains "$script_src" '-type l'
 assert_contains "$script_src" 'cp -a "$fw"'
 assert_contains "$script_src" "intel/ibt-*"
+assert_contains "$script_src" "intel/sof*"
+assert_contains "$script_src" "intel/avs/*"
 assert_contains "$script_src" "rtl_bt"
 assert_contains "$script_src" "rtw89"
 assert_contains "$script_src" '[ -e /proc/sys/kernel/hotplug ]'

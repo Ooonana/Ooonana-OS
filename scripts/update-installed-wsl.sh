@@ -16,7 +16,7 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 case "${WSL_DISTRO_NAME:-}" in
-  Ooonana) ;;
+  Ooonana|ooonana) ;;
   "") ;;
   *)
     echo "update-installed-wsl: refusing non-Ooonana distro: $WSL_DISTRO_NAME" >&2
@@ -54,6 +54,18 @@ extract_block() {
   ' "$ROOT/scripts/build-full-i3-rootfs.sh" >"$output"
   [ -s "$output" ] || { echo "cannot extract $marker" >&2; exit 1; }
   chmod 0755 "$output"
+}
+
+extract_config() {
+  marker="$1"
+  output="$2"
+  awk -v marker="$marker" '
+    index($0, marker) { capture=1; next }
+    capture && $0 == "EOF" { exit }
+    capture { print }
+  ' "$ROOT/scripts/build-full-i3-rootfs.sh" >"$output"
+  [ -s "$output" ] || { echo "cannot extract $marker" >&2; exit 1; }
+  chmod 0644 "$output"
 }
 
 work="$(mktemp -d)"
@@ -108,12 +120,33 @@ fi
 
 for helper in \
   ooonana-theme-env \
+  ooonana-open ooonana-apps ooonana-run-admin ooonana-browser ooonana-files \
   ooonana-hardware-reprobe ooonana-wireless-diagnose ooonana-service-repair \
-  ooonana-run-admin ooonana-wifi ooonana-wifi-panel ooonana-wifi-status \
-  ooonana-audio-panel ooonana-audio-status ooonana-rofi-power ooonana-power-menu \
-  ooonana-apps; do
+  ooonana-service-watchdog ooonana-wifi ooonana-bluetooth ooonana-touchpad \
+  ooonana-rofi-wifi ooonana-rofi-bluetooth ooonana-wifi-panel \
+  ooonana-wifi-status ooonana-bluetooth-panel ooonana-bluetooth-status \
+  ooonana-rofi-brightness ooonana-brightness-panel ooonana-audio-panel \
+  ooonana-audio-status ooonana-battery-status ooonana-volume \
+  ooonana-rofi-power ooonana-power-menu ooonana-screenshot ooonana-editor \
+  ooonana-processes ooonana-ranger ooonana-brightness \
+  ooonana-brightness-status ooonana-packages-app ooonana-packages \
+  ooonana-settings ooonana-settings-launch ooonana-installer-gui \
+  ooonana-gui-installer ooonana-install-wizard ooonana-i3-smoke-session \
+  ooonana-i3-session ooonana-i3-installer-session; do
   extract_block "ROOTFS/usr/bin/$helper" "$work/$helper"
   install -m 0755 "$work/$helper" "/usr/bin/$helper"
+done
+
+for config in \
+  etc/NetworkManager/NetworkManager.conf \
+  etc/bluetooth/main.conf \
+  etc/ooonana/xsettingsd.conf \
+  etc/ooonana/polybar.ini \
+  etc/ooonana/rofi.rasi \
+  etc/ooonana/picom.conf \
+  etc/ooonana/dunstrc; do
+  extract_config "ROOTFS/$config" "$work/config"
+  install -D -m 0644 "$work/config" "/$config"
 done
 
 if ! command -v doas >/dev/null 2>&1 ||

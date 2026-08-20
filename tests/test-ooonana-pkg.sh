@@ -47,7 +47,7 @@ export OOONANA_CACHE_DIR="$tmp/cache"
 export OOONANA_ROOT="$tmp/root"
 
 help="$("$CLI" help)"
-assert_contains "$help" "ooonana 0.8.19"
+assert_contains "$help" "ooonana 0.8.21"
 assert_contains "$help" "Usage: ooonana [options] command"
 assert_contains "$help" "Most used commands:"
 assert_contains "$help" "  list - list packages based on names or installed state"
@@ -262,6 +262,10 @@ cat > "$sources_dir/extra.repo" <<EOF
 OOONANA_REPO_NAME="extra"
 OOONANA_REPO_URI="$extra_repo"
 EOF
+cat > "$sources_dir/extra-duplicate.repo" <<EOF
+OOONANA_REPO_NAME="extra"
+OOONANA_REPO_URI="$extra_repo"
+EOF
 
 multi_update="$(OOONANA_SOURCES_DIR="$sources_dir" "$CLI" update)"
 assert_contains "$multi_update" "from 2 source(s)"
@@ -271,6 +275,8 @@ assert_contains "$(<"$OOONANA_CACHE_DIR/index.tsv")" "editor"
 multi_sources="$(OOONANA_SOURCES_DIR="$sources_dir" "$CLI" sources)"
 assert_contains "$multi_sources" "extra"
 assert_contains "$multi_sources" "$extra_repo"
+[[ "$(printf '%s\n' "$multi_sources" | grep -c "^extra[[:space:]]")" -eq 1 ]] ||
+  fail "sources did not deduplicate identical repo entries"
 
 repo_doctor="$(OOONANA_SOURCES_DIR="$sources_dir" "$CLI" repo doctor)"
 assert_contains "$repo_doctor" "builtin: ok"
@@ -1079,6 +1085,76 @@ OOONANA_PKG_DEPS=""
 OOONANA_PKG_ARCHIVE="hello.tar.gz"
 OOONANA_PKG_SHA256="$archive_sha"
 EOF
+
+mkdir -p "$tmp/special-payload"
+mkfifo "$tmp/special-payload/device"
+tar -C "$tmp/special-payload" -czf "$archive_repo/special.tar.gz" .
+special_sha="$(sha256sum "$archive_repo/special.tar.gz" | awk '{print $1}')"
+cat > "$archive_repo/special.pkg" <<EOF
+OOONANA_PKG_ID="special"
+OOONANA_PKG_VERSION="1.0.0"
+OOONANA_PKG_KIND="archive"
+OOONANA_PKG_SUMMARY="Unsafe special file archive"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_ARCHIVE="special.tar.gz"
+OOONANA_PKG_SHA256="$special_sha"
+EOF
+special_install="$(OOONANA_REPO_DIR="$archive_repo" \
+  OOONANA_STATE_DIR="$tmp/special-state" \
+  OOONANA_CACHE_DIR="$tmp/special-cache" \
+  OOONANA_ROOT="$tmp/special-root" \
+  "$CLI" get special 2>&1 || true)"
+assert_contains "$special_install" "unsafe archive entry type in special: p"
+
+mkdir -p "$tmp/hardlink-payload/usr/share/hardlink"
+printf 'linked-data\n' > "$tmp/hardlink-payload/usr/share/hardlink/source"
+ln "$tmp/hardlink-payload/usr/share/hardlink/source" \
+  "$tmp/hardlink-payload/usr/share/hardlink/alias"
+tar -C "$tmp/hardlink-payload" -czf "$archive_repo/hardlink.tar.gz" .
+hardlink_sha="$(sha256sum "$archive_repo/hardlink.tar.gz" | awk '{print $1}')"
+cat > "$archive_repo/hardlink.pkg" <<EOF
+OOONANA_PKG_ID="hardlink"
+OOONANA_PKG_VERSION="1.0.0"
+OOONANA_PKG_KIND="archive"
+OOONANA_PKG_SUMMARY="Safe hardlink archive"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_ARCHIVE="hardlink.tar.gz"
+OOONANA_PKG_SHA256="$hardlink_sha"
+EOF
+OOONANA_REPO_DIR="$archive_repo" \
+  OOONANA_STATE_DIR="$tmp/hardlink-state" \
+  OOONANA_CACHE_DIR="$tmp/hardlink-cache" \
+  OOONANA_ROOT="$tmp/hardlink-root" \
+  "$CLI" get hardlink >/dev/null
+[[ "$(cat "$tmp/hardlink-root/usr/share/hardlink/alias")" == "linked-data" ]] ||
+  fail "safe archive hardlink was not installed"
+
+python3 - "$archive_repo/unsafe-hardlink.tar.gz" <<'PY'
+import tarfile
+import sys
+
+with tarfile.open(sys.argv[1], "w:gz") as archive:
+    member = tarfile.TarInfo("./usr/share/hardlink/escape")
+    member.type = tarfile.LNKTYPE
+    member.linkname = "../../outside"
+    archive.addfile(member)
+PY
+unsafe_hardlink_sha="$(sha256sum "$archive_repo/unsafe-hardlink.tar.gz" | awk '{print $1}')"
+cat > "$archive_repo/unsafe-hardlink.pkg" <<EOF
+OOONANA_PKG_ID="unsafe-hardlink"
+OOONANA_PKG_VERSION="1.0.0"
+OOONANA_PKG_KIND="archive"
+OOONANA_PKG_SUMMARY="Unsafe hardlink archive"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_ARCHIVE="unsafe-hardlink.tar.gz"
+OOONANA_PKG_SHA256="$unsafe_hardlink_sha"
+EOF
+unsafe_hardlink_install="$(OOONANA_REPO_DIR="$archive_repo" \
+  OOONANA_STATE_DIR="$tmp/unsafe-hardlink-state" \
+  OOONANA_CACHE_DIR="$tmp/unsafe-hardlink-cache" \
+  OOONANA_ROOT="$tmp/unsafe-hardlink-root" \
+  "$CLI" get unsafe-hardlink 2>&1 || true)"
+assert_contains "$unsafe_hardlink_install" "unsafe archive hardlink in unsafe-hardlink: ../../outside"
 
 archive_dry="$(OOONANA_REPO_DIR="$archive_repo" \
   OOONANA_STATE_DIR="$tmp/archive-state" \

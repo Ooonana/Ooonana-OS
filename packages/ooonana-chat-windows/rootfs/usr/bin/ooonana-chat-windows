@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+
+exec /usr/bin/ooonana-wine run '/opt/ooonana-wine/OoonanaChat Setup 1.0.0.exe'

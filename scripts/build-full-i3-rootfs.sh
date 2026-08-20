@@ -1561,6 +1561,13 @@ set -eu
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 if command -v pactl >/dev/null 2>&1 && pactl info >/dev/null 2>&1; then
+  sink="$(pactl get-default-sink 2>/dev/null || true)"
+  case "$sink" in
+    ''|auto_null|auto_null.*)
+      printf '\357\200\246 no card\n'
+      exit 0
+      ;;
+  esac
   muted="$(pactl get-sink-mute @DEFAULT_SINK@ 2>/dev/null | awk '{ print $2 }')"
   volume="$(pactl get-sink-volume @DEFAULT_SINK@ 2>/dev/null | awk -F/ 'NR == 1 { gsub(/[ %]/, "", $2); print $2; exit }')"
   case "$volume" in ''|*[!0-9]*) volume=0 ;; esac
@@ -1775,18 +1782,7 @@ fi
 case "$value" in
   ''|*[!0-9]*) value=0 ;;
 esac
-filled=$(( (value + 9) / 10 ))
-bar=""
-i=1
-while [ "$i" -le 10 ]; do
-  if [ "$i" -le "$filled" ]; then
-    bar="${bar}#"
-  else
-    bar="${bar}-"
-  fi
-  i=$((i + 1))
-done
-printf ' %s %s%%\n' "$bar" "$value"
+printf ' %s%%\n' "$value"
 EOF
 
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-packages-app" <<'EOF'
@@ -2311,7 +2307,7 @@ font-2 = "Font Awesome 6 Free Solid:size=10;2"
 font-3 = "Font Awesome 5 Free Solid:size=10;2"
 font-4 = "Font Awesome 6 Brands:size=10;2"
 font-5 = "Font Awesome 5 Brands:size=10;2"
-modules-left = brand workspaces terminal browser files editor media title win-min win-full win-close
+modules-left = brand workspaces terminal browser files editor media windows win-min win-full win-close
 modules-center =
 modules-right = audio brightness battery bluetooth wifi date power
 tray-position = right
@@ -2439,6 +2435,16 @@ label-empty = desktop
 label-foreground = ${colors.accent}
 label-background = ${colors.background}
 label-padding = 2
+
+[module/windows]
+type = custom/script
+exec = ooonana-window-list
+interval = 1
+label = %output%
+label-foreground = ${colors.accent}
+label-background = ${colors.background}
+label-padding = 2
+click-left = ooonana-window-list --menu
 
 [module/wifi]
 type = custom/script
@@ -3711,7 +3717,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   version_output="$(/usr/bin/ooonana version 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.8.19' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.8.21' &&
     printf '%s\n' "$installed_output" | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else
@@ -4151,6 +4157,9 @@ main() {
     "$ROOTFS/usr/bin/neofetch" \
     "$ROOTFS/usr/bin/ooonana-neofetch" \
     "$ROOTFS/usr/bin/ooonana-audio-start" \
+    "$ROOTFS/usr/bin/ooonana-audio-hardware-reprobe" \
+    "$ROOTFS/usr/bin/ooonana-wifi-aware" \
+    "$ROOTFS/usr/bin/ooonana-window-list" \
     "$ROOTFS/usr/bin/which" \
     "$ROOTFS/usr/bin/strings" \
     "$ROOTFS/usr/bin/ooonana-settings-launch" \

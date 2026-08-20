@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=OoonanaChat (Windows)
+Comment=Launch the OoonanaChat Windows installer through Wine
+Exec=ooonana-chat-windows
+Icon=applications-internet
+Terminal=false
+Categories=Network;Chat;

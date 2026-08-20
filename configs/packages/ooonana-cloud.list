@@ -9,3 +9,5 @@ ca-certificates-bundle
 python3
 bubblewrap
 xz
+nodejs
+flatpak

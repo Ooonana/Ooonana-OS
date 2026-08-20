@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+import json
+import subprocess
+import sys
+
+
+def tree():
+    try:
+        output = subprocess.check_output(
+            ["i3-msg", "-t", "get_tree"], text=True, stderr=subprocess.DEVNULL, timeout=3
+        )
+        return json.loads(output)
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
+        return {}
+
+
+def leaves(node):
+    found = []
+    if node.get("window") is not None and node.get("name"):
+        found.append(node)
+    for key in ("nodes", "floating_nodes"):
+        for child in node.get(key, []):
+            found.extend(leaves(child))
+    return found
+
+
+def windows():
+    items = []
+    for node in leaves(tree()):
+        con_id = node.get("id")
+        if not isinstance(con_id, int):
+            continue
+        name = " ".join(str(node.get("name", "")).split()) or "window"
+        items.append((con_id, name, bool(node.get("focused"))))
+    return items
+
+
+def compact(items):
+    if not items:
+        return "desktop"
+    focused = [item for item in items if item[2]]
+    rest = [item for item in items if not item[2]]
+    ordered = focused + rest
+    labels = []
+    for _con_id, name, active in ordered[:3]:
+        label = name[:24] + ("..." if len(name) > 24 else "")
+        labels.append(("* " if active else "") + label)
+    if len(ordered) > 3:
+        labels.append(f"+{len(ordered) - 3}")
+    return " | ".join(labels)
+
+
+def menu(items):
+    if not items:
+        return
+    choices = [f"{'* ' if active else '  '}{name}" for _con_id, name, active in items]
+    try:
+        result = subprocess.run(
+            ["rofi", "-dmenu", "-i", "-p", "Windows", "-format", "i"],
+            input="\n".join(choices) + "\n",
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=30,
+            check=False,
+        )
+        selected = int(result.stdout.strip())
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return
+    if 0 <= selected < len(items):
+        subprocess.run(["i3-msg", f"[con_id={items[selected][0]}] focus"], check=False)
+
+
+def main():
+    items = windows()
+    if len(sys.argv) > 1 and sys.argv[1] == "--menu":
+        menu(items)
+        return
+    print(compact(items))
+
+
+if __name__ == "__main__":
+    main()

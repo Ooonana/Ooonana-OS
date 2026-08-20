@@ -22,8 +22,17 @@ IMPORT_I3_SCRIPT="${OOONANA_IMPORT_I3_SCRIPT:-$ROOT/scripts/import-i3-package-se
 KERNEL_PACKAGE_SCRIPT="${OOONANA_KERNEL_PACKAGE_SCRIPT:-$ROOT/scripts/build-kernel-package.sh}"
 CORE_PACKAGE_SCRIPT="${OOONANA_CORE_PACKAGE_SCRIPT:-$ROOT/scripts/build-ooonana-core-package.sh}"
 OPENVINO_CHAT_PACKAGE_SCRIPT="${OOONANA_OPENVINO_CHAT_PACKAGE_SCRIPT:-$ROOT/scripts/build-openvino-chat-package.sh}"
-OPENVINO_CHAT_PACKAGE_VERSION="${OOONANA_OPENVINO_CHAT_VERSION:-0.1.1}"
-CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.8.19}"
+DEVICECHAT_PACKAGE_SCRIPT="${OOONANA_DEVICECHAT_PACKAGE_SCRIPT:-$ROOT/scripts/build-devicechat-package.sh}"
+WINE_COMPAT_PACKAGE_SCRIPT="${OOONANA_WINE_COMPAT_PACKAGE_SCRIPT:-$ROOT/scripts/build-wine-compat-package.sh}"
+WINDOWS_CHAT_PACKAGE_SCRIPT="${OOONANA_WINDOWS_CHAT_PACKAGE_SCRIPT:-$ROOT/scripts/build-ooonana-chat-windows-package.sh}"
+OPENVINO_CHAT_PACKAGE_VERSION="${OOONANA_OPENVINO_CHAT_VERSION:-0.1.2}"
+DEVICECHAT_PACKAGE_VERSION="${OOONANA_DEVICECHAT_VERSION:-0.1.0}"
+WINE_COMPAT_PACKAGE_VERSION="${OOONANA_WINE_COMPAT_VERSION:-1.0.0}"
+WINDOWS_CHAT_PACKAGE_VERSION="${OOONANA_WINDOWS_CHAT_VERSION:-1.0.0}"
+DEVICECHAT_SOURCE="${OOONANA_DEVICECHAT_SOURCE:-$ROOT/packages/devicechat/source/devicechat-0.1.0.tgz}"
+WINDOWS_CHAT_SOURCE="${OOONANA_OONANA_CHAT_WINDOWS_SOURCE:-$ROOT/packages/ooonana-chat-windows/source/OoonanaChat Setup 1.0.0.exe}"
+NATIVE_APK_PACKAGES="nodejs flatpak"
+CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.8.21}"
 KERNEL_PACKAGE_PATH="${OOONANA_KERNEL_PACKAGE_PATH:-}"
 KERNEL_PACKAGE_URL="${OOONANA_KERNEL_PACKAGE_URL:-}"
 KERNEL_PACKAGE_SHA256="${OOONANA_KERNEL_SHA256:-}"
@@ -50,8 +59,15 @@ Options:
   --kernel-url URL        Add Ooonana kernel package from remote kernel image
   --kernel-sha256 SHA256  Require this SHA-256 for the kernel image
   --kernel-version VER    Kernel package version (default: 6.18.37)
-  --core-version VER      Ooonana system update package version (default: 0.8.19)
-  --openvino-version VER  OpenVINO Chat package version (default: 0.1.1)
+  --core-version VER      Ooonana system update package version (default: 0.8.21)
+  --openvino-version VER  OpenVINO Chat package version (default: 0.1.2)
+  --devicechat-version VER Native DeviceChat package version (default: 0.1.0)
+  --wine-version VER      Wine compatibility package version (default: 1.0.0)
+  --windows-chat-version VER
+                       OoonanaChat Windows package version (default: 1.0.0)
+  --devicechat-source PATH DeviceChat npm tarball
+  --windows-chat-source PATH
+                       Optional OoonanaChat Windows .exe installer
   --clean                 Delete output dir before build
   --dry-run               Print resolved build command only
   -h, --help              Show help
@@ -82,6 +98,11 @@ while [[ $# -gt 0 ]]; do
     --kernel-version) KERNEL_PACKAGE_VERSION="$2"; shift 2 ;;
     --core-version) CORE_PACKAGE_VERSION="$2"; shift 2 ;;
     --openvino-version) OPENVINO_CHAT_PACKAGE_VERSION="$2"; shift 2 ;;
+    --devicechat-version) DEVICECHAT_PACKAGE_VERSION="$2"; shift 2 ;;
+    --wine-version) WINE_COMPAT_PACKAGE_VERSION="$2"; shift 2 ;;
+    --windows-chat-version) WINDOWS_CHAT_PACKAGE_VERSION="$2"; shift 2 ;;
+    --devicechat-source) DEVICECHAT_SOURCE="$2"; shift 2 ;;
+    --windows-chat-source) WINDOWS_CHAT_SOURCE="$2"; shift 2 ;;
     --clean) CLEAN=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -175,6 +196,23 @@ verify_repo_profile() {
   rm -rf "$work"
 }
 
+verify_repo_packages() {
+  local packages="$*"
+  local work
+
+  work="$(mktemp -d)"
+  mkdir -p "$work/sources" "$work/state" "$work/cache"
+  if ! OOONANA_REPO_DIR="$OUT_DIR" \
+    OOONANA_SOURCES_DIR="$work/sources" \
+    OOONANA_STATE_DIR="$work/state" \
+    OOONANA_CACHE_DIR="$work/cache" \
+    "$ROOT/packages/ooonana/usr/bin/ooonana" install $packages --dry-run >/dev/null; then
+    rm -rf "$work"
+    ooonana_die "package repo has an incomplete native package dependency closure"
+  fi
+  rm -rf "$work"
+}
+
 main() {
   ooonana_require_linux
   ooonana_require_commands awk basename cat cp mkdir mktemp rm sed tr
@@ -214,6 +252,7 @@ main() {
     else
       ooonana_print_command bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" $package_list
     fi
+    ooonana_print_command bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --no-index $NATIVE_APK_PACKAGES
     if [[ -n "$KERNEL_PACKAGE_PATH" || -n "$KERNEL_PACKAGE_URL" ]]; then
       kernel_source="$KERNEL_PACKAGE_PATH"
       [[ -n "$kernel_source" ]] || kernel_source="$KERNEL_PACKAGE_URL"
@@ -221,6 +260,13 @@ main() {
     fi
     ooonana_print_command bash "$CORE_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$CORE_PACKAGE_VERSION"
     ooonana_print_command bash "$OPENVINO_CHAT_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$OPENVINO_CHAT_PACKAGE_VERSION"
+    ooonana_print_command bash "$DEVICECHAT_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$DEVICECHAT_PACKAGE_VERSION" --source "$DEVICECHAT_SOURCE"
+    ooonana_print_command bash "$WINE_COMPAT_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$WINE_COMPAT_PACKAGE_VERSION"
+    if [[ -f "$WINDOWS_CHAT_SOURCE" ]]; then
+      ooonana_print_command bash "$WINDOWS_CHAT_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$WINDOWS_CHAT_PACKAGE_VERSION" --source "$WINDOWS_CHAT_SOURCE"
+    else
+      printf 'windows-chat: skipped (source missing: %s)\n' "$WINDOWS_CHAT_SOURCE"
+    fi
     return 0
   fi
 
@@ -232,6 +278,10 @@ main() {
     # shellcheck disable=SC2086
     bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" $package_list
   fi
+  # Compatibility packages belong in the repo but not in the full-i3 install
+  # profile. Import their dependencies without adding them to the desktop bundle.
+  # shellcheck disable=SC2086
+  bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --no-index $NATIVE_APK_PACKAGES
   if [[ -n "$KERNEL_PACKAGE_PATH" || -n "$KERNEL_PACKAGE_URL" ]]; then
     kernel_source="$KERNEL_PACKAGE_PATH"
     [[ -n "$kernel_source" ]] || kernel_source="$KERNEL_PACKAGE_URL"
@@ -243,6 +293,23 @@ main() {
   fi
   bash "$CORE_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$CORE_PACKAGE_VERSION"
   bash "$OPENVINO_CHAT_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$OPENVINO_CHAT_PACKAGE_VERSION"
+  bash "$DEVICECHAT_PACKAGE_SCRIPT" \
+    --out-dir "$OUT_DIR" \
+    --version "$DEVICECHAT_PACKAGE_VERSION" \
+    --source "$DEVICECHAT_SOURCE"
+  bash "$WINE_COMPAT_PACKAGE_SCRIPT" \
+    --out-dir "$OUT_DIR" \
+    --version "$WINE_COMPAT_PACKAGE_VERSION"
+  windows_chat_built=0
+  if [[ -f "$WINDOWS_CHAT_SOURCE" ]]; then
+    bash "$WINDOWS_CHAT_PACKAGE_SCRIPT" \
+      --out-dir "$OUT_DIR" \
+      --version "$WINDOWS_CHAT_PACKAGE_VERSION" \
+      --source "$WINDOWS_CHAT_SOURCE"
+    windows_chat_built=1
+  else
+    ooonana_log "optional OoonanaChat Windows package skipped: $WINDOWS_CHAT_SOURCE"
+  fi
   [[ -s "$OUT_DIR/dbus-daemon-launch-helper.pkg" ]] ||
     ooonana_die "core update requires dbus-daemon-launch-helper in package profile"
   seed_builtin_metadata
@@ -252,6 +319,9 @@ main() {
     chmod 0644 "$OUT_DIR/repo.pub" 2>/dev/null || true
   fi
   "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$OUT_DIR" >/dev/null
+  native_packages="ooonana-core openvino-chat devicechat wine"
+  [[ "$windows_chat_built" -eq 1 ]] && native_packages="$native_packages ooonana-chat-windows"
+  verify_repo_packages $native_packages
   if [[ "$FULL_I3" -eq 1 ]]; then
     verify_repo_profile full-i3
   fi

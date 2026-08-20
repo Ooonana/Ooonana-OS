@@ -416,6 +416,7 @@ class WifiWindow(Gtk.Window):
                 button("Other network", "list-add-symbolic", self.connect_manual),
                 button("Signal map", "find-location-symbolic", self.show_signal_map),
                 button("CSI 3D", "video-display-symbolic", self.launch_csi_3d),
+                button("Wi-Fi Aware", "network-transmit-receive-symbolic", self.show_wifi_aware),
                 button("Profiles", "document-edit-symbolic", lambda *_: launch(["nm-connection-editor"])),
                 self.repair_button,
                 self.hardware_reset_button,
@@ -507,6 +508,9 @@ class WifiWindow(Gtk.Window):
             self.refresh(scan=True)
 
         run_async_task(task, done)
+
+    def show_wifi_aware(self, _widget):
+        launch(["ooonana-wifi-aware", "--gui"])
 
     def refresh(self, scan=False):
         if self.refresh_running:

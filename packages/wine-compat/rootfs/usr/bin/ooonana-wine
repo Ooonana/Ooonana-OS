@@ -1,0 +1,103 @@
+#!/bin/sh
+set -eu
+
+APP_ID="org.winehq.Wine"
+REMOTE="flathub"
+REMOTE_URL="https://dl.flathub.org/repo/flathub.flatpakrepo"
+
+usage() {
+  cat <<'EOF'
+Ooonana Wine compatibility.
+
+Usage:
+  ooonana wine setup
+  ooonana wine status
+  ooonana wine run FILE.exe
+  ooonana wine config
+  ooonana wine uninstall
+
+Wine is downloaded into the current user's Flatpak storage. It is a Windows
+compatibility layer, not a conversion of an .exe into a native Linux app.
+EOF
+}
+
+need_flatpak() {
+  command -v flatpak >/dev/null 2>&1 || {
+    printf 'ooonana wine: Flatpak missing; run ooonana get wine again\n' >&2
+    exit 1
+  }
+}
+
+is_ready() {
+  flatpak --user info "$APP_ID" >/dev/null 2>&1
+}
+
+setup() {
+  need_flatpak
+  flatpak --user remote-add --if-not-exists "$REMOTE" "$REMOTE_URL"
+  flatpak --user install -y "$REMOTE" "$APP_ID"
+  printf 'Wine ready for %s\n' "${USER:-user}"
+}
+
+status() {
+  need_flatpak
+  if is_ready; then
+    flatpak --user info "$APP_ID" | sed -n '1,10p'
+    return 0
+  fi
+  printf 'Wine runtime missing. Run: ooonana wine setup\n'
+  return 1
+}
+
+absolute_path() {
+  case "$1" in
+    /*) printf '%s\n' "$1" ;;
+    *)
+      if command -v realpath >/dev/null 2>&1; then
+        realpath "$1"
+      else
+        dir="$(CDPATH='' cd -- "$(dirname -- "$1")" && pwd)"
+        printf '%s/%s\n' "$dir" "$(basename -- "$1")"
+      fi
+      ;;
+  esac
+}
+
+run() {
+  [ "$#" -eq 1 ] || {
+    printf 'usage: ooonana wine run FILE.exe\n' >&2
+    exit 2
+  }
+  need_flatpak
+  is_ready || {
+    printf 'Wine runtime missing. Run: ooonana wine setup\n' >&2
+    exit 1
+  }
+  file="$(absolute_path "$1")"
+  [ -f "$file" ] || {
+    printf 'Wine file missing: %s\n' "$file" >&2
+    exit 1
+  }
+  exec flatpak run --user --file-forwarding "$APP_ID" @@ "$file" @@
+}
+
+case "${1:-help}" in
+  setup) shift; [ "$#" -eq 0 ] || { usage >&2; exit 2; }; setup ;;
+  status) shift; [ "$#" -eq 0 ] || { usage >&2; exit 2; }; status ;;
+  run) shift; run "$@" ;;
+  config)
+    shift
+    [ "$#" -eq 0 ] || { usage >&2; exit 2; }
+    need_flatpak
+    is_ready || { printf 'Wine runtime missing. Run: ooonana wine setup\n' >&2; exit 1; }
+    exec flatpak run --user "$APP_ID" winecfg
+    ;;
+  uninstall)
+    shift
+    [ "$#" -eq 0 ] || { usage >&2; exit 2; }
+    need_flatpak
+    flatpak uninstall --user -y "$APP_ID"
+    ;;
+  help|-h|--help) usage ;;
+  *) printf 'ooonana wine: unknown command: %s\n' "$1" >&2; usage >&2; exit 2 ;;
+esac
