@@ -139,7 +139,11 @@ wiped_extra="$(bash "$INSTALLER" --dry-run --yes \
 assert_contains "$wiped_extra" "extra partition would be wiped by disk target: /dev/sda3 on /dev/sda"
 
 installer_src="$(<"$INSTALLER")"
-assert_contains "$installer_src" "smbios --type 1 --get-string 4 --set ooonana_manufacturer"
+assert_not_contains "$installer_src" "750XGK"
+assert_contains "$installer_src" "submenu 'Audio compatibility'"
+assert_contains "$installer_src" "force Intel SOF audio"
+assert_contains "$installer_src" "force legacy Intel HDA audio"
+assert_contains "$installer_src" "snd_intel_dspcfg.dsp_driver=1"
 assert_contains "$installer_src" "snd_intel_dspcfg.dsp_driver=3"
 assert_contains "$installer_src" "refusing current root partition target"
 assert_contains "$installer_src" "refusing current root disk target"

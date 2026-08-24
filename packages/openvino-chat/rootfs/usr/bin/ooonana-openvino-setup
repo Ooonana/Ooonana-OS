@@ -88,7 +88,9 @@ run_inside() {
       /opt/openvino-venv/bin/python -m pip install --no-cache-dir --upgrade pip
       rm -rf /tmp/ooonana-openvino-src
       mkdir -p /tmp/ooonana-openvino-src
-      cp -a /opt/openvino-chat/. /tmp/ooonana-openvino-src/
+      cp -R --no-preserve=mode,ownership,timestamps,xattr \
+        /opt/openvino-chat/. /tmp/ooonana-openvino-src/
+      chmod -R u+rwX /tmp/ooonana-openvino-src
       find /tmp/ooonana-openvino-src -type d -name "*.egg-info" -prune -exec rm -rf {} +
       /opt/openvino-venv/bin/python -m pip install --no-cache-dir --upgrade /tmp/ooonana-openvino-src
       /opt/openvino-venv/bin/python -c "import openvino, openvino_genai, openvino_chat; print(\"OpenVINO runtime ready\")"

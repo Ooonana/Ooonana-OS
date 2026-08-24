@@ -14,7 +14,7 @@ source_text="$(<"$SCRIPT")"
   fail "service smoke does not accept packaged bluetoothd path"
 [[ "$source_text" == *'/usr/lib/bluetooth/bluetoothd'* ]] ||
   fail "service smoke missing Alpine bluetoothd path"
-[[ "$source_text" == *'OOONANA_QEMU_SERVICE_TIMEOUT:-900'* ]] ||
+[[ "$source_text" == *'OOONANA_QEMU_SERVICE_TIMEOUT:-1800'* ]] ||
   fail "service smoke timeout is not configurable"
 [[ "$source_text" == *'timeout "$QEMU_TIMEOUT" qemu-system-x86_64'* ]] ||
   fail "service smoke does not apply configured timeout"
@@ -28,6 +28,8 @@ source_text="$(<"$SCRIPT")"
   fail "service smoke does not apply selected accelerator"
 [[ "$source_text" == *'OOONANA_SERVICE_SMOKE_STEP'* ]] ||
   fail "service smoke lacks progress markers"
+[[ "$source_text" == *'[qemu-service] %s'* ]] ||
+  fail "service smoke does not stream progress markers"
 [[ "$source_text" == *'ooonana-audio-start --restart'* ]] ||
   fail "service smoke does not exercise Ooonana audio startup"
 [[ "$source_text" == *'file:///tmp/ooonana-chromium-input.html'* ]] ||

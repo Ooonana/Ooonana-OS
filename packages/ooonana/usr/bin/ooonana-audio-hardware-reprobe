@@ -6,50 +6,75 @@ export PATH
 
 quiet=0
 report=0
+reprobe=1
 case "${1:-}" in
   --quiet) quiet=1 ;;
   --report) report=1 ;;
+  --snapshot) report=1; reprobe=0 ;;
   "") ;;
   -h|--help)
-    printf '%s\n' 'Usage: ooonana-audio-hardware-reprobe [--quiet|--report]'
+    printf '%s\n' 'Usage: ooonana-audio-hardware-reprobe [--quiet|--report|--snapshot]'
     exit 0
     ;;
   *) printf 'ooonana-audio-hardware-reprobe: unknown option: %s\n' "$1" >&2; exit 2 ;;
 esac
 
-if [ "$(id -u 2>/dev/null || echo 1)" != 0 ]; then
+if [ "$reprobe" -eq 1 ] && [ "$(id -u 2>/dev/null || echo 1)" != 0 ]; then
   exec ooonana-run-admin "$0" "$@"
 fi
 
 log=/var/log/ooonana-audio-reprobe.log
 mkdir -p /var/log /run
 
-if [ -w /sys/bus/pci/rescan ]; then
-  printf 1 >/sys/bus/pci/rescan 2>>"$log" || true
-fi
-if command -v udevadm >/dev/null 2>&1; then
-  udevadm trigger --subsystem-match=sound --action=add >>"$log" 2>&1 || true
-  udevadm trigger --subsystem-match=pci --action=add >>"$log" 2>&1 || true
-  udevadm settle --timeout=10 >>"$log" 2>&1 || true
-fi
-command -v mdev >/dev/null 2>&1 && mdev -s >>"$log" 2>&1 || true
-for node in /sys/class/sound/card*/device/power/control; do
-  [ -w "$node" ] || continue
-  printf on >"$node" 2>>"$log" || true
-done
-if command -v alsactl >/dev/null 2>&1; then
-  alsactl init >>"$log" 2>&1 || true
+if [ "$reprobe" -eq 1 ]; then
+  if [ -w /sys/bus/pci/rescan ]; then
+    printf 1 >/sys/bus/pci/rescan 2>>"$log" || true
+  fi
+  if command -v udevadm >/dev/null 2>&1; then
+    udevadm trigger --subsystem-match=sound --action=add >>"$log" 2>&1 || true
+    udevadm trigger --subsystem-match=pci --action=add >>"$log" 2>&1 || true
+    udevadm settle --timeout=10 >>"$log" 2>&1 || true
+  fi
+  if command -v mdev >/dev/null 2>&1; then
+    mdev -s >>"$log" 2>&1 || true
+  fi
+  for node in /sys/class/sound/card*/device/power/control; do
+    [ -w "$node" ] || continue
+    printf on >"$node" 2>>"$log" || true
+  done
+  if command -v alsactl >/dev/null 2>&1; then
+    alsactl init >>"$log" 2>&1 || true
+  fi
 fi
 
 cards="$(cat /proc/asound/cards 2>/dev/null || true)"
 if [ "$report" -eq 1 ]; then
+  printf 'Machine:\n%s %s\n\n' \
+    "$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null || echo unknown)" \
+    "$(cat /sys/class/dmi/id/product_name 2>/dev/null || echo unknown)"
+  printf 'Kernel command line:\n%s\n\n' "$(cat /proc/cmdline 2>/dev/null || echo unavailable)"
+  printf 'Intel DSP driver mode:\n%s\n\n' "$(cat /sys/module/snd_intel_dspcfg/parameters/dsp_driver 2>/dev/null || echo auto)"
   printf 'ALSA cards:\n%s\n\n' "${cards:-none}"
   printf 'Sound PCI devices:\n'
   lspci -nnk 2>/dev/null | awk 'BEGIN { show=0 } /Audio device|Multimedia audio controller/ { show=1 } show { print } /^$/ { show=0 }' || true
+  printf '\nSound PCI sysfs bindings:\n'
+  for device in /sys/bus/pci/devices/*; do
+    class="$(cat "$device/class" 2>/dev/null || true)"
+    case "$class" in 0x0401*|0x0403*) ;; *) continue ;; esac
+    printf '%s vendor=%s device=%s class=%s driver=%s\n' "${device##*/}" \
+      "$(cat "$device/vendor" 2>/dev/null || echo unknown)" \
+      "$(cat "$device/device" 2>/dev/null || echo unknown)" \
+      "$class" "$(basename "$(readlink "$device/driver" 2>/dev/null || echo unbound)")"
+  done
+  printf '\nKernel audio messages:\n'
+  dmesg 2>/dev/null | grep -Ei 'snd|sof|hda|audio|soundwire|firmware' | tail -n 120 || true
+  if dmesg 2>/dev/null | grep -q 'using HDA machine driver skl_hda_dsp_generic'; then
+    printf '\nExpected machine driver: CONFIG_SND_SOC_INTEL_SKL_HDA_DSP_GENERIC_MACH=y\n'
+  fi
 fi
 if [ -n "$cards" ] && ! printf '%s\n' "$cards" | grep -q '^ *--- no soundcards ---'; then
   [ "$quiet" -eq 1 ] || printf 'Audio hardware: ALSA card detected\n'
   exit 0
 fi
-[ "$quiet" -eq 1 ] || printf '%s\n' 'Audio hardware: no ALSA card detected; inspect SOF firmware and kernel diagnostics.' >&2
+[ "$quiet" -eq 1 ] || printf '%s\n' 'Audio hardware: no ALSA card detected; retry hardware, then use GRUB Audio compatibility legacy HDA fallback.' >&2
 exit 1

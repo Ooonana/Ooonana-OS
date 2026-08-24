@@ -3,5 +3,6 @@ Type=Application
 Name=Ooonana AI
 Comment=Open Ooonana AI terminal app
 Exec=ooonana-ai-launch
+Icon=/usr/share/ooonana/logo.png
 Terminal=false
 Categories=Utility;System;

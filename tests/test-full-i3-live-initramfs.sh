@@ -121,8 +121,11 @@ assert_contains "$script_src" 'blkid -s TYPE -o value'
 assert_contains "$script_src" '"ext4"'
 assert_contains "$script_src" 'mount -t ext4 -o rw "$candidate" /persist'
 assert_contains "$script_src" '/persist/overlay/upper'
+assert_contains "$script_src" '/persist/temporary-overlay/upper'
+assert_contains "$script_src" 'rm -rf /persist/temporary-overlay'
 assert_contains "$script_src" 'lowerdir=/mnt/root-ro,upperdir="$overlay_upper",workdir="$overlay_work"'
 assert_contains "$script_src" 'persistence_mode="usb"'
+assert_contains "$script_src" 'persistence_mode="usb-temporary"'
 assert_contains "$script_src" 'persistence_mode="ram"'
 assert_contains "$script_src" "usr/share/ooonana/logo.txt"
 assert_contains "$script_src" "ld-musl-x86_64.so.1"

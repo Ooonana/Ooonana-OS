@@ -32,11 +32,11 @@ WINDOWS_CHAT_PACKAGE_VERSION="${OOONANA_WINDOWS_CHAT_VERSION:-1.0.0}"
 DEVICECHAT_SOURCE="${OOONANA_DEVICECHAT_SOURCE:-$ROOT/packages/devicechat/source/devicechat-0.1.0.tgz}"
 WINDOWS_CHAT_SOURCE="${OOONANA_OONANA_CHAT_WINDOWS_SOURCE:-$ROOT/packages/ooonana-chat-windows/source/OoonanaChat Setup 1.0.0.exe}"
 NATIVE_APK_PACKAGES="nodejs flatpak"
-CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.8.21}"
+CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.8.22}"
 KERNEL_PACKAGE_PATH="${OOONANA_KERNEL_PACKAGE_PATH:-}"
 KERNEL_PACKAGE_URL="${OOONANA_KERNEL_PACKAGE_URL:-}"
 KERNEL_PACKAGE_SHA256="${OOONANA_KERNEL_SHA256:-}"
-KERNEL_PACKAGE_VERSION="${OOONANA_KERNEL_VERSION:-6.18.37}"
+KERNEL_PACKAGE_VERSION="${OOONANA_KERNEL_VERSION:-6.18.37-2}"
 
 usage() {
   cat <<'USAGE'
@@ -58,8 +58,8 @@ Options:
   --kernel PATH           Add Ooonana kernel package from local kernel image
   --kernel-url URL        Add Ooonana kernel package from remote kernel image
   --kernel-sha256 SHA256  Require this SHA-256 for the kernel image
-  --kernel-version VER    Kernel package version (default: 6.18.37)
-  --core-version VER      Ooonana system update package version (default: 0.8.21)
+  --kernel-version VER    Kernel package version (default: 6.18.37-2)
+  --core-version VER      Ooonana system update package version (default: 0.8.22)
   --openvino-version VER  OpenVINO Chat package version (default: 0.1.2)
   --devicechat-version VER Native DeviceChat package version (default: 0.1.0)
   --wine-version VER      Wine compatibility package version (default: 1.0.0)

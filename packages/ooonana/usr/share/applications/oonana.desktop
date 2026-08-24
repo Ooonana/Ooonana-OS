@@ -5,4 +5,4 @@ Comment=Play the Ooonana OS breakout game
 Exec=ooonana-game-launch
 Terminal=false
 Categories=Game;
-Icon=applications-games
+Icon=/usr/share/ooonana/logo.png

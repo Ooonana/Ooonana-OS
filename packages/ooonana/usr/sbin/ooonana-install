@@ -205,16 +205,6 @@ terminal_input console serial
 terminal_output console serial
 set color_normal=yellow/black
 set color_highlight=black/yellow
-set ooonana_hardware_args=
-if [ "\$grub_platform" = "efi" ]; then
-  if insmod smbios; then
-    if smbios --type 1 --get-string 4 --set ooonana_manufacturer; then
-      if regexp --ignore-case 'samsung' "\$ooonana_manufacturer"; then
-        set ooonana_hardware_args='snd_intel_dspcfg.dsp_driver=3'
-      fi
-    fi
-  fi
-fi
 if terminal_output gfxterm serial; then
   true
 fi
@@ -227,7 +217,17 @@ set timeout=5
 set default=0
 
 menuentry 'Ooonana OS Full i3' {
-  linux /boot/vmlinuz $append \$ooonana_hardware_args
+  linux /boot/vmlinuz $append
+}
+
+submenu 'Audio compatibility' {
+  menuentry 'Ooonana OS Full i3 - force Intel SOF audio' {
+    linux /boot/vmlinuz $append snd_intel_dspcfg.dsp_driver=3
+  }
+
+  menuentry 'Ooonana OS Full i3 - force legacy Intel HDA audio' {
+    linux /boot/vmlinuz $append snd_intel_dspcfg.dsp_driver=1
+  }
 }
 EOF
 }

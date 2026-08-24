@@ -42,6 +42,8 @@ ai="$(<"$UI_DIR/ai_app.py")"
 controls="$(<"$UI_DIR/controls_app.py")"
 setup="$(<"$UI_DIR/setup_app.py")"
 launcher="$(<"$UI_DIR/launcher_app.py")"
+window_list="$(<"$ROOT/packages/ooonana/usr/bin/ooonana-window-list")"
+i3_config="$(<"$ROOT/branding/i3/config")"
 
 assert_contains "$common" 'gi.require_version("Gtk", "3.0")'
 assert_contains "$common" 'gi.require_version("Gdk", "3.0")'
@@ -199,6 +201,10 @@ assert_contains "$launcher" "PREFERRED_COMMANDS"
 assert_contains "$launcher" '"chromium.desktop": ["ooonana-browser"]'
 assert_contains "$launcher" "get_app_launch_context"
 assert_contains "$launcher" "header("
+assert_contains "$window_list" 'node.get("name") == "__i3_scratch"'
+assert_contains "$window_list" 'scratchpad show'
+assert_contains "$window_list" 'hidden_count'
+assert_contains "$i3_config" 'Chromium-browser'
 
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-wireless-utils.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-wireless-actions.py"

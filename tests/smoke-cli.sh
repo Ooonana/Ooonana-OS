@@ -27,10 +27,10 @@ first_line="$(sed -n '1p' "$CLI")"
 [[ "$first_line" == "#!/bin/sh" ]] || fail "CLI must use /bin/sh shebang: $first_line"
 
 version="$("$CLI" version)"
-[[ "$version" == "ooonana 0.8.21" ]] || fail "bad version: $version"
+[[ "$version" == "ooonana 0.8.22" ]] || fail "bad version: $version"
 
 sh_version="$(sh "$CLI" version)"
-[[ "$sh_version" == "ooonana 0.8.21" ]] || fail "bad sh version: $sh_version"
+[[ "$sh_version" == "ooonana 0.8.22" ]] || fail "bad sh version: $sh_version"
 
 doctor="$("$CLI" doctor || true)"
 [[ "$doctor" == *"kernel:"* ]] || fail "doctor missing kernel"
@@ -53,7 +53,7 @@ ai_doctor="$(OOONANA_AI_CONFIG="$tmp/missing-ai.env" "$CLI" ai doctor || true)"
 pkg_help="$("$CLI" help)"
 pkg_help_lines="$(printf '%s\n' "$pkg_help" | wc -l | tr -d ' ')"
 [[ "$pkg_help_lines" -le 55 ]] || fail "help too long: $pkg_help_lines lines"
-[[ "$pkg_help" == *"ooonana 0.8.21"* ]] || fail "help missing version header"
+[[ "$pkg_help" == *"ooonana 0.8.22"* ]] || fail "help missing version header"
 [[ "$pkg_help" == *"Usage: ooonana [options] command"* ]] || fail "help missing apt-style usage"
 [[ "$pkg_help" == *"Ooonana is a commandline package manager"* ]] || fail "help missing package manager summary"
 [[ "$pkg_help" == *"Most used commands:"* ]] || fail "help missing most used section"
@@ -113,6 +113,9 @@ game_py="$(<"$ROOT/packages/ooonana/usr/lib/ooonana/oonana_game.py")"
 [[ "$game_py" == *"def render_diff("* ]] || fail "python game missing row-diff renderer"
 [[ "$game_py" == *"def decode_key("* ]] || fail "python game missing escape decoder"
 [[ "$game_py" == *"def game_dimensions("* ]] || fail "python game missing terminal sizing"
+[[ "$game_py" == *"def scaled_bricks("* ]] || fail "python game missing responsive brick scaling"
+[[ "$game_py" == *"frame_started = time.monotonic()"* ]] || fail "python game missing fixed frame pacing"
+[[ "$game_py" == *"\033[?1049h"* ]] || fail "python game missing alternate screen rendering"
 [[ "$game_py" == *"\\033[{row};1H"* ]] || fail "python game must repaint changed rows"
 NO_COLOR=1 PYTHONDONTWRITEBYTECODE=1 python3 - "$ROOT/packages/ooonana/usr/lib/ooonana/oonana_game.py" <<'PY' || fail "oonana game behavior failed"
 import importlib.util
@@ -135,6 +138,9 @@ assert module.decode_key("\x1b", "[1;5C") == "right"
 game = module.Game(width=112, height=38)
 assert game.width == 112 and game.height == 38
 assert all(len(line) == 112 for line in game.render_lines())
+wide_game = module.Game(width=200, height=58)
+assert len(wide_game.bricks[0]) > len(module.BRICKS_MAP[0])
+assert len(wide_game.bricks) > len(module.BRICKS_MAP)
 start = game.paddle_x
 game.handle_key("left")
 assert game.paddle_x < start

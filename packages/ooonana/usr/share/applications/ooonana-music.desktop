@@ -3,6 +3,6 @@ Type=Application
 Name=Ooonana Music
 Comment=Play local music with Ooonana controls
 Exec=ooonana-music
-Icon=multimedia-player
+Icon=/usr/share/ooonana/logo.png
 Terminal=false
 Categories=AudioVideo;Audio;Player;

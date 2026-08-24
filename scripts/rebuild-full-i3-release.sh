@@ -89,8 +89,9 @@ KERNEL_FRAGMENT="$ROOT/configs/kernel/ooonana-minimal-x86_64.fragment"
 REPO="$BUILD_DIR/full-i3-repo"
 NEW_ISO="$RELEASE_DIR/ooonana-full-i3.iso.new"
 ISO="$RELEASE_DIR/ooonana-full-i3.iso"
+STAGED_ISO="$STAGE_DIR/ooonana-full-i3.iso.new"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/ooonana-release-check.XXXXXX")"
-VERIFY_ISO="$NEW_ISO"
+VERIFY_ISO="$STAGED_ISO"
 OVMF_VARS=""
 QEMU_PID=""
 QEMU_ACCEL="${OOONANA_QEMU_ACCEL:-}"
@@ -167,7 +168,13 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
   [[ "$stage_available_kb" =~ ^[0-9]+$ ]] || die "cannot read stage disk space"
   (( stage_available_kb >= MIN_FREE_KB )) || die "need at least 20 GiB free for stage: $STAGE_DIR"
 else
-  [[ -s "$NEW_ISO" ]] || die "missing completed ISO: $NEW_ISO"
+  if [[ -s "$STAGED_ISO" ]]; then
+    VERIFY_ISO="$STAGED_ISO"
+  elif [[ -s "$NEW_ISO" ]]; then
+    VERIFY_ISO="$NEW_ISO"
+  else
+    die "missing completed ISO: $STAGED_ISO"
+  fi
 fi
 
 printf '[1/7] Preflight\n'
@@ -180,16 +187,24 @@ fi
 find "$ROOT/scripts" "$ROOT/tests" -type f -name '*.sh' -print0 |
   xargs -0 -n1 bash -n
 grep -q 'GENERAL.NM-MANAGED' "$ROOT/packages/ooonana/usr/lib/ooonana/ui/wifi_app.py"
-! grep -q 'GENERAL.MANAGED' "$ROOT/packages/ooonana/usr/lib/ooonana/ui/wifi_app.py"
-! grep -q '"device", "set", device, "managed"' "$ROOT/packages/ooonana/usr/lib/ooonana/ui/wifi_app.py"
+if grep -q 'GENERAL.MANAGED' "$ROOT/packages/ooonana/usr/lib/ooonana/ui/wifi_app.py"; then
+  die "Wi-Fi UI uses invalid GENERAL.MANAGED field"
+fi
+if grep -q '"device", "set", device, "managed"' "$ROOT/packages/ooonana/usr/lib/ooonana/ui/wifi_app.py"; then
+  die "Wi-Fi UI changes NetworkManager ownership directly"
+fi
 grep -q 'wifi.backend=wpa_supplicant' "$ROOT/scripts/build-full-i3-rootfs.sh"
 grep -q 'auth-polkit=false' "$ROOT/scripts/build-full-i3-rootfs.sh"
 grep -q 'CONFIG_UHID=y' "$ROOT/configs/kernel/ooonana-minimal-x86_64.fragment"
 grep -q 'CONFIG_INPUT_UINPUT=y' "$ROOT/configs/kernel/ooonana-minimal-x86_64.fragment"
 grep -q 'start_wpa_supplicant' "$ROOT/scripts/build-full-i3-rootfs.sh"
 grep -q 'org.freedesktop.DBus.StartServiceByName' "$ROOT/scripts/build-full-i3-rootfs.sh"
-! grep -q ' -f /var/log/wpa_supplicant.log' "$ROOT/scripts/build-full-i3-rootfs.sh"
-! grep -q '"$supplicant" -u' "$ROOT/scripts/build-full-i3-rootfs.sh"
+if grep -q ' -f /var/log/wpa_supplicant.log' "$ROOT/scripts/build-full-i3-rootfs.sh"; then
+  die "supplicant daemon still uses foreground logging option"
+fi
+if grep -q '"$supplicant" -u' "$ROOT/scripts/build-full-i3-rootfs.sh"; then
+  die "supplicant daemon still uses conflicting D-Bus mode"
+fi
 grep -q 'Do not validate certificate' "$ROOT/packages/ooonana/usr/lib/ooonana/ui/wifi_app.py"
 grep -q 'WPA2/WPA3 Enterprise' "$ROOT/packages/ooonana/usr/lib/ooonana/ui/wifi_app.py"
 grep -q 'Wi-Fi routers (orange)' "$ROOT/packages/ooonana/usr/lib/ooonana/ui/signal_map.py"
@@ -199,7 +214,9 @@ grep -q '/newroot/mnt/ooonana-live/boot-device' "$ROOT/scripts/build-full-i3-liv
 grep -q 'parent_disk_name()' "$ROOT/scripts/build-full-i3-live-initramfs.sh"
 grep -q 'persistence_mode="usb"' "$ROOT/scripts/build-full-i3-live-initramfs.sh"
 grep -q '/persist/overlay/upper' "$ROOT/scripts/build-full-i3-live-initramfs.sh"
-! grep -q '/newroot/run/ooonana-live' "$ROOT/scripts/build-full-i3-live-initramfs.sh"
+if grep -q '/newroot/run/ooonana-live' "$ROOT/scripts/build-full-i3-live-initramfs.sh"; then
+  die "live initramfs writes state into ephemeral /run"
+fi
 grep -q 'class MediaWindow' "$ROOT/packages/ooonana/usr/lib/ooonana/ui/controls_app.py"
 grep -q 'exec = ooonana-media-status' "$ROOT/scripts/build-full-i3-rootfs.sh"
 bash "$ROOT/tests/test-logo-sync.sh"
@@ -212,7 +229,7 @@ if [[ "$PREFLIGHT_ONLY" -eq 1 ]]; then
 fi
 
 if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
-  rm -f "$NEW_ISO"
+  rm -f "$NEW_ISO" "$STAGED_ISO"
   input_fingerprint="$(release_input_fingerprint)"
 
   if [[ "$RESUME_AFTER_ROOTFS" -eq 0 ]]; then
@@ -266,8 +283,12 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
   [[ "$(stat -c %g "$ROOTFS/usr/libexec/dbus-daemon-launch-helper")" == "81" ]] ||
     die "dbus-daemon-launch-helper has wrong group"
   grep -q 'GENERAL.NM-MANAGED' "$ROOTFS/usr/lib/ooonana/ui/wifi_app.py"
-  ! grep -q 'GENERAL.MANAGED' "$ROOTFS/usr/lib/ooonana/ui/wifi_app.py"
-  ! grep -q '"device", "set", device, "managed"' "$ROOTFS/usr/lib/ooonana/ui/wifi_app.py"
+  if grep -q 'GENERAL.MANAGED' "$ROOTFS/usr/lib/ooonana/ui/wifi_app.py"; then
+    die "generated Wi-Fi UI uses invalid GENERAL.MANAGED field"
+  fi
+  if grep -q '"device", "set", device, "managed"' "$ROOTFS/usr/lib/ooonana/ui/wifi_app.py"; then
+    die "generated Wi-Fi UI changes NetworkManager ownership directly"
+  fi
   grep -q 'WPA2/WPA3 Enterprise' "$ROOTFS/usr/lib/ooonana/ui/wifi_app.py"
   grep -q 'Nearby LAN devices (green)' "$ROOTFS/usr/lib/ooonana/ui/signal_map.py"
   grep -q 'wifi.backend=wpa_supplicant' "$ROOTFS/etc/NetworkManager/NetworkManager.conf"
@@ -283,8 +304,12 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
     die "generated rootfs missing: ooonana-media-status"
   grep -q 'ooonana-service-repair force-wifi' "$ROOTFS/usr/bin/ooonana-service-watchdog"
   grep -q 'ooonana-service-repair force-bluetooth' "$ROOTFS/usr/bin/ooonana-service-watchdog"
-  ! grep -q ' -f /var/log/wpa_supplicant.log' "$ROOTFS/usr/bin/ooonana-service-repair"
-  ! grep -q '"$supplicant" -u' "$ROOTFS/usr/bin/ooonana-service-repair"
+  if grep -q ' -f /var/log/wpa_supplicant.log' "$ROOTFS/usr/bin/ooonana-service-repair"; then
+    die "generated supplicant daemon uses foreground logging option"
+  fi
+  if grep -q '"$supplicant" -u' "$ROOTFS/usr/bin/ooonana-service-repair"; then
+    die "generated supplicant daemon uses conflicting D-Bus mode"
+  fi
   cmp -s "$ROOTFS/usr/share/ooonana/logo.txt" "$ROOTFS/usr/share/ooonana/boot-logo.txt" ||
     die "generated rootfs boot logo differs from canonical logo"
   grep -q 'shadow = false' "$ROOTFS/etc/ooonana/picom.conf"
@@ -292,9 +317,11 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
   grep -q '/mnt/ooonana-live/persistence-mode' "$ROOTFS/etc/init.d/rcS"
   grep -q 'mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /tmp' "$ROOTFS/etc/init.d/rcS"
   python3 "$ROOT/tests/audit-full-i3-runtime.py" "$ROOTFS"
-  cp -f "$STAGE_DIR/ooonana-full-i3-rootfs.tar.gz" \
-    "$BUILD_DIR/ooonana-full-i3-rootfs.tar.gz"
-  rm -f "$STAGE_DIR/ooonana-full-i3-rootfs.tar.gz"
+  if [[ -s "$STAGE_DIR/ooonana-full-i3-rootfs.tar.gz" ]]; then
+    cp -f "$STAGE_DIR/ooonana-full-i3-rootfs.tar.gz" \
+      "$BUILD_DIR/ooonana-full-i3-rootfs.tar.gz"
+    rm -f "$STAGE_DIR/ooonana-full-i3-rootfs.tar.gz"
+  fi
   : >"$STAGE_DIR/.ooonana-rootfs-complete"
 
   printf '[4/7] Live and installer images\n'
@@ -302,21 +329,23 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
   bash "$ROOT/scripts/build-full-i3-disk.sh" --work-dir "$STAGE_DIR" --force
 
   printf '[5/7] ISO\n'
+  printf '[iso] Building in WSL-native storage: %s\n' "$STAGED_ISO"
   bash "$ROOT/scripts/build-full-i3-iso.sh" \
     --work-dir "$STAGE_DIR" \
-    --iso "$NEW_ISO" \
+    --iso "$STAGED_ISO" \
     --force
-  rm -rf "$STAGE_DIR"
+  VERIFY_ISO="$STAGED_ISO"
 else
-  printf '[2-5/7] Reusing completed ISO: %s\n' "$NEW_ISO"
+  printf '[2-5/7] Reusing completed ISO: %s\n' "$VERIFY_ISO"
 fi
 
 printf '[6/7] Verification\n'
-if [[ "$(findmnt -n -o FSTYPE --target "$NEW_ISO" 2>/dev/null || true)" == "9p" ]]; then
+if [[ "$(findmnt -n -o FSTYPE --target "$VERIFY_ISO" 2>/dev/null || true)" == "9p" ]]; then
+  SOURCE_ISO="$VERIFY_ISO"
   VERIFY_ISO="$WORK/ooonana-full-i3.iso"
   printf '[verify] Copying ISO to WSL-native storage for QEMU\n'
-  cp "$NEW_ISO" "$VERIFY_ISO"
-  [[ "$(stat -c %s "$VERIFY_ISO")" == "$(stat -c %s "$NEW_ISO")" ]] ||
+  cp "$SOURCE_ISO" "$VERIFY_ISO"
+  [[ "$(stat -c %s "$VERIFY_ISO")" == "$(stat -c %s "$SOURCE_ISO")" ]] ||
     die "verification ISO copy is incomplete"
   sync "$VERIFY_ISO"
 fi
@@ -394,9 +423,17 @@ fi
 printf '[7/7] Promote\n'
 iso_sha256="$(sha256sum "$VERIFY_ISO" | awk '{ print $1 }')"
 iso_size="$(stat -c %s "$VERIFY_ISO")"
+if [[ "$VERIFY_ISO" != "$NEW_ISO" ]]; then
+  printf '[promote] Copying verified ISO to release storage\n'
+  cp -f "$VERIFY_ISO" "$NEW_ISO"
+  [[ "$(stat -c %s "$NEW_ISO")" == "$iso_size" ]] ||
+    die "release ISO copy is incomplete"
+  sync "$NEW_ISO"
+fi
 mv -f "$NEW_ISO" "$ISO"
 printf '%s  ooonana-full-i3.iso\n' "$iso_sha256" >"$RELEASE_DIR/ooonana-full-i3.iso.sha256"
 sync
+rm -rf "$STAGE_DIR"
 printf 'ISO: %s (%s bytes)\n' "$ISO" "$iso_size"
 cat "$RELEASE_DIR/ooonana-full-i3.iso.sha256"
 printf 'OOONANA_REBUILD_COMPLETE\n'

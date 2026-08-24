@@ -96,14 +96,18 @@ class AudioWindow(Gtk.Window):
         self.input_combo.set_hexpand(True)
         devices.attach(self.input_combo, 1, 1, 1, 1)
         root.pack_start(devices, False, False, 0)
+        self.hardware_status = label("Detecting ALSA hardware...", "status-warn")
+        self.hardware_status.set_line_wrap(True)
+        root.pack_start(self.hardware_status, False, False, 0)
 
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.mute_button = button("Mute", "audio-volume-muted-symbolic", self.toggle_mute)
         actions.pack_start(self.mute_button, False, False, 0)
         actions.pack_start(button("Mixer", "multimedia-volume-control-symbolic", lambda *_: launch(["pavucontrol"])), False, False, 0)
-        actions.pack_start(button("Repair audio", "view-refresh-symbolic", self.repair_audio), False, False, 0)
+        actions.pack_start(button("Retry hardware", "view-refresh-symbolic", self.repair_audio), False, False, 0)
         actions.pack_start(button("Diagnostics", "dialog-information-symbolic", self.show_diagnostics), False, False, 0)
-        actions.pack_end(button("Apply", "object-select-symbolic", self.apply, "suggested-action"), False, False, 0)
+        self.apply_button = button("Apply", "object-select-symbolic", self.apply, "suggested-action")
+        actions.pack_end(self.apply_button, False, False, 0)
         root.pack_start(actions, False, False, 0)
         self.status = label("Checking audio service...", "muted")
         root.pack_start(self.status, False, False, 0)
@@ -176,11 +180,21 @@ class AudioWindow(Gtk.Window):
                 pass
         self.muted = data["mute_rc"] == 0 and data["mute"].endswith("yes")
         self.update_mute_label()
+        self.scale.set_sensitive(bool(outputs))
+        self.output_combo.set_sensitive(bool(outputs))
+        self.input_combo.set_sensitive(bool(inputs))
+        self.mute_button.set_sensitive(bool(outputs))
+        self.apply_button.set_sensitive(bool(outputs or inputs))
         if outputs or inputs:
+            self.hardware_status.set_text("ALSA hardware detected")
             self.status.set_text(f"Audio ready | {len(outputs)} output(s) | {len(inputs)} input(s)")
         elif data["service_rc"] == 0:
-            self.status.set_text("Audio server ready, but no physical ALSA card detected. Use Repair audio, then Diagnostics.")
+            self.hardware_status.set_text(
+                "No ALSA card. Retry hardware. If still missing, reboot into GRUB > Audio compatibility > legacy HDA."
+            )
+            self.status.set_text("PipeWire is ready; kernel audio hardware is missing.")
         else:
+            self.hardware_status.set_text("Audio service unavailable")
             self.status.set_text(data["service_output"] or "Audio server is unavailable. Use Repair audio.")
 
     def refresh_audio(self):

@@ -142,7 +142,7 @@ EOF
 chmod +x "$scratch/bin/busybox"
 cat > "$scratch/usr/bin/ooonana" <<'EOF'
 #!/bin/sh
-echo ooonana 0.8.21
+echo ooonana 0.8.22
 EOF
 chmod +x "$scratch/usr/bin/ooonana"
 cat > "$scratch/usr/bin/ooonana-setup" <<'EOF'
@@ -272,6 +272,7 @@ fi
 [[ -x "$rootfs/usr/bin/ooonana-audio-panel" ]] || fail "missing audio panel"
 [[ -x "$rootfs/usr/bin/ooonana-audio-status" ]] || fail "missing audio panel status"
 [[ -x "$rootfs/usr/bin/ooonana-audio-start" ]] || fail "missing audio session starter"
+[[ -x "$rootfs/usr/bin/ooonana-audio-hardware-reprobe" ]] || fail "missing audio hardware probe"
 [[ -x "$rootfs/usr/bin/which" ]] || fail "missing which helper"
 [[ -x "$rootfs/usr/bin/strings" ]] || fail "missing strings helper"
 [[ -x "$rootfs/usr/bin/ooonana-volume" ]] || fail "missing volume helper"
@@ -370,6 +371,13 @@ assert_contains "$(<"$rootfs/usr/share/applications/ooonana-ai.desktop")" "Exec=
 assert_contains "$(<"$rootfs/usr/share/applications/ooonana-packages.desktop")" "Exec=ooonana-packages-app"
 assert_contains "$(<"$rootfs/usr/share/applications/ooonana-installer.desktop")" "Exec=ooonana-installer-gui"
 assert_contains "$(<"$rootfs/usr/share/applications/ooonana-settings.desktop")" "Exec=ooonana-settings-launch"
+for desktop_entry in \
+  ooonana-installer.desktop ooonana-setup.desktop ooonana-settings.desktop \
+  ooonana-apps.desktop ooonana-packages.desktop ooonana-ai.desktop \
+  ooonana-music.desktop oonana.desktop; do
+  assert_contains "$(<"$rootfs/usr/share/applications/$desktop_entry")" \
+    "Icon=/usr/share/ooonana/logo.png"
+done
 [[ -f "$rootfs/var/lib/ooonana/packages/installed/branding.pkg" ]] || fail "missing branding installed marker"
 [[ -f "$rootfs/var/lib/ooonana/packages/installed/i3.pkg" ]] || fail "missing i3 installed marker"
 [[ -f "$rootfs/var/lib/ooonana/packages/installed/full-i3.pkg" ]] || fail "missing full-i3 installed marker"
@@ -427,6 +435,15 @@ assert_contains "$audio_start" "pipewire-pulse"
 assert_contains "$audio_start" "wireplumber"
 assert_contains "$audio_start" "alsactl restore"
 assert_contains "$audio_start" 'if [ "${1:-}" = "--restart" ]'
+audio_probe="$(<"$rootfs/usr/bin/ooonana-audio-hardware-reprobe")"
+assert_contains "$audio_probe" "/proc/cmdline"
+assert_contains "$audio_probe" "/sys/module/snd_intel_dspcfg/parameters/dsp_driver"
+assert_contains "$audio_probe" "--snapshot"
+assert_contains "$audio_probe" "Sound PCI sysfs bindings"
+assert_contains "$audio_probe" "Kernel audio messages"
+rcs="$(<"$rootfs/etc/init.d/rcS")"
+assert_contains "$rcs" "ooonana-audio-hardware-reprobe --snapshot"
+assert_contains "$rcs" "/var/log/ooonana-audio-boot.log"
 
 i3_installer_session="$(<"$rootfs/usr/bin/ooonana-i3-installer-session")"
 assert_contains "$i3_installer_session" "ooonana-gui-installer"
@@ -806,6 +823,8 @@ assert_contains "$oonana_game" "BRICKS_MAP"
 assert_contains "$oonana_game" "BALL_FACES"
 assert_contains "$oonana_game" "LOGO_BALL"
 assert_contains "$oonana_game" "DEFAULT_WIDTH = 112"
+assert_contains "$oonana_game" "def scaled_bricks("
+assert_contains "$oonana_game" "frame_started = time.monotonic()"
 assert_contains "$oonana_game" "def decode_key("
 assert_contains "$(<"$rootfs/usr/share/applications/oonana.desktop")" "Exec=ooonana-game-launch"
 
@@ -899,10 +918,13 @@ assert_contains "$picom_cfg" "unredir-if-possible = true"
 assert_contains "$picom_cfg" "shadow = false"
 assert_contains "$picom_cfg" "fading = false"
 assert_contains "$picom_cfg" "inactive-opacity = 1.0"
+assert_contains "$picom_cfg" "corner-radius = 10"
+assert_contains "$picom_cfg" "rounded-corners-exclude"
 
 dunst_cfg="$(<"$rootfs/etc/ooonana/dunstrc")"
 assert_contains "$dunst_cfg" 'origin = top-right'
 assert_contains "$dunst_cfg" 'highlight = "#ffb21a"'
+assert_contains "$dunst_cfg" "corner_radius = 10"
 
 gui_installer="$(<"$rootfs/usr/bin/ooonana-gui-installer")"
 assert_contains "$gui_installer" "ooonana-installer-gui --dry-run"

@@ -42,7 +42,7 @@ internal disk with the same label is ignored.
 
 Disk-write safety:
 
-- Normal live mode mounts ISO and live rootfs read-only. Session writes use RAM.
+- Normal live mode mounts ISO and live rootfs read-only. When `OOONANA_PERSIST` exists on the boot USB, session writes use a separate temporary USB overlay that is cleared at next normal boot. Without that partition, session writes use RAM.
 - Persistent live mode writes only to `OOONANA_PERSIST` on boot USB.
 - Neither live mode partitions, formats, or installs to internal disks.
 - Installer entries can write selected target only after installer confirmation.

@@ -8,7 +8,7 @@ source "$ROOT/scripts/lib/common.sh"
 OUT_DIR="$ROOT/packages/ooonana/usr/lib/ooonana/repo"
 KERNEL=""
 KERNEL_SHA256="${OOONANA_KERNEL_SHA256:-}"
-VERSION="${OOONANA_KERNEL_VERSION:-6.18.37}"
+VERSION="${OOONANA_KERNEL_VERSION:-6.18.37-2}"
 PKG_ID="ooonana-kernel"
 SUMMARY="Ooonana Linux kernel"
 DRY_RUN=0

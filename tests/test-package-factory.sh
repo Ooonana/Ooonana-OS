@@ -195,6 +195,9 @@ assert_contains "$workflow" "configs/packages/full-i3.list"
 assert_contains "$workflow" "configs/packages/both.list"
 assert_contains "$workflow" "default: \"configs/packages/both.list\""
 assert_contains "$workflow" "default: true"
+assert_contains "$workflow" 'default: "6.18.37-2"'
+assert_contains "$workflow" 'vmlinuz-ooonana-6.18.37-2'
+assert_contains "$workflow" 'faf177e16785fb1419353cc98e23c0bfdb056509292646665ec2c5af7326bf6a'
 
 gitlab_ci="$(<"$GITLAB_CI")"
 assert_contains "$gitlab_ci" "workflow:"
@@ -215,11 +218,13 @@ assert_contains "$gitlab_ci" "OOONANA_REPO_SIGN_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_REPO_PUBLIC_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_CORE_VERSION"
-assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.8.21"'
+assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.8.22"'
 assert_contains "$gitlab_ci" "OOONANA_OPENVINO_CHAT_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_URL"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_SHA256"
-assert_contains "$gitlab_ci" 'OOONANA_KERNEL_PACKAGE_URL: ""'
+assert_contains "$gitlab_ci" 'OOONANA_KERNEL_VERSION: "6.18.37-2"'
+assert_contains "$gitlab_ci" 'vmlinuz-ooonana-6.18.37-2'
+assert_contains "$gitlab_ci" 'faf177e16785fb1419353cc98e23c0bfdb056509292646665ec2c5af7326bf6a'
 assert_contains "$gitlab_ci" "--kernel-url"
 assert_contains "$gitlab_ci" "--kernel-sha256"
 assert_contains "$gitlab_ci" "--kernel-version"
@@ -396,7 +401,7 @@ core_upgrade="$(OOONANA_REPO_DIR="$tmp/repo" \
 assert_contains "$core_upgrade" "installed ooonana-core-runtime"
 assert_contains "$core_upgrade" "upgraded ooonana-core 0.8.1"
 [[ -x "$core_upgrade_root/usr/bin/ooonana" ]] || fail "core migration removed upgraded CLI"
-assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.8.21"
+assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.8.22"
 assert_contains "$(<"$tmp/repo/cloud.repo")" 'OOONANA_REPO_URI="https://example.test/repo"'
 assert_contains "$(<"$tmp/repo/README.txt")" "ooonana update"
 

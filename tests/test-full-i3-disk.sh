@@ -76,7 +76,11 @@ dry_run_normal="$(bash "$SCRIPT" \
   --force \
   --dry-run)"
 assert_contains "$dry_run_normal" "root=PARTUUID=TARGET_PARTUUID rw console=ttyS0 console=tty0 panic=1 init=/sbin/init ooonana.edition=full-i3"
-assert_contains "$script_src" "smbios --type 1 --get-string 4 --set ooonana_manufacturer"
+assert_not_contains "$script_src" "750XGK"
+assert_contains "$script_src" "submenu 'Audio compatibility'"
+assert_contains "$script_src" "force Intel SOF audio"
+assert_contains "$script_src" "force legacy Intel HDA audio"
+assert_contains "$script_src" "snd_intel_dspcfg.dsp_driver=1"
 assert_contains "$script_src" "snd_intel_dspcfg.dsp_driver=3"
 assert_contains "$script_src" "terminal_input console serial"
 assert_contains "$script_src" "terminal_output console serial"

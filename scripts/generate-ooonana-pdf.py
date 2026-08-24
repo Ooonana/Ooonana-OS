@@ -53,7 +53,7 @@ def build_lines() -> list[str]:
     return [
         *logo,
         "",
-        "Ooonana OS 0.8.21 field guide",
+        "Ooonana OS 0.8.22 field guide",
         "",
         "What it is",
         "Ooonana OS is a scratch-built Linux project with its own rootfs, boot flow, installer experiments, WSL export, and custom ooonana package manager.",
@@ -86,7 +86,7 @@ def build_lines() -> list[str]:
         "Full-i3 live ISO boots i3 by default. The installer wizard has disk picker, partition controls, user/password, hostname, theme and repo pickers, progress log, failure shell, and reboot prompt.",
         "",
         "USB live modes",
-        "Normal live mode mounts ISO and rootfs read-only; session writes stay in RAM and vanish at shutdown.",
+        "Normal live mode mounts ISO and rootfs read-only. It uses a cleared temporary overlay on OOONANA_PERSIST when available on the same boot USB, with RAM fallback.",
         "Persistent live mode accepts only an ext4 OOONANA_PERSIST partition on the same physical boot USB. Its full writable overlay saves files, settings, Wi-Fi, Bluetooth pairings, packages, and system changes.",
         "Internal disks are ignored by both live modes. Only the confirmed installer target can be partitioned or formatted.",
         "",

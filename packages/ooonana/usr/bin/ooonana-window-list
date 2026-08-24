@@ -14,46 +14,52 @@ def tree():
         return {}
 
 
-def leaves(node):
+def leaves(node, in_scratchpad=False):
     found = []
+    scratchpad_state = node.get("scratchpad_state")
+    hidden = (
+        in_scratchpad
+        or node.get("name") == "__i3_scratch"
+        or scratchpad_state not in (None, "none")
+    )
     if node.get("window") is not None and node.get("name"):
-        found.append(node)
+        found.append((node, hidden))
     for key in ("nodes", "floating_nodes"):
         for child in node.get(key, []):
-            found.extend(leaves(child))
+            found.extend(leaves(child, hidden))
     return found
 
 
 def windows():
     items = []
-    for node in leaves(tree()):
+    for node, hidden in leaves(tree()):
         con_id = node.get("id")
         if not isinstance(con_id, int):
             continue
         name = " ".join(str(node.get("name", "")).split()) or "window"
-        items.append((con_id, name, bool(node.get("focused"))))
+        items.append((con_id, name, bool(node.get("focused")), hidden))
     return items
 
 
 def compact(items):
     if not items:
         return "desktop"
-    focused = [item for item in items if item[2]]
-    rest = [item for item in items if not item[2]]
-    ordered = focused + rest
-    labels = []
-    for _con_id, name, active in ordered[:3]:
-        label = name[:24] + ("..." if len(name) > 24 else "")
-        labels.append(("* " if active else "") + label)
-    if len(ordered) > 3:
-        labels.append(f"+{len(ordered) - 3}")
-    return " | ".join(labels)
+    focused = next((item for item in items if item[2]), items[0])
+    name = focused[1]
+    title = name[:22] + ("..." if len(name) > 22 else "")
+    hidden_count = sum(1 for item in items if item[3])
+    suffix = f" +{len(items) - 1}" if len(items) > 1 else ""
+    hidden = f" ({hidden_count} hidden)" if hidden_count else ""
+    return f"* {title}{suffix}{hidden}"
 
 
 def menu(items):
     if not items:
         return
-    choices = [f"{'* ' if active else '  '}{name}" for _con_id, name, active in items]
+    choices = [
+        f"{'* ' if active else '  '}{name}{' [hidden]' if hidden else ''}"
+        for _con_id, name, active, hidden in items
+    ]
     try:
         result = subprocess.run(
             ["rofi", "-dmenu", "-i", "-p", "Windows", "-format", "i"],
@@ -68,7 +74,12 @@ def menu(items):
     except (OSError, ValueError, subprocess.SubprocessError):
         return
     if 0 <= selected < len(items):
-        subprocess.run(["i3-msg", f"[con_id={items[selected][0]}] focus"], check=False)
+        con_id, _name, _active, hidden = items[selected]
+        commands = []
+        if hidden:
+            commands.append(f"[con_id={con_id}] scratchpad show")
+        commands.append(f"[con_id={con_id}] focus")
+        subprocess.run(["i3-msg", "; ".join(commands)], check=False)
 
 
 def main():

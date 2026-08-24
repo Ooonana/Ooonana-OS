@@ -19,9 +19,9 @@ except ImportError:
 DEFAULT_WIDTH = 112
 DEFAULT_HEIGHT = 38
 MIN_WIDTH = 68
-MAX_WIDTH = 160
+MAX_WIDTH = 220
 MIN_HEIGHT = 26
-MAX_HEIGHT = 48
+MAX_HEIGHT = 64
 BRICK_TOP = 4
 
 BRICKS_MAP = [
@@ -69,7 +69,7 @@ GREEN = "\033[1;32m"
 MAGENTA = "\033[1;35m"
 WHITE = "\033[1;37m"
 BRICK_COLORS = {"O": YELLOW, "N": CYAN, "A": GREEN, "S": MAGENTA}
-SPEED_DELAYS = {1: 0.055, 2: 0.036, 3: 0.022}
+SPEED_DELAYS = {1: 0.050, 2: 0.025, 3: 0.016}
 
 
 def color(code, text):
@@ -78,11 +78,22 @@ def color(code, text):
     return f"{code}{text}{RESET}"
 
 
+def scaled_bricks(width, height):
+    x_scale = max(1, min(3, (width - 4) // len(BRICKS_MAP[0])))
+    y_scale = 2 if height >= 48 else 1
+    return [
+        "".join(char * x_scale for char in row)
+        for row in BRICKS_MAP
+        for _ in range(y_scale)
+    ]
+
+
 class Game:
     def __init__(self, speed=2, width=DEFAULT_WIDTH, height=DEFAULT_HEIGHT):
         self.width = max(MIN_WIDTH, int(width))
         self.height = max(MIN_HEIGHT, int(height))
-        self.paddle_width = max(14, min(24, self.width // 6))
+        self.paddle_width = max(14, min(36, self.width // 6))
+        self.paddle_step = max(2, min(4, self.width // 70))
         self.paddle_y = self.height - 4
         self.speed = speed
         self.restart()
@@ -95,14 +106,14 @@ class Game:
         self.game_over = False
         self.victory = False
         self.paddle_x = (self.width - self.paddle_width) // 2
-        self.bricks = [list(row) for row in BRICKS_MAP]
+        self.bricks = [list(row) for row in scaled_bricks(self.width, self.height)]
         self.reset_ball(initial=True)
 
     def reset_ball(self, initial=False):
         self.ball_x = self.width / 2
         self.ball_y = float(
             max(
-                BRICK_TOP + len(BRICKS_MAP) + 5,
+                BRICK_TOP + len(self.bricks) + 5,
                 min(self.paddle_y - 8, int(self.height * 0.48)),
             )
         )
@@ -151,10 +162,11 @@ class Game:
             self.speed = int(key[-1])
             return True
         if key == "left":
-            self.paddle_x = max(1, self.paddle_x - 4)
+            self.paddle_x = max(1, self.paddle_x - self.paddle_step)
         elif key == "right":
             self.paddle_x = min(
-                self.width - self.paddle_width - 1, self.paddle_x + 4
+                self.width - self.paddle_width - 1,
+                self.paddle_x + self.paddle_step,
             )
         return True
 
@@ -163,12 +175,12 @@ class Game:
             probe_y = self.ball_bottom
         else:
             probe_y = self.ball_top
-        brick_bottom = BRICK_TOP + len(BRICKS_MAP) - 1
+        brick_bottom = BRICK_TOP + len(self.bricks) - 1
         if not BRICK_TOP <= probe_y <= brick_bottom:
             return False
 
         brick_row = probe_y - BRICK_TOP
-        brick_start = (self.width - len(BRICKS_MAP[0])) // 2
+        brick_start = (self.width - len(self.bricks[0])) // 2
         ball_left = int(round(self.ball_x)) - self.ball_half_width
         ball_right = int(round(self.ball_x)) + self.ball_half_width
         hits = []
@@ -252,7 +264,7 @@ class Game:
             color(CYAN, "=" * self.width),
         ]
         face = self.ball_face()
-        brick_start = (self.width - len(BRICKS_MAP[0])) // 2
+        brick_start = (self.width - len(self.bricks[0])) // 2
         sprite_top = self.ball_top
 
         for y in range(2, self.height - 1):
@@ -307,7 +319,7 @@ Ooonana brickout.
 Installer game engine.
 Bricks spell OOONANA OS.
 Ball sprite: full Ooonana logo ball.
-real-time Python terminal game with combo scoring and smooth row updates.
+real-time Python terminal game with responsive bricks and fixed frame pacing.
 
 Keys:
   a/d or arrow keys   move
@@ -389,13 +401,15 @@ def run():
     game = Game(width=width, height=height)
     previous = None
     old_settings = None
-    sys.stdout.write("\033[?25l\033[2J")
+    sys.stdout.write("\033[?1049h\033[?25l\033[2J")
     sys.stdout.flush()
     try:
         old_settings = termios.tcgetattr(sys.stdin)
         tty.setcbreak(sys.stdin.fileno())
         while not game.game_over and not game.victory:
-            key = get_key(SPEED_DELAYS[game.speed])
+            frame_started = time.monotonic()
+            frame_delay = SPEED_DELAYS[game.speed]
+            key = get_key(frame_delay)
             if key == "quit":
                 break
             game.step(key)
@@ -403,10 +417,13 @@ def run():
             sys.stdout.write(render_diff(lines, previous))
             sys.stdout.flush()
             previous = lines
+            remaining = frame_delay - (time.monotonic() - frame_started)
+            if remaining > 0:
+                time.sleep(remaining)
     finally:
         if old_settings is not None:
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
-        sys.stdout.write(f"\033[{game.height + 3};1H\033[?25h\033[0m\n")
+        sys.stdout.write("\033[?25h\033[0m\033[?1049l")
         sys.stdout.flush()
 
     if game.victory:

@@ -49,15 +49,15 @@ on:
       kernel_version:
         description: "Ooonana kernel package version"
         required: false
-        default: "6.18.37"
+        default: "6.18.37-2"
       kernel_url:
         description: "Kernel image URL to add as ooonana-kernel package"
         required: false
-        default: ""
+        default: "https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/vmlinuz-ooonana-6.18.37-2"
       kernel_sha256:
         description: "Required SHA-256 for kernel_url"
         required: false
-        default: ""
+        default: "faf177e16785fb1419353cc98e23c0bfdb056509292646665ec2c5af7326bf6a"
 
 permissions:
   contents: write

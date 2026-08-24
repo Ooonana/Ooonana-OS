@@ -33,11 +33,16 @@ assert_contains "$source_text" 'die "resume stage missing package repo; rerun wi
 assert_contains "$source_text" 'die "resume stage missing full rootfs; rerun without --resume-after-rootfs"'
 assert_contains "$source_text" 'bash "$ROOT/scripts/build-full-i3-rootfs.sh"'
 assert_contains "$source_text" '--work-dir "$STAGE_DIR"'
+assert_contains "$source_text" 'STAGED_ISO="$STAGE_DIR/ooonana-full-i3.iso.new"'
+assert_contains "$source_text" '--iso "$STAGED_ISO"'
+assert_contains "$source_text" 'Building in WSL-native storage'
 assert_contains "$source_text" 'VERIFY_ISO="$WORK/ooonana-full-i3.iso"'
 assert_contains "$source_text" 'Copying ISO to WSL-native storage for QEMU'
 assert_contains "$source_text" '--iso "$VERIFY_ISO"'
 assert_contains "$source_text" '-cdrom "$VERIFY_ISO"'
 assert_contains "$source_text" 'iso_sha256="$(sha256sum "$VERIFY_ISO"'
+assert_contains "$source_text" 'Copying verified ISO to release storage'
+assert_contains "$source_text" 'release ISO copy is incomplete'
 assert_contains "$source_text" "printf '%s  ooonana-full-i3.iso"
 assert_contains "$source_text" 'rm -rf "$STAGE_DIR"'
 assert_contains "$source_text" 'findmnt mount mountpoint'
@@ -50,6 +55,7 @@ assert_contains "$source_text" 'cached kernel differs from requested option'
 assert_contains "$source_text" 'release_input_fingerprint()'
 assert_contains "$source_text" '.release-inputs.sha256'
 assert_contains "$source_text" '.ooonana-rootfs-complete'
+assert_contains "$source_text" 'if [[ -s "$STAGE_DIR/ooonana-full-i3-rootfs.tar.gz" ]]'
 assert_contains "$source_text" 'resume stage is incomplete'
 assert_contains "$source_text" 'resume stage inputs changed'
 assert_contains "$source_text" 'need at least 20 GiB free for stage'
@@ -58,6 +64,9 @@ assert_contains "$source_text" "another Ooonana full-i3 release build is already
 assert_contains "$source_text" "ooonana-service-watchdog"
 assert_contains "$source_text" "ooonana-service-repair force-wifi"
 assert_contains "$source_text" "ooonana-service-repair force-bluetooth"
+assert_contains "$source_text" 'die "Wi-Fi UI uses invalid GENERAL.MANAGED field"'
+assert_contains "$source_text" 'die "supplicant daemon still uses conflicting D-Bus mode"'
+assert_contains "$source_text" 'die "live initramfs writes state into ephemeral /run"'
 assert_contains "$source_text" "/newroot/mnt/ooonana-live/boot-device"
 assert_contains "$source_text" "persistence_mode=\"usb\""
 assert_contains "$source_text" "class MediaWindow"

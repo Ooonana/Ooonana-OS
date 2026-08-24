@@ -3,7 +3,7 @@
 # shellcheck disable=SC1090,SC3043
 set -eu
 
-VERSION="0.8.21"
+VERSION="0.8.22"
 HOME_DIR="${HOME:-/root}"
 if [ -n "${OOONANA_AI_CONFIG:-}" ]; then
   AI_CONFIG="$OOONANA_AI_CONFIG"

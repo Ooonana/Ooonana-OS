@@ -106,7 +106,7 @@ main() {
     local fw rel
     [[ -d "$ROOTFS/lib/firmware" ]] || return 0
     while IFS= read -r -d '' fw; do
-      rel="${fw#$ROOTFS/lib/firmware/}"
+      rel="${fw#"$ROOTFS"/lib/firmware/}"
       if [[ -L "$fw" ]]; then
         mkdir -p "$(dirname "$LIVE_INIT_TREE/lib/firmware/$rel")"
         cp -a "$fw" "$LIVE_INIT_TREE/lib/firmware/$rel"
@@ -298,26 +298,32 @@ parent_disk_name() {
   fi
 }
 
-if grep -q 'ooonana.persistence=1' /proc/cmdline 2>/dev/null; then
-  boot_parent="$(parent_disk_name "$boot_media_device")"
-  for devpath in /sys/class/block/*; do
-    [ -e "$devpath" ] || continue
-    candidate="/dev/${devpath##*/}"
-    [ -b "$candidate" ] || continue
-    [ "$(readlink -f "$candidate" 2>/dev/null || printf '%s\n' "$candidate")" != "$(readlink -f "$boot_media_device" 2>/dev/null || printf '%s\n' "$boot_media_device")" ] || continue
-    [ "$(parent_disk_name "$candidate")" = "$boot_parent" ] || continue
-    [ "$(blkid -s LABEL -o value "$candidate" 2>/dev/null || true)" = "OOONANA_PERSIST" ] || continue
-    [ "$(blkid -s TYPE -o value "$candidate" 2>/dev/null || true)" = "ext4" ] || continue
-    if mount -t ext4 -o rw "$candidate" /persist 2>/dev/null; then
+boot_parent="$(parent_disk_name "$boot_media_device")"
+for devpath in /sys/class/block/*; do
+  [ -e "$devpath" ] || continue
+  candidate="/dev/${devpath##*/}"
+  [ -b "$candidate" ] || continue
+  [ "$(readlink -f "$candidate" 2>/dev/null || printf '%s\n' "$candidate")" != "$(readlink -f "$boot_media_device" 2>/dev/null || printf '%s\n' "$boot_media_device")" ] || continue
+  [ "$(parent_disk_name "$candidate")" = "$boot_parent" ] || continue
+  [ "$(blkid -s LABEL -o value "$candidate" 2>/dev/null || true)" = "OOONANA_PERSIST" ] || continue
+  [ "$(blkid -s TYPE -o value "$candidate" 2>/dev/null || true)" = "ext4" ] || continue
+  if mount -t ext4 -o rw "$candidate" /persist 2>/dev/null; then
+    if grep -q 'ooonana.persistence=1' /proc/cmdline 2>/dev/null; then
       mkdir -p /persist/overlay/upper /persist/overlay/work
       overlay_upper="/persist/overlay/upper"
       overlay_work="/persist/overlay/work"
       persistence_mode="usb"
-      persistence_device="$candidate"
-      break
+    else
+      rm -rf /persist/temporary-overlay
+      mkdir -p /persist/temporary-overlay/upper /persist/temporary-overlay/work
+      overlay_upper="/persist/temporary-overlay/upper"
+      overlay_work="/persist/temporary-overlay/work"
+      persistence_mode="usb-temporary"
     fi
-  done
-fi
+    persistence_device="$candidate"
+    break
+  fi
+done
 
 if [ "$persistence_mode" = "ram" ]; then
   mount -t tmpfs -o mode=0755 tmpfs /cow || fail "cannot mount writable tmpfs overlay"
@@ -337,6 +343,9 @@ mount --bind /cow /newroot/mnt/ooonana-live/cow 2>/dev/null || true
 if [ "$persistence_mode" = "usb" ]; then
   mkdir -p /newroot/mnt/ooonana-live/persist
   mount --bind /persist /newroot/mnt/ooonana-live/persist 2>/dev/null || true
+elif [ "$persistence_mode" = "usb-temporary" ]; then
+  mkdir -p /newroot/mnt/ooonana-live/temporary
+  mount --bind /persist/temporary-overlay /newroot/mnt/ooonana-live/temporary 2>/dev/null || true
 fi
 mount --move /proc /newroot/proc 2>/dev/null || true
 mount --move /sys /newroot/sys 2>/dev/null || true

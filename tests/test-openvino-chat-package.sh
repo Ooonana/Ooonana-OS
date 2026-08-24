@@ -32,6 +32,8 @@ assert_contains "$setup_dry" "OOONANA_OPENVINO_SETUP_DRY_OK"
 
 setup_text="$(<"$PAYLOAD/usr/bin/ooonana-openvino-setup")"
 assert_contains "$setup_text" "/tmp/ooonana-openvino-src"
+assert_contains "$setup_text" "--no-preserve=mode,ownership,timestamps,xattr"
+assert_contains "$setup_text" "chmod -R u+rwX /tmp/ooonana-openvino-src"
 assert_contains "$setup_text" "pip install --no-cache-dir --upgrade /tmp/ooonana-openvino-src"
 assert_contains "$setup_text" "--exclude='./dev/*'"
 

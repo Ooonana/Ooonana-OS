@@ -2680,7 +2680,11 @@ fade-in-step = 0.045;
 fade-out-step = 0.045;
 inactive-opacity = 1.0;
 active-opacity = 1.0;
-corner-radius = 0;
+corner-radius = 10;
+rounded-corners-exclude = [
+  "window_type = 'dock'",
+  "window_type = 'desktop'"
+];
 EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/dunstrc" <<'EOF'
@@ -2695,7 +2699,7 @@ offset = 20x42
 width = 340
 height = 160
 frame_width = 2
-corner_radius = 0
+corner_radius = 10
 highlight = "#ffb21a"
 [urgency_critical]
 background = "#050505"
@@ -3397,6 +3401,7 @@ EOF
 Type=Application
 Name=Install Ooonana OS
 Exec=ooonana-installer-gui
+Icon=/usr/share/ooonana/logo.png
 Terminal=false
 Categories=System;
 EOF
@@ -3406,6 +3411,7 @@ EOF
 Type=Application
 Name=Ooonana Setup
 Exec=ooonana-setup --gui
+Icon=/usr/share/ooonana/logo.png
 Terminal=false
 Categories=System;
 EOF
@@ -3415,6 +3421,7 @@ EOF
 Type=Application
 Name=Ooonana Settings
 Exec=ooonana-settings-launch
+Icon=/usr/share/ooonana/logo.png
 Terminal=false
 Categories=Settings;System;
 EOF
@@ -3435,6 +3442,7 @@ EOF
 Type=Application
 Name=Ooonana Packages
 Exec=ooonana-packages-app
+Icon=/usr/share/ooonana/logo.png
 Terminal=false
 Categories=System;PackageManager;
 EOF
@@ -3534,6 +3542,13 @@ start_device_manager() {
 
 start_device_manager
 start_persistence
+
+capture_audio_boot_state() {
+  command -v ooonana-audio-hardware-reprobe >/dev/null 2>&1 || return 0
+  ooonana-audio-hardware-reprobe --snapshot >/var/log/ooonana-audio-boot.log 2>&1 || true
+}
+
+capture_audio_boot_state
 
 configure_cpu_scaling() {
   for policy in /sys/devices/system/cpu/cpufreq/policy*; do
@@ -3717,7 +3732,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   version_output="$(/usr/bin/ooonana version 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.8.21' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.8.22' &&
     printf '%s\n' "$installed_output" | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else

@@ -106,16 +106,6 @@ else
 fi
 set color_normal=yellow/black
 set color_highlight=black/yellow
-set ooonana_hardware_args=
-if [ "\$grub_platform" = "efi" ]; then
-  if insmod smbios; then
-    if smbios --type 1 --get-string 4 --set ooonana_manufacturer; then
-      if regexp --ignore-case 'samsung' "\$ooonana_manufacturer"; then
-        set ooonana_hardware_args='snd_intel_dspcfg.dsp_driver=3'
-      fi
-    fi
-  fi
-fi
 function ooonana_progress_bar {
   echo '                         [#####-----] booting Ooonana OS'
 }
@@ -147,23 +137,45 @@ set timeout=5
 set default=$default_entry
 
 menuentry 'Ooonana OS Full i3 Live' {
-  linux /boot/vmlinuz $live_append \$ooonana_hardware_args
+  linux /boot/vmlinuz $live_append
   initrd /boot/live-initramfs.cpio.gz
 }
 
 menuentry 'Ooonana OS Full i3 Live (persistent USB)' {
-  linux /boot/vmlinuz $persistent_append \$ooonana_hardware_args
+  linux /boot/vmlinuz $persistent_append
   initrd /boot/live-initramfs.cpio.gz
 }
 
 menuentry 'Install Ooonana OS Full i3' {
-  linux /boot/vmlinuz $install_append \$ooonana_hardware_args
+  linux /boot/vmlinuz $install_append
   initrd $install_initrd
 }
 
 menuentry 'Install Ooonana OS Full i3 (safe graphics)' {
-  linux /boot/vmlinuz $safe_install_append \$ooonana_hardware_args
+  linux /boot/vmlinuz $safe_install_append
   initrd $install_initrd
+}
+
+submenu 'Audio compatibility' {
+  menuentry 'Live - force Intel SOF audio' {
+    linux /boot/vmlinuz $live_append snd_intel_dspcfg.dsp_driver=3
+    initrd /boot/live-initramfs.cpio.gz
+  }
+
+  menuentry 'Persistent USB - force Intel SOF audio' {
+    linux /boot/vmlinuz $persistent_append snd_intel_dspcfg.dsp_driver=3
+    initrd /boot/live-initramfs.cpio.gz
+  }
+
+  menuentry 'Live - force legacy Intel HDA audio' {
+    linux /boot/vmlinuz $live_append snd_intel_dspcfg.dsp_driver=1
+    initrd /boot/live-initramfs.cpio.gz
+  }
+
+  menuentry 'Persistent USB - force legacy Intel HDA audio' {
+    linux /boot/vmlinuz $persistent_append snd_intel_dspcfg.dsp_driver=1
+    initrd /boot/live-initramfs.cpio.gz
+  }
 }
 EOF
 }
@@ -195,7 +207,8 @@ Use `Ooonana OS Full i3 Live (persistent USB)`.
 Create an extra ext4 partition labeled `OOONANA_PERSIST`.
 Ooonana uses it as the writable live-root overlay, including user files, settings, and packages.
 The persistence partition must be on the same physical USB as Ooonana boot media.
-Normal live mode writes only to RAM. Installer writes disks only after confirmation.
+Normal live mode uses a cleared temporary overlay on that same USB partition when available, then resets it on next boot. It falls back to RAM when no matching USB partition exists.
+Installer writes disks only after confirmation.
 EOF
 }
 

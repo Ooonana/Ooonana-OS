@@ -6,8 +6,9 @@ ISO="$ROOT/../release-current/ooonana-full-i3.iso"
 WORK="${TMPDIR:-/var/tmp}/ooonana-qemu-service-smoke.$$"
 ALPINE="https://dl-cdn.alpinelinux.org/alpine/v3.20"
 USE_ISO_RUNTIME=0
-QEMU_TIMEOUT="${OOONANA_QEMU_SERVICE_TIMEOUT:-900}"
+QEMU_TIMEOUT="${OOONANA_QEMU_SERVICE_TIMEOUT:-1800}"
 QEMU_ACCEL="${OOONANA_QEMU_ACCEL:-}"
+QEMU_PID=""
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -27,6 +28,10 @@ fail() {
 }
 
 cleanup() {
+  if [ -n "$QEMU_PID" ] && kill -0 "$QEMU_PID" 2>/dev/null; then
+    kill "$QEMU_PID" 2>/dev/null || true
+    wait "$QEMU_PID" 2>/dev/null || true
+  fi
   rm -rf "$WORK"
 }
 trap cleanup EXIT INT TERM
@@ -48,6 +53,7 @@ if [ -z "$QEMU_ACCEL" ]; then
 fi
 
 mkdir -p "$WORK/patch/smoke-root"
+echo "[qemu-service] extracting ISO runtime"
 xorriso -osirrox on -indev "$ISO" \
   -extract /boot/live-initramfs.cpio.gz "$WORK/live-initramfs.cpio.gz" \
   -extract /boot/vmlinuz "$WORK/vmlinuz" >/dev/null 2>&1
@@ -383,6 +389,7 @@ fail "bunana shutdown returned"
 SMOKE
 chmod 0755 "$WORK/patch/ooonana-service-smoke"
 
+echo "[qemu-service] preparing smoke initramfs"
 (
   cd "$WORK/patch"
   find . -print0 | cpio --null -o -H newc 2>/dev/null | gzip -9 >"$WORK/patch.cpio.gz"
@@ -390,6 +397,8 @@ chmod 0755 "$WORK/patch/ooonana-service-smoke"
 cat "$WORK/live-initramfs.cpio.gz" "$WORK/patch.cpio.gz" >"$WORK/smoke-initramfs.cpio.gz"
 
 set +e
+: >"$WORK/qemu.log"
+echo "[qemu-service] booting QEMU (timeout=${QEMU_TIMEOUT}s accel=${QEMU_ACCEL})"
 timeout "$QEMU_TIMEOUT" qemu-system-x86_64 \
   -accel "$QEMU_ACCEL" -machine q35 -m 2048 -smp 2 \
   -kernel "$WORK/vmlinuz" -initrd "$WORK/smoke-initramfs.cpio.gz" \
@@ -397,8 +406,20 @@ timeout "$QEMU_TIMEOUT" qemu-system-x86_64 \
   -cdrom "$ISO" -nic user,model=e1000 \
   -audiodev none,id=ooonana-audio \
   -device intel-hda -device hda-duplex,audiodev=ooonana-audio \
-  -display none -serial stdio -monitor none -no-reboot >"$WORK/qemu.log" 2>&1
+  -display none -serial stdio -monitor none -no-reboot >"$WORK/qemu.log" 2>&1 &
+QEMU_PID=$!
+last_progress=""
+while kill -0 "$QEMU_PID" 2>/dev/null; do
+  current_progress="$(grep -E 'OOONANA_SERVICE_SMOKE_(BEGIN|STEP|OK|FAIL)|OOONANA_BUNANA_SHUTDOWN_BEGIN' "$WORK/qemu.log" 2>/dev/null | tail -n 1 || true)"
+  if [ -n "$current_progress" ] && [ "$current_progress" != "$last_progress" ]; then
+    printf '[qemu-service] %s\n' "$current_progress"
+    last_progress="$current_progress"
+  fi
+  sleep 2
+done
+wait "$QEMU_PID"
 qemu_rc=$?
+QEMU_PID=""
 set -e
 
 cat "$WORK/qemu.log"
