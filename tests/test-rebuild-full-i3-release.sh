@@ -57,7 +57,12 @@ assert_contains "$source_text" '.release-inputs.sha256'
 assert_contains "$source_text" '.ooonana-rootfs-complete'
 assert_contains "$source_text" 'if [[ -s "$STAGE_DIR/ooonana-full-i3-rootfs.tar.gz" ]]'
 assert_contains "$source_text" 'resume stage is incomplete'
+assert_contains "$source_text" 'Recovering completed rootfs after interrupted optional export'
 assert_contains "$source_text" 'resume stage inputs changed'
+assert_contains "$source_text" 'OOONANA_EXPORT_ROOTFS_TARBALL:-auto'
+assert_contains "$source_text" 'Skipping optional rootfs tarball export'
+assert_contains "$source_text" 'rootfs_cache_part'
+assert_contains "$source_text" 'optional rootfs tarball export failed; continuing ISO build'
 assert_contains "$source_text" 'need at least 20 GiB free for stage'
 assert_contains "$source_text" "ooonana-full-i3-release.lock"
 assert_contains "$source_text" "another Ooonana full-i3 release build is already running"

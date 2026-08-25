@@ -71,7 +71,7 @@ done
 
 ensure_default_build_mount
 
-for command_name in awk cmp cp df find flock grep install mv python3 qemu-system-x86_64 realpath sha256sum sort stat sync timeout xargs; do
+for command_name in awk cmp cp dd df find flock grep install mv python3 qemu-system-x86_64 realpath sha256sum sort stat sync timeout xargs; do
   command -v "$command_name" >/dev/null 2>&1 || die "missing command: $command_name"
 done
 
@@ -240,8 +240,12 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
     cp -a "$BUILD_DIR/firmware-cache/." "$STAGE_DIR/firmware-cache/"
     printf '%s\n' "$input_fingerprint" >"$STAGE_DIR/.release-inputs.sha256"
   else
-    [[ -f "$STAGE_DIR/.ooonana-rootfs-complete" ]] ||
-      die "resume stage is incomplete; rerun without --resume-after-rootfs"
+    if [[ ! -f "$STAGE_DIR/.ooonana-rootfs-complete" ]]; then
+      [[ -d "$STAGE_DIR/full-i3-rootfs" &&
+         -s "$STAGE_DIR/ooonana-scratch-initramfs.cpio.gz" ]] ||
+        die "resume stage is incomplete; rerun without --resume-after-rootfs"
+      printf '[resume] Recovering completed rootfs after interrupted optional export\n'
+    fi
     [[ "$(cat "$STAGE_DIR/.release-inputs.sha256" 2>/dev/null || true)" == "$input_fingerprint" ]] ||
       die "resume stage inputs changed; rerun without --resume-after-rootfs"
     [[ -s "$STAGE_DIR/ooonana-kernel/vmlinuz-ooonana" ]] ||
@@ -317,12 +321,31 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
   grep -q '/mnt/ooonana-live/persistence-mode' "$ROOTFS/etc/init.d/rcS"
   grep -q 'mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /tmp' "$ROOTFS/etc/init.d/rcS"
   python3 "$ROOT/tests/audit-full-i3-runtime.py" "$ROOTFS"
-  if [[ -s "$STAGE_DIR/ooonana-full-i3-rootfs.tar.gz" ]]; then
-    cp -f "$STAGE_DIR/ooonana-full-i3-rootfs.tar.gz" \
-      "$BUILD_DIR/ooonana-full-i3-rootfs.tar.gz"
-    rm -f "$STAGE_DIR/ooonana-full-i3-rootfs.tar.gz"
-  fi
   : >"$STAGE_DIR/.ooonana-rootfs-complete"
+  if [[ -s "$STAGE_DIR/ooonana-full-i3-rootfs.tar.gz" ]]; then
+    rootfs_tar="$STAGE_DIR/ooonana-full-i3-rootfs.tar.gz"
+    rootfs_cache="$BUILD_DIR/ooonana-full-i3-rootfs.tar.gz"
+    rootfs_cache_part="$rootfs_cache.part"
+    export_rootfs_tarball="${OOONANA_EXPORT_ROOTFS_TARBALL:-auto}"
+    build_fstype="$(findmnt -n -o FSTYPE --target "$BUILD_DIR" 2>/dev/null || true)"
+
+    if [[ "$export_rootfs_tarball" == 0 ||
+          ( "$export_rootfs_tarball" == auto && "$build_fstype" == 9p ) ]]; then
+      printf '[cache] Skipping optional rootfs tarball export on %s storage\n' \
+        "${build_fstype:-unknown}"
+    else
+      rm -f "$rootfs_cache_part"
+      if dd if="$rootfs_tar" of="$rootfs_cache_part" bs=8M conv=fsync status=none &&
+         [[ "$(stat -c %s "$rootfs_cache_part")" == "$(stat -c %s "$rootfs_tar")" ]]; then
+        mv -f "$rootfs_cache_part" "$rootfs_cache"
+        printf '[cache] Rootfs tarball exported: %s\n' "$rootfs_cache"
+      else
+        printf '[cache] WARNING: optional rootfs tarball export failed; continuing ISO build\n' >&2
+        rm -f "$rootfs_cache_part"
+      fi
+    fi
+    rm -f "$rootfs_tar"
+  fi
 
   printf '[4/7] Live and installer images\n'
   bash "$ROOT/scripts/build-full-i3-live-initramfs.sh" --work-dir "$STAGE_DIR" --force
