@@ -18,7 +18,8 @@ from gi.repository import Gdk, GLib, Gtk, Pango, PangoCairo  # noqa: E402
 CSS = b"""
 * { font-family: Sans; font-size: 10pt; }
 window, dialog, .background { background: #080a0d; color: #f7ead0; }
-headerbar { background: #11161d; color: #ffb21a; border-bottom: 1px solid #2a3442; padding: 4px 8px; }
+window.background, dialog.background, messagedialog.background { border-radius: 6px; }
+headerbar { background: #11161d; color: #ffb21a; border-bottom: 1px solid #2a3442; border-radius: 6px 6px 0 0; padding: 4px 8px; }
 headerbar .title { font-weight: 700; }
 headerbar .subtitle { color: #9ba5b4; }
 .window-control { min-width: 18px; min-height: 18px; padding: 5px; border-radius: 4px; }

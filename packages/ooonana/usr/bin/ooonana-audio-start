@@ -12,6 +12,21 @@ running() {
   /bin/busybox pidof "$1" >/dev/null 2>&1
 }
 
+audio_card_ready() {
+  cards="$(cat /proc/asound/cards 2>/dev/null || true)"
+  [ -n "$cards" ] && ! printf '%s\n' "$cards" | grep -q '^ *--- no soundcards ---'
+}
+
+wait_for_audio_card() {
+  limit="${OOONANA_AUDIO_WAIT_SECONDS:-20}"
+  case "$limit" in ''|*[!0-9]*) limit=20 ;; esac
+  waited=0
+  while ! audio_card_ready && [ "$waited" -lt "$limit" ]; do
+    waited=$((waited + 1))
+    sleep 1
+  done
+}
+
 use_pipewire=0
 if command -v pipewire >/dev/null 2>&1 &&
   command -v wireplumber >/dev/null 2>&1 &&
@@ -28,6 +43,8 @@ elif [ "$use_pipewire" -eq 1 ] && running pulseaudio; then
   /bin/busybox killall pulseaudio >/dev/null 2>&1 || true
   sleep 1
 fi
+
+wait_for_audio_card
 
 if command -v alsactl >/dev/null 2>&1; then
   alsactl restore >/dev/null 2>&1 || alsactl init >/dev/null 2>&1 || true

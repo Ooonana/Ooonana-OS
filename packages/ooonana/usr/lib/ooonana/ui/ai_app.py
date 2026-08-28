@@ -362,8 +362,7 @@ class AiWindow(Gtk.Window):
         dialog.add_button("Setup runtime", 2)
         dialog.add_button("Download tiny model", 3)
         dialog.add_button("Start GPU", 4)
-        dialog.add_button("Start NPU", 5)
-        dialog.add_button("Stop API", 6)
+        dialog.add_button("Stop API", 5)
         view = Gtk.TextView()
         view.set_editable(False)
         view.set_cursor_visible(False)
@@ -399,9 +398,6 @@ class AiWindow(Gtk.Window):
         elif response == 4:
             self.start_offline_api("GPU")
         elif response == 5:
-            self.start_offline_api("NPU")
-        elif response == 6:
-            self.run_action("Offline Intel", ["provider", "set", "nim"])
             run_async(["openvino", "api", "stop"], lambda _rc, _output: None, timeout=30)
 
     def sidebar_action(self, action):
@@ -442,7 +438,7 @@ def main():
         print("native GTK Ooonana AI")
         print("layout: sidebar chat transcript composer provider model offline actions")
         print("actions: new offline status tools tasks sessions desktop permissions logs setup")
-        print("offline: install runtime model GPU NPU local API")
+        print("offline: install runtime model GPU CPU local API")
         print("OOONANA_AI_NATIVE_OK")
         return 0
     apply_theme()

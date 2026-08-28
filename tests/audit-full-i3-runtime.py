@@ -319,6 +319,9 @@ def main() -> int:
         if not any(any(firmware.glob(pattern)) for pattern in patterns):
             fail(f"missing firmware family: {family}")
 
+    if not rooted("/lib/firmware/intel/sof-tplg/sof-hda-generic-2ch.tplg").exists():
+        fail("missing SOF generic HDA topology for Galaxy Book4 audio")
+
     if not any(rooted("/usr/lib/NetworkManager").rglob("*wifi*")):
         fail("NetworkManager Wi-Fi plugin missing")
     if not any(rooted("/usr/share/alsa/ucm2").rglob("*")):

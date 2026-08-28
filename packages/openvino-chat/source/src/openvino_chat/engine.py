@@ -1,13 +1,33 @@
 from __future__ import annotations
 
+import json
+import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from openvino_chat.settings import package_install_command
+from openvino_chat.settings import (
+    DEFAULT_GENERATION_EFFORT,
+    DEFAULT_THINKING_EFFORT,
+    GRADED_THINKING_EFFORTS,
+    generation_settings,
+    package_install_command,
+    resolve_thinking_effort as resolve_model_thinking_effort,
+    thinking_efforts_for_model,
+)
 
 
 TokenCallback = Callable[[str], None]
+
+
+@dataclass(frozen=True)
+class GenerationMetrics:
+    input_tokens: int
+    output_tokens: int
+    elapsed_seconds: float
+    ttft_seconds: float | None
+    tokens_per_second: float
 
 
 class OpenVinoChatEngine:
@@ -17,13 +37,32 @@ class OpenVinoChatEngine:
         device: str,
         model_name: str = "model",
         kv_cache_precision: str = "auto",
+        model_dir: Path | None = None,
     ) -> None:
         self._pipeline = pipeline
         self.device = device
         self.model_name = model_name
         self.kv_cache_precision = kv_cache_precision
+        self.model_dir = Path(model_dir) if model_dir is not None else None
+        self.supported_thinking_efforts = thinking_efforts_for_model(self.model_dir)
         self._tokenizer: Any = None
         self._tokenizer_checked = False
+        self.last_metrics: GenerationMetrics | None = None
+        self._structured_tool_configs: dict[str, Any] = {}
+        self._structured_tools_disabled = False
+
+    @property
+    def supports_graded_thinking(self) -> bool:
+        return "xhigh" in self.supported_thinking_efforts
+
+    def resolve_thinking_effort(self, value: str) -> str:
+        return resolve_model_thinking_effort(value, self.supported_thinking_efforts)
+
+    def _thinking_context(self, effort: str) -> dict[str, Any]:
+        context: dict[str, Any] = {"enable_thinking": effort != "off"}
+        if effort in GRADED_THINKING_EFFORTS and effort != "off":
+            context["reasoning_effort"] = effort
+        return context
 
     def count_tokens(self, text: str) -> int:
         tokenizer = self._get_tokenizer()
@@ -60,13 +99,18 @@ class OpenVinoChatEngine:
         self,
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
+        thinking_effort: str = DEFAULT_THINKING_EFFORT,
     ) -> str | None:
         tokenizer = self._get_tokenizer()
         formatter = getattr(tokenizer, "apply_chat_template", None)
         if not callable(formatter):
             return None
+        effort = self.resolve_thinking_effort(thinking_effort)
         try:
-            kwargs: dict[str, Any] = {"add_generation_prompt": True}
+            kwargs: dict[str, Any] = {
+                "add_generation_prompt": True,
+                "extra_context": self._thinking_context(effort),
+            }
             if tools:
                 kwargs["tools"] = tools
             return str(formatter(messages, **kwargs))
@@ -79,22 +123,159 @@ class OpenVinoChatEngine:
         on_token: TokenCallback | None = None,
         should_stop: Callable[[], bool] | None = None,
         max_new_tokens: int = 4096,
-        temperature: float = 0.7,
-        top_p: float = 0.9,
+        temperature: float | None = None,
+        top_p: float | None = None,
+        top_k: int | None = None,
+        min_p: float | None = None,
+        presence_penalty: float | None = None,
+        repetition_penalty: float | None = None,
+        generation_profile: str = "general",
+        generation_effort: str = DEFAULT_GENERATION_EFFORT,
+        thinking_effort: str = DEFAULT_THINKING_EFFORT,
         context_length: int | None = None,
     ) -> str:
+        return self._generate_input(
+            prompt,
+            prompt_text=prompt,
+            on_token=on_token,
+            should_stop=should_stop,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+            min_p=min_p,
+            presence_penalty=presence_penalty,
+            repetition_penalty=repetition_penalty,
+            generation_profile=generation_profile,
+            generation_effort=generation_effort,
+            thinking_effort=thinking_effort,
+            context_length=context_length,
+        )
+
+    def generate_chat(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        thinking_effort: str = DEFAULT_THINKING_EFFORT,
+        tool_choice: str = "auto",
+        formatted_prompt: str | None = None,
+        **generation_kwargs: Any,
+    ) -> str:
+        """Generate from native chat history so OpenVINO can reuse common KV state."""
+        effort = self.resolve_thinking_effort(thinking_effort)
+        prompt = formatted_prompt or self.format_chat(
+            messages,
+            tools=tools,
+            thinking_effort=effort,
+        )
+        if not prompt:
+            raise ValueError("model chat template is unavailable")
+        try:
+            import openvino_genai as ov_genai
+
+            history = ov_genai.ChatHistory()
+            history.set_messages(messages)
+            if tools:
+                history.set_tools(tools)
+            history.set_extra_context(self._thinking_context(effort))
+        except (ImportError, AttributeError, TypeError):
+            return self.generate(prompt, thinking_effort=effort, **generation_kwargs)
+        structured_tools = self._structured_tool_output(
+            tools,
+            require_tool=tool_choice == "required",
+        )
+        if structured_tools is not None:
+            generation_kwargs.setdefault("structured_output_config", structured_tools)
+        return self._generate_input(
+            history,
+            prompt_text=prompt,
+            thinking_effort=effort,
+            **generation_kwargs,
+        )
+
+    def _structured_tool_output(
+        self,
+        tools: list[dict[str, Any]] | None,
+        *,
+        require_tool: bool = False,
+    ) -> Any | None:
+        if self._structured_tools_disabled or not tools or "gemma" in self.model_name.lower():
+            return None
+        try:
+            import openvino_genai as ov_genai
+
+            structured = ov_genai.StructuredOutputConfig
+        except (ImportError, AttributeError):
+            return None
+        key = ("required:" if require_tool else "auto:") + json.dumps(
+            tools,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        if key in self._structured_tool_configs:
+            return self._structured_tool_configs[key]
+        tags = []
+        for tool in tools:
+            function = tool.get("function") if isinstance(tool, dict) else None
+            if not isinstance(function, dict) or not function.get("name"):
+                continue
+            schema = json.dumps(function.get("parameters") or {"type": "object"})
+            tags.append(
+                structured.Tag(
+                    f"<tool_call>\n<function={function['name']}>\n",
+                    structured.QwenXMLParametersFormat(schema),
+                    "\n</function>\n</tool_call>",
+                )
+            )
+        if not tags:
+            return None
+        config = ov_genai.StructuredOutputConfig()
+        config.compound_grammar = structured.TriggeredTags(
+            ["<tool_call>"],
+            tags,
+            at_least_one=require_tool,
+            stop_after_first=True,
+        )
+        self._structured_tool_configs[key] = config
+        return config
+
+    def _generate_input(
+        self,
+        inputs: Any,
+        *,
+        prompt_text: str,
+        on_token: TokenCallback | None = None,
+        should_stop: Callable[[], bool] | None = None,
+        max_new_tokens: int = 4096,
+        temperature: float | None = None,
+        top_p: float | None = None,
+        top_k: int | None = None,
+        min_p: float | None = None,
+        presence_penalty: float | None = None,
+        repetition_penalty: float | None = None,
+        generation_profile: str = "general",
+        generation_effort: str = DEFAULT_GENERATION_EFFORT,
+        thinking_effort: str = DEFAULT_THINKING_EFFORT,
+        context_length: int | None = None,
+        structured_output_config: Any | None = None,
+    ) -> str:
         chunks: list[str] = []
+        started = time.perf_counter()
+        first_token_at: float | None = None
 
         def streamer(token: str) -> bool:
+            nonlocal first_token_at
+            if first_token_at is None:
+                first_token_at = time.perf_counter()
             chunks.append(token)
             if on_token is not None:
                 on_token(token)
             return bool(should_stop and should_stop())
 
         effective_max_new_tokens = max(1, int(max_new_tokens))
+        prompt_tokens = self.count_tokens(prompt_text)
         if context_length is not None:
             context_limit = max(2, int(context_length))
-            prompt_tokens = self.count_tokens(prompt)
             available_tokens = context_limit - prompt_tokens
             if available_tokens <= 0:
                 raise ValueError(
@@ -102,18 +283,58 @@ class OpenVinoChatEngine:
                 )
             effective_max_new_tokens = min(effective_max_new_tokens, available_tokens)
 
-        kwargs = {
-            "max_new_tokens": effective_max_new_tokens,
-            "do_sample": temperature > 0,
+        effort = self.resolve_thinking_effort(thinking_effort)
+        sampling = generation_settings(
+            self.model_name,
+            generation_profile,
+            effort,
+            graded_reasoning=self.supports_graded_thinking,
+            generation_effort=generation_effort,
+        )
+        overrides = {
             "temperature": temperature,
             "top_p": top_p,
+            "top_k": top_k,
+            "min_p": min_p,
+            "presence_penalty": presence_penalty,
+            "repetition_penalty": repetition_penalty,
         }
+        sampling.update({key: value for key, value in overrides.items() if value is not None})
+        effective_temperature = float(sampling["temperature"])
+        kwargs = {
+            "max_new_tokens": effective_max_new_tokens,
+            "do_sample": effective_temperature > 0,
+            **sampling,
+        }
+        if structured_output_config is not None:
+            kwargs["structured_output_config"] = structured_output_config
         if on_token is not None:
             kwargs["streamer"] = streamer
-        result = self._pipeline.generate(prompt, **kwargs)
-        if chunks:
-            return "".join(chunks)
-        return _result_text(result)
+        try:
+            result = self._pipeline.generate(inputs, **kwargs)
+        except RuntimeError as exc:
+            if (
+                structured_output_config is None
+                or chunks
+                or not _is_structured_grammar_error(exc)
+            ):
+                raise
+            self._structured_tools_disabled = True
+            kwargs.pop("structured_output_config", None)
+            started = time.perf_counter()
+            first_token_at = None
+            result = self._pipeline.generate(inputs, **kwargs)
+        text = "".join(chunks) if chunks else _result_text(result)
+        elapsed = max(time.perf_counter() - started, 0.000001)
+        output_tokens = self.count_tokens(text)
+        self.last_metrics = GenerationMetrics(
+            input_tokens=prompt_tokens,
+            output_tokens=output_tokens,
+            elapsed_seconds=elapsed,
+            ttft_seconds=(first_token_at - started) if first_token_at is not None else None,
+            tokens_per_second=output_tokens / elapsed,
+        )
+        return text
 
 
 def load_engine(
@@ -131,12 +352,24 @@ def load_engine(
     properties = {} if kv_precision == "auto" else {"KV_CACHE_PRECISION": kv_precision}
     try:
         pipeline = pipeline_type(model_dir, first_device, **properties)
-        return OpenVinoChatEngine(pipeline, first_device, model_name, kv_precision)
+        return OpenVinoChatEngine(
+            pipeline,
+            first_device,
+            model_name,
+            kv_precision,
+            model_dir=model_dir,
+        )
     except Exception:
         if first_device == second_device:
             raise
         pipeline = pipeline_type(model_dir, second_device, **properties)
-        return OpenVinoChatEngine(pipeline, second_device, model_name, kv_precision)
+        return OpenVinoChatEngine(
+            pipeline,
+            second_device,
+            model_name,
+            kv_precision,
+            model_dir=model_dir,
+        )
 
 
 def normalize_kv_cache_precision(value: str | None) -> str:
@@ -160,10 +393,12 @@ def _pipeline_cls(model_dir: Path) -> type:
 
 def _model_name(model_dir: Path) -> str:
     name = model_dir.name.lower()
-    if "glm" in name:
-        return "GLM"
     if "gemma" in name:
         return "Gemma"
+    if "ornith" in name:
+        return "Ornith"
+    if "qwen3.8" in name or "qwen38" in name:
+        return "Qwen3.8"
     if "qwen" in name:
         return "Qwen"
     return model_dir.name
@@ -191,3 +426,8 @@ def _estimated_token_count(text: str) -> int:
     if not text:
         return 0
     return max(1, (len(text.encode("utf-8")) + 2) // 3)
+
+
+def _is_structured_grammar_error(exc: RuntimeError) -> bool:
+    message = str(exc).lower()
+    return "ebnf parser error" in message or "grammar parser error" in message

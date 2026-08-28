@@ -129,6 +129,10 @@ def get_process_ram_usage(
     return f"proc ram: {human_bytes(value)}"
 
 
+def get_process_working_set_bytes() -> int | None:
+    return _get_process_working_set_bytes()
+
+
 def _get_process_working_set_bytes() -> int | None:
     try:
         if not hasattr(ctypes, "windll"):

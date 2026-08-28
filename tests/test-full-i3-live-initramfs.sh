@@ -15,6 +15,12 @@ assert_contains() {
   [[ "$haystack" == *"$needle"* ]] || fail "missing: $needle"
 }
 
+assert_not_contains() {
+  local haystack="$1"
+  local needle="$2"
+  [[ "$haystack" != *"$needle"* ]] || fail "unsafe content present: $needle"
+}
+
 [[ -x "$SCRIPT" ]] || fail "missing executable full-i3 live initramfs builder"
 
 help="$(bash "$SCRIPT" --help)"
@@ -105,9 +111,16 @@ assert_contains "$script_src" "boot-logo.txt"
 assert_contains "$script_src" "stty size"
 assert_contains "$script_src" "start_row"
 assert_contains "$script_src" "P3ffb21a"
-assert_contains "$script_src" "mount -o ro,noload"
+assert_contains "$script_src" 'mount -t ext4 -o ro,noload "$candidate"'
 assert_contains "$script_src" "/sys/class/block/*"
-assert_contains "$script_src" 'candidates="$candidates /dev/${devpath##*/}"'
+assert_contains "$script_src" "boot_media_candidate()"
+assert_contains "$script_src" "mount_boot_media()"
+assert_contains "$script_src" '"OOONANAUSB"'
+assert_contains "$script_src" '/sys/class/block/$parent/removable'
+assert_contains "$script_src" '*/usb*/*'
+assert_contains "$script_src" 'loop*|ram*|zram*|dm-*|md*'
+assert_not_contains "$script_src" 'mount -o ro,noload "$dev"'
+assert_not_contains "$script_src" 'candidates="$candidates /dev/${devpath##*/}"'
 assert_contains "$script_src" 'boot_media_device="$dev"'
 assert_contains "$script_src" '/newroot/mnt/ooonana-live/boot-device'
 assert_contains "$script_src" '/newroot/mnt/ooonana-live/persistence-mode'

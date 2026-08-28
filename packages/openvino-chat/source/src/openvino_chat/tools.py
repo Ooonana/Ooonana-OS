@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import html
+import os
 import re
 import shutil
 import subprocess
@@ -11,6 +12,10 @@ from dataclasses import dataclass
 from difflib import unified_diff
 from pathlib import Path
 from typing import Any, Callable
+
+
+ToolChange = tuple[Path, str | None, str]
+ToolCheckpoint = tuple[ToolChange, ...]
 
 
 @dataclass(frozen=True)
@@ -148,6 +153,14 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "startup_apps",
+            "description": "List configured operating-system startup or login applications without running a shell command.",
+            "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "web_search",
             "description": "Search the web for current information and return result titles, snippets, and URLs.",
             "parameters": {
@@ -189,6 +202,119 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
 ]
 
+_TOOL_DEFINITIONS_BY_NAME = {
+    str(item["function"]["name"]): item
+    for item in TOOL_DEFINITIONS
+}
+
+_LOCAL_READ_TOOLS = {"pwd", "ls", "read", "scan", "grep"}
+_LOCAL_WRITE_TOOLS = _LOCAL_READ_TOOLS | {"write", "append", "diff", "undo"}
+_WEB_TOOLS = {"web_search", "web_fetch"}
+
+
+def select_tool_definitions(
+    message: str,
+    knowledge_mode: str = "auto",
+) -> list[dict[str, Any]]:
+    """Return small, intent-matched tool schema set for current model turn."""
+    text = str(message or "").lower()
+    mode = str(knowledge_mode or "auto").strip().lower()
+    if mode not in {"offline", "auto", "web"}:
+        mode = "auto"
+    selected: set[str] = set()
+    if re.search(r"\b(all|available|list|show|use)\s+tools?\b", text):
+        selected.update(_TOOL_DEFINITIONS_BY_NAME)
+    explicit_web = re.search(
+        r"\b(web|online|internet|website|url|browse|google)\b|"
+        r"\b(search|look up|research)\s+(the\s+)?(web|online|internet)\b|https?://",
+        text,
+    )
+    live_fact = re.search(
+        r"\b(latest|newest|news|today|tonight|currently|right now|weather|forecast|"
+        r"price|stock|exchange rate|schedule|score|election|release date|recent release)\b|"
+        r"\bcurrent\s+(president|prime minister|ceo|version|law|regulation|price|score)\b",
+        text,
+    )
+    if mode == "web" or (mode == "auto" and (explicit_web or live_fact)):
+        selected.update(_WEB_TOOLS)
+    if re.search(r"\b(storage|disk|drive|free space|space left|capacity)\b", text):
+        selected.add("storage")
+    if re.search(r"\b(startup|start-up|autorun|login items?|boot apps?)\b", text):
+        selected.add("startup_apps")
+    if re.search(r"\b(where|where am i|working directory|current directory|cwd|pwd)\b", text):
+        selected.add("pwd")
+    if re.search(
+        r"\b(file|folder|directory|workspace|repo|repository|project|source|code|script|"
+        r"read|open|list|scan|find|grep|search files?|inspect)\b",
+        text,
+    ):
+        selected.update(_LOCAL_READ_TOOLS)
+    if re.search(
+        r"\b(create|make|write|append|edit|change|modify|fix|implement|refactor|delete|remove|"
+        r"rename|move|copy|patch|undo|revert)\b",
+        text,
+    ):
+        selected.update(_LOCAL_WRITE_TOOLS)
+    if re.search(
+        r"\b(shell|powershell|terminal|command|run|execute|install|uninstall|build|compile|test|"
+        r"git|process|service|environment|operating system|system info|cpu|gpu|ram|memory|date|time)\b",
+        text,
+    ):
+        selected.update({"pwd", "shell"})
+    if re.search(r"\b(diff|changes|changed)\b", text):
+        selected.add("diff")
+    if re.search(r"\b(undo|revert)\b", text):
+        selected.add("undo")
+    if re.search(r"\b(where am i|working directory|current directory|cwd|pwd)\b", text) and not re.search(
+        r"\b(file|folder|list|scan|find|grep|search|inspect|read|open)\b",
+        text,
+    ):
+        selected.difference_update(_LOCAL_READ_TOOLS - {"pwd"})
+    if mode == "offline":
+        selected.difference_update(_WEB_TOOLS)
+    return [
+        definition
+        for definition in TOOL_DEFINITIONS
+        if definition["function"]["name"] in selected
+    ]
+
+
+def validate_tool_request(
+    request: ToolRequest,
+    definitions: list[dict[str, Any]] | None = None,
+) -> tuple[ToolRequest | None, str | None]:
+    """Validate model arguments before any tool or permission callback runs."""
+    available = {
+        str(item.get("function", {}).get("name")): item
+        for item in (definitions or TOOL_DEFINITIONS)
+        if isinstance(item, dict) and isinstance(item.get("function"), dict)
+    }
+    definition = available.get(request.name)
+    if definition is None:
+        return None, f"unknown tool: {request.name}"
+    if not isinstance(request.args, dict):
+        return None, "args must be an object"
+    parameters = definition["function"].get("parameters") or {}
+    properties = parameters.get("properties") or {}
+    missing = [name for name in parameters.get("required", []) if name not in request.args]
+    if missing:
+        return None, "missing required argument(s): " + ", ".join(missing)
+    if parameters.get("additionalProperties") is False:
+        unknown = [name for name in request.args if name not in properties]
+        if unknown:
+            return None, "unknown argument(s): " + ", ".join(unknown)
+    for name, value in request.args.items():
+        expected = properties.get(name, {}).get("type")
+        if expected == "string" and not isinstance(value, str):
+            return None, f"argument {name} must be string"
+        if expected == "integer" and (not isinstance(value, int) or isinstance(value, bool)):
+            return None, f"argument {name} must be integer"
+        if expected == "number" and (not isinstance(value, (int, float)) or isinstance(value, bool)):
+            return None, f"argument {name} must be number"
+        if expected == "boolean" and not isinstance(value, bool):
+            return None, f"argument {name} must be boolean"
+    return ToolRequest(request.name, dict(request.args)), None
+
 
 class ToolRegistry:
     def __init__(
@@ -201,6 +327,7 @@ class ToolRegistry:
         max_output_chars: int = 4000,
         web_searcher: Callable[[str], str] | None = None,
         web_fetcher: Callable[[str], str] | None = None,
+        startup_provider: Callable[[], str] | None = None,
     ) -> None:
         self.cwd = (cwd or Path.cwd()).resolve()
         self.workspace_root = (workspace_root or self.cwd).resolve()
@@ -210,7 +337,33 @@ class ToolRegistry:
         self.max_output_chars = max_output_chars
         self.web_searcher = web_searcher or self._web_search
         self.web_fetcher = web_fetcher or self._web_fetch
-        self._changes: list[tuple[Path, str | None, str]] = []
+        self.startup_provider = startup_provider or _startup_apps
+        self._changes: list[ToolChange] = []
+
+    def checkpoint(self) -> ToolCheckpoint:
+        return tuple(self._changes)
+
+    def restore_checkpoint(self, checkpoint: ToolCheckpoint) -> None:
+        target = list(checkpoint)
+        common = 0
+        for current_change, target_change in zip(self._changes, target):
+            if current_change != target_change:
+                break
+            common += 1
+
+        for path, before, _after in reversed(self._changes[common:]):
+            self._restore_file(path, before)
+        for path, _before, after in target[common:]:
+            self._restore_file(path, after)
+        self._changes[:] = target
+
+    @staticmethod
+    def _restore_file(path: Path, content: str | None) -> None:
+        if content is None:
+            path.unlink(missing_ok=True)
+            return
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
 
     def set_workspace(self, path: Path) -> None:
         root = path.resolve()
@@ -239,6 +392,7 @@ class ToolRegistry:
             "append": self._append,
             "shell": self._shell,
             "storage": self._storage,
+            "startup_apps": self._startup_apps_tool,
             "web_search": self._web_search_tool,
             "web_fetch": self._web_fetch_tool,
             "diff": self._diff,
@@ -328,9 +482,9 @@ class ToolRegistry:
         if _is_destructive_shell_command(command):
             raise ValueError("blocked destructive command")
         completed = subprocess.run(
-            command,
+            _shell_invocation(command),
             cwd=self.cwd,
-            shell=True,
+            shell=False,
             text=True,
             capture_output=True,
             timeout=self.timeout_seconds,
@@ -350,6 +504,9 @@ class ToolRegistry:
             f"free={_human_bytes(usage.free)}"
         )
 
+    def _startup_apps_tool(self, _args: dict[str, Any]) -> str:
+        return self.startup_provider()
+
     def _web_search_tool(self, args: dict[str, Any]) -> str:
         query = str(args.get("query") or "").strip()
         if not query:
@@ -360,6 +517,7 @@ class ToolRegistry:
         url = str(args.get("url") or "").strip()
         if not url:
             raise ValueError("missing url")
+        _validate_http_url(url)
         return self.web_fetcher(url)
 
     def _diff(self, _args: dict[str, Any]) -> str:
@@ -409,11 +567,13 @@ class ToolRegistry:
         return _strip_html(self._http_get(url))
 
     def _http_get(self, url: str) -> str:
+        _validate_http_url(url)
         request = urllib.request.Request(
             url,
             headers={"User-Agent": "openvino-chat/0.1"},
         )
         with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
+            _validate_http_url(response.geturl())
             return response.read().decode("utf-8", errors="replace")
 
     def _resolve(self, path: Any, allow_outside: bool = False) -> Path:
@@ -429,7 +589,7 @@ class ToolRegistry:
         return text[: self.max_output_chars]
 
     def _needs_permission(self, name: str) -> bool:
-        return name in {"shell", "write", "append"}
+        return name in {"shell", "write", "append", "undo"}
 
     def _approved(self, request: ToolRequest) -> bool:
         if self.permission_mode == "allow":
@@ -447,6 +607,106 @@ class ToolRegistry:
     def _skip_path(self, path: Path) -> bool:
         parts = set(path.parts)
         return bool(parts & {".git", "__pycache__", ".pytest_cache", ".venv", "node_modules"})
+
+
+def _startup_apps() -> str:
+    entries = _windows_startup_entries() if os.name == "nt" else _posix_startup_entries()
+    if not entries:
+        return "no startup apps found"
+    rows = ["name | state | source | command"]
+    seen: set[tuple[str, str]] = set()
+    for name, state, source, command in sorted(entries, key=lambda item: item[0].lower()):
+        key = (name.casefold(), command.casefold())
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append(" | ".join(_clean_startup_field(value) for value in (name, state, source, command)))
+    return "\n".join(rows)
+
+
+def _windows_startup_entries() -> list[tuple[str, str, str, str]]:
+    try:
+        import winreg
+    except ImportError:
+        return []
+
+    run_key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    approved_root = r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved"
+    locations = (
+        (winreg.HKEY_CURRENT_USER, "HKCU Run", 0, "Run"),
+        (winreg.HKEY_LOCAL_MACHINE, "HKLM Run", winreg.KEY_WOW64_64KEY, "Run"),
+        (winreg.HKEY_LOCAL_MACHINE, "HKLM Run32", winreg.KEY_WOW64_32KEY, "Run32"),
+    )
+    entries: list[tuple[str, str, str, str]] = []
+    for hive, source, view, approved_name in locations:
+        try:
+            key = winreg.OpenKey(hive, run_key, 0, winreg.KEY_READ | view)
+        except OSError:
+            continue
+        with key:
+            index = 0
+            while True:
+                try:
+                    name, command, _kind = winreg.EnumValue(key, index)
+                except OSError:
+                    break
+                index += 1
+                state = _windows_startup_state(
+                    winreg,
+                    hive,
+                    approved_root + "\\" + approved_name,
+                    name,
+                    view,
+                )
+                entries.append((str(name), state, source, str(command)))
+
+    startup_dirs = (
+        (os.environ.get("APPDATA"), "User Startup"),
+        (os.environ.get("PROGRAMDATA"), "All Users Startup"),
+    )
+    suffix = Path("Microsoft/Windows/Start Menu/Programs/Startup")
+    for root, source in startup_dirs:
+        if not root:
+            continue
+        folder = Path(root) / suffix
+        if not folder.is_dir():
+            continue
+        for item in folder.iterdir():
+            if item.is_file() and item.name.lower() != "desktop.ini":
+                entries.append((item.stem, "configured", source, str(item)))
+    return entries
+
+
+def _windows_startup_state(winreg: Any, hive: Any, path: str, name: str, view: int) -> str:
+    try:
+        with winreg.OpenKey(hive, path, 0, winreg.KEY_READ | view) as key:
+            raw, _kind = winreg.QueryValueEx(key, name)
+    except OSError:
+        return "configured"
+    data = bytes(raw) if isinstance(raw, (bytes, bytearray)) else b""
+    if not data:
+        return "configured"
+    return {2: "enabled", 3: "disabled"}.get(data[0], "configured")
+
+
+def _posix_startup_entries() -> list[tuple[str, str, str, str]]:
+    entries: list[tuple[str, str, str, str]] = []
+    for folder in (Path.home() / ".config/autostart", Path("/etc/xdg/autostart")):
+        if not folder.is_dir():
+            continue
+        for item in folder.glob("*.desktop"):
+            values: dict[str, str] = {}
+            for line in item.read_text(encoding="utf-8", errors="replace").splitlines():
+                key, separator, value = line.partition("=")
+                if separator and key in {"Name", "Exec", "Hidden"} and key not in values:
+                    values[key] = value.strip()
+            state = "disabled" if values.get("Hidden", "").lower() == "true" else "enabled"
+            entries.append((values.get("Name", item.stem), state, str(folder), values.get("Exec", str(item))))
+    return entries
+
+
+def _clean_startup_field(value: object) -> str:
+    return " ".join(str(value).replace("|", "/").split())
 
 
 def parse_slash_tool(text: str) -> ToolRequest | None:
@@ -476,6 +736,8 @@ def parse_slash_tool(text: str) -> ToolRequest | None:
         return ToolRequest("shell", {"command": rest})
     if command == "storage":
         return ToolRequest("storage", {"path": rest or "."})
+    if command in {"startup", "startup_apps"} and not rest:
+        return ToolRequest("startup_apps", {})
     if command in {"web", "search"}:
         return ToolRequest("web_search", {"query": rest})
     if command in {"fetch", "web_fetch"}:
@@ -774,12 +1036,30 @@ def _human_bytes(value: int) -> str:
     return f"{size:.2f} TB"
 
 
+def _shell_invocation(command: str) -> list[str]:
+    if os.name == "nt":
+        executable = shutil.which("pwsh") or shutil.which("powershell")
+        if not executable:
+            raise RuntimeError("PowerShell not found; install PowerShell 7 or Windows PowerShell")
+        return [executable, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command]
+    executable = os.environ.get("SHELL") or shutil.which("bash") or shutil.which("sh")
+    if not executable:
+        raise RuntimeError("shell not found")
+    return [executable, "-lc", command]
+
+
 def _strip_html(text: str) -> str:
     cleaned = re.sub(r"<script.*?</script>", "", text, flags=re.DOTALL | re.IGNORECASE)
     cleaned = re.sub(r"<style.*?</style>", "", cleaned, flags=re.DOTALL | re.IGNORECASE)
     cleaned = re.sub(r"<[^>]+>", " ", cleaned)
     cleaned = cleaned.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
     return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def _validate_http_url(url: str) -> None:
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme.lower() not in {"http", "https"} or not parsed.netloc:
+        raise ValueError("url must use http or https")
 
 
 def _is_relative_to(path: Path, root: Path) -> bool:

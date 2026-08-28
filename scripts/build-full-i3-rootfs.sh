@@ -227,7 +227,8 @@ SETTINGS
 @define-color ooonana_border #364252;
 @define-color ooonana_muted #9ba5b4;
 window, dialog, .background { background-color: @ooonana_bg; color: @ooonana_fg; }
-headerbar { background: @ooonana_panel; color: @ooonana_accent; border-bottom: 1px solid @ooonana_border; padding: 4px 8px; }
+window.background, dialog.background, messagedialog.background { border-radius: 6px; }
+headerbar { background: @ooonana_panel; color: @ooonana_accent; border-bottom: 1px solid @ooonana_border; border-radius: 6px 6px 0 0; padding: 4px 8px; }
 headerbar .title { font-weight: bold; }
 headerbar .subtitle { color: @ooonana_muted; }
 button { background: @ooonana_panel_alt; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 4px; padding: 7px 12px; }
@@ -338,7 +339,8 @@ EOF
 @define-color ooonana_panel #11161d;
 @define-color ooonana_border #364252;
 window, dialog, .background { background-color: @ooonana_bg; color: @ooonana_fg; }
-headerbar { background: @ooonana_panel; color: @ooonana_accent; border-bottom: 1px solid @ooonana_border; }
+window.background, dialog.background, messagedialog.background { border-radius: 6px; }
+headerbar { background: @ooonana_panel; color: @ooonana_accent; border-bottom: 1px solid @ooonana_border; border-radius: 6px 6px 0 0; }
 button { background: #171e27; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 4px; padding: 7px 12px; }
 button:hover { background: #222c38; border-color: @ooonana_accent; }
 button:checked, button.suggested-action { background: @ooonana_accent; color: #080a0d; }
@@ -2307,7 +2309,7 @@ font-2 = "Font Awesome 6 Free Solid:size=10;2"
 font-3 = "Font Awesome 5 Free Solid:size=10;2"
 font-4 = "Font Awesome 6 Brands:size=10;2"
 font-5 = "Font Awesome 5 Brands:size=10;2"
-modules-left = brand workspaces terminal browser files editor media windows win-min win-full win-close
+modules-left = brand workspaces terminal browser files editor media windows processes win-min win-full win-close
 modules-center =
 modules-right = audio brightness battery bluetooth wifi date power
 tray-position = right
@@ -2378,6 +2380,14 @@ click-middle = ooonana-media-control play-pause
 click-right = ooonana-media-control next
 scroll-up = ooonana-media-control volume +5
 scroll-down = ooonana-media-control volume -5
+
+[module/processes]
+type = custom/text
+content = 
+content-foreground = ${colors.accent}
+content-background = ${colors.background-alt}
+content-padding = 2
+click-left = ooonana-processes
 
 [module/win-close]
 type = custom/text
@@ -2665,7 +2675,6 @@ scrollbar {
 EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/picom.conf" <<'EOF'
-backend = "xrender";
 vsync = true;
 use-damage = true;
 unredir-if-possible = true;
@@ -2680,7 +2689,7 @@ fade-in-step = 0.045;
 fade-out-step = 0.045;
 inactive-opacity = 1.0;
 active-opacity = 1.0;
-corner-radius = 10;
+corner-radius = 6;
 rounded-corners-exclude = [
   "window_type = 'dock'",
   "window_type = 'desktop'"
@@ -2699,7 +2708,7 @@ offset = 20x42
 width = 340
 height = 160
 frame_width = 2
-corner_radius = 10
+corner_radius = 6
 highlight = "#ffb21a"
 [urgency_critical]
 background = "#050505"
@@ -3545,7 +3554,11 @@ start_persistence
 
 capture_audio_boot_state() {
   command -v ooonana-audio-hardware-reprobe >/dev/null 2>&1 || return 0
-  ooonana-audio-hardware-reprobe --snapshot >/var/log/ooonana-audio-boot.log 2>&1 || true
+  (
+    OOONANA_AUDIO_WAIT_SECONDS=25 \
+      ooonana-audio-hardware-reprobe --snapshot \
+      >/var/log/ooonana-audio-boot.log 2>&1 || true
+  ) &
 }
 
 capture_audio_boot_state
@@ -3732,7 +3745,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   version_output="$(/usr/bin/ooonana version 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.8.22' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.8.23' &&
     printf '%s\n' "$installed_output" | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else

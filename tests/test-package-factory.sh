@@ -218,7 +218,7 @@ assert_contains "$gitlab_ci" "OOONANA_REPO_SIGN_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_REPO_PUBLIC_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_CORE_VERSION"
-assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.8.22"'
+assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.8.23"'
 assert_contains "$gitlab_ci" "OOONANA_OPENVINO_CHAT_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_URL"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_SHA256"
@@ -272,9 +272,9 @@ core_builder_dry="$(bash "$CORE_PACKAGER" --dry-run --out-dir /tmp/repo --versio
 assert_contains "$core_builder_dry" "id: ooonana-core"
 assert_contains "$core_builder_dry" "runtime-id: ooonana-core-runtime"
 assert_contains "$core_builder_dry" "version: 0.8.1"
-openvino_builder_dry="$(bash "$OPENVINO_PACKAGER" --dry-run --out-dir /tmp/repo --version 0.1.2)"
+openvino_builder_dry="$(bash "$OPENVINO_PACKAGER" --dry-run --out-dir /tmp/repo --version 0.1.3)"
 assert_contains "$openvino_builder_dry" "id: openvino-chat"
-assert_contains "$openvino_builder_dry" "version: 0.1.2"
+assert_contains "$openvino_builder_dry" "version: 0.1.3"
 devicechat_builder_dry="$(bash "$DEVICECHAT_PACKAGER" --dry-run --out-dir /tmp/repo)"
 assert_contains "$devicechat_builder_dry" "id: devicechat"
 wine_builder_dry="$(bash "$WINE_PACKAGER" --dry-run --out-dir /tmp/repo)"
@@ -353,7 +353,7 @@ OOONANA_TEST_ROOT="$ROOT" OOONANA_IMPORT_APK_SCRIPT="$stub" \
 [[ -f "$tmp/repo/ooonana-core.pkg" ]] || fail "builder missing core meta package"
 [[ -f "$tmp/repo/ooonana-core-runtime.pkg" ]] || fail "builder missing core runtime package"
 [[ -f "$tmp/repo/openvino-chat.pkg" ]] || fail "builder missing OpenVINO Chat package"
-[[ -f "$tmp/repo/archives/openvino-chat-0.1.2.tar.gz" ]] || fail "builder missing OpenVINO Chat archive"
+[[ -f "$tmp/repo/archives/openvino-chat-0.1.3.tar.gz" ]] || fail "builder missing OpenVINO Chat archive"
 [[ -f "$tmp/repo/devicechat.pkg" ]] || fail "builder missing DeviceChat package"
 [[ -f "$tmp/repo/wine.pkg" ]] || fail "builder missing Wine package"
 assert_contains "$(<"$tmp/repo/ooonana-core.pkg")" 'OOONANA_PKG_DEPS="ooonana-core-runtime"'
@@ -401,7 +401,7 @@ core_upgrade="$(OOONANA_REPO_DIR="$tmp/repo" \
 assert_contains "$core_upgrade" "installed ooonana-core-runtime"
 assert_contains "$core_upgrade" "upgraded ooonana-core 0.8.1"
 [[ -x "$core_upgrade_root/usr/bin/ooonana" ]] || fail "core migration removed upgraded CLI"
-assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.8.22"
+assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.8.23"
 assert_contains "$(<"$tmp/repo/cloud.repo")" 'OOONANA_REPO_URI="https://example.test/repo"'
 assert_contains "$(<"$tmp/repo/README.txt")" "ooonana update"
 

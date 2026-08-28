@@ -211,7 +211,7 @@ ooonana-ai --provider gemini "summarize this Linux system"
 ooonana-ai --provider nim "summarize this Linux system"
 ```
 
-### Offline Intel GPU/NPU
+### Offline Intel GPU/CPU
 
 Install package from Ooonana repo:
 
@@ -232,10 +232,10 @@ ooonana-ai provider set openvino
 ooonana-ai chat
 ```
 
-Use Intel NPU when `/dev/accel` exists:
+Use CPU fallback when Intel GPU acceleration is unavailable:
 
 ```bash
-openvino --model-dir /root/.openvino/models/gemma-4-e2b-it-qat-int4-ov api start --device NPU
+openvino --model-dir /root/.openvino/models/gemma-4-e2b-it-qat-int4-ov api start --device CPU
 ooonana-ai provider set openvino
 ```
 
@@ -246,7 +246,7 @@ openvino doctor
 openvino api status
 ```
 
-Runtime and model need network once. Chat inference is offline afterward. OpenVINO requires Intel device drivers; NPU support needs a supported Intel NPU and host kernel driver.
+Runtime and model need network once. Chat inference is offline afterward. GPU mode requires working Intel graphics drivers; CPU mode is the compatibility fallback.
 Runtime sandbox keeps host PID namespace so `openvino api start` remains alive after launcher exits. Filesystem, UTS, IPC, and user identities remain isolated with Bubblewrap.
 
 Change the default model without opening the config file:

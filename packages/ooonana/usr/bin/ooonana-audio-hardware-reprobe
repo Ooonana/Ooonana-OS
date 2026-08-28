@@ -26,6 +26,30 @@ fi
 log=/var/log/ooonana-audio-reprobe.log
 mkdir -p /var/log /run
 
+read_audio_cards() {
+  cat /proc/asound/cards 2>/dev/null || true
+}
+
+audio_card_ready() {
+  current_cards="$(read_audio_cards)"
+  [ -n "$current_cards" ] && ! printf '%s\n' "$current_cards" | grep -q '^ *--- no soundcards ---'
+}
+
+wait_for_audio_card() {
+  limit="${OOONANA_AUDIO_WAIT_SECONDS:-20}"
+  case "$limit" in ''|*[!0-9]*) limit=20 ;; esac
+  waited=0
+  while ! audio_card_ready && [ "$waited" -lt "$limit" ]; do
+    waited=$((waited + 1))
+    if [ "$reprobe" -eq 1 ] && [ $((waited % 4)) -eq 0 ]; then
+      command -v udevadm >/dev/null 2>&1 &&
+        udevadm trigger --subsystem-match=sound --action=add >>"$log" 2>&1 || true
+      command -v mdev >/dev/null 2>&1 && mdev -s >>"$log" 2>&1 || true
+    fi
+    sleep 1
+  done
+}
+
 if [ "$reprobe" -eq 1 ]; then
   if [ -w /sys/bus/pci/rescan ]; then
     printf 1 >/sys/bus/pci/rescan 2>>"$log" || true
@@ -47,7 +71,8 @@ if [ "$reprobe" -eq 1 ]; then
   fi
 fi
 
-cards="$(cat /proc/asound/cards 2>/dev/null || true)"
+wait_for_audio_card
+cards="$(read_audio_cards)"
 if [ "$report" -eq 1 ]; then
   printf 'Machine:\n%s %s\n\n' \
     "$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null || echo unknown)" \

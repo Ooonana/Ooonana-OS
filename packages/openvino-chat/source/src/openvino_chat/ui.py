@@ -45,7 +45,7 @@ class ChatUI:
         loaded: bool = False,
         models_summary: str | None = None,
     ) -> None:
-        quick = "/help /model /api /system /status /tools /ctx /kv /perf /exit"
+        quick = "/help /model /effort /api /system /status /tools /ctx /kv /exit"
         if self.console and self.panel_cls and self.table_cls and self.group_cls and self.text_cls:
             grid = self.table_cls.grid(expand=True)
             for _ in range(4):
@@ -147,8 +147,7 @@ class OperationStatus:
     def render(self, now: float | None = None) -> str:
         current = time.monotonic() if now is None else now
         elapsed = max(0, int(current - self.started_at))
-        dots = "." * (((max(elapsed, 1) - 1) % 3) + 1)
-        return f"{self.label}{dots} {elapsed}s"
+        return f"{self.label} {elapsed}s"
 
 
 class LiveStatusMonitor:
@@ -208,6 +207,13 @@ class LiveStatusMonitor:
         self.operation = OperationStatus(label, time.monotonic())
         self.refresh()
 
+    def update(self, label: str) -> None:
+        if self.operation is None:
+            self.set(label)
+            return
+        self.operation.label = label
+        self.refresh()
+
     def clear(self, refresh: bool = True) -> None:
         self.operation = None
         if refresh:
@@ -265,7 +271,7 @@ class LiveStatusMonitor:
 
     def response_stream(self) -> "ResponseStream":
         self._response_segments.clear()
-        return ResponseStream(writer=self.write_response)
+        return ResponseStream(writer=self.write_response, phase_callback=self.set)
 
     def write_response(self, text: str, style: str | None = None, end: str = "") -> None:
         if text:
@@ -301,7 +307,35 @@ def split_thinking(text: str) -> tuple[str, str]:
     return match.group(1).strip(), match.group(2).strip()
 
 
+_TOOL_PROTOCOL_TAG = re.compile(
+    r"\\?<\s*(?P<closing>/?)\s*(?:\|\s*)?tool\\?_call(?:\s*\|)?\s*\\?>",
+    flags=re.IGNORECASE,
+)
+_NATIVE_PROTOCOL_TAG = re.compile(
+    r"\\?<\s*/?\s*(?:function(?:=[^>]*)?|parameter(?:=[^>]*)?)\s*\\?>",
+    flags=re.IGNORECASE,
+)
+
+
+def sanitize_tool_artifacts(text: str) -> str:
+    """Remove model protocol wrappers that must never become chat text."""
+    canonical = _TOOL_PROTOCOL_TAG.sub(
+        lambda match: "</tool_call>" if match.group("closing") else "<tool_call>",
+        text,
+    )
+    canonical = re.sub(
+        r"<tool_call>.*?</tool_call>",
+        "",
+        canonical,
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+    canonical = re.sub(r"</?tool_call>", "", canonical, flags=re.IGNORECASE)
+    return _NATIVE_PROTOCOL_TAG.sub("", canonical)
+
+
 def status_color(label: str) -> str:
+    if label.startswith(("loading model", "downloading model", "compacting")):
+        return "cyan"
     return {
         "thinking": "blue",
         "generating": "yellow",
@@ -496,9 +530,15 @@ def _strip_code_fences(text: str) -> str:
 
 
 class ResponseStream:
-    def __init__(self, console: Any = None, writer: Callable[[str, str | None, str], None] | None = None) -> None:
+    def __init__(
+        self,
+        console: Any = None,
+        writer: Callable[[str, str | None, str], None] | None = None,
+        phase_callback: Callable[[str], None] | None = None,
+    ) -> None:
         self.console = console
         self.writer = writer
+        self.phase_callback = phase_callback
         self.buffer = ""
         self.started = False
         self.thinking = False
@@ -506,6 +546,7 @@ class ResponseStream:
         self.answer_started = False
         self.thought_started = False
         self.line_ended = True
+        self._reported_phase: str | None = None
 
     def write(self, token: str) -> None:
         if not token:
@@ -524,6 +565,7 @@ class ResponseStream:
         self.answer_started = False
         self.thought_started = False
         self.line_ended = True
+        self._reported_phase = None
 
     def _drain(self, final: bool) -> None:
         while self.buffer:
@@ -546,6 +588,7 @@ class ResponseStream:
             self.buffer = self.buffer[index + len(marker):]
             if marker.lower() in _THINK_OPEN_MARKERS:
                 self.thinking = True
+                self._report_phase("thinking")
             else:
                 self._leave_thinking()
 
@@ -553,6 +596,7 @@ class ResponseStream:
         if not text:
             return
         if self.thinking:
+            self._report_phase("thinking")
             self._print(text, style="thinking", end="")
             self.thought_started = True
             self.started = True
@@ -560,6 +604,7 @@ class ResponseStream:
             self.wrote = True
             return
         if not self.answer_started:
+            self._report_phase("generating")
             if self.started and not self.line_ended:
                 self._print("", end="\n")
             self._print("> ", style="green", end="")
@@ -574,6 +619,12 @@ class ResponseStream:
             self._print("", style="thinking", end="\n")
             self.line_ended = True
         self.thinking = False
+
+    def _report_phase(self, phase: str) -> None:
+        if self.phase_callback is None or phase == self._reported_phase:
+            return
+        self._reported_phase = phase
+        self.phase_callback(phase)
 
     def _print(self, text: str, style: str | None = None, end: str = "") -> None:
         if self.writer is not None:

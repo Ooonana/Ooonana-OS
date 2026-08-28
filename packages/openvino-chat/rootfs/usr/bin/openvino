@@ -17,8 +17,8 @@ Usage:
   openvino doctor
   openvino status
   openvino download tiny|qwen|gemma
-  openvino chat [--device GPU|NPU|CPU]
-  openvino api start|status|stop [--device GPU|NPU|CPU]
+  openvino chat [--device GPU|CPU]
+  openvino api start|status|stop [--device GPU|CPU]
 
 Runtime and model files live outside package database in user home.
 Inference works offline after runtime and model download finish.
@@ -39,7 +39,6 @@ case "${1:-}" in
     printf 'runtime: %s\n' "$([ -f "$ROOTFS/.ooonana-openvino-ready" ] && printf ready || printf missing)"
     printf 'bubblewrap: %s\n' "$([ -x /usr/bin/bwrap ] && printf ready || printf missing)"
     printf 'gpu: %s\n' "$([ -d /dev/dri ] && printf detected || printf missing)"
-    printf 'npu: %s\n' "$([ -d /dev/accel ] && printf detected || printf missing)"
     if [ ! -f "$ROOTFS/.ooonana-openvino-ready" ]; then
       printf 'next: openvino setup\n'
       exit 1

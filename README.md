@@ -445,7 +445,7 @@ Minimal seed profile:
 configs/packages/ooonana-cloud.list
 ```
 
-The combined seed includes `python3`, `bubblewrap`, and `xz`. Repo builds also add the native `openvino-chat` package for local Intel GPU/NPU AI.
+The combined seed includes `python3`, `bubblewrap`, and `xz`. Repo builds also add the native `openvino-chat` package for local Intel GPU/CPU AI.
 
 This creates:
 
@@ -942,7 +942,7 @@ ooonana-ai --model code "write a shell script"
 ooonana-ai chat
 ```
 
-Offline Intel GPU/NPU flow:
+Offline Intel GPU/CPU flow:
 
 ```bash
 ooonana update
@@ -954,7 +954,7 @@ ooonana ai provider set openvino
 ooonana-ai chat
 ```
 
-Use `--device NPU` when Intel NPU appears under `/dev/accel`. Runtime and model download once; inference then stays local. Native Ooonana AI app has package install, runtime setup, model download, GPU/NPU start, stop, and provider controls.
+Use `--device CPU` when Intel GPU acceleration is unavailable. Runtime and model download once; inference then stays local. Native Ooonana AI app has package install, runtime setup, model download, GPU/CPU start, stop, and provider controls.
 
 Full-i3 includes an Ooonana AI app launcher:
 

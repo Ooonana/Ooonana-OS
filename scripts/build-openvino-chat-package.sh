@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR=""
-VERSION="0.1.2"
+VERSION="0.1.3"
 SOURCE_DIR="${OOONANA_OPENVINO_CHAT_SOURCE:-$ROOT/packages/openvino-chat/source}"
 PAYLOAD_DIR="$ROOT/packages/openvino-chat/rootfs"
 DRY_RUN=0
@@ -16,7 +16,7 @@ Usage:
   scripts/build-openvino-chat-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER      Package version (default: 0.1.2)
+  --version VER      Package version (default: 0.1.3)
   --source-dir PATH  OpenVINO Chat source snapshot
   --dry-run          Print resolved package details
   -h, --help         Show help
@@ -81,11 +81,11 @@ cat > "$metadata" <<EOF
 OOONANA_PKG_ID="openvino-chat"
 OOONANA_PKG_VERSION="$VERSION"
 OOONANA_PKG_KIND="archive"
-OOONANA_PKG_SUMMARY="Offline Ooonana AI for Intel GPU and NPU using OpenVINO GenAI"
+OOONANA_PKG_SUMMARY="Offline Ooonana AI for Intel GPU and CPU using OpenVINO GenAI"
 OOONANA_PKG_DEPS="bubblewrap xz curl ca-certificates coreutils"
 OOONANA_PKG_ARCHIVE="$archive_rel"
 OOONANA_PKG_SHA256="$archive_sha"
-OOONANA_PKG_COMPONENTS="offline-ai openvino intel gpu npu local-api chat"
+OOONANA_PKG_COMPONENTS="offline-ai openvino intel gpu cpu local-api chat"
 OOONANA_PKG_NOTES="Run openvino setup, download a model once, then inference works offline"
 EOF
 

@@ -221,6 +221,7 @@ grep -q 'class MediaWindow' "$ROOT/packages/ooonana/usr/lib/ooonana/ui/controls_
 grep -q 'exec = ooonana-media-status' "$ROOT/scripts/build-full-i3-rootfs.sh"
 bash "$ROOT/tests/test-logo-sync.sh"
 PYTHONDONTWRITEBYTECODE=1 bash "$ROOT/tests/test-native-ui.sh"
+bash "$ROOT/tests/test-full-i3-live-initramfs.sh"
 bash "$ROOT/tests/test-qemu-service-smoke-source.sh"
 
 if [[ "$PREFLIGHT_ONLY" -eq 1 ]]; then

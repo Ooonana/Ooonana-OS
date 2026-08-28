@@ -76,6 +76,7 @@ assert_contains "$source_text" "/newroot/mnt/ooonana-live/boot-device"
 assert_contains "$source_text" "persistence_mode=\"usb\""
 assert_contains "$source_text" "class MediaWindow"
 assert_contains "$source_text" "ooonana-media-control"
+assert_contains "$source_text" 'bash "$ROOT/tests/test-full-i3-live-initramfs.sh"'
 assert_contains "$source_text" 'QEMU_ACCEL="${OOONANA_QEMU_ACCEL:-}"'
 assert_contains "$source_text" 'QEMU_ACCEL=kvm'
 assert_contains "$source_text" 'QEMU_ACCEL=tcg,thread=multi'

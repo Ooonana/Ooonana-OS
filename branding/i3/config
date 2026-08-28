@@ -21,7 +21,7 @@ for_window [class="^OonanaGame$"] fullscreen enable
 
 exec_always --no-startup-id ooonana-theme-env apply
 exec --no-startup-id xsetroot -name "Ooonana OS"
-exec --no-startup-id sh -c 'command -v picom >/dev/null 2>&1 && picom --config /etc/ooonana/picom.conf &'
+exec --no-startup-id sh -c 'command -v picom >/dev/null 2>&1 && (picom --backend glx --config /etc/ooonana/picom.conf || exec picom --backend xrender --config /etc/ooonana/picom.conf) &'
 exec --no-startup-id sh -c 'command -v dunst >/dev/null 2>&1 && dunst -config /etc/ooonana/dunstrc &'
 exec --no-startup-id sh -c 'command -v xsettingsd >/dev/null 2>&1 && xsettingsd -c /etc/ooonana/xsettingsd.conf &'
 exec_always --no-startup-id sh -c 'command -v polybar >/dev/null 2>&1 && killall polybar >/dev/null 2>&1 || true; command -v polybar >/dev/null 2>&1 && polybar -c /etc/ooonana/polybar.ini ooonana &'

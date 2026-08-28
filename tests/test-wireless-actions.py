@@ -85,10 +85,14 @@ def network(kind):
 
 
 commands = []
+secret_payloads = []
 
 
 def fake_run(command, **_kwargs):
     commands.append(command)
+    if "passwd-file" in command:
+        path = Path(command[command.index("passwd-file") + 1])
+        secret_payloads.append((path, path.read_text(encoding="utf-8")))
     if "DEVICE,TYPE" in command and "status" in command:
         return 0, "wlan0:wifi"
     if "NAME,UUID,TYPE" in command:
@@ -145,6 +149,7 @@ try:
     check("School WiFi" in add and "ifname" not in add, "profile allows compatible adapters")
     modify = [command for command in commands if command[1:3] == ["connection", "modify"]]
     check(any("802-11-wireless.hidden" in command and "no" in command for command in modify), "visible profile enabled")
+    check(any("connection.interface-name" in command and "802-11-wireless.bssid" in command for command in modify), "stale hardware binding cleared")
     check(any("wpa-psk" in command and "school-secret" in command for command in modify), "personal security profile")
     check(any("802-11-wireless-security.psk-flags" in command and "0" in command for command in modify), "personal secret saved")
     check(all("uuid" in command for command in connects), "profile activated by UUID")
@@ -245,6 +250,11 @@ try:
     check("wpa-eap" in modify and "802-1x.domain-suffix-match" in modify, "enterprise security properties")
     check("802-1x.system-ca-certs" in modify and "yes" in modify, "enterprise system CA")
     check("802-1x.password-flags" in modify and "0" in modify, "enterprise password saved")
+    enterprise_up = [command for command in commands if "connection" in command and "up" in command]
+    check(enterprise_up and all("passwd-file" in command for command in enterprise_up), "enterprise activation uses protected secret file")
+    check(secret_payloads and "802-1x.identity:student@example.org" in secret_payloads[-1][1], "enterprise identity supplied")
+    check("802-1x.password:enterprise-secret" in secret_payloads[-1][1], "enterprise password supplied")
+    check(not secret_payloads[-1][0].exists(), "enterprise secret file removed")
 
     commands.clear()
     enterprise_advanced = dict(credentials)

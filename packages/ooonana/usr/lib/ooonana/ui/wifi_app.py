@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
+import os
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -1032,6 +1034,7 @@ class WifiWindow(Gtk.Window):
         properties = [
             "connection.autoconnect", "yes",
             "connection.permissions", "",
+            "connection.interface-name", "",
             "connection.metered", credentials.get("metered", "unknown"),
             "ipv4.method", ipv4_mode,
             "ipv4.may-fail", "no",
@@ -1039,6 +1042,8 @@ class WifiWindow(Gtk.Window):
             "ipv6.may-fail", "yes",
             "proxy.method", proxy_mode,
             "802-11-wireless.mode", "infrastructure",
+            "802-11-wireless.bssid", "",
+            "802-11-wireless.mac-address", "",
             # Scan results shown by this UI are visible networks. Marking every
             # profile hidden makes roaming campus APs fail with SSID_NOT_FOUND.
             "802-11-wireless.hidden", "yes" if hidden else "no",
@@ -1123,7 +1128,7 @@ class WifiWindow(Gtk.Window):
             return rc, output
         return self.activate_profile(profile, network, device, "owe")
 
-    def activate_profile(self, profile, network, device, security):
+    def activate_profile(self, profile, network, device, security, passwd_file=""):
         uuid = self.profile_uuid(profile)
         identifier = ["uuid", uuid] if uuid else ["id", profile]
         errors = []
@@ -1152,6 +1157,8 @@ class WifiWindow(Gtk.Window):
         up = ["nmcli", "--wait", str(WIFI_ACTIVATION_TIMEOUT), "connection", "up", *identifier]
         if device:
             up.extend(["ifname", device])
+        if passwd_file:
+            up.extend(["passwd-file", passwd_file])
         rc, output = run(up, admin=True, timeout=WIFI_ACTIVATION_TIMEOUT + 10)
         if rc == 0:
             verify_rc, verify_output = self.verify_profile_connected(profile, device)
@@ -1173,6 +1180,8 @@ class WifiWindow(Gtk.Window):
             up = ["nmcli", "--wait", str(WIFI_ACTIVATION_TIMEOUT), "connection", "up", *identifier]
             if device:
                 up.extend(["ifname", device])
+            if passwd_file:
+                up.extend(["passwd-file", passwd_file])
             up.extend(["ap", access_point["bssid"]])
             rc, output = run(up, admin=True, timeout=WIFI_ACTIVATION_TIMEOUT + 10)
             if rc == 0:
@@ -1352,7 +1361,31 @@ class WifiWindow(Gtk.Window):
         if rc != 0:
             return rc, output
 
-        return self.activate_profile(profile, network, device, "enterprise")
+        secret_lines = [f"802-1x.identity:{credentials['identity']}"]
+        if credentials["eap"] == "tls":
+            if credentials.get("private_key_password"):
+                secret_lines.append(
+                    f"802-1x.private-key-password:{credentials['private_key_password']}"
+                )
+        else:
+            secret_lines.append(f"802-1x.password:{credentials['password']}")
+        secret_path = ""
+        try:
+            descriptor, secret_path = tempfile.mkstemp(prefix="ooonana-nm-", dir="/tmp", text=True)
+            os.fchmod(descriptor, 0o600)
+            with os.fdopen(descriptor, "w", encoding="utf-8") as secret_file:
+                secret_file.write("\n".join(secret_lines) + "\n")
+            return self.activate_profile(
+                profile, network, device, "enterprise", passwd_file=secret_path,
+            )
+        except OSError as error:
+            return 1, f"Could not prepare NetworkManager credentials: {error}"
+        finally:
+            if secret_path:
+                try:
+                    os.unlink(secret_path)
+                except FileNotFoundError:
+                    pass
 
     def disconnect_active(self):
         rc, active = self.nmcli("-t", "--escape", "yes", "-f", "NAME,TYPE", "connection", "show", "--active")

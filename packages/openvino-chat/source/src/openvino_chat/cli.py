@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from collections.abc import Callable, Sequence
@@ -16,7 +17,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from openvino_chat.agent import TOOL_SYSTEM_PROMPT, ToolChatSession
+from openvino_chat.agent import ToolChatSession
+from openvino_chat.benchmarks import BenchmarkStore
 from openvino_chat.api import (
     DEFAULT_API_HOST,
     DEFAULT_API_PORT,
@@ -26,29 +28,58 @@ from openvino_chat.api import (
     start_api_process,
     stop_api_process,
 )
-from openvino_chat.download import delete_named_model, download_named_model
+from openvino_chat.download import (
+    delete_named_model,
+    download_named_model,
+    is_hf_repo_reference,
+    is_openvino_model_dir,
+)
 from openvino_chat.engine import (
     OpenVinoChatEngine,
     load_engine,
     model_name_from_dir,
     normalize_kv_cache_precision,
 )
+from openvino_chat.knowledge import KnowledgeStore
 from openvino_chat.perf import estimate_model_memory, format_live_status, format_perf_status, get_cpu_usage, get_gpu_usage, get_ram_usage, human_bytes
 from openvino_chat.sessions import ChatSessionStore
 from openvino_chat.settings import (
     CONFIG_PATH,
+    DEFAULT_AUTO_COMPACT,
+    DEFAULT_CONTEXT_LENGTH,
+    DEFAULT_GENERATION_EFFORT,
+    DEFAULT_KNOWLEDGE_MODE,
     DEFAULT_MODEL_DIR,
+    DEFAULT_THINKING_EFFORT,
     EXPORT_DIR,
+    GENERATION_EFFORTS,
     MODEL_DIRS,
     MODEL_REPOS,
     MODEL_ROOT,
     REPORT_DIR,
+    coerce_thinking_effort,
+    discover_model_dirs,
+    generation_settings,
+    model_repo_for_path,
+    normalize_generation_effort,
+    normalize_knowledge_mode,
+    normalize_auto_compact,
+    normalize_thinking_effort,
     package_install_command,
+    resolve_thinking_effort,
+    thinking_efforts_for_model,
 )
 from openvino_chat import tui as tui_mod
 from openvino_chat.tasks import TaskList, has_visible_tasks
 from openvino_chat.tools import ToolRegistry, parse_slash_tool
-from openvino_chat.ui import ChatUI, LiveStatusMonitor, format_tool_request_text, split_thinking, status_label
+from openvino_chat.ui import (
+    ChatUI,
+    LiveStatusMonitor,
+    format_tool_request_text,
+    sanitize_tool_artifacts,
+    split_thinking,
+    status_label,
+)
 from openvino_chat.visuals import render_big_text, render_chart, render_tilt_text
 
 
@@ -81,14 +112,14 @@ class _BufferChatUI:
             value = value + end
         if tui_mod._has_terminal_markup(value):
             value = tui_mod._render_terminal_markup(value)
-        self._buffer.append(value)
+        self._buffer.append_system(value)
         self._invalidate()
 
     def print_plain(self, text="", end="\n") -> None:
         value = str(text)
         if end and not value.endswith(end):
             value = value + end
-        self._buffer.append(value)
+        self._buffer.append_system(value)
         self._invalidate()
 
     def response_stream(self):
@@ -132,7 +163,10 @@ def _build_tui_welcome_text(
         f"model {name} | device {device} | loaded {'yes' if loaded else 'no'} | "
         f"ctx {context_length} | kv {kv_cache_precision}"
     )
-    hint = f"{tui_mod.DIM}/help /model /api /status /ctx /kv /tools /exit{tui_mod.RESET}"
+    hint = (
+        f"{tui_mod.DIM}Type / for commands  |  Drag select  |  "
+        f"F6 mouse scroll  |  Esc stop{tui_mod.RESET}"
+    )
     return f"{stars}\n{meta}\n{hint}\n"
 
 
@@ -154,38 +188,21 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     CommandSpec("Chat", "/commands", "/commands", "Show command palette."),
     CommandSpec("Chat", "/copy", "/copy", "Copy latest assistant response."),
     CommandSpec("Chat", "/raw", "/raw", "Toggle raw transcript display."),
-    CommandSpec("Chat", "/rewind", "/rewind", "Restore state before previous command."),
+    CommandSpec("Chat", "/rewind", "/rewind", "Undo one turn or command (repeatable)."),
+    CommandSpec("Chat", "/redo", "/redo", "Reapply one rewind (repeatable)."),
+    CommandSpec("Chat", "/compact", "/compact [status|auto on|auto off]", "Compact older context."),
     CommandSpec("Chat", "/reset", "/reset", "Clear current chat memory."),
     CommandSpec("Chat", "/clear", "/clear", "Clear screen and redraw banner."),
     CommandSpec("Chat", "/archive", "/archive", "Save current session and quit."),
     CommandSpec("Chat", "/exit", "/exit", "Quit."),
-    CommandSpec("Chat", "/mode", "/mode", "Show mode."),
-    CommandSpec("Chat", "/mode chat", "/mode chat", "Disable model tool use."),
-    CommandSpec("Chat", "/mode agent", "/mode agent", "Enable model tool use."),
     CommandSpec("UI", "/ui", "/ui", "Show UI layout."),
-    CommandSpec("UI", "/ui window", "/ui window", "Full terminal chat window."),
-    CommandSpec("UI", "/ui statusline", "/ui statusline", "Bottom statusline."),
-    CommandSpec("UI", "/ui side", "/ui side", "Side live panel."),
     CommandSpec("UI", "/chart", "/chart a=2 b=4", "Draw terminal bar chart."),
     CommandSpec("UI", "/big", "/big <text>", "Draw large block letters."),
     CommandSpec("UI", "/tilt", "/tilt <text>", "Draw slanted large letters."),
     CommandSpec("Models", "/model", "/model", "Open model picker."),
-    CommandSpec("Models", "/models", "/models", "Show available models."),
-    CommandSpec("Models", "/model load", "/model load [name|path]", "Load selected model."),
-    CommandSpec("Models", "/model unload", "/model unload", "Drop loaded model from memory."),
-    CommandSpec("Models", "/model download", "/model download <name>", "Download preconfigured model."),
-    CommandSpec("Models", "/model delete", "/model delete <name>", "Delete preconfigured model files."),
-    CommandSpec("Models", "/model qwen", "/model qwen", "Switch to Qwen."),
-    CommandSpec("Models", "/model tiny", "/model tiny", "Switch to Gemma 4 E2B QAT INT4."),
-    CommandSpec("Models", "/model glm", "/model glm", "Switch to GLM."),
-    CommandSpec("Models", "/model gemma", "/model gemma", "Switch to Gemma."),
-    CommandSpec("Models", "/model use", "/model use <name|path>", "Switch model without loading."),
     CommandSpec("System Prompt", "/system", "/system", "Show current system prompt."),
-    CommandSpec("System Prompt", "/system set", "/system set <text>", "Replace system prompt."),
-    CommandSpec("System Prompt", "/system append", "/system append <text>", "Append to system prompt."),
-    CommandSpec("System Prompt", "/system reset", "/system reset", "Restore default system prompt."),
-    CommandSpec("System Prompt", "/system save", "/system save [path]", "Save system prompt."),
-    CommandSpec("System Prompt", "/system load", "/system load <path>", "Load system prompt."),
+    CommandSpec("Reasoning", "/effort", "/effort [low|medium|high]", "Set model-card sampling effort."),
+    CommandSpec("Reasoning", "/thinking", "/thinking", "Set model-native thinking mode."),
     CommandSpec("Context and Performance", "/ctx", "/ctx [tokens]", "Show or set context tokens."),
     CommandSpec("Context and Performance", "/kv", "/kv [auto|u4|u8|f16]", "Set KV-cache precision."),
     CommandSpec("Context and Performance", "/max-tokens", "/max-tokens [tokens]", "Show or set maximum response tokens."),
@@ -199,35 +216,29 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     CommandSpec("Context and Performance", "/report", "/report", "Write debug report."),
     CommandSpec("Context and Performance", "/stats", "/stats", "Show local usage stats."),
     CommandSpec("Context and Performance", "/config", "/config", "Show or update config."),
+    CommandSpec("Knowledge", "/knowledge", "/knowledge", "Manage local documents and web mode."),
     CommandSpec("API", "/api", "/api", "Show local OpenAI API status."),
-    CommandSpec("API", "/api start", "/api start [port]", "Start lazy local API server."),
-    CommandSpec("API", "/api stop", "/api stop", "Stop local API server."),
     CommandSpec("Workspace", "/workspace", "/workspace", "Show workspace and cwd."),
-    CommandSpec("Workspace", "/workspace set", "/workspace set <path>", "Set workspace root."),
     CommandSpec("Workspace", "/cd", "/cd <path>", "Change tool cwd inside workspace."),
     CommandSpec("Workspace", "/project", "/project", "Show git project status."),
-    CommandSpec("Workspace", "/permissions", "/permissions", "Show tool permission mode."),
-    CommandSpec("Workspace", "/permissions ask", "/permissions ask", "Ask before tool actions."),
-    CommandSpec("Workspace", "/permissions allow", "/permissions allow", "Always allow tool actions."),
+    CommandSpec("Workspace", "/permissions", "/permissions", "Open permission picker."),
     CommandSpec("Tools", "/tools", "/tools", "List tools."),
     CommandSpec("Tools", "/pwd", "/pwd", "Print tool cwd."),
     CommandSpec("Tools", "/ls", "/ls [path]", "List files."),
     CommandSpec("Tools", "/read", "/read <path>", "Read file."),
     CommandSpec("Tools", "/scan", "/scan [path]", "List project files."),
-    CommandSpec("Tools", "/grep", "/grep <pattern> [path]", "Search files."),
+    CommandSpec("Tools", "/grep", "/grep <pattern> [-- <path>]", "Search files."),
     CommandSpec("Tools", "/write", "/write <path> <text>", "Write file."),
     CommandSpec("Tools", "/append", "/append <path> <text>", "Append file."),
     CommandSpec("Tools", "/shell", "/shell <command>", "Run shell command."),
     CommandSpec("Tools", "/storage", "/storage [path]", "Show disk usage."),
+    CommandSpec("Tools", "/startup", "/startup", "List startup applications."),
     CommandSpec("Tools", "/web", "/web <query>", "Search web."),
     CommandSpec("Tools", "/fetch", "/fetch <url>", "Fetch webpage."),
     CommandSpec("Tools", "/diff", "/diff", "Show tracked tool file changes."),
-    CommandSpec("Tools", "/undo", "/undo tool", "Undo last tracked tool file change."),
+    CommandSpec("Tools", "/undo", "/undo [tool]", "Undo last tracked tool file change."),
     CommandSpec("Tasks", "/task", "/task", "Show task list."),
     CommandSpec("Tasks", "/plan", "/plan <goal>", "Create task plan from model."),
-    CommandSpec("Tasks", "/task add", "/task add <text>", "Add task."),
-    CommandSpec("Tasks", "/task done", "/task done <n>", "Mark task done."),
-    CommandSpec("Tasks", "/task clear", "/task clear", "Clear tasks."),
     CommandSpec("Tasks", "/review", "/review", "Review current git/tool diff."),
     CommandSpec("Sessions", "/session", "/session", "Open session picker."),
     CommandSpec("Sessions", "/sessions", "/sessions", "List saved sessions."),
@@ -238,23 +249,75 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     CommandSpec("Sessions", "/export", "/export [path]", "Export chat as markdown."),
 )
 
+ADVANCED_COMMAND_SPECS: tuple[CommandSpec, ...] = (
+    CommandSpec("Chat", "/raw on", "/raw on", "Show raw model protocol text."),
+    CommandSpec("Chat", "/raw off", "/raw off", "Render thoughts, tools, and Markdown."),
+    CommandSpec("Chat", "/compact status", "/compact status", "Show context compaction state."),
+    CommandSpec("UI", "/ui window", "/ui window", "Full terminal chat window."),
+    CommandSpec("UI", "/ui statusline", "/ui statusline", "Bottom statusline."),
+    CommandSpec("UI", "/ui side", "/ui side", "Side live panel."),
+    CommandSpec("Models", "/model use", "/model use <name|path>", "Select model."),
+    CommandSpec("Models", "/model import", "/model import <path|owner/repo>", "Select local model or download OpenVINO model from Hugging Face."),
+    CommandSpec("Models", "/model load", "/model load [name|path]", "Load current or selected model."),
+    CommandSpec("Models", "/model list", "/model list", "List configured models."),
+    CommandSpec("Models", "/model unload", "/model unload", "Unload current model."),
+    CommandSpec("Models", "/model download", "/model download <name|owner/repo>", "Install built-in or Hugging Face OpenVINO model."),
+    CommandSpec("Models", "/model delete", "/model delete <name>", "Delete model."),
+    CommandSpec("System Prompt", "/system set", "/system set <text>", "Replace system prompt."),
+    CommandSpec("System Prompt", "/system show", "/system show", "Show current system prompt."),
+    CommandSpec("System Prompt", "/system append", "/system append <text>", "Append to system prompt."),
+    CommandSpec("System Prompt", "/system reset", "/system reset", "Restore default system prompt."),
+    CommandSpec("System Prompt", "/system save", "/system save [path]", "Save system prompt."),
+    CommandSpec("System Prompt", "/system load", "/system load <path>", "Load system prompt."),
+    CommandSpec("Context and Performance", "/config set", "/config set <key> <value>", "Update config."),
+    CommandSpec("Context and Performance", "/compact auto", "/compact auto <on|off>", "Configure automatic compaction."),
+    CommandSpec("Knowledge", "/knowledge mode", "/knowledge mode <offline|auto|web>", "Set knowledge mode."),
+    CommandSpec("Knowledge", "/knowledge add", "/knowledge add <path>", "Index a document or folder."),
+    CommandSpec("Knowledge", "/knowledge search", "/knowledge search <query>", "Search indexed documents."),
+    CommandSpec("Knowledge", "/knowledge setup", "/knowledge setup", "Install OpenVINO embedding and reranking models."),
+    CommandSpec("Knowledge", "/knowledge list", "/knowledge list", "List indexed document sources."),
+    CommandSpec("Knowledge", "/knowledge reindex", "/knowledge reindex", "Rebuild local document index."),
+    CommandSpec("Knowledge", "/knowledge clear", "/knowledge clear", "Clear local document index."),
+    CommandSpec("API", "/api start", "/api start [port]", "Start lazy local API server."),
+    CommandSpec("API", "/api status", "/api status", "Show local API server status."),
+    CommandSpec("API", "/api stop", "/api stop", "Stop local API server."),
+    CommandSpec("Workspace", "/workspace set", "/workspace set <path>", "Set workspace root."),
+    CommandSpec("Workspace", "/permissions ask", "/permissions ask", "Ask before tool actions."),
+    CommandSpec("Workspace", "/permissions allow", "/permissions allow", "Always allow tool actions."),
+    CommandSpec("Tasks", "/task add", "/task add <text>", "Add task."),
+    CommandSpec("Tasks", "/task done", "/task done <n>", "Mark task done."),
+    CommandSpec("Tasks", "/task clear", "/task clear", "Clear tasks."),
+    CommandSpec("Tasks", "/task list", "/task list", "List tasks."),
+)
+
 SLASH_COMMAND_POPUP_LIMIT = 15
+REWIND_HISTORY_LIMIT = 50
+SESSION_TIMELINE_EXCLUDED_COMMANDS = {
+    "/archive",
+    "/delete",
+    "/exit",
+    "/load",
+    "/new",
+    "/quit",
+    "/save",
+    "/session",
+    "/sessions",
+}
 SLASH_TOP_COMMANDS = (
     "/help",
     "/model",
-    "/models",
-    "/model load",
     "/session",
+    "/rewind",
+    "/redo",
     "/status",
     "/tools",
     "/permissions",
     "/ctx",
+    "/compact",
     "/kv",
+    "/effort",
     "/system",
     "/plan",
-    "/review",
-    "/clear",
-    "/reset",
     "/exit",
 )
 
@@ -262,22 +325,44 @@ EXACT_USAGE_COMMANDS = {
     "/chart": "/chart a=2 b=4",
     "/big": "/big <text>",
     "/tilt": "/tilt <text>",
-    "/model download": "/model download <name>",
+    "/model download": "/model download <name|owner/repo>",
     "/model delete": "/model delete <name>",
     "/model use": "/model use <name|path>",
+    "/model import": "/model import <path|owner/repo>",
     "/system set": "/system set <text>",
     "/system append": "/system append <text>",
     "/system load": "/system load <path>",
+    "/config set": "/config set <key> <value>",
+    "/compact auto": "/compact auto <on|off>",
+    "/knowledge mode": "/knowledge mode <offline|auto|web>",
+    "/knowledge add": "/knowledge add <path>",
+    "/knowledge search": "/knowledge search <query>",
     "/workspace set": "/workspace set <path>",
     "/cd": "/cd <path>",
     "/read": "/read <path>",
-    "/grep": "/grep <pattern> [path]",
+    "/grep": "/grep <pattern> [-- <path>]",
     "/write": "/write <path> <text>",
     "/append": "/append <path> <text>",
     "/shell": "/shell <command>",
     "/web": "/web <query>",
     "/fetch": "/fetch <url>",
+    "/plan": "/plan <goal>",
+    "/task add": "/task add <text>",
+    "/task done": "/task done <n>",
     "/load": "/load <name>",
+}
+
+TRANSIENT_UI_COMMANDS = {
+    "/model",
+    "/session",
+    "/rewind",
+    "/redo",
+    "/permissions",
+    "/permissions ask",
+    "/permissions allow",
+    "/kv",
+    "/effort",
+    "/thinking",
 }
 
 
@@ -342,6 +427,10 @@ def _input_with_status(
         )
     except (ImportError, ModuleNotFoundError):
         return input_fn(prompt_text)
+    except Exception as exc:
+        if exc.__class__.__name__ == "NoConsoleScreenBufferError":
+            return input_fn(prompt_text)
+        raise
     finally:
         cache.stop()
 
@@ -390,20 +479,30 @@ def _prompt_style():
 
     return Style.from_dict(
         {
-            "bottom-toolbar": "noreverse #6b7280",
-            "toolbar.title": "#64748b",
+            "bottom-toolbar": "noreverse bg:#0c0c0f #71717a",
+            "bottom-toolbar.secondary": "noreverse bg:#09090b #71717a",
+            "toolbar.title": "bold #4ade80",
+            "toolbar.model": "bold #e4e4e7",
+            "toolbar.state": "#a3e635",
             "toolbar.label": "#38bdf8",
             "toolbar.value": "#9ca3af",
             "toolbar.sep": "#4b5563",
-            "input": "#e5e7eb",
-            "input.prompt": "#9ca3af",
+            "input": "bg:#111113 #f4f4f5",
+            "input.prompt": "#d4d4d8",
+            "text-area.prompt": "#d4d4d8",
             "separator": "#374151",
-            "task": "#9ca3af",
-            "command-bar": "#cbd5e1 bg:#111827",
-            "model-menu": "#cbd5e1 bg:#111827",
+            "task": "bg:#0f0f12 #a1a1aa",
+            "task.strip": "bg:#0f0f12 #a1a1aa",
+            "task.title": "bold #38bdf8",
+            "task.label": "#71717a",
+            "task.value": "#a1a1aa",
+            "command-bar": "bg:#18181b #e4e4e7",
+            "model-menu": "bg:#141417 #e4e4e7",
+            "notice": "bg:#17351f #bbf7d0",
             "operation.thinking": "#60a5fa",
             "operation.generating": "#facc15",
             "operation.tool": "#4ade80",
+            "operation.loading": "#38bdf8",
             "operation.default": "#9ca3af",
         }
     )
@@ -445,11 +544,16 @@ def _slash_command_bar(
     text: str,
     limit: int = SLASH_COMMAND_POPUP_LIMIT,
     selected_index: int | None = None,
+    show_groups: bool | None = None,
 ) -> str:
     query = text.strip()
     if not query.startswith("/"):
         return ""
+    usage_hint = _argument_usage_hint(text)
     matches = _slash_command_matches(query)
+    if usage_hint is not None and (text.endswith(" ") or not matches):
+        usage, description = usage_hint
+        return f" usage: {usage}  {description}"
     if not matches:
         return " no matching slash commands"
     has_more = len(matches) > limit
@@ -459,12 +563,15 @@ def _slash_command_bar(
     if has_more:
         start = max(0, min(selected - visible_limit + 1, len(matches) - visible_limit))
     visible = matches[start : start + visible_limit]
-    width = max(len(spec.usage) for spec in visible)
+    width = max(len(spec.command) for spec in visible)
+    group_width = max(len(spec.group) for spec in visible)
+    show_groups = query == "/" if show_groups is None else bool(show_groups and query == "/")
     lines = []
     for offset, spec in enumerate(visible):
         index = start + offset
-        marker = ">" if selected_index == index else " "
-        lines.append(f"{marker} {spec.usage:<{width}}  {spec.description}")
+        marker = ">" if selected == index else " "
+        group = f"{spec.group:<{group_width}}  " if show_groups else ""
+        lines.append(f"{marker} {spec.command:<{width}}  {group}{spec.description}")
     if has_more:
         above = start
         below = len(matches) - (start + len(visible))
@@ -476,10 +583,29 @@ def _slash_command_bar_height(text: str, limit: int = SLASH_COMMAND_POPUP_LIMIT)
     query = text.strip()
     if not query.startswith("/"):
         return 0
+    usage_hint = _argument_usage_hint(text)
     matches = _slash_command_matches(query)
+    if usage_hint is not None and (text.endswith(" ") or not matches):
+        return 1
     if not matches:
         return 1
     return min(len(matches), limit)
+
+
+def _argument_usage_hint(text: str) -> tuple[str, str] | None:
+    query = text.strip().lower()
+    for command in sorted(EXACT_USAGE_COMMANDS, key=len, reverse=True):
+        if query == command or query.startswith(command + " "):
+            description = next(
+                (
+                    spec.description
+                    for spec in COMMAND_SPECS + ADVANCED_COMMAND_SPECS
+                    if spec.command == command
+                ),
+                "Enter required value.",
+            )
+            return EXACT_USAGE_COMMANDS[command], description
+    return None
 
 
 def _slash_command_matches(query: str) -> list[CommandSpec]:
@@ -496,6 +622,12 @@ def _slash_command_matches(query: str) -> list[CommandSpec]:
 def _exact_usage_message(text: str) -> str:
     usage = EXACT_USAGE_COMMANDS.get(text.strip().lower())
     return f"usage: {usage}" if usage else ""
+
+
+def _command_matches(text: str, command: str) -> bool:
+    value = text.strip().lower()
+    expected = command.strip().lower()
+    return value == expected or value.startswith(expected + " ")
 
 
 def _prompt_toolkit_window_prompt(
@@ -516,11 +648,20 @@ def _prompt_toolkit_window_prompt(
     from prompt_toolkit.layout.dimension import Dimension
     from prompt_toolkit.widgets import TextArea
 
+    def input_width() -> int:
+        columns = shutil.get_terminal_size((100, 30)).columns
+        return max(1, columns - max(1, tui_mod._display_width(prompt_text)))
+
+    def input_height() -> int:
+        positions = tui_mod._visual_cursor_positions(input_area.text, input_width())
+        terminal_rows = shutil.get_terminal_size((100, 30)).lines
+        return max(1, min(max(row for row, _column in positions) + 1, max(1, min(8, terminal_rows // 3))))
+
     input_area = TextArea(
         prompt=prompt_text,
-        multiline=False,
+        multiline=True,
         wrap_lines=True,
-        height=1,
+        height=input_height,
         style="class:input",
         completer=completer,
         complete_while_typing=True,
@@ -542,7 +683,6 @@ def _prompt_toolkit_window_prompt(
             style="class:task",
         )
     vertical_separator = Window(width=1, char="|", style="class:separator", always_hide_cursor=True)
-    input_separator = Window(height=1, char="-", style="class:separator", always_hide_cursor=True)
     command_bar = ConditionalContainer(
         Window(
             FormattedTextControl(lambda: ANSI(_ansi_plain(_slash_command_bar(input_area.text)))),
@@ -559,10 +699,46 @@ def _prompt_toolkit_window_prompt(
         always_hide_cursor=True,
     )
     keys = KeyBindings()
+    preferred_column: dict[str, int | None] = {"value": None}
+
+    def reset_preferred(_buffer) -> None:
+        preferred_column["value"] = None
+
+    input_area.buffer.on_text_changed += reset_preferred
 
     @keys.add("enter")
     def _accept(event) -> None:
         event.app.exit(result=input_area.text)
+
+    @keys.add("c-j")
+    def _newline(_event) -> None:
+        input_area.buffer.insert_text("\n")
+
+    plain_input = Condition(lambda: not input_area.text.lstrip().startswith("/"))
+
+    @keys.add("up", filter=plain_input, eager=True)
+    def _input_up(_event) -> None:
+        target, preferred = tui_mod._visual_cursor_target(
+            input_area.text,
+            input_area.buffer.cursor_position,
+            input_width(),
+            -1,
+            preferred_column["value"],
+        )
+        preferred_column["value"] = preferred
+        input_area.buffer.cursor_position = target
+
+    @keys.add("down", filter=plain_input, eager=True)
+    def _input_down(_event) -> None:
+        target, preferred = tui_mod._visual_cursor_target(
+            input_area.text,
+            input_area.buffer.cursor_position,
+            input_width(),
+            1,
+            preferred_column["value"],
+        )
+        preferred_column["value"] = preferred
+        input_area.buffer.cursor_position = target
 
     @keys.add("c-c")
     def _interrupt(event) -> None:
@@ -577,7 +753,6 @@ def _prompt_toolkit_window_prompt(
         [
             content,
             command_bar,
-            input_separator,
             input_area,
             toolbar,
         ]
@@ -587,6 +762,8 @@ def _prompt_toolkit_window_prompt(
         key_bindings=keys,
         full_screen=True,
         mouse_support=False,
+        min_redraw_interval=0.03,
+        max_render_postpone_time=0.03,
         refresh_interval=refresh_interval,
         style=_prompt_style(),
     )
@@ -649,6 +826,7 @@ def _session_picker(store: ChatSessionStore, active_session: str) -> tuple[str, 
 
 
 def _model_picker(active_model_dir: Path, loaded: bool) -> tuple[str, str | None]:
+    catalog = _model_catalog()
     mediator = tui_mod.active_mediator()
     if mediator is not None:
         items = [
@@ -657,16 +835,18 @@ def _model_picker(active_model_dir: Path, loaded: bool) -> tuple[str, str | None
                 "state": _model_install_state(path),
                 "size": _model_dir_size_text(path),
                 "active": path == active_model_dir,
-                "repo": MODEL_REPOS.get(name, "-"),
+                "repo": _model_repo(name, path),
                 "path": str(path),
+                "effort": ", ".join(reversed(GENERATION_EFFORTS)),
+                "thinking": ", ".join(reversed(thinking_efforts_for_model(path))),
             }
-            for name, path in MODEL_DIRS.items()
+            for name, path in catalog.items()
         ]
         return mediator.request_model_picker(items, loaded)
     if not _can_use_fullscreen_picker():
         return ("list", None)
 
-    entries = list(MODEL_DIRS.items())
+    entries = list(catalog.items())
     state = {"index": max(0, next((i for i, (_name, path) in enumerate(entries) if path == active_model_dir), 0))}
 
     def selected() -> str | None:
@@ -683,9 +863,13 @@ def _model_picker(active_model_dir: Path, loaded: bool) -> tuple[str, str | None
             state_text = "loaded" if path == active_model_dir and loaded else "not loaded"
             exists = _model_install_state(path)
             size = _model_dir_size_text(path)
-            repo = MODEL_REPOS.get(name, "-")
+            repo = _model_repo(name, path)
             lines.append(f"{marker} {name:<8} {exists:<9} {state_text:<10} {size:<10}{active}")
             lines.append(f"  repo: {repo}")
+            lines.append("  effort: " + ", ".join(reversed(GENERATION_EFFORTS)))
+            lines.append(
+                "  thinking: " + ", ".join(reversed(thinking_efforts_for_model(path)))
+            )
             lines.append(f"  path: {path}")
         return "\n".join(lines)
 
@@ -696,6 +880,29 @@ def _kv_picker(current: str) -> str | None:
     mediator = tui_mod.active_mediator()
     if mediator is not None:
         return mediator.request_kv_picker(current)
+    return None
+
+
+def _thinking_picker(current: str, supported: tuple[str, ...]) -> str | None:
+    mediator = tui_mod.active_mediator()
+    if mediator is not None:
+        return mediator.request_thinking_picker(current, tuple(reversed(supported)))
+    return None
+
+
+def _effort_picker(current: str) -> str | None:
+    mediator = tui_mod.active_mediator()
+    if mediator is not None:
+        picker = getattr(mediator, "request_effort_picker", None)
+        if callable(picker):
+            return picker(current, tuple(reversed(GENERATION_EFFORTS)))
+    return None
+
+
+def _permission_picker(current: str) -> str | None:
+    mediator = tui_mod.active_mediator()
+    if mediator is not None:
+        return mediator.request_permission_picker(current)
     return None
 
 
@@ -784,15 +991,19 @@ def _save_session(
     history: list[tuple[str, str]],
     model_name: str,
     device: str,
+    state: dict[str, object] | None = None,
 ) -> Path:
     metadata = {
         "model": model_name,
         "device": device,
     }
     try:
-        return sessions.save(name, history, metadata=metadata)
+        return sessions.save(name, history, metadata=metadata, state=state)
     except TypeError:
-        return sessions.save(name, history)
+        try:
+            return sessions.save(name, history, metadata=metadata)
+        except TypeError:
+            return sessions.save(name, history)
 
 
 def _auto_session_name(history: list[tuple[str, str]]) -> str:
@@ -818,13 +1029,32 @@ def _load_config() -> dict[str, str]:
         data = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return {}
+    if not isinstance(data, dict):
+        return {}
     return {str(key): str(value) for key, value in data.items()}
 
 
 def _save_config(config: dict[str, str]) -> Path:
     path = _config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.stem}-",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            handle.write(json.dumps(config, ensure_ascii=False, indent=2))
+            handle.flush()
+            os.fsync(handle.fileno())
+            temporary = Path(handle.name)
+        temporary.replace(path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
     return path
 
 
@@ -833,6 +1063,135 @@ def _configured_kv_precision() -> str:
         return normalize_kv_cache_precision(_load_config().get("kv_cache_precision", "auto"))
     except ValueError:
         return "auto"
+
+
+def _configured_thinking_effort() -> str:
+    try:
+        return normalize_thinking_effort(
+            _load_config().get("thinking_effort", DEFAULT_THINKING_EFFORT)
+        )
+    except ValueError:
+        return DEFAULT_THINKING_EFFORT
+
+
+def _configured_generation_effort() -> str:
+    try:
+        return normalize_generation_effort(
+            _load_config().get("generation_effort", DEFAULT_GENERATION_EFFORT)
+        )
+    except ValueError:
+        return DEFAULT_GENERATION_EFFORT
+
+
+def _thinking_effort_for_model(value: str, model_dir: Path) -> str:
+    return coerce_thinking_effort(value, thinking_efforts_for_model(model_dir))
+
+
+def _configured_auto_compact() -> bool:
+    try:
+        return normalize_auto_compact(
+            _load_config().get("auto_compact", str(DEFAULT_AUTO_COMPACT))
+        )
+    except ValueError:
+        return DEFAULT_AUTO_COMPACT
+
+
+def _configured_context_length() -> int:
+    try:
+        value = int(_load_config().get("context_length", str(DEFAULT_CONTEXT_LENGTH)))
+    except (TypeError, ValueError):
+        return DEFAULT_CONTEXT_LENGTH
+    return value if value >= 128 else DEFAULT_CONTEXT_LENGTH
+
+
+def _configured_knowledge_mode() -> str:
+    try:
+        return normalize_knowledge_mode(
+            _load_config().get("knowledge_mode", DEFAULT_KNOWLEDGE_MODE)
+        )
+    except ValueError:
+        return DEFAULT_KNOWLEDGE_MODE
+
+
+def _knowledge_store() -> KnowledgeStore:
+    base = _config_path().parent / "knowledge"
+    index_path = Path(os.environ.get("OPENVINO_CHAT_KNOWLEDGE_INDEX", base / "index.json"))
+    models_dir = Path(os.environ.get("OPENVINO_CHAT_KNOWLEDGE_MODELS", base / "models"))
+    return KnowledgeStore(index_path=index_path, models_dir=models_dir)
+
+
+def _configured_model_dir() -> Path:
+    value = _load_config().get("model", "").strip()
+    return _resolve_model(value) if value else DEFAULT_MODEL_DIR
+
+
+def _save_active_model(model_dir: Path) -> None:
+    value = next(
+        (name for name, path in _model_catalog().items() if path == model_dir),
+        str(model_dir),
+    )
+    config = _load_config()
+    config["model"] = value
+    _save_config(config)
+
+
+def _model_load_timing_key(model_dir: Path, device: str, kv_cache_precision: str) -> str:
+    return f"load_seconds.{model_dir.name.lower()}.{device.lower()}.{kv_cache_precision.lower()}"
+
+
+def _model_load_expected_seconds(
+    model_dir: Path,
+    device: str,
+    kv_cache_precision: str,
+    model_bytes: int,
+) -> float:
+    raw = _load_config().get(_model_load_timing_key(model_dir, device, kv_cache_precision))
+    try:
+        saved = float(raw) if raw is not None else 0.0
+    except ValueError:
+        saved = 0.0
+    if saved >= 1.0:
+        return saved
+    return max(20.0, model_bytes / (20 * 1024 * 1024) + 45.0)
+
+
+def _record_model_load_seconds(
+    model_dir: Path,
+    device: str,
+    kv_cache_precision: str,
+    seconds: float,
+) -> None:
+    if seconds < 1.0:
+        return
+    config = _load_config()
+    key = _model_load_timing_key(model_dir, device, kv_cache_precision)
+    try:
+        previous = float(config.get(key, "0"))
+    except ValueError:
+        previous = 0.0
+    measured = seconds if previous < 1.0 else (previous + seconds) / 2
+    config[key] = f"{measured:.2f}"
+    _save_config(config)
+
+
+def _update_status_monitor(monitor: object, label: str) -> None:
+    update = getattr(monitor, "update", None)
+    if callable(update):
+        update(label)
+    else:
+        getattr(monitor, "set")(label)
+
+
+def _model_load_progress_loop(
+    monitor: object,
+    stop: threading.Event,
+    started_at: float,
+    expected_seconds: float,
+) -> None:
+    while not stop.wait(0.5):
+        elapsed = max(0.0, time.monotonic() - started_at)
+        percent = min(95, max(1, int(elapsed / max(expected_seconds, 1.0) * 100)))
+        _update_status_monitor(monitor, f"loading model ~{percent}%")
 
 
 def _handle_config_command(prompt: str) -> str:
@@ -853,6 +1212,21 @@ def _handle_config_command(prompt: str) -> str:
     return "usage: /config | /config set <key> <value>"
 
 
+def _knowledge_status_text(store: KnowledgeStore, mode: str) -> str:
+    sources = store.list_sources()
+    return "\n".join(
+        [
+            f"knowledge={mode}",
+            f"documents={len(sources)}",
+            f"chunks={store.chunk_count}",
+            f"embeddings={'ready' if store.embedding_ready else 'lexical fallback'}",
+            f"reranker={'ready' if store.reranker_ready else 'not installed'}",
+            f"index={store.index_path}",
+            "usage: /knowledge mode <offline|auto|web> | add <path> | search <query> | list | setup | reindex | clear",
+        ]
+    )
+
+
 def _doctor_text(model_dir: Path, session_dir: Path, cwd: Path) -> str:
     lines = [
         f"python={sys.executable}",
@@ -862,6 +1236,7 @@ def _doctor_text(model_dir: Path, session_dir: Path, cwd: Path) -> str:
         f"model_valid={_validate_model_dir(model_dir)}",
         f"session_dir={session_dir}",
         f"session_dir_exists={session_dir.exists()}",
+        f"benchmark_file={BenchmarkStore().path}",
     ]
     try:
         import openvino_genai  # noqa: F401
@@ -881,15 +1256,24 @@ def _doctor_text(model_dir: Path, session_dir: Path, cwd: Path) -> str:
         pass
     else:
         lines.append(f"model_root_free={human_bytes(usage.free)}")
-    for name, path in MODEL_DIRS.items():
+    for name, path in _model_catalog().items():
         lines.append(f"model.{name}.exists={path.exists()}")
     return "\n".join(lines)
 
 
 def _validate_model_dir(model_dir: Path) -> bool:
-    if not model_dir.exists() or not model_dir.is_dir():
-        return False
-    return any((model_dir / name).exists() for name in ("openvino_model.xml", "openvino_language_model.xml"))
+    return is_openvino_model_dir(model_dir)
+
+
+def _model_path_error(model_dir: Path) -> str | None:
+    if not model_dir.exists():
+        return f"model missing: {model_dir}"
+    if not _validate_model_dir(model_dir):
+        return (
+            f"model invalid: {model_dir}\n"
+            "expected openvino_model.xml or openvino_language_model.xml"
+        )
+    return None
 
 
 def _write_report(model_dir: Path, session_dir: Path, cwd: Path, device: str, context_length: int) -> Path:
@@ -935,15 +1319,26 @@ def _is_empty_diff(text: str) -> bool:
 def _bench_engine(
     engine: OpenVinoChatEngine,
     max_new_tokens: int,
-    temperature: float,
-    top_p: float,
+    temperature: float | None,
+    top_p: float | None,
     context_length: int,
+    model_dir: Path | None = None,
+    kv_cache_precision: str = "auto",
+    store: BenchmarkStore | None = None,
 ) -> str:
     chunks: list[str] = []
+    first_token_at: float | None = None
     start = time.perf_counter()
+
+    def on_token(token: str) -> None:
+        nonlocal first_token_at
+        if first_token_at is None:
+            first_token_at = time.perf_counter()
+        chunks.append(token)
+
     engine.generate(
         "Say hello in five words.",
-        on_token=chunks.append,
+        on_token=on_token,
         max_new_tokens=min(max_new_tokens, 64),
         temperature=temperature,
         top_p=top_p,
@@ -951,25 +1346,60 @@ def _bench_engine(
     )
     elapsed = max(time.perf_counter() - start, 0.000001)
     text = "".join(chunks)
-    tokens = len(text.split()) if text else len(chunks)
-    return "\n".join(
-        [
-            f"tokens={tokens}",
-            f"seconds={elapsed:.3f}",
-            f"tokens_per_sec={tokens / elapsed:.2f}",
-        ]
+    metrics = getattr(engine, "last_metrics", None)
+    tokens = int(getattr(metrics, "output_tokens", 0)) or (
+        len(text.split()) if text else len(chunks)
     )
+    seconds = float(getattr(metrics, "elapsed_seconds", elapsed))
+    ttft = getattr(metrics, "ttft_seconds", None)
+    if ttft is None and first_token_at is not None:
+        ttft = first_token_at - start
+    lines = [
+        f"tokens={tokens}",
+        f"seconds={seconds:.3f}",
+        f"tokens_per_sec={tokens / max(seconds, 0.000001):.2f}",
+    ]
+    if ttft is not None:
+        lines.append(f"ttft={float(ttft):.3f}s")
+    if metrics is not None and model_dir is not None:
+        benchmark_store = store or BenchmarkStore()
+        try:
+            profile = benchmark_store.record(
+                model_dir,
+                engine.device,
+                kv_cache_precision,
+                context_length,
+                metrics,
+            )
+            lines.append(benchmark_store.format_profile(profile))
+        except (OSError, TypeError, ValueError) as exc:
+            lines.append(f"profile_saved=failed ({exc})")
+    return "\n".join(lines)
 
 
 @dataclass
 class ReplSnapshot:
+    submitted_prompt: str
     model_dir: Path
+    engine_loaded: bool
+    config_existed: bool
+    config: dict[str, str]
     context_length: int
     max_new_tokens: int
     kv_cache_precision: str
-    history: list[tuple[str, str]]
-    display_messages: list[tuple[int, str]]
+    thinking_effort: str
+    generation_effort: str
+    knowledge_mode: str
+    auto_compact_enabled: bool
+    compaction_summary: str
+    compacted_history_count: int
+    compaction_count: int
+    history_length: int
+    history_backup: tuple[tuple[str, str], ...] | None
+    display_messages_length: int
+    display_messages_backup: tuple[tuple[int, str], ...] | None
     system_prompt_template: str
+    system_prompt_is_default: bool
     tools_enabled: bool
     workspace_root: Path
     cwd: Path
@@ -978,7 +1408,11 @@ class ReplSnapshot:
     ui_layout: str
     raw_output: bool
     tasks: list[tuple[str, bool]]
-    tui_text: str | None
+    tool_checkpoint: object
+    knowledge_checkpoint: str
+    tui_checkpoint: object | None
+    tui_backup: object | None
+    transcript_backup: str | None = None
 
 
 class EscInterrupt:
@@ -1040,8 +1474,9 @@ def main(
 ) -> int:
     parser = _parser()
     args = parser.parse_args(argv)
-    model_dir = args.model_dir or DEFAULT_MODEL_DIR
+    model_dir = args.model_dir or _configured_model_dir()
     command = args.command or "chat"
+    context_length = getattr(args, "context_length", None) or _configured_context_length()
 
     if command == "status":
         return _status(model_dir)
@@ -1062,10 +1497,12 @@ def main(
                 host=args.host,
                 port=args.port,
                 device=args.device,
-                context_length=args.context_length,
+                context_length=context_length,
                 kv_cache_precision=args.kv_cache_precision or _configured_kv_precision(),
                 api_key=args.api_key,
                 engine_loader=engine_loader,
+                knowledge_mode=_configured_knowledge_mode(),
+                knowledge_store=_knowledge_store(),
             )
         except (OSError, RuntimeError, ValueError) as exc:
             print(f"API failed: {exc}", file=sys.stderr)
@@ -1077,7 +1514,7 @@ def main(
             args.host,
             args.port,
             args.device,
-            args.context_length,
+            context_length,
             args.kv_cache_precision or _configured_kv_precision(),
             args.api_key,
         )
@@ -1088,9 +1525,9 @@ def main(
             prompt=prompt,
             device=getattr(args, "device", "GPU"),
             max_new_tokens=getattr(args, "max_new_tokens", 4096),
-            temperature=getattr(args, "temperature", 0.7),
-            top_p=getattr(args, "top_p", 0.9),
-            context_length=getattr(args, "context_length", 4096),
+            temperature=getattr(args, "temperature", None),
+            top_p=getattr(args, "top_p", None),
+            context_length=context_length,
             kv_cache_precision=(
                 getattr(args, "kv_cache_precision", None) or _configured_kv_precision()
             ),
@@ -1110,16 +1547,16 @@ def _parser() -> argparse.ArgumentParser:
     subparsers.add_parser("models")
 
     download_parser = subparsers.add_parser("download")
-    download_parser.add_argument("model", choices=sorted(MODEL_REPOS))
+    download_parser.add_argument("model", help="built-in name or Hugging Face owner/repo")
 
     delete_parser = subparsers.add_parser("delete")
-    delete_parser.add_argument("model", choices=sorted(MODEL_DIRS))
+    delete_parser.add_argument("model", help="model name shown by openvino models")
 
     serve_parser = subparsers.add_parser("serve")
     serve_parser.add_argument("--host", default=DEFAULT_API_HOST)
     serve_parser.add_argument("--port", type=int, default=DEFAULT_API_PORT)
-    serve_parser.add_argument("--device", default="GPU", choices=["GPU", "NPU", "CPU"])
-    serve_parser.add_argument("--ctx", "--context-length", dest="context_length", type=int, default=4096)
+    serve_parser.add_argument("--device", default="GPU", choices=["GPU", "CPU"])
+    serve_parser.add_argument("--ctx", "--context-length", dest="context_length", type=int, default=None)
     serve_parser.add_argument("--kv-cache", dest="kv_cache_precision", choices=["auto", "u4", "u8", "f16"])
     serve_parser.add_argument("--api-key", default=os.environ.get("OPENVINO_CHAT_API_KEY"))
 
@@ -1127,18 +1564,18 @@ def _parser() -> argparse.ArgumentParser:
     api_parser.add_argument("action", nargs="?", default="status", choices=["status", "start", "stop"])
     api_parser.add_argument("--host", default=DEFAULT_API_HOST)
     api_parser.add_argument("--port", type=int, default=DEFAULT_API_PORT)
-    api_parser.add_argument("--device", default="GPU", choices=["GPU", "NPU", "CPU"])
-    api_parser.add_argument("--ctx", "--context-length", dest="context_length", type=int, default=4096)
+    api_parser.add_argument("--device", default="GPU", choices=["GPU", "CPU"])
+    api_parser.add_argument("--ctx", "--context-length", dest="context_length", type=int, default=None)
     api_parser.add_argument("--kv-cache", dest="kv_cache_precision", choices=["auto", "u4", "u8", "f16"])
     api_parser.add_argument("--api-key", default=os.environ.get("OPENVINO_CHAT_API_KEY"))
 
     chat_parser = subparsers.add_parser("chat")
     chat_parser.add_argument("prompt", nargs="*")
-    chat_parser.add_argument("--device", default="GPU", choices=["GPU", "NPU", "CPU"])
+    chat_parser.add_argument("--device", default="GPU", choices=["GPU", "CPU"])
     chat_parser.add_argument("--max-new-tokens", type=int, default=4096)
-    chat_parser.add_argument("--ctx", "--context-length", dest="context_length", type=int, default=4096)
-    chat_parser.add_argument("--temperature", type=float, default=0.7)
-    chat_parser.add_argument("--top-p", type=float, default=0.9)
+    chat_parser.add_argument("--ctx", "--context-length", dest="context_length", type=int, default=None)
+    chat_parser.add_argument("--temperature", type=float, default=None)
+    chat_parser.add_argument("--top-p", type=float, default=None)
     chat_parser.add_argument("--kv-cache", dest="kv_cache_precision", choices=["auto", "u4", "u8", "f16"])
     return parser
 
@@ -1153,9 +1590,6 @@ def _status(model_dir: Path) -> int:
 
 
 def _download(model: str, model_dir: Path | None, downloader: Downloader) -> int:
-    if model not in MODEL_REPOS:
-        print(f"unknown model: {model}", file=sys.stderr)
-        return 2
     try:
         path = downloader(model, model_dir)
     except ValueError as exc:
@@ -1163,6 +1597,9 @@ def _download(model: str, model_dir: Path | None, downloader: Downloader) -> int
         return 3
     except ImportError:
         print("missing package: install with " + package_install_command(), file=sys.stderr)
+        return 3
+    except (OSError, RuntimeError) as exc:
+        print(f"download failed: {exc}", file=sys.stderr)
         return 3
     print(f"downloaded={path}")
     return 0
@@ -1220,8 +1657,8 @@ def _chat(
     prompt: str,
     device: str,
     max_new_tokens: int,
-    temperature: float,
-    top_p: float,
+    temperature: float | None,
+    top_p: float | None,
     context_length: int,
     kv_cache_precision: str,
     engine_loader: EngineLoader,
@@ -1246,6 +1683,10 @@ def _chat(
         return _run_prompt(engine, prompt, max_new_tokens, temperature, top_p, context_length)
     if _can_use_persistent_tui(input_fn):
         chat_buffer = tui_mod.ChatBuffer()
+        startup_effort = _thinking_effort_for_model(
+            _configured_thinking_effort(),
+            model_dir,
+        )
         return tui_mod.run_persistent_repl(
             repl_worker=lambda: _repl(
                 None,
@@ -1259,7 +1700,13 @@ def _chat(
                 input_fn,
                 engine_loader,
             ),
-            status_text=lambda: _live_status_text(device, context_length, kv_cache_precision),
+            status_text=lambda: _live_status_text(
+                device,
+                context_length,
+                kv_cache_precision,
+                startup_effort,
+                generation_effort=_configured_generation_effort(),
+            ),
             tasks_text=lambda: "",
             chat_buffer=chat_buffer,
             completer=_command_completer(),
@@ -1283,6 +1730,10 @@ def _chat(
 def _can_use_persistent_tui(input_fn: InputFn) -> bool:
     if input_fn is not builtins.input:
         return False
+    return _interactive_stdio()
+
+
+def _interactive_stdio() -> bool:
     try:
         return bool(sys.stdin.isatty() and sys.stdout.isatty())
     except Exception:
@@ -1311,12 +1762,23 @@ def _run_prompt(
     engine: OpenVinoChatEngine,
     prompt: str,
     max_new_tokens: int,
-    temperature: float,
-    top_p: float,
+    temperature: float | None,
+    top_p: float | None,
     context_length: int,
 ) -> int:
     ui = ChatUI()
-    session = ToolChatSession(engine, ToolRegistry(cwd=Path.cwd(), permission_mode="allow"))
+    session = ToolChatSession(
+        engine,
+        ToolRegistry(cwd=Path.cwd(), permission_mode="allow"),
+        thinking_effort=_thinking_effort_for_model(
+            _configured_thinking_effort(),
+            Path(getattr(engine, "model_dir", None) or DEFAULT_MODEL_DIR),
+        ),
+        generation_effort=_configured_generation_effort(),
+        knowledge_mode=_configured_knowledge_mode(),
+        knowledge_store=_knowledge_store(),
+        auto_compact_enabled=_configured_auto_compact(),
+    )
     try:
         _ask_session(session, ui, prompt, max_new_tokens, temperature, top_p, context_length)
     except Exception as exc:
@@ -1330,8 +1792,8 @@ def _repl(
     model_dir: Path,
     device: str,
     max_new_tokens: int,
-    temperature: float,
-    top_p: float,
+    temperature: float | None,
+    top_p: float | None,
     context_length: int,
     kv_cache_precision: str,
     input_fn: InputFn,
@@ -1359,12 +1821,11 @@ def _repl(
         return getattr(m, "chat_buffer", None) if m is not None else None
 
     def approve_tool(request):
-        prompt_text = f"Allow {request.name}? [y/N] "
         mediator = tui_mod.active_mediator()
         if mediator is not None:
-            answer = mediator.request_prompt(prompt_text).strip().lower()
-        else:
-            answer = input_fn(prompt_text).strip().lower()
+            return mediator.request_tool_approval(request.name, request.args)
+        prompt_text = f"Allow {request.name}? [y/N] "
+        answer = input_fn(prompt_text).strip().lower()
         return answer in {"y", "yes", "allow"}
 
     registry = ToolRegistry(
@@ -1372,7 +1833,19 @@ def _repl(
         permission_mode="ask",
         approval_callback=approve_tool,
     )
-    session = ToolChatSession(engine, registry)
+    knowledge = _knowledge_store()
+    session = ToolChatSession(
+        engine,
+        registry,
+        thinking_effort=_thinking_effort_for_model(
+            _configured_thinking_effort(),
+            model_dir,
+        ),
+        generation_effort=_configured_generation_effort(),
+        knowledge_mode=_configured_knowledge_mode(),
+        knowledge_store=knowledge,
+        auto_compact_enabled=_configured_auto_compact(),
+    )
     estimate = estimate_model_memory(model_dir, context_length, kv_cache_precision)
     ui.banner(
         device,
@@ -1385,17 +1858,39 @@ def _repl(
     sessions = ChatSessionStore()
     active_session = "default"
     snapshots: list[ReplSnapshot] = []
+    redo_snapshots: list[ReplSnapshot] = []
+    snapshot_started = False
+    current_submitted_prompt = ""
     ui_layout = "window"
     raw_output = False
     tasks = TaskList()
     display_messages: list[tuple[int, str]] = []
-    tui_before_prompt: str | None = None
+    tui_before_prompt: object | None = None
+    benchmark_store = BenchmarkStore()
+
+    def sync_thinking_effort_to_model() -> bool:
+        next_effort = _thinking_effort_for_model(session.thinking_effort, model_dir)
+        if next_effort == session.thinking_effort:
+            return False
+        session.set_thinking_effort(next_effort)
+        config = _load_config()
+        config["thinking_effort"] = next_effort
+        _save_config(config)
+        return True
 
     def active_device() -> str:
         return engine.device if engine is not None else device
 
     def live_text() -> str:
-        return _live_status_text(active_device(), context_length, kv_cache_precision)
+        return _live_status_text(
+            active_device(),
+            context_length,
+            kv_cache_precision,
+            session.thinking_effort,
+            generation_effort=session.generation_effort,
+            model_name=model_name_from_dir(model_dir),
+            loaded=engine is not None,
+        )
 
     def defer_output() -> bool:
         if tui_mod.active_mediator() is not None:
@@ -1407,13 +1902,21 @@ def _repl(
 
     def show(text: object = "", *, plain: bool = False) -> None:
         value = str(text)
-        if defer_output():
+        if defer_output() and _interactive_stdio():
             display_messages.append((len(session.history), value))
             return
         if plain:
             ui.print_plain(value)
         else:
             ui.print(value)
+
+    def notify(text: str, seconds: float = 4.0) -> None:
+        mediator = tui_mod.active_mediator()
+        show_notice = getattr(mediator, "show_notice", None)
+        if callable(show_notice):
+            show_notice(text, seconds=seconds)
+        else:
+            show(text)
 
     def unload_engine() -> bool:
         nonlocal engine
@@ -1425,15 +1928,47 @@ def _repl(
         gc.collect()
         return was_loaded
 
-    def take_snapshot() -> ReplSnapshot:
+    def take_snapshot(
+        *,
+        preserve_history: bool = False,
+        preserve_transcript: bool = False,
+        submitted_prompt: str | None = None,
+    ) -> ReplSnapshot:
+        buffer = _tui_buffer()
+        tui_backup = None
+        if preserve_transcript and buffer is not None and tui_before_prompt is not None:
+            try:
+                tui_backup = buffer.capture_checkpoint(tui_before_prompt)
+            except (AttributeError, ValueError):
+                tui_backup = None
         return ReplSnapshot(
+            submitted_prompt=(
+                current_submitted_prompt
+                if submitted_prompt is None
+                else submitted_prompt
+            ),
             model_dir=model_dir,
+            engine_loaded=engine is not None,
+            config_existed=_config_path().exists(),
+            config=dict(_load_config()),
             context_length=context_length,
             max_new_tokens=max_new_tokens,
             kv_cache_precision=kv_cache_precision,
-            history=list(session.history),
-            display_messages=list(display_messages),
+            thinking_effort=session.thinking_effort,
+            generation_effort=session.generation_effort,
+            knowledge_mode=session.knowledge_mode,
+            auto_compact_enabled=session.auto_compact_enabled,
+            compaction_summary=session.compaction_summary,
+            compacted_history_count=session.compacted_history_count,
+            compaction_count=session.compaction_count,
+            history_length=len(session.history),
+            history_backup=tuple(session.history) if preserve_history else None,
+            display_messages_length=len(display_messages),
+            display_messages_backup=(
+                tuple(display_messages) if preserve_transcript else None
+            ),
             system_prompt_template=session.system_prompt_template,
+            system_prompt_is_default=session.system_prompt_is_default,
             tools_enabled=session.tools_enabled,
             workspace_root=session.tools.workspace_root,
             cwd=session.tools.cwd,
@@ -1442,33 +1977,324 @@ def _repl(
             ui_layout=ui_layout,
             raw_output=raw_output,
             tasks=[(item.text, item.done) for item in tasks.items],
-            tui_text=tui_before_prompt,
+            tool_checkpoint=session.tools.checkpoint(),
+            knowledge_checkpoint=knowledge.checkpoint(),
+            tui_checkpoint=tui_before_prompt,
+            tui_backup=tui_backup,
         )
 
-    def push_snapshot() -> None:
-        snapshots.append(take_snapshot())
-        if len(snapshots) > 50:
-            snapshots.pop(0)
+    def commit_snapshot(snapshot: ReplSnapshot) -> None:
+        nonlocal snapshot_started
+        if snapshot_started and snapshots:
+            snapshots[-1] = snapshot
+        else:
+            snapshots.append(snapshot)
+            del snapshots[:-REWIND_HISTORY_LIMIT]
+        redo_snapshots.clear()
+        snapshot_started = True
+
+    def push_snapshot(
+        *,
+        preserve_history: bool = False,
+        preserve_transcript: bool = False,
+    ) -> None:
+        commit_snapshot(
+            take_snapshot(
+                preserve_history=preserve_history,
+                preserve_transcript=preserve_transcript,
+            )
+        )
+
+    def snapshot_transcript(snapshot: ReplSnapshot) -> str | None:
+        if snapshot.transcript_backup is not None:
+            return sanitize_tool_artifacts(snapshot.transcript_backup)
+        state = snapshot.tui_backup
+        if state is None and snapshot.tui_checkpoint is not None:
+            buffer = _tui_buffer()
+            if buffer is not None:
+                try:
+                    state = buffer.capture_checkpoint(snapshot.tui_checkpoint)
+                except (AttributeError, ValueError):
+                    state = None
+        segments = getattr(state, "segments", None)
+        if segments is None:
+            return None
+        return sanitize_tool_artifacts("".join(str(part) for part in segments))
+
+    def serialize_snapshot(
+        snapshot: ReplSnapshot,
+        current_transcript: str | None,
+    ) -> dict[str, object]:
+        data: dict[str, object] = {
+            "submitted_prompt": snapshot.submitted_prompt,
+            "model_dir": str(snapshot.model_dir),
+            "config_existed": snapshot.config_existed,
+            "config": snapshot.config,
+            "context_length": snapshot.context_length,
+            "max_new_tokens": snapshot.max_new_tokens,
+            "kv_cache_precision": snapshot.kv_cache_precision,
+            "thinking_effort": snapshot.thinking_effort,
+            "generation_effort": snapshot.generation_effort,
+            "knowledge_mode": snapshot.knowledge_mode,
+            "auto_compact_enabled": snapshot.auto_compact_enabled,
+            "compaction_summary": snapshot.compaction_summary,
+            "compacted_history_count": snapshot.compacted_history_count,
+            "compaction_count": snapshot.compaction_count,
+            "history_length": snapshot.history_length,
+            "display_messages_length": snapshot.display_messages_length,
+            "system_prompt_template": snapshot.system_prompt_template,
+            "system_prompt_is_default": snapshot.system_prompt_is_default,
+            "tools_enabled": snapshot.tools_enabled,
+            "workspace_root": str(snapshot.workspace_root),
+            "cwd": str(snapshot.cwd),
+            "permission_mode": snapshot.permission_mode,
+            "ui_layout": snapshot.ui_layout,
+            "raw_output": snapshot.raw_output,
+            "tasks": snapshot.tasks,
+        }
+        if snapshot.history_backup is not None:
+            data["history_backup"] = list(snapshot.history_backup)
+        if snapshot.display_messages_backup is not None:
+            data["display_messages_backup"] = list(snapshot.display_messages_backup)
+        transcript = snapshot_transcript(snapshot)
+        if transcript is not None:
+            if current_transcript is not None and current_transcript.startswith(transcript):
+                data["transcript_length"] = len(transcript)
+            else:
+                data["transcript"] = transcript
+        return data
+
+    def deserialize_snapshot(
+        data: object,
+        current_transcript: str | None,
+        session_name: str,
+    ) -> ReplSnapshot | None:
+        if not isinstance(data, dict):
+            return None
+
+        def integer(key: str, fallback: int) -> int:
+            try:
+                return int(data.get(key, fallback))
+            except (TypeError, ValueError):
+                return fallback
+
+        def history_value(key: str) -> tuple[tuple[str, str], ...] | None:
+            raw = data.get(key)
+            if not isinstance(raw, list):
+                return None
+            pairs = []
+            for item in raw:
+                if isinstance(item, (list, tuple)) and len(item) == 2:
+                    pairs.append((str(item[0]), str(item[1])))
+            return tuple(pairs)
+
+        def display_value() -> tuple[tuple[int, str], ...] | None:
+            raw = data.get("display_messages_backup")
+            if not isinstance(raw, list):
+                return None
+            pairs = []
+            for item in raw:
+                if not isinstance(item, (list, tuple)) or len(item) != 2:
+                    continue
+                try:
+                    position = int(item[0])
+                except (TypeError, ValueError):
+                    continue
+                pairs.append((position, str(item[1])))
+            return tuple(pairs)
+
+        baseline = take_snapshot(submitted_prompt=str(data.get("submitted_prompt") or ""))
+        try:
+            thinking = normalize_thinking_effort(
+                str(data.get("thinking_effort") or baseline.thinking_effort)
+            )
+        except ValueError:
+            thinking = baseline.thinking_effort
+        try:
+            saved_generation_effort = normalize_generation_effort(
+                str(data.get("generation_effort") or baseline.generation_effort)
+            )
+        except ValueError:
+            saved_generation_effort = baseline.generation_effort
+        try:
+            saved_knowledge_mode = normalize_knowledge_mode(
+                str(data.get("knowledge_mode") or baseline.knowledge_mode)
+            )
+        except ValueError:
+            saved_knowledge_mode = baseline.knowledge_mode
+        try:
+            saved_auto_compact = normalize_auto_compact(
+                data.get("auto_compact_enabled", baseline.auto_compact_enabled)
+            )
+        except ValueError:
+            saved_auto_compact = baseline.auto_compact_enabled
+        config_value = data.get("config")
+        saved_config = (
+            {str(key): str(value) for key, value in config_value.items()}
+            if isinstance(config_value, dict)
+            else baseline.config
+        )
+        task_value = data.get("tasks")
+        saved_tasks = []
+        if isinstance(task_value, list):
+            for item in task_value:
+                if isinstance(item, (list, tuple)) and len(item) == 2:
+                    saved_tasks.append((str(item[0]), bool(item[1])))
+        transcript = data.get("transcript")
+        if not isinstance(transcript, str):
+            transcript = None
+        if transcript is None and current_transcript is not None:
+            length = integer("transcript_length", -1)
+            if 0 <= length <= len(current_transcript):
+                transcript = current_transcript[:length]
+        saved_system_prompt = str(
+            data.get("system_prompt_template") or baseline.system_prompt_template
+        )
+        saved_prompt_default = data.get("system_prompt_is_default")
+        if not isinstance(saved_prompt_default, bool):
+            saved_prompt_default = (
+                saved_system_prompt.startswith(
+                    "You are {model_name}, local OpenVINO Chat assistant."
+                )
+                and "Tool map:" in saved_system_prompt
+                and "Tool rules:" in saved_system_prompt
+            )
+        return ReplSnapshot(
+            submitted_prompt=str(data.get("submitted_prompt") or ""),
+            model_dir=Path(str(data.get("model_dir") or baseline.model_dir)),
+            engine_loaded=False,
+            config_existed=bool(data.get("config_existed", baseline.config_existed)),
+            config=saved_config,
+            context_length=integer("context_length", baseline.context_length),
+            max_new_tokens=integer("max_new_tokens", baseline.max_new_tokens),
+            kv_cache_precision=str(data.get("kv_cache_precision") or baseline.kv_cache_precision),
+            thinking_effort=thinking,
+            generation_effort=saved_generation_effort,
+            knowledge_mode=saved_knowledge_mode,
+            auto_compact_enabled=saved_auto_compact,
+            compaction_summary=str(data.get("compaction_summary") or ""),
+            compacted_history_count=integer(
+                "compacted_history_count", baseline.compacted_history_count
+            ),
+            compaction_count=integer("compaction_count", baseline.compaction_count),
+            history_length=integer("history_length", baseline.history_length),
+            history_backup=history_value("history_backup"),
+            display_messages_length=integer(
+                "display_messages_length", baseline.display_messages_length
+            ),
+            display_messages_backup=display_value(),
+            system_prompt_template=saved_system_prompt,
+            system_prompt_is_default=saved_prompt_default,
+            tools_enabled=bool(data.get("tools_enabled", baseline.tools_enabled)),
+            workspace_root=Path(str(data.get("workspace_root") or baseline.workspace_root)),
+            cwd=Path(str(data.get("cwd") or baseline.cwd)),
+            permission_mode=str(data.get("permission_mode") or baseline.permission_mode),
+            active_session=session_name,
+            ui_layout=str(data.get("ui_layout") or baseline.ui_layout),
+            raw_output=bool(data.get("raw_output", baseline.raw_output)),
+            tasks=saved_tasks,
+            tool_checkpoint=session.tools.checkpoint(),
+            knowledge_checkpoint=knowledge.checkpoint(),
+            tui_checkpoint=None,
+            tui_backup=None,
+            transcript_backup=(
+                sanitize_tool_artifacts(transcript) if transcript is not None else None
+            ),
+        )
+
+    def session_state() -> dict[str, object]:
+        buffer = _tui_buffer()
+        transcript = (
+            sanitize_tool_artifacts(buffer.render()) if buffer is not None else None
+        )
+        runtime = take_snapshot(submitted_prompt="")
+        timeline = []
+        for snapshot in snapshots:
+            command = snapshot.submitted_prompt.strip().lower().split(" ", 1)[0]
+            if command in SESSION_TIMELINE_EXCLUDED_COMMANDS:
+                continue
+            timeline.append(serialize_snapshot(snapshot, transcript))
+        runtime_data = serialize_snapshot(runtime, transcript)
+        if transcript is not None:
+            runtime_data.pop("transcript", None)
+            runtime_data["transcript_length"] = len(transcript)
+        state: dict[str, object] = {
+            "version": 1,
+            "runtime": runtime_data,
+            "timeline": timeline[-REWIND_HISTORY_LIMIT:],
+            "display_messages": display_messages,
+        }
+        if transcript is not None:
+            state["transcript"] = transcript
+        return state
+
+    def legacy_timeline(
+        history: list[tuple[str, str]],
+        session_name: str,
+    ) -> list[ReplSnapshot]:
+        result = []
+        for index, (role, content) in enumerate(history):
+            if role != "user":
+                continue
+            snapshot = take_snapshot(submitted_prompt=content)
+            snapshot.engine_loaded = False
+            snapshot.history_length = index
+            snapshot.history_backup = None
+            snapshot.display_messages_length = 0
+            snapshot.display_messages_backup = None
+            snapshot.active_session = session_name
+            snapshot.tui_checkpoint = None
+            snapshot.tui_backup = None
+            snapshot.transcript_backup = None
+            result.append(snapshot)
+        return result[-REWIND_HISTORY_LIMIT:]
 
     def restore_snapshot(snapshot: ReplSnapshot) -> None:
         nonlocal model_dir, context_length, max_new_tokens, kv_cache_precision, estimate, active_session, raw_output
-        if snapshot.model_dir != model_dir or snapshot.kv_cache_precision != kv_cache_precision:
+        if engine is not None and (
+            snapshot.model_dir != model_dir
+            or snapshot.kv_cache_precision != kv_cache_precision
+            or not snapshot.engine_loaded
+        ):
             unload_engine()
         model_dir = snapshot.model_dir
         context_length = snapshot.context_length
         max_new_tokens = snapshot.max_new_tokens
         kv_cache_precision = snapshot.kv_cache_precision
-        config = _load_config()
-        config["kv_cache_precision"] = kv_cache_precision
-        _save_config(config)
+        if snapshot.config_existed:
+            _save_config(dict(snapshot.config))
+        else:
+            _config_path().unlink(missing_ok=True)
         estimate = estimate_model_memory(model_dir, context_length, kv_cache_precision)
-        session.history = list(snapshot.history)
-        display_messages[:] = list(snapshot.display_messages)
-        session.system_prompt_template = snapshot.system_prompt_template
+        if snapshot.history_backup is not None:
+            session.history = list(snapshot.history_backup)
+        else:
+            del session.history[snapshot.history_length :]
+        session.set_thinking_effort(
+            _thinking_effort_for_model(snapshot.thinking_effort, model_dir)
+        )
+        session.set_generation_effort(snapshot.generation_effort)
+        session.set_knowledge_mode(snapshot.knowledge_mode)
+        session.set_auto_compact(snapshot.auto_compact_enabled)
+        session.restore_compaction_state(
+            snapshot.compaction_summary,
+            snapshot.compacted_history_count,
+            snapshot.compaction_count,
+        )
+        if snapshot.display_messages_backup is not None:
+            display_messages[:] = list(snapshot.display_messages_backup)
+        else:
+            del display_messages[snapshot.display_messages_length :]
+        if snapshot.system_prompt_is_default:
+            session.reset_system_prompt()
+        else:
+            session.system_prompt_template = snapshot.system_prompt_template
         session.tools_enabled = snapshot.tools_enabled
         session.tools.workspace_root = snapshot.workspace_root
         session.tools.cwd = snapshot.cwd
         session.tools.permission_mode = snapshot.permission_mode
+        session.tools.restore_checkpoint(snapshot.tool_checkpoint)
+        knowledge.restore_checkpoint(snapshot.knowledge_checkpoint)
         active_session = snapshot.active_session
         raw_output = snapshot.raw_output
         tasks.clear()
@@ -1476,17 +2302,48 @@ def _repl(
             tasks.add(text, done=done)
         set_ui_layout(snapshot.ui_layout)
         buffer = _tui_buffer()
-        if buffer is not None and snapshot.tui_text is not None:
-            buffer.replace(snapshot.tui_text)
+        if buffer is not None:
+            restored = False
+            if snapshot.transcript_backup is not None:
+                buffer.replace(snapshot.transcript_backup.rstrip() + "\n")
+                restored = True
+            elif snapshot.tui_checkpoint is not None:
+                try:
+                    restored = buffer.restore_checkpoint(
+                        snapshot.tui_checkpoint,
+                        snapshot.tui_backup,
+                    )
+                except AttributeError:
+                    restored = False
+            if not restored:
+                redraw_tui_history()
             _invalidate_buffer()
+        if snapshot.engine_loaded and engine is None:
+            ensure_engine()
 
     def ensure_engine() -> bool:
         nonlocal engine, device
         if engine is not None:
             return True
+        load_started = time.monotonic()
+        progress_stop = threading.Event()
+        progress_thread: threading.Thread | None = None
         if use_live_work_ui():
             monitor.start()
-            monitor.set("loading model")
+            monitor.set("loading model ~0%")
+            expected_seconds = _model_load_expected_seconds(
+                model_dir,
+                device,
+                kv_cache_precision,
+                estimate.model_bytes,
+            )
+            progress_thread = threading.Thread(
+                target=_model_load_progress_loop,
+                args=(monitor, progress_stop, load_started, expected_seconds),
+                name="openvino-load-progress",
+                daemon=True,
+            )
+            progress_thread.start()
         try:
             engine = _load_engine_for_cli(
                 engine_loader,
@@ -1494,14 +2351,24 @@ def _repl(
                 device,
                 kv_cache_precision,
             )
-            session.engine = engine
+            session.set_engine(engine)
             device = engine.device
-            show(f"model loaded: {model_name_from_dir(model_dir)} ({engine.device})")
+            load_seconds = time.monotonic() - load_started
+            _record_model_load_seconds(model_dir, device, kv_cache_precision, load_seconds)
+            if use_live_work_ui():
+                _update_status_monitor(monitor, "loading model 100%")
+            show(
+                f"model loaded: {model_name_from_dir(model_dir)} "
+                f"({engine.device}) in {load_seconds:.1f}s"
+            )
             return True
         except RuntimeError as exc:
             show(str(exc))
             return False
         finally:
+            progress_stop.set()
+            if progress_thread is not None:
+                progress_thread.join(timeout=1)
             if use_live_work_ui():
                 _clear_monitor(monitor, refresh=False)
                 monitor.stop()
@@ -1521,7 +2388,7 @@ def _repl(
 
     def ask_model(prompt_text: str) -> str | None:
         try:
-            return _ask_session(
+            response = _ask_session(
                 session,
                 ui,
                 prompt_text,
@@ -1532,6 +2399,19 @@ def _repl(
                 monitor if use_live_work_ui() else None,
                 stop_checker=tui_should_stop if tui_mod.active_mediator() is not None else None,
             )
+            metrics = getattr(engine, "last_metrics", None)
+            if metrics is not None and engine is not None:
+                try:
+                    benchmark_store.record(
+                        model_dir,
+                        engine.device,
+                        kv_cache_precision,
+                        context_length,
+                        metrics,
+                    )
+                except Exception:
+                    pass
+            return response
         except Exception as exc:
             show(f"generation failed: {exc}")
             return None
@@ -1588,17 +2468,111 @@ def _repl(
         monitor.stop()
         monitor = ui.status_monitor(live_text, refresh_seconds=3.0, layout=ui_layout, tasks_text=tasks.format)
 
+    def compaction_kwargs() -> dict[str, object]:
+        return {
+            "context_length": context_length,
+            "max_new_tokens": max_new_tokens,
+        }
+
+    def compaction_status_text() -> str:
+        status = session.context_status("", compaction_kwargs())
+        return "\n".join(
+            [
+                f"auto_compact={'on' if session.auto_compact_enabled else 'off'}",
+                f"context_tokens={status['tokens']} / {context_length} ({status['percent']}%)",
+                f"compact_threshold={status['threshold']}",
+                f"compacted_messages={session.compacted_history_count} / {len(session.history)}",
+                f"compactions={session.compaction_count}",
+            ]
+        )
+
     def auto_save_session() -> str | None:
         nonlocal active_session
         if not session.history:
             return None
         name = active_session if active_session != "default" else _auto_session_name(session.history)
-        _save_session(sessions, name, session.history, model_name_from_dir(model_dir), active_device())
+        try:
+            _save_session(
+                sessions,
+                name,
+                session.history,
+                model_name_from_dir(model_dir),
+                active_device(),
+                state=session_state(),
+            )
+        except (OSError, TypeError, ValueError) as exc:
+            show(f"session save failed: {exc}")
+            return None
         active_session = name
         return name
 
+    def load_saved_session(name: str) -> bool:
+        nonlocal active_session, snapshot_started
+        try:
+            loaded_history = sessions.load(name)
+            load_state = getattr(sessions, "load_state", None)
+            state = load_state(name) if callable(load_state) else {}
+        except (OSError, TypeError, ValueError) as exc:
+            show(f"session load failed: {exc}")
+            return False
+        if not isinstance(state, dict):
+            state = {}
+
+        saved_display = []
+        for item in state.get("display_messages", []):
+            if not isinstance(item, (list, tuple)) or len(item) != 2:
+                continue
+            try:
+                position = int(item[0])
+            except (TypeError, ValueError):
+                continue
+            saved_display.append((position, str(item[1])))
+        display_messages[:] = saved_display
+        session.history = loaded_history
+        session.restore_compaction_state("", 0, 0)
+        active_session = name
+
+        current_transcript = state.get("transcript")
+        if not isinstance(current_transcript, str):
+            current_transcript = None
+        elif current_transcript:
+            current_transcript = sanitize_tool_artifacts(current_transcript)
+
+        runtime = deserialize_snapshot(
+            state.get("runtime"),
+            current_transcript,
+            name,
+        )
+        if runtime is not None:
+            runtime.history_backup = tuple(loaded_history)
+            runtime.display_messages_backup = tuple(saved_display)
+            restore_snapshot(runtime)
+        else:
+            buffer = _tui_buffer()
+            if buffer is not None and current_transcript is not None:
+                buffer.replace(current_transcript.rstrip() + "\n")
+                _invalidate_buffer()
+            else:
+                redraw_tui_history()
+
+        restored_timeline = []
+        timeline = state.get("timeline")
+        if isinstance(timeline, list):
+            for item in timeline:
+                snapshot = deserialize_snapshot(item, current_transcript, name)
+                if snapshot is not None:
+                    restored_timeline.append(snapshot)
+        if not restored_timeline:
+            restored_timeline = legacy_timeline(loaded_history, name)
+        snapshots[:] = restored_timeline[-REWIND_HISTORY_LIMIT:]
+        redo_snapshots.clear()
+        snapshot_started = False
+        active_session = name
+        return True
+
     try:
         while True:
+            snapshot_started = False
             try:
                 prompt = _input_with_status(
                     input_fn,
@@ -1613,21 +2587,29 @@ def _repl(
                     print()
                 auto_save_session()
                 return 0
+            current_submitted_prompt = prompt
             if prompt.lower() in {"exit", "quit", ":q", "/exit", "/quit"}:
-                auto_save_session()
+                saved = auto_save_session()
+                if session.history and saved is None:
+                    continue
                 return 0
             buffer = _tui_buffer()
-            tui_before_prompt = buffer.render() if buffer is not None else None
+            tui_before_prompt = buffer.checkpoint() if buffer is not None else None
             if prompt:
-                if buffer is not None:
+                if buffer is not None and prompt.lower() not in TRANSIENT_UI_COMMANDS:
                     buffer.append_user(prompt)
                     _invalidate_buffer()
+                if prompt.lower() not in {"/rewind", "/redo"}:
+                    push_snapshot()
             usage = _exact_usage_message(prompt)
             if usage:
                 show(usage, plain=True)
                 continue
             if prompt.lower() == "/archive":
                 name = auto_save_session()
+                if session.history and name is None:
+                    show("archive failed; session remains open")
+                    continue
                 show(f"archived={name}" if name else "nothing to archive")
                 return 0
             if prompt.lower() == "/help":
@@ -1644,7 +2626,7 @@ def _repl(
                 show("copied" if _copy_to_clipboard(latest) else "copy failed")
                 continue
             if prompt.lower() in {"/raw", "/raw on", "/raw off"}:
-                push_snapshot()
+                push_snapshot(preserve_transcript=True)
                 if prompt.lower() == "/raw on":
                     raw_output = True
                 elif prompt.lower() == "/raw off":
@@ -1666,10 +2648,14 @@ def _repl(
                 show(f"ui={ui_layout}")
                 continue
             if prompt.lower() in {"/task", "/tasks"} or prompt.lower().startswith(("/task ", "/tasks ")):
-                push_snapshot()
-                show(tasks.handle_command(prompt), plain=True)
+                snapshot = take_snapshot()
+                before = [(item.text, item.done) for item in tasks.items]
+                result = tasks.handle_command(prompt)
+                if [(item.text, item.done) for item in tasks.items] != before:
+                    commit_snapshot(snapshot)
+                show(result, plain=True)
                 continue
-            if prompt.lower().startswith("/plan"):
+            if _command_matches(prompt, "/plan"):
                 _, _, goal = prompt.partition(" ")
                 goal = goal.strip() or "current work"
                 if not ensure_engine():
@@ -1701,6 +2687,7 @@ def _repl(
                 auto_save_session()
                 continue
             if prompt.lower() == "/clear":
+                push_snapshot(preserve_transcript=True)
                 buffer = _tui_buffer()
                 if buffer is not None:
                     display_messages.clear()
@@ -1721,19 +2708,112 @@ def _repl(
                 )
                 continue
             if prompt.lower() == "/reset":
-                push_snapshot()
+                push_snapshot(preserve_history=True, preserve_transcript=True)
                 session.reset()
                 redraw_tui_history()
                 show("memory reset")
                 continue
             if prompt.lower() == "/rewind":
                 if not snapshots:
-                    show("nothing to rewind")
+                    notify("nothing to rewind")
                     continue
-                restore_snapshot(snapshots.pop())
-                show("rewound")
+                target = snapshots[-1]
+                next_redo = take_snapshot(
+                    preserve_history=True,
+                    preserve_transcript=True,
+                    submitted_prompt=target.submitted_prompt,
+                )
+                try:
+                    restore_snapshot(target)
+                except OSError as exc:
+                    notify(f"rewind failed: {exc}")
+                    continue
+                snapshots.pop()
+                redo_snapshots.append(next_redo)
+                del redo_snapshots[:-REWIND_HISTORY_LIMIT]
+                notify(
+                    f"rewound | prompt restored | older: {len(snapshots)} | "
+                    f"redo: {len(redo_snapshots)}"
+                )
+                mediator = tui_mod.active_mediator()
+                queue_prefill = getattr(mediator, "queue_input_prefill", None)
+                if callable(queue_prefill):
+                    queue_prefill(target.submitted_prompt)
+                continue
+            if prompt.lower() == "/redo":
+                if not redo_snapshots:
+                    notify("nothing to redo")
+                    continue
+                target = redo_snapshots[-1]
+                rewind_snapshot = take_snapshot(
+                    preserve_history=True,
+                    preserve_transcript=True,
+                    submitted_prompt=target.submitted_prompt,
+                )
+                try:
+                    restore_snapshot(target)
+                except OSError as exc:
+                    notify(f"redo failed: {exc}")
+                    continue
+                redo_snapshots.pop()
+                snapshots.append(rewind_snapshot)
+                del snapshots[:-REWIND_HISTORY_LIMIT]
+                notify(
+                    f"redone | rewind: {len(snapshots)} | "
+                    f"newer: {len(redo_snapshots)}"
+                )
+                continue
+            if prompt.lower() == "/compact status":
+                show(compaction_status_text())
+                continue
+            if _command_matches(prompt, "/compact auto"):
+                _, _, requested = prompt.lower().partition("/compact auto")
+                requested = requested.strip()
+                if requested not in {"on", "off"}:
+                    show("usage: /compact auto <on|off>")
+                    continue
+                enabled = requested == "on"
+                session.set_auto_compact(enabled)
+                config = _load_config()
+                config["auto_compact"] = requested
+                _save_config(config)
+                show(compaction_status_text())
+                continue
+            if prompt.lower() == "/compact":
+                if not ensure_engine():
+                    continue
+                if use_live_work_ui():
+                    monitor.start()
+                    monitor.set("compacting")
+                try:
+                    result = session.compact(
+                        "",
+                        compaction_kwargs(),
+                        on_event=(
+                            lambda event: monitor.set("compacting")
+                            if event.get("phase") == "compacting"
+                            else None
+                        ),
+                    )
+                finally:
+                    if use_live_work_ui():
+                        _clear_monitor(monitor, refresh=False)
+                        monitor.stop()
+                if result.compacted:
+                    show(
+                        f"compacted={result.turns_compacted} turns | "
+                        f"tokens={result.before_tokens}->{result.after_tokens} | "
+                        f"summary={result.summary_tokens}"
+                    )
+                    auto_save_session()
+                else:
+                    show(f"compact skipped: {result.reason}")
+                continue
+            if _command_matches(prompt, "/compact"):
+                show("usage: /compact [status|auto on|auto off]")
                 continue
             if prompt.lower() == "/status":
+                compact_status = session.context_status("", compaction_kwargs())
                 show(
                     "\n".join(
                         [
@@ -1744,6 +2824,13 @@ def _repl(
                                 kv_cache_precision=kv_cache_precision,
                             ),
                             f"max_new_tokens={max_new_tokens}",
+                            f"effort={session.generation_effort}",
+                            f"thinking={session.thinking_effort}",
+                            f"auto_compact={'on' if session.auto_compact_enabled else 'off'}",
+                            f"context_used={compact_status['tokens']} ({compact_status['percent']}%)",
+                            f"compactions={session.compaction_count}",
+                            f"knowledge={session.knowledge_mode}",
+                            f"knowledge_chunks={knowledge.chunk_count}",
                             f"cwd={Path.cwd()}",
                             "loaded=yes" if engine is not None else "loaded=no",
                             f"models_available={_available_models_summary()}",
@@ -1751,10 +2838,106 @@ def _repl(
                     )
                 )
                 continue
+            if prompt.lower() == "/knowledge":
+                show(_knowledge_status_text(knowledge, session.knowledge_mode))
+                continue
+            if prompt.lower().startswith("/knowledge "):
+                _, _, rest = prompt.partition(" ")
+                action, _, value = rest.strip().partition(" ")
+                action = action.lower()
+                value = value.strip()
+                if action == "mode":
+                    try:
+                        next_mode = normalize_knowledge_mode(value)
+                    except ValueError as exc:
+                        show(str(exc))
+                        continue
+                    if next_mode != session.knowledge_mode:
+                        push_snapshot()
+                        session.set_knowledge_mode(next_mode)
+                        config = _load_config()
+                        config["knowledge_mode"] = next_mode
+                        _save_config(config)
+                    show(f"knowledge={session.knowledge_mode}")
+                    continue
+                if action == "add":
+                    target = _resolve_user_path(value, session.tools.cwd)
+                    if use_live_work_ui():
+                        monitor.start()
+                        monitor.set("indexing documents")
+                    try:
+                        result = knowledge.add(target)
+                    except (OSError, ValueError) as exc:
+                        show(f"knowledge failed: {exc}")
+                    else:
+                        show(
+                            f"indexed_files={result.files}\n"
+                            f"indexed_chunks={result.chunks}\n"
+                            f"semantic={'yes' if result.semantic else 'no'}"
+                        )
+                    finally:
+                        if use_live_work_ui():
+                            _clear_monitor(monitor, refresh=False)
+                            monitor.stop()
+                    continue
+                if action == "search":
+                    matches = knowledge.search(value, limit=5)
+                    if not matches:
+                        show("no relevant local knowledge")
+                    else:
+                        show(
+                            "\n\n".join(
+                                f"{index}. {match.source} ({match.score:.3f})\n{match.text}"
+                                for index, match in enumerate(matches, 1)
+                            ),
+                            plain=True,
+                        )
+                    continue
+                if action == "list":
+                    sources = knowledge.list_sources()
+                    show("\n".join(sources) if sources else "no indexed documents", plain=True)
+                    continue
+                if action == "setup":
+                    if use_live_work_ui():
+                        monitor.start()
+                        monitor.set("downloading RAG models")
+                    try:
+                        status = knowledge.setup()
+                        reindexed = knowledge.reindex() if knowledge.chunk_count else None
+                    except Exception as exc:
+                        show(f"knowledge setup failed: {exc}")
+                    else:
+                        lines = [
+                            f"embedding={'ready' if status.embedding_ready else 'missing'}",
+                            f"reranker={'ready' if status.reranker_ready else 'missing'}",
+                        ]
+                        if reindexed is not None:
+                            lines.append(f"reindexed_chunks={reindexed.chunks}")
+                        show("\n".join(lines))
+                    finally:
+                        if use_live_work_ui():
+                            _clear_monitor(monitor, refresh=False)
+                            monitor.stop()
+                    continue
+                if action == "reindex":
+                    result = knowledge.reindex()
+                    show(
+                        f"indexed_files={result.files}\n"
+                        f"indexed_chunks={result.chunks}\n"
+                        f"semantic={'yes' if result.semantic else 'no'}"
+                    )
+                    continue
+                if action == "clear":
+                    push_snapshot()
+                    knowledge.clear()
+                    show("knowledge cleared")
+                    continue
+                show("usage: /knowledge mode <offline|auto|web> | add <path> | search <query> | list | setup | reindex | clear")
+                continue
             if prompt.lower() == "/doctor":
                 show(_doctor_text(model_dir, sessions.root, session.tools.cwd))
                 continue
-            if prompt.lower().startswith("/config"):
+            if _command_matches(prompt, "/config"):
                 show(_handle_config_command(prompt))
                 continue
             if prompt.lower() == "/report":
@@ -1767,7 +2950,18 @@ def _repl(
             if prompt.lower() == "/bench":
                 if not ensure_engine():
                     continue
-                show(_bench_engine(engine, max_new_tokens, temperature, top_p, context_length))
+                show(
+                    _bench_engine(
+                        engine,
+                        max_new_tokens,
+                        temperature,
+                        top_p,
+                        context_length,
+                        model_dir=model_dir,
+                        kv_cache_precision=kv_cache_precision,
+                        store=benchmark_store,
+                    )
+                )
                 continue
             if prompt.lower() == "/diff":
                 tracked = session.tools.run_name("diff", {}).output
@@ -1790,7 +2984,7 @@ def _repl(
                         )
                     )
                 continue
-            if prompt.lower().startswith("/ctx"):
+            if _command_matches(prompt, "/ctx"):
                 _, _, value = prompt.partition(" ")
                 if value.strip():
                     try:
@@ -1801,9 +2995,13 @@ def _repl(
                     if next_context_length < 128:
                         show("ctx must be at least 128")
                         continue
-                    push_snapshot()
-                    context_length = next_context_length
-                    max_new_tokens = min(max_new_tokens, context_length)
+                    if next_context_length != context_length:
+                        push_snapshot()
+                        context_length = next_context_length
+                        max_new_tokens = min(max_new_tokens, context_length)
+                        config = _load_config()
+                        config["context_length"] = str(context_length)
+                        _save_config(config)
                 estimate = estimate_model_memory(model_dir, context_length, kv_cache_precision)
                 show(
                     "\n".join(
@@ -1859,7 +3057,73 @@ def _repl(
                 )
                 monitor.refresh()
                 continue
-            if prompt.lower().startswith("/max-tokens"):
+            if _command_matches(prompt, "/effort"):
+                requested = prompt[len("/effort") :].strip().lower()
+                if not requested:
+                    selected = _effort_picker(session.generation_effort)
+                    if selected is None:
+                        show(
+                            _generation_effort_status(
+                                model_dir,
+                                session.generation_effort,
+                                session.thinking_effort,
+                            )
+                            + "\nusage: /effort [low|medium|high]"
+                        )
+                        continue
+                    requested = selected
+                try:
+                    next_effort = normalize_generation_effort(requested)
+                except ValueError as exc:
+                    show(str(exc))
+                    continue
+                if next_effort != session.generation_effort:
+                    push_snapshot()
+                    session.set_generation_effort(next_effort)
+                    config = _load_config()
+                    config["generation_effort"] = next_effort
+                    _save_config(config)
+                show(
+                    _generation_effort_status(
+                        model_dir,
+                        session.generation_effort,
+                        session.thinking_effort,
+                    )
+                )
+                monitor.refresh()
+                continue
+            if _command_matches(prompt, "/thinking"):
+                requested = prompt[len("/thinking") :].strip().lower()
+                supported = thinking_efforts_for_model(model_dir)
+                if not requested:
+                    selected = _thinking_picker(session.thinking_effort, supported)
+                    if selected is None:
+                        show(
+                            f"thinking={session.thinking_effort}\n"
+                            f"supported={', '.join(reversed(supported))}\n"
+                            "usage: /thinking or /thinking <mode>"
+                        )
+                        continue
+                    requested = selected
+                try:
+                    next_effort = resolve_thinking_effort(requested, supported)
+                except ValueError as exc:
+                    show(str(exc))
+                    continue
+                if next_effort != session.thinking_effort:
+                    push_snapshot()
+                    session.set_thinking_effort(next_effort)
+                    config = _load_config()
+                    config["thinking_effort"] = next_effort
+                    _save_config(config)
+                show(
+                    f"thinking={session.thinking_effort}\n"
+                    f"supported={', '.join(reversed(supported))}\n"
+                    "control=model-native; applies on next message"
+                )
+                monitor.refresh()
+                continue
+            if _command_matches(prompt, "/max-tokens"):
                 _, _, value = prompt.partition(" ")
                 if value.strip():
                     try:
@@ -1870,14 +3134,18 @@ def _repl(
                     if next_max_tokens < 1 or next_max_tokens > context_length:
                         show(f"max-tokens must be between 1 and ctx ({context_length})")
                         continue
-                    push_snapshot()
-                    max_new_tokens = next_max_tokens
+                    if next_max_tokens != max_new_tokens:
+                        push_snapshot()
+                        max_new_tokens = next_max_tokens
                 show(f"max_new_tokens={max_new_tokens}\nctx={context_length}")
                 continue
             if prompt.lower() == "/api" or prompt.lower().startswith("/api "):
                 parts = prompt.split()
                 action = parts[1].lower() if len(parts) > 1 else "status"
-                if action not in {"status", "start", "stop"}:
+                if action not in {"status", "start", "stop"} or len(parts) > 3:
+                    show("usage: /api [start [port]|stop|status]")
+                    continue
+                if action != "start" and len(parts) > 2:
                     show("usage: /api [start [port]|stop|status]")
                     continue
                 if action == "stop":
@@ -1898,7 +3166,10 @@ def _repl(
                     except ValueError:
                         show("API port must be a number")
                         continue
-                push_snapshot()
+                if not 1 <= api_port <= 65535:
+                    show("API port must be between 1 and 65535")
+                    continue
+                push_snapshot(preserve_transcript=True)
                 unloaded = unload_engine()
                 if unloaded:
                     redraw_tui_history()
@@ -1920,7 +3191,7 @@ def _repl(
                 show(text)
                 continue
             if prompt.lower() == "/tools":
-                show("tools: pwd, ls, read, scan, grep, write, append, shell, storage, web_search, web_fetch, diff, undo, chart, big, tilt")
+                show("tools: pwd, ls, read, scan, grep, write, append, shell, storage, startup_apps, web_search, web_fetch, diff, undo, chart, big, tilt")
                 continue
             if prompt.lower().startswith("/chart "):
                 _, _, data = prompt.partition(" ")
@@ -1945,7 +3216,7 @@ def _repl(
                 if action == "cancel":
                     continue
                 if action == "unload":
-                    push_snapshot()
+                    push_snapshot(preserve_transcript=True)
                     unloaded = unload_engine()
                     redraw_tui_history()
                     show("unloaded=yes" if unloaded else "unloaded=no")
@@ -1959,7 +3230,7 @@ def _repl(
                     show(f"downloaded={target}")
                     continue
                 if action == "delete" and value:
-                    deleting_active = MODEL_DIRS.get(value.lower()) == model_dir
+                    deleting_active = _catalog_model_path(value) == model_dir
                     if deleting_active:
                         unload_engine()
                     try:
@@ -1975,15 +3246,18 @@ def _repl(
                     continue
                 if action == "load" and value:
                     next_model_dir = _resolve_model(value)
-                    if not next_model_dir.exists():
-                        show(f"model missing: {next_model_dir}")
+                    model_error = _model_path_error(next_model_dir)
+                    if model_error:
+                        show(model_error)
                         continue
-                    push_snapshot()
+                    push_snapshot(preserve_history=True, preserve_transcript=True)
                     switched = next_model_dir != model_dir
                     if switched:
                         unload_engine()
                         session.reset()
                         model_dir = next_model_dir
+                        sync_thinking_effort_to_model()
+                        _save_active_model(model_dir)
                         estimate = estimate_model_memory(model_dir, context_length, kv_cache_precision)
                     ensure_engine()
                     if switched:
@@ -1992,20 +3266,23 @@ def _repl(
             if prompt.lower() in {"/model list", "/models"}:
                 show(_model_list(model_dir, engine is not None))
                 continue
-            if prompt.lower() == "/model load" or prompt.lower().startswith("/model load "):
+            if _command_matches(prompt, "/model load"):
                 _, _, value = prompt.partition("/model load ")
                 pushed = False
                 if value.strip():
                     next_model_dir = _resolve_model(value.strip())
-                    if not next_model_dir.exists():
-                        show(f"model missing: {next_model_dir}")
+                    model_error = _model_path_error(next_model_dir)
+                    if model_error:
+                        show(model_error)
                         continue
                     if next_model_dir != model_dir:
-                        push_snapshot()
+                        push_snapshot(preserve_history=True, preserve_transcript=True)
                         pushed = True
                         unload_engine()
                         session.reset()
                         model_dir = next_model_dir
+                        sync_thinking_effort_to_model()
+                        _save_active_model(model_dir)
                         estimate = estimate_model_memory(model_dir, context_length, kv_cache_precision)
                 if not pushed:
                     push_snapshot()
@@ -2014,7 +3291,7 @@ def _repl(
                     redraw_tui_history()
                 continue
             if prompt.lower() == "/model unload":
-                push_snapshot()
+                push_snapshot(preserve_transcript=True)
                 unloaded = unload_engine()
                 redraw_tui_history()
                 show("unloaded=yes" if unloaded else "unloaded=no")
@@ -2031,7 +3308,7 @@ def _repl(
             if prompt.lower().startswith("/model delete "):
                 _, _, value = prompt.partition("/model delete ")
                 model_name = value.strip().lower()
-                deleting_active = MODEL_DIRS.get(model_name) == model_dir
+                deleting_active = _catalog_model_path(model_name) == model_dir
                 if deleting_active:
                     unload_engine()
                 try:
@@ -2045,21 +3322,41 @@ def _repl(
                     redraw_tui_history()
                 show(f"deleted_model={target}")
                 continue
-            if prompt.lower().startswith("/model use ") or (
-                prompt.lower().startswith("/model ") and prompt.lower() not in {"/model list"}
+            if _command_matches(prompt, "/model use") or _command_matches(
+                prompt, "/model import"
+            ) or (
+                _command_matches(prompt, "/model") and prompt.lower() not in {"/model list"}
             ):
                 if prompt.lower().startswith("/model use "):
                     _, _, value = prompt.partition("/model use ")
+                elif prompt.lower().startswith("/model import "):
+                    _, _, value = prompt.partition("/model import ")
                 else:
                     _, _, value = prompt.partition(" ")
-                next_model_dir = _resolve_model(value.strip())
-                if not next_model_dir.exists():
-                    show(f"model missing: {next_model_dir}")
+                value = value.strip()
+                local_candidate = Path(value).expanduser()
+                if (
+                    prompt.lower().startswith("/model import ")
+                    and not local_candidate.exists()
+                    and is_hf_repo_reference(value)
+                ):
+                    try:
+                        next_model_dir = download_with_status(value)
+                    except Exception as exc:
+                        show(str(exc))
+                        continue
+                else:
+                    next_model_dir = _resolve_model(value)
+                model_error = _model_path_error(next_model_dir)
+                if model_error:
+                    show(model_error)
                     continue
-                push_snapshot()
+                push_snapshot(preserve_history=True, preserve_transcript=True)
                 unload_engine()
                 session.reset()
                 model_dir = next_model_dir
+                sync_thinking_effort_to_model()
+                _save_active_model(model_dir)
                 estimate = estimate_model_memory(model_dir, context_length, kv_cache_precision)
                 redraw_tui_history()
                 show(
@@ -2077,38 +3374,52 @@ def _repl(
                 continue
             if prompt.lower().startswith("/workspace set "):
                 _, _, path = prompt.partition("/workspace set ")
+                snapshot = take_snapshot()
                 try:
-                    push_snapshot()
                     session.tools.set_workspace(Path(path.strip()))
                 except ValueError as exc:
-                    snapshots.pop()
                     show(str(exc))
                     continue
+                commit_snapshot(snapshot)
                 show(f"workspace={session.tools.workspace_root}")
                 continue
             if prompt.lower().startswith("/cd "):
                 _, _, path = prompt.partition(" ")
+                snapshot = take_snapshot()
                 try:
-                    push_snapshot()
                     session.tools.set_cwd(Path(path.strip()))
                 except ValueError as exc:
-                    snapshots.pop()
                     show(str(exc))
                     continue
+                commit_snapshot(snapshot)
                 show(f"cwd={session.tools.cwd}")
                 continue
             if prompt.lower() == "/permissions":
-                show(f"permissions={session.tools.permission_mode}")
+                selected = _permission_picker(session.tools.permission_mode)
+                if selected is not None and selected != session.tools.permission_mode:
+                    push_snapshot()
+                    session.tools.permission_mode = selected
+                mediator = tui_mod.active_mediator()
+                if mediator is not None:
+                    mediator.show_notice(f"Permission mode: {session.tools.permission_mode}")
+                else:
+                    show(f"permissions={session.tools.permission_mode}")
                 continue
             if prompt.lower() in {"/permissions ask", "/permissions allow"}:
-                push_snapshot()
-                session.tools.permission_mode = prompt.rsplit(" ", 1)[1]
-                show(f"permissions={session.tools.permission_mode}")
+                next_permission = prompt.rsplit(" ", 1)[1]
+                if next_permission != session.tools.permission_mode:
+                    push_snapshot()
+                    session.tools.permission_mode = next_permission
+                mediator = tui_mod.active_mediator()
+                if mediator is not None:
+                    mediator.show_notice(f"Permission mode: {session.tools.permission_mode}")
+                else:
+                    show(f"permissions={session.tools.permission_mode}")
                 continue
             if prompt.lower() == "/project":
                 show(_project_status(session.tools.cwd))
                 continue
-            if prompt.lower().startswith("/export"):
+            if _command_matches(prompt, "/export"):
                 _, _, path_text = prompt.partition(" ")
                 target = Path(path_text.strip() or (EXPORT_DIR / "openvino-chat.md"))
                 if not target.is_absolute():
@@ -2116,21 +3427,27 @@ def _repl(
                 _export_markdown(target, session.history)
                 show(f"exported={target}")
                 continue
-            if prompt.lower().startswith("/system"):
-                push_snapshot()
-                show(_handle_system_command(prompt, session, session.tools.cwd))
-                continue
-            if prompt.lower() in {"/mode", "/mode chat", "/mode agent"}:
-                if prompt.lower() == "/mode chat":
-                    push_snapshot()
-                    session.tools_enabled = False
-                elif prompt.lower() == "/mode agent":
-                    push_snapshot()
-                    session.tools_enabled = True
-                show("mode=agent" if session.tools_enabled else "mode=chat")
+            if _command_matches(prompt, "/system"):
+                snapshot = take_snapshot()
+                before = session.system_prompt_template
+                try:
+                    result = _handle_system_command(prompt, session, session.tools.cwd)
+                except OSError as exc:
+                    show(f"system failed: {exc}")
+                    continue
+                if session.system_prompt_template != before:
+                    commit_snapshot(snapshot)
+                show(result)
                 continue
             if prompt.lower() == "/session":
-                action, value = _session_picker(store=sessions, active_session=active_session)
+                try:
+                    action, value = _session_picker(
+                        store=sessions,
+                        active_session=active_session,
+                    )
+                except (OSError, ValueError) as exc:
+                    show(f"session picker failed: {exc}")
+                    continue
                 if action == "list":
                     names = sessions.list_sessions()
                     show("\n".join(names) if names else "no saved sessions")
@@ -2142,24 +3459,29 @@ def _repl(
                     show(f"saved={name}" if name else "nothing to save")
                     continue
                 if action == "new":
-                    auto_save_session()
-                    push_snapshot()
+                    saved = auto_save_session()
+                    if session.history and saved is None:
+                        continue
+                    push_snapshot(preserve_history=True, preserve_transcript=True)
                     active_session = _auto_session_name([])
                     session.reset()
                     redraw_tui_history()
                     show(f"new session: {active_session}")
                     continue
                 if action == "delete" and value:
-                    sessions.delete(value)
+                    try:
+                        sessions.delete(value)
+                    except (OSError, ValueError) as exc:
+                        show(f"session delete failed: {exc}")
+                        continue
                     show(f"deleted={value}")
                     continue
                 if action == "load" and value:
-                    auto_save_session()
-                    push_snapshot()
-                    session.history = sessions.load(value)
-                    active_session = value
-                    redraw_tui_history()
-                    show(f"loaded={active_session}")
+                    saved = auto_save_session()
+                    if session.history and saved is None:
+                        continue
+                    if load_saved_session(value):
+                        show(f"loaded={active_session}")
                     continue
             if prompt.lower() == "/delete":
                 name = active_session
@@ -2167,46 +3489,75 @@ def _repl(
                     saved = auto_save_session()
                     name = saved or name
                 if name != "default":
-                    sessions.delete(name)
+                    try:
+                        sessions.delete(name)
+                    except (OSError, ValueError) as exc:
+                        show(f"session delete failed: {exc}")
+                        continue
                     show(f"deleted session={name}")
                 else:
                     show("nothing to delete")
                 return 0
             if prompt.lower() == "/sessions":
-                names = sessions.list_sessions()
+                try:
+                    names = sessions.list_sessions()
+                except OSError as exc:
+                    show(f"session list failed: {exc}")
+                    continue
                 show("\n".join(names) if names else "no saved sessions")
                 continue
-            if prompt.lower().startswith("/new"):
+            if _command_matches(prompt, "/new"):
                 _, _, name = prompt.partition(" ")
-                push_snapshot()
+                saved = auto_save_session()
+                if session.history and saved is None:
+                    continue
+                push_snapshot(preserve_history=True, preserve_transcript=True)
                 active_session = name.strip() or "default"
                 session.reset()
                 redraw_tui_history()
                 show(f"new session: {active_session}")
                 continue
-            if prompt.lower().startswith("/save"):
+            if _command_matches(prompt, "/save"):
                 _, _, name = prompt.partition(" ")
-                active_session = name.strip() or active_session
-                path = _save_session(sessions, active_session, session.history, model_name_from_dir(model_dir), active_device())
+                requested_session = name.strip() or active_session
+                try:
+                    path = _save_session(
+                        sessions,
+                        requested_session,
+                        session.history,
+                        model_name_from_dir(model_dir),
+                        active_device(),
+                        state=session_state(),
+                    )
+                except (OSError, TypeError, ValueError) as exc:
+                    show(f"session save failed: {exc}")
+                    continue
+                active_session = requested_session
                 show(f"saved={path}")
                 continue
             if prompt.lower().startswith("/load "):
                 _, _, name = prompt.partition(" ")
-                push_snapshot()
-                session.history = sessions.load(name.strip())
-                active_session = name.strip()
-                redraw_tui_history()
-                show(f"loaded={active_session}")
+                saved = auto_save_session()
+                if session.history and saved is None:
+                    continue
+                if load_saved_session(name.strip()):
+                    show(f"loaded={active_session}")
                 continue
             if prompt.lower().startswith("/delete "):
                 _, _, name = prompt.partition(" ")
-                sessions.delete(name.strip())
+                try:
+                    sessions.delete(name.strip())
+                except (OSError, ValueError) as exc:
+                    show(f"session delete failed: {exc}")
+                    continue
                 show(f"deleted={name.strip()}")
                 continue
             if not prompt:
                 continue
             request = parse_slash_tool(prompt)
             if request is not None:
+                snapshot = take_snapshot(preserve_transcript=True)
+                tool_checkpoint = session.tools.checkpoint()
                 if use_live_work_ui():
                     monitor.start()
                 try:
@@ -2217,7 +3568,8 @@ def _repl(
                         monitor.write_response(request_text, "dim", "\n")
                     elif not defer_output():
                         ui.tool_request(request.name, request.args)
-                    result = session.tools.run(request).output
+                    tool_result = session.tools.run(request)
+                    result = tool_result.output
                     if use_live_work_ui() and monitor.active:
                         monitor.write_response(result, None, "\n")
                     elif defer_output():
@@ -2228,6 +3580,14 @@ def _repl(
                     if use_live_work_ui():
                         _clear_monitor(monitor, refresh=False)
                         monitor.stop()
+                if tool_result.ok and (
+                    session.tools.checkpoint() != tool_checkpoint
+                    or request.name == "shell"
+                ):
+                    commit_snapshot(snapshot)
+                continue
+            if prompt.startswith("/"):
+                show(f"unknown command: {prompt.split()[0]}\ntype / to list commands")
                 continue
             if not ensure_engine():
                 continue
@@ -2246,8 +3606,8 @@ def _ask_session(
     ui: ChatUI,
     prompt: str,
     max_new_tokens: int,
-    temperature: float,
-    top_p: float,
+    temperature: float | None,
+    top_p: float | None,
     context_length: int,
     monitor: LiveStatusMonitor | None = None,
     stop_checker: Callable[[], bool] | None = None,
@@ -2262,6 +3622,17 @@ def _ask_session(
 
     def on_event(event: dict[str, object]) -> None:
         phase = str(event.get("phase") or "")
+        if phase == "compacted":
+            stream.finish()
+            turns = int(event.get("turns") or 0)
+            before = int(event.get("before_tokens") or 0)
+            after = int(event.get("after_tokens") or 0)
+            text = f"context compacted: {turns} turns | {before} -> {after} tokens"
+            if monitor is not None and getattr(monitor, "active", False):
+                monitor.write_response(text, "dim", "\n")
+            else:
+                ui.print(text)
+            return
         if phase == "tool":
             tool = str(event.get("tool") or "")
             args = event.get("args")
@@ -2312,15 +3683,66 @@ def _clear_monitor(monitor: object, refresh: bool = True) -> None:
         clear()
 
 
+def _generation_effort_status(
+    model_dir: Path,
+    effort: str,
+    thinking_effort: str,
+) -> str:
+    model_name = model_name_from_dir(model_dir)
+
+    def rendered(profile: str) -> str:
+        values = generation_settings(
+            model_name,
+            profile,
+            thinking_effort,
+            generation_effort=effort,
+        )
+        order = (
+            "temperature",
+            "top_p",
+            "top_k",
+            "min_p",
+            "presence_penalty",
+            "repetition_penalty",
+        )
+        return ", ".join(f"{key}={values[key]}" for key in order if key in values)
+
+    lines = [
+        f"effort={effort}",
+        f"thinking={thinking_effort}",
+        "control=sampling preset; explicit generation options override it",
+    ]
+    general = rendered("general")
+    coding = rendered("coding")
+    if effort == "medium" and coding != general:
+        lines.extend([f"general={general}", f"coding={coding}"])
+    else:
+        lines.append(f"sampling={general}")
+    return "\n".join(lines)
+
+
 def _live_status_text(
     device: str,
     context_length: int,
     kv_cache_precision: str = "auto",
+    thinking_effort: str = DEFAULT_THINKING_EFFORT,
+    generation_effort: str = DEFAULT_GENERATION_EFFORT,
+    model_name: str | None = None,
+    loaded: bool | None = None,
 ) -> str:
-    return format_live_status(
+    identity: list[str] = []
+    if model_name:
+        identity.append(f"model: {model_name}")
+    if loaded is not None:
+        identity.append(f"state: {'ready' if loaded else 'lazy'}")
+    metrics = format_live_status(
         device,
         context_length,
         kv_cache_precision=kv_cache_precision,
+    )
+    return "\n".join(
+        identity
+        + [metrics, f"effort: {generation_effort}", f"think: {thinking_effort}"]
     )
 
 
@@ -2343,7 +3765,7 @@ def _chat_window_text(
 
     def append_messages(position: int) -> None:
         for message in messages_by_position.get(position, []):
-            lines.append("openvino:")
+            lines.append(f"{tui_mod.CYAN}openvino:{tui_mod.RESET}")
             lines.append(_chat_content(message, raw))
             lines.append("")
 
@@ -2359,7 +3781,7 @@ def _chat_window_text(
 
 
 def _chat_content(text: str, raw: bool) -> str:
-    clean = _ANSI_ESCAPE.sub("", text)
+    clean = sanitize_tool_artifacts(_ANSI_ESCAPE.sub("", text))
     if raw:
         return clean
     thinking, answer = split_thinking(clean)
@@ -2376,7 +3798,7 @@ def _chat_content(text: str, raw: bool) -> str:
 
 
 def _assistant_chat_content(text: str, raw: bool) -> str:
-    clean = _ANSI_ESCAPE.sub("", text)
+    clean = sanitize_tool_artifacts(_ANSI_ESCAPE.sub("", text))
     if raw:
         return f"{tui_mod.GREEN}> \x1b[0m{clean}"
     thinking, answer = split_thinking(clean)
@@ -2473,34 +3895,30 @@ def _handle_system_command(prompt: str, session: ToolChatSession, cwd: Path) -> 
     if lower in {"/system", "/system show"}:
         return session.system_prompt_template
     if lower == "/system reset":
-        session.system_prompt_template = TOOL_SYSTEM_PROMPT
+        session.reset_system_prompt()
         return "system reset"
-    if lower.startswith("/system set "):
-        _, _, text = command.partition("/system set ")
+    if _command_matches(command, "/system set"):
+        text = command[len("/system set ") :]
         session.system_prompt_template = _decode_system_text(text)
         return "system set"
-    if lower.startswith("/system append "):
-        _, _, text = command.partition("/system append ")
+    if _command_matches(command, "/system append"):
+        text = command[len("/system append ") :]
         addition = _decode_system_text(text)
         session.system_prompt_template = session.system_prompt_template.rstrip() + "\n" + addition
         return "system appended"
-    if lower.startswith("/system save"):
+    if _command_matches(command, "/system save"):
         _, _, text = command.partition(" ")
         _, _, path_text = text.partition(" ")
         target = _resolve_user_path(path_text.strip() or "openvino-system-prompt.txt", cwd)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(session.system_prompt_template, encoding="utf-8")
         return f"system saved={target}"
-    if lower.startswith("/system load "):
-        _, _, path_text = command.partition("/system load ")
+    if _command_matches(command, "/system load"):
+        path_text = command[len("/system load ") :]
         source = _resolve_user_path(path_text.strip(), cwd)
         session.system_prompt_template = source.read_text(encoding="utf-8")
         return f"system loaded={source}"
-    _, _, text = command.partition(" ")
-    if text.strip():
-        session.system_prompt_template = _decode_system_text(text)
-        return "system set"
-    return session.system_prompt_template
+    return "usage: /system [show|set <text>|append <text>|reset|save [path]|load <path>]"
 
 
 def _decode_system_text(text: str) -> str:
@@ -2516,12 +3934,18 @@ def _resolve_user_path(path_text: str, cwd: Path) -> Path:
 
 def _help_text() -> str:
     return (
-        _format_command_specs("OpenVINO Chat commands")
+        _format_command_specs("OpenVINO Chat commands", COMMAND_SPECS + ADVANCED_COMMAND_SPECS)
         + "\n\nKeys:"
         + "\n  Esc                         Stop current generation."
         + "\n  PageUp / PageDown           Scroll chat history."
-        + "\n  Mouse wheel                 Scroll chat history."
+        + "\n  Ctrl+Up / Ctrl+Down         Scroll history by three rows."
+        + "\n  Drag                         Select terminal text."
+        + "\n  F6                           Toggle mouse-wheel history scrolling."
+        + "\n  Shift+drag                   Select while mouse scrolling is enabled."
         + "\n  Ctrl+Home / Ctrl+End        Oldest / latest message."
+        + "\n  Up/Down or Ctrl+N/Ctrl+P    Navigate slash command palette."
+        + "\n  Tab / Enter / Esc           Complete / run / close palette."
+        + "\n  Home/End or PageUp/PageDown Navigate model and session pickers."
     )
 
 
@@ -2529,15 +3953,18 @@ def _commands_text() -> str:
     return _format_command_specs("Command Palette")
 
 
-def _format_command_specs(title: str) -> str:
+def _format_command_specs(
+    title: str,
+    specs: tuple[CommandSpec, ...] = COMMAND_SPECS,
+) -> str:
     lines = [title, ""]
     groups = []
-    for spec in COMMAND_SPECS:
+    for spec in specs:
         if spec.group not in groups:
             groups.append(spec.group)
     for group in groups:
         lines.append(f"{group}:")
-        for spec in COMMAND_SPECS:
+        for spec in specs:
             if spec.group == group:
                 lines.append(f"  {spec.usage:<28} {spec.description}")
         lines.append("")
@@ -2573,15 +4000,38 @@ def _project_status(cwd: Path) -> str:
     return "\n".join(lines)
 
 
+def _model_catalog() -> dict[str, Path]:
+    return discover_model_dirs(MODEL_ROOT, MODEL_DIRS)
+
+
+def _catalog_model_path(value: str) -> Path | None:
+    key = value.strip().casefold()
+    return next(
+        (path for name, path in _model_catalog().items() if name.casefold() == key),
+        None,
+    )
+
+
+def _model_repo(name: str, path: Path) -> str:
+    return (
+        MODEL_REPOS.get(name.lower())
+        or model_repo_for_path(path, MODEL_DIRS, MODEL_REPOS)
+        or "-"
+    )
+
+
 def _resolve_model(value: str) -> Path:
-    key = value.lower()
-    if key in MODEL_DIRS:
-        return MODEL_DIRS[key]
+    configured = _catalog_model_path(value)
+    if configured is not None:
+        return configured
     return Path(value).expanduser()
 
 
 def _available_models_summary() -> str:
-    return ", ".join(f"{name}: {_model_install_state(path)}" for name, path in MODEL_DIRS.items())
+    return ", ".join(
+        f"{name}: {_model_install_state(path)}"
+        for name, path in _model_catalog().items()
+    )
 
 
 def _model_list(active_model_dir: Path, loaded: bool) -> str:
@@ -2592,22 +4042,28 @@ def _model_list(active_model_dir: Path, loaded: bool) -> str:
         f"root: {MODEL_ROOT}",
         "",
     ]
-    for name, path in MODEL_DIRS.items():
+    for name, path in _model_catalog().items():
         marker = "*" if path == active_model_dir else " "
         state = _model_install_state(path)
         size = _model_dir_size_text(path)
-        repo = MODEL_REPOS.get(name, "-")
+        repo = _model_repo(name, path)
         active = " active" if path == active_model_dir else ""
         loaded_text = " loaded" if path == active_model_dir and loaded else ""
         lines.append(f"{marker} {name}: {state}{active}{loaded_text}")
         lines.append(f"  repo: {repo}")
         lines.append(f"  size: {size}")
+        lines.append("  effort: " + ", ".join(reversed(GENERATION_EFFORTS)))
+        lines.append(
+            "  thinking: " + ", ".join(reversed(thinking_efforts_for_model(path)))
+        )
         lines.append(f"  path: {path}")
     return "\n".join(lines)
 
 
 def _model_install_state(path: Path) -> str:
-    return "installed" if path.exists() else "missing"
+    if not path.exists():
+        return "missing"
+    return "installed" if _validate_model_dir(path) else "invalid"
 
 
 def _model_dir_size_text(path: Path) -> str:

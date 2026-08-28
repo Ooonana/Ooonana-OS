@@ -142,7 +142,7 @@ EOF
 chmod +x "$scratch/bin/busybox"
 cat > "$scratch/usr/bin/ooonana" <<'EOF'
 #!/bin/sh
-echo ooonana 0.8.22
+echo ooonana 0.8.23
 EOF
 chmod +x "$scratch/usr/bin/ooonana"
 cat > "$scratch/usr/bin/ooonana-setup" <<'EOF'
@@ -435,15 +435,20 @@ assert_contains "$audio_start" "pipewire-pulse"
 assert_contains "$audio_start" "wireplumber"
 assert_contains "$audio_start" "alsactl restore"
 assert_contains "$audio_start" 'if [ "${1:-}" = "--restart" ]'
+assert_contains "$audio_start" "wait_for_audio_card"
+assert_contains "$audio_start" "OOONANA_AUDIO_WAIT_SECONDS"
 audio_probe="$(<"$rootfs/usr/bin/ooonana-audio-hardware-reprobe")"
 assert_contains "$audio_probe" "/proc/cmdline"
 assert_contains "$audio_probe" "/sys/module/snd_intel_dspcfg/parameters/dsp_driver"
 assert_contains "$audio_probe" "--snapshot"
 assert_contains "$audio_probe" "Sound PCI sysfs bindings"
 assert_contains "$audio_probe" "Kernel audio messages"
+assert_contains "$audio_probe" "wait_for_audio_card"
+assert_contains "$audio_probe" "OOONANA_AUDIO_WAIT_SECONDS"
 rcs="$(<"$rootfs/etc/init.d/rcS")"
 assert_contains "$rcs" "ooonana-audio-hardware-reprobe --snapshot"
 assert_contains "$rcs" "/var/log/ooonana-audio-boot.log"
+assert_contains "$rcs" "OOONANA_AUDIO_WAIT_SECONDS=25"
 
 i3_installer_session="$(<"$rootfs/usr/bin/ooonana-i3-installer-session")"
 assert_contains "$i3_installer_session" "ooonana-gui-installer"
@@ -456,7 +461,10 @@ i3_config="$(<"$rootfs/etc/i3/config")"
 assert_contains "$i3_config" 'bindsym $mod+Shift+a exec ooonana-ai-launch'
 assert_contains "$i3_config" 'bindsym $mod+Shift+o exec ooonana-packages-app'
 assert_contains "$i3_config" "polybar -c /etc/ooonana/polybar.ini ooonana"
-assert_contains "$i3_config" "picom --config /etc/ooonana/picom.conf"
+assert_contains "$i3_config" "picom --backend glx --config /etc/ooonana/picom.conf"
+assert_contains "$i3_config" "picom --backend xrender --config /etc/ooonana/picom.conf"
+assert_contains "$i3_config" "--backend glx"
+assert_contains "$i3_config" "--backend xrender"
 assert_contains "$i3_config" "dunst -config /etc/ooonana/dunstrc"
 assert_contains "$i3_config" "xsettingsd -c /etc/ooonana/xsettingsd.conf"
 assert_contains "$i3_config" "[ -S /run/dbus/system_bus_socket ] && nm-applet --indicator"
@@ -845,6 +853,8 @@ assert_contains "$polybar_cfg" "[module/media]"
 assert_contains "$polybar_cfg" "exec = ooonana-media-status"
 assert_contains "$polybar_cfg" "click-middle = ooonana-media-control play-pause"
 assert_contains "$polybar_cfg" "click-right = ooonana-media-control next"
+assert_contains "$polybar_cfg" "[module/processes]"
+assert_contains "$polybar_cfg" "click-left = ooonana-processes"
 assert_contains "$polybar_cfg" "[module/win-close]"
 assert_contains "$polybar_cfg" "click-left = i3-msg kill"
 assert_contains "$polybar_cfg" "[module/win-min]"
@@ -852,7 +862,7 @@ assert_contains "$polybar_cfg" "click-left = i3-msg move scratchpad"
 assert_contains "$polybar_cfg" "click-right = i3-msg scratchpad show"
 assert_contains "$polybar_cfg" "[module/win-full]"
 assert_contains "$polybar_cfg" "click-left = i3-msg fullscreen toggle"
-assert_contains "$polybar_cfg" "modules-left = brand workspaces terminal browser files editor media windows win-min win-full win-close"
+assert_contains "$polybar_cfg" "modules-left = brand workspaces terminal browser files editor media windows processes win-min win-full win-close"
 assert_contains "$polybar_cfg" "[module/windows]"
 assert_contains "$polybar_cfg" "exec = ooonana-window-list"
 assert_contains "$polybar_cfg" "modules-right = audio brightness battery bluetooth wifi date power"
@@ -918,13 +928,14 @@ assert_contains "$picom_cfg" "unredir-if-possible = true"
 assert_contains "$picom_cfg" "shadow = false"
 assert_contains "$picom_cfg" "fading = false"
 assert_contains "$picom_cfg" "inactive-opacity = 1.0"
-assert_contains "$picom_cfg" "corner-radius = 10"
+assert_contains "$picom_cfg" "corner-radius = 6"
 assert_contains "$picom_cfg" "rounded-corners-exclude"
+assert_not_contains "$picom_cfg" 'backend = "xrender"'
 
 dunst_cfg="$(<"$rootfs/etc/ooonana/dunstrc")"
 assert_contains "$dunst_cfg" 'origin = top-right'
 assert_contains "$dunst_cfg" 'highlight = "#ffb21a"'
-assert_contains "$dunst_cfg" "corner_radius = 10"
+assert_contains "$dunst_cfg" "corner_radius = 6"
 
 gui_installer="$(<"$rootfs/usr/bin/ooonana-gui-installer")"
 assert_contains "$gui_installer" "ooonana-installer-gui --dry-run"

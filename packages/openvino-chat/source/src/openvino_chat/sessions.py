@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -22,7 +23,13 @@ class ChatSessionStore:
             return []
         return sorted(path.stem for path in self.root.glob("*.json"))
 
-    def save(self, name: str, history: list[tuple[str, str]], metadata: dict[str, Any] | None = None) -> Path:
+    def save(
+        self,
+        name: str,
+        history: list[tuple[str, str]],
+        metadata: dict[str, Any] | None = None,
+        state: dict[str, Any] | None = None,
+    ) -> Path:
         self.root.mkdir(parents=True, exist_ok=True)
         path = self._path(name)
         merged_metadata = {
@@ -36,14 +43,42 @@ class ChatSessionStore:
             "metadata": merged_metadata,
             "history": history,
         }
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        if state is not None:
+            payload["state"] = state
+        encoded = json.dumps(payload, ensure_ascii=False, indent=2)
+        temporary: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                "w",
+                encoding="utf-8",
+                dir=self.root,
+                prefix=f".{path.stem}-",
+                suffix=".tmp",
+                delete=False,
+            ) as handle:
+                handle.write(encoded)
+                handle.flush()
+                os.fsync(handle.fileno())
+                temporary = Path(handle.name)
+            temporary.replace(path)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
         return path
 
     def load(self, name: str) -> list[tuple[str, str]]:
         data = json.loads(self._path(name).read_text(encoding="utf-8"))
         if isinstance(data, dict):
-            data = data.get("history") or []
-        return [(str(role), str(content)) for role, content in data]
+            data = data.get("history")
+        if not isinstance(data, list):
+            raise ValueError("invalid session history")
+        history: list[tuple[str, str]] = []
+        for item in data:
+            if not isinstance(item, (list, tuple)) or len(item) != 2:
+                raise ValueError("invalid session history")
+            role, content = item
+            history.append((str(role), str(content)))
+        return history
 
     def metadata(self, name: str) -> dict[str, Any]:
         data = json.loads(self._path(name).read_text(encoding="utf-8"))
@@ -54,6 +89,12 @@ class ChatSessionStore:
             "title": name,
             "message_count": len(history),
         }
+
+    def load_state(self, name: str) -> dict[str, Any]:
+        data = json.loads(self._path(name).read_text(encoding="utf-8"))
+        if isinstance(data, dict) and isinstance(data.get("state"), dict):
+            return data["state"]
+        return {}
 
     def delete(self, name: str) -> None:
         self._path(name).unlink(missing_ok=True)

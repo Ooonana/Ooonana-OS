@@ -122,7 +122,7 @@ class AudioWindow(Gtk.Window):
         rc, output = run(["pactl", *arguments], timeout=6)
         if rc == 0:
             return rc, output
-        run(["ooonana-audio-start"], timeout=18)
+        run(["ooonana-audio-start"], timeout=35)
         return run(["pactl", *arguments], timeout=8)
 
     @staticmethod
@@ -218,8 +218,8 @@ class AudioWindow(Gtk.Window):
         widget.set_sensitive(False)
 
         def task():
-            probe_rc, probe_output = run(["ooonana-audio-hardware-reprobe"], admin=True, timeout=35)
-            audio_rc, audio_output = run(["ooonana-audio-start", "--restart"], timeout=25)
+            probe_rc, probe_output = run(["ooonana-audio-hardware-reprobe"], admin=True, timeout=55)
+            audio_rc, audio_output = run(["ooonana-audio-start", "--restart"], timeout=35)
             if audio_rc != 0:
                 return audio_rc, audio_output
             return probe_rc, probe_output
@@ -245,7 +245,8 @@ class AudioWindow(Gtk.Window):
                 ("ALSA capture", ["arecord", "-l"]),
                 ("Hardware probe", ["ooonana-audio-hardware-reprobe", "--report"]),
             ):
-                rc, output = run(command, timeout=8)
+                timeout = 35 if command[0] == "ooonana-audio-hardware-reprobe" else 8
+                rc, output = run(command, timeout=timeout)
                 sections.append(f"{title}:\n{output or 'unavailable'}" if rc == 0 else f"{title}:\n{output or 'failed'}")
             return 0, "\n\n".join(sections)
 

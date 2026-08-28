@@ -255,16 +255,69 @@ modprobe overlay 2>/dev/null || true
 splash "finding boot media" 2
 tries=0
 boot_media_device=""
+
+parent_disk_name() {
+  device="$(readlink -f "$1" 2>/dev/null || printf '%s\n' "$1")"
+  base="${device##*/}"
+  sys_path="$(readlink -f "/sys/class/block/$base" 2>/dev/null || true)"
+  parent="$(basename "$(dirname "$sys_path")")"
+  if [ -n "$parent" ] && [ -e "/sys/class/block/$parent" ]; then
+    printf '%s\n' "$parent"
+  else
+    printf '%s\n' "$base"
+  fi
+}
+
+boot_media_candidate() {
+  candidate="$1"
+  base="${candidate##*/}"
+  case "$base" in
+    loop*|ram*|zram*|dm-*|md*) return 1 ;;
+  esac
+
+  sys_path="$(readlink -f "/sys/class/block/$base" 2>/dev/null || true)"
+  parent="$(parent_disk_name "$candidate")"
+  removable="$(cat "/sys/class/block/$parent/removable" 2>/dev/null || echo 0)"
+  [ "$removable" = 1 ] && return 0
+  case "$sys_path" in
+    */usb*/*) return 0 ;;
+  esac
+  return 1
+}
+
+mount_boot_media() {
+  candidate="$1"
+  fs_type="$(blkid -s TYPE -o value "$candidate" 2>/dev/null || true)"
+  fs_label="$(blkid -s LABEL -o value "$candidate" 2>/dev/null || true)"
+  case "$fs_type" in
+    iso9660)
+      mount -t iso9660 -o ro "$candidate" /mnt/iso 2>/dev/null
+      ;;
+    vfat)
+      [ "$fs_label" = "OOONANAUSB" ] || return 1
+      mount -t vfat -o ro "$candidate" /mnt/iso 2>/dev/null
+      ;;
+    ext4)
+      [ "$fs_label" = "OOONANAUSB" ] || return 1
+      mount -t ext4 -o ro,noload "$candidate" /mnt/iso 2>/dev/null
+      ;;
+    *) return 1 ;;
+  esac
+}
+
 while [ "$tries" -lt 40 ]; do
   mdev -s 2>/dev/null || true
   candidates="/dev/sr0 /dev/sr1 /dev/cdrom /dev/hdc"
   for devpath in /sys/class/block/*; do
     [ -e "$devpath" ] || continue
-    candidates="$candidates /dev/${devpath##*/}"
+    candidate="/dev/${devpath##*/}"
+    [ -b "$candidate" ] || continue
+    boot_media_candidate "$candidate" || continue
+    candidates="$candidates $candidate"
   done
   for dev in $candidates; do
     [ -b "$dev" ] || continue
-    if mount -t iso9660 -o ro "$dev" /mnt/iso 2>/dev/null || mount -o ro,noload "$dev" /mnt/iso 2>/dev/null || mount -o ro "$dev" /mnt/iso 2>/dev/null; then
+    if mount_boot_media "$dev"; then
       if [ -f "/mnt/iso$LIVE_IMAGE" ]; then
         boot_media_device="$dev"
         break 2
@@ -285,18 +338,6 @@ overlay_upper="/cow/upper"
 overlay_work="/cow/work"
 persistence_mode="ram"
 persistence_device=""
-
-parent_disk_name() {
-  device="$(readlink -f "$1" 2>/dev/null || printf '%s\n' "$1")"
-  base="${device##*/}"
-  sys_path="$(readlink -f "/sys/class/block/$base" 2>/dev/null || true)"
-  parent="$(basename "$(dirname "$sys_path")")"
-  if [ -n "$parent" ] && [ -e "/sys/class/block/$parent" ]; then
-    printf '%s\n' "$parent"
-  else
-    printf '%s\n' "$base"
-  fi
-}
 
 boot_parent="$(parent_disk_name "$boot_media_device")"
 for devpath in /sys/class/block/*; do

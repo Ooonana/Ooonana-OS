@@ -143,4 +143,3 @@ mv "$candidate" "$ROOTFS"
 printf 'OpenVINO local AI ready.\n'
 printf 'Next: openvino download tiny\n'
 printf 'Then: openvino chat --device GPU\n'
-printf 'NPU:  openvino chat --device NPU\n'

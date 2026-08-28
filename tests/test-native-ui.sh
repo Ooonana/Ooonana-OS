@@ -58,6 +58,8 @@ assert_contains "$common" "Toggle fullscreen"
 assert_contains "$common" 'window-close-symbolic'
 assert_contains "$common" 'OoonanaApp'
 assert_contains "$common" "#ffb21a"
+assert_contains "$common" "window.background"
+assert_contains "$common" "border-radius: 6px 6px 0 0"
 assert_contains "$common" "decoration_layout"
 assert_not_contains "$common" "bar.set_spacing"
 assert_contains "$common" "def flow_row"
@@ -165,6 +167,9 @@ assert_contains "$ai" 'Path.home() / ".openvino/models/'
 assert_not_contains "$ai" 'model = "/root/.openvino/models/'
 assert_contains "$ai" "Checking OpenVINO runtime..."
 assert_contains "$ai" '["openvino", "doctor"]'
+assert_contains "$ai" "Start GPU"
+assert_contains "$ai" "Stop API"
+assert_not_contains "$ai" "Start NPU"
 assert_contains "$ai" '["openvino", "--model-dir", model, "api", "start", "--device", device]'
 assert_contains "$ai" '["ooonana-ai", "provider", "set", "openvino"]'
 assert_contains "$controls" "BrightnessWindow"
@@ -174,6 +179,9 @@ assert_contains "$controls" 'run_async(["ooonana-media-control", "status"]'
 assert_contains "$controls" 'GLib.timeout_add_seconds(2, self.periodic_refresh)'
 assert_contains "$controls" "audio_command"
 assert_contains "$controls" "ooonana-audio-start"
+assert_contains "$controls" 'run(["ooonana-audio-start"], timeout=35)'
+assert_contains "$controls" 'run(["ooonana-audio-hardware-reprobe"], admin=True, timeout=55)'
+assert_contains "$controls" 'timeout = 35 if command[0] == "ooonana-audio-hardware-reprobe" else 8'
 assert_contains "$controls" "list_audio_devices"
 assert_contains "$controls" "def collect_audio_state"
 assert_contains "$controls" "def refresh_audio"
@@ -205,6 +213,8 @@ assert_contains "$window_list" 'node.get("name") == "__i3_scratch"'
 assert_contains "$window_list" 'scratchpad show'
 assert_contains "$window_list" 'hidden_count'
 assert_contains "$i3_config" 'Chromium-browser'
+assert_contains "$i3_config" "--backend glx"
+assert_contains "$i3_config" "--backend xrender"
 
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-wireless-utils.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-wireless-actions.py"

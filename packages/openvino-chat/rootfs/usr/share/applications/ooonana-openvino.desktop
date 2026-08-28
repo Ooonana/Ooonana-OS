@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Ooonana Offline AI
-Comment=Local OpenVINO chat for Intel GPU and NPU
+Comment=Local OpenVINO chat for Intel GPU and CPU
 Exec=ooonana-theme-env xterm -title "Ooonana Offline AI" -e openvino chat --device GPU
 Icon=ooonana
 Terminal=false

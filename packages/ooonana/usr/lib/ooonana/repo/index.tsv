@@ -1,4 +1,4 @@
-ai	0.4.0	bundle	Ooonana AI with cloud providers and offline Intel OpenVINO	-	-	9b8b877fdc08f098172e30cc88435906acdec0f4208ecad47fe76f87d21d7fa0
+ai	0.4.0	bundle	Ooonana AI with cloud providers and offline Intel OpenVINO	-	-	84e0a443ff2188eb9fcab3fe6428494853033a557563c8262e6a11b6892d40fe
 base	0.1.0	system	Ooonana scratch base system	-	-	fca88b4d661552bfd9591f9826bd5c03bd69671da680df8136ddaeab084c57be
 dev	0.1.0	bundle	Developer tools bundle	-	-	847ad5e76f139876d1c27d42081ed39c383c1fea7078f2d5b9e4c085c5f61485
 gui	0.1.0	bundle	Minimal graphical desktop bundle	-	-	0490c96cba30ab7ef4000c01e33c1038450cb1b43467a10ab3a4d4d72d1c5f0d
