@@ -5,6 +5,10 @@ ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 BUILD_DIR="${OOONANA_BUILD_DIR:-/mnt/winf/Ooonana/ooonana-os/build}"
 RELEASE_DIR="${OOONANA_RELEASE_DIR:-/mnt/winf/Ooonana/ooonana-os/release-current}"
 STAGE_DIR="${OOONANA_STAGE_DIR:-/var/tmp/ooonana-release-stage}"
+KERNEL_WORK_DIR="${OOONANA_KERNEL_WORK_DIR:-/var/tmp/ooonana-kernel-work}"
+KERNEL_SOURCE_VERSION="${OOONANA_KERNEL_SOURCE_VERSION:-6.18.37}"
+KERNEL_JOBS="${OOONANA_RELEASE_KERNEL_JOBS:-${OOONANA_KERNEL_JOBS:-2}}"
+AUTO_REBUILD_KERNEL="${OOONANA_AUTO_REBUILD_KERNEL:-1}"
 RUN_BOOT_MATRIX=1
 PREFLIGHT_ONLY=0
 RESUME_AFTER_ROOTFS=0
@@ -26,6 +30,12 @@ Options:
   --resume-after-rootfs  Reuse completed scratch and full rootfs
   --resume-after-iso     Reuse completed .iso.new and continue verification
   -h, --help             Show help
+
+Environment:
+  OOONANA_AUTO_REBUILD_KERNEL=0  Refuse stale kernel cache instead of rebuilding
+  OOONANA_KERNEL_WORK_DIR=PATH   Native Linux kernel source/build cache
+  OOONANA_KERNEL_SOURCE_VERSION  Kernel source version (default: 6.18.37)
+  OOONANA_RELEASE_KERNEL_JOBS=N  Kernel compile jobs (default: 2)
 USAGE
 }
 
@@ -48,6 +58,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ "${EUID:-$(id -u)}" -eq 0 ]] || die "run as root"
+case "$AUTO_REBUILD_KERNEL" in
+  0|1) ;;
+  *) die "OOONANA_AUTO_REBUILD_KERNEL must be 0 or 1" ;;
+esac
+[[ "$KERNEL_JOBS" =~ ^[1-9][0-9]*$ ]] ||
+  die "OOONANA_RELEASE_KERNEL_JOBS must be a positive integer"
 
 ensure_default_build_mount() {
   case "$BUILD_DIR" in
@@ -86,6 +102,7 @@ STAGE_DIR="$(realpath -m "$STAGE_DIR")"
 KERNEL="$BUILD_DIR/ooonana-kernel/vmlinuz-ooonana"
 KERNEL_CONFIG="$BUILD_DIR/ooonana-kernel/config-ooonana"
 KERNEL_FRAGMENT="$ROOT/configs/kernel/ooonana-minimal-x86_64.fragment"
+KERNEL_CACHE_ERROR=""
 REPO="$BUILD_DIR/full-i3-repo"
 NEW_ISO="$RELEASE_DIR/ooonana-full-i3.iso.new"
 ISO="$RELEASE_DIR/ooonana-full-i3.iso"
@@ -113,6 +130,71 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+kernel_cache_matches_fragment() {
+  local kernel_option
+  KERNEL_CACHE_ERROR=""
+
+  if [[ ! -s "$KERNEL" ]]; then
+    KERNEL_CACHE_ERROR="missing cached kernel: $KERNEL"
+    return 1
+  fi
+  if [[ ! -s "$KERNEL_CONFIG" ]]; then
+    KERNEL_CACHE_ERROR="cached kernel has no resolved config: $KERNEL_CONFIG"
+    return 1
+  fi
+  while IFS= read -r kernel_option; do
+    [[ -n "$kernel_option" ]] || continue
+    if ! grep -Fqx "$kernel_option" "$KERNEL_CONFIG"; then
+      KERNEL_CACHE_ERROR="cached kernel differs from requested option: $kernel_option"
+      return 1
+    fi
+  done < <(grep -E '^CONFIG_[A-Z0-9_]+=' "$KERNEL_FRAGMENT")
+  return 0
+}
+
+refresh_cached_kernel() {
+  local built_dir="$KERNEL_WORK_DIR/ooonana-kernel"
+  local available_kb
+  local command_name
+
+  printf '[kernel] %s\n' "$KERNEL_CACHE_ERROR"
+  printf '[kernel] rebuilding Linux %s with current Ooonana config (%s jobs)\n' \
+    "$KERNEL_SOURCE_VERSION" "$KERNEL_JOBS"
+  for command_name in bc bison flex gcc make openssl perl; do
+    command -v "$command_name" >/dev/null 2>&1 ||
+      die "kernel rebuild needs command: $command_name"
+  done
+  mkdir -p "$KERNEL_WORK_DIR"
+  available_kb="$(df -Pk "$KERNEL_WORK_DIR" | awk 'NR == 2 { print $4 }')"
+  [[ "$available_kb" =~ ^[0-9]+$ ]] || die "cannot read kernel work disk space"
+  (( available_kb >= MIN_FREE_KB )) ||
+    die "need at least 20 GiB free for kernel work: $KERNEL_WORK_DIR"
+
+  bash "$ROOT/scripts/fetch-kernel-source.sh" \
+    --work-dir "$KERNEL_WORK_DIR" \
+    --version "$KERNEL_SOURCE_VERSION" \
+    --force
+  bash "$ROOT/scripts/build-kernel.sh" \
+    --work-dir "$KERNEL_WORK_DIR" \
+    --config-fragment "$KERNEL_FRAGMENT" \
+    --jobs "$KERNEL_JOBS" \
+    --force
+
+  [[ -s "$built_dir/vmlinuz-ooonana" ]] ||
+    die "kernel rebuild did not produce: $built_dir/vmlinuz-ooonana"
+  [[ -s "$built_dir/config-ooonana" ]] ||
+    die "kernel rebuild did not produce: $built_dir/config-ooonana"
+  mkdir -p "$(dirname "$KERNEL")"
+  install -m 0644 "$built_dir/vmlinuz-ooonana" "$KERNEL"
+  install -m 0644 "$built_dir/config-ooonana" "$KERNEL_CONFIG"
+  install -m 0644 "$built_dir/kernel.env" "$(dirname "$KERNEL")/kernel.env"
+  sync
+
+  kernel_cache_matches_fragment ||
+    die "rebuilt kernel cache is incompatible: $KERNEL_CACHE_ERROR"
+  printf '[kernel] cache refreshed: %s\n' "$KERNEL"
+}
+
 release_input_fingerprint() {
   {
     find \
@@ -135,14 +217,15 @@ release_input_fingerprint() {
 
 mkdir -p "$BUILD_DIR" "$RELEASE_DIR"
 if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
-  [[ -s "$KERNEL" ]] || die "missing cached kernel: $KERNEL"
-  [[ -s "$KERNEL_CONFIG" ]] ||
-    die "cached kernel has no resolved config; rebuild it with build-kernel.sh"
-  while IFS= read -r kernel_option; do
-    [[ -n "$kernel_option" ]] || continue
-    grep -Fqx "$kernel_option" "$KERNEL_CONFIG" ||
-      die "cached kernel differs from requested option: $kernel_option"
-  done < <(grep -E '^CONFIG_[A-Z0-9_]+=' "$KERNEL_FRAGMENT")
+  kernel_refresh_needed=0
+  if ! kernel_cache_matches_fragment; then
+    kernel_refresh_needed=1
+    if [[ "$PREFLIGHT_ONLY" -eq 1 ]]; then
+      die "$KERNEL_CACHE_ERROR; normal release run rebuilds automatically"
+    fi
+    [[ "$AUTO_REBUILD_KERNEL" -eq 1 ]] ||
+      die "$KERNEL_CACHE_ERROR; automatic kernel rebuild is disabled"
+  fi
   [[ -s "$REPO/index.tsv" ]] || die "missing package index: $REPO/index.tsv"
   [[ -s "$REPO/i3.pkg" ]] || die "package repo missing i3.pkg"
   [[ -s "$REPO/SHA256SUMS" ]] || die "missing package checksums: $REPO/SHA256SUMS"
@@ -167,6 +250,9 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
   stage_available_kb="$(df -Pk "$(dirname "$STAGE_DIR")" | awk 'NR == 2 { print $4 }')"
   [[ "$stage_available_kb" =~ ^[0-9]+$ ]] || die "cannot read stage disk space"
   (( stage_available_kb >= MIN_FREE_KB )) || die "need at least 20 GiB free for stage: $STAGE_DIR"
+  if [[ "$kernel_refresh_needed" -eq 1 ]]; then
+    refresh_cached_kernel
+  fi
 else
   if [[ -s "$STAGED_ISO" ]]; then
     VERIFY_ISO="$STAGED_ISO"

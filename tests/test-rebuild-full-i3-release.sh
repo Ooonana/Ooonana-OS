@@ -22,6 +22,9 @@ help="$(bash "$SCRIPT" --help)"
 assert_contains "$help" "--preflight-only"
 assert_contains "$help" "--resume-after-rootfs"
 assert_contains "$help" "--resume-after-iso"
+assert_contains "$help" "OOONANA_AUTO_REBUILD_KERNEL=0"
+assert_contains "$help" "OOONANA_KERNEL_WORK_DIR=PATH"
+assert_contains "$help" "OOONANA_RELEASE_KERNEL_JOBS=N"
 
 source_text="$(<"$SCRIPT")"
 assert_contains "$source_text" 'STAGE_DIR="${OOONANA_STAGE_DIR:-/var/tmp/ooonana-release-stage}"'
@@ -48,10 +51,24 @@ assert_contains "$source_text" 'rm -rf "$STAGE_DIR"'
 assert_contains "$source_text" 'findmnt mount mountpoint'
 assert_contains "$source_text" 'install mv python3 qemu-system-x86_64 realpath'
 assert_contains "$source_text" 'stale i3.pkg dependency bundle'
+assert_contains "$source_text" 'KERNEL_WORK_DIR="${OOONANA_KERNEL_WORK_DIR:-/var/tmp/ooonana-kernel-work}"'
+assert_contains "$source_text" 'KERNEL_SOURCE_VERSION="${OOONANA_KERNEL_SOURCE_VERSION:-6.18.37}"'
+assert_contains "$source_text" 'KERNEL_JOBS="${OOONANA_RELEASE_KERNEL_JOBS:-${OOONANA_KERNEL_JOBS:-2}}"'
+assert_contains "$source_text" 'AUTO_REBUILD_KERNEL="${OOONANA_AUTO_REBUILD_KERNEL:-1}"'
+assert_contains "$source_text" 'kernel_cache_matches_fragment()'
+assert_contains "$source_text" 'refresh_cached_kernel()'
 assert_contains "$source_text" 'cached kernel has no resolved config'
 assert_contains "$source_text" "KERNEL_FRAGMENT=\"\$ROOT/configs/kernel/ooonana-minimal-x86_64.fragment\""
 assert_contains "$source_text" "grep -E '^CONFIG_[A-Z0-9_]+=' \"\$KERNEL_FRAGMENT\""
 assert_contains "$source_text" 'cached kernel differs from requested option'
+assert_contains "$source_text" 'bash "$ROOT/scripts/fetch-kernel-source.sh"'
+assert_contains "$source_text" 'bash "$ROOT/scripts/build-kernel.sh"'
+assert_contains "$source_text" '--config-fragment "$KERNEL_FRAGMENT"'
+assert_contains "$source_text" '--jobs "$KERNEL_JOBS"'
+assert_contains "$source_text" 'normal release run rebuilds automatically'
+assert_contains "$source_text" 'automatic kernel rebuild is disabled'
+assert_contains "$source_text" 'kernel rebuild needs command'
+assert_contains "$source_text" 'need at least 20 GiB free for kernel work'
 assert_contains "$source_text" 'release_input_fingerprint()'
 assert_contains "$source_text" '.release-inputs.sha256'
 assert_contains "$source_text" '.ooonana-rootfs-complete'
