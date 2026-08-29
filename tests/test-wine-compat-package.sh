@@ -31,6 +31,7 @@ assert_contains "$wine_contents" './usr/bin/ooonana-wine'
 assert_contains "$wine_contents" './usr/bin/wine'
 assert_contains "$chat_contents" './opt/ooonana-wine/OoonanaChat Setup 1.0.0.exe'
 assert_contains "$chat_contents" './usr/share/applications/ooonana-chat-windows.desktop'
+assert_contains "$(<"$ROOT/packages/ooonana-chat-windows/rootfs/usr/share/applications/ooonana-chat-windows.desktop")" "Icon=/usr/share/ooonana/logo.png"
 
 help="$("$ROOT/packages/wine-compat/rootfs/usr/bin/ooonana-wine" --help)"
 assert_contains "$help" 'ooonana wine setup'

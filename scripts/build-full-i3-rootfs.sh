@@ -227,8 +227,8 @@ SETTINGS
 @define-color ooonana_border #364252;
 @define-color ooonana_muted #9ba5b4;
 window, dialog, .background { background-color: @ooonana_bg; color: @ooonana_fg; }
-window.background, dialog.background, messagedialog.background { border-radius: 6px; }
-headerbar { background: @ooonana_panel; color: @ooonana_accent; border-bottom: 1px solid @ooonana_border; border-radius: 6px 6px 0 0; padding: 4px 8px; }
+window.background, dialog.background, messagedialog.background { border-radius: 0; }
+headerbar { background: @ooonana_panel; color: @ooonana_accent; border-bottom: 1px solid @ooonana_border; border-radius: 0; padding: 4px 8px; }
 headerbar .title { font-weight: bold; }
 headerbar .subtitle { color: @ooonana_muted; }
 button { background: @ooonana_panel_alt; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 4px; padding: 7px 12px; }
@@ -339,8 +339,8 @@ EOF
 @define-color ooonana_panel #11161d;
 @define-color ooonana_border #364252;
 window, dialog, .background { background-color: @ooonana_bg; color: @ooonana_fg; }
-window.background, dialog.background, messagedialog.background { border-radius: 6px; }
-headerbar { background: @ooonana_panel; color: @ooonana_accent; border-bottom: 1px solid @ooonana_border; border-radius: 6px 6px 0 0; }
+window.background, dialog.background, messagedialog.background { border-radius: 0; }
+headerbar { background: @ooonana_panel; color: @ooonana_accent; border-bottom: 1px solid @ooonana_border; border-radius: 0; }
 button { background: #171e27; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 4px; padding: 7px 12px; }
 button:hover { background: #222c38; border-color: @ooonana_accent; }
 button:checked, button.suggested-action { background: @ooonana_accent; color: #080a0d; }
@@ -1566,7 +1566,12 @@ if command -v pactl >/dev/null 2>&1 && pactl info >/dev/null 2>&1; then
   sink="$(pactl get-default-sink 2>/dev/null || true)"
   case "$sink" in
     ''|auto_null|auto_null.*)
-      printf '\357\200\246 no card\n'
+      cards="$(cat /proc/asound/cards 2>/dev/null || true)"
+      if [ -n "$cards" ] && ! printf '%s\n' "$cards" | grep -q '^ *--- no soundcards ---'; then
+        printf '\357\200\246 no route\n'
+      else
+        printf '\357\200\246 no card\n'
+      fi
       exit 0
       ;;
   esac
@@ -2455,6 +2460,7 @@ label-foreground = ${colors.accent}
 label-background = ${colors.background}
 label-padding = 2
 click-left = ooonana-window-list --menu
+click-right = ooonana-window-list --close-menu
 
 [module/wifi]
 type = custom/script
@@ -3134,6 +3140,7 @@ finish_prompt() {
   case "$answer" in
     shell|SHELL|no|NO|n|N) return 0 ;;
     *)
+      sync 2>/dev/null || true
       reboot -f 2>/dev/null || poweroff -f 2>/dev/null || true
       ;;
   esac

@@ -72,5 +72,6 @@ assert_contains "$contents" "./usr/lib/ooonana/openvino-chat/src/openvino_chat/b
 assert_contains "$contents" "./usr/lib/ooonana/openvino-chat/src/openvino_chat/compaction.py"
 assert_contains "$contents" "./usr/lib/ooonana/openvino-chat/src/openvino_chat/knowledge.py"
 assert_contains "$contents" "./usr/share/applications/ooonana-openvino.desktop"
+assert_contains "$(<"$ROOT/packages/openvino-chat/rootfs/usr/share/applications/ooonana-openvino.desktop")" "Icon=/usr/share/ooonana/logo.png"
 
 printf 'ok openvino-chat-package\n'

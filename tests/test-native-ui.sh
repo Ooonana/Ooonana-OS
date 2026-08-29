@@ -59,7 +59,9 @@ assert_contains "$common" 'window-close-symbolic'
 assert_contains "$common" 'OoonanaApp'
 assert_contains "$common" "#ffb21a"
 assert_contains "$common" "window.background"
-assert_contains "$common" "border-radius: 6px 6px 0 0"
+assert_contains "$common" "window.background, dialog.background, messagedialog.background { border-radius: 0; }"
+assert_contains "$common" "headerbar"
+assert_contains "$common" "border-radius: 0"
 assert_contains "$common" "decoration_layout"
 assert_not_contains "$common" "bar.set_spacing"
 assert_contains "$common" "def flow_row"
@@ -183,6 +185,8 @@ assert_contains "$controls" 'run(["ooonana-audio-start"], timeout=35)'
 assert_contains "$controls" 'run(["ooonana-audio-hardware-reprobe"], admin=True, timeout=55)'
 assert_contains "$controls" 'timeout = 35 if command[0] == "ooonana-audio-hardware-reprobe" else 8'
 assert_contains "$controls" "list_audio_devices"
+assert_contains "$controls" "def alsa_card_ready"
+assert_contains "$controls" "PipeWire has no hardware route"
 assert_contains "$controls" "def collect_audio_state"
 assert_contains "$controls" "def refresh_audio"
 audio_start_line="$(grep -n 'service_rc, service_output = self.audio_command("info")' "$UI_DIR/controls_app.py" | cut -d: -f1)"
@@ -212,6 +216,8 @@ assert_contains "$launcher" "header("
 assert_contains "$window_list" 'node.get("name") == "__i3_scratch"'
 assert_contains "$window_list" 'scratchpad show'
 assert_contains "$window_list" 'hidden_count'
+assert_contains "$window_list" '"--close-menu"'
+assert_contains "$window_list" 'f"[con_id={con_id}] kill"'
 assert_contains "$i3_config" 'Chromium-browser'
 assert_contains "$i3_config" "--backend glx"
 assert_contains "$i3_config" "--backend xrender"

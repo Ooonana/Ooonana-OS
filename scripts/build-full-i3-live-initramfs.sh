@@ -116,6 +116,9 @@ main() {
     done < <(
       find "$ROOTFS/lib/firmware" \
         \( -name 'iwlwifi-*' \
+        -o -path "$ROOTFS/lib/firmware/i915/*" \
+        -o -path "$ROOTFS/lib/firmware/amdgpu/*" \
+        -o -path "$ROOTFS/lib/firmware/radeon/*" \
         -o -path "$ROOTFS/lib/firmware/intel/ibt-*" \
         -o -path "$ROOTFS/lib/firmware/intel/sof*" \
         -o -path "$ROOTFS/lib/firmware/intel/avs/*" \

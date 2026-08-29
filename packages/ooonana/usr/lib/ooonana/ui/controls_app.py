@@ -137,6 +137,14 @@ class AudioWindow(Gtk.Window):
                 devices.append((fields[1], fields[1].replace("alsa_", "").replace("_", " ")))
         return devices
 
+    @staticmethod
+    def alsa_card_ready():
+        try:
+            cards = Path("/proc/asound/cards").read_text(errors="replace")
+        except OSError:
+            return False
+        return bool(cards.strip()) and "--- no soundcards ---" not in cards
+
     def collect_audio_state(self):
         service_rc, service_output = self.audio_command("info")
         outputs = self.list_audio_devices("sinks")
@@ -148,6 +156,7 @@ class AudioWindow(Gtk.Window):
         return {
             "service_rc": service_rc,
             "service_output": service_output,
+            "alsa_card_ready": self.alsa_card_ready(),
             "outputs": outputs,
             "inputs": inputs,
             "default_output": default_output.strip() if default_output_rc == 0 else "",
@@ -188,6 +197,9 @@ class AudioWindow(Gtk.Window):
         if outputs or inputs:
             self.hardware_status.set_text("ALSA hardware detected")
             self.status.set_text(f"Audio ready | {len(outputs)} output(s) | {len(inputs)} input(s)")
+        elif data["alsa_card_ready"]:
+            self.hardware_status.set_text("ALSA card detected")
+            self.status.set_text("PipeWire has no hardware route. Use Retry hardware.")
         elif data["service_rc"] == 0:
             self.hardware_status.set_text(
                 "No ALSA card. Retry hardware. If still missing, reboot into GRUB > Audio compatibility > legacy HDA."

@@ -322,6 +322,15 @@ def main() -> int:
     if not rooted("/lib/firmware/intel/sof-tplg/sof-hda-generic-2ch.tplg").exists():
         fail("missing SOF generic HDA topology for Galaxy Book4 audio")
 
+    required_hardware_firmware = {
+        "/lib/firmware/i915/adlp_dmc.bin": "Intel display DMC",
+        "/lib/firmware/intel/ibt-0040-4150.sfi": "Intel Bluetooth",
+        "/lib/firmware/intel/sof-ipc4/tgl/sof-tgl.ri": "Intel Tiger Lake audio",
+    }
+    for firmware_path, description in required_hardware_firmware.items():
+        if not rooted(firmware_path).exists():
+            fail(f"missing {description} firmware: {firmware_path}")
+
     if not any(rooted("/usr/lib/NetworkManager").rglob("*wifi*")):
         fail("NetworkManager Wi-Fi plugin missing")
     if not any(rooted("/usr/share/alsa/ucm2").rglob("*")):

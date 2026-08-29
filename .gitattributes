@@ -1,4 +1,5 @@
 *.sh text eol=lf
+*.desktop text eol=lf
 scripts/install-ooonana-ai-wsl.sh text eol=lf
 packages/ooonana/usr/bin/ooonana text eol=lf
 packages/ooonana/usr/bin/ooonana-setup text eol=lf
@@ -9,7 +10,9 @@ packages/ooonana/usr/bin/bunana text eol=lf
 packages/ooonana/usr/bin/clear text eol=lf
 packages/ooonana/usr/bin/neofetch text eol=lf
 packages/ooonana/usr/bin/oonana text eol=lf
+packages/ooonana/usr/bin/* text eol=lf
 packages/ooonana/usr/sbin/ooonana-install text eol=lf
+packages/ooonana/usr/sbin/* text eol=lf
 packages/ooonana/usr/lib/ooonana/oonana_game.py text eol=lf
 packages/ooonana/usr/lib/ooonana/ai/*.py text eol=lf
 packages/ooonana/usr/lib/ooonana/repo/*.pkg text eol=lf
@@ -36,3 +39,5 @@ branding/i3/config text eol=lf
 .gitattributes text eol=lf
 
 packages/openvino-chat/rootfs/usr/bin/* text eol=lf
+packages/*/rootfs/usr/bin/* text eol=lf
+packages/*/rootfs/usr/sbin/* text eol=lf

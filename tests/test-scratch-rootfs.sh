@@ -113,6 +113,7 @@ assert_contains "$wsl_conf" "[automount]"
 assert_contains "$wsl_conf" "mountFsTab=false"
 assert_contains "$(<"$rootfs/etc/profile")" "/etc/profile.d"
 assert_contains "$(<"$rootfs/etc/profile.d/ooonana-shell.sh")" "bunana()"
+assert_contains "$(<"$rootfs/etc/profile.d/ooonana-shell.sh")" "sync 2>/dev/null || true"
 assert_contains "$(<"$rootfs/etc/neofetch/config.conf")" 'ascii_distro="Ooonana"'
 assert_contains "$passwd" "root:x:0:0:root:/root:/bin/sh"
 assert_contains "$rcs" "OOONANA_BOOT_OK"

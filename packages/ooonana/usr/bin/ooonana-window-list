@@ -53,7 +53,7 @@ def compact(items):
     return f"* {title}{suffix}{hidden}"
 
 
-def menu(items):
+def menu(items, close=False):
     if not items:
         return
     choices = [
@@ -62,7 +62,7 @@ def menu(items):
     ]
     try:
         result = subprocess.run(
-            ["rofi", "-dmenu", "-i", "-p", "Windows", "-format", "i"],
+            ["rofi", "-dmenu", "-i", "-p", "Close window" if close else "Windows", "-format", "i"],
             input="\n".join(choices) + "\n",
             text=True,
             stdout=subprocess.PIPE,
@@ -75,6 +75,9 @@ def menu(items):
         return
     if 0 <= selected < len(items):
         con_id, _name, _active, hidden = items[selected]
+        if close:
+            subprocess.run(["i3-msg", f"[con_id={con_id}] kill"], check=False)
+            return
         commands = []
         if hidden:
             commands.append(f"[con_id={con_id}] scratchpad show")
@@ -86,6 +89,9 @@ def main():
     items = windows()
     if len(sys.argv) > 1 and sys.argv[1] == "--menu":
         menu(items)
+        return
+    if len(sys.argv) > 1 and sys.argv[1] in ("--close-menu", "--kill-menu"):
+        menu(items, close=True)
         return
     print(compact(items))
 

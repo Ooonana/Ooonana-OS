@@ -3,6 +3,6 @@ Type=Application
 Name=Ooonana Offline AI
 Comment=Local OpenVINO chat for Intel GPU and CPU
 Exec=ooonana-theme-env xterm -title "Ooonana Offline AI" -e openvino chat --device GPU
-Icon=ooonana
+Icon=/usr/share/ooonana/logo.png
 Terminal=false
 Categories=Utility;Development;
