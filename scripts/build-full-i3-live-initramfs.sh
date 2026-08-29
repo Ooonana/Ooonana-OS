@@ -288,10 +288,24 @@ boot_media_candidate() {
   return 1
 }
 
+blkid_value() {
+  blkid_key="$1"
+  blkid_device="$2"
+  blkid_metadata="$(blkid "$blkid_device" 2>/dev/null || true)"
+  blkid_marker="$blkid_key=\""
+  case "$blkid_metadata" in
+    *"$blkid_marker"*)
+      blkid_value_result="${blkid_metadata#*"$blkid_marker"}"
+      printf '%s\n' "${blkid_value_result%%\"*}"
+      ;;
+    *) return 1 ;;
+  esac
+}
+
 mount_boot_media() {
   candidate="$1"
-  fs_type="$(blkid -s TYPE -o value "$candidate" 2>/dev/null || true)"
-  fs_label="$(blkid -s LABEL -o value "$candidate" 2>/dev/null || true)"
+  fs_type="$(blkid_value TYPE "$candidate" 2>/dev/null || true)"
+  fs_label="$(blkid_value LABEL "$candidate" 2>/dev/null || true)"
   case "$fs_type" in
     iso9660)
       mount -t iso9660 -o ro "$candidate" /mnt/iso 2>/dev/null
@@ -349,8 +363,8 @@ for devpath in /sys/class/block/*; do
   [ -b "$candidate" ] || continue
   [ "$(readlink -f "$candidate" 2>/dev/null || printf '%s\n' "$candidate")" != "$(readlink -f "$boot_media_device" 2>/dev/null || printf '%s\n' "$boot_media_device")" ] || continue
   [ "$(parent_disk_name "$candidate")" = "$boot_parent" ] || continue
-  [ "$(blkid -s LABEL -o value "$candidate" 2>/dev/null || true)" = "OOONANA_PERSIST" ] || continue
-  [ "$(blkid -s TYPE -o value "$candidate" 2>/dev/null || true)" = "ext4" ] || continue
+  [ "$(blkid_value LABEL "$candidate" 2>/dev/null || true)" = "OOONANA_PERSIST" ] || continue
+  [ "$(blkid_value TYPE "$candidate" 2>/dev/null || true)" = "ext4" ] || continue
   if mount -t ext4 -o rw "$candidate" /persist 2>/dev/null; then
     if grep -q 'ooonana.persistence=1' /proc/cmdline 2>/dev/null; then
       mkdir -p /persist/overlay/upper /persist/overlay/work

@@ -44,5 +44,9 @@ source_text="$(<"$SCRIPT")"
   fail "service smoke does not verify D-Bus machine ID"
 [[ "$source_text" == *'service watchdog did not recover D-Bus, NetworkManager, and BlueZ'* ]] ||
   fail "service smoke does not verify daemon supervision"
+[[ "$source_text" == *'OOONANA_SERVICE_SMOKE_FAIL: live init failure'* ]] ||
+  fail "service smoke leaves failed live init waiting for timeout"
+[[ "$source_text" == *'! grep -q '\''OOONANA_SERVICE_SMOKE_FAIL'\'''* ]] ||
+  fail "service smoke does not report init failure before missing success"
 
 printf 'ok qemu-service-smoke-source\n'

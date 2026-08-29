@@ -110,6 +110,13 @@ if [ "$USE_ISO_RUNTIME" -eq 0 ]; then
 fi
 
 awk '
+  $0 == "  exec sh" && !patched_init_failure {
+    print "  echo OOONANA_SERVICE_SMOKE_FAIL: live init failure"
+    print "  /bin/busybox poweroff -f"
+    print "  exit 1"
+    patched_init_failure=1
+    next
+  }
   $0 == "exec switch_root /newroot /sbin/init" {
     print "/bin/busybox cp -a /smoke-root/. /newroot/"
     print "/bin/busybox cp /ooonana-service-smoke /newroot/usr/bin/ooonana-service-smoke"
@@ -423,7 +430,7 @@ QEMU_PID=""
 set -e
 
 cat "$WORK/qemu.log"
+! grep -q 'OOONANA_SERVICE_SMOKE_FAIL' "$WORK/qemu.log" || fail "QEMU service assertion failed"
 grep -q 'OOONANA_SERVICE_SMOKE_OK' "$WORK/qemu.log" || fail "QEMU service smoke did not finish (rc=$qemu_rc)"
 grep -q 'OOONANA_BUNANA_SHUTDOWN_BEGIN' "$WORK/qemu.log" || fail "bunana shutdown not reached"
-! grep -q 'OOONANA_SERVICE_SMOKE_FAIL' "$WORK/qemu.log" || fail "QEMU service assertion failed"
 echo "ok qemu-service-smoke"

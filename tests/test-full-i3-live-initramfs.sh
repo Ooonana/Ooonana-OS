@@ -132,9 +132,11 @@ assert_contains "$script_src" '/newroot/mnt/ooonana-live/persistence-device'
 [[ "$script_src" != *'/newroot/run/ooonana-live'* ]] || fail "live mounts must survive /run tmpfs"
 assert_contains "$script_src" "parent_disk_name()"
 assert_contains "$script_src" '[ "$(parent_disk_name "$candidate")" = "$boot_parent" ] || continue'
-assert_contains "$script_src" 'blkid -s LABEL -o value'
+assert_contains "$script_src" 'blkid_value()'
+assert_contains "$script_src" 'fs_label="$(blkid_value LABEL "$candidate"'
 assert_contains "$script_src" '"OOONANA_PERSIST"'
-assert_contains "$script_src" 'blkid -s TYPE -o value'
+assert_contains "$script_src" 'fs_type="$(blkid_value TYPE "$candidate"'
+assert_not_contains "$script_src" 'blkid -s'
 assert_contains "$script_src" '"ext4"'
 assert_contains "$script_src" 'mount -t ext4 -o rw "$candidate" /persist'
 assert_contains "$script_src" '/persist/overlay/upper'
@@ -163,6 +165,26 @@ assert_contains "$script_src" "rtw89"
 assert_contains "$script_src" '[ -e /proc/sys/kernel/hotplug ]'
 assert_contains "$script_src" 'suid,dev,exec,lowerdir='
 assert_contains "$script_src" 'mount -t tmpfs -o mode=0755 tmpfs /cow'
+
+blkid_function="$(awk '
+  /^blkid_value\(\) \{/ { capture=1 }
+  capture { print }
+  capture && /^}$/ { exit }
+' "$SCRIPT")"
+[[ -n "$blkid_function" ]] || fail "could not extract blkid parser"
+eval "$blkid_function"
+blkid() {
+  case "$1" in
+    /dev/sr0) printf '/dev/sr0: LABEL="OOONANAUSB" TYPE="iso9660"\n' ;;
+    /dev/sdb2) printf '/dev/sdb2: LABEL="OOONANA_PERSIST" UUID="test" TYPE="ext4"\n' ;;
+  esac
+}
+[[ "$(blkid_value TYPE /dev/sr0)" == "iso9660" ]] || fail "BusyBox TYPE parsing failed"
+[[ "$(blkid_value LABEL /dev/sr0)" == "OOONANAUSB" ]] || fail "BusyBox LABEL parsing failed"
+[[ "$(blkid_value TYPE /dev/sdb2)" == "ext4" ]] || fail "persistence TYPE parsing failed"
+[[ "$(blkid_value LABEL /dev/sdb2)" == "OOONANA_PERSIST" ]] || fail "persistence LABEL parsing failed"
+[[ -z "$(blkid_value UUID /dev/sr0 2>/dev/null || true)" ]] || fail "missing blkid key should be empty"
+unset -f blkid blkid_value
 
 kernel_fragment="$(<"$ROOT/configs/kernel/ooonana-minimal-x86_64.fragment")"
 assert_contains "$kernel_fragment" "CONFIG_BLK_DEV_LOOP=y"
