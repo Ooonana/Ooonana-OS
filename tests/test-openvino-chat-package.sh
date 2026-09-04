@@ -28,8 +28,30 @@ assert_contains() {
 
 source_text="$(<"$SOURCE/src/openvino_chat/cli.py")"
 settings_text="$(<"$SOURCE/src/openvino_chat/settings.py")"
+pyproject_text="$(<"$SOURCE/pyproject.toml")"
 assert_contains "$source_text" 'choices=["GPU", "CPU"]'
 assert_contains "$settings_text" '"ornith"'
+assert_contains "$pyproject_text" 'version = "0.1.5"'
+
+PYTHONPATH="$SOURCE/src" python3 - <<'PY'
+import os
+
+from openvino_chat.api import _api_url, _health_payload
+from openvino_chat.perf import _parse_linux_meminfo
+from openvino_chat.tools import TOOL_DEFINITIONS, _parse_search_results
+
+assert _api_url("::1", 11435, "/health") == "http://[::1]:11435/health"
+assert _health_payload({}) is None
+assert _parse_linux_meminfo("MemTotal: 100 kB\nMemAvailable: 40 kB\n") == (102400, 40960)
+results = _parse_search_results(
+    '<a class="result-link" href="https://example.com">Example</a>'
+    '<td class="result-snippet">Safe result</td>'
+)
+assert results == [("Example", "https://example.com", "Safe result")]
+shell_tool = next(item for item in TOOL_DEFINITIONS if item["function"]["name"] == "shell")
+command_help = shell_tool["function"]["parameters"]["properties"]["command"]["description"]
+assert command_help == ("PowerShell command." if os.name == "nt" else "POSIX shell command.")
+PY
 
 setup_dry="$("$PAYLOAD/usr/bin/ooonana-openvino-setup" --dry-run)"
 assert_contains "$setup_dry" "Ubuntu Python venv + openvino-genai"
@@ -53,10 +75,10 @@ assert_contains "$launcher_text" "--unshare-uts"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-built="$(bash "$BUILDER" --out-dir "$tmp/repo" --version 0.1.3)"
+built="$(bash "$BUILDER" --out-dir "$tmp/repo" --version 0.1.5)"
 assert_contains "$built" "openvino-chat.pkg"
 [[ -f "$tmp/repo/openvino-chat.pkg" ]] || fail "missing package metadata"
-[[ -f "$tmp/repo/archives/openvino-chat-0.1.3.tar.gz" ]] || fail "missing package archive"
+[[ -f "$tmp/repo/archives/openvino-chat-0.1.5.tar.gz" ]] || fail "missing package archive"
 
 metadata="$(<"$tmp/repo/openvino-chat.pkg")"
 assert_contains "$metadata" 'OOONANA_PKG_ID="openvino-chat"'
@@ -64,7 +86,7 @@ assert_contains "$metadata" 'OOONANA_PKG_DEPS="bubblewrap xz curl ca-certificate
 assert_contains "$metadata" "Offline Ooonana AI"
 assert_contains "$metadata" "intel gpu cpu"
 
-contents="$(tar -tzf "$tmp/repo/archives/openvino-chat-0.1.3.tar.gz")"
+contents="$(tar -tzf "$tmp/repo/archives/openvino-chat-0.1.5.tar.gz")"
 assert_contains "$contents" "./usr/bin/openvino"
 assert_contains "$contents" "./usr/bin/ooonana-openvino-setup"
 assert_contains "$contents" "./usr/lib/ooonana/openvino-chat/src/openvino_chat/cli.py"

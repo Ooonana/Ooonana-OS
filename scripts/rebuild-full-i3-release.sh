@@ -13,7 +13,9 @@ RUN_BOOT_MATRIX=1
 PREFLIGHT_ONLY=0
 RESUME_AFTER_ROOTFS=0
 RESUME_AFTER_ISO=0
-MIN_FREE_KB=$((20 * 1024 * 1024))
+BUILD_MIN_FREE_KB=$((8 * 1024 * 1024))
+STAGE_MIN_FREE_KB=$((20 * 1024 * 1024))
+KERNEL_MIN_FREE_KB=$((20 * 1024 * 1024))
 
 usage() {
   cat <<'USAGE'
@@ -148,7 +150,7 @@ kernel_cache_matches_fragment() {
       KERNEL_CACHE_ERROR="cached kernel differs from requested option: $kernel_option"
       return 1
     fi
-  done < <(grep -E '^CONFIG_[A-Z0-9_]+=' "$KERNEL_FRAGMENT")
+  done < <(grep -E '^(CONFIG_[A-Z0-9_]+=.*|# CONFIG_[A-Z0-9_]+ is not set)$' "$KERNEL_FRAGMENT")
   return 0
 }
 
@@ -167,7 +169,7 @@ refresh_cached_kernel() {
   mkdir -p "$KERNEL_WORK_DIR"
   available_kb="$(df -Pk "$KERNEL_WORK_DIR" | awk 'NR == 2 { print $4 }')"
   [[ "$available_kb" =~ ^[0-9]+$ ]] || die "cannot read kernel work disk space"
-  (( available_kb >= MIN_FREE_KB )) ||
+  (( available_kb >= KERNEL_MIN_FREE_KB )) ||
     die "need at least 20 GiB free for kernel work: $KERNEL_WORK_DIR"
 
   bash "$ROOT/scripts/fetch-kernel-source.sh" \
@@ -246,10 +248,10 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
 
   available_kb="$(df -Pk "$BUILD_DIR" | awk 'NR == 2 { print $4 }')"
   [[ "$available_kb" =~ ^[0-9]+$ ]] || die "cannot read build disk space"
-  (( available_kb >= MIN_FREE_KB )) || die "need at least 20 GiB free in $BUILD_DIR"
+  (( available_kb >= BUILD_MIN_FREE_KB )) || die "need at least 8 GiB free in $BUILD_DIR"
   stage_available_kb="$(df -Pk "$(dirname "$STAGE_DIR")" | awk 'NR == 2 { print $4 }')"
   [[ "$stage_available_kb" =~ ^[0-9]+$ ]] || die "cannot read stage disk space"
-  (( stage_available_kb >= MIN_FREE_KB )) || die "need at least 20 GiB free for stage: $STAGE_DIR"
+  (( stage_available_kb >= STAGE_MIN_FREE_KB )) || die "need at least 20 GiB free for stage: $STAGE_DIR"
   if [[ "$kernel_refresh_needed" -eq 1 ]]; then
     refresh_cached_kernel
   fi

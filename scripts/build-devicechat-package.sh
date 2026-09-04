@@ -3,8 +3,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR=""
-VERSION="0.1.0"
-SOURCE_ARCHIVE="${OOONANA_DEVICECHAT_SOURCE:-$ROOT/packages/devicechat/source/devicechat-0.1.0.tgz}"
+VERSION="0.1.1"
+SOURCE_ARCHIVE="${OOONANA_DEVICECHAT_SOURCE:-$ROOT/packages/devicechat/source/devicechat-0.1.1.tgz}"
 NPM_BIN="${OOONANA_DEVICECHAT_NPM:-npm}"
 DRY_RUN=0
 
@@ -16,7 +16,7 @@ Usage:
   scripts/build-devicechat-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER      Package version (default: 0.1.0)
+  --version VER      Package version (default: 0.1.1)
   --source PATH      DeviceChat npm tarball
   --npm PATH         npm command used to install production dependencies
   --dry-run          Print resolved package details

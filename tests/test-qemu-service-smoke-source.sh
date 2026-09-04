@@ -20,6 +20,10 @@ source_text="$(<"$SCRIPT")"
   fail "service smoke does not apply configured timeout"
 [[ "$source_text" == *'OOONANA_QEMU_ACCEL'* ]] ||
   fail "service smoke accelerator is not configurable"
+[[ "$source_text" == *'OOONANA_QEMU_MEMORY:-1536'* ]] ||
+  fail "service smoke memory is not configurable"
+[[ "$source_text" == *'-m "$QEMU_MEMORY"'* ]] ||
+  fail "service smoke does not apply configured memory"
 [[ "$source_text" == *'QEMU_ACCEL=kvm'* ]] ||
   fail "service smoke does not use available KVM"
 [[ "$source_text" == *'QEMU_ACCEL=tcg,thread=multi'* ]] ||

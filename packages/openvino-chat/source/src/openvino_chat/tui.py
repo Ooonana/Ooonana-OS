@@ -22,6 +22,13 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from openvino_chat.tasks import has_visible_tasks
+from openvino_chat.visuals import (
+    QUACK_PORTRAIT,
+    QUACK_PORTRAIT_SMALL,
+    QUACK_PORTRAIT_TINY,
+    animate_quack_portrait,
+    render_speech_bubble,
+)
 
 # Module-level flag consulted by ``cli._can_use_fullscreen_picker`` so pickers
 # fall back to inline listing while the persistent TUI owns the screen.
@@ -46,6 +53,17 @@ CYAN = "\x1b[36m"
 YELLOW = "\x1b[33m"
 BLUE = "\x1b[34m"
 RED = "\x1b[31m"
+ORANGE = "\x1b[38;5;208m"
+WHITE = "\x1b[97m"
+
+_SAMPLING_FIELDS = (
+    ("temperature", 0.1, 0.0, 2.0),
+    ("top_p", 0.05, 0.0, 1.0),
+    ("top_k", 1.0, 1.0, 1000.0),
+    ("min_p", 0.05, 0.0, 1.0),
+    ("presence_penalty", 0.1, -2.0, 2.0),
+    ("repetition_penalty", 0.05, 0.01, 2.0),
+)
 
 _ANSI_ESCAPE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
@@ -71,11 +89,15 @@ class _MutableRegion:
 class ChatBufferCheckpoint:
     epoch: int
     segment_count: int
+    quack_user: str = ""
+    quack_speech: str = ""
 
 
 @dataclass(frozen=True)
 class ChatBufferState:
     segments: tuple[str, ...]
+    quack_user: str = ""
+    quack_speech: str = ""
 
 
 class ChatBuffer:
@@ -87,6 +109,18 @@ class ChatBuffer:
         self._dirty = True
         self._snapshot = ""
         self._epoch = 0
+        self._duck_theme = False
+        self._quack_user = ""
+        self._quack_speech = ""
+
+    @property
+    def duck_theme(self) -> bool:
+        return self._duck_theme
+
+    def set_duck_theme(self, enabled: bool) -> None:
+        with self._lock:
+            self._duck_theme = bool(enabled)
+            self._dirty = True
 
     def append(self, text: str) -> None:
         if not text:
@@ -105,11 +139,14 @@ class ChatBuffer:
                 "",
             )
             spacer = "" if not tail or tail.endswith("\n\n") else "\n" if tail.endswith("\n") else "\n\n"
-            self._segments.append(f"{spacer}> {prompt}\n")
+            self._segments.append(f"{spacer}{BLUE}> {RESET}{prompt}\n")
+            self._quack_user = str(prompt).strip()
+            self._quack_speech = ""
             self._dirty = True
 
     def begin_assistant(self) -> None:
-        self.append(f"{GREEN}> {RESET}")
+        accent = ORANGE if self._duck_theme else GREEN
+        self.append(f"{accent}> {RESET}")
 
     def append_system(self, text: str) -> None:
         value = str(text)
@@ -122,16 +159,37 @@ class ChatBuffer:
             )
             spacer = "" if not tail or tail.endswith("\n\n") else "\n" if tail.endswith("\n") else "\n\n"
             suffix = "" if value.endswith("\n") else "\n"
-            self._segments.append(
-                f"{spacer}{CYAN}openvino:{RESET} {value}{suffix}"
-            )
+            accent = ORANGE if self._duck_theme else CYAN
+            label = "Quack" if self._duck_theme else "openvino"
+            self._segments.append(f"{spacer}{accent}{label}:{RESET} {value}{suffix}")
+            if self._duck_theme:
+                self._quack_speech = value.strip()
             self._dirty = True
+
+    def begin_quack_response(self) -> None:
+        with self._lock:
+            self._quack_speech = ""
+            self._dirty = True
+
+    def append_quack_response(self, text: str) -> None:
+        if not text:
+            return
+        with self._lock:
+            self._quack_speech += str(text)
+            if len(self._quack_speech) > 1600:
+                self._quack_speech = "..." + self._quack_speech[-1597:]
+            self._dirty = True
+
+    def quack_dialogue(self) -> tuple[str, str]:
+        with self._lock:
+            return self._quack_user, self._quack_speech
 
     def append_tool(self, name: str, args_text: str) -> None:
         self.append(f"\n{GRAY}[tool] {name}  {args_text}{RESET}\n")
 
     def append_status(self, label: str) -> None:
-        self.append(f"\n{CYAN}[{label}]{RESET} ")
+        accent = ORANGE if self._duck_theme else CYAN
+        self.append(f"\n{accent}[{label}]{RESET} ")
 
     def append_styled(self, text: str, style: str | None = None, end: str = "") -> None:
         value = text + end
@@ -170,18 +228,27 @@ class ChatBuffer:
     def clear(self) -> None:
         with self._lock:
             self._segments.clear()
+            self._quack_user = ""
+            self._quack_speech = ""
             self._dirty = True
             self._epoch += 1
 
     def replace(self, text: str) -> None:
         with self._lock:
             self._segments[:] = [text] if text else []
+            self._quack_user = ""
+            self._quack_speech = ""
             self._dirty = True
             self._epoch += 1
 
     def checkpoint(self) -> ChatBufferCheckpoint:
         with self._lock:
-            return ChatBufferCheckpoint(self._epoch, len(self._segments))
+            return ChatBufferCheckpoint(
+                self._epoch,
+                len(self._segments),
+                self._quack_user,
+                self._quack_speech,
+            )
 
     def capture_checkpoint(self, checkpoint: ChatBufferCheckpoint) -> ChatBufferState:
         with self._lock:
@@ -191,7 +258,11 @@ class ChatBuffer:
                 _segment_text(segment)
                 for segment in self._segments[: checkpoint.segment_count]
             )
-            return ChatBufferState(segments)
+            return ChatBufferState(
+                segments,
+                checkpoint.quack_user,
+                checkpoint.quack_speech,
+            )
 
     def restore_checkpoint(
         self,
@@ -202,8 +273,12 @@ class ChatBuffer:
             if state is not None:
                 self._segments[:] = list(state.segments)
                 self._epoch = checkpoint.epoch
+                self._quack_user = state.quack_user
+                self._quack_speech = state.quack_speech
             elif checkpoint.epoch == self._epoch and checkpoint.segment_count <= len(self._segments):
                 del self._segments[checkpoint.segment_count :]
+                self._quack_user = checkpoint.quack_user
+                self._quack_speech = checkpoint.quack_speech
             else:
                 return False
             self._dirty = True
@@ -235,6 +310,20 @@ class ChatBuffer:
                     break
         rendered = "".join(reversed(parts))
         return _fit_visible_tail(rendered, max_rows, int(width or 0))
+
+    def render_conversation_tail(self, max_rows: int, width: int | None = None) -> str:
+        """Return chat turns without the startup banner."""
+        rendered = self.render()
+        starts = []
+        colored_user = rendered.find(f"{BLUE}> {RESET}")
+        if colored_user >= 0:
+            starts.append(colored_user)
+        plain_user = rendered.find("\n> ")
+        if plain_user >= 0:
+            starts.append(plain_user + 1)
+        if not starts:
+            return "No conversation yet."
+        return _fit_visible_tail(rendered[min(starts) :], max_rows, int(width or 0))
 
 
 def _segment_text(segment: str | _MutableRegion) -> str:
@@ -458,6 +547,7 @@ def _styled(text: str, style: str | None) -> str:
         "blue": BLUE,
         "yellow": YELLOW,
         "red": RED,
+        "orange": ORANGE,
     }.get(style or "")
     return f"{ansi}{text}{RESET}" if ansi else text
 
@@ -477,7 +567,12 @@ class TuiResponseStream:
         self.invalidate = invalidate
         self.fragments: list[tuple[str, str | None]] = []
         self.region: int | None = None
-        self.inner = ResponseStream(writer=self._write, phase_callback=phase_callback)
+        self._quack_started = False
+        self.inner = ResponseStream(
+            writer=self._write,
+            phase_callback=phase_callback,
+            answer_style="orange" if buffer.duck_theme else "green",
+        )
 
     def write(self, token: str) -> None:
         self.inner.write(token)
@@ -489,6 +584,7 @@ class TuiResponseStream:
             self.invalidate()
         self.fragments.clear()
         self.region = None
+        self._quack_started = False
 
     def _write(self, text: str, style: str | None, end: str) -> None:
         if self.region is None:
@@ -496,6 +592,11 @@ class TuiResponseStream:
         value = text + end
         self.fragments.append((value, style))
         self.buffer.append_region(self.region, _styled(value, style))
+        if self.buffer.duck_theme and style is None and value:
+            if not self._quack_started:
+                self.buffer.begin_quack_response()
+                self._quack_started = True
+            self.buffer.append_quack_response(value)
         self.invalidate()
 
 
@@ -588,11 +689,19 @@ class TuiStatusMonitor:
     def set(self, label: str) -> None:
         self.mediator.set_operation(label)
 
+    def set_tool(self, name: str) -> None:
+        from openvino_chat.ui import status_label
+
+        self.mediator.set_operation(status_label(name), detail=name)
+
     def update(self, label: str) -> None:
         self.mediator.update_operation(label)
 
     def clear(self, refresh: bool = True) -> None:
         self.mediator.clear_operation(refresh=refresh)
+
+    def notice(self, text: str, seconds: float = 3.0) -> None:
+        self.mediator.show_notice(text, seconds=seconds)
 
     def refresh(self) -> None:
         self.mediator.invalidate()
@@ -654,6 +763,7 @@ class _TuiInputMediator:
         self._status_stop = threading.Event()
         self._status_thread: threading.Thread | None = None
         self._operation_label: str | None = None
+        self._operation_detail = ""
         self._operation_started = 0.0
         self._model_menu_active = False
         self._model_menu_items: list[dict[str, Any]] = []
@@ -679,6 +789,12 @@ class _TuiInputMediator:
         self._thinking_menu_result: str | None = None
         self._thinking_menu_event = threading.Event()
         self._thinking_menu_kind = "thinking"
+        self._sampling_menu_active = False
+        self._sampling_menu_values: dict[str, float | int] = {}
+        self._sampling_menu_initial: dict[str, float | int] = {}
+        self._sampling_menu_index = 0
+        self._sampling_menu_result: dict[str, float | int] | None = None
+        self._sampling_menu_event = threading.Event()
         self._permission_menu_active = False
         self._permission_menu_values = ["ask", "allow"]
         self._permission_menu_current = "ask"
@@ -701,6 +817,7 @@ class _TuiInputMediator:
         self._chat_view_height = 0
         self._chat_view_width = 0
         self._chat_scroll_lines = 0
+        self._chat_history_active = False
         self._chat_render_snapshot = ""
         self._chat_rows_text = ""
         self._chat_rows_width = 0
@@ -708,6 +825,44 @@ class _TuiInputMediator:
         self._mouse_scroll_enabled = False
         self._queued_input_prefill: str | None = None
         self._prefill_lock = threading.Lock()
+        self._duck_theme = False
+        self._side_panel_enabled = True
+        self._visual_panel_kind = ""
+        self._visual_panel_text = ""
+
+    def set_duck_theme(self, enabled: bool) -> None:
+        changed = self._duck_theme != bool(enabled)
+        self._duck_theme = bool(enabled)
+        if changed:
+            self._chat_scroll_lines = 0
+            self._chat_history_active = False
+        self.chat_buffer.set_duck_theme(self._duck_theme)
+        self.invalidate()
+
+    def set_side_panel(self, enabled: bool) -> None:
+        self._side_panel_enabled = bool(enabled)
+        self.invalidate()
+
+    @property
+    def side_panel_enabled(self) -> bool:
+        return self._side_panel_enabled
+
+    @property
+    def _theme_accent(self) -> str:
+        return ORANGE if self._duck_theme else CYAN
+
+    @property
+    def _theme_selection(self) -> str:
+        return YELLOW if self._duck_theme else GREEN
+
+    def _menu_header(self, title: str, hints: str) -> str:
+        return _menu_header(title, hints, self._theme_accent)
+
+    def _selected_row(self, row: str, selected: bool) -> str:
+        return _selected_row(row, selected, self._theme_selection)
+
+    def _style_command_bar(self, text: str) -> str:
+        return _style_command_bar(text, self._theme_accent, self._theme_selection)
 
     # -- worker side -------------------------------------------------------
 
@@ -776,8 +931,9 @@ class _TuiInputMediator:
     def should_stop(self) -> bool:
         return self._interrupted.is_set()
 
-    def set_operation(self, label: str) -> None:
+    def set_operation(self, label: str, detail: str = "") -> None:
         self._operation_label = label
+        self._operation_detail = str(detail).strip()
         self._operation_started = time.monotonic()
         self.invalidate()
 
@@ -786,13 +942,36 @@ class _TuiInputMediator:
             self.set_operation(label)
             return
         self._operation_label = label
+        self._operation_detail = ""
         self.invalidate()
 
     def clear_operation(self, refresh: bool = True) -> None:
         self._operation_label = None
+        self._operation_detail = ""
         self._operation_started = 0.0
         if refresh:
             self.invalidate()
+
+    def can_show_visual_panel(self) -> bool:
+        _rows, columns = self._output_dimensions()
+        return columns >= 96
+
+    def set_visual_panel(self, kind: str, text: str) -> None:
+        self._visual_panel_kind = str(kind).strip().lower()
+        self._visual_panel_text = str(text)
+        self.invalidate()
+
+    def clear_visual_panel(self) -> None:
+        self._visual_panel_kind = ""
+        self._visual_panel_text = ""
+        self.invalidate()
+
+    def dismiss_visual_panel(self) -> bool:
+        if not self._visual_panel_kind:
+            return False
+        self.clear_visual_panel()
+        self.show_notice("Visual dismissed")
+        return True
 
     def show_notice(self, text: str, seconds: float = 3.0) -> None:
         with self._notice_lock:
@@ -851,7 +1030,7 @@ class _TuiInputMediator:
         count = len(self._model_menu_items)
         position = f"  {self._model_menu_index + 1}/{count}" if count else ""
         lines = [
-            _menu_header(
+            self._menu_header(
                 f"Models{position}",
                 "Enter load  i install  d delete  u unload  Esc close",
             ),
@@ -873,7 +1052,7 @@ class _TuiInputMediator:
                 f"{marker} {name:<{name_width}} {str(item['state']):<9} "
                 f"{str(item['size']):>9}{active}{loaded}"
             )
-            lines.append(_selected_row(row, index == self._model_menu_index))
+            lines.append(self._selected_row(row, index == self._model_menu_index))
         selected = self._model_menu_items[self._model_menu_index]
         detail_width = max(8, columns - 9)
         lines.extend(
@@ -932,7 +1111,7 @@ class _TuiInputMediator:
         count = len(self._session_menu_items)
         position = f"  {self._session_menu_index + 1}/{count}" if count else ""
         lines = [
-            _menu_header(
+            self._menu_header(
                 f"Sessions{position}",
                 "Enter resume  d delete  n new  s save  Esc close",
             ),
@@ -949,7 +1128,7 @@ class _TuiInputMediator:
             marker = ">" if index == self._session_menu_index else " "
             active = " active" if item.get("active") else ""
             row = f"{marker} {item['name']}{active}"
-            lines.append(_selected_row(row, index == self._session_menu_index))
+            lines.append(self._selected_row(row, index == self._session_menu_index))
 
         selected = self._session_menu_items[self._session_menu_index]
         preview = str(selected.get("preview") or "(empty)")
@@ -1011,12 +1190,12 @@ class _TuiInputMediator:
             "u8": "balanced memory and accuracy",
             "f16": "largest cache; highest fidelity",
         }
-        lines = [_menu_header("KV cache", "Enter apply  Esc close"), ""]
+        lines = [self._menu_header("KV cache", "Enter apply  Esc close"), ""]
         for index, value in enumerate(self._kv_menu_values):
             marker = ">" if index == self._kv_menu_index else " "
             active = " current" if value == self._kv_menu_current else ""
             row = f"{marker} {value:<5} {descriptions[value]}{active}"
-            lines.append(_selected_row(row, index == self._kv_menu_index))
+            lines.append(self._selected_row(row, index == self._kv_menu_index))
         lines.extend(["", "Changing precision unloads current model. Next prompt reloads it."])
         return "\n".join(lines)
 
@@ -1035,6 +1214,69 @@ class _TuiInputMediator:
     ) -> str | None:
         self._thinking_menu_kind = "effort"
         return self._request_thinking_menu(current, values)
+
+    def request_duck_picker(self, current: str) -> str | None:
+        self._thinking_menu_kind = "duck"
+        return self._request_thinking_menu(current, ("on", "off"))
+
+    def request_sampling_editor(
+        self,
+        values: dict[str, float | int],
+    ) -> dict[str, float | int] | None:
+        self._sampling_menu_values = dict(values)
+        self._sampling_menu_initial = dict(values)
+        self._sampling_menu_index = 0
+        self._sampling_menu_result = None
+        self._sampling_menu_event.clear()
+        self._sampling_menu_active = True
+        self._busy.set()
+        self.invalidate()
+        self._sampling_menu_event.wait()
+        return self._sampling_menu_result
+
+    def _move_sampling_selection(self, amount: int) -> None:
+        self._sampling_menu_index = max(
+            0,
+            min(len(_SAMPLING_FIELDS) - 1, self._sampling_menu_index + amount),
+        )
+        self.invalidate()
+
+    def _adjust_sampling_value(self, direction: int) -> None:
+        name, step, minimum, maximum = _SAMPLING_FIELDS[self._sampling_menu_index]
+        value = float(self._sampling_menu_values.get(name, minimum))
+        value = max(minimum, min(maximum, value + step * direction))
+        self._sampling_menu_values[name] = (
+            int(round(value)) if name == "top_k" else round(value, 4)
+        )
+        self.invalidate()
+
+    def _finish_sampling_editor(self, accept: bool) -> None:
+        self._sampling_menu_result = dict(self._sampling_menu_values) if accept else None
+        self._sampling_menu_active = False
+        self._busy.clear()
+        self._sampling_menu_event.set()
+        self.invalidate()
+
+    def _sampling_menu_text(self) -> str:
+        lines = [
+            self._menu_header(
+                "Custom sampling",
+                "Up/Down select  Left/Right adjust  r reset  Enter apply  Esc close",
+            ),
+            "",
+        ]
+        for index, (name, _step, _minimum, _maximum) in enumerate(_SAMPLING_FIELDS):
+            marker = ">" if index == self._sampling_menu_index else " "
+            value = self._sampling_menu_values.get(name, "-")
+            row = f"{marker} {name:<20} {value}"
+            lines.append(self._selected_row(row, index == self._sampling_menu_index))
+        lines.extend(
+            [
+                "",
+                "Exact values: /effort custom temperature=0.8 top_p=0.95 top_k=20",
+            ]
+        )
+        return "\n".join(lines)
 
     def _request_thinking_menu(
         self,
@@ -1073,11 +1315,19 @@ class _TuiInputMediator:
         self.invalidate()
 
     def _thinking_menu_text(self) -> str:
-        if self._thinking_menu_kind == "effort":
+        if self._thinking_menu_kind == "duck":
+            descriptions = {
+                "on": "Loud Quack personality for every task",
+                "off": "Normal assistant personality",
+            }
+            title = "Quack mode"
+            detail = "Works in chat, writing, research, planning, code, and tools. Structured content stays clean."
+        elif self._thinking_menu_kind == "effort":
             descriptions = {
                 "low": "Precise model-card preset; lower randomness",
                 "medium": "Choose model-card preset from task type",
                 "high": "General reasoning preset; broader sampling",
+                "custom": "Manually set temperature and sampling values",
             }
             title = "Generation effort"
             detail = "Changes sampling. /thinking controls model-native reasoning."
@@ -1095,12 +1345,12 @@ class _TuiInputMediator:
                 if "xhigh" in self._thinking_menu_values
                 else "This model chat template supports only native on/off control."
             )
-        lines = [_menu_header(title, "Enter apply  Esc close"), ""]
+        lines = [self._menu_header(title, "Enter apply  Esc close"), ""]
         for index, value in enumerate(self._thinking_menu_values):
             marker = ">" if index == self._thinking_menu_index else " "
             active = " current" if value == self._thinking_menu_current else ""
             row = f"{marker} {value:<6} {descriptions.get(value, 'Model-native mode')}{active}"
-            lines.append(_selected_row(row, index == self._thinking_menu_index))
+            lines.append(self._selected_row(row, index == self._thinking_menu_index))
         lines.extend(["", detail])
         return "\n".join(lines)
 
@@ -1139,12 +1389,12 @@ class _TuiInputMediator:
             "ask": "Confirm write, shell, and risky tool actions",
             "allow": "Run tool actions without confirmation",
         }
-        lines = [_menu_header("Permissions", "Enter apply  Esc close"), ""]
+        lines = [self._menu_header("Permissions", "Enter apply  Esc close"), ""]
         for index, value in enumerate(self._permission_menu_values):
             marker = ">" if index == self._permission_menu_index else " "
             active = " current" if value == self._permission_menu_current else ""
             row = f"{marker} {value:<5} {descriptions[value]}{active}"
-            lines.append(_selected_row(row, index == self._permission_menu_index))
+            lines.append(self._selected_row(row, index == self._permission_menu_index))
         return "\n".join(lines)
 
     def request_tool_approval(self, name: str, args: dict[str, Any]) -> bool:
@@ -1179,7 +1429,7 @@ class _TuiInputMediator:
             args = args[:177] + "..."
         return "\n".join(
             [
-                _menu_header("Permission Required", "Enter/y allow  Esc/n deny"),
+                self._menu_header("Permission Required", "Enter/y allow  Esc/n deny"),
                 "",
                 f"{YELLOW}[tool]{RESET} {BOLD}{self._approval_request_name}{RESET}",
                 f"{GRAY}{args}{RESET}",
@@ -1262,6 +1512,165 @@ class _TuiInputMediator:
         )
         return _join_visual_rows(selected)
 
+    def _quack_scene_text(self, width: int, height: int) -> str:
+        width = max(24, int(width))
+        height = max(1, int(height))
+        frame = int(time.monotonic() * 4)
+        user_text, speech = self.chat_buffer.quack_dialogue()
+        operation = str(self._operation_label or "").strip()
+        tool_operation = operation in {
+            "running command",
+            "running tool",
+            "searching web",
+            "searching history",
+        }
+        if tool_operation:
+            bubble_text = " | ".join(
+                part for part in (self._operation_detail, operation) if part
+            )
+            bubble_label = "Tool"
+        elif speech:
+            bubble_text = speech
+            bubble_label = "Quack"
+        elif operation:
+            bubble_text = operation.upper()
+            bubble_label = "Quack"
+        elif user_text:
+            bubble_text = user_text
+            bubble_label = "You"
+        else:
+            bubble_text = "QUACK. Your move."
+            bubble_label = "Quack"
+
+        has_history = (
+            bool(self.chat_buffer.render().strip())
+            and not self._show_conversation_side()
+        )
+        history_reserve = min(8, max(3, height // 5)) if has_history else 0
+        scene_limit = max(1, height - history_reserve)
+        user_rows = 2 if user_text else 0
+        minimum_chrome = 5 + user_rows
+        if width >= 64 and len(QUACK_PORTRAIT.splitlines()) + minimum_chrome <= scene_limit:
+            portrait = QUACK_PORTRAIT
+            default_bubble_lines = 6
+        elif width >= 40 and len(QUACK_PORTRAIT_SMALL.splitlines()) + minimum_chrome <= scene_limit:
+            portrait = QUACK_PORTRAIT_SMALL
+            default_bubble_lines = 5
+        else:
+            portrait = QUACK_PORTRAIT_TINY
+            default_bubble_lines = 3
+        art = animate_quack_portrait(portrait, frame, speaking=bool(operation))
+        art_lines = art.splitlines()
+        bubble_lines_available = max(
+            1,
+            scene_limit - len(art_lines) - 4 - user_rows,
+        )
+        bubble = render_speech_bubble(
+            bubble_text,
+            label=bubble_label,
+            width=min(84, width - 4),
+            max_lines=min(default_bubble_lines, bubble_lines_available),
+        )
+        bubble_lines = bubble.splitlines()
+        bubble_width = max((len(line) for line in bubble_lines), default=0)
+        art_width = max((len(line) for line in art_lines), default=0)
+
+        def center_block_line(line: str, block_width: int) -> str:
+            return (" " * max(0, (width - block_width) // 2)) + line
+
+        rendered: list[str] = []
+        for line in bubble_lines:
+            centered = center_block_line(line, bubble_width)
+            rendered.append(f"{ORANGE}{BOLD}{centered}{RESET}")
+        rendered.append("")
+        for row_index, line in enumerate(art_lines):
+            centered = center_block_line(line, art_width)
+            rendered.append(self._quack_art_line(centered, row_index, art_lines))
+
+        if user_text:
+            user_line = _plain_display_head(
+                _ANSI_ESCAPE.sub("", user_text).replace("\n", " "),
+                max(8, width - 6),
+            )
+            rendered.append("")
+            user_width = 2 + _display_width(user_line)
+            user_padding = " " * max(0, (width - user_width) // 2)
+            rendered.append(f"{user_padding}{BLUE}> {RESET}{user_line}")
+
+        padding = max(0, scene_limit - len(rendered))
+        top = padding // 2
+        bottom = padding - top
+        return "\n".join([*("" for _ in range(top)), *rendered, *("" for _ in range(bottom))])
+
+    @staticmethod
+    def _quack_art_line(
+        line: str,
+        row_index: int = 0,
+        portrait_lines: list[str] | None = None,
+    ) -> str:
+        source_lines = portrait_lines or [line]
+        source = source_lines[min(max(0, row_index), len(source_lines) - 1)]
+
+        def central_span(value: str) -> re.Match[str] | None:
+            spans = list(re.finditer(r"\S+", value))
+            if not spans:
+                return None
+            center = len(value) / 2
+            return min(
+                spans,
+                key=lambda match: abs(((match.start() + match.end()) / 2) - center),
+            )
+
+        upper_limit = max(1, len(source_lines) // 2)
+        beak_start = next(
+            (index for index, value in enumerate(source_lines[:upper_limit]) if "====" in value),
+            -1,
+        )
+        beak_end = beak_start
+        if beak_start >= 0:
+            for index in range(beak_start + 1, min(len(source_lines), beak_start + 5)):
+                beak_end = index
+                span = central_span(source_lines[index])
+                if span is None or "=" not in span.group():
+                    break
+        leg_start = next(
+            (
+                index
+                for index, value in enumerate(source_lines[len(source_lines) // 2 :], len(source_lines) // 2)
+                if "+" in value and len(list(re.finditer(r"\S+", value))) >= 2
+            ),
+            len(source_lines),
+        )
+        beak_span: tuple[int, int] | None = None
+        if beak_start <= row_index <= beak_end:
+            selected = central_span(source)
+            if selected is not None:
+                offset = max(0, len(line) - len(source))
+                beak_span = (offset + selected.start(), offset + selected.end())
+        eye_row = row_index == beak_start - 1
+        eye_columns: set[int] = set()
+        if eye_row:
+            offset = max(0, len(line) - len(source))
+            for match in re.finditer(r"(?:[%#@]{2}|-{2})", source):
+                eye_columns.update(range(offset + match.start(), offset + match.end()))
+        chunks: list[str] = []
+        active = ""
+        for column, char in enumerate(line):
+            if column in eye_columns:
+                color = f"{WHITE}{BOLD}"
+            elif row_index >= leg_start and not char.isspace():
+                color = f"{ORANGE}{BOLD}"
+            elif beak_span is not None and beak_span[0] <= column < beak_span[1]:
+                color = f"{ORANGE}{BOLD}"
+            else:
+                color = f"{YELLOW}{BOLD}"
+            if color != active:
+                chunks.append(color)
+                active = color
+            chunks.append(char)
+        chunks.append(RESET)
+        return "".join(chunks)
+
     def _chat_visual_rows(self, width: int) -> list[list[tuple[str, str]]]:
         text = self.chat_buffer.render()
         if width != self._chat_rows_width:
@@ -1277,7 +1686,13 @@ class _TuiInputMediator:
                 self._chat_rows = _ansi_visual_rows(text, width)
         self._chat_rows_text = text
         self._chat_rows_width = width
-        return self._chat_rows
+        if not self._duck_theme or self._history_view_open():
+            return self._chat_rows
+        max_rows, _columns = self._chat_dimensions()
+        scene = _ansi_visual_rows(self._quack_scene_text(width, max_rows), width)
+        if self._show_conversation_side():
+            return scene
+        return [*self._chat_rows, [], *scene]
 
     def _render_chat_source(self) -> str:
         return "\n".join(
@@ -1287,13 +1702,21 @@ class _TuiInputMediator:
 
     def _move_chat_scroll(self, rows: int) -> None:
         max_rows, width = self._chat_dimensions()
-        visual_rows = self._chat_visual_rows(width)
+        self._chat_visual_rows(width)
+        if self._duck_theme and rows > 0:
+            self._chat_history_active = True
+        visual_rows = self._chat_rows if self._duck_theme else self._chat_visual_rows(width)
         max_scroll = max(0, len(visual_rows) - max_rows)
         self._chat_scroll_lines = max(
             0,
             min(max_scroll, self._chat_scroll_lines + rows),
         )
+        if self._duck_theme and rows < 0 and self._chat_scroll_lines == 0:
+            self._chat_history_active = False
         self.invalidate()
+
+    def _history_view_open(self) -> bool:
+        return self._chat_history_active or self._chat_scroll_lines > 0
 
     def _chat_page_size(self) -> int:
         return max(1, self._chat_dimensions()[0] - 1)
@@ -1357,7 +1780,10 @@ class _TuiInputMediator:
             items.append((label.replace("_", " "), value))
         if self._operation_label:
             elapsed = max(0, int(time.monotonic() - self._operation_started))
-            operation = f"{self._operation_label} {elapsed}s"
+            operation_name = " | ".join(
+                part for part in (self._operation_detail, self._operation_label) if part
+            )
+            operation = f"{operation_name} {elapsed}s"
             for index, (label, _value) in enumerate(items):
                 if label.lower().strip() == "state":
                     items[index] = (label, operation)
@@ -1410,7 +1836,11 @@ class _TuiInputMediator:
     ) -> list[tuple[str, str]]:
         frags: list[tuple[str, str]] = []
         if title:
-            frags.extend([("class:toolbar.title", " openvino "), ("", " ")])
+            if self._duck_theme:
+                identity = " Quack "
+            else:
+                identity = " openvino "
+            frags.extend([("class:toolbar.title", identity), ("", " ")])
         _rows, columns = self._output_dimensions()
         very_compact = columns < 68
         for label, value in items:
@@ -1451,12 +1881,15 @@ class _TuiInputMediator:
             if frags:
                 frags.append(("class:toolbar.sep", " | "))
             frags.append(("class:toolbar.value", "working..."))
-        if self._chat_scroll_lines:
+        if self._history_view_open():
             if frags:
                 frags.append(("class:toolbar.sep", " | "))
             frags.append(("class:toolbar.label", "history"))
             frags.append(("class:toolbar.sep", " "))
-            history = f"{self._chat_scroll_lines} up" if compact else f"{self._chat_scroll_lines} rows up"
+            if self._chat_scroll_lines:
+                history = f"{self._chat_scroll_lines} up" if compact else f"{self._chat_scroll_lines} rows up"
+            else:
+                history = "latest"
             frags.append(("class:toolbar.value", history))
 
     def _task_lines(self) -> list[str]:
@@ -1466,7 +1899,10 @@ class _TuiInputMediator:
             return []
         if not has_visible_tasks(text):
             return []
-        return [line.strip() for line in text.splitlines() if line.strip()]
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        if lines and all("[x]" in line.lower() for line in lines):
+            return []
+        return lines
 
     def _task_progress(self) -> tuple[int, int, str]:
         lines = self._task_lines()
@@ -1477,16 +1913,31 @@ class _TuiInputMediator:
 
     def _show_task_side(self) -> bool:
         _rows, columns = self._output_dimensions()
-        return bool(self._task_lines()) and columns >= 96
+        return (
+            self._side_panel_enabled
+            and not self._duck_theme
+            and not self._history_view_open()
+            and bool(self._task_lines())
+            and columns >= 96
+        )
 
     def _show_task_strip(self) -> bool:
         _rows, columns = self._output_dimensions()
-        return bool(self._task_lines()) and columns < 96
+        return (
+            self._side_panel_enabled
+            and not self._duck_theme
+            and not self._history_view_open()
+            and bool(self._task_lines())
+            and columns < 96
+        )
 
     def _task_panel_text(self) -> str:
         lines = self._task_lines()
         done, total, _next_task = self._task_progress()
-        rendered = [f"{CYAN}{BOLD} Tasks{RESET}  {GRAY}{done}/{total} done{RESET}", ""]
+        rendered = [
+            f"{self._theme_accent}{BOLD} Tasks{RESET}  {GRAY}{done}/{total} done{RESET}",
+            "",
+        ]
         pending_highlighted = False
         for line in lines:
             if "[x]" in line.lower():
@@ -1497,6 +1948,67 @@ class _TuiInputMediator:
             else:
                 rendered.append(line)
         return "\n".join(rendered)
+
+    def _show_chart_side(self) -> bool:
+        return self._show_visual_side() and self._visual_panel_kind == "chart"
+
+    def _show_visual_side(self) -> bool:
+        return (
+            self._duck_theme
+            and not self._history_view_open()
+            and self.can_show_visual_panel()
+            and bool(self._visual_panel_kind)
+            and bool(self._visual_panel_text.strip())
+        )
+
+    def _show_conversation_side(self) -> bool:
+        return (
+            self._side_panel_enabled
+            and self._duck_theme
+            and not self._history_view_open()
+            and self.can_show_visual_panel()
+        )
+
+    def _show_right_side(self) -> bool:
+        return (
+            self._show_visual_side()
+            or self._show_conversation_side()
+            or self._show_task_side()
+        )
+
+    def _chart_panel_text(self) -> str:
+        return self._visual_panel_text_rendered()
+
+    def _visual_panel_text_rendered(self) -> str:
+        title = {
+            "chart": "Chart",
+            "diagram": "Diagram",
+            "table": "Table",
+            "big": "Display",
+            "tilt": "Display",
+        }.get(self._visual_panel_kind, "Visual")
+        accent = ORANGE if self._duck_theme else CYAN
+        content = YELLOW if self._duck_theme else ""
+        lines = [f"{accent}{BOLD} {title}{RESET}  {GRAY}Esc dismiss{RESET}", ""]
+        lines.extend(f"{content}{line}{RESET}" for line in self._visual_panel_text.splitlines())
+        return "\n".join(lines)
+
+    def _visual_panel_height(self) -> int:
+        rows, _columns = self._output_dimensions()
+        desired = len(self._visual_panel_text.splitlines()) + 2
+        return max(4, min(desired, max(4, rows // 2)))
+
+    def _conversation_panel_text(self) -> str:
+        rows, columns = self._output_dimensions()
+        width = max(24, min(48, columns // 3) - 2)
+        history = self.chat_buffer.render_conversation_tail(
+            max(3, rows - 9),
+            width,
+        )
+        return (
+            f"{ORANGE}{BOLD} Conversation{RESET}  "
+            f"{GRAY}PgUp history | F6 wheel{RESET}\n\n{history}"
+        )
 
     def _task_strip_fragments(self) -> list[tuple[str, str]]:
         done, total, next_task = self._task_progress()
@@ -1545,7 +2057,10 @@ class _TuiInputMediator:
             with self._status_lock:
                 self._status_value = value
             self.invalidate()
-            if self._status_stop.wait(1.0):
+            animated = self._duck_theme and bool(
+                self._operation_label or not self._busy.is_set()
+            )
+            if self._status_stop.wait(0.25 if animated else 1.0):
                 return
 
     def _slash_command_bar(self, text: str) -> str:
@@ -1584,6 +2099,7 @@ class _TuiInputMediator:
                 self._session_menu_active,
                 self._kv_menu_active,
                 self._thinking_menu_active,
+                self._sampling_menu_active,
                 self._permission_menu_active,
                 self._approval_menu_active,
             )
@@ -1648,6 +2164,7 @@ class _TuiInputMediator:
         )
         from prompt_toolkit.layout.controls import FormattedTextControl
         from prompt_toolkit.layout.dimension import Dimension
+        from prompt_toolkit.styles import DynamicStyle
         from prompt_toolkit.widgets import TextArea
         from openvino_chat.cli import _prompt_style
 
@@ -1705,7 +2222,7 @@ class _TuiInputMediator:
         vertical_separator = Window(width=1, char="|", style="class:separator", always_hide_cursor=True)
         def _bar_text() -> str:
             try:
-                return _style_command_bar(self._slash_command_bar(self._input_area.text))
+                return self._style_command_bar(self._slash_command_bar(self._input_area.text))
             except Exception:
                 return ""
 
@@ -1769,6 +2286,17 @@ class _TuiInputMediator:
             filter=Condition(lambda: self._thinking_menu_active),
         )
 
+        sampling_menu = ConditionalContainer(
+            Window(
+                FormattedTextControl(lambda: ANSI(self._sampling_menu_text())),
+                height=lambda: self._popup_height(10, minimum=8),
+                wrap_lines=False,
+                always_hide_cursor=True,
+                style="class:model-menu",
+            ),
+            filter=Condition(lambda: self._sampling_menu_active),
+        )
+
         permission_menu = ConditionalContainer(
             Window(
                 FormattedTextControl(lambda: ANSI(self._permission_menu_text())),
@@ -1818,6 +2346,46 @@ class _TuiInputMediator:
             VSplit([vertical_separator, task_window]),
             filter=Condition(self._show_task_side),
         )
+        chart_window = Window(
+            FormattedTextControl(lambda: ANSI(self._visual_panel_text_rendered())),
+            height=self._visual_panel_height,
+            wrap_lines=False,
+            always_hide_cursor=True,
+            width=Dimension(min=28, preferred=40, max=52),
+            style="class:task",
+        )
+        chart_separator = Window(
+            width=1,
+            char="|",
+            style="class:separator",
+            always_hide_cursor=True,
+        )
+        chart_side = ConditionalContainer(
+            VSplit([chart_separator, chart_window]),
+            filter=Condition(self._show_visual_side),
+        )
+        conversation_window = Window(
+            FormattedTextControl(lambda: ANSI(self._conversation_panel_text())),
+            wrap_lines=True,
+            always_hide_cursor=True,
+            width=Dimension(min=28, preferred=40, max=52),
+            style="class:task",
+        )
+        conversation_window._mouse_handler = self._handle_chat_mouse
+        conversation_separator = Window(
+            width=1,
+            char="|",
+            style="class:separator",
+            always_hide_cursor=True,
+        )
+        conversation_side = ConditionalContainer(
+            VSplit([conversation_separator, conversation_window]),
+            filter=Condition(self._show_conversation_side),
+        )
+        right_side = ConditionalContainer(
+            HSplit([chart_side, conversation_side, task_side]),
+            filter=Condition(self._show_right_side),
+        )
         task_strip = ConditionalContainer(
             Window(
                 FormattedTextControl(self._task_strip_fragments),
@@ -1827,7 +2395,7 @@ class _TuiInputMediator:
             ),
             filter=Condition(self._show_task_strip),
         )
-        content = VSplit([chat_window, task_side], height=Dimension(weight=1))
+        content = VSplit([chat_window, right_side], height=Dimension(weight=1))
 
         prompt_window = Window(
             FormattedTextControl(lambda: [("class:input.prompt", self._prompt_text)]),
@@ -1858,6 +2426,7 @@ class _TuiInputMediator:
                 Float(content=session_menu, bottom=2, left=1, right=1),
                 Float(content=kv_menu, bottom=2, left=1, right=1),
                 Float(content=thinking_menu, bottom=2, left=1, right=1),
+                Float(content=sampling_menu, bottom=2, left=1, right=1),
                 Float(content=permission_menu, bottom=2, left=1, right=1),
                 Float(content=approval_menu, bottom=2, left=1, right=1),
             ],
@@ -1868,6 +2437,7 @@ class _TuiInputMediator:
         session_menu_active = Condition(lambda: self._session_menu_active)
         kv_menu_active = Condition(lambda: self._kv_menu_active)
         thinking_menu_active = Condition(lambda: self._thinking_menu_active)
+        sampling_menu_active = Condition(lambda: self._sampling_menu_active)
         permission_menu_active = Condition(lambda: self._permission_menu_active)
         approval_menu_active = Condition(lambda: self._approval_menu_active)
         menus_inactive = ~(
@@ -1875,6 +2445,7 @@ class _TuiInputMediator:
             | session_menu_active
             | kv_menu_active
             | thinking_menu_active
+            | sampling_menu_active
             | permission_menu_active
             | approval_menu_active
         )
@@ -1891,6 +2462,7 @@ class _TuiInputMediator:
             text = self._input_area.text
             self._input_area.text = ""
             self._chat_scroll_lines = 0
+            self._chat_history_active = False
             self._prompt_value = text
             self.notify_busy()
             self._prompt_event.set()
@@ -1915,6 +2487,8 @@ class _TuiInputMediator:
                 self._slash_navigation = False
                 self._slash_index = 0
                 self.invalidate()
+                return
+            if self._busy.is_set() and self.dismiss_visual_panel():
                 return
             if not self._busy.is_set():
                 self._interrupted.set()
@@ -1962,6 +2536,7 @@ class _TuiInputMediator:
         @keys.add("c-end", filter=menus_inactive)
         def _chat_latest(_event) -> None:
             self._chat_scroll_lines = 0
+            self._chat_history_active = False
             self.invalidate()
 
         @keys.add("f6")
@@ -2110,6 +2685,36 @@ class _TuiInputMediator:
         def _thinking_cancel(_event) -> None:
             self._finish_thinking_picker(False)
 
+        @keys.add("down", filter=sampling_menu_active)
+        def _sampling_down(_event) -> None:
+            self._move_sampling_selection(1)
+
+        @keys.add("up", filter=sampling_menu_active)
+        def _sampling_up(_event) -> None:
+            self._move_sampling_selection(-1)
+
+        @keys.add("right", filter=sampling_menu_active)
+        def _sampling_raise(_event) -> None:
+            self._adjust_sampling_value(1)
+
+        @keys.add("left", filter=sampling_menu_active)
+        def _sampling_lower(_event) -> None:
+            self._adjust_sampling_value(-1)
+
+        @keys.add("r", filter=sampling_menu_active)
+        def _sampling_reset(_event) -> None:
+            self._sampling_menu_values = dict(self._sampling_menu_initial)
+            self.invalidate()
+
+        @keys.add("enter", filter=sampling_menu_active)
+        def _sampling_apply(_event) -> None:
+            self._finish_sampling_editor(True)
+
+        @keys.add("escape", filter=sampling_menu_active)
+        @keys.add("c-c", filter=sampling_menu_active)
+        def _sampling_cancel(_event) -> None:
+            self._finish_sampling_editor(False)
+
         @keys.add("down", filter=permission_menu_active)
         def _permission_down(_event) -> None:
             self._move_permission_selection(1)
@@ -2146,7 +2751,7 @@ class _TuiInputMediator:
             refresh_interval=self.refresh_interval,
             min_redraw_interval=0.03,
             max_render_postpone_time=0.03,
-            style=_prompt_style(),
+            style=DynamicStyle(lambda: _prompt_style(self._duck_theme)),
         )
         self._app = app
         return app
@@ -2193,6 +2798,10 @@ def _compact_status_value(label: str, value: str, very_compact: bool) -> str:
             return f"{used}{used_unit}/{total}{total_unit} {percent}"
     if label == "proc ram":
         return re.sub(r"(?<=\d)\s+(?=[KMGTP]?B\b)", "", clean, flags=re.IGNORECASE)
+    if label == "ctx" and very_compact:
+        match = re.search(r"\((\d+%)\)", clean)
+        if match:
+            return match.group(1)
     return clean
 
 
@@ -2200,21 +2809,25 @@ def _strip(text: str) -> str:
     return _ANSI_ESCAPE.sub("", text or "")
 
 
-def _menu_header(title: str, hints: str) -> str:
-    return f"{CYAN}{BOLD}{title}{RESET}  {GRAY}{hints}{RESET}"
+def _menu_header(title: str, hints: str, accent: str = CYAN) -> str:
+    return f"{accent}{BOLD}{title}{RESET}  {GRAY}{hints}{RESET}"
 
 
-def _selected_row(row: str, selected: bool) -> str:
-    return f"{GREEN}{BOLD}{row}{RESET}" if selected else row
+def _selected_row(row: str, selected: bool, accent: str = GREEN) -> str:
+    return f"{accent}{BOLD}{row}{RESET}" if selected else row
 
 
-def _style_command_bar(text: str) -> str:
+def _style_command_bar(
+    text: str,
+    accent: str = CYAN,
+    selection: str = GREEN,
+) -> str:
     lines = []
     for line in text.splitlines():
         if line.startswith("> "):
-            lines.append(f"{GREEN}{BOLD}{line}{RESET}")
+            lines.append(f"{selection}{BOLD}{line}{RESET}")
         elif line.startswith(" usage:"):
-            lines.append(f"{CYAN}{line}{RESET}")
+            lines.append(f"{accent}{line}{RESET}")
         elif line.lstrip().startswith("...") or line.startswith(" no matching"):
             lines.append(f"{GRAY}{line}{RESET}")
         else:

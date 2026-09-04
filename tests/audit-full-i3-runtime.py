@@ -120,6 +120,7 @@ def main() -> int:
         "ooonana-media-control",
         "ooonana-media-status",
         "ooonana-processes",
+        "ooonana-process-kill",
         "ooonana-ranger",
         "ooonana-touchpad",
         "nm-applet",

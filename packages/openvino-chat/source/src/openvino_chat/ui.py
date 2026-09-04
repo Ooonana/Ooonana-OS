@@ -14,6 +14,7 @@ from openvino_chat.tasks import has_visible_tasks
 
 class ChatUI:
     def __init__(self) -> None:
+        self.duck_theme = False
         try:
             from rich.console import Console
             from rich.console import Group
@@ -36,6 +37,17 @@ class ChatUI:
             self.table_cls = Table
             self.text_cls = Text
 
+    @property
+    def accent(self) -> str:
+        return "#ff9f1c" if self.duck_theme else "cyan"
+
+    @property
+    def answer_style(self) -> str:
+        return "#ff9f1c" if self.duck_theme else "green"
+
+    def set_duck_theme(self, enabled: bool) -> None:
+        self.duck_theme = bool(enabled)
+
     def banner(
         self,
         device: str,
@@ -50,10 +62,11 @@ class ChatUI:
             grid = self.table_cls.grid(expand=True)
             for _ in range(4):
                 grid.add_column(ratio=1)
+            accent = self.accent
             grid.add_row(
-                "[dim]model[/dim]\n[bold green]" + model_name + "[/bold green]",
-                "[dim]device[/dim]\n[bold cyan]" + device + "[/bold cyan]",
-                "[dim]loaded[/dim]\n" + ("[bold green]yes[/bold green]" if loaded else "[yellow]no[/yellow]"),
+                f"[dim]model[/dim]\n[bold {accent}]" + model_name + f"[/bold {accent}]",
+                f"[dim]device[/dim]\n[bold {accent}]" + device + f"[/bold {accent}]",
+                "[dim]loaded[/dim]\n" + (f"[bold {accent}]yes[/bold {accent}]" if loaded else "[yellow]no[/yellow]"),
                 "[dim]ctx[/dim]\n" + (str(context_length) if context_length is not None else "-"),
             )
             parts = [grid]
@@ -61,7 +74,14 @@ class ChatUI:
                 parts.append(self.text_cls("models: " + models_summary, style="dim"))
             parts.append(self.text_cls(quick, style="dim"))
             body = self.group_cls(*parts)
-            self.console.print(self.panel_cls(body, title="[bold cyan]OpenVINO Chat[/bold cyan]", border_style="cyan"))
+            title = "OpenVINO Quack" if self.duck_theme else "OpenVINO Chat"
+            self.console.print(
+                self.panel_cls(
+                    body,
+                    title=f"[bold {accent}]{title}[/bold {accent}]",
+                    border_style=accent,
+                )
+            )
         else:
             bits = [
                 f"model {model_name}",
@@ -77,7 +97,10 @@ class ChatUI:
         return "> "
 
     def assistant_prefix(self, model_name: str = "Assistant") -> None:
-        self.print("[bold green]>[/bold green] " if self.console else "> ", end="")
+        if self.console:
+            self.print(f"[bold {self.answer_style}]>[/bold {self.answer_style}] ", end="")
+        else:
+            self.print("> ", end="")
 
     def print(self, text: Any = "", end: str = "\n") -> None:
         if self.console:
@@ -99,7 +122,13 @@ class ChatUI:
 
     def help(self, text: str) -> None:
         if self.console and self.panel_cls:
-            self.console.print(self.panel_cls(text, title="[bold cyan]Help[/bold cyan]", border_style="cyan"))
+            self.console.print(
+                self.panel_cls(
+                    text,
+                    title=f"[bold {self.accent}]Help[/bold {self.accent}]",
+                    border_style=self.accent,
+                )
+            )
         else:
             print(text)
 
@@ -109,7 +138,7 @@ class ChatUI:
         stream.finish()
 
     def response_stream(self) -> "ResponseStream":
-        return ResponseStream(self.console)
+        return ResponseStream(self.console, answer_style=self.answer_style)
 
     @contextmanager
     def live_status(self, status_text: Callable[[], str], refresh_seconds: float = 3.0):
@@ -133,6 +162,7 @@ class ChatUI:
             refresh_seconds=refresh_seconds,
             layout=layout,
             tasks_text=tasks_text,
+            accent=lambda: self.accent,
         )
 
     def tool_request(self, name: str, args: dict[str, Any]) -> None:
@@ -158,12 +188,14 @@ class LiveStatusMonitor:
         refresh_seconds: float = 3.0,
         layout: str = "side",
         tasks_text: Callable[[], str] | None = None,
+        accent: Callable[[], str] | None = None,
     ) -> None:
         self.status_text = status_text
         self.console = console
         self.refresh_seconds = refresh_seconds
         self.layout = layout
         self.tasks_text = tasks_text or (lambda: "no tasks")
+        self.accent = accent or (lambda: "cyan")
         self.operation: OperationStatus | None = None
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -245,7 +277,7 @@ class LiveStatusMonitor:
                 if status_text.plain:
                     status_text.append(" | ", style="dim")
                 status_text.append(self.operation.render(), style=status_color(self.operation.label))
-            return Group(response, Panel(status_text, border_style="cyan"))
+            return Group(response, Panel(status_text, border_style=self.accent()))
         if self.layout == "window":
             status_text = format_status_line(self.status_text())
             if self.operation is not None:
@@ -262,7 +294,7 @@ class LiveStatusMonitor:
                 grid.add_row(response)
             return Group(grid, status_text)
 
-        status_panel = Panel(text, title="Live", border_style="cyan")
+        status_panel = Panel(text, title="Live", border_style=self.accent())
         grid = Table.grid(expand=True)
         grid.add_column(ratio=1)
         grid.add_column(width=34)
@@ -271,7 +303,11 @@ class LiveStatusMonitor:
 
     def response_stream(self) -> "ResponseStream":
         self._response_segments.clear()
-        return ResponseStream(writer=self.write_response, phase_callback=self.set)
+        return ResponseStream(
+            writer=self.write_response,
+            phase_callback=self.set,
+            answer_style=self.accent(),
+        )
 
     def write_response(self, text: str, style: str | None = None, end: str = "") -> None:
         if text:
@@ -341,6 +377,7 @@ def status_color(label: str) -> str:
         "generating": "yellow",
         "running command": "green",
         "searching web": "green",
+        "searching history": "green",
         "running tool": "green",
     }.get(label, "white")
 
@@ -350,6 +387,8 @@ def status_label(tool_name: str) -> str:
         return "running command"
     if tool_name in {"web_search", "web_fetch"}:
         return "searching web"
+    if tool_name == "luci_history":
+        return "searching history"
     return "running tool"
 
 
@@ -535,10 +574,12 @@ class ResponseStream:
         console: Any = None,
         writer: Callable[[str, str | None, str], None] | None = None,
         phase_callback: Callable[[str], None] | None = None,
+        answer_style: str = "green",
     ) -> None:
         self.console = console
         self.writer = writer
         self.phase_callback = phase_callback
+        self.answer_style = answer_style
         self.buffer = ""
         self.started = False
         self.thinking = False
@@ -607,7 +648,7 @@ class ResponseStream:
             self._report_phase("generating")
             if self.started and not self.line_ended:
                 self._print("", end="\n")
-            self._print("> ", style="green", end="")
+            self._print("> ", style=self.answer_style, end="")
             self.answer_started = True
         self._print(text, end="")
         self.started = True

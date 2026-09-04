@@ -1751,6 +1751,54 @@ fi
 exec ooonana-theme-env xterm -e sh -lc 'echo "htop missing"; echo "run: ooonana get htop"; exec sh'
 EOF
 
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-process-kill" <<'EOF'
+#!/bin/sh
+set -eu
+
+if ! command -v rofi >/dev/null 2>&1; then
+  command -v notify-send >/dev/null 2>&1 && notify-send "Ooonana Processes" "rofi is unavailable"
+  exit 1
+fi
+
+uid="$(id -u)"
+rows="$(ps -u "$uid" -o pid=,comm=,args= --sort=-%cpu 2>/dev/null |
+  awk -v self="$$" '$1 != self && $2 != "rofi" { printf "%s\t%s\t", $1, $2; for (i = 3; i <= NF; i++) printf "%s%s", $i, (i < NF ? " " : "\n") }')"
+
+if [ -z "$rows" ]; then
+  command -v notify-send >/dev/null 2>&1 && notify-send "Ooonana Processes" "No user processes found"
+  exit 0
+fi
+
+choice="$(printf '%s\n' "$rows" | rofi -dmenu -i -p "Terminate process" -no-custom 2>/dev/null || true)"
+[ -n "$choice" ] || exit 0
+pid="$(printf '%s\n' "$choice" | awk '{print $1}')"
+case "$pid" in
+  ''|*[!0-9]*) exit 1 ;;
+esac
+
+[ "$pid" -ne 1 ] && [ "$pid" -ne "$$" ] && [ -r "/proc/$pid/status" ] || exit 1
+owner="$(awk '/^Uid:/ { print $2; exit }' "/proc/$pid/status" 2>/dev/null || true)"
+[ "$owner" = "$uid" ] || {
+  command -v notify-send >/dev/null 2>&1 && notify-send "Ooonana Processes" "Refusing process owned by another user"
+  exit 1
+}
+
+name="$(printf '%s\n' "$choice" | awk '{print $2}')"
+action="$(printf 'Cancel\nTerminate\nForce kill\n' | rofi -dmenu -i -p "$name ($pid)" -no-custom 2>/dev/null || true)"
+case "$action" in
+  Terminate) signal=TERM ;;
+  "Force kill") signal=KILL ;;
+  *) exit 0 ;;
+esac
+
+if kill -s "$signal" "$pid" 2>/dev/null; then
+  command -v notify-send >/dev/null 2>&1 && notify-send "Ooonana Processes" "$action sent to $name ($pid)"
+else
+  command -v notify-send >/dev/null 2>&1 && notify-send "Ooonana Processes" "Could not signal $name ($pid)"
+  exit 1
+fi
+EOF
+
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-ranger" <<'EOF'
 #!/bin/sh
 set -eu
@@ -2393,6 +2441,7 @@ content-foreground = ${colors.accent}
 content-background = ${colors.background-alt}
 content-padding = 2
 click-left = ooonana-processes
+click-right = ooonana-process-kill
 
 [module/win-close]
 type = custom/text
@@ -3752,7 +3801,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   version_output="$(/usr/bin/ooonana version 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.8.23' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.8.24' &&
     printf '%s\n' "$installed_output" | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else

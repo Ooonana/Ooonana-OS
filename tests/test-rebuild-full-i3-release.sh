@@ -59,7 +59,7 @@ assert_contains "$source_text" 'kernel_cache_matches_fragment()'
 assert_contains "$source_text" 'refresh_cached_kernel()'
 assert_contains "$source_text" 'cached kernel has no resolved config'
 assert_contains "$source_text" "KERNEL_FRAGMENT=\"\$ROOT/configs/kernel/ooonana-minimal-x86_64.fragment\""
-assert_contains "$source_text" "grep -E '^CONFIG_[A-Z0-9_]+=' \"\$KERNEL_FRAGMENT\""
+assert_contains "$source_text" "# CONFIG_[A-Z0-9_]+ is not set"
 assert_contains "$source_text" 'cached kernel differs from requested option'
 assert_contains "$source_text" 'bash "$ROOT/scripts/fetch-kernel-source.sh"'
 assert_contains "$source_text" 'bash "$ROOT/scripts/build-kernel.sh"'
@@ -80,6 +80,7 @@ assert_contains "$source_text" 'OOONANA_EXPORT_ROOTFS_TARBALL:-auto'
 assert_contains "$source_text" 'Skipping optional rootfs tarball export'
 assert_contains "$source_text" 'rootfs_cache_part'
 assert_contains "$source_text" 'optional rootfs tarball export failed; continuing ISO build'
+assert_contains "$source_text" 'need at least 8 GiB free in $BUILD_DIR'
 assert_contains "$source_text" 'need at least 20 GiB free for stage'
 assert_contains "$source_text" "ooonana-full-i3-release.lock"
 assert_contains "$source_text" "another Ooonana full-i3 release build is already running"

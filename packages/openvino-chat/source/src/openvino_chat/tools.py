@@ -6,16 +6,19 @@ import os
 import re
 import shutil
 import subprocess
+import time
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from difflib import unified_diff
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Callable
 
 
 ToolChange = tuple[Path, str | None, str]
 ToolCheckpoint = tuple[ToolChange, ...]
+MAX_HTTP_BYTES = 2 * 1024 * 1024
 
 
 @dataclass(frozen=True)
@@ -129,10 +132,23 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "shell",
-            "description": "Run one PowerShell command in the workspace. Requires permission. Use Windows commands, not Unix-only commands.",
+            "description": (
+                "Run one PowerShell command in the workspace. Requires permission."
+                if os.name == "nt"
+                else "Run one POSIX shell command in the workspace. Requires permission."
+            ),
             "parameters": {
                 "type": "object",
-                "properties": {"command": {"type": "string", "description": "PowerShell command."}},
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": (
+                            "PowerShell command."
+                            if os.name == "nt"
+                            else "POSIX shell command."
+                        ),
+                    }
+                },
                 "required": ["command"],
                 "additionalProperties": False,
             },
@@ -142,7 +158,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "storage",
-            "description": "Report total, used, and free disk storage for a Windows drive or path.",
+            "description": "Report total, used, and free disk storage for a drive or path.",
             "parameters": {
                 "type": "object",
                 "properties": {"path": {"type": "string", "description": "Drive or path, such as C:/ or F:/"}},
@@ -187,6 +203,47 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "luci_history",
+            "description": (
+                "Search the user's private Luci computer-activity history. Use only for "
+                "questions about what the user previously did, saw, heard, opened, or worked on."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "description": "One of: status, search, transcript, usage, filter.",
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": "Words or description for search/transcript.",
+                    },
+                    "time_range": {
+                        "type": "string",
+                        "description": "Relative range such as 30m, 24h, 7d, or 2w. Defaults to 24h.",
+                    },
+                    "app": {
+                        "type": "string",
+                        "description": "Exact application name for filter.",
+                    },
+                    "semantic": {
+                        "type": "boolean",
+                        "description": "Use semantic search instead of exact text search.",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum results from 1 to 50. Defaults to 10.",
+                    },
+                },
+                "required": ["action"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "diff",
             "description": "Show file changes made by tools during this chat.",
             "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
@@ -210,6 +267,7 @@ _TOOL_DEFINITIONS_BY_NAME = {
 _LOCAL_READ_TOOLS = {"pwd", "ls", "read", "scan", "grep"}
 _LOCAL_WRITE_TOOLS = _LOCAL_READ_TOOLS | {"write", "append", "diff", "undo"}
 _WEB_TOOLS = {"web_search", "web_fetch"}
+_HISTORY_TOOLS = {"luci_history"}
 
 
 def select_tool_definitions(
@@ -241,6 +299,15 @@ def select_tool_definitions(
         selected.add("storage")
     if re.search(r"\b(startup|start-up|autorun|login items?|boot apps?)\b", text):
         selected.add("startup_apps")
+    if re.search(
+        r"\b(luci|personal history|computer history|screen history|activity history)\b|"
+        r"\b(what|which|where|when)\b.{0,32}\b(i|me|my)\b.{0,40}"
+        r"\b(did|saw|see|heard|hear|opened|used|worked|read|watched)\b|"
+        r"\bwhat did i (do|work on|open|see|hear|use|read|watch)\b|"
+        r"(어제|전에|지난번|과거에).{0,24}(뭘|무엇을|봤|했|들었|열었|작업)",
+        text,
+    ):
+        selected.update(_HISTORY_TOOLS)
     if re.search(r"\b(where|where am i|working directory|current directory|cwd|pwd)\b", text):
         selected.add("pwd")
     if re.search(
@@ -328,6 +395,7 @@ class ToolRegistry:
         web_searcher: Callable[[str], str] | None = None,
         web_fetcher: Callable[[str], str] | None = None,
         startup_provider: Callable[[], str] | None = None,
+        history_provider: Callable[[dict[str, Any]], str] | None = None,
     ) -> None:
         self.cwd = (cwd or Path.cwd()).resolve()
         self.workspace_root = (workspace_root or self.cwd).resolve()
@@ -338,6 +406,7 @@ class ToolRegistry:
         self.web_searcher = web_searcher or self._web_search
         self.web_fetcher = web_fetcher or self._web_fetch
         self.startup_provider = startup_provider or _startup_apps
+        self.history_provider = history_provider or _luci_history
         self._changes: list[ToolChange] = []
 
     def checkpoint(self) -> ToolCheckpoint:
@@ -395,6 +464,7 @@ class ToolRegistry:
             "startup_apps": self._startup_apps_tool,
             "web_search": self._web_search_tool,
             "web_fetch": self._web_fetch_tool,
+            "luci_history": self._luci_history_tool,
             "diff": self._diff,
             "undo": self._undo,
         }
@@ -520,6 +590,9 @@ class ToolRegistry:
         _validate_http_url(url)
         return self.web_fetcher(url)
 
+    def _luci_history_tool(self, args: dict[str, Any]) -> str:
+        return self.history_provider(args)
+
     def _diff(self, _args: dict[str, Any]) -> str:
         if not self._changes:
             return "no tracked tool changes"
@@ -549,18 +622,11 @@ class ToolRegistry:
         return f"restored={self._relative(path)}"
 
     def _web_search(self, query: str) -> str:
-        url = "https://duckduckgo.com/html/?" + urllib.parse.urlencode({"q": query})
-        html = self._http_get(url)
-        matches = re.findall(
-            r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>',
-            html,
-            flags=re.DOTALL,
-        )
+        url = "https://lite.duckduckgo.com/lite/?" + urllib.parse.urlencode({"q": query})
+        matches = _parse_search_results(self._http_get(url))
         lines = []
-        for raw_url, raw_title in matches[:5]:
-            title = _strip_html(raw_title)
-            result_url = urllib.parse.unquote(raw_url)
-            lines.append(f"{title}\n{result_url}")
+        for title, result_url, snippet in matches[:5]:
+            lines.append(f"{title}\n{snippet}\n{result_url}" if snippet else f"{title}\n{result_url}")
         return "\n\n".join(lines) if lines else "no results"
 
     def _web_fetch(self, url: str) -> str:
@@ -570,11 +636,13 @@ class ToolRegistry:
         _validate_http_url(url)
         request = urllib.request.Request(
             url,
-            headers={"User-Agent": "openvino-chat/0.1"},
+            headers={"User-Agent": "Mozilla/5.0 (compatible; OpenVINO-Chat/0.1)"},
         )
         with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
             _validate_http_url(response.geturl())
-            return response.read().decode("utf-8", errors="replace")
+            return response.read(MAX_HTTP_BYTES + 1)[:MAX_HTTP_BYTES].decode(
+                "utf-8", errors="replace"
+            )
 
     def _resolve(self, path: Any, allow_outside: bool = False) -> Path:
         candidate = Path(str(path))
@@ -622,6 +690,113 @@ def _startup_apps() -> str:
         seen.add(key)
         rows.append(" | ".join(_clean_startup_field(value) for value in (name, state, source, command)))
     return "\n".join(rows)
+
+
+def _luci_history(args: dict[str, Any]) -> str:
+    action = str(args.get("action") or "").strip().lower()
+    if action not in {"status", "search", "transcript", "usage", "filter"}:
+        raise ValueError("history action must be status, search, transcript, usage, or filter")
+
+    command = [action]
+    if action in {"search", "transcript"}:
+        query = str(args.get("query") or "").strip()
+        if not query:
+            raise ValueError(f"{action} requires query")
+        command.append(query)
+    elif action == "filter":
+        app = str(args.get("app") or "").strip()
+        if not app:
+            raise ValueError("filter requires app")
+        command.extend(["--app", app])
+
+    if action != "status":
+        time_range = str(args.get("time_range") or "24h").strip().lower()
+        if not re.fullmatch(r"(?:\d+[mhdw]|\d{10,}:\d{10,})", time_range):
+            raise ValueError("time_range must resemble 30m, 24h, 7d, 2w, or fromMs:toMs")
+        try:
+            limit = int(args.get("limit", 10))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("history limit must be integer") from exc
+        if not 1 <= limit <= 50:
+            raise ValueError("history limit must be between 1 and 50")
+        if action == "search" and bool(args.get("semantic", False)):
+            command.append("--semantic")
+        command.extend(["--tr", time_range, "--limit", str(limit), "--json"])
+
+    shim = _luci_shim()
+    started_for_query = action != "status" and not _luci_is_running(shim)
+    try:
+        completed = _run_luci_process(shim, command)
+    finally:
+        if started_for_query:
+            _stop_luci_process()
+    output = completed.stdout.strip() or completed.stderr.strip()
+    if completed.returncode:
+        raise RuntimeError(output or f"Luci failed with exit code {completed.returncode}")
+    return output or "no history results"
+
+
+def _run_luci_process(shim: Path, command: list[str]) -> subprocess.CompletedProcess[str]:
+    if os.name == "nt" and shim.suffix.lower() in {".cmd", ".bat"}:
+        command_line = subprocess.list2cmdline([str(shim), *command])
+        executable = os.environ.get("COMSPEC", "cmd.exe")
+        process_args = [executable, "/d", "/s", "/c", command_line]
+        creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    else:
+        process_args = [str(shim), *command]
+        creation_flags = 0
+    return subprocess.run(
+        process_args,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=30,
+        creationflags=creation_flags,
+        check=False,
+    )
+
+
+def _luci_is_running(shim: Path) -> bool:
+    try:
+        return _run_luci_process(shim, ["status"]).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def _stop_luci_process() -> None:
+    if os.name != "nt":
+        return
+    for _attempt in range(3):
+        subprocess.run(
+            ["taskkill", "/IM", "Luci.exe", "/T", "/F"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=10,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            check=False,
+        )
+        time.sleep(0.4)
+
+
+def _luci_shim() -> Path:
+    for discovery in (
+        Path.home() / ".luci" / "cli.json",
+        Path.home() / ".luciMicrosoft" / "cli.json",
+    ):
+        try:
+            data = json.loads(discovery.read_text(encoding="utf-8"))
+            shim = Path(str(data.get("shim") or "")).expanduser()
+        except (OSError, UnicodeError, json.JSONDecodeError, AttributeError):
+            continue
+        if shim.is_file():
+            return shim
+    fallback = shutil.which("luci")
+    if fallback:
+        return Path(fallback)
+    raise FileNotFoundError("Luci CLI not found. Install or start Luci, then retry.")
 
 
 def _windows_startup_entries() -> list[tuple[str, str, str, str]]:
@@ -1052,8 +1227,68 @@ def _strip_html(text: str) -> str:
     cleaned = re.sub(r"<script.*?</script>", "", text, flags=re.DOTALL | re.IGNORECASE)
     cleaned = re.sub(r"<style.*?</style>", "", cleaned, flags=re.DOTALL | re.IGNORECASE)
     cleaned = re.sub(r"<[^>]+>", " ", cleaned)
-    cleaned = cleaned.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+    cleaned = html.unescape(cleaned)
     return re.sub(r"\s+", " ", cleaned).strip()
+
+
+class _DuckDuckGoLiteParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.results: list[list[str]] = []
+        self._link_url: str | None = None
+        self._link_text: list[str] = []
+        self._snippet_text: list[str] | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        values = {key: value or "" for key, value in attrs}
+        classes = set(values.get("class", "").split())
+        if tag.lower() == "a" and "result-link" in classes:
+            self._link_url = values.get("href", "")
+            self._link_text = []
+        elif tag.lower() == "td" and "result-snippet" in classes:
+            self._snippet_text = []
+
+    def handle_data(self, data: str) -> None:
+        if self._link_url is not None:
+            self._link_text.append(data)
+        if self._snippet_text is not None:
+            self._snippet_text.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() == "a" and self._link_url is not None:
+            title = " ".join("".join(self._link_text).split())
+            result_url = _duckduckgo_result_url(self._link_url)
+            if title and result_url:
+                self.results.append([title, result_url, ""])
+            self._link_url = None
+            self._link_text = []
+        elif tag.lower() == "td" and self._snippet_text is not None:
+            snippet = " ".join("".join(self._snippet_text).split())
+            if self.results:
+                self.results[-1][2] = snippet
+            self._snippet_text = None
+
+
+def _duckduckgo_result_url(value: str) -> str:
+    url = html.unescape(str(value).strip())
+    if url.startswith("//"):
+        url = "https:" + url
+    parsed = urllib.parse.urlparse(url)
+    redirect = urllib.parse.parse_qs(parsed.query).get("uddg")
+    if redirect:
+        url = redirect[0]
+    try:
+        _validate_http_url(url)
+    except ValueError:
+        return ""
+    return url
+
+
+def _parse_search_results(text: str) -> list[tuple[str, str, str]]:
+    parser = _DuckDuckGoLiteParser()
+    parser.feed(str(text))
+    parser.close()
+    return [tuple(result) for result in parser.results]
 
 
 def _validate_http_url(url: str) -> None:

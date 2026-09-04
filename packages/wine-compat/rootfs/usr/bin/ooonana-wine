@@ -13,6 +13,7 @@ Usage:
   ooonana wine setup
   ooonana wine status
   ooonana wine run FILE.exe
+  ooonana wine command PROGRAM [ARG...]
   ooonana wine config
   ooonana wine uninstall
 
@@ -81,10 +82,24 @@ run() {
   exec flatpak run --user --file-forwarding "$APP_ID" @@ "$file" @@
 }
 
+command_run() {
+  [ "$#" -gt 0 ] || {
+    printf 'usage: ooonana wine command PROGRAM [ARG...]\n' >&2
+    exit 2
+  }
+  need_flatpak
+  is_ready || {
+    printf 'Wine runtime missing. Run: ooonana wine setup\n' >&2
+    exit 1
+  }
+  exec flatpak run --user "$APP_ID" "$@"
+}
+
 case "${1:-help}" in
   setup) shift; [ "$#" -eq 0 ] || { usage >&2; exit 2; }; setup ;;
   status) shift; [ "$#" -eq 0 ] || { usage >&2; exit 2; }; status ;;
   run) shift; run "$@" ;;
+  command) shift; command_run "$@" ;;
   config)
     shift
     [ "$#" -eq 0 ] || { usage >&2; exit 2; }

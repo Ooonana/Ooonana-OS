@@ -308,7 +308,7 @@ class OpenVinoChatEngine:
         }
         if structured_output_config is not None:
             kwargs["structured_output_config"] = structured_output_config
-        if on_token is not None:
+        if on_token is not None or should_stop is not None:
             kwargs["streamer"] = streamer
         try:
             result = self._pipeline.generate(inputs, **kwargs)

@@ -128,7 +128,7 @@ for helper in \
   ooonana-rofi-brightness ooonana-brightness-panel ooonana-audio-panel \
   ooonana-audio-status ooonana-battery-status ooonana-volume \
   ooonana-rofi-power ooonana-power-menu ooonana-screenshot ooonana-editor \
-  ooonana-processes ooonana-ranger ooonana-brightness \
+  ooonana-processes ooonana-process-kill ooonana-ranger ooonana-brightness \
   ooonana-brightness-status ooonana-packages-app ooonana-packages \
   ooonana-settings ooonana-settings-launch ooonana-installer-gui \
   ooonana-gui-installer ooonana-install-wizard ooonana-i3-smoke-session \

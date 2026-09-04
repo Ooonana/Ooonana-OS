@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -16,7 +17,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable
 
-from openvino_chat.agent import _ToolSafeStreamer
+from openvino_chat.agent import (
+    DUCK_SYSTEM_PROMPT,
+    _ToolSafeStreamer,
+    duck_language_instruction,
+)
 from openvino_chat.benchmarks import BenchmarkStore
 from openvino_chat.compaction import (
     DEFAULT_COMPACT_KEEP_TURNS,
@@ -30,12 +35,15 @@ from openvino_chat.settings import (
     API_DIR,
     DEFAULT_AUTO_COMPACT,
     DEFAULT_CONTEXT_LENGTH,
+    DEFAULT_DUCK_MODE,
     DEFAULT_GENERATION_EFFORT,
     DEFAULT_KNOWLEDGE_MODE,
     DEFAULT_THINKING_EFFORT,
+    coerce_thinking_effort,
     normalize_generation_effort,
     normalize_knowledge_mode,
     normalize_auto_compact,
+    normalize_duck_mode,
     normalize_thinking_effort,
 )
 from openvino_chat.tools import ToolRequest, parse_tool_requests, select_tool_definitions
@@ -69,6 +77,7 @@ class ApiRuntime:
         engine_loader: EngineLoader = load_engine,
         knowledge_mode: str = DEFAULT_KNOWLEDGE_MODE,
         knowledge_store: Any | None = None,
+        duck_mode: bool = DEFAULT_DUCK_MODE,
     ) -> None:
         self.model_dir = Path(model_dir)
         self.device = device.upper()
@@ -76,6 +85,7 @@ class ApiRuntime:
         self.kv_cache_precision = kv_cache_precision
         self.engine_loader = engine_loader
         self.knowledge_mode = normalize_knowledge_mode(knowledge_mode)
+        self.duck_mode = normalize_duck_mode(duck_mode)
         self.knowledge_store = knowledge_store or KnowledgeStore()
         self.model_id = self.model_dir.name
         self._engine: OpenVinoChatEngine | None = None
@@ -106,6 +116,10 @@ class ApiRuntime:
             tools = _filter_web_tools(messages, tools, mode)
         if tool_choice == "required" and not tools:
             raise ValueError("required tool is unavailable in current knowledge mode")
+        duck_mode = normalize_duck_mode(
+            body.get("duck", body.get("duck_mode", self.duck_mode))
+        )
+        messages = _with_duck_persona(messages, duck_mode)
         messages = _with_knowledge(messages, self.knowledge_store, mode)
         messages = _with_tool_choice_instruction(
             messages,
@@ -118,11 +132,17 @@ class ApiRuntime:
         thinking_effort = normalize_thinking_effort(
             str(body.get("reasoning_effort", DEFAULT_THINKING_EFFORT))
         )
+        if duck_mode:
+            thinking_effort = "off"
         with self._lock:
             engine = self._ensure_engine()
-            resolver = getattr(engine, "resolve_thinking_effort", None)
-            if callable(resolver):
-                thinking_effort = resolver(thinking_effort)
+            supported = getattr(engine, "supported_thinking_efforts", None)
+            if isinstance(supported, tuple) and supported:
+                thinking_effort = coerce_thinking_effort(thinking_effort, supported)
+            else:
+                resolver = getattr(engine, "resolve_thinking_effort", None)
+                if callable(resolver):
+                    thinking_effort = resolver(thinking_effort)
             prompt = _format_chat(engine, messages, tools, thinking_effort)
             if auto_compact:
                 messages, compacted = _compact_api_messages(
@@ -206,7 +226,21 @@ class ApiRuntime:
         if not isinstance(prompt, str) or not prompt:
             raise ValueError("prompt must be a non-empty string")
         mode = normalize_knowledge_mode(str(body.get("knowledge_mode", self.knowledge_mode)))
+        user_prompt = prompt
         prompt = _with_completion_knowledge(prompt, self.knowledge_store, mode)
+        duck_mode = normalize_duck_mode(
+            body.get("duck", body.get("duck_mode", self.duck_mode))
+        )
+        if duck_mode:
+            prompt = (
+                DUCK_SYSTEM_PROMPT
+                + "\n"
+                + duck_language_instruction(user_prompt)
+                + "\n\n"
+                + prompt
+            )
+            body = dict(body)
+            body["reasoning_effort"] = "off"
         with self._lock:
             engine = self._ensure_engine()
             raw = _generate(engine, prompt, body, self.context_length, on_token=on_token)
@@ -260,6 +294,9 @@ class OpenVinoApiServer(ThreadingHTTPServer):
         self.runtime = runtime
         self.api_key = api_key
         self.instance_id = instance_id or uuid.uuid4().hex
+        self.address_family = (
+            socket.AF_INET6 if ":" in str(server_address[0]) else socket.AF_INET
+        )
         super().__init__(server_address, OpenVinoApiHandler)
 
 
@@ -495,6 +532,7 @@ def run_api_server(
     engine_loader: EngineLoader = load_engine,
     knowledge_mode: str = DEFAULT_KNOWLEDGE_MODE,
     knowledge_store: Any | None = None,
+    duck_mode: bool = DEFAULT_DUCK_MODE,
 ) -> int:
     _validate_bind(host, port, api_key)
     runtime = ApiRuntime(
@@ -505,6 +543,7 @@ def run_api_server(
         engine_loader=engine_loader,
         knowledge_mode=knowledge_mode,
         knowledge_store=knowledge_store,
+        duck_mode=duck_mode,
     )
     server = OpenVinoApiServer((host, port), runtime, api_key=api_key)
     bound_host, bound_port = server.server_address[:2]
@@ -513,13 +552,15 @@ def run_api_server(
         "instance_id": server.instance_id,
         "host": bound_host,
         "port": bound_port,
-        "base_url": f"http://{bound_host}:{bound_port}/v1",
+        "base_url": _api_url(str(bound_host), int(bound_port), "/v1"),
         "model": runtime.model_id,
         "model_dir": str(runtime.model_dir),
         "device": device,
         "context_length": context_length,
         "kv_cache_precision": kv_cache_precision,
+        "api_key_configured": bool(api_key),
         "knowledge_mode": runtime.knowledge_mode,
+        "duck_mode": runtime.duck_mode,
         "started_at": int(time.time()),
     }
     API_DIR.mkdir(parents=True, exist_ok=True)
@@ -548,6 +589,22 @@ def start_api_process(
     _validate_bind(host, port, api_key)
     current = api_status()
     if current.get("running"):
+        mismatches = _api_start_mismatches(
+            current,
+            model_dir=model_dir,
+            host=host,
+            port=port,
+            device=device,
+            context_length=context_length,
+            kv_cache_precision=kv_cache_precision,
+            api_key=api_key,
+        )
+        if mismatches:
+            raise RuntimeError(
+                "API already running with different settings: "
+                + ", ".join(mismatches)
+                + ". Stop it first with /api stop."
+            )
         return current
     API_DIR.mkdir(parents=True, exist_ok=True)
     if API_LOG_PATH.exists() and API_LOG_PATH.stat().st_size > 2 * 1024 * 1024:
@@ -599,8 +656,58 @@ def start_api_process(
         time.sleep(0.1)
     if process.poll() is None:
         process.terminate()
+        try:
+            process.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=3)
     tail = _log_tail()
     raise RuntimeError("API server failed to start" + (f": {tail}" if tail else ""))
+
+
+def _api_start_mismatches(
+    current: dict[str, Any],
+    *,
+    model_dir: Path,
+    host: str,
+    port: int,
+    device: str,
+    context_length: int,
+    kv_cache_precision: str,
+    api_key: str | None,
+) -> list[str]:
+    mismatches: list[str] = []
+
+    current_model_dir = current.get("model_dir")
+    if current_model_dir is None or _api_path_key(current_model_dir) != _api_path_key(model_dir):
+        mismatches.append("model")
+    if str(current.get("host") or "").strip().lower() != str(host).strip().lower():
+        mismatches.append("host")
+    try:
+        current_port = int(current.get("port"))
+    except (TypeError, ValueError):
+        current_port = -1
+    if current_port != int(port):
+        mismatches.append("port")
+    if str(current.get("device") or "").strip().upper() != str(device).strip().upper():
+        mismatches.append("device")
+    try:
+        current_context = int(current.get("context_length"))
+    except (TypeError, ValueError):
+        current_context = -1
+    if current_context != int(context_length):
+        mismatches.append("context")
+    if str(current.get("kv_cache_precision") or "").strip().lower() != str(kv_cache_precision).strip().lower():
+        mismatches.append("kv-cache")
+    if "api_key_configured" not in current:
+        mismatches.append("API-key state unknown")
+    elif bool(current.get("api_key_configured")) != bool(api_key):
+        mismatches.append("API-key")
+    return mismatches
+
+
+def _api_path_key(value: object) -> str:
+    return os.path.normcase(os.path.abspath(os.path.expanduser(os.fspath(value))))
 
 
 def stop_api_process() -> bool:
@@ -609,18 +716,29 @@ def stop_api_process() -> bool:
         API_STATE_PATH.unlink(missing_ok=True)
         return False
     pid = int(status["pid"])
+    kill_error = ""
     if os.name == "nt":
-        subprocess.run(
+        completed = subprocess.run(
             ["taskkill", "/PID", str(pid), "/T", "/F"],
             capture_output=True,
             creationflags=subprocess.CREATE_NO_WINDOW,
             timeout=10,
         )
+        if completed.returncode != 0:
+            raw_error = completed.stderr or completed.stdout or b""
+            kill_error = (
+                raw_error.decode(errors="replace")
+                if isinstance(raw_error, bytes)
+                else str(raw_error)
+            ).strip()
     else:
         os.kill(pid, signal.SIGTERM)
     deadline = time.monotonic() + 5
     while time.monotonic() < deadline and _health_matches(status):
         time.sleep(0.1)
+    if _health_matches(status):
+        detail = f": {kill_error}" if kill_error else ""
+        raise RuntimeError("API server did not stop" + detail)
     API_STATE_PATH.unlink(missing_ok=True)
     return True
 
@@ -632,9 +750,18 @@ def api_status() -> dict[str, Any]:
         state = json.loads(API_STATE_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {"running": False}
-    if not isinstance(state, dict) or not _health_matches(state):
+    if not isinstance(state, dict):
+        return {"running": False}
+    health = _health_payload(state)
+    if health is None:
         return {**state, "running": False}
-    return {**state, "running": True}
+    return {
+        **state,
+        "model": health.get("model", state.get("model")),
+        "loaded": bool(health.get("loaded", False)),
+        "device": health.get("device", state.get("device")),
+        "running": True,
+    }
 
 
 def format_api_status(status: dict[str, Any] | None = None) -> str:
@@ -651,7 +778,9 @@ def format_api_status(status: dict[str, Any] | None = None) -> str:
             "api: running",
             f"url: {value.get('base_url')}",
             f"model: {value.get('model')}",
+            f"loaded: {'yes' if value.get('loaded') else 'no'}",
             f"device: {value.get('device')}",
+            f"duck: {'on' if value.get('duck_mode') else 'off'}",
             f"pid: {value.get('pid')}",
             f"log: {API_LOG_PATH}",
         ]
@@ -713,11 +842,7 @@ def _compact_api_messages(
         output_budget = max(1, min(int(requested_output), context))
     except (TypeError, ValueError):
         output_budget = min(512, context)
-    reserve = min(
-        output_budget,
-        max(32, min(1024, context // 4)),
-        max(1, context // 2),
-    )
+    reserve = min(output_budget, max(1, context // 2))
     threshold = auto_compact_threshold(context, context - reserve)
     if not force and engine.count_tokens(prompt) < threshold:
         return messages, False
@@ -802,6 +927,7 @@ def _generate_api_compaction_summary(
             temperature=0.2,
             top_p=0.9,
             generation_profile="coding",
+            thinking_effort="off",
             context_length=context_length,
         )
     except Exception:
@@ -912,6 +1038,33 @@ def _with_knowledge(
             + context
             + "\n[End local document excerpts.]"
         )
+    return result
+
+
+def _with_duck_persona(
+    messages: list[dict[str, Any]],
+    enabled: bool,
+) -> list[dict[str, Any]]:
+    if not enabled:
+        return messages
+    result = [dict(message) for message in messages]
+    latest_user = next(
+        (
+            str(message.get("content") or "")
+            for message in reversed(result)
+            if message.get("role") == "user"
+        ),
+        "",
+    )
+    persona = DUCK_SYSTEM_PROMPT + "\n" + duck_language_instruction(latest_user)
+    if result and result[0].get("role") == "system":
+        result[0]["content"] = (
+            str(result[0].get("content") or "").rstrip()
+            + "\n\n"
+            + persona
+        )
+    else:
+        result.insert(0, {"role": "system", "content": persona})
     return result
 
 
@@ -1062,6 +1215,9 @@ def _generate(
         generation_effort = normalize_generation_effort(
             str(body.get("effort", body.get("generation_effort", DEFAULT_GENERATION_EFFORT)))
         )
+        thinking_effort = normalize_thinking_effort(
+            str(body.get("reasoning_effort", DEFAULT_THINKING_EFFORT))
+        )
         if generation_profile not in {"general", "coding"}:
             raise ValueError("profile must be general or coding")
     except (TypeError, ValueError) as exc:
@@ -1081,7 +1237,7 @@ def _generate(
         return any(marker in current for marker in stop_values)
 
     generate = generator or (lambda **kwargs: engine.generate(prompt, **kwargs))
-    raw = generate(
+    call_kwargs = dict(
         on_token=emit_token if stop_values or on_token is not None else None,
         should_stop=should_stop if stop_values else None,
         max_new_tokens=max_tokens,
@@ -1095,6 +1251,9 @@ def _generate(
         generation_effort=generation_effort,
         context_length=context_length,
     )
+    if generator is None:
+        call_kwargs["thinking_effort"] = thinking_effort
+    raw = generate(**call_kwargs)
     for marker in stop_values:
         if marker in raw:
             raw = raw.split(marker, 1)[0]
@@ -1307,19 +1466,35 @@ def _validate_bind(host: str, port: int, api_key: str | None) -> None:
 
 
 def _health_matches(state: dict[str, Any]) -> bool:
+    return _health_payload(state) is not None
+
+
+def _health_payload(state: dict[str, Any]) -> dict[str, Any] | None:
     host = str(state.get("host") or DEFAULT_API_HOST)
-    if host in {"0.0.0.0", "::"}:
+    if host == "0.0.0.0":
         host = DEFAULT_API_HOST
+    elif host == "::":
+        host = "::1"
     port = state.get("port")
     instance_id = state.get("instance_id")
     if not port or not instance_id:
-        return False
+        return None
     try:
-        with urllib.request.urlopen(f"http://{host}:{int(port)}/health", timeout=0.35) as response:
+        with urllib.request.urlopen(_api_url(host, int(port), "/health"), timeout=0.35) as response:
             payload = json.loads(response.read().decode("utf-8"))
-        return payload.get("instance_id") == instance_id
+        if isinstance(payload, dict) and payload.get("instance_id") == instance_id:
+            return payload
+        return None
     except (OSError, ValueError, urllib.error.URLError, json.JSONDecodeError):
-        return False
+        return None
+
+
+def _api_url(host: str, port: int, path: str = "") -> str:
+    address = str(host).strip()
+    if ":" in address and not address.startswith("["):
+        address = f"[{address}]"
+    suffix = "/" + str(path).lstrip("/") if path else ""
+    return f"http://{address}:{int(port)}{suffix}"
 
 
 def _remove_owned_state(instance_id: str) -> None:

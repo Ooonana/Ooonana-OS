@@ -195,6 +195,30 @@ verify_required_config() {
   done
 }
 
+verify_config_fragments() {
+  local fragment option requested
+  declare -A expected=()
+
+  [[ "$DRY_RUN" -eq 0 ]] || return 0
+  for fragment in "${CONFIG_FRAGMENTS[@]}"; do
+    while IFS= read -r requested; do
+      [[ -n "$requested" ]] || continue
+      if [[ "$requested" == \#* ]]; then
+        option="${requested#\# }"
+        option="${option%% *}"
+      else
+        option="${requested%%=*}"
+      fi
+      expected["$option"]="$requested"
+    done < <(grep -E '^(CONFIG_[A-Z0-9_]+=.*|# CONFIG_[A-Z0-9_]+ is not set)$' "$fragment")
+  done
+  for option in "${!expected[@]}"; do
+    requested="${expected[$option]}"
+    grep -Fqx -- "$requested" "$KERNEL_BUILD/.config" ||
+      ooonana_die "kernel option did not resolve: $requested"
+  done
+}
+
 main() {
   ooonana_require_linux
   ooonana_require_commands awk make install cp mkdir dirname chmod mktemp grep rm sha256sum
@@ -222,6 +246,7 @@ main() {
     apply_config_fragments
     run_cmd make -C "$KERNEL_SOURCE" O="$KERNEL_BUILD" olddefconfig
   fi
+  verify_config_fragments
   verify_required_config
   run_cmd make -C "$KERNEL_SOURCE" O="$KERNEL_BUILD" -j "$JOBS" bzImage
 

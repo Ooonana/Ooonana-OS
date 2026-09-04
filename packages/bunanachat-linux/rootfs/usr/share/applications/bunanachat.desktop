@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=OoonanaChat (Windows)
-Comment=Launch OoonanaChat through Wine
-Exec=ooonana-chat-windows
+Name=BunanaChat
+Comment=Nearby encrypted chat over Bluetooth LE
+Exec=bunanachat
 Icon=/usr/share/ooonana/logo.png
 Terminal=false
 Categories=Network;Chat;

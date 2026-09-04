@@ -8,6 +8,7 @@ ALPINE="https://dl-cdn.alpinelinux.org/alpine/v3.20"
 USE_ISO_RUNTIME=0
 QEMU_TIMEOUT="${OOONANA_QEMU_SERVICE_TIMEOUT:-1800}"
 QEMU_ACCEL="${OOONANA_QEMU_ACCEL:-}"
+QEMU_MEMORY="${OOONANA_QEMU_MEMORY:-1536}"
 QEMU_PID=""
 
 while [ "$#" -gt 0 ]; do
@@ -44,6 +45,10 @@ case "$QEMU_TIMEOUT" in
   ''|*[!0-9]*) fail "invalid Ooonana QEMU service timeout: $QEMU_TIMEOUT" ;;
 esac
 [ "$QEMU_TIMEOUT" -ge 60 ] || fail "Ooonana QEMU service timeout must be at least 60 seconds"
+case "$QEMU_MEMORY" in
+  ''|*[!0-9]*) fail "invalid Ooonana QEMU service memory: $QEMU_MEMORY" ;;
+esac
+[ "$QEMU_MEMORY" -ge 1024 ] || fail "Ooonana QEMU service memory must be at least 1024 MiB"
 if [ -z "$QEMU_ACCEL" ]; then
   if [ -c /dev/kvm ] && [ -r /dev/kvm ] && [ -w /dev/kvm ]; then
     QEMU_ACCEL=kvm
@@ -405,9 +410,9 @@ cat "$WORK/live-initramfs.cpio.gz" "$WORK/patch.cpio.gz" >"$WORK/smoke-initramfs
 
 set +e
 : >"$WORK/qemu.log"
-echo "[qemu-service] booting QEMU (timeout=${QEMU_TIMEOUT}s accel=${QEMU_ACCEL})"
+echo "[qemu-service] booting QEMU (timeout=${QEMU_TIMEOUT}s accel=${QEMU_ACCEL} memory=${QEMU_MEMORY}MiB)"
 timeout "$QEMU_TIMEOUT" qemu-system-x86_64 \
-  -accel "$QEMU_ACCEL" -machine q35 -m 2048 -smp 2 \
+  -accel "$QEMU_ACCEL" -machine q35 -m "$QEMU_MEMORY" -smp 2 \
   -kernel "$WORK/vmlinuz" -initrd "$WORK/smoke-initramfs.cpio.gz" \
   -append 'console=ttyS0 loglevel=4 ooonana.live=1' \
   -cdrom "$ISO" -nic user,model=e1000 \

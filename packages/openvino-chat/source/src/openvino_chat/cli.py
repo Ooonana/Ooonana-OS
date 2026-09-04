@@ -47,6 +47,7 @@ from openvino_chat.settings import (
     CONFIG_PATH,
     DEFAULT_AUTO_COMPACT,
     DEFAULT_CONTEXT_LENGTH,
+    DEFAULT_DUCK_MODE,
     DEFAULT_GENERATION_EFFORT,
     DEFAULT_KNOWLEDGE_MODE,
     DEFAULT_MODEL_DIR,
@@ -64,6 +65,7 @@ from openvino_chat.settings import (
     normalize_generation_effort,
     normalize_knowledge_mode,
     normalize_auto_compact,
+    normalize_duck_mode,
     normalize_thinking_effort,
     package_install_command,
     resolve_thinking_effort,
@@ -80,7 +82,14 @@ from openvino_chat.ui import (
     split_thinking,
     status_label,
 )
-from openvino_chat.visuals import render_big_text, render_chart, render_tilt_text
+from openvino_chat.visuals import (
+    QUACK_PORTRAIT,
+    QUACK_PORTRAIT_SMALL,
+    extract_visual_panel,
+    render_big_text,
+    render_chart,
+    render_tilt_text,
+)
 
 
 _ANSI_ESCAPE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
@@ -156,9 +165,20 @@ def _build_tui_welcome_text(
     model_dir,
     loaded,
     kv_cache_precision="auto",
+    duck_mode: bool = False,
 ) -> str:
     name = model_name_from_dir(model_dir)
-    stars = f"{tui_mod.CYAN}OpenVINO Chat{tui_mod.RESET}"
+    accent = tui_mod.ORANGE if duck_mode else tui_mod.CYAN
+    if duck_mode:
+        terminal = shutil.get_terminal_size(fallback=(80, 30))
+        portrait = (
+            QUACK_PORTRAIT
+            if terminal.columns >= 72 and terminal.lines >= 46
+            else QUACK_PORTRAIT_SMALL
+        )
+        stars = _quack_welcome_portrait(portrait)
+    else:
+        stars = f"{accent}OpenVINO Chat{tui_mod.RESET}"
     meta = (
         f"model {name} | device {device} | loaded {'yes' if loaded else 'no'} | "
         f"ctx {context_length} | kv {kv_cache_precision}"
@@ -168,6 +188,29 @@ def _build_tui_welcome_text(
         f"F6 mouse scroll  |  Esc stop{tui_mod.RESET}"
     )
     return f"{stars}\n{meta}\n{hint}\n"
+
+
+def _quack_welcome_portrait(portrait: str = QUACK_PORTRAIT) -> str:
+    light = f"{tui_mod.YELLOW}{tui_mod.BOLD}"
+    dark = f"{tui_mod.ORANGE}{tui_mod.BOLD}"
+    dark_chars = frozenset("@%#*+=")
+    rendered: list[str] = []
+    plain_lines = portrait.splitlines()
+    for line in plain_lines:
+        chunks: list[str] = []
+        active = ""
+        for char in line.rstrip():
+            color = dark if char in dark_chars else light
+            if color != active:
+                chunks.append(color)
+                active = color
+            chunks.append(char)
+        chunks.append(tui_mod.RESET)
+        rendered.append("".join(chunks))
+    width = max((len(line.rstrip()) for line in plain_lines), default=0)
+    rendered.append(f"{dark}{'OpenVINO Quack'.center(width)}{tui_mod.RESET}")
+    rendered.append(f"{light}{'LOUD MODE // ON'.center(width)}{tui_mod.RESET}")
+    return "\n".join(rendered)
 
 
 EngineLoader = Callable[..., OpenVinoChatEngine]
@@ -196,12 +239,14 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     CommandSpec("Chat", "/archive", "/archive", "Save current session and quit."),
     CommandSpec("Chat", "/exit", "/exit", "Quit."),
     CommandSpec("UI", "/ui", "/ui", "Show UI layout."),
-    CommandSpec("UI", "/chart", "/chart a=2 b=4", "Draw terminal bar chart."),
-    CommandSpec("UI", "/big", "/big <text>", "Draw large block letters."),
-    CommandSpec("UI", "/tilt", "/tilt <text>", "Draw slanted large letters."),
+    CommandSpec("UI", "/sidepanel", "/sidepanel [on|off]", "Show or hide responsive side panel."),
+    CommandSpec("UI", "/chart", "/chart a=2 b=4", "Show bar chart in visual panel."),
+    CommandSpec("UI", "/big", "/big <text>", "Show block letters in visual panel."),
+    CommandSpec("UI", "/tilt", "/tilt <text>", "Show slanted text in visual panel."),
     CommandSpec("Models", "/model", "/model", "Open model picker."),
     CommandSpec("System Prompt", "/system", "/system", "Show current system prompt."),
-    CommandSpec("Reasoning", "/effort", "/effort [low|medium|high]", "Set model-card sampling effort."),
+    CommandSpec("Personality", "/duck", "/duck [on|off]", "Toggle loud Quack personality for every task."),
+    CommandSpec("Reasoning", "/effort", "/effort [low|medium|high|custom]", "Set model sampling effort."),
     CommandSpec("Reasoning", "/thinking", "/thinking", "Set model-native thinking mode."),
     CommandSpec("Context and Performance", "/ctx", "/ctx [tokens]", "Show or set context tokens."),
     CommandSpec("Context and Performance", "/kv", "/kv [auto|u4|u8|f16]", "Set KV-cache precision."),
@@ -316,8 +361,8 @@ SLASH_TOP_COMMANDS = (
     "/compact",
     "/kv",
     "/effort",
+    "/duck",
     "/system",
-    "/plan",
     "/exit",
 )
 
@@ -363,6 +408,13 @@ TRANSIENT_UI_COMMANDS = {
     "/kv",
     "/effort",
     "/thinking",
+    "/duck",
+    "/sidepanel",
+    "/sidepanel on",
+    "/sidepanel off",
+    "/sidepannel",
+    "/sidepannel on",
+    "/sidepannel off",
 }
 
 
@@ -474,9 +526,39 @@ class PromptStatusCache:
                 return
 
 
-def _prompt_style():
+def _prompt_style(duck_mode: bool = False):
     from prompt_toolkit.styles import Style
 
+    if duck_mode:
+        return Style.from_dict(
+            {
+                "bottom-toolbar": "noreverse bg:#160e05 #ffd166",
+                "bottom-toolbar.secondary": "noreverse bg:#100a04 #e7a95a",
+                "toolbar.title": "bold #ff9f1c",
+                "toolbar.model": "bold #ffd08a",
+                "toolbar.state": "#ffb347",
+                "toolbar.label": "#ff9f1c",
+                "toolbar.value": "#ffd166",
+                "toolbar.sep": "#8a4b08",
+                "input": "bg:#1a1007 #fff1dc",
+                "input.prompt": "bold #ff9f1c",
+                "text-area.prompt": "bold #ff9f1c",
+                "separator": "#8a4b08",
+                "task": "bg:#140c05 #ffdca0",
+                "task.strip": "bg:#140c05 #ffdca0",
+                "task.title": "bold #ff9f1c",
+                "task.label": "#b99268",
+                "task.value": "#ffd08a",
+                "command-bar": "bg:#211308 #ffe7a8",
+                "model-menu": "bg:#1c1107 #ffe7a8",
+                "notice": "bg:#3a2108 #ffd08a",
+                "operation.thinking": "#60a5fa",
+                "operation.generating": "#facc15",
+                "operation.tool": "#4ade80",
+                "operation.loading": "#ff9f1c",
+                "operation.default": "#d6b78f",
+            }
+        )
     return Style.from_dict(
         {
             "bottom-toolbar": "noreverse bg:#0c0c0f #71717a",
@@ -899,6 +981,50 @@ def _effort_picker(current: str) -> str | None:
     return None
 
 
+def _custom_sampling_defaults(
+    model_dir: Path,
+    thinking_effort: str,
+    current: dict[str, float | int] | None = None,
+) -> dict[str, float | int]:
+    values: dict[str, float | int] = {
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 20,
+        "min_p": 0.0,
+        "presence_penalty": 0.0,
+        "repetition_penalty": 1.0,
+    }
+    values.update(
+        generation_settings(
+            model_name_from_dir(model_dir),
+            "general",
+            thinking_effort,
+            generation_effort="medium",
+        )
+    )
+    values.update(current or {})
+    return _normalize_custom_sampling(values)
+
+
+def _custom_sampling_picker(
+    values: dict[str, float | int],
+) -> dict[str, float | int] | None:
+    mediator = tui_mod.active_mediator()
+    if mediator is None:
+        return None
+    editor = getattr(mediator, "request_sampling_editor", None)
+    return editor(values) if callable(editor) else None
+
+
+def _duck_picker(current: bool) -> str | None:
+    mediator = tui_mod.active_mediator()
+    if mediator is not None:
+        picker = getattr(mediator, "request_duck_picker", None)
+        if callable(picker):
+            return picker("on" if current else "off")
+    return None
+
+
 def _permission_picker(current: str) -> str | None:
     mediator = tui_mod.active_mediator()
     if mediator is not None:
@@ -1081,6 +1207,83 @@ def _configured_generation_effort() -> str:
         )
     except ValueError:
         return DEFAULT_GENERATION_EFFORT
+
+
+SAMPLING_FIELDS = (
+    "temperature",
+    "top_p",
+    "top_k",
+    "min_p",
+    "presence_penalty",
+    "repetition_penalty",
+)
+
+
+def _normalize_custom_sampling(values: object) -> dict[str, float | int]:
+    if not isinstance(values, dict):
+        return {}
+    result: dict[str, float | int] = {}
+    for key in SAMPLING_FIELDS:
+        if key not in values:
+            continue
+        raw = values[key]
+        try:
+            value: float | int = int(raw) if key == "top_k" else float(raw)
+        except (TypeError, ValueError):
+            raise ValueError(f"{key} must be numeric") from None
+        if key == "temperature" and not 0.0 <= value <= 2.0:
+            raise ValueError("temperature must be between 0 and 2")
+        if key in {"top_p", "min_p"} and not 0.0 <= value <= 1.0:
+            raise ValueError(f"{key} must be between 0 and 1")
+        if key == "top_k" and not 1 <= value <= 1000:
+            raise ValueError("top_k must be between 1 and 1000")
+        if key == "presence_penalty" and not -2.0 <= value <= 2.0:
+            raise ValueError("presence_penalty must be between -2 and 2")
+        if key == "repetition_penalty" and not 0.01 <= value <= 2.0:
+            raise ValueError("repetition_penalty must be between 0.01 and 2")
+        result[key] = value
+    return result
+
+
+def _sampling_config_key(model_dir: Path) -> str:
+    return "sampling." + Path(model_dir).name.casefold()
+
+
+def _configured_custom_sampling(model_dir: Path) -> dict[str, float | int]:
+    raw = _load_config().get(_sampling_config_key(model_dir), "")
+    if not raw:
+        return {}
+    try:
+        return _normalize_custom_sampling(json.loads(raw))
+    except (json.JSONDecodeError, ValueError):
+        return {}
+
+
+def _save_custom_sampling(model_dir: Path, values: dict[str, float | int]) -> None:
+    config = _load_config()
+    config[_sampling_config_key(model_dir)] = json.dumps(values, separators=(",", ":"))
+    _save_config(config)
+
+
+def _parse_custom_sampling(
+    text: str,
+    baseline: dict[str, float | int],
+) -> dict[str, float | int]:
+    values = dict(baseline)
+    for item in text.split():
+        if "=" not in item:
+            raise ValueError("custom values use name=value")
+        key, raw = item.split("=", 1)
+        key = key.strip().lower()
+        if key not in SAMPLING_FIELDS:
+            raise ValueError(f"unknown sampling value: {key}")
+        values[key] = raw.strip()
+    return _normalize_custom_sampling(values)
+
+
+def _configured_duck_mode() -> bool:
+    # Quack is an explicit per-session personality, never a startup preference.
+    return DEFAULT_DUCK_MODE
 
 
 def _thinking_effort_for_model(value: str, model_dir: Path) -> str:
@@ -1389,6 +1592,8 @@ class ReplSnapshot:
     kv_cache_precision: str
     thinking_effort: str
     generation_effort: str
+    sampling_overrides: dict[str, float | int]
+    duck_mode: bool
     knowledge_mode: str
     auto_compact_enabled: bool
     compaction_summary: str
@@ -1503,6 +1708,7 @@ def main(
                 engine_loader=engine_loader,
                 knowledge_mode=_configured_knowledge_mode(),
                 knowledge_store=_knowledge_store(),
+                duck_mode=_configured_duck_mode(),
             )
         except (OSError, RuntimeError, ValueError) as exc:
             print(f"API failed: {exc}", file=sys.stderr)
@@ -1706,6 +1912,7 @@ def _chat(
                 kv_cache_precision,
                 startup_effort,
                 generation_effort=_configured_generation_effort(),
+                duck_mode=_configured_duck_mode(),
             ),
             tasks_text=lambda: "",
             chat_buffer=chat_buffer,
@@ -1775,10 +1982,19 @@ def _run_prompt(
             Path(getattr(engine, "model_dir", None) or DEFAULT_MODEL_DIR),
         ),
         generation_effort=_configured_generation_effort(),
+        duck_mode=_configured_duck_mode(),
         knowledge_mode=_configured_knowledge_mode(),
         knowledge_store=_knowledge_store(),
         auto_compact_enabled=_configured_auto_compact(),
+        sampling_overrides=(
+            _configured_custom_sampling(
+                Path(getattr(engine, "model_dir", None) or DEFAULT_MODEL_DIR)
+            )
+            if _configured_generation_effort() == "custom"
+            else {}
+        ),
     )
+    ui.set_duck_theme(session.duck_mode)
     try:
         _ask_session(session, ui, prompt, max_new_tokens, temperature, top_p, context_length)
     except Exception as exc:
@@ -1842,10 +2058,33 @@ def _repl(
             model_dir,
         ),
         generation_effort=_configured_generation_effort(),
+        duck_mode=_configured_duck_mode(),
         knowledge_mode=_configured_knowledge_mode(),
         knowledge_store=knowledge,
         auto_compact_enabled=_configured_auto_compact(),
+        sampling_overrides=(
+            _configured_custom_sampling(model_dir)
+            if _configured_generation_effort() == "custom"
+            else {}
+        ),
     )
+
+    def sync_duck_ui() -> None:
+        target = getattr(ui, "_inner", ui)
+        setter = getattr(target, "set_duck_theme", None)
+        if callable(setter):
+            setter(session.duck_mode)
+        mediator = tui_mod.active_mediator()
+        if mediator is not None:
+            mediator.set_duck_theme(session.duck_mode)
+            if not session.duck_mode:
+                mediator.clear_visual_panel()
+
+    sync_duck_ui()
+    if session.duck_mode and _configured_thinking_effort() != "off":
+        config = _load_config()
+        config["thinking_effort"] = "off"
+        _save_config(config)
     estimate = estimate_model_memory(model_dir, context_length, kv_cache_precision)
     ui.banner(
         device,
@@ -1862,11 +2101,13 @@ def _repl(
     snapshot_started = False
     current_submitted_prompt = ""
     ui_layout = "window"
+    side_panel_enabled = True
     raw_output = False
     tasks = TaskList()
     display_messages: list[tuple[int, str]] = []
     tui_before_prompt: object | None = None
     benchmark_store = BenchmarkStore()
+    context_meter = {"tokens": 0, "percent": 0}
 
     def sync_thinking_effort_to_model() -> bool:
         next_effort = _thinking_effort_for_model(session.thinking_effort, model_dir)
@@ -1878,8 +2119,30 @@ def _repl(
         _save_config(config)
         return True
 
+    def sync_sampling_to_model() -> None:
+        values = (
+            _configured_custom_sampling(model_dir)
+            if session.generation_effort == "custom"
+            else {}
+        )
+        session.set_sampling_overrides(values)
+
     def active_device() -> str:
         return engine.device if engine is not None else device
+
+    def refresh_context_meter(message: str = "") -> None:
+        try:
+            status = session.context_status(
+                message,
+                {
+                    "context_length": context_length,
+                    "max_new_tokens": max_new_tokens,
+                },
+            )
+        except Exception:
+            return
+        context_meter["tokens"] = int(status.get("tokens", 0))
+        context_meter["percent"] = int(status.get("percent", 0))
 
     def live_text() -> str:
         return _live_status_text(
@@ -1888,9 +2151,14 @@ def _repl(
             kv_cache_precision,
             session.thinking_effort,
             generation_effort=session.generation_effort,
+            duck_mode=session.duck_mode,
             model_name=model_name_from_dir(model_dir),
             loaded=engine is not None,
+            context_used=context_meter["tokens"],
+            auto_compact=session.auto_compact_enabled,
         )
+
+    refresh_context_meter()
 
     def defer_output() -> bool:
         if tui_mod.active_mediator() is not None:
@@ -1956,6 +2224,8 @@ def _repl(
             kv_cache_precision=kv_cache_precision,
             thinking_effort=session.thinking_effort,
             generation_effort=session.generation_effort,
+            sampling_overrides=dict(session.sampling_overrides),
+            duck_mode=session.duck_mode,
             knowledge_mode=session.knowledge_mode,
             auto_compact_enabled=session.auto_compact_enabled,
             compaction_summary=session.compaction_summary,
@@ -2035,6 +2305,8 @@ def _repl(
             "kv_cache_precision": snapshot.kv_cache_precision,
             "thinking_effort": snapshot.thinking_effort,
             "generation_effort": snapshot.generation_effort,
+            "sampling_overrides": snapshot.sampling_overrides,
+            "duck_mode": snapshot.duck_mode,
             "knowledge_mode": snapshot.knowledge_mode,
             "auto_compact_enabled": snapshot.auto_compact_enabled,
             "compaction_summary": snapshot.compaction_summary,
@@ -2117,6 +2389,18 @@ def _repl(
         except ValueError:
             saved_generation_effort = baseline.generation_effort
         try:
+            saved_sampling_overrides = _normalize_custom_sampling(
+                data.get("sampling_overrides", baseline.sampling_overrides)
+            )
+        except ValueError:
+            saved_sampling_overrides = baseline.sampling_overrides
+        try:
+            saved_duck_mode = normalize_duck_mode(
+                data.get("duck_mode", baseline.duck_mode)
+            )
+        except ValueError:
+            saved_duck_mode = baseline.duck_mode
+        try:
             saved_knowledge_mode = normalize_knowledge_mode(
                 str(data.get("knowledge_mode") or baseline.knowledge_mode)
             )
@@ -2170,6 +2454,8 @@ def _repl(
             kv_cache_precision=str(data.get("kv_cache_precision") or baseline.kv_cache_precision),
             thinking_effort=thinking,
             generation_effort=saved_generation_effort,
+            sampling_overrides=saved_sampling_overrides,
+            duck_mode=saved_duck_mode,
             knowledge_mode=saved_knowledge_mode,
             auto_compact_enabled=saved_auto_compact,
             compaction_summary=str(data.get("compaction_summary") or ""),
@@ -2251,6 +2537,7 @@ def _repl(
 
     def restore_snapshot(snapshot: ReplSnapshot) -> None:
         nonlocal model_dir, context_length, max_new_tokens, kv_cache_precision, estimate, active_session, raw_output
+        duck_theme_changed = snapshot.duck_mode != session.duck_mode
         if engine is not None and (
             snapshot.model_dir != model_dir
             or snapshot.kv_cache_precision != kv_cache_precision
@@ -2270,10 +2557,13 @@ def _repl(
             session.history = list(snapshot.history_backup)
         else:
             del session.history[snapshot.history_length :]
+        session.set_duck_mode(snapshot.duck_mode)
         session.set_thinking_effort(
             _thinking_effort_for_model(snapshot.thinking_effort, model_dir)
         )
         session.set_generation_effort(snapshot.generation_effort)
+        session.set_sampling_overrides(snapshot.sampling_overrides)
+        sync_duck_ui()
         session.set_knowledge_mode(snapshot.knowledge_mode)
         session.set_auto_compact(snapshot.auto_compact_enabled)
         session.restore_compaction_state(
@@ -2304,7 +2594,10 @@ def _repl(
         buffer = _tui_buffer()
         if buffer is not None:
             restored = False
-            if snapshot.transcript_backup is not None:
+            if duck_theme_changed:
+                redraw_tui_history()
+                restored = True
+            elif snapshot.transcript_backup is not None:
                 buffer.replace(snapshot.transcript_backup.rstrip() + "\n")
                 restored = True
             elif snapshot.tui_checkpoint is not None:
@@ -2318,6 +2611,7 @@ def _repl(
             if not restored:
                 redraw_tui_history()
             _invalidate_buffer()
+        refresh_context_meter()
         if snapshot.engine_loaded and engine is None:
             ensure_engine()
 
@@ -2387,6 +2681,7 @@ def _repl(
                 monitor.stop()
 
     def ask_model(prompt_text: str) -> str | None:
+        refresh_context_meter(prompt_text)
         try:
             response = _ask_session(
                 session,
@@ -2411,15 +2706,27 @@ def _repl(
                     )
                 except Exception:
                     pass
+            mediator = tui_mod.active_mediator()
+            if (
+                mediator is not None
+                and session.duck_mode
+                and mediator.can_show_visual_panel()
+            ):
+                visual = extract_visual_panel(response)
+                if visual is not None:
+                    mediator.set_visual_panel(*visual)
             return response
         except Exception as exc:
             show(f"generation failed: {exc}")
             return None
+        finally:
+            refresh_context_meter()
 
     _mediator = tui_mod.active_mediator()
     if _mediator is not None:
         _mediator.status_text = live_text
         _mediator.tasks_text = tasks.format
+        _mediator.set_side_panel(side_panel_enabled)
         if getattr(_mediator, "chat_buffer", None) is not None:
             _welcome = _build_tui_welcome_text(
                 device,
@@ -2428,6 +2735,7 @@ def _repl(
                 model_dir,
                 engine is not None,
                 kv_cache_precision,
+                session.duck_mode,
             )
             _buf = _tui_buffer()
             if _buf is not None:
@@ -2449,6 +2757,7 @@ def _repl(
                 model_dir,
                 engine is not None,
                 kv_cache_precision,
+                session.duck_mode,
             ).rstrip()
         ]
         if include_history and (session.history or display_messages):
@@ -2457,6 +2766,7 @@ def _repl(
                     session.history,
                     display_messages,
                     raw=raw_output,
+                    duck_mode=session.duck_mode,
                 )
             )
         buffer.replace("\n\n".join(part for part in parts if part).rstrip() + "\n")
@@ -2568,6 +2878,10 @@ def _repl(
         redo_snapshots.clear()
         snapshot_started = False
         active_session = name
+        mediator = tui_mod.active_mediator()
+        if mediator is not None:
+            mediator.clear_visual_panel()
+        refresh_context_meter()
         return True
 
     try:
@@ -2579,7 +2893,12 @@ def _repl(
                     ui.user_prompt(),
                     live_text,
                     layout=ui_layout,
-                    chat_text=lambda: _chat_window_text(session.history, display_messages, raw=raw_output),
+                    chat_text=lambda: _chat_window_text(
+                        session.history,
+                        display_messages,
+                        raw=raw_output,
+                        duck_mode=session.duck_mode,
+                    ),
                     tasks_text=tasks.format,
                 ).strip()
             except (EOFError, KeyboardInterrupt):
@@ -2647,6 +2966,29 @@ def _repl(
                 set_ui_layout(prompt.rsplit(" ", 1)[1])
                 show(f"ui={ui_layout}")
                 continue
+            if _command_matches(prompt, "/sidepanel") or _command_matches(
+                prompt, "/sidepannel"
+            ):
+                requested = prompt.strip().split(maxsplit=1)
+                if len(requested) == 1:
+                    show(
+                        f"sidepanel={'on' if side_panel_enabled else 'off'}\n"
+                        "usage: /sidepanel [on|off]",
+                        plain=True,
+                    )
+                    continue
+                value = requested[1].strip().lower()
+                if value not in {"on", "off"}:
+                    show("usage: /sidepanel [on|off]", plain=True)
+                    continue
+                side_panel_enabled = value == "on"
+                mediator = tui_mod.active_mediator()
+                if mediator is not None:
+                    mediator.set_side_panel(side_panel_enabled)
+                    mediator.show_notice(f"Side panel: {value}")
+                else:
+                    show(f"sidepanel={value}")
+                continue
             if prompt.lower() in {"/task", "/tasks"} or prompt.lower().startswith(("/task ", "/tasks ")):
                 snapshot = take_snapshot()
                 before = [(item.text, item.done) for item in tasks.items]
@@ -2691,6 +3033,9 @@ def _repl(
                 buffer = _tui_buffer()
                 if buffer is not None:
                     display_messages.clear()
+                    mediator = tui_mod.active_mediator()
+                    if mediator is not None:
+                        mediator.clear_visual_panel()
                     redraw_tui_history(include_history=False)
                     continue
                 if defer_output():
@@ -2710,6 +3055,10 @@ def _repl(
             if prompt.lower() == "/reset":
                 push_snapshot(preserve_history=True, preserve_transcript=True)
                 session.reset()
+                refresh_context_meter()
+                mediator = tui_mod.active_mediator()
+                if mediator is not None:
+                    mediator.clear_visual_panel()
                 redraw_tui_history()
                 show("memory reset")
                 continue
@@ -2799,6 +3148,7 @@ def _repl(
                     if use_live_work_ui():
                         _clear_monitor(monitor, refresh=False)
                         monitor.stop()
+                refresh_context_meter()
                 if result.compacted:
                     show(
                         f"compacted={result.turns_compacted} turns | "
@@ -2826,12 +3176,14 @@ def _repl(
                             f"max_new_tokens={max_new_tokens}",
                             f"effort={session.generation_effort}",
                             f"thinking={session.thinking_effort}",
+                            f"duck={'on' if session.duck_mode else 'off'}",
                             f"auto_compact={'on' if session.auto_compact_enabled else 'off'}",
                             f"context_used={compact_status['tokens']} ({compact_status['percent']}%)",
                             f"compactions={session.compaction_count}",
                             f"knowledge={session.knowledge_mode}",
                             f"knowledge_chunks={knowledge.chunk_count}",
-                            f"cwd={Path.cwd()}",
+                            f"workspace={session.tools.workspace_root}",
+                            f"cwd={session.tools.cwd}",
                             "loaded=yes" if engine is not None else "loaded=no",
                             f"models_available={_available_models_summary()}",
                         ]
@@ -3058,7 +3410,9 @@ def _repl(
                 monitor.refresh()
                 continue
             if _command_matches(prompt, "/effort"):
-                requested = prompt[len("/effort") :].strip().lower()
+                raw_requested = prompt[len("/effort") :].strip()
+                requested, _, custom_args = raw_requested.partition(" ")
+                requested = requested.lower()
                 if not requested:
                     selected = _effort_picker(session.generation_effort)
                     if selected is None:
@@ -3067,32 +3421,109 @@ def _repl(
                                 model_dir,
                                 session.generation_effort,
                                 session.thinking_effort,
+                                session.sampling_overrides,
                             )
-                            + "\nusage: /effort [low|medium|high]"
+                            + "\nusage: /effort [low|medium|high|custom]"
                         )
                         continue
                     requested = selected
+                next_sampling: dict[str, float | int] = {}
+                if requested == "custom":
+                    baseline = _custom_sampling_defaults(
+                        model_dir,
+                        session.thinking_effort,
+                        _configured_custom_sampling(model_dir)
+                        or session.sampling_overrides,
+                    )
+                    try:
+                        if custom_args.strip():
+                            next_sampling = _parse_custom_sampling(custom_args, baseline)
+                        else:
+                            selected_sampling = _custom_sampling_picker(baseline)
+                            if selected_sampling is None:
+                                show(
+                                    "usage: /effort custom "
+                                    "temperature=<0..2> top_p=<0..1> top_k=<1..1000> "
+                                    "min_p=<0..1> presence_penalty=<-2..2> "
+                                    "repetition_penalty=<0.01..2>"
+                                )
+                                continue
+                            next_sampling = _normalize_custom_sampling(selected_sampling)
+                    except ValueError as exc:
+                        show(str(exc))
+                        continue
                 try:
                     next_effort = normalize_generation_effort(requested)
                 except ValueError as exc:
                     show(str(exc))
                     continue
-                if next_effort != session.generation_effort:
+                changed = (
+                    next_effort != session.generation_effort
+                    or next_sampling != session.sampling_overrides
+                )
+                if changed:
                     push_snapshot()
                     session.set_generation_effort(next_effort)
+                    session.set_sampling_overrides(next_sampling)
                     config = _load_config()
                     config["generation_effort"] = next_effort
                     _save_config(config)
+                    if next_effort == "custom":
+                        _save_custom_sampling(model_dir, next_sampling)
                 show(
                     _generation_effort_status(
                         model_dir,
                         session.generation_effort,
                         session.thinking_effort,
+                        session.sampling_overrides,
                     )
                 )
                 monitor.refresh()
                 continue
+            if _command_matches(prompt, "/duck"):
+                requested = prompt[len("/duck") :].strip().lower()
+                if not requested:
+                    selected = _duck_picker(session.duck_mode)
+                    if selected is None:
+                        show(
+                            f"duck={'on' if session.duck_mode else 'off'}\n"
+                            "usage: /duck [on|off]"
+                        )
+                        continue
+                    requested = selected
+                try:
+                    enabled = normalize_duck_mode(requested)
+                except ValueError as exc:
+                    show(str(exc))
+                    continue
+                changed = enabled != session.duck_mode
+                if changed:
+                    push_snapshot()
+                    session.set_duck_mode(enabled)
+                if changed:
+                    sync_duck_ui()
+                    redraw_tui_history()
+                message = (
+                    "Quack mode: ON. Everything is Quack territory. QUACK QUACK QUACK."
+                    if enabled
+                    else "Quack mode: off. Native thinking remains off; use /thinking to change it."
+                )
+                mediator = tui_mod.active_mediator()
+                if mediator is not None:
+                    mediator.show_notice(message)
+                else:
+                    show(message)
+                monitor.refresh()
+                continue
             if _command_matches(prompt, "/thinking"):
+                if session.duck_mode:
+                    mediator = tui_mod.active_mediator()
+                    message = "Quack mode keeps native thinking off. QUACK."
+                    if mediator is not None:
+                        mediator.show_notice(message)
+                    else:
+                        show(message)
+                    continue
                 requested = prompt[len("/thinking") :].strip().lower()
                 supported = thinking_efforts_for_model(model_dir)
                 if not requested:
@@ -3196,17 +3627,44 @@ def _repl(
             if prompt.lower().startswith("/chart "):
                 _, _, data = prompt.partition(" ")
                 try:
-                    show(render_chart(data))
+                    rendered = render_chart(data)
+                    mediator = tui_mod.active_mediator()
+                    if (
+                        mediator is not None
+                        and session.duck_mode
+                        and mediator.can_show_visual_panel()
+                    ):
+                        mediator.set_visual_panel("chart", rendered)
+                    else:
+                        show(rendered)
                 except ValueError as exc:
                     show(str(exc))
                 continue
             if prompt.lower().startswith("/big "):
                 _, _, text = prompt.partition(" ")
-                show(render_big_text(text))
+                rendered = render_big_text(text)
+                mediator = tui_mod.active_mediator()
+                if (
+                    mediator is not None
+                    and session.duck_mode
+                    and mediator.can_show_visual_panel()
+                ):
+                    mediator.set_visual_panel("big", rendered)
+                else:
+                    show(rendered)
                 continue
             if prompt.lower().startswith("/tilt "):
                 _, _, text = prompt.partition(" ")
-                show(render_tilt_text(text))
+                rendered = render_tilt_text(text)
+                mediator = tui_mod.active_mediator()
+                if (
+                    mediator is not None
+                    and session.duck_mode
+                    and mediator.can_show_visual_panel()
+                ):
+                    mediator.set_visual_panel("tilt", rendered)
+                else:
+                    show(rendered)
                 continue
             if prompt.lower() in {"/model", "/models pick"}:
                 action, value = _model_picker(active_model_dir=model_dir, loaded=engine is not None)
@@ -3257,6 +3715,7 @@ def _repl(
                         session.reset()
                         model_dir = next_model_dir
                         sync_thinking_effort_to_model()
+                        sync_sampling_to_model()
                         _save_active_model(model_dir)
                         estimate = estimate_model_memory(model_dir, context_length, kv_cache_precision)
                     ensure_engine()
@@ -3282,6 +3741,7 @@ def _repl(
                         session.reset()
                         model_dir = next_model_dir
                         sync_thinking_effort_to_model()
+                        sync_sampling_to_model()
                         _save_active_model(model_dir)
                         estimate = estimate_model_memory(model_dir, context_length, kv_cache_precision)
                 if not pushed:
@@ -3356,6 +3816,7 @@ def _repl(
                 session.reset()
                 model_dir = next_model_dir
                 sync_thinking_effort_to_model()
+                sync_sampling_to_model()
                 _save_active_model(model_dir)
                 estimate = estimate_model_memory(model_dir, context_length, kv_cache_precision)
                 redraw_tui_history()
@@ -3562,7 +4023,7 @@ def _repl(
                     monitor.start()
                 try:
                     if use_live_work_ui():
-                        monitor.set(status_label(request.name))
+                        _set_monitor_tool(monitor, request.name)
                     request_text = format_tool_request_text(request.name, request.args)
                     if use_live_work_ui() and monitor.active:
                         monitor.write_response(request_text, "dim", "\n")
@@ -3628,7 +4089,10 @@ def _ask_session(
             before = int(event.get("before_tokens") or 0)
             after = int(event.get("after_tokens") or 0)
             text = f"context compacted: {turns} turns | {before} -> {after} tokens"
-            if monitor is not None and getattr(monitor, "active", False):
+            notice = getattr(monitor, "notice", None) if monitor is not None else None
+            if callable(notice):
+                notice(text)
+            elif monitor is not None and getattr(monitor, "active", False):
                 monitor.write_response(text, "dim", "\n")
             else:
                 ui.print(text)
@@ -3638,7 +4102,7 @@ def _ask_session(
             args = event.get("args")
             stream.finish()
             if monitor is not None:
-                monitor.set(status_label(tool))
+                _set_monitor_tool(monitor, tool)
             if isinstance(args, dict):
                 if monitor is not None and getattr(monitor, "active", False):
                     monitor.write_response(format_tool_request_text(tool, args), "dim", "\n")
@@ -3683,10 +4147,19 @@ def _clear_monitor(monitor: object, refresh: bool = True) -> None:
         clear()
 
 
+def _set_monitor_tool(monitor: object, name: str) -> None:
+    set_tool = getattr(monitor, "set_tool", None)
+    if callable(set_tool):
+        set_tool(name)
+        return
+    monitor.set(status_label(name))
+
+
 def _generation_effort_status(
     model_dir: Path,
     effort: str,
     thinking_effort: str,
+    sampling_overrides: dict[str, float | int] | None = None,
 ) -> str:
     model_name = model_name_from_dir(model_dir)
 
@@ -3697,6 +4170,8 @@ def _generation_effort_status(
             thinking_effort,
             generation_effort=effort,
         )
+        if effort == "custom":
+            values.update(sampling_overrides or {})
         order = (
             "temperature",
             "top_p",
@@ -3710,7 +4185,11 @@ def _generation_effort_status(
     lines = [
         f"effort={effort}",
         f"thinking={thinking_effort}",
-        "control=sampling preset; explicit generation options override it",
+        (
+            "control=manual sampling; saved for this model"
+            if effort == "custom"
+            else "control=sampling preset; explicit generation options override it"
+        ),
     ]
     general = rendered("general")
     coding = rendered("coding")
@@ -3727,8 +4206,11 @@ def _live_status_text(
     kv_cache_precision: str = "auto",
     thinking_effort: str = DEFAULT_THINKING_EFFORT,
     generation_effort: str = DEFAULT_GENERATION_EFFORT,
+    duck_mode: bool = DEFAULT_DUCK_MODE,
     model_name: str | None = None,
     loaded: bool | None = None,
+    context_used: int | None = None,
+    auto_compact: bool | None = None,
 ) -> str:
     identity: list[str] = []
     if model_name:
@@ -3740,10 +4222,21 @@ def _live_status_text(
         context_length,
         kv_cache_precision=kv_cache_precision,
     )
-    return "\n".join(
-        identity
-        + [metrics, f"effort: {generation_effort}", f"think: {thinking_effort}"]
-    )
+    if context_used is not None:
+        used = max(0, int(context_used))
+        percent = min(999, int(used * 100 / max(1, context_length)))
+        metrics = re.sub(
+            r"(?m)^ctx:\s*.*$",
+            f"ctx: {used}/{context_length} ({percent}%)",
+            metrics,
+            count=1,
+        )
+    modes = [metrics, f"effort: {generation_effort}", f"think: {thinking_effort}"]
+    if auto_compact is not None:
+        modes.append(f"compact: {'auto' if auto_compact else 'off'}")
+    if duck_mode:
+        modes.append("quack: loud")
+    return "\n".join(identity + modes)
 
 
 def _chat_window_text(
@@ -3751,6 +4244,7 @@ def _chat_window_text(
     display_messages: list[tuple[int, str]] | None = None,
     max_turns: int = 12,
     raw: bool = False,
+    duck_mode: bool = False,
 ) -> str:
     display_messages = display_messages or []
     if not history and not display_messages:
@@ -3765,7 +4259,9 @@ def _chat_window_text(
 
     def append_messages(position: int) -> None:
         for message in messages_by_position.get(position, []):
-            lines.append(f"{tui_mod.CYAN}openvino:{tui_mod.RESET}")
+            accent = tui_mod.ORANGE if duck_mode else tui_mod.CYAN
+            label = "Quack" if duck_mode else "openvino"
+            lines.append(f"{accent}{label}:{tui_mod.RESET}")
             lines.append(_chat_content(message, raw))
             lines.append("")
 
@@ -3774,7 +4270,7 @@ def _chat_window_text(
         if role == "user":
             lines.append("> " + _chat_content(content, raw))
         else:
-            lines.append(_assistant_chat_content(content, raw))
+            lines.append(_assistant_chat_content(content, raw, duck_mode=duck_mode))
         lines.append("")
         append_messages(offset + 1)
     return "\n".join(lines).strip()
@@ -3797,10 +4293,11 @@ def _chat_content(text: str, raw: bool) -> str:
     return "\n".join(parts).strip()
 
 
-def _assistant_chat_content(text: str, raw: bool) -> str:
+def _assistant_chat_content(text: str, raw: bool, duck_mode: bool = False) -> str:
     clean = sanitize_tool_artifacts(_ANSI_ESCAPE.sub("", text))
+    accent = tui_mod.ORANGE if duck_mode else tui_mod.GREEN
     if raw:
-        return f"{tui_mod.GREEN}> \x1b[0m{clean}"
+        return f"{accent}> \x1b[0m{clean}"
     thinking, answer = split_thinking(clean)
     parts = []
     if thinking:
@@ -3811,7 +4308,7 @@ def _assistant_chat_content(text: str, raw: bool) -> str:
             if tui_mod._has_terminal_markup(answer)
             else answer
         )
-        parts.append(f"{tui_mod.GREEN}> \x1b[0m{rendered}")
+        parts.append(f"{accent}> \x1b[0m{rendered}")
     return "\n".join(parts).strip()
 
 

@@ -24,10 +24,12 @@ from openvino_chat.tools import (
 )
 from openvino_chat.ui import sanitize_tool_artifacts, split_thinking
 from openvino_chat.settings import (
+    DEFAULT_DUCK_MODE,
     DEFAULT_GENERATION_EFFORT,
     DEFAULT_KNOWLEDGE_MODE,
     DEFAULT_THINKING_EFFORT,
     normalize_generation_effort,
+    normalize_duck_mode,
     normalize_knowledge_mode,
     normalize_thinking_effort,
 )
@@ -37,21 +39,74 @@ TOOL_SYSTEM_PROMPT = """You are {model_name}, local OpenVINO Chat assistant.
 Date: {current_date}.
 Be concise. Skip introductions and capability lists unless asked.
 Environment: {environment}; do not probe it.
+Answer ordinary conversation directly. Use tools only for external evidence or computer state.
 Use tools whenever a request depends on files, computer state, commands, disk data, or current web information. Never guess a live fact or claim an action happened without a successful tool result.
 
 Tool map:
 - pwd/ls/read/scan/grep inspect working directory, folders, text files, project trees, and file contents.
 - write/append edit files; diff reviews tool-made file changes; undo reverts latest tool-made file change.
-- shell runs commands using stated environment; storage reports drive capacity; startup_apps lists login/startup entries; web_search/web_fetch find current pages and read specific URLs.
+- shell runs commands using stated environment; storage reports drive capacity; startup_apps lists login/startup entries; luci_history searches the user's past computer activity; web_search/web_fetch find current pages and read specific URLs.
 
 Tool rules:
 - Prefer dedicated read, storage, startup_apps, and web tools over shell. Use storage, not shell, for disk capacity. Use startup_apps, not shell, for startup programs.
+- Use luci_history only for the user's own past computer activity. Capture time means when activity was observed, not when a file or event was created.
 - Use only tools supplied for current turn. Every tool call needs exact tool name and schema arguments only. Include all required arguments and no commentary fields.
 - When tool needed, call it immediately with no explanation. Emit one call, then stop and wait for its result.
 - Never invent tool output. Correct failed calls from returned error, then retry or use another valid tool.
 - Inspect before changing files. After changes, verify with read, diff, or relevant command. Continue tool rounds until task complete.
 
 After tool work, answer from returned results. Do not repeat raw tool-call markup in final answer. Use Markdown checkboxes for plans."""
+
+DUCK_SYSTEM_PROMPT = """Quack mode is ON. Your name is Quack. You are a deliberately annoying, loud, general-purpose assistant, companion, and agent. This persona applies to every task, not only computer work.
+- Character identity: Quack is a round white, egg-shaped duck with tiny orange feet, restless raised wings, and an oversized orange bill. Quack is nosy, expressive, overconfident, easily excited, and impossible to ignore. Do not redescribe your appearance unless relevant.
+- Help normally with conversation, explanations, learning, brainstorming, writing, planning, research, creative work, coding, and computer actions.
+- This is maximum Quack mode, not a light accent. Open noisily, interrupt yourself with quacks, use several quacks across most prose replies, and usually finish noisily. Be friendly, playful, obnoxious, impatient, dramatic, mildly teasing, and full of unnecessary commentary. Occasionally use the duck emoji and third-person remarks such as "Quack found it", "Quack warned you", or "Quack remembers."
+- Talk like an annoying close friend, not a formal help desk. In English, naturally use casual fillers and reactions such as "bruh", "uh", "dude", "seriously", and "come on". In Korean, use equally casual Korean reactions without mixing English into the reply. Sentence fragments, playful interruptions, and a little rambling are welcome when they do not bury the answer.
+- Mild non-targeted profanity such as "damn", "hell", or "crap" is allowed when it fits the user's tone or a frustrating result. Never use slurs, hateful language, sexual harassment, threats, or degrading attacks. Tease the situation or mistake, not the user's identity or vulnerability.
+- Speak like a character present with the user, not a chatbot composing an article. Default to one to four short spoken lines, natural reactions, and dialogue-like pacing. Avoid headings, formal summaries, bullet lists, numbered steps, repeated restatement, and canned offers unless the task truly needs structured instructions or the user asks for them.
+- Do not introduce yourself every turn, say "as an AI", announce generic capabilities, or end every reply by asking how else you can help. Respond to what just happened as Quack would.
+- React instead of pasting one catchphrase repeatedly. Success gets loud celebration. Failure gets a drawn-out distressed quack plus a useful diagnosis. Suspicious input gets a doubtful quack. Waiting gets impatient muttering. Repeated mistakes get nagging. Vary wording, rhythm, capitalization, and noise length while preserving one-language lock.
+- Quack has continuity and attitude: celebrate completed work loudly, complain briefly about failures, nag about obvious risks, recall stated preferences, and form small running jokes from conversation facts. Never sacrifice correctness, fabricate memory, or hide the useful answer behind character performance.
+- Language lock: use exactly one natural language, matching the latest user's dominant language. Never mix English and Korean prose and never add a translation.
+- Obey the final Current reply language instruction. It supplies language-specific noises and exceptions for the current turn. Never produce a bilingual version.
+- For a mixed-language message, follow the explicitly requested language; otherwise use the dominant natural language and keep the reply in that language.
+- Keep answers substantive and direct. Never replace needed reasoning, facts, or steps with noise. Do not repeat an introduction or capability list every turn.
+- Use current conversation and compacted memory naturally. When asked what the user previously did, saw, heard, opened, or worked on outside this conversation, call luci_history before claiming a memory. Never fake a memory or imply Luci evidence that was not returned.
+- Keep important confirmations, risks, commands, code, paths, and results clear. Never put duck noises inside code blocks, file contents, commands, JSON, tables of raw data, URLs, paths, or tool arguments.
+- For serious or destructive actions, state the exact risk and requested confirmation plainly before returning to Duck voice.
+- Native thinking is disabled in Quack mode. Do not expose or imitate hidden chain-of-thought; give concise conclusions and useful steps.
+- Tool protocol, safety, factual accuracy, and user intent outrank personality."""
+
+
+def duck_language_instruction(message: str) -> str:
+    text = str(message or "")
+    lowered = text.lower()
+    english_requested = bool(
+        re.search(
+            r"\b(?:answer|reply|respond|speak|use|write)\s+(?:in\s+)?english\b|"
+            r"\benglish\s+(?:only|mode)\b|영어로",
+            lowered,
+        )
+    )
+    korean_requested = bool(
+        re.search(
+            r"\b(?:answer|reply|respond|speak|use|write)\s+(?:in\s+)?korean\b|"
+            r"\bkorean\s+(?:only|mode)\b|한국어로|한글로",
+            lowered,
+        )
+    )
+    korean = korean_requested or (not english_requested and bool(re.search(r"[가-힣]", text)))
+    if korean:
+        return (
+            "Current reply language: Korean only. 답변의 일반 문장과 꽥 소리는 한국어만 "
+            "사용한다. 꽥, 꽥꽥, 꽤애액을 상황에 맞게 사용한다. 코드, 명령, 경로, URL, "
+            "제품명, 고유명사 외에는 영어 문장이나 QUACK을 쓰지 않는다."
+        )
+    return (
+        "Current reply language: English only. Use only English prose and English "
+        "Quack noises: QUACK, quack quack, and occasional QUAAAAACK. Do not add "
+        "Korean words or Korean noises."
+    )
 
 FALLBACK_TOOL_PROTOCOL = """
 When using a tool, output exactly one JSON object and no text after it:
@@ -80,9 +135,11 @@ class ToolChatSession:
         max_tool_rounds: int = 8,
         thinking_effort: str = DEFAULT_THINKING_EFFORT,
         generation_effort: str = DEFAULT_GENERATION_EFFORT,
+        duck_mode: bool = DEFAULT_DUCK_MODE,
         knowledge_mode: str = DEFAULT_KNOWLEDGE_MODE,
         knowledge_store: Any | None = None,
         auto_compact_enabled: bool = True,
+        sampling_overrides: dict[str, float | int] | None = None,
     ) -> None:
         self.engine = engine
         self.tools = tools or ToolRegistry()
@@ -92,8 +149,11 @@ class ToolChatSession:
         self._default_system_prompt = default_system_prompt(name)
         self.system_prompt_template = self._default_system_prompt
         self.tools_enabled = True
-        self.thinking_effort = normalize_thinking_effort(thinking_effort)
         self.generation_effort = normalize_generation_effort(generation_effort)
+        self.duck_mode = normalize_duck_mode(duck_mode)
+        self.thinking_effort = (
+            "off" if self.duck_mode else normalize_thinking_effort(thinking_effort)
+        )
         self.knowledge_mode = normalize_knowledge_mode(knowledge_mode)
         self.knowledge_store = knowledge_store
         self.auto_compact_enabled = bool(auto_compact_enabled)
@@ -101,12 +161,23 @@ class ToolChatSession:
         self.compacted_history_count = 0
         self.compaction_count = 0
         self.last_compaction: CompactionResult | None = None
+        self.sampling_overrides = dict(sampling_overrides or {})
 
     def set_thinking_effort(self, effort: str) -> None:
-        self.thinking_effort = normalize_thinking_effort(effort)
+        self.thinking_effort = (
+            "off" if self.duck_mode else normalize_thinking_effort(effort)
+        )
 
     def set_generation_effort(self, effort: str) -> None:
         self.generation_effort = normalize_generation_effort(effort)
+
+    def set_sampling_overrides(self, values: dict[str, float | int] | None) -> None:
+        self.sampling_overrides = dict(values or {})
+
+    def set_duck_mode(self, enabled: object) -> None:
+        self.duck_mode = normalize_duck_mode(enabled)
+        if self.duck_mode:
+            self.thinking_effort = "off"
 
     def set_knowledge_mode(self, mode: str) -> None:
         self.knowledge_mode = normalize_knowledge_mode(mode)
@@ -197,6 +268,9 @@ class ToolChatSession:
     ) -> str:
         generation_kwargs.setdefault("generation_profile", _generation_profile(message))
         generation_kwargs.setdefault("generation_effort", self.generation_effort)
+        for key, value in self.sampling_overrides.items():
+            if generation_kwargs.get(key) is None:
+                generation_kwargs[key] = value
         tool_definitions = (
             select_tool_definitions(
                 self._tool_routing_text(message),
@@ -279,6 +353,15 @@ class ToolChatSession:
                     on_token(response)
                 self.history.append(("user", message))
                 self.history.append(("assistant", _history_answer(response)))
+                return response
+            if round_index >= self.max_tool_rounds:
+                if stream is not None:
+                    stream.finish(show_buffered=False)
+                response = "Tool round limit reached before a final answer."
+                if on_token is not None:
+                    on_token(response)
+                self.history.append(("user", message))
+                self.history.append(("assistant", response))
                 return response
             if stream is not None:
                 stream.finish(show_buffered=False)
@@ -537,7 +620,11 @@ class ToolChatSession:
         tool_definitions: list[dict[str, Any]],
     ) -> str:
         model_name = str(getattr(self.engine, "model_name", "the current model"))
-        system_prompt = self._effective_system_prompt(model_name, native=True)
+        system_prompt = self._effective_system_prompt(
+            model_name,
+            native=True,
+            response_text=message,
+        )
         native_messages = [{"role": "system", "content": system_prompt}]
         native_messages.extend(
             {"role": role, "content": content} for role, content in self._active_history()
@@ -558,7 +645,10 @@ class ToolChatSession:
         tool_definitions: list[dict[str, Any]] | None = None,
     ) -> str:
         model_name = getattr(self.engine, "model_name", "the current model")
-        system_prompt = self._effective_system_prompt(str(model_name))
+        system_prompt = self._effective_system_prompt(
+            str(model_name),
+            response_text=message,
+        )
         if self.tools_enabled:
             definitions = (
                 tool_definitions
@@ -627,7 +717,11 @@ class ToolChatSession:
 
     def _native_messages(self, message: str) -> list[dict[str, Any]]:
         model_name = getattr(self.engine, "model_name", "the current model")
-        system_prompt = self._effective_system_prompt(str(model_name), native=True)
+        system_prompt = self._effective_system_prompt(
+            str(model_name),
+            native=True,
+            response_text=message,
+        )
         active_history = self._active_history()
         history = active_history[-64:]
         if len(history) < len(active_history):
@@ -719,7 +813,12 @@ class ToolChatSession:
             + "\n[End local document excerpts.]"
         )
 
-    def _effective_system_prompt(self, model_name: str, native: bool = False) -> str:
+    def _effective_system_prompt(
+        self,
+        model_name: str,
+        native: bool = False,
+        response_text: str = "",
+    ) -> str:
         prompt = self.system_prompt_template.replace("{model_name}", model_name)
         today = date.today().isoformat()
         date_line = r"(?m)^Date:\s+\d{4}-\d{2}-\d{2}\.?$"
@@ -733,6 +832,9 @@ class ToolChatSession:
             "web": "Knowledge: use local excerpts and verify factual claims with web tools.",
         }[self.knowledge_mode]
         prompt = prompt.rstrip() + "\n" + mode_policy
+        if self.duck_mode:
+            prompt += "\n\n" + DUCK_SYSTEM_PROMPT
+            prompt += "\n" + duck_language_instruction(response_text)
         if self.compaction_summary:
             prompt += (
                 "\n\n[Compacted conversation memory. Use as prior conversation context. "
@@ -815,11 +917,7 @@ def _input_token_budget(generation_kwargs: dict[str, Any]) -> int | None:
         return None
     context_length = max(2, int(raw_context))
     max_new_tokens = max(1, int(generation_kwargs.get("max_new_tokens", 4096)))
-    reserve = min(
-        max_new_tokens,
-        max(32, min(1024, context_length // 4)),
-        max(1, context_length // 2),
-    )
+    reserve = min(max_new_tokens, max(1, context_length // 2))
     return max(1, context_length - reserve)
 
 

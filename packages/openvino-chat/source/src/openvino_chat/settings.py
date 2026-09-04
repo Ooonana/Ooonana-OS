@@ -38,7 +38,8 @@ MODEL_MANIFEST_NAME = ".openvino-chat-model.json"
 
 DEFAULT_CONTEXT_LENGTH = 16384
 DEFAULT_AUTO_COMPACT = True
-GENERATION_EFFORTS = ("low", "medium", "high")
+DEFAULT_DUCK_MODE = False
+GENERATION_EFFORTS = ("low", "medium", "high", "custom")
 GENERATION_EFFORT_ALIASES = {
     "fast": "low",
     "balanced": "medium",
@@ -54,18 +55,19 @@ RAG_RERANK_REPO = "OpenVINO/bge-reranker-base-int8-ov"
 
 MODEL_REPOS = {
     "qwen": "OpenVINO/Qwen3.5-9B-int4-ov",
-    "tiny": "HarmenWessels/gemma-4-E2B-it-qat-int4-ov",
+    "tiny": "empero-ai/Qwen3.8-4B-Distill",
     "gemma": "OpenVINO/gemma-4-E4B-it-int4-ov",
     "ornith": "ornith-ai/Ornith-1.5-9B",
 }
 MODEL_DIRS = {
     "qwen": MODEL_ROOT / "qwen3.5-9b-int4-ov",
     "qwen38": MODEL_ROOT / "qwen3.8-9b-int4-ov",
-    "tiny": MODEL_ROOT / "gemma-4-e2b-it-qat-int4-ov",
+    "tiny": MODEL_ROOT / "qwen3.8-4b-int4-ov",
     "gemma": MODEL_ROOT / "gemma-4-e4b-it-int4-ov",
     "ornith": MODEL_ROOT / "ornith-1.5-9b-int4-ov",
 }
 MODEL_EXPORT_REQUIRED = {
+    "tiny": "Qwen3.8-4B-Distill needs OpenVINO INT4 export; import a converted folder or compatible conversion archive.",
     "ornith": "Ornith-1.5-9B must be exported to OpenVINO INT4 first; place the converted model in the ornith model path.",
 }
 DEFAULT_GENERATION_SETTINGS = {
@@ -216,7 +218,7 @@ def normalize_generation_effort(value: str) -> str:
     effort = str(value).strip().lower()
     effort = GENERATION_EFFORT_ALIASES.get(effort, effort)
     if effort not in GENERATION_EFFORTS:
-        raise ValueError("effort must be low, medium, or high")
+        raise ValueError("effort must be low, medium, high, or custom")
     return effort
 
 
@@ -275,6 +277,17 @@ def normalize_auto_compact(value: object) -> bool:
     raise ValueError("auto compact must be on or off")
 
 
+def normalize_duck_mode(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError("duck mode must be on or off")
+
+
 def generation_settings(
     model_name: str,
     profile: str = "general",
@@ -295,7 +308,7 @@ def generation_settings(
     else:
         key = ""
     effort = normalize_generation_effort(generation_effort)
-    if effort != "medium":
+    if effort not in {"medium", "custom"}:
         direct_qwen = key == "qwen" and normalize_thinking_effort(thinking_effort) == "off"
         if effort == "low":
             profile = "general" if direct_qwen else "coding"

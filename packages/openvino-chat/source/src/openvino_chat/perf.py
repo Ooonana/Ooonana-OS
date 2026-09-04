@@ -4,12 +4,15 @@ import ctypes
 import json
 import os
 import subprocess
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 
 CommandRunner = Callable[[str], str]
+_CPU_SAMPLE_LOCK = threading.Lock()
+_CPU_SAMPLE: tuple[int, int] | None = None
 
 
 @dataclass(frozen=True)
@@ -86,6 +89,9 @@ def format_live_status(
 
 
 def get_ram_usage() -> str:
+    if os.name != "nt":
+        return _get_linux_ram_usage()
+
     class MemoryStatus(ctypes.Structure):
         _fields_ = [
             ("dwLength", ctypes.c_ulong),
@@ -136,7 +142,10 @@ def get_process_working_set_bytes() -> int | None:
 def _get_process_working_set_bytes() -> int | None:
     try:
         if not hasattr(ctypes, "windll"):
-            return None
+            statm = Path("/proc/self/statm").read_text(encoding="ascii").split()
+            if len(statm) < 2:
+                return None
+            return int(statm[1]) * int(os.sysconf("SC_PAGE_SIZE"))
 
         class ProcessMemoryCounters(ctypes.Structure):
             _fields_ = [
@@ -164,6 +173,8 @@ def _get_process_working_set_bytes() -> int | None:
 
 
 def get_cpu_usage(runner: CommandRunner | None = None) -> str:
+    if runner is None:
+        return _get_windows_cpu_usage() if os.name == "nt" else _get_linux_cpu_usage()
     run = runner or _run_powershell
     try:
         raw = run("(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average")
@@ -174,6 +185,8 @@ def get_cpu_usage(runner: CommandRunner | None = None) -> str:
 
 
 def get_gpu_usage(runner: CommandRunner | None = None) -> str:
+    if runner is None and os.name != "nt":
+        return "gpu=unknown"
     run = runner or _run_powershell
     command = (
         "$vals=(Get-Counter '\\GPU Engine(*)\\Utilization Percentage' "
@@ -267,6 +280,86 @@ def _run_powershell(command: str) -> str:
     if completed.returncode != 0:
         raise RuntimeError(completed.stderr)
     return completed.stdout
+
+
+def _get_linux_ram_usage() -> str:
+    try:
+        values = _parse_linux_meminfo(Path("/proc/meminfo").read_text(encoding="ascii"))
+    except (OSError, UnicodeError):
+        values = None
+    if values is None:
+        return "ram=unknown"
+    total, available = values
+    used = max(0, total - available)
+    percent = round(used * 100 / total) if total else 0
+    return f"ram={human_bytes(used)} / {human_bytes(total)} ({percent}%)"
+
+
+def _parse_linux_meminfo(text: str) -> tuple[int, int] | None:
+    values: dict[str, int] = {}
+    for line in str(text).splitlines():
+        key, separator, raw = line.partition(":")
+        if not separator or key not in {"MemTotal", "MemAvailable", "MemFree"}:
+            continue
+        fields = raw.strip().split()
+        if not fields:
+            continue
+        try:
+            values[key] = int(fields[0]) * 1024
+        except ValueError:
+            continue
+    total = values.get("MemTotal", 0)
+    available = values.get("MemAvailable", values.get("MemFree", 0))
+    if total <= 0:
+        return None
+    return total, max(0, min(available, total))
+
+
+def _get_linux_cpu_usage() -> str:
+    try:
+        first = Path("/proc/stat").read_text(encoding="ascii").splitlines()[0]
+        fields = [int(value) for value in first.split()[1:]]
+    except (OSError, UnicodeError, ValueError, IndexError):
+        return "cpu=unknown"
+    if len(fields) < 4:
+        return "cpu=unknown"
+    sample = (sum(fields), fields[3] + (fields[4] if len(fields) > 4 else 0))
+    return _format_cpu_sample(sample)
+
+
+def _get_windows_cpu_usage() -> str:
+    class FileTime(ctypes.Structure):
+        _fields_ = (("low", ctypes.c_ulong), ("high", ctypes.c_ulong))
+
+    idle = FileTime()
+    kernel = FileTime()
+    user = FileTime()
+    try:
+        ok = ctypes.windll.kernel32.GetSystemTimes(
+            ctypes.byref(idle), ctypes.byref(kernel), ctypes.byref(user)
+        )
+    except Exception:
+        return "cpu=unknown"
+    if not ok:
+        return "cpu=unknown"
+
+    def value(item: FileTime) -> int:
+        return (int(item.high) << 32) | int(item.low)
+
+    return _format_cpu_sample((value(kernel) + value(user), value(idle)))
+
+
+def _format_cpu_sample(sample: tuple[int, int]) -> str:
+    global _CPU_SAMPLE
+    with _CPU_SAMPLE_LOCK:
+        previous = _CPU_SAMPLE
+        _CPU_SAMPLE = sample
+    total_delta = sample[0] - previous[0] if previous is not None else sample[0]
+    idle_delta = sample[1] - previous[1] if previous is not None else sample[1]
+    if total_delta <= 0:
+        return "cpu=unknown"
+    percent = max(0.0, min(100.0, (total_delta - idle_delta) * 100 / total_delta))
+    return f"cpu={percent:.1f}%"
 
 
 def _colon_status(text: str) -> str:

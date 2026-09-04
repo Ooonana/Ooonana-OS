@@ -10,6 +10,7 @@ KERNEL_PACKAGER="$ROOT/scripts/build-kernel-package.sh"
 CORE_PACKAGER="$ROOT/scripts/build-ooonana-core-package.sh"
 OPENVINO_PACKAGER="$ROOT/scripts/build-openvino-chat-package.sh"
 DEVICECHAT_PACKAGER="$ROOT/scripts/build-devicechat-package.sh"
+BUNANACHAT_PACKAGER="$ROOT/scripts/build-bunanachat-linux-package.sh"
 WINE_PACKAGER="$ROOT/scripts/build-wine-compat-package.sh"
 WINDOWS_CHAT_PACKAGER="$ROOT/scripts/build-ooonana-chat-windows-package.sh"
 R2_PUBLISHER="$ROOT/scripts/publish-r2-repo.sh"
@@ -36,6 +37,7 @@ assert_contains() {
 [[ -x "$CORE_PACKAGER" ]] || fail "missing executable core package builder"
 [[ -x "$OPENVINO_PACKAGER" ]] || fail "missing executable OpenVINO package builder"
 [[ -x "$DEVICECHAT_PACKAGER" ]] || fail "missing executable DeviceChat package builder"
+[[ -x "$BUNANACHAT_PACKAGER" ]] || fail "missing executable BunanaChat package builder"
 [[ -x "$WINE_PACKAGER" ]] || fail "missing executable Wine package builder"
 [[ -x "$WINDOWS_CHAT_PACKAGER" ]] || fail "missing executable Windows chat package builder"
 [[ -x "$R2_PUBLISHER" ]] || fail "missing executable R2 publisher"
@@ -218,7 +220,7 @@ assert_contains "$gitlab_ci" "OOONANA_REPO_SIGN_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_REPO_PUBLIC_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_CORE_VERSION"
-assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.8.23"'
+assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.8.24"'
 assert_contains "$gitlab_ci" "OOONANA_OPENVINO_CHAT_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_URL"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_SHA256"
@@ -244,14 +246,16 @@ assert_contains "$builder_help" "--kernel-sha256 SHA256"
 assert_contains "$builder_help" "--core-version VER"
 assert_contains "$builder_help" "--openvino-version VER"
 assert_contains "$builder_help" "--devicechat-version VER"
+assert_contains "$builder_help" "--bunanachat-version VER"
 assert_contains "$builder_help" "--wine-version VER"
-builder_dry="$(bash "$BUILDER" --dry-run --package-profile "$CLOUD_PROFILE" --repo-url file:///apk --cloud-url https://example.test/ooonana nano vim)"
+builder_dry="$(OOONANA_BUNANACHAT_LINUX_SOURCE=/nonexistent/ooonana-bunanachat-test bash "$BUILDER" --dry-run --package-profile "$CLOUD_PROFILE" --repo-url file:///apk --cloud-url https://example.test/ooonana nano vim)"
 assert_contains "$builder_dry" "packages: nano bash curl wget ca-certificates ca-certificates-bundle python3 bubblewrap xz nodejs flatpak vim"
 assert_contains "$builder_dry" "cloud: cloud https://example.test/ooonana"
 assert_contains "$builder_dry" "scripts/import-apk-package.sh"
 assert_contains "$builder_dry" "scripts/build-ooonana-core-package.sh"
 assert_contains "$builder_dry" "scripts/build-openvino-chat-package.sh"
 assert_contains "$builder_dry" "scripts/build-devicechat-package.sh"
+assert_contains "$builder_dry" "bunanachat: skipped"
 assert_contains "$builder_dry" "scripts/build-wine-compat-package.sh"
 builder_kernel_dry="$(bash "$BUILDER" --dry-run --package-profile "$CLOUD_PROFILE" --kernel-url https://example.test/vmlinuz --kernel-sha256 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef --kernel-version 9.9.9 nano)"
 assert_contains "$builder_kernel_dry" "kernel-url: https://example.test/vmlinuz"
@@ -272,9 +276,9 @@ core_builder_dry="$(bash "$CORE_PACKAGER" --dry-run --out-dir /tmp/repo --versio
 assert_contains "$core_builder_dry" "id: ooonana-core"
 assert_contains "$core_builder_dry" "runtime-id: ooonana-core-runtime"
 assert_contains "$core_builder_dry" "version: 0.8.1"
-openvino_builder_dry="$(bash "$OPENVINO_PACKAGER" --dry-run --out-dir /tmp/repo --version 0.1.3)"
+openvino_builder_dry="$(bash "$OPENVINO_PACKAGER" --dry-run --out-dir /tmp/repo --version 0.1.5)"
 assert_contains "$openvino_builder_dry" "id: openvino-chat"
-assert_contains "$openvino_builder_dry" "version: 0.1.3"
+assert_contains "$openvino_builder_dry" "version: 0.1.5"
 devicechat_builder_dry="$(bash "$DEVICECHAT_PACKAGER" --dry-run --out-dir /tmp/repo)"
 assert_contains "$devicechat_builder_dry" "id: devicechat"
 wine_builder_dry="$(bash "$WINE_PACKAGER" --dry-run --out-dir /tmp/repo)"
@@ -342,6 +346,7 @@ EOF
 chmod +x "$stub"
 OOONANA_TEST_ROOT="$ROOT" OOONANA_IMPORT_APK_SCRIPT="$stub" \
   OOONANA_DEVICECHAT_NPM="$fake_npm" \
+  OOONANA_BUNANACHAT_LINUX_SOURCE="$tmp/missing-bunanachat" \
   OOONANA_OONANA_CHAT_WINDOWS_SOURCE="$tmp/missing.exe" bash "$BUILDER" \
   --out-dir "$tmp/repo" \
   --package-profile /dev/null \
@@ -353,7 +358,7 @@ OOONANA_TEST_ROOT="$ROOT" OOONANA_IMPORT_APK_SCRIPT="$stub" \
 [[ -f "$tmp/repo/ooonana-core.pkg" ]] || fail "builder missing core meta package"
 [[ -f "$tmp/repo/ooonana-core-runtime.pkg" ]] || fail "builder missing core runtime package"
 [[ -f "$tmp/repo/openvino-chat.pkg" ]] || fail "builder missing OpenVINO Chat package"
-[[ -f "$tmp/repo/archives/openvino-chat-0.1.3.tar.gz" ]] || fail "builder missing OpenVINO Chat archive"
+[[ -f "$tmp/repo/archives/openvino-chat-0.1.5.tar.gz" ]] || fail "builder missing OpenVINO Chat archive"
 [[ -f "$tmp/repo/devicechat.pkg" ]] || fail "builder missing DeviceChat package"
 [[ -f "$tmp/repo/wine.pkg" ]] || fail "builder missing Wine package"
 assert_contains "$(<"$tmp/repo/ooonana-core.pkg")" 'OOONANA_PKG_DEPS="ooonana-core-runtime"'
@@ -401,7 +406,7 @@ core_upgrade="$(OOONANA_REPO_DIR="$tmp/repo" \
 assert_contains "$core_upgrade" "installed ooonana-core-runtime"
 assert_contains "$core_upgrade" "upgraded ooonana-core 0.8.1"
 [[ -x "$core_upgrade_root/usr/bin/ooonana" ]] || fail "core migration removed upgraded CLI"
-assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.8.23"
+assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.8.24"
 assert_contains "$(<"$tmp/repo/cloud.repo")" 'OOONANA_REPO_URI="https://example.test/repo"'
 assert_contains "$(<"$tmp/repo/README.txt")" "ooonana update"
 
@@ -439,6 +444,7 @@ EOF
 chmod +x "$full_stub"
 OOONANA_TEST_ROOT="$ROOT" OOONANA_IMPORT_I3_SCRIPT="$full_stub" \
   OOONANA_IMPORT_APK_SCRIPT="$stub" OOONANA_DEVICECHAT_NPM="$fake_npm" \
+  OOONANA_BUNANACHAT_LINUX_SOURCE="$tmp/missing-bunanachat" \
   OOONANA_OONANA_CHAT_WINDOWS_SOURCE="$tmp/missing.exe" bash "$BUILDER" \
   --out-dir "$tmp/full-repo" \
   --package-profile /dev/null \
@@ -471,6 +477,7 @@ fi
 
 OOONANA_TEST_ROOT="$ROOT" OOONANA_IMPORT_APK_SCRIPT="$stub" \
   OOONANA_DEVICECHAT_NPM="$fake_npm" \
+  OOONANA_BUNANACHAT_LINUX_SOURCE="$tmp/missing-bunanachat" \
   OOONANA_OONANA_CHAT_WINDOWS_SOURCE="$tmp/missing.exe" bash "$BUILDER" \
   --out-dir "$tmp/repo-with-kernel" \
   --package-profile /dev/null \

@@ -9,3 +9,4 @@ __pycache__/
 *.pyc
 /tmp/
 packages/ooonana-chat-windows/source/*.exe
+packages/bunanachat-linux/source/dist/

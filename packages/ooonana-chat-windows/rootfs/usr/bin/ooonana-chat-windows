@@ -1,4 +1,24 @@
 #!/bin/sh
 set -eu
 
-exec /usr/bin/ooonana-wine run '/opt/ooonana-wine/OoonanaChat Setup 1.0.0.exe'
+installer='/opt/ooonana-wine/OoonanaChat Setup 1.0.0.exe'
+
+case "${1:-run}" in
+  run)
+    shift 2>/dev/null || true
+    [ "$#" -eq 0 ] || { printf 'usage: ooonana-chat-windows [run|setup]\n' >&2; exit 2; }
+    exec /usr/bin/ooonana-wine command cmd /c start '' '%LOCALAPPDATA%\Programs\ooonanachat\OoonanaChat.exe'
+    ;;
+  setup|install)
+    shift
+    [ "$#" -eq 0 ] || { printf 'usage: ooonana-chat-windows [run|setup]\n' >&2; exit 2; }
+    exec /usr/bin/ooonana-wine run "$installer"
+    ;;
+  help|-h|--help)
+    printf 'usage: ooonana-chat-windows [run|setup]\n'
+    ;;
+  *)
+    printf 'ooonana-chat-windows: unknown command: %s\n' "$1" >&2
+    exit 2
+    ;;
+esac

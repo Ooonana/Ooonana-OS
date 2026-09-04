@@ -3,7 +3,7 @@
 # shellcheck disable=SC1090,SC3043
 set -eu
 
-VERSION="0.8.23"
+VERSION="0.8.24"
 HOME_DIR="${HOME:-/root}"
 if [ -n "${OOONANA_AI_CONFIG:-}" ]; then
   AI_CONFIG="$OOONANA_AI_CONFIG"
@@ -356,6 +356,7 @@ Desktop helpers:
   ooonana-editor [PATH]
   ooonana-music
   ooonana-processes
+  ooonana-process-kill
   ooonana-ranger [PATH]
   ooonana-brightness [VALUE]
 

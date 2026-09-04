@@ -148,7 +148,7 @@ EOF
 chmod +x "$scratch/bin/busybox"
 cat > "$scratch/usr/bin/ooonana" <<'EOF'
 #!/bin/sh
-echo ooonana 0.8.23
+echo ooonana 0.8.24
 EOF
 chmod +x "$scratch/usr/bin/ooonana"
 cat > "$scratch/usr/bin/ooonana-setup" <<'EOF'
@@ -297,6 +297,7 @@ fi
 [[ -x "$rootfs/usr/bin/ooonana-media-control" ]] || fail "missing media controller"
 [[ -x "$rootfs/usr/bin/ooonana-media-status" ]] || fail "missing media panel status"
 [[ -x "$rootfs/usr/bin/ooonana-processes" ]] || fail "missing processes helper"
+[[ -x "$rootfs/usr/bin/ooonana-process-kill" ]] || fail "missing process kill helper"
 [[ -x "$rootfs/usr/bin/ooonana-ranger" ]] || fail "missing ranger helper"
 [[ -x "$rootfs/usr/bin/ooonana-brightness" ]] || fail "missing brightness helper"
 [[ -f "$rootfs/usr/share/ooonana/logo.svg" ]] || fail "missing rootfs logo svg"
@@ -862,6 +863,7 @@ assert_contains "$polybar_cfg" "click-middle = ooonana-media-control play-pause"
 assert_contains "$polybar_cfg" "click-right = ooonana-media-control next"
 assert_contains "$polybar_cfg" "[module/processes]"
 assert_contains "$polybar_cfg" "click-left = ooonana-processes"
+assert_contains "$polybar_cfg" "click-right = ooonana-process-kill"
 assert_contains "$polybar_cfg" "[module/win-close]"
 assert_contains "$polybar_cfg" "click-left = i3-msg kill"
 assert_contains "$polybar_cfg" "[module/win-min]"
@@ -1122,6 +1124,7 @@ assert_contains "$contents" "./usr/bin/ooonana-screenshot"
 assert_contains "$contents" "./usr/bin/ooonana-editor"
 assert_contains "$contents" "./usr/bin/ooonana-music"
 assert_contains "$contents" "./usr/bin/ooonana-processes"
+assert_contains "$contents" "./usr/bin/ooonana-process-kill"
 assert_contains "$contents" "./usr/bin/ooonana-ranger"
 assert_contains "$contents" "./usr/bin/ooonana-brightness"
 assert_contains "$contents" "./usr/bin/ooonana-volume"

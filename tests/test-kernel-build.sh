@@ -101,9 +101,9 @@ assert_contains "$fragment_src" "CONFIG_HZ_1000=y"
 assert_contains "$fragment_src" "CONFIG_HZ=1000"
 assert_contains "$fragment_src" "CONFIG_SCHED_AUTOGROUP=y"
 assert_contains "$fragment_src" "# CONFIG_MODULES is not set"
-assert_contains "$fragment_src" "# CONFIG_DEBUG_KERNEL is not set"
-assert_contains "$fragment_src" "# CONFIG_KALLSYMS is not set"
-assert_contains "$fragment_src" "# CONFIG_BPF is not set"
+assert_contains "$fragment_src" "CONFIG_DEBUG_KERNEL=y"
+assert_contains "$fragment_src" "CONFIG_KALLSYMS=y"
+assert_contains "$fragment_src" "CONFIG_BPF=y"
 assert_contains "$fragment_src" "CONFIG_SOUND=y"
 assert_contains "$fragment_src" "CONFIG_SND_HDA_INTEL=y"
 assert_contains "$fragment_src" "CONFIG_SND_USB_AUDIO=y"
@@ -135,6 +135,11 @@ assert_contains "$fragment_src" "CONFIG_TUN=y"
 
 kernel_builder_src="$(<"$SCRIPT")"
 assert_contains "$kernel_builder_src" "verify_required_config"
+assert_contains "$kernel_builder_src" "verify_config_fragments"
+assert_contains "$kernel_builder_src" "declare -A expected"
+assert_contains "$kernel_builder_src" 'expected["$option"]="$requested"'
+assert_contains "$kernel_builder_src" "kernel option did not resolve"
+assert_contains "$kernel_builder_src" "# CONFIG_[A-Z0-9_]+ is not set"
 assert_contains "$kernel_builder_src" "required kernel option did not resolve"
 assert_contains "$kernel_builder_src" "BT BT_HCIBTUSB UHID INPUT_UINPUT"
 assert_contains "$kernel_builder_src" "OVERLAY_FS FUSE_FS CUSE"
@@ -155,7 +160,7 @@ trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$tmp/source/arch/x86" "$tmp/source/scripts/kconfig" "$tmp/bin"
 touch "$tmp/source/Makefile"
 mkdir -p "$tmp/fragment dir"
-printf 'CONFIG_DEVTMPFS=y\nCONFIG_DEVTMPFS_MOUNT=y\n' > "$tmp/fragment dir/fragment.config"
+printf 'CONFIG_DEVTMPFS=y\nCONFIG_DEVTMPFS_MOUNT=y\n# CONFIG_UNUSED is not set\n' > "$tmp/fragment dir/fragment.config"
 
 cat > "$tmp/source/scripts/kconfig/merge_config.sh" <<EOF
 #!/bin/sh
@@ -245,6 +250,7 @@ bash "$SCRIPT" \
 [[ -f "$tmp/out/custom-vmlinuz" ]] || fail "missing kernel output"
 [[ "$(<"$tmp/out/custom-vmlinuz")" == "fake kernel" ]] || fail "wrong kernel payload"
 grep -q 'CONFIG_DEVTMPFS=y' "$tmp/build/.config" || fail "missing config fragment"
+grep -q '# CONFIG_UNUSED is not set' "$tmp/build/.config" || fail "missing disabled config fragment"
 [[ -f "$tmp/out/kernel.env" ]] || fail "missing kernel env"
 [[ -f "$tmp/out/config-ooonana" ]] || fail "missing resolved kernel config"
 

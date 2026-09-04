@@ -23,16 +23,19 @@ KERNEL_PACKAGE_SCRIPT="${OOONANA_KERNEL_PACKAGE_SCRIPT:-$ROOT/scripts/build-kern
 CORE_PACKAGE_SCRIPT="${OOONANA_CORE_PACKAGE_SCRIPT:-$ROOT/scripts/build-ooonana-core-package.sh}"
 OPENVINO_CHAT_PACKAGE_SCRIPT="${OOONANA_OPENVINO_CHAT_PACKAGE_SCRIPT:-$ROOT/scripts/build-openvino-chat-package.sh}"
 DEVICECHAT_PACKAGE_SCRIPT="${OOONANA_DEVICECHAT_PACKAGE_SCRIPT:-$ROOT/scripts/build-devicechat-package.sh}"
+BUNANACHAT_PACKAGE_SCRIPT="${OOONANA_BUNANACHAT_PACKAGE_SCRIPT:-$ROOT/scripts/build-bunanachat-linux-package.sh}"
 WINE_COMPAT_PACKAGE_SCRIPT="${OOONANA_WINE_COMPAT_PACKAGE_SCRIPT:-$ROOT/scripts/build-wine-compat-package.sh}"
 WINDOWS_CHAT_PACKAGE_SCRIPT="${OOONANA_WINDOWS_CHAT_PACKAGE_SCRIPT:-$ROOT/scripts/build-ooonana-chat-windows-package.sh}"
-OPENVINO_CHAT_PACKAGE_VERSION="${OOONANA_OPENVINO_CHAT_VERSION:-0.1.3}"
-DEVICECHAT_PACKAGE_VERSION="${OOONANA_DEVICECHAT_VERSION:-0.1.0}"
-WINE_COMPAT_PACKAGE_VERSION="${OOONANA_WINE_COMPAT_VERSION:-1.0.0}"
-WINDOWS_CHAT_PACKAGE_VERSION="${OOONANA_WINDOWS_CHAT_VERSION:-1.0.0}"
-DEVICECHAT_SOURCE="${OOONANA_DEVICECHAT_SOURCE:-$ROOT/packages/devicechat/source/devicechat-0.1.0.tgz}"
+OPENVINO_CHAT_PACKAGE_VERSION="${OOONANA_OPENVINO_CHAT_VERSION:-0.1.5}"
+DEVICECHAT_PACKAGE_VERSION="${OOONANA_DEVICECHAT_VERSION:-0.1.1}"
+BUNANACHAT_PACKAGE_VERSION="${OOONANA_BUNANACHAT_VERSION:-0.1.1}"
+WINE_COMPAT_PACKAGE_VERSION="${OOONANA_WINE_COMPAT_VERSION:-1.0.1}"
+WINDOWS_CHAT_PACKAGE_VERSION="${OOONANA_WINDOWS_CHAT_VERSION:-1.0.1}"
+DEVICECHAT_SOURCE="${OOONANA_DEVICECHAT_SOURCE:-$ROOT/packages/devicechat/source/devicechat-0.1.1.tgz}"
+BUNANACHAT_SOURCE_DIR="${OOONANA_BUNANACHAT_LINUX_SOURCE:-$ROOT/packages/bunanachat-linux/source/dist}"
 WINDOWS_CHAT_SOURCE="${OOONANA_OONANA_CHAT_WINDOWS_SOURCE:-$ROOT/packages/ooonana-chat-windows/source/OoonanaChat Setup 1.0.0.exe}"
-NATIVE_APK_PACKAGES="nodejs flatpak"
-CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.8.23}"
+NATIVE_APK_PACKAGES="nodejs flatpak bluez dbus fontconfig freetype libx11 libice libsm mesa-gl icu-libs zlib libgcc libstdc++"
+CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.8.24}"
 KERNEL_PACKAGE_PATH="${OOONANA_KERNEL_PACKAGE_PATH:-}"
 KERNEL_PACKAGE_URL="${OOONANA_KERNEL_PACKAGE_URL:-}"
 KERNEL_PACKAGE_SHA256="${OOONANA_KERNEL_SHA256:-}"
@@ -59,13 +62,15 @@ Options:
   --kernel-url URL        Add Ooonana kernel package from remote kernel image
   --kernel-sha256 SHA256  Require this SHA-256 for the kernel image
   --kernel-version VER    Kernel package version (default: 6.18.37-2)
-  --core-version VER      Ooonana system update package version (default: 0.8.23)
-  --openvino-version VER  OpenVINO Chat package version (default: 0.1.3)
-  --devicechat-version VER Native DeviceChat package version (default: 0.1.0)
-  --wine-version VER      Wine compatibility package version (default: 1.0.0)
+  --core-version VER      Ooonana system update package version (default: 0.8.24)
+  --openvino-version VER  OpenVINO Chat package version (default: 0.1.5)
+  --devicechat-version VER Native DeviceChat package version (default: 0.1.1)
+  --bunanachat-version VER Native BunanaChat Linux package version (default: 0.1.1)
+  --wine-version VER      Wine compatibility package version (default: 1.0.1)
   --windows-chat-version VER
-                       OoonanaChat Windows package version (default: 1.0.0)
+                       OoonanaChat Windows package version (default: 1.0.1)
   --devicechat-source PATH DeviceChat npm tarball
+  --bunanachat-source PATH BunanaChat linux-musl-x64 publish directory
   --windows-chat-source PATH
                        Optional OoonanaChat Windows .exe installer
   --clean                 Delete output dir before build
@@ -99,9 +104,11 @@ while [[ $# -gt 0 ]]; do
     --core-version) CORE_PACKAGE_VERSION="$2"; shift 2 ;;
     --openvino-version) OPENVINO_CHAT_PACKAGE_VERSION="$2"; shift 2 ;;
     --devicechat-version) DEVICECHAT_PACKAGE_VERSION="$2"; shift 2 ;;
+    --bunanachat-version) BUNANACHAT_PACKAGE_VERSION="$2"; shift 2 ;;
     --wine-version) WINE_COMPAT_PACKAGE_VERSION="$2"; shift 2 ;;
     --windows-chat-version) WINDOWS_CHAT_PACKAGE_VERSION="$2"; shift 2 ;;
     --devicechat-source) DEVICECHAT_SOURCE="$2"; shift 2 ;;
+    --bunanachat-source) BUNANACHAT_SOURCE_DIR="$2"; shift 2 ;;
     --windows-chat-source) WINDOWS_CHAT_SOURCE="$2"; shift 2 ;;
     --clean) CLEAN=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
@@ -261,6 +268,11 @@ main() {
     ooonana_print_command bash "$CORE_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$CORE_PACKAGE_VERSION"
     ooonana_print_command bash "$OPENVINO_CHAT_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$OPENVINO_CHAT_PACKAGE_VERSION"
     ooonana_print_command bash "$DEVICECHAT_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$DEVICECHAT_PACKAGE_VERSION" --source "$DEVICECHAT_SOURCE"
+    if [[ -f "$BUNANACHAT_SOURCE_DIR/BunanaChat.Linux" ]]; then
+      ooonana_print_command bash "$BUNANACHAT_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$BUNANACHAT_PACKAGE_VERSION" --source-dir "$BUNANACHAT_SOURCE_DIR"
+    else
+      printf 'bunanachat: skipped (source missing: %s)\n' "$BUNANACHAT_SOURCE_DIR"
+    fi
     ooonana_print_command bash "$WINE_COMPAT_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$WINE_COMPAT_PACKAGE_VERSION"
     if [[ -f "$WINDOWS_CHAT_SOURCE" ]]; then
       ooonana_print_command bash "$WINDOWS_CHAT_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$WINDOWS_CHAT_PACKAGE_VERSION" --source "$WINDOWS_CHAT_SOURCE"
@@ -297,6 +309,16 @@ main() {
     --out-dir "$OUT_DIR" \
     --version "$DEVICECHAT_PACKAGE_VERSION" \
     --source "$DEVICECHAT_SOURCE"
+  bunanachat_built=0
+  if [[ -f "$BUNANACHAT_SOURCE_DIR/BunanaChat.Linux" ]]; then
+    bash "$BUNANACHAT_PACKAGE_SCRIPT" \
+      --out-dir "$OUT_DIR" \
+      --version "$BUNANACHAT_PACKAGE_VERSION" \
+      --source-dir "$BUNANACHAT_SOURCE_DIR"
+    bunanachat_built=1
+  else
+    ooonana_log "optional BunanaChat Linux package skipped: $BUNANACHAT_SOURCE_DIR"
+  fi
   bash "$WINE_COMPAT_PACKAGE_SCRIPT" \
     --out-dir "$OUT_DIR" \
     --version "$WINE_COMPAT_PACKAGE_VERSION"
@@ -320,6 +342,7 @@ main() {
   fi
   "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$OUT_DIR" >/dev/null
   native_packages="ooonana-core openvino-chat devicechat wine"
+  [[ "$bunanachat_built" -eq 1 ]] && native_packages="$native_packages bunanachat"
   [[ "$windows_chat_built" -eq 1 ]] && native_packages="$native_packages ooonana-chat-windows"
   verify_repo_packages $native_packages
   if [[ "$FULL_I3" -eq 1 ]]; then

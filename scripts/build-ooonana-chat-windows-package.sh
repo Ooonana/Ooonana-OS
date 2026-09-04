@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR=""
-VERSION="1.0.0"
+VERSION="1.0.1"
 SOURCE_EXE="${OOONANA_OONANA_CHAT_WINDOWS_SOURCE:-$ROOT/packages/ooonana-chat-windows/source/OoonanaChat Setup 1.0.0.exe}"
 PAYLOAD_DIR="$ROOT/packages/ooonana-chat-windows/rootfs"
 DRY_RUN=0
@@ -16,7 +16,7 @@ Usage:
   scripts/build-ooonana-chat-windows-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER  Package version (default: 1.0.0)
+  --version VER  Package version (default: 1.0.1)
   --source PATH  OoonanaChat Windows .exe installer
   --dry-run      Print resolved package details
   -h, --help     Show help

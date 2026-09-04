@@ -307,9 +307,10 @@ CONFIG_UNIX=y
 CONFIG_BINFMT_ELF=y
 CONFIG_BINFMT_SCRIPT=y
 # CONFIG_MODULES is not set
-# CONFIG_DEBUG_KERNEL is not set
-# CONFIG_KALLSYMS is not set
-# CONFIG_BPF is not set
+# Required networking and expert options select these dependencies.
+CONFIG_DEBUG_KERNEL=y
+CONFIG_KALLSYMS=y
+CONFIG_BPF=y
 CONFIG_SOUND=y
 CONFIG_SND=y
 CONFIG_SND_TIMER=y

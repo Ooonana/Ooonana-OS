@@ -218,6 +218,10 @@ assert_contains "$window_list" 'scratchpad show'
 assert_contains "$window_list" 'hidden_count'
 assert_contains "$window_list" '"--close-menu"'
 assert_contains "$window_list" 'f"[con_id={con_id}] kill"'
+full_builder="$(<"$ROOT/scripts/build-full-i3-rootfs.sh")"
+assert_contains "$full_builder" 'ROOTFS/usr/bin/ooonana-process-kill'
+assert_contains "$full_builder" 'click-right = ooonana-process-kill'
+assert_contains "$full_builder" '[ "$owner" = "$uid" ]'
 assert_contains "$i3_config" 'Chromium-browser'
 assert_contains "$i3_config" "--backend glx"
 assert_contains "$i3_config" "--backend xrender"

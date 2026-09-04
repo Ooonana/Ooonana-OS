@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR=""
-VERSION="1.0.0"
+VERSION="1.0.1"
 PAYLOAD_DIR="$ROOT/packages/wine-compat/rootfs"
 DRY_RUN=0
 
@@ -15,7 +15,7 @@ Usage:
   scripts/build-wine-compat-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER  Package version (default: 1.0.0)
+  --version VER  Package version (default: 1.0.1)
   --dry-run      Print resolved package details
   -h, --help     Show help
 EOF

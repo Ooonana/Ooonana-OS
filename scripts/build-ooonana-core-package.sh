@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR=""
-VERSION="0.8.23"
+VERSION="0.8.24"
 DRY_RUN=0
 
 usage() {
@@ -14,7 +14,7 @@ Usage:
   scripts/build-ooonana-core-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER  Package version (default: 0.8.23)
+  --version VER  Package version (default: 0.8.24)
   --dry-run      Print resolved package details
   -h, --help     Show help
 USAGE
@@ -94,6 +94,7 @@ for helper in \
   ooonana-brightness-panel ooonana-audio-panel ooonana-audio-status \
   ooonana-battery-status ooonana-volume ooonana-rofi-power \
   ooonana-power-menu ooonana-screenshot ooonana-editor ooonana-processes \
+  ooonana-process-kill \
   ooonana-ranger ooonana-brightness ooonana-brightness-status \
   ooonana-packages-app ooonana-packages ooonana-settings \
   ooonana-settings-launch ooonana-installer-gui ooonana-gui-installer \

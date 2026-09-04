@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILDER="$ROOT/scripts/build-devicechat-package.sh"
-SOURCE="$ROOT/packages/devicechat/source/devicechat-0.1.0.tgz"
+SOURCE="$ROOT/packages/devicechat/source/devicechat-0.1.1.tgz"
 
 fail() {
   printf 'FAIL: %s\n' "$*" >&2
@@ -37,10 +37,10 @@ chmod +x "$fake_npm"
 
 bash "$BUILDER" --out-dir "$tmp/repo" --npm "$fake_npm" >/dev/null
 [[ -f "$tmp/repo/devicechat.pkg" ]] || fail "missing DeviceChat metadata"
-[[ -f "$tmp/repo/archives/devicechat-0.1.0.tar.gz" ]] || fail "missing DeviceChat archive"
+[[ -f "$tmp/repo/archives/devicechat-0.1.1.tar.gz" ]] || fail "missing DeviceChat archive"
 metadata="$(<"$tmp/repo/devicechat.pkg")"
 assert_contains "$metadata" 'OOONANA_PKG_DEPS="nodejs"'
-contents="$(tar -tzf "$tmp/repo/archives/devicechat-0.1.0.tar.gz")"
+contents="$(tar -tzf "$tmp/repo/archives/devicechat-0.1.1.tar.gz")"
 assert_contains "$contents" './usr/bin/devicechat'
 assert_contains "$contents" './usr/bin/devicechat-relay'
 assert_contains "$contents" './opt/devicechat/dist/index.js'
