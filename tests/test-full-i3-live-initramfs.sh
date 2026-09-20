@@ -38,6 +38,7 @@ mkdir -p "$tmp/rootfs/usr/share/ooonana"
 cat > "$tmp/bin/cpio" <<'EOF'
 #!/bin/sh
 cat >/dev/null
+cp init "$CAPTURE_INIT"
 printf 'fake cpio\n'
 EOF
 chmod +x "$tmp/bin/cpio"
@@ -83,7 +84,7 @@ echo start
 EOF
 chmod +x "$tmp/rootfs/usr/bin/start-ooonana-i3"
 
-PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
+CAPTURE_INIT="$tmp/generated-init" PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
   --rootfs "$tmp/rootfs" \
   --rootfs-image "$tmp/live-rootfs.ext4" \
   --kernel "$tmp/vmlinuz" \
@@ -97,6 +98,33 @@ gzip -dc "$tmp/live.cpio.gz" | grep -q "fake cpio" || fail "cpio output not comp
 [[ -f "$tmp/rootfs/boot/vmlinuz" ]] || fail "kernel not staged in live rootfs"
 [[ -d "$tmp/rootfs/dev" ]] || fail "dev dir removed"
 [[ -d "$tmp/rootfs/proc" ]] || fail "proc dir removed"
+
+# Execute generated startup with proc unavailable until its mount succeeds.
+# Stop before media probing; no real mounts or device operations are allowed.
+cat > "$tmp/check-cmdline.sh" <<'EOF'
+#!/bin/sh
+set -eu
+proc_ready=0
+mount() {
+  [ "$*" != '-t proc proc /proc' ] || proc_ready=1
+  return 0
+}
+mknod() { return 0; }
+cat() {
+  if [ "$1" = /proc/cmdline ]; then
+    [ "$proc_ready" = 1 ] || return 1
+    printf '%s\n' "$TEST_CMDLINE"
+  else
+    command cat "$@"
+  fi
+}
+eval "$(sed '/^splash "starting live boot"/,$d' "$1")"
+printf '%s\n' "$LIVE_IMAGE"
+EOF
+image="$(TEST_CMDLINE='quiet ooonana.live.rootfs=/images/custom.ext4' sh "$tmp/check-cmdline.sh" "$tmp/generated-init")"
+[[ "$image" == /images/custom.ext4 ]] || fail "live rootfs override ignored before proc mount"
+image="$(TEST_CMDLINE='quiet' sh "$tmp/check-cmdline.sh" "$tmp/generated-init")"
+[[ "$image" == /images/ooonana-full-i3-live-rootfs.ext4 ]] || fail "default live rootfs changed"
 
 script_src="$(<"$SCRIPT")"
 assert_contains "$script_src" "/images/ooonana-full-i3-live-rootfs.ext4"

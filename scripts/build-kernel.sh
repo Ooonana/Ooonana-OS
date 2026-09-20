@@ -20,7 +20,7 @@ RESUME=0
 FRAGMENT_STAGE=""
 
 cleanup() {
-  if [[ -n "$FRAGMENT_STAGE" && -d "$FRAGMENT_STAGE" ]]; then
+  if [[ "$DRY_RUN" -eq 0 && -n "$FRAGMENT_STAGE" && -d "$FRAGMENT_STAGE" ]]; then
     rm -rf "$FRAGMENT_STAGE"
   fi
 }
@@ -153,10 +153,14 @@ apply_config_fragments() {
 
 write_kernel_env() {
   local resolved_config="$KERNEL_OUT/config-ooonana"
-  local config_sha
+  local config_sha kernel_version
+  kernel_version="$(make -s -C "$KERNEL_SOURCE" O="$KERNEL_BUILD" kernelversion)"
+  [[ "$kernel_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+[-._+a-zA-Z0-9]*$ ]] ||
+    ooonana_die "invalid kernel source version: $kernel_version"
   config_sha="$(sha256sum "$resolved_config" | awk '{ print $1 }')"
   cat > "$KERNEL_OUT/kernel.env" <<EOF
 OOONANA_KERNEL=$KERNEL
+OOONANA_KERNEL_VERSION=$kernel_version
 OOONANA_KERNEL_SOURCE=$KERNEL_SOURCE
 OOONANA_KERNEL_BUILD=$KERNEL_BUILD
 OOONANA_KERNEL_DEFCONFIG=$DEFCONFIG
@@ -227,11 +231,11 @@ main() {
     ooonana_die "--resume and --force cannot be combined"
 
   if [[ "$FORCE" -eq 1 ]]; then
-    rm -rf "$KERNEL_BUILD"
-    rm -f "$KERNEL" "$KERNEL_OUT/kernel.env" "$KERNEL_OUT/config-ooonana"
+    run_cmd rm -rf "$KERNEL_BUILD"
+    run_cmd rm -f "$KERNEL" "$KERNEL_OUT/kernel.env" "$KERNEL_OUT/config-ooonana"
   fi
 
-  mkdir -p "$KERNEL_BUILD" "$KERNEL_OUT" "$(dirname "$KERNEL")"
+  run_cmd mkdir -p "$KERNEL_BUILD" "$KERNEL_OUT" "$(dirname "$KERNEL")"
 
   if [[ "$RESUME" -eq 1 ]]; then
     [[ -s "$KERNEL_BUILD/.config" ]] ||

@@ -101,4 +101,49 @@ assert_contains "$source_text" 'QEMU_ACCEL=tcg,thread=multi'
 assert_contains "$source_text" '-accel "$QEMU_ACCEL"'
 assert_contains "$(<"$ROOT/scripts/build-full-i3-iso.sh")" 'OOONANA_MAX_ISO_BYTES:-4500000000'
 
+# Execute only the cache predicate, never release setup or build operations.
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+cache_function="$(awk '
+  /^kernel_cache_matches_fragment\(\) \{/ { capture=1 }
+  capture { print }
+  capture && /^}$/ { exit }
+' "$SCRIPT")"
+[[ -n "$cache_function" ]] || fail "missing cache predicate"
+eval "$cache_function"
+KERNEL="$tmp/vmlinuz-ooonana"
+KERNEL_CONFIG="$tmp/config-ooonana"
+KERNEL_FRAGMENT="$tmp/fragment"
+KERNEL_SOURCE_VERSION=6.18.37
+printf 'fake kernel\n' > "$KERNEL"
+printf 'CONFIG_EXT4_FS=y\n# CONFIG_MODULES is not set\n' > "$KERNEL_FRAGMENT"
+cp "$KERNEL_FRAGMENT" "$KERNEL_CONFIG"
+reject_cache() {
+  if kernel_cache_matches_fragment; then
+    fail "accepted $1 cache"
+  fi
+  [[ -n "$KERNEL_CACHE_ERROR" ]] || fail "missing rejection reason: $1"
+}
+reject_cache 'missing metadata'
+printf 'OOONANA_KERNEL=%s\n' "$KERNEL" > "$tmp/kernel.env"
+reject_cache 'legacy metadata without version'
+printf 'OOONANA_KERNEL_VERSION=6.18.36\n' > "$tmp/kernel.env"
+reject_cache 'different version'
+printf 'OOONANA_KERNEL_VERSION=6.18.37\n' > "$tmp/kernel.env"
+kernel_cache_matches_fragment || fail "matching cache rejected: $KERNEL_CACHE_ERROR"
+KERNEL_SOURCE_VERSION=6.18.38
+reject_cache 'changed requested version'
+KERNEL_SOURCE_VERSION=6.18.37
+printf 'OOONANA_KERNEL_VERSION=6.18.37\nOOONANA_KERNEL_VERSION=6.18.37\n' > "$tmp/kernel.env"
+reject_cache 'duplicate version'
+printf 'OOONANA_KERNEL_VERSION=$(touch %s/executed)\n' "$tmp" > "$tmp/kernel.env"
+reject_cache 'executable metadata'
+[[ ! -e "$tmp/executed" ]] || fail "metadata executed"
+printf 'OOONANA_KERNEL_VERSION=6.18.37\n' > "$tmp/kernel.env"
+printf 'CONFIG_EXT4_FS=n\n' > "$KERNEL_CONFIG"
+reject_cache 'different config'
+cp "$KERNEL_FRAGMENT" "$KERNEL_CONFIG"
+: > "$KERNEL"
+reject_cache 'empty kernel'
+
 printf 'ok rebuild-full-i3-release\n'
