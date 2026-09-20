@@ -17,6 +17,7 @@ from openvino_chat.settings import (
     MODEL_MANIFEST_NAME,
     MODEL_REPOS,
     MODEL_ROOT,
+    canonical_model_name,
     discover_model_dirs,
 )
 
@@ -40,7 +41,9 @@ def download_named_model(
     snapshot_download: SnapshotDownload | None = None,
     repo_files: RepoFiles | None = None,
 ) -> Path:
-    key = name.lower()
+    raw_key = name.lower()
+    canonical = canonical_model_name(raw_key)
+    key = canonical if canonical in MODEL_REPOS else raw_key
     if key in MODEL_REPOS:
         if key in MODEL_EXPORT_REQUIRED:
             raise ValueError(f"export required for {key}: {MODEL_EXPORT_REQUIRED[key]}")
@@ -176,15 +179,21 @@ def is_openvino_model_dir(path: Path) -> bool:
 
 def delete_named_model(name: str) -> Path:
     catalog = discover_model_dirs(MODEL_ROOT, MODEL_DIRS)
+    requested = name.casefold()
+    canonical = canonical_model_name(requested)
     target = next(
-        (path for key, path in catalog.items() if key.casefold() == name.casefold()),
+        (
+            path
+            for key, path in catalog.items()
+            if key.casefold() in {requested, canonical}
+        ),
         None,
     )
     if target is None:
         raise ValueError(f"unknown model: {name}")
     resolved_target = target.resolve()
     root = MODEL_ROOT.resolve()
-    if not _is_relative_to(resolved_target, root):
+    if resolved_target == root or not _is_relative_to(resolved_target, root):
         raise ValueError(f"refusing to delete outside model root: {resolved_target}")
     if resolved_target.exists():
         shutil.rmtree(resolved_target)

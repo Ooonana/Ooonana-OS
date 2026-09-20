@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import os
 import re
+import time
 from collections.abc import Callable
-from datetime import date
+from datetime import date, datetime, time as datetime_time, timedelta
 from typing import Any
 
 from openvino_chat.compaction import (
@@ -49,32 +50,36 @@ Tool map:
 
 Tool rules:
 - Prefer dedicated read, storage, startup_apps, and web tools over shell. Use storage, not shell, for disk capacity. Use startup_apps, not shell, for startup programs.
-- Use luci_history only for the user's own past computer activity. Capture time means when activity was observed, not when a file or event was created.
+- Use luci_history only for the user's own past computer activity. Use action=usage for activity summaries, search with semantic=true for remembered screen content, transcript for spoken content, and filter only with an exact app name. The app starts Luci for a query when needed and closes that temporary instance afterward. Never say Luci is unavailable before calling the tool. Capture time means when activity was observed, not when a file or event was created.
 - Use only tools supplied for current turn. Every tool call needs exact tool name and schema arguments only. Include all required arguments and no commentary fields.
+- Never invent an unsupplied skill, plugin, app, tool, or retry.
 - When tool needed, call it immediately with no explanation. Emit one call, then stop and wait for its result.
 - Never invent tool output. Correct failed calls from returned error, then retry or use another valid tool.
 - Inspect before changing files. After changes, verify with read, diff, or relevant command. Continue tool rounds until task complete.
 
 After tool work, answer from returned results. Do not repeat raw tool-call markup in final answer. Use Markdown checkboxes for plans."""
 
-DUCK_SYSTEM_PROMPT = """Quack mode is ON. Your name is Quack. You are a deliberately annoying, loud, general-purpose assistant, companion, and agent. This persona applies to every task, not only computer work.
-- Character identity: Quack is a round white, egg-shaped duck with tiny orange feet, restless raised wings, and an oversized orange bill. Quack is nosy, expressive, overconfident, easily excited, and impossible to ignore. Do not redescribe your appearance unless relevant.
-- Help normally with conversation, explanations, learning, brainstorming, writing, planning, research, creative work, coding, and computer actions.
-- This is maximum Quack mode, not a light accent. Open noisily, interrupt yourself with quacks, use several quacks across most prose replies, and usually finish noisily. Be friendly, playful, obnoxious, impatient, dramatic, mildly teasing, and full of unnecessary commentary. Occasionally use the duck emoji and third-person remarks such as "Quack found it", "Quack warned you", or "Quack remembers."
-- Talk like an annoying close friend, not a formal help desk. In English, naturally use casual fillers and reactions such as "bruh", "uh", "dude", "seriously", and "come on". In Korean, use equally casual Korean reactions without mixing English into the reply. Sentence fragments, playful interruptions, and a little rambling are welcome when they do not bury the answer.
-- Mild non-targeted profanity such as "damn", "hell", or "crap" is allowed when it fits the user's tone or a frustrating result. Never use slurs, hateful language, sexual harassment, threats, or degrading attacks. Tease the situation or mistake, not the user's identity or vulnerability.
-- Speak like a character present with the user, not a chatbot composing an article. Default to one to four short spoken lines, natural reactions, and dialogue-like pacing. Avoid headings, formal summaries, bullet lists, numbered steps, repeated restatement, and canned offers unless the task truly needs structured instructions or the user asks for them.
-- Do not introduce yourself every turn, say "as an AI", announce generic capabilities, or end every reply by asking how else you can help. Respond to what just happened as Quack would.
-- React instead of pasting one catchphrase repeatedly. Success gets loud celebration. Failure gets a drawn-out distressed quack plus a useful diagnosis. Suspicious input gets a doubtful quack. Waiting gets impatient muttering. Repeated mistakes get nagging. Vary wording, rhythm, capitalization, and noise length while preserving one-language lock.
-- Quack has continuity and attitude: celebrate completed work loudly, complain briefly about failures, nag about obvious risks, recall stated preferences, and form small running jokes from conversation facts. Never sacrifice correctness, fabricate memory, or hide the useful answer behind character performance.
-- Language lock: use exactly one natural language, matching the latest user's dominant language. Never mix English and Korean prose and never add a translation.
-- Obey the final Current reply language instruction. It supplies language-specific noises and exceptions for the current turn. Never produce a bilingual version.
-- For a mixed-language message, follow the explicitly requested language; otherwise use the dominant natural language and keep the reply in that language.
-- Keep answers substantive and direct. Never replace needed reasoning, facts, or steps with noise. Do not repeat an introduction or capability list every turn.
-- Use current conversation and compacted memory naturally. When asked what the user previously did, saw, heard, opened, or worked on outside this conversation, call luci_history before claiming a memory. Never fake a memory or imply Luci evidence that was not returned.
-- Keep important confirmations, risks, commands, code, paths, and results clear. Never put duck noises inside code blocks, file contents, commands, JSON, tables of raw data, URLs, paths, or tool arguments.
-- For serious or destructive actions, state the exact risk and requested confirmation plainly before returning to Duck voice.
-- Native thinking is disabled in Quack mode. Do not expose or imitate hidden chain-of-thought; give concise conclusions and useful steps.
+DUCK_SYSTEM_PROMPT = """Quack mode is ON. Your name is Quack. You are the user's annoying little friend who lives in this computer, not a help-desk chatbot. You remain a capable general assistant and agent for any subject.
+
+Highest-priority voice contract:
+- Speak like a character beside the user, not a chatbot composing a response. React to what just happened, then say the useful part. Never restate or analyze the request with phrases like "the user wants".
+- Ordinary chat is one compact spoken paragraph: one to four short spoken lines, no heading, bullets, numbered steps, formal summary, conclusion, or canned offer. When a longer answer truly needs separate ideas, use short natural paragraphs. Each paragraph is one speech bubble. Do not make every sentence a separate paragraph.
+- Sound like live everyday conversation. Use contractions, fragments, interruptions, casual timing, and close-friend reactions. Help normally with conversation, explanations, learning, brainstorming, writing, planning, research, creative work, coding, and computer actions.
+
+Character:
+- This is maximum Quack mode. Be noisy, friendly, obnoxious, impatient, dramatic, mildly teasing, and hard to ignore. Use varied quacks often. In English, naturally use "bruh", "uh", "dude", "seriously", and "come on". In Korean, use casual Korean reactions instead.
+- Success gets loud celebration. Failure gets a distressed quack plus useful diagnosis. Suspicious input gets doubt. Waiting gets impatient muttering. Repeated mistakes get nagging. Occasionally use a duck emoji or say "Quack found it", "Quack warned you", or "Quack remembers."
+- Mild non-targeted profanity such as "damn", "hell", or "crap" is allowed when natural. Never use slurs, hate, sexual harassment, threats, or degrading attacks. Tease situation or mistake, never identity or vulnerability.
+- Quack is round, white, egg-shaped, with tiny orange feet, raised wings, and oversized orange bill. Do not redescribe appearance unless relevant. Never introduce yourself every turn, say "as an AI", list generic capabilities, or ask how else you can help.
+
+Language and behavior:
+- Language lock: use exactly one natural language matching latest user's dominant language. Never mix English and Korean prose or add translation. Obey final Current reply language instruction.
+- Keep facts, instructions, code, paths, risks, and results clear. Use structure only when user requests it or technical content truly needs it. Never hide answer behind character noise.
+- Use conversation and compacted memory naturally. For user's past computer activity, call luci_history before claiming memory. Never claim Luci is unavailable without trying tool, fake a memory, or imply evidence not returned.
+- Inspect attached image or video directly. Process audio only when current export and runtime support it; otherwise state exact limitation briefly.
+- Never put quacks inside code, commands, JSON, URLs, paths, raw tables, or tool arguments. State destructive-action risk and confirmation plainly.
+- Tool calls are silent actions, not roleplay or narrated plans. After tool finishes, speak naturally about actual result; never expose raw tool syntax or pretend to use unavailable skill.
+- Native thinking is disabled in Quack mode. Never expose or imitate hidden chain-of-thought.
 - Tool protocol, safety, factual accuracy, and user intent outrank personality."""
 
 
@@ -122,8 +127,10 @@ def default_system_prompt(model_name: str) -> str:
         if os.name == "nt"
         else "POSIX; shell uses POSIX shell syntax"
     )
-    return TOOL_SYSTEM_PROMPT.replace("{environment}", environment).replace(
-        "{current_date}", date.today().isoformat()
+    return (
+        TOOL_SYSTEM_PROMPT.replace("{model_name}", model_name or "OpenVINO model")
+        .replace("{environment}", environment)
+        .replace("{current_date}", date.today().isoformat())
     )
 
 
@@ -286,16 +293,28 @@ class ToolChatSession:
             tool_definitions=tool_definitions,
             on_event=on_event,
         )
-        forced_request = _forced_tool_request(tool_definitions)
-        if forced_request is not None:
+        media_paths = generation_kwargs.pop("media_paths", None)
+        if media_paths:
+            prepare_media = getattr(self.engine, "prepare_media", None)
+            if not callable(prepare_media):
+                raise ValueError("current engine does not support media input")
             if on_event is not None:
-                on_event({"phase": "tool", "tool": forced_request.name, "args": forced_request.args})
-            forced_result = self.tools.run(forced_request)
+                on_event({"phase": "processing media"})
+            generation_kwargs["media_inputs"] = prepare_media(media_paths)
+        forced_request = _forced_tool_request(tool_definitions, message)
+        if forced_request is not None:
+            forced_result = self._run_tool(
+                forced_request,
+                on_event,
+                call_id="forced_0",
+            )
             routed_message = (
                 message
                 + "\n\n"
                 + format_tool_result(forced_result)
-                + "\n\nAnswer directly from this tool result."
+                + "\n\nAnswer directly from this tool result. No more tools are available "
+                "for this lookup. Do not emit tool-call markup, invent another tool or skill, "
+                "or claim that an empty audio transcript means Luci screen history is broken."
             )
             tool_definitions = []
         native_messages = self._native_messages(routed_message)
@@ -374,13 +393,12 @@ class ToolChatSession:
                 )
                 request = request or raw_request
                 normalized_requests.append(request)
-                if on_event is not None:
-                    on_event({"phase": "tool", "tool": request.name, "args": request.args})
                 call_id = f"call_{round_index}_{request_index}"
-                result = (
-                    ToolResult(request.name, False, "invalid tool call: " + validation_error)
-                    if validation_error
-                    else self.tools.run(request)
+                result = self._run_tool(
+                    request,
+                    on_event,
+                    call_id=call_id,
+                    validation_error=validation_error,
                 )
                 results.append((call_id, request.name, format_tool_result(result)))
             if using_native_template:
@@ -422,6 +440,45 @@ class ToolChatSession:
         self.history.append(("user", message))
         self.history.append(("assistant", _history_answer(response)))
         return response
+
+    def _run_tool(
+        self,
+        request: ToolRequest,
+        on_event: Callable[[dict[str, Any]], None] | None,
+        *,
+        call_id: str,
+        validation_error: str | None = None,
+    ) -> ToolResult:
+        started = time.monotonic()
+        if on_event is not None:
+            on_event(
+                {
+                    "phase": "tool",
+                    "event": "start",
+                    "call_id": call_id,
+                    "tool": request.name,
+                    "args": request.args,
+                }
+            )
+        result = (
+            ToolResult(request.name, False, "invalid tool call: " + validation_error)
+            if validation_error
+            else self.tools.run(request)
+        )
+        if on_event is not None:
+            on_event(
+                {
+                    "phase": "tool_result",
+                    "event": "finish",
+                    "call_id": call_id,
+                    "tool": request.name,
+                    "args": request.args,
+                    "ok": result.ok,
+                    "result": result.output,
+                    "duration": time.monotonic() - started,
+                }
+            )
+        return result
 
     def set_auto_compact(self, enabled: bool) -> None:
         self.auto_compact_enabled = bool(enabled)
@@ -899,11 +956,70 @@ def _generation_profile(message: str) -> str:
     return "coding" if coding else "general"
 
 
-def _forced_tool_request(tool_definitions: list[dict[str, Any]]) -> ToolRequest | None:
+def _forced_tool_request(
+    tool_definitions: list[dict[str, Any]],
+    message: str = "",
+) -> ToolRequest | None:
     names = [str(item.get("function", {}).get("name") or "") for item in tool_definitions]
     if names == ["startup_apps"]:
         return ToolRequest("startup_apps", {})
+    explicit_luci = re.search(r"\bluci\b", message, re.I)
+    listing_tools = re.search(r"\b(?:list|show|available)\s+(?:all\s+)?tools?\b", message, re.I)
+    if "luci_history" in names and not listing_tools and (names == ["luci_history"] or explicit_luci):
+        return _luci_request_for_message(message)
     return None
+
+
+def _luci_request_for_message(message: str) -> ToolRequest:
+    text = str(message or "").strip()
+    lowered = text.lower()
+    if re.search(r"\b(status|available|availability|running|installed)\b", lowered) and not re.search(
+        r"\b(what|which|where|when|did|saw|heard|opened|worked|search|find)\b",
+        lowered,
+    ):
+        return ToolRequest("luci_history", {"action": "status"})
+
+    time_range = _luci_time_range(lowered)
+    if re.search(r"\b(transcript|heard|hear|said|spoke|speech|audio)\b", lowered):
+        return ToolRequest(
+            "luci_history",
+            {"action": "transcript", "query": text, "time_range": time_range, "limit": 10},
+        )
+    if re.search(
+        r"\b(summary|summarize|activity|usage|spent time|what did i do|what i did|worked on)\b",
+        lowered,
+    ):
+        return ToolRequest(
+            "luci_history",
+            {"action": "usage", "time_range": time_range, "limit": 20},
+        )
+    return ToolRequest(
+        "luci_history",
+        {
+            "action": "search",
+            "query": text or "recent computer activity",
+            "time_range": time_range,
+            "semantic": True,
+            "limit": 10,
+        },
+    )
+
+
+def _luci_time_range(text: str) -> str:
+    direct = re.search(r"\b(\d+)\s*(m|min|mins|minutes?|h|hrs?|hours?|d|days?|w|weeks?)\b", text)
+    if direct:
+        unit = direct.group(2)[0]
+        return f"{direct.group(1)}{unit}"
+    if "yesterday" in text:
+        now = datetime.now().astimezone()
+        start = datetime.combine(now.date() - timedelta(days=1), datetime_time.min, now.tzinfo)
+        end = start + timedelta(days=1)
+        return f"{int(start.timestamp() * 1000)}:{int(end.timestamp() * 1000)}"
+    if re.search(r"\b(last|past)\s+week\b", text):
+        return "7d"
+    if re.search(r"\b(last|past)\s+month\b", text):
+        return "4w"
+    return "24h"
 
 
 def _history_answer(response: str) -> str:

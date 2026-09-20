@@ -15,14 +15,14 @@ def tree():
 
 
 def leaves(node, in_scratchpad=False):
+    if node.get("type") == "dockarea":
+        return []
     found = []
-    scratchpad_state = node.get("scratchpad_state")
-    hidden = (
-        in_scratchpad
-        or node.get("name") == "__i3_scratch"
-        or scratchpad_state not in (None, "none")
-    )
-    if node.get("window") is not None and node.get("name"):
+    # Scratchpad state survives showing a window; its workspace determines visibility.
+    hidden = in_scratchpad or node.get("name") == "__i3_scratch"
+    properties = node.get("window_properties") or {}
+    panel = str(properties.get("class", "")).lower() == "polybar"
+    if node.get("window") is not None and node.get("name") and not panel:
         found.append((node, hidden))
     for key in ("nodes", "floating_nodes"):
         for child in node.get(key, []):

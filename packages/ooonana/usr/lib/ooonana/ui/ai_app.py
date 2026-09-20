@@ -324,7 +324,8 @@ class AiWindow(Gtk.Window):
         )
 
     def start_offline_api(self, device):
-        model = str(Path.home() / ".openvino/models/gemma-4-e2b-it-qat-int4-ov")
+        model_name = "qwen3.5-9b-int4-ov"
+        model = f"/root/.openvino/models/{model_name}"
         self.activity.start()
 
         def started(rc, output):
@@ -342,11 +343,13 @@ class AiWindow(Gtk.Window):
                 )
                 self.refresh_model()
 
-            run_async(
-                ["ooonana-ai", "provider", "set", "openvino"],
-                selected,
-                timeout=15,
-            )
+            def select_provider():
+                rc, text = run(["ooonana-ai", "provider", "set", "openvino"], timeout=15)
+                if rc != 0:
+                    return rc, text
+                return run(["ooonana-ai", "model", "set", model_name], timeout=15)
+
+            run_async_task(select_provider, selected)
 
         run_async(
             ["openvino", "--model-dir", model, "api", "start", "--device", device],
@@ -360,7 +363,7 @@ class AiWindow(Gtk.Window):
         dialog.add_button("Close", Gtk.ResponseType.CLOSE)
         dialog.add_button("Install package", 1)
         dialog.add_button("Setup runtime", 2)
-        dialog.add_button("Download tiny model", 3)
+        dialog.add_button("Download Qwen model", 3)
         dialog.add_button("Start GPU", 4)
         dialog.add_button("Stop API", 5)
         view = Gtk.TextView()
@@ -394,7 +397,7 @@ class AiWindow(Gtk.Window):
         elif response == 2:
             self.offline_terminal("Setup OpenVINO runtime", "openvino setup")
         elif response == 3:
-            self.offline_terminal("Download tiny OpenVINO model", "openvino download tiny")
+            self.offline_terminal("Download Qwen OpenVINO model", "openvino download qwen3.5")
         elif response == 4:
             self.start_offline_api("GPU")
         elif response == 5:

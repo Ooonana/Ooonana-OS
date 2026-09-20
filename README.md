@@ -948,9 +948,10 @@ Offline Intel GPU/CPU flow:
 ooonana update
 ooonana get openvino-chat
 openvino setup
-openvino download tiny
-openvino --model-dir /root/.openvino/models/gemma-4-e2b-it-qat-int4-ov api start --device GPU
+openvino download qwen3.5
+openvino --model-dir /root/.openvino/models/qwen3.5-9b-int4-ov api start --device GPU
 ooonana ai provider set openvino
+ooonana ai model set qwen3.5-9b-int4-ov
 ooonana-ai chat
 ```
 
@@ -995,6 +996,22 @@ docs/jarvis-agi-research.md
 ```
 
 ## Build From Source
+
+For the prepared Windows/WSL release workspace, run in PowerShell:
+
+```powershell
+wsl.exe -d Ubuntu -u root -- bash -lc 'cd "/mnt/c/Users/7ryan/OneDrive/문서/Ooonana OS" && exec bash scripts/rebuild-full-i3-release.sh'
+```
+
+Output: `F:\Ooonana\ooonana-os\release-current\ooonana-full-i3.iso`.
+Use `--preflight-only` to check inputs without building. Run a fresh build after
+source or package changes; do not reuse rootfs/ISO resume stages from older code.
+The release script validates package checksums and kernel config, builds in WSL,
+and verifies the ISO before replacing the previous release.
+
+After upgrading `openvino-chat`, run `openvino setup` to update its separate
+runtime. Model downloads require Internet and enough USB storage; inference
+works offline only after runtime and model setup succeed.
 
 Install host tools in WSL:
 
@@ -1049,10 +1066,10 @@ Clean generated build files:
 bash scripts/clean-build-artifacts.sh --yes
 ```
 
-Keep kernel source/cache while cleaning images:
+Keep kernel source/cache and installable packages while cleaning images:
 
 ```bash
-bash scripts/clean-build-artifacts.sh --keep-source --yes
+bash scripts/clean-build-artifacts.sh --keep-source --keep-repo --yes
 ```
 
 ## Verification

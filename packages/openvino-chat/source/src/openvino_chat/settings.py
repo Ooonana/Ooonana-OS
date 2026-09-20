@@ -54,17 +54,21 @@ RAG_EMBED_REPO = "OpenVINO/bge-base-en-v1.5-int8-ov"
 RAG_RERANK_REPO = "OpenVINO/bge-reranker-base-int8-ov"
 
 MODEL_REPOS = {
-    "qwen": "OpenVINO/Qwen3.5-9B-int4-ov",
+    "qwen3.5": "OpenVINO/Qwen3.5-9B-int4-ov",
     "tiny": "empero-ai/Qwen3.8-4B-Distill",
     "gemma": "OpenVINO/gemma-4-E4B-it-int4-ov",
     "ornith": "ornith-ai/Ornith-1.5-9B",
 }
 MODEL_DIRS = {
-    "qwen": MODEL_ROOT / "qwen3.5-9b-int4-ov",
-    "qwen38": MODEL_ROOT / "qwen3.8-9b-int4-ov",
+    "qwen3.5": MODEL_ROOT / "qwen3.5-9b-int4-ov",
+    "qwen3.8": MODEL_ROOT / "qwen3.8-9b-int4-ov",
     "tiny": MODEL_ROOT / "qwen3.8-4b-int4-ov",
     "gemma": MODEL_ROOT / "gemma-4-e4b-it-int4-ov",
     "ornith": MODEL_ROOT / "ornith-1.5-9b-int4-ov",
+}
+MODEL_ALIASES = {
+    "qwen": "qwen3.5",
+    "qwen38": "qwen3.8",
 }
 MODEL_EXPORT_REQUIRED = {
     "tiny": "Qwen3.8-4B-Distill needs OpenVINO INT4 export; import a converted folder or compatible conversion archive.",
@@ -79,7 +83,7 @@ MODEL_GENERATION_SETTINGS = {
         "general": {"temperature": 1.0, "top_p": 0.95, "top_k": 64},
         "coding": {"temperature": 1.0, "top_p": 0.95, "top_k": 64},
     },
-    "qwen38": {
+    "qwen3.8": {
         "general": {"temperature": 0.6, "top_p": 0.95, "top_k": 20},
         "coding": {"temperature": 0.6, "top_p": 0.95, "top_k": 20},
     },
@@ -150,9 +154,14 @@ THINKING_EFFORT_ALIASES = {
 }
 DEFAULT_THINKING_EFFORT = "on"
 
-DEFAULT_MODEL = "qwen"
+DEFAULT_MODEL = "qwen3.5"
 DEFAULT_REPO_ID = MODEL_REPOS[DEFAULT_MODEL]
 DEFAULT_MODEL_DIR = MODEL_DIRS[DEFAULT_MODEL]
+
+
+def canonical_model_name(value: str) -> str:
+    key = str(value).strip().casefold()
+    return MODEL_ALIASES.get(key, key)
 
 
 def discover_model_dirs(
@@ -300,27 +309,27 @@ def generation_settings(
     if "ornith" in name:
         key = "ornith"
     elif "qwen3.8" in name:
-        key = "qwen38"
+        key = "qwen3.8"
     elif "qwen" in name:
-        key = "qwen"
+        key = "qwen3.5"
     elif "gemma" in name:
         key = "gemma"
     else:
         key = ""
     effort = normalize_generation_effort(generation_effort)
     if effort not in {"medium", "custom"}:
-        direct_qwen = key == "qwen" and normalize_thinking_effort(thinking_effort) == "off"
+        direct_qwen = key == "qwen3.5" and normalize_thinking_effort(thinking_effort) == "off"
         if effort == "low":
             profile = "general" if direct_qwen else "coding"
         else:
             profile = "coding" if direct_qwen else "general"
     settings = dict(DEFAULT_GENERATION_SETTINGS)
-    if key == "qwen":
+    if key == "qwen3.5":
         effort = normalize_thinking_effort(thinking_effort)
         if effort not in BINARY_THINKING_EFFORTS:
             effort = "on"
         settings.update(QWEN_GENERATION_SETTINGS[effort].get(profile, {}))
-    elif key == "qwen38" and graded_reasoning:
+    elif key == "qwen3.8" and graded_reasoning:
         effort = normalize_thinking_effort(thinking_effort)
         profile_settings = {
             "temperature": 0.7 if effort == "off" else 1.0,

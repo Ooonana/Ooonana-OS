@@ -37,12 +37,14 @@ from openvino_chat.download import (
 from openvino_chat.engine import (
     OpenVinoChatEngine,
     load_engine,
+    media_capabilities_for_model,
     model_name_from_dir,
     normalize_kv_cache_precision,
 )
 from openvino_chat.knowledge import KnowledgeStore
+from openvino_chat.media import extract_media_paths
 from openvino_chat.perf import estimate_model_memory, format_live_status, format_perf_status, get_cpu_usage, get_gpu_usage, get_ram_usage, human_bytes
-from openvino_chat.sessions import ChatSessionStore
+from openvino_chat.sessions import ChatSessionStore, CrashRecoveryStore
 from openvino_chat.settings import (
     CONFIG_PATH,
     DEFAULT_AUTO_COMPACT,
@@ -57,6 +59,7 @@ from openvino_chat.settings import (
     MODEL_DIRS,
     MODEL_REPOS,
     MODEL_ROOT,
+    canonical_model_name,
     REPORT_DIR,
     coerce_thinking_effort,
     discover_model_dirs,
@@ -132,7 +135,11 @@ class _BufferChatUI:
         self._invalidate()
 
     def response_stream(self):
-        return tui_mod.response_stream(self._buffer, self._invalidate)
+        return tui_mod.response_stream(
+            self._buffer,
+            self._invalidate,
+            visual_callback=self._mediator.update_visual_from_response,
+        )
 
     def tool_request(self, name, args) -> None:
         self._buffer.append_tool(name, _encode_tool_args(args))
@@ -244,6 +251,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     CommandSpec("UI", "/big", "/big <text>", "Show block letters in visual panel."),
     CommandSpec("UI", "/tilt", "/tilt <text>", "Show slanted text in visual panel."),
     CommandSpec("Models", "/model", "/model", "Open model picker."),
+    CommandSpec("Models", "/media", "/media", "Show multimodal input support."),
     CommandSpec("System Prompt", "/system", "/system", "Show current system prompt."),
     CommandSpec("Personality", "/duck", "/duck [on|off]", "Toggle loud Quack personality for every task."),
     CommandSpec("Reasoning", "/effort", "/effort [low|medium|high|custom]", "Set model sampling effort."),
@@ -267,6 +275,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     CommandSpec("Workspace", "/cd", "/cd <path>", "Change tool cwd inside workspace."),
     CommandSpec("Workspace", "/project", "/project", "Show git project status."),
     CommandSpec("Workspace", "/permissions", "/permissions", "Open permission picker."),
+    CommandSpec("Tools", "/timeline", "/timeline", "Open expandable tool call timeline."),
     CommandSpec("Tools", "/tools", "/tools", "List tools."),
     CommandSpec("Tools", "/pwd", "/pwd", "Print tool cwd."),
     CommandSpec("Tools", "/ls", "/ls [path]", "List files."),
@@ -328,7 +337,8 @@ ADVANCED_COMMAND_SPECS: tuple[CommandSpec, ...] = (
     CommandSpec("API", "/api stop", "/api stop", "Stop local API server."),
     CommandSpec("Workspace", "/workspace set", "/workspace set <path>", "Set workspace root."),
     CommandSpec("Workspace", "/permissions ask", "/permissions ask", "Ask before tool actions."),
-    CommandSpec("Workspace", "/permissions allow", "/permissions allow", "Always allow tool actions."),
+    CommandSpec("Workspace", "/permissions allow", "/permissions allow", "Allow tool actions for this session."),
+    CommandSpec("Workspace", "/permissions always", "/permissions always", "Persistently allow tool actions."),
     CommandSpec("Tasks", "/task add", "/task add <text>", "Add task."),
     CommandSpec("Tasks", "/task done", "/task done <n>", "Mark task done."),
     CommandSpec("Tasks", "/task clear", "/task clear", "Clear tasks."),
@@ -356,6 +366,7 @@ SLASH_TOP_COMMANDS = (
     "/redo",
     "/status",
     "/tools",
+    "/timeline",
     "/permissions",
     "/ctx",
     "/compact",
@@ -405,6 +416,8 @@ TRANSIENT_UI_COMMANDS = {
     "/permissions",
     "/permissions ask",
     "/permissions allow",
+    "/permissions always",
+    "/timeline",
     "/kv",
     "/effort",
     "/thinking",
@@ -1191,6 +1204,24 @@ def _configured_kv_precision() -> str:
         return "auto"
 
 
+def _configured_permission_mode() -> str:
+    value = _load_config().get("permission_mode", "ask").strip().lower()
+    return "always" if value == "always" else "ask"
+
+
+def _persist_permission_mode(value: str) -> None:
+    config = _load_config()
+    if value == "always":
+        if config.get("permission_mode") == "always":
+            return
+        config["permission_mode"] = "always"
+        _save_config(config)
+        return
+    if "permission_mode" in config:
+        config.pop("permission_mode", None)
+        _save_config(config)
+
+
 def _configured_thinking_effort() -> str:
     try:
         return normalize_thinking_effort(
@@ -1791,7 +1822,7 @@ def _status(model_dir: Path) -> int:
     print(f"model_exists={model_dir.exists()}")
     print(f"models_available={_available_models_summary()}")
     if not model_dir.exists():
-        print("download=openvino download qwen")
+        print("download=openvino download qwen3.5")
     return 0
 
 
@@ -1872,7 +1903,7 @@ def _chat(
 ) -> int:
     if not model_dir.exists():
         print(f"model missing: {model_dir}", file=sys.stderr)
-        print("run: openvino download qwen", file=sys.stderr)
+        print("run: openvino download qwen3.5", file=sys.stderr)
         return 2
     if prompt:
         try:
@@ -1976,7 +2007,7 @@ def _run_prompt(
     ui = ChatUI()
     session = ToolChatSession(
         engine,
-        ToolRegistry(cwd=Path.cwd(), permission_mode="allow"),
+        ToolRegistry(cwd=Path.cwd(), permission_mode=_configured_permission_mode()),
         thinking_effort=_thinking_effort_for_model(
             _configured_thinking_effort(),
             Path(getattr(engine, "model_dir", None) or DEFAULT_MODEL_DIR),
@@ -2039,14 +2070,29 @@ def _repl(
     def approve_tool(request):
         mediator = tui_mod.active_mediator()
         if mediator is not None:
-            return mediator.request_tool_approval(request.name, request.args)
-        prompt_text = f"Allow {request.name}? [y/N] "
-        answer = input_fn(prompt_text).strip().lower()
-        return answer in {"y", "yes", "allow"}
+            decision = mediator.request_tool_approval(request.name, request.args)
+        else:
+            prompt_text = (
+                f"Allow {request.name}? [d]eny/[o]nce/[s]ession/[a]lways: "
+            )
+            answer = input_fn(prompt_text).strip().lower()
+            decision = {
+                "o": "once",
+                "once": "once",
+                "y": "once",
+                "yes": "once",
+                "s": "session",
+                "session": "session",
+                "a": "always",
+                "always": "always",
+            }.get(answer, "deny")
+        if decision == "always":
+            _persist_permission_mode("always")
+        return decision
 
     registry = ToolRegistry(
         cwd=Path.cwd(),
-        permission_mode="ask",
+        permission_mode=_configured_permission_mode(),
         approval_callback=approve_tool,
     )
     knowledge = _knowledge_store()
@@ -2096,6 +2142,8 @@ def _repl(
     )
     sessions = ChatSessionStore()
     active_session = "default"
+    recovery = CrashRecoveryStore()
+    recovery_enabled = input_fn is builtins.input and _interactive_stdio()
     snapshots: list[ReplSnapshot] = []
     redo_snapshots: list[ReplSnapshot] = []
     snapshot_started = False
@@ -2722,11 +2770,33 @@ def _repl(
         finally:
             refresh_context_meter()
 
+    def retry_tool(name: str, args: dict[str, Any]) -> Any:
+        nonlocal snapshot_started
+        snapshot_started = False
+        snapshot = take_snapshot(preserve_history=True, submitted_prompt="/timeline")
+        buffer = _tui_buffer()
+        if buffer is not None:
+            snapshot.tui_checkpoint = buffer.checkpoint()
+        commit_snapshot(snapshot)
+        result = session.tools.run_name(name, args)
+        auto_save_session()
+        return result
+
     _mediator = tui_mod.active_mediator()
     if _mediator is not None:
         _mediator.status_text = live_text
         _mediator.tasks_text = tasks.format
         _mediator.set_side_panel(side_panel_enabled)
+        _mediator.set_tool_retry_callback(
+            retry_tool
+        )
+        _mediator.set_attachment_resolver(
+            lambda text: extract_media_paths(text, session.tools.cwd)
+        )
+        if recovery_enabled:
+            _mediator.set_draft_callback(
+                lambda draft: recovery.schedule(active_session, draft)
+            )
         if getattr(_mediator, "chat_buffer", None) is not None:
             _welcome = _build_tui_welcome_text(
                 device,
@@ -2816,8 +2886,19 @@ def _repl(
         active_session = name
         return name
 
-    def load_saved_session(name: str) -> bool:
+    def load_saved_session(name: str, *, restore_engine: bool = True) -> bool:
         nonlocal active_session, snapshot_started
+        current_permission_mode = session.tools.permission_mode
+        persistent_permission_mode = _configured_permission_mode()
+
+        def preserve_permissions(snapshot: ReplSnapshot) -> None:
+            snapshot.permission_mode = current_permission_mode
+            snapshot.config = dict(snapshot.config)
+            if persistent_permission_mode == "always":
+                snapshot.config["permission_mode"] = "always"
+                snapshot.config_existed = True
+            else:
+                snapshot.config.pop("permission_mode", None)
         try:
             loaded_history = sessions.load(name)
             load_state = getattr(sessions, "load_state", None)
@@ -2854,6 +2935,9 @@ def _repl(
             name,
         )
         if runtime is not None:
+            if not restore_engine:
+                runtime.engine_loaded = False
+            preserve_permissions(runtime)
             runtime.history_backup = tuple(loaded_history)
             runtime.display_messages_backup = tuple(saved_display)
             restore_snapshot(runtime)
@@ -2871,6 +2955,7 @@ def _repl(
             for item in timeline:
                 snapshot = deserialize_snapshot(item, current_transcript, name)
                 if snapshot is not None:
+                    preserve_permissions(snapshot)
                     restored_timeline.append(snapshot)
         if not restored_timeline:
             restored_timeline = legacy_timeline(loaded_history, name)
@@ -2884,8 +2969,38 @@ def _repl(
         refresh_context_meter()
         return True
 
+    recovered_draft = ""
+    if recovery_enabled:
+        recovered = recovery.load()
+        recovered_name = str(recovered.get("session") or "default")
+        recovered_draft = str(recovered.get("draft") or "")
+        try:
+            if recovered_name in sessions.list_sessions():
+                load_saved_session(recovered_name, restore_engine=False)
+            else:
+                active_session = recovered_name
+        except (OSError, TypeError, ValueError):
+            active_session = recovered_name
+        mediator = tui_mod.active_mediator()
+        if mediator is not None and recovered_draft:
+            mediator.queue_input_prefill(recovered_draft)
+        if recovered:
+            notify(
+                "Recovered unfinished input" if recovered_draft else "Recovered previous session",
+                seconds=5.0,
+            )
+
+    clean_exit = False
+    first_recovery_loop = True
+    recovery_error_shown = False
     try:
         while True:
+            if recovery_enabled and not first_recovery_loop:
+                recovery.save_now(active_session, "")
+                if recovery.last_error and not recovery_error_shown:
+                    show(f"crash recovery unavailable: {recovery.last_error}")
+                    recovery_error_shown = True
+            first_recovery_loop = False
             snapshot_started = False
             try:
                 prompt = _input_with_status(
@@ -2905,12 +3020,16 @@ def _repl(
                 if tui_mod.active_mediator() is None:
                     print()
                 auto_save_session()
+                clean_exit = True
                 return 0
             current_submitted_prompt = prompt
+            if recovery_enabled:
+                recovery.save_now(active_session, prompt, pending=True)
             if prompt.lower() in {"exit", "quit", ":q", "/exit", "/quit"}:
                 saved = auto_save_session()
                 if session.history and saved is None:
                     continue
+                clean_exit = True
                 return 0
             buffer = _tui_buffer()
             tui_before_prompt = buffer.checkpoint() if buffer is not None else None
@@ -2930,6 +3049,7 @@ def _repl(
                     show("archive failed; session remains open")
                     continue
                 show(f"archived={name}" if name else "nothing to archive")
+                clean_exit = True
                 return 0
             if prompt.lower() == "/help":
                 show(_help_text())
@@ -3161,6 +3281,18 @@ def _repl(
                 continue
             if _command_matches(prompt, "/compact"):
                 show("usage: /compact [status|auto on|auto off]")
+                continue
+            if prompt.lower() == "/media":
+                show(
+                    "\n".join(
+                        [
+                            f"model={model_name_from_dir(model_dir)}",
+                            f"media={_model_media_text(model_dir)}",
+                            "usage=drop or type an image, video, or audio file path in a message",
+                            "note=media applies to the current turn; include the path again for a follow-up",
+                        ]
+                    )
+                )
                 continue
             if prompt.lower() == "/status":
                 compact_status = session.context_status("", compaction_kwargs())
@@ -3860,17 +3992,27 @@ def _repl(
                 if selected is not None and selected != session.tools.permission_mode:
                     push_snapshot()
                     session.tools.permission_mode = selected
+                    _persist_permission_mode(selected)
                 mediator = tui_mod.active_mediator()
                 if mediator is not None:
                     mediator.show_notice(f"Permission mode: {session.tools.permission_mode}")
                 else:
                     show(f"permissions={session.tools.permission_mode}")
                 continue
-            if prompt.lower() in {"/permissions ask", "/permissions allow"}:
+            if prompt.lower() == "/timeline":
+                mediator = tui_mod.active_mediator()
+                picker = getattr(mediator, "request_tool_timeline", None)
+                if callable(picker):
+                    picker()
+                else:
+                    show("Tool timeline is available in window UI (F4).")
+                continue
+            if prompt.lower() in {"/permissions ask", "/permissions allow", "/permissions always"}:
                 next_permission = prompt.rsplit(" ", 1)[1]
                 if next_permission != session.tools.permission_mode:
                     push_snapshot()
                     session.tools.permission_mode = next_permission
+                _persist_permission_mode(next_permission)
                 mediator = tui_mod.active_mediator()
                 if mediator is not None:
                     mediator.show_notice(f"Permission mode: {session.tools.permission_mode}")
@@ -3958,6 +4100,7 @@ def _repl(
                     show(f"deleted session={name}")
                 else:
                     show("nothing to delete")
+                clean_exit = True
                 return 0
             if prompt.lower() == "/sessions":
                 try:
@@ -4022,8 +4165,16 @@ def _repl(
                 if use_live_work_ui():
                     monitor.start()
                 try:
+                    manual_started = time.monotonic()
                     if use_live_work_ui():
-                        _set_monitor_tool(monitor, request.name)
+                        start_tool = getattr(monitor, "start_tool", None)
+                        manual_call_id = f"manual_{time.monotonic_ns()}"
+                        if callable(start_tool):
+                            start_tool(manual_call_id, request.name, request.args)
+                        else:
+                            _set_monitor_tool(monitor, request.name)
+                    else:
+                        manual_call_id = ""
                     request_text = format_tool_request_text(request.name, request.args)
                     if use_live_work_ui() and monitor.active:
                         monitor.write_response(request_text, "dim", "\n")
@@ -4031,6 +4182,16 @@ def _repl(
                         ui.tool_request(request.name, request.args)
                     tool_result = session.tools.run(request)
                     result = tool_result.output
+                    if use_live_work_ui():
+                        finish_tool = getattr(monitor, "finish_tool", None)
+                        if callable(finish_tool):
+                            finish_tool(
+                                manual_call_id,
+                                request.name,
+                                result,
+                                tool_result.ok,
+                                time.monotonic() - manual_started,
+                            )
                     if use_live_work_ui() and monitor.active:
                         monitor.write_response(result, None, "\n")
                     elif defer_output():
@@ -4060,6 +4221,11 @@ def _repl(
             auto_save_session()
     finally:
         monitor.stop()
+        if recovery_enabled:
+            if clean_exit:
+                recovery.clear()
+            else:
+                recovery.flush()
 
 
 def _ask_session(
@@ -4073,6 +4239,11 @@ def _ask_session(
     monitor: LiveStatusMonitor | None = None,
     stop_checker: Callable[[], bool] | None = None,
 ) -> str:
+    media_paths = extract_media_paths(prompt, session.tools.cwd)
+    if monitor is not None and media_paths:
+        set_attachments = getattr(monitor, "set_attachments", None)
+        if callable(set_attachments):
+            set_attachments(media_paths, "attached")
     if monitor is not None:
         monitor.start()
     stream = (
@@ -4097,12 +4268,29 @@ def _ask_session(
             else:
                 ui.print(text)
             return
-        if phase == "tool":
+        if phase in {"tool", "tool_result"}:
             tool = str(event.get("tool") or "")
             args = event.get("args")
+            event_kind = str(event.get("event") or "start")
+            call_id = str(event.get("call_id") or f"tool_{time.monotonic_ns()}")
+            if event_kind == "finish":
+                finish_tool = getattr(monitor, "finish_tool", None) if monitor is not None else None
+                if callable(finish_tool):
+                    finish_tool(
+                        call_id,
+                        tool,
+                        str(event.get("result") or ""),
+                        bool(event.get("ok")),
+                        float(event.get("duration") or 0.0),
+                    )
+                return
             stream.finish()
             if monitor is not None:
-                _set_monitor_tool(monitor, tool)
+                start_tool = getattr(monitor, "start_tool", None)
+                if callable(start_tool) and isinstance(args, dict):
+                    start_tool(call_id, tool, args)
+                else:
+                    _set_monitor_tool(monitor, tool)
             if isinstance(args, dict):
                 if monitor is not None and getattr(monitor, "active", False):
                     monitor.write_response(format_tool_request_text(tool, args), "dim", "\n")
@@ -4110,6 +4298,10 @@ def _ask_session(
                     ui.tool_request(tool, args)
             return
         if phase and monitor is not None:
+            if phase == "processing media":
+                set_attachment_state = getattr(monitor, "set_attachment_state", None)
+                if callable(set_attachment_state):
+                    set_attachment_state("processing")
             monitor.set(phase)
 
     interrupt = None if stop_checker is not None else EscInterrupt()
@@ -4120,7 +4312,7 @@ def _ask_session(
         def should_stop() -> bool:
             return bool(interrupt and interrupt.should_stop()) or bool(stop_checker and stop_checker())
 
-        return session.ask(
+        response = session.ask(
             prompt,
             on_token=stream.write,
             on_event=on_event,
@@ -4129,7 +4321,19 @@ def _ask_session(
             temperature=temperature,
             top_p=top_p,
             context_length=context_length,
+            media_paths=media_paths,
         )
+        if monitor is not None and media_paths:
+            set_attachment_state = getattr(monitor, "set_attachment_state", None)
+            if callable(set_attachment_state):
+                set_attachment_state("used")
+        return response
+    except Exception:
+        if monitor is not None and media_paths:
+            set_attachment_state = getattr(monitor, "set_attachment_state", None)
+            if callable(set_attachment_state):
+                set_attachment_state("failed")
+        raise
     finally:
         if interrupt is not None:
             interrupt.stop()
@@ -4443,6 +4647,7 @@ def _help_text() -> str:
         + "\n  Up/Down or Ctrl+N/Ctrl+P    Navigate slash command palette."
         + "\n  Tab / Enter / Esc           Complete / run / close palette."
         + "\n  Home/End or PageUp/PageDown Navigate model and session pickers."
+        + "\n\nMedia: drop or type a local image/video/audio path in a message; /media shows support."
     )
 
 
@@ -4502,9 +4707,14 @@ def _model_catalog() -> dict[str, Path]:
 
 
 def _catalog_model_path(value: str) -> Path | None:
-    key = value.strip().casefold()
+    raw_key = value.strip().casefold()
+    key = canonical_model_name(raw_key)
     return next(
-        (path for name, path in _model_catalog().items() if name.casefold() == key),
+        (
+            path
+            for name, path in _model_catalog().items()
+            if name.casefold() in {raw_key, key}
+        ),
         None,
     )
 
@@ -4549,12 +4759,24 @@ def _model_list(active_model_dir: Path, loaded: bool) -> str:
         lines.append(f"{marker} {name}: {state}{active}{loaded_text}")
         lines.append(f"  repo: {repo}")
         lines.append(f"  size: {size}")
+        lines.append(f"  media: {_model_media_text(path)}")
         lines.append("  effort: " + ", ".join(reversed(GENERATION_EFFORTS)))
         lines.append(
             "  thinking: " + ", ".join(reversed(thinking_efforts_for_model(path)))
         )
         lines.append(f"  path: {path}")
     return "\n".join(lines)
+
+
+def _model_media_text(path: Path) -> str:
+    if not _validate_model_dir(path):
+        return "unavailable"
+    try:
+        capabilities = media_capabilities_for_model(path)
+    except (ImportError, OSError, RuntimeError):
+        return "unknown"
+    media = [name for name in ("image", "video", "audio") if name in capabilities]
+    return ", ".join(media) if media else "text only"
 
 
 def _model_install_state(path: Path) -> str:

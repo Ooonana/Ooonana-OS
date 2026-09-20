@@ -301,6 +301,8 @@ class KnowledgeStore:
             return self._chunks
         try:
             payload = json.loads(self.index_path.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict):
+                raise ValueError("invalid knowledge index")
             if int(payload.get("version", 0)) != INDEX_VERSION:
                 raise ValueError("unsupported knowledge index")
             self._chunks = [KnowledgeChunk(**item) for item in payload.get("chunks", [])]

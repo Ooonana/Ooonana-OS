@@ -9,6 +9,7 @@ WORK_DIR="$(ooonana_default_build_dir)"
 YES=0
 DRY_RUN=0
 KEEP_SOURCE=0
+KEEP_REPO=0
 ORIGINAL_ARGS=("$@")
 
 usage() {
@@ -21,6 +22,7 @@ Usage:
 Options:
   --work-dir PATH  Build directory (default: /var/tmp/ooonana-os/build)
   --keep-source    Keep Linux source/archive and kernel build cache
+  --keep-repo      Keep the installable full-i3 package repository
   --dry-run        Print removals only
   --yes            Required before deleting anything
   -h, --help       Show help
@@ -31,6 +33,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --work-dir) WORK_DIR="$2"; shift 2 ;;
     --keep-source) KEEP_SOURCE=1; shift ;;
+    --keep-repo) KEEP_REPO=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     --yes) YES=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -101,7 +104,6 @@ main() {
     ooonana-wsl-rootfs.tar.gz
     full-i3-rootfs
     release-full-i3-rootfs
-    full-i3-repo
     full-i3-refresh-repo
     full-i3-build-sources
     full-i3-iso-tree
@@ -121,11 +123,14 @@ main() {
     ooonana-install-mnt
     qemu-smoke.log
     qemu-*.log
-    ooonana-kernel
   )
 
   if [[ "$KEEP_SOURCE" -ne 1 ]]; then
-    generated_items+=(kernel-build linux linux-*.tar.xz)
+    generated_items+=(ooonana-kernel kernel-build linux linux-*.tar.xz)
+  fi
+
+  if [[ "$KEEP_REPO" -ne 1 ]]; then
+    generated_items+=(full-i3-repo)
   fi
 
   for item in "${generated_items[@]}"; do

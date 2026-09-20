@@ -370,7 +370,7 @@ def sanitize_tool_artifacts(text: str) -> str:
 
 
 def status_color(label: str) -> str:
-    if label.startswith(("loading model", "downloading model", "compacting")):
+    if label.startswith(("loading model", "downloading model", "compacting", "processing media")):
         return "cyan"
     return {
         "thinking": "blue",

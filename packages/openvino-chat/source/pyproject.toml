@@ -4,14 +4,18 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "openvino-chat"
-version = "0.1.5"
+version = "0.1.6"
 description = "Local OpenVINO chat and coding agent CLI"
 requires-python = ">=3.12"
 dependencies = [
   "huggingface_hub",
+  "imageio[ffmpeg]",
+  "numpy",
   "openvino-genai",
+  "pillow",
   "prompt_toolkit",
   "rich",
+  "soundfile",
 ]
 
 [project.scripts]

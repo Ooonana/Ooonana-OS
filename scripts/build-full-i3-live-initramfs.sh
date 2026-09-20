@@ -151,6 +151,7 @@ set -eu
 PATH=/bin:/sbin
 LIVE_IMAGE="/images/ooonana-full-i3-live-rootfs.ext4"
 
+mount -t proc proc /proc 2>/dev/null || true
 for arg in $(cat /proc/cmdline 2>/dev/null || true); do
   case "$arg" in
     ooonana.live.rootfs=*) LIVE_IMAGE="${arg#ooonana.live.rootfs=}" ;;
@@ -163,7 +164,6 @@ fail() {
   exec sh
 }
 
-mount -t proc proc /proc 2>/dev/null || true
 mount -t sysfs sysfs /sys 2>/dev/null || true
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || {
   mkdir -p /dev

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from textwrap import dedent, wrap
+from textwrap import dedent
 
 
 QUACK_PORTRAIT = dedent(
@@ -93,6 +93,26 @@ QUACK_PORTRAIT_TINY = dedent(
     """
 ).strip("\n")
 
+QUACK_PORTRAIT_MICRO = dedent(
+    r"""
+       .::::.
+    .:        :.
+   :  %#    #%  :
+  <:    -====-   :>
+   ':          :'
+     +.      .+
+     ===+  +===
+    """
+).strip("\n")
+
+QUACK_PORTRAIT_NANO = dedent(
+    r"""
+    %#      #%
+  <   -====-   >
+      +    +
+    """
+).strip("\n")
+
 # Backward-compatible name for callers that still refer to the shortest portrait.
 QUACK_PORTRAIT_MINI = QUACK_PORTRAIT_TINY
 
@@ -118,28 +138,118 @@ def render_speech_bubble(
     clean = " ".join(clean.replace("```", "").split()) or "..."
     inner = max(12, min(84, int(width) - 6))
     prefix = f"{label}: "
-    payload_width = max(4, inner - len(prefix))
-    lines = wrap(
-        clean,
-        width=payload_width,
-        break_long_words=True,
-        break_on_hyphens=False,
-    ) or ["..."]
+    payload_width = max(4, inner - _terminal_width(prefix))
+    lines = wrap_display_text(clean, payload_width) or ["..."]
     limit = max(1, int(max_lines))
     if len(lines) > limit:
         lines = lines[-limit:]
-        lines[0] = "... " + lines[0].lstrip(". ")
-    lines[0] = (prefix + lines[0])[:inner]
-    content_width = max(18, max(len(line) for line in lines))
-    top = " ." + "-" * (content_width + 2) + "."
+        lines[0] = _display_head("... " + lines[0].lstrip(". "), payload_width)
+    lines[0] = prefix + lines[0]
+    content_width = max(18, max(_terminal_width(line) for line in lines))
+    top = "." + "-" * (content_width + 2) + "."
     body = []
     for index, line in enumerate(lines):
         left, right = ("/", "\\") if index == 0 else ("|", "|")
-        body.append(f"{left} {line:<{content_width}} {right}")
+        padding = " " * max(0, content_width - _terminal_width(line))
+        body.append(f"{left} {line}{padding} {right}")
     tail_at = max(4, min(content_width - 2, content_width // 2))
-    bottom = " \\" + "_" * tail_at + "  " + "_" * (content_width - tail_at) + "/"
-    tail = " " * (tail_at + 3) + "\\/"
+    bottom = "\\" + "_" * tail_at + "  " + "_" * (content_width - tail_at) + "/"
+    tail = " " * (tail_at + 2) + "\\/"
     return "\n".join([top, *body, bottom, tail])
+
+
+def wrap_display_text(text: str, width: int) -> list[str]:
+    """Wrap text by terminal cells so CJK and emoji stay inside UI borders."""
+    clean = " ".join(str(text or "").split())
+    if not clean:
+        return []
+    limit = max(1, int(width))
+    lines: list[str] = []
+    current = ""
+    for word in clean.split(" "):
+        candidate = word if not current else current + " " + word
+        if _terminal_width(candidate) <= limit:
+            current = candidate
+            continue
+        if current:
+            lines.append(current)
+            current = ""
+        remainder = word
+        while remainder and _terminal_width(remainder) > limit:
+            chunk, remainder = _split_display_prefix(remainder, limit)
+            lines.append(chunk)
+        current = remainder
+    if current:
+        lines.append(current)
+    return lines
+
+
+def _terminal_width(text: str) -> int:
+    from prompt_toolkit.utils import get_cwidth
+
+    return sum(max(0, get_cwidth(char)) for char in str(text))
+
+
+def _split_display_prefix(text: str, width: int) -> tuple[str, str]:
+    from prompt_toolkit.utils import get_cwidth
+
+    used = 0
+    stop = 0
+    for index, char in enumerate(text):
+        cells = max(0, get_cwidth(char))
+        if stop and used + cells > width:
+            break
+        used += cells
+        stop = index + 1
+    stop = max(1, stop)
+    return text[:stop], text[stop:]
+
+
+def _display_head(text: str, width: int) -> str:
+    if _terminal_width(text) <= width:
+        return text
+    head, _tail = _split_display_prefix(text, max(1, width))
+    return head
+
+
+def render_speech_bubbles(
+    text: str,
+    label: str = "Quack",
+    width: int = 54,
+    max_rows: int = 12,
+    max_bubbles: int = 4,
+) -> str:
+    """Render latest spoken paragraphs as separate bubbles within row budget."""
+    clean = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", str(text or ""))
+    clean = clean.replace("```", "").strip()
+    paragraphs = [
+        " ".join(part.split())
+        for part in re.split(r"(?:\r?\n\s*){2,}", clean)
+        if part.strip()
+    ] or ["..."]
+    paragraphs = paragraphs[-max(1, int(max_bubbles)) :]
+    row_budget = max(4, int(max_rows))
+    blocks: list[str] = []
+    used_rows = 0
+
+    for paragraph in reversed(paragraphs):
+        separator_rows = 1 if blocks else 0
+        available = row_budget - used_rows - separator_rows
+        if available < 4:
+            break
+        bubble = render_speech_bubble(
+            paragraph,
+            label=label,
+            width=width,
+            max_lines=max(1, available - 3),
+        )
+        block_rows = len(bubble.splitlines())
+        blocks.insert(0, bubble)
+        used_rows += separator_rows + block_rows
+
+    return "\n\n".join(blocks) if blocks else render_speech_bubble(
+        paragraphs[-1], label=label, width=width, max_lines=1
+    )
 
 
 @dataclass(frozen=True)
