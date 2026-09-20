@@ -31,14 +31,42 @@ settings_text="$(<"$SOURCE/src/openvino_chat/settings.py")"
 pyproject_text="$(<"$SOURCE/pyproject.toml")"
 assert_contains "$source_text" 'choices=["GPU", "CPU"]'
 assert_contains "$settings_text" '"ornith"'
-assert_contains "$pyproject_text" 'version = "0.1.5"'
+assert_contains "$pyproject_text" 'version = "0.1.6"'
 
 PYTHONPATH="$SOURCE/src" python3 - <<'PY'
 import os
+import ast
+import tempfile
+from pathlib import Path
 
 from openvino_chat.api import _api_url, _health_payload
 from openvino_chat.perf import _parse_linux_meminfo
 from openvino_chat.tools import TOOL_DEFINITIONS, _parse_search_results
+from openvino_chat.media import extract_media_paths, model_media_capabilities
+from openvino_chat.sessions import CrashRecoveryStore
+from openvino_chat.settings import canonical_model_name
+
+import openvino_chat
+for path in Path(openvino_chat.__file__).parent.glob("*.py"):
+    ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+assert canonical_model_name("qwen") == "qwen3.5"
+assert canonical_model_name("qwen38") == "qwen3.8"
+with tempfile.TemporaryDirectory() as temporary:
+    root = Path(temporary)
+    first, second = root / "Photo.png", root / "photo.png"
+    first.touch()
+    second.touch()
+    paths = extract_media_paths(f'"{first}" "{second}" "{first}"')
+    assert len(paths) == (1 if os.name == "nt" else 2), paths
+    assert model_media_capabilities(None, object()) == frozenset({"text"})
+    recovery = CrashRecoveryStore(root / "recovery.json")
+    recovery.schedule("session", "old draft")
+    recovery.save_now("session", "new draft", pending=True)
+    recovery.flush()
+    assert recovery.load()["draft"] == "new draft"
+    recovery.clear()
+    recovery.flush()
+    assert recovery.load() == {}
 
 assert _api_url("::1", 11435, "/health") == "http://[::1]:11435/health"
 assert _health_payload({}) is None
@@ -75,10 +103,18 @@ assert_contains "$launcher_text" "--unshare-uts"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-built="$(bash "$BUILDER" --out-dir "$tmp/repo" --version 0.1.5)"
+mkdir -p "$tmp/state/rootfs"
+touch "$tmp/state/rootfs/.ooonana-openvino-ready"
+if doctor="$(OOONANA_OPENVINO_STATE_DIR="$tmp/state" OOONANA_OPENVINO_PROJECT="$SOURCE" "$PAYLOAD/usr/bin/openvino" doctor)"; then
+  fail "old unversioned runtime reported ready"
+fi
+assert_contains "$doctor" "runtime: outdated"
+assert_contains "$doctor" "next: openvino setup"
+assert_contains "$setup_text" 'sha256sum /opt/openvino-chat/pyproject.toml'
+built="$(bash "$BUILDER" --out-dir "$tmp/repo" --version 0.1.6)"
 assert_contains "$built" "openvino-chat.pkg"
 [[ -f "$tmp/repo/openvino-chat.pkg" ]] || fail "missing package metadata"
-[[ -f "$tmp/repo/archives/openvino-chat-0.1.5.tar.gz" ]] || fail "missing package archive"
+[[ -f "$tmp/repo/archives/openvino-chat-0.1.6.tar.gz" ]] || fail "missing package archive"
 
 metadata="$(<"$tmp/repo/openvino-chat.pkg")"
 assert_contains "$metadata" 'OOONANA_PKG_ID="openvino-chat"'
@@ -86,7 +122,9 @@ assert_contains "$metadata" 'OOONANA_PKG_DEPS="bubblewrap xz curl ca-certificate
 assert_contains "$metadata" "Offline Ooonana AI"
 assert_contains "$metadata" "intel gpu cpu"
 
-contents="$(tar -tzf "$tmp/repo/archives/openvino-chat-0.1.5.tar.gz")"
+contents="$(tar -tzf "$tmp/repo/archives/openvino-chat-0.1.6.tar.gz")"
+[[ "$contents" != *'__pycache__'* ]] || fail "OpenVINO contains Python cache"
+[[ "$contents" != *'.pyc'* ]] || fail "OpenVINO contains Python bytecode"
 assert_contains "$contents" "./usr/bin/openvino"
 assert_contains "$contents" "./usr/bin/ooonana-openvino-setup"
 assert_contains "$contents" "./usr/lib/ooonana/openvino-chat/src/openvino_chat/cli.py"

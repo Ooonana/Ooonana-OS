@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR=""
-VERSION="0.8.24"
+VERSION="0.8.25"
 DRY_RUN=0
 
 usage() {
@@ -14,7 +14,7 @@ Usage:
   scripts/build-ooonana-core-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER  Package version (default: 0.8.24)
+  --version VER  Package version (default: 0.8.25)
   --dry-run      Print resolved package details
   -h, --help     Show help
 USAGE
@@ -77,6 +77,8 @@ mkdir -p "$OUT_DIR/archives"
 staging="$(mktemp -d)"
 trap 'rm -rf "$staging"' EXIT
 cp -a "$ROOT/packages/ooonana/." "$staging/"
+find "$staging" -type d -name __pycache__ -prune -exec rm -rf -- {} +
+find "$staging" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
 find "$staging" -type d -exec chmod 0755 {} +
 find "$staging" -type f -exec chmod 0644 {} +
 find "$staging/usr/bin" "$staging/usr/sbin" -type f -exec chmod 0755 {} +

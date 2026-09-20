@@ -3,7 +3,7 @@ set -eu
 
 STATE_DIR="${OOONANA_OPENVINO_STATE_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/ooonana-openvino}"
 ROOTFS="$STATE_DIR/rootfs"
-PROJECT="/usr/lib/ooonana/openvino-chat"
+PROJECT="${OOONANA_OPENVINO_PROJECT:-/usr/lib/ooonana/openvino-chat}"
 BASE_URL="${OOONANA_OPENVINO_ROOTFS_URL:-https://cloud-images.ubuntu.com/minimal/releases/noble/release}"
 ROOTFS_NAME="ubuntu-24.04-minimal-cloudimg-amd64-root.tar.xz"
 FORCE=0
@@ -94,7 +94,7 @@ run_inside() {
       find /tmp/ooonana-openvino-src -type d -name "*.egg-info" -prune -exec rm -rf {} +
       /opt/openvino-venv/bin/python -m pip install --no-cache-dir --upgrade /tmp/ooonana-openvino-src
       /opt/openvino-venv/bin/python -c "import openvino, openvino_genai, openvino_chat; print(\"OpenVINO runtime ready\")"
-      touch /.ooonana-openvino-ready
+      sha256sum /opt/openvino-chat/pyproject.toml | awk "{print \$1}" > /.ooonana-openvino-ready
     '
 }
 
@@ -141,5 +141,5 @@ run_inside "$candidate"
 rm -rf "$ROOTFS"
 mv "$candidate" "$ROOTFS"
 printf 'OpenVINO local AI ready.\n'
-printf 'Next: openvino download tiny\n'
+printf 'Next: openvino download qwen3.5\n'
 printf 'Then: openvino chat --device GPU\n'

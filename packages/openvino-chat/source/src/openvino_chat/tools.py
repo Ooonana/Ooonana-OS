@@ -10,6 +10,7 @@ import time
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from datetime import datetime
 from difflib import unified_diff
 from html.parser import HTMLParser
 from pathlib import Path
@@ -142,11 +143,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "properties": {
                     "command": {
                         "type": "string",
-                        "description": (
-                            "PowerShell command."
-                            if os.name == "nt"
-                            else "POSIX shell command."
-                        ),
+                        "description": "PowerShell command." if os.name == "nt" else "POSIX shell command.",
                     }
                 },
                 "required": ["command"],
@@ -213,7 +210,11 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "properties": {
                     "action": {
                         "type": "string",
-                        "description": "One of: status, search, transcript, usage, filter.",
+                        "description": (
+                            "One of: status, search, transcript, usage, filter. "
+                            "Transcript searches recorded spoken audio only; use usage or search "
+                            "for screen, app, and computer activity."
+                        ),
                     },
                     "query": {
                         "type": "string",
@@ -389,7 +390,7 @@ class ToolRegistry:
         cwd: Path | None = None,
         workspace_root: Path | None = None,
         permission_mode: str = "ask",
-        approval_callback: Callable[[ToolRequest], bool] | None = None,
+        approval_callback: Callable[[ToolRequest], bool | str] | None = None,
         timeout_seconds: int = 30,
         max_output_chars: int = 4000,
         web_searcher: Callable[[str], str] | None = None,
@@ -557,11 +558,13 @@ class ToolRegistry:
             shell=False,
             text=True,
             capture_output=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=self.timeout_seconds,
         )
         output = (completed.stdout or "") + (completed.stderr or "")
         if completed.returncode != 0:
-            output = f"exit={completed.returncode}\n{output}"
+            raise RuntimeError(f"exit={completed.returncode}\n{output}".strip())
         return output.strip()
 
     def _storage(self, args: dict[str, Any]) -> str:
@@ -660,11 +663,21 @@ class ToolRegistry:
         return name in {"shell", "write", "append", "undo"}
 
     def _approved(self, request: ToolRequest) -> bool:
-        if self.permission_mode == "allow":
+        if self.permission_mode in {"allow", "always"}:
             return True
         if self.approval_callback is None:
             return False
-        return self.approval_callback(request)
+        decision = self.approval_callback(request)
+        if isinstance(decision, bool):
+            return decision
+        normalized = str(decision).strip().lower()
+        if normalized == "session":
+            self.permission_mode = "allow"
+            return True
+        if normalized == "always":
+            self.permission_mode = "always"
+            return True
+        return normalized in {"once", "allow", "yes", "y"}
 
     def _relative(self, path: Path) -> str:
         try:
@@ -724,8 +737,11 @@ def _luci_history(args: dict[str, Any]) -> str:
         command.extend(["--tr", time_range, "--limit", str(limit), "--json"])
 
     shim = _luci_shim()
-    started_for_query = action != "status" and not _luci_is_running(shim)
+    started_for_query = False
     try:
+        if action != "status" and not _luci_is_running(shim):
+            started_for_query = True
+            _start_luci_process(shim)
         completed = _run_luci_process(shim, command)
     finally:
         if started_for_query:
@@ -733,7 +749,72 @@ def _luci_history(args: dict[str, Any]) -> str:
     output = completed.stdout.strip() or completed.stderr.strip()
     if completed.returncode:
         raise RuntimeError(output or f"Luci failed with exit code {completed.returncode}")
-    return output or "no history results"
+    return _format_luci_output(action, output)
+
+
+def _format_luci_output(action: str, output: str) -> str:
+    """Turn Luci JSON into compact evidence that small local models can use safely."""
+    if not output:
+        return _luci_empty_result(action)
+    try:
+        payload = json.loads(output)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return output
+    if not isinstance(payload, dict):
+        return output
+
+    items = payload.get("segments") if action == "transcript" else payload.get("entries")
+    if not isinstance(items, list):
+        return output
+    if not items:
+        return _luci_empty_result(action)
+
+    lines = [f"Luci {action}: {len(items)} result(s)."]
+    for index, item in enumerate(items[:10], start=1):
+        if not isinstance(item, dict):
+            lines.append(f"{index}. {_compact_luci_text(str(item), 400)}")
+            continue
+        timestamp = _format_luci_timestamp(item.get("timestamp"))
+        app = _compact_luci_text(str(item.get("app") or ""), 80)
+        title = _compact_luci_text(str(item.get("windowTitle") or item.get("title") or ""), 140)
+        text_value = _compact_luci_text(
+            str(item.get("text") or item.get("transcript") or item.get("content") or ""),
+            500,
+        )
+        heading = " | ".join(part for part in (timestamp, app, title) if part)
+        lines.append(f"{index}. {heading or 'history result'}")
+        if text_value:
+            lines.append(f"   {text_value}")
+    return "\n".join(lines)
+
+
+def _luci_empty_result(action: str) -> str:
+    if action == "transcript":
+        return (
+            "Luci is running, but no recorded spoken-audio transcript matched this query and "
+            "time range. This does not mean screen history is empty. Use usage for an activity "
+            "summary or semantic search for visible screen content."
+        )
+    if action in {"usage", "search", "filter"}:
+        return f"Luci is running, but no {action} result matched this query and time range."
+    return "Luci returned no status text."
+
+
+def _compact_luci_text(value: str, limit: int) -> str:
+    text = re.sub(r"\s+", " ", value).strip()
+    if len(text) <= limit:
+        return text
+    return text[: max(1, limit - 3)].rstrip() + "..."
+
+
+def _format_luci_timestamp(value: Any) -> str:
+    try:
+        number = float(value)
+        if number > 10_000_000_000:
+            number /= 1000
+        return datetime.fromtimestamp(number).astimezone().strftime("%Y-%m-%d %H:%M:%S")
+    except (TypeError, ValueError, OSError, OverflowError):
+        return ""
 
 
 def _run_luci_process(shim: Path, command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -764,6 +845,28 @@ def _luci_is_running(shim: Path) -> bool:
         return False
 
 
+def _start_luci_process(shim: Path) -> None:
+    app_path = _luci_app_path()
+    if app_path is None:
+        raise RuntimeError("Luci is not running. Open Luci, then retry.")
+    creation_flags = 0
+    if os.name == "nt":
+        creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    subprocess.Popen(
+        [str(app_path)],
+        cwd=app_path.parent,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        creationflags=creation_flags,
+    )
+    for _attempt in range(30):
+        time.sleep(0.5)
+        if _luci_is_running(shim):
+            return
+    raise RuntimeError("Luci did not become ready within 15 seconds.")
+
+
 def _stop_luci_process() -> None:
     if os.name != "nt":
         return
@@ -782,21 +885,37 @@ def _stop_luci_process() -> None:
 
 
 def _luci_shim() -> Path:
-    for discovery in (
-        Path.home() / ".luci" / "cli.json",
-        Path.home() / ".luciMicrosoft" / "cli.json",
-    ):
-        try:
-            data = json.loads(discovery.read_text(encoding="utf-8"))
-            shim = Path(str(data.get("shim") or "")).expanduser()
-        except (OSError, UnicodeError, json.JSONDecodeError, AttributeError):
-            continue
+    data = _luci_discovery()
+    if data is not None:
+        shim = Path(str(data.get("shim") or "")).expanduser()
         if shim.is_file():
             return shim
     fallback = shutil.which("luci")
     if fallback:
         return Path(fallback)
     raise FileNotFoundError("Luci CLI not found. Install or start Luci, then retry.")
+
+
+def _luci_app_path() -> Path | None:
+    data = _luci_discovery()
+    if data is None:
+        return None
+    path = Path(str(data.get("appPath") or "")).expanduser()
+    return path if path.is_file() else None
+
+
+def _luci_discovery() -> dict[str, Any] | None:
+    for discovery in (
+        Path.home() / ".luci" / "cli.json",
+        Path.home() / ".luciMicrosoft" / "cli.json",
+    ):
+        try:
+            data = json.loads(discovery.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError, AttributeError):
+            continue
+        if isinstance(data, dict):
+            return data
+    return None
 
 
 def _windows_startup_entries() -> list[tuple[str, str, str, str]]:

@@ -9,6 +9,7 @@ from common import (  # noqa: E402
     Gtk,
     apply_theme,
     button,
+    flow_row,
     header,
     label,
     launch,
@@ -100,14 +101,15 @@ class AudioWindow(Gtk.Window):
         self.hardware_status.set_line_wrap(True)
         root.pack_start(self.hardware_status, False, False, 0)
 
-        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.mute_button = button("Mute", "audio-volume-muted-symbolic", self.toggle_mute)
-        actions.pack_start(self.mute_button, False, False, 0)
-        actions.pack_start(button("Mixer", "multimedia-volume-control-symbolic", lambda *_: launch(["pavucontrol"])), False, False, 0)
-        actions.pack_start(button("Retry hardware", "view-refresh-symbolic", self.repair_audio), False, False, 0)
-        actions.pack_start(button("Diagnostics", "dialog-information-symbolic", self.show_diagnostics), False, False, 0)
         self.apply_button = button("Apply", "object-select-symbolic", self.apply, "suggested-action")
-        actions.pack_end(self.apply_button, False, False, 0)
+        actions = flow_row([
+            self.mute_button,
+            button("Mixer", "multimedia-volume-control-symbolic", lambda *_: launch(["pavucontrol"])),
+            button("Retry hardware", "view-refresh-symbolic", self.repair_audio),
+            button("Diagnostics", "dialog-information-symbolic", self.show_diagnostics),
+            self.apply_button,
+        ])
         root.pack_start(actions, False, False, 0)
         self.status = label("Checking audio service...", "muted")
         root.pack_start(self.status, False, False, 0)
@@ -195,7 +197,7 @@ class AudioWindow(Gtk.Window):
         self.mute_button.set_sensitive(bool(outputs))
         self.apply_button.set_sensitive(bool(outputs or inputs))
         if outputs or inputs:
-            self.hardware_status.set_text("ALSA hardware detected")
+            self.hardware_status.set_text("ALSA hardware detected" if data["alsa_card_ready"] else "Audio device detected")
             self.status.set_text(f"Audio ready | {len(outputs)} output(s) | {len(inputs)} input(s)")
         elif data["alsa_card_ready"]:
             self.hardware_status.set_text("ALSA card detected")
@@ -310,7 +312,9 @@ class AudioWindow(Gtk.Window):
                 rc, output = self.audio_command("set-default-source", input_id)
                 if rc != 0:
                     return rc, output
-            return self.audio_command("set-sink-volume", "@DEFAULT_SINK@", f"{value}%")
+            if output_id:
+                return self.audio_command("set-sink-volume", output_id, f"{value}%")
+            return 0, ""
 
         run_async_task(task, done)
 

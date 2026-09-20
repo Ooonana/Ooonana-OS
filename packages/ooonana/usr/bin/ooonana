@@ -3,7 +3,7 @@
 # shellcheck disable=SC1090,SC3043
 set -eu
 
-VERSION="0.8.24"
+VERSION="0.8.25"
 HOME_DIR="${HOME:-/root}"
 if [ -n "${OOONANA_AI_CONFIG:-}" ]; then
   AI_CONFIG="$OOONANA_AI_CONFIG"
@@ -292,8 +292,8 @@ AI flow:
 Offline Intel GPU/CPU:
   ooonana get openvino-chat
   openvino setup
-  openvino download tiny
-  openvino --model-dir /root/.openvino/models/gemma-4-e2b-it-qat-int4-ov api start --device GPU
+  openvino download qwen3.5
+  openvino --model-dir /root/.openvino/models/qwen3.5-9b-int4-ov api start --device GPU
   ooonana ai provider set openvino
   ooonana ai chat
 
@@ -2054,7 +2054,6 @@ install_one_pkg() {
   load_pkg "$id"
   OOONANA_PKG_DEPS="$deps"
   OOONANA_PKG_CONFLICTS="$conflicts"
-
   if pkg_installed "$id"; then
     printf 'already installed %s\n' "$id"
     return 0
@@ -2148,7 +2147,6 @@ upgrade_one_pkg() {
   done
   OOONANA_UPGRADING="$old_upgrading"
   load_pkg "$id"
-
   if [ "$dry_run" -eq 1 ]; then
     printf 'would upgrade %s %s -> %s\n' "$id" "$old_version" "$new_version"
     [ -n "$OOONANA_PKG_ARCHIVE" ] && printf 'would unpack %s\n' "$OOONANA_PKG_ARCHIVE"

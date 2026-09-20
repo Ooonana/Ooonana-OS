@@ -3,10 +3,18 @@ set -eu
 
 STATE_DIR="${OOONANA_OPENVINO_STATE_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/ooonana-openvino}"
 ROOTFS="$STATE_DIR/rootfs"
-PROJECT="/usr/lib/ooonana/openvino-chat"
+PROJECT="${OOONANA_OPENVINO_PROJECT:-/usr/lib/ooonana/openvino-chat}"
 OPENVINO_HOME="${OOONANA_OPENVINO_HOME:-$HOME/.openvino}"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/ooonana-openvino"
 WORKSPACE="${OOONANA_OPENVINO_WORKSPACE:-$PWD}"
+runtime_state=missing
+if [ -f "$ROOTFS/.ooonana-openvino-ready" ]; then
+  runtime_state=outdated
+  if [ -f "$PROJECT/pyproject.toml" ] && \
+    [ "$(cat "$ROOTFS/.ooonana-openvino-ready")" = "$(sha256sum "$PROJECT/pyproject.toml" | awk '{print $1}')" ]; then
+    runtime_state=ready
+  fi
+fi
 
 usage() {
   cat <<'EOF'
@@ -16,7 +24,7 @@ Usage:
   openvino setup [--force]
   openvino doctor
   openvino status
-  openvino download tiny|qwen|gemma
+  openvino download qwen3.5|gemma
   openvino chat [--device GPU|CPU]
   openvino api start|status|stop [--device GPU|CPU]
 
@@ -36,10 +44,10 @@ case "${1:-}" in
     ;;
   doctor)
     printf 'Ooonana OpenVINO doctor\n'
-    printf 'runtime: %s\n' "$([ -f "$ROOTFS/.ooonana-openvino-ready" ] && printf ready || printf missing)"
+    printf 'runtime: %s\n' "$runtime_state"
     printf 'bubblewrap: %s\n' "$([ -x /usr/bin/bwrap ] && printf ready || printf missing)"
     printf 'gpu: %s\n' "$([ -d /dev/dri ] && printf detected || printf missing)"
-    if [ ! -f "$ROOTFS/.ooonana-openvino-ready" ]; then
+    if [ "$runtime_state" != ready ]; then
       printf 'next: openvino setup\n'
       exit 1
     fi
@@ -57,6 +65,10 @@ esac
 }
 [ -d "$PROJECT/src/openvino_chat" ] || {
   printf 'openvino: package payload missing; reinstall openvino-chat\n' >&2
+  exit 1
+}
+[ "$runtime_state" = ready ] || {
+  printf 'openvino: runtime outdated; run: openvino setup\n' >&2
   exit 1
 }
 [ -d "$WORKSPACE" ] || WORKSPACE="$HOME"

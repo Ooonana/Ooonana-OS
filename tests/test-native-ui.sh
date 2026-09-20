@@ -165,8 +165,8 @@ assert_contains "$packages" '["ooonana", "upgrade"]'
 assert_contains "$ai" "Chat"
 assert_contains "$ai" '["ooonana-ai", "ask", prompt]'
 assert_contains "$ai" "Offline Intel"
-assert_contains "$ai" 'Path.home() / ".openvino/models/'
-assert_not_contains "$ai" 'model = "/root/.openvino/models/'
+assert_contains "$ai" 'model = f"/root/.openvino/models/{model_name}"'
+assert_not_contains "$ai" 'Path.home() / ".openvino/models/'
 assert_contains "$ai" "Checking OpenVINO runtime..."
 assert_contains "$ai" '["openvino", "doctor"]'
 assert_contains "$ai" "Start GPU"
@@ -228,6 +228,9 @@ assert_contains "$i3_config" "--backend xrender"
 
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-wireless-utils.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-wireless-actions.py"
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-audio-actions.py"
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-window-list.py"
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-offline-ai-flow.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-signal-map.py"
 
 boot_logo="$(<"$ROOT/packages/ooonana/usr/share/ooonana/boot-logo.txt")"

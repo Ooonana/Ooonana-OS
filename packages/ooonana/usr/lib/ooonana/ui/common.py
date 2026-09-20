@@ -306,15 +306,78 @@ def launch(argv, admin=False):
         return False
 
 
+def message_dialog(parent, title, text, kind=Gtk.MessageType.INFO):
+    if len(text) <= 600 and text.count("\n") <= 8:
+        dialog = Gtk.MessageDialog(
+            transient_for=parent,
+            modal=True,
+            message_type=kind,
+            buttons=Gtk.ButtonsType.CLOSE,
+            text=title,
+        )
+        dialog.format_secondary_text(text)
+        for child in dialog.get_message_area().get_children():
+            if isinstance(child, Gtk.Label):
+                child.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+                child.set_max_width_chars(64)
+        return dialog
+
+    dialog = Gtk.Dialog(title=title, transient_for=parent, modal=True)
+    dialog.set_wmclass("ooonana-app", "OoonanaApp")
+    dialog.set_resizable(True)
+    dialog.add_button("Close", Gtk.ResponseType.CLOSE)
+    dialog.set_default_response(Gtk.ResponseType.CLOSE)
+    width, height = 760, 520
+    display = Gdk.Display.get_default()
+    if display:
+        monitor = display.get_monitor_at_window(parent.get_window()) if parent and parent.get_window() else None
+        monitor = monitor or display.get_primary_monitor() or display.get_monitor(0)
+        if monitor:
+            workarea = monitor.get_workarea()
+            width = max(1, min(width, workarea.width - 64))
+            height = max(1, min(height, workarea.height - 64))
+    dialog.set_default_size(width, height)
+
+    area = dialog.get_content_area()
+    area.set_border_width(16)
+    area.set_spacing(12)
+    heading = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+    icon_name = {
+        Gtk.MessageType.ERROR: "dialog-error-symbolic",
+        Gtk.MessageType.WARNING: "dialog-warning-symbolic",
+    }.get(kind, "dialog-information-symbolic")
+    heading.pack_start(icon(icon_name), False, False, 0)
+    title_label = label(title, "card-title")
+    title_label.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+    title_label.set_max_width_chars(64)
+    heading.pack_start(title_label, True, True, 0)
+    area.pack_start(heading, False, False, 0)
+
+    view = Gtk.TextView()
+    view.set_editable(False)
+    view.set_monospace(True)
+    view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+    view.set_left_margin(12)
+    view.set_right_margin(12)
+    view.set_top_margin(10)
+    view.set_bottom_margin(10)
+    view.get_buffer().set_text(text)
+    scroll = Gtk.ScrolledWindow()
+    scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+    scroll.add(view)
+    area.pack_start(scroll, True, True, 0)
+
+    copy_button = Gtk.Button()
+    copy_button.set_image(icon("edit-copy-symbolic"))
+    copy_button.set_tooltip_text("Copy diagnostics")
+    copy_button.connect("clicked", lambda *_: Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(text, -1))
+    dialog.get_action_area().pack_start(copy_button, False, False, 0)
+    dialog.show_all()
+    return dialog
+
+
 def message(parent, title, text, kind=Gtk.MessageType.INFO):
-    dialog = Gtk.MessageDialog(
-        transient_for=parent,
-        modal=True,
-        message_type=kind,
-        buttons=Gtk.ButtonsType.CLOSE,
-        text=title,
-    )
-    dialog.format_secondary_text(text)
+    dialog = message_dialog(parent, title, text, kind)
     dialog.run()
     dialog.destroy()
 

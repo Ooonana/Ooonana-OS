@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from openvino_chat.media import MediaInputs, model_media_capabilities, prepare_media_inputs
 from openvino_chat.settings import (
     DEFAULT_GENERATION_EFFORT,
     DEFAULT_THINKING_EFFORT,
@@ -50,6 +51,17 @@ class OpenVinoChatEngine:
         self.last_metrics: GenerationMetrics | None = None
         self._structured_tool_configs: dict[str, Any] = {}
         self._structured_tools_disabled = False
+
+    @property
+    def media_capabilities(self) -> frozenset[str]:
+        return model_media_capabilities(self.model_dir, self._pipeline)
+
+    def prepare_media(self, paths: list[Path] | tuple[Path, ...]) -> MediaInputs:
+        return prepare_media_inputs(
+            paths,
+            capabilities=self.media_capabilities,
+            model_dir=self.model_dir,
+        )
 
     @property
     def supports_graded_thinking(self) -> bool:
@@ -133,6 +145,7 @@ class OpenVinoChatEngine:
         generation_effort: str = DEFAULT_GENERATION_EFFORT,
         thinking_effort: str = DEFAULT_THINKING_EFFORT,
         context_length: int | None = None,
+        media_inputs: MediaInputs | None = None,
     ) -> str:
         return self._generate_input(
             prompt,
@@ -150,6 +163,7 @@ class OpenVinoChatEngine:
             generation_effort=generation_effort,
             thinking_effort=thinking_effort,
             context_length=context_length,
+            media_inputs=media_inputs,
         )
 
     def generate_chat(
@@ -258,6 +272,7 @@ class OpenVinoChatEngine:
         thinking_effort: str = DEFAULT_THINKING_EFFORT,
         context_length: int | None = None,
         structured_output_config: Any | None = None,
+        media_inputs: MediaInputs | None = None,
     ) -> str:
         chunks: list[str] = []
         started = time.perf_counter()
@@ -308,6 +323,13 @@ class OpenVinoChatEngine:
         }
         if structured_output_config is not None:
             kwargs["structured_output_config"] = structured_output_config
+        if media_inputs is not None:
+            if media_inputs.images:
+                kwargs["images"] = list(media_inputs.images)
+            if media_inputs.videos:
+                kwargs["videos"] = list(media_inputs.videos)
+            if media_inputs.audios:
+                kwargs["audios"] = list(media_inputs.audios)
         if on_token is not None or should_stop is not None:
             kwargs["streamer"] = streamer
         try:
@@ -400,12 +422,16 @@ def _model_name(model_dir: Path) -> str:
     if "qwen3.8" in name or "qwen38" in name:
         return "Qwen3.8"
     if "qwen" in name:
-        return "Qwen"
+        return "Qwen3.5"
     return model_dir.name
 
 
 def model_name_from_dir(model_dir: Path) -> str:
     return _model_name(model_dir)
+
+
+def media_capabilities_for_model(model_dir: Path) -> frozenset[str]:
+    return model_media_capabilities(Path(model_dir), _pipeline_cls(Path(model_dir)))
 
 
 def _result_text(result: Any) -> str:

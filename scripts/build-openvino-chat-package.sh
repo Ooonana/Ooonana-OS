@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR=""
-VERSION="0.1.5"
+VERSION="0.1.6"
 SOURCE_DIR="${OOONANA_OPENVINO_CHAT_SOURCE:-$ROOT/packages/openvino-chat/source}"
 PAYLOAD_DIR="$ROOT/packages/openvino-chat/rootfs"
 DRY_RUN=0
@@ -16,7 +16,7 @@ Usage:
   scripts/build-openvino-chat-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER      Package version (default: 0.1.5)
+  --version VER      Package version (default: 0.1.6)
   --source-dir PATH  OpenVINO Chat source snapshot
   --dry-run          Print resolved package details
   -h, --help         Show help
@@ -60,6 +60,8 @@ install -d "$staging/usr/lib/ooonana/openvino-chat"
 cp -a "$SOURCE_DIR/pyproject.toml" "$staging/usr/lib/ooonana/openvino-chat/"
 cp -a "$SOURCE_DIR/README.md" "$staging/usr/lib/ooonana/openvino-chat/"
 cp -a "$SOURCE_DIR/src" "$staging/usr/lib/ooonana/openvino-chat/"
+find "$staging" -type d -name __pycache__ -prune -exec rm -rf -- {} +
+find "$staging" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
 chmod 0755 \
   "$staging/usr/bin/openvino" \
   "$staging/usr/bin/ooonana-openvino" \
