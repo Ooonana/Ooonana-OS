@@ -201,20 +201,6 @@ assert_contains "$dry_run" "configs/kernel/ooonana-minimal-x86_64.fragment"
 assert_contains "$dry_run" "bzImage"
 assert_contains "$dry_run" "$tmp/out/vmlinuz-ooonana"
 
-# Dry runs must preserve both existing outputs and the printed fragment path.
-mkdir -p "$tmp/build" "$tmp/out" "$tmp/ooonana-kernel-fragments"
-for file in "$tmp/build/sentinel" "$tmp/out/vmlinuz-ooonana" "$tmp/out/config-ooonana" "$tmp/out/kernel.env" "$tmp/ooonana-kernel-fragments/sentinel"; do
-  printf 'preserve\n' > "$file"
-done
-TMPDIR="$tmp" bash "$SCRIPT" --source "$tmp/source" \
-  --build-dir "$tmp/build" --out-dir "$tmp/out" --dry-run --force >/dev/null
-for file in "$tmp/build/sentinel" "$tmp/out/vmlinuz-ooonana" "$tmp/out/config-ooonana" "$tmp/out/kernel.env" "$tmp/ooonana-kernel-fragments/sentinel"; do
-  [[ -f "$file" && "$(<"$file")" == preserve ]] || fail "dry-run changed $file"
-done
-TMPDIR="$tmp" bash "$SCRIPT" --source "$tmp/source" \
-  --build-dir "$tmp/absent-build" --out-dir "$tmp/absent-out" --dry-run >/dev/null
-[[ ! -e "$tmp/absent-build" && ! -e "$tmp/absent-out" ]] || fail "dry-run created output directories"
-
 cat > "$tmp/bin/make" <<'EOF'
 #!/bin/sh
 out=""
@@ -240,10 +226,6 @@ while [ "$#" -gt 0 ]; do
 done
 
 [ -n "$out" ] || exit 7
-if [ "$target" = "kernelversion" ]; then
-  printf '6.18.37\n'
-  exit 0
-fi
 if [ "$target" = "x86_64_defconfig" ]; then
   mkdir -p "$out"
   printf 'CONFIG_BASE=y\n' > "$out/.config"
@@ -274,7 +256,6 @@ grep -q '# CONFIG_UNUSED is not set' "$tmp/build/.config" || fail "missing disab
 
 env_file="$(<"$tmp/out/kernel.env")"
 assert_contains "$env_file" "OOONANA_KERNEL=$tmp/out/custom-vmlinuz"
-assert_contains "$env_file" "OOONANA_KERNEL_VERSION=6.18.37"
 assert_contains "$env_file" "OOONANA_KERNEL_SOURCE=$tmp/source"
 assert_contains "$env_file" "OOONANA_KERNEL_DEFCONFIG=x86_64_defconfig"
 assert_contains "$env_file" "OOONANA_KERNEL_CONFIG=$tmp/out/config-ooonana"

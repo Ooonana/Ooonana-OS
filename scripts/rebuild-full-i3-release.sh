@@ -89,7 +89,7 @@ done
 
 ensure_default_build_mount
 
-for command_name in awk cmp cp dd df find flock grep install mv python3 qemu-system-x86_64 realpath sha256sum sort stat sync timeout xargs sed; do
+for command_name in awk cmp cp dd df find flock grep install mv python3 qemu-system-x86_64 realpath sha256sum sort stat sync timeout xargs; do
   command -v "$command_name" >/dev/null 2>&1 || die "missing command: $command_name"
 done
 
@@ -133,7 +133,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 kernel_cache_matches_fragment() {
-  local kernel_option cached_version
+  local kernel_option
   KERNEL_CACHE_ERROR=""
 
   if [[ ! -s "$KERNEL" ]]; then
@@ -142,12 +142,6 @@ kernel_cache_matches_fragment() {
   fi
   if [[ ! -s "$KERNEL_CONFIG" ]]; then
     KERNEL_CACHE_ERROR="cached kernel has no resolved config: $KERNEL_CONFIG"
-    return 1
-  fi
-  # Read data only: cached metadata must never execute shell commands.
-  cached_version="$(sed -n 's/^OOONANA_KERNEL_VERSION=//p' "$(dirname "$KERNEL")/kernel.env" 2>/dev/null || true)"
-  if [[ ! "$cached_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+[-._+a-zA-Z0-9]*$ || "$cached_version" != "$KERNEL_SOURCE_VERSION" ]]; then
-    KERNEL_CACHE_ERROR="cached kernel version is unknown or differs from requested version: $KERNEL_SOURCE_VERSION"
     return 1
   fi
   while IFS= read -r kernel_option; do
