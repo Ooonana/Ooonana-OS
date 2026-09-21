@@ -226,6 +226,10 @@ while [ "$#" -gt 0 ]; do
 done
 
 [ -n "$out" ] || exit 7
+if [ "$target" = "kernelversion" ]; then
+  printf '6.18.37\n'
+  exit 0
+fi
 if [ "$target" = "x86_64_defconfig" ]; then
   mkdir -p "$out"
   printf 'CONFIG_BASE=y\n' > "$out/.config"

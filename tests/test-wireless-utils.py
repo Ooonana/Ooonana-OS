@@ -95,3 +95,14 @@ check(korean["alias"] == "\ud5e4\ub4dc\ud3f0", "Korean Bluetooth name preserved"
 check(clean_display_name("  \ud5e4\ub4dc\ud3f0\x00  ") == "\ud5e4\ub4dc\ud3f0", "control bytes removed from device name")
 
 print("ok wireless-utils")
+
+names = [" Cafe ", "Cafe", "Café", "Cafe\u0301", "  "]
+aps = parse_nmcli_wifi("\n".join(
+    f":AA\\:BB\\:CC\\:DD\\:EE\\:01:{name}:80:WPA2:wlan0" for name in names
+))
+check([ap["ssid"] for ap in aps] == names, "SSID identity must not be normalized")
+check(len(group_wifi_access_points(aps)) == len(names), "distinct SSIDs must not merge")
+iw = parse_iw_wifi("BSS aa:bb:cc:dd:ee:01(on wlan0)\n\tSSID:  Cafe \n\tRSN:\n")
+check(iw[0]["ssid"] == " Cafe ", "iw preserves SSID spaces")
+iw = parse_iw_wifi("BSS aa:bb:cc:dd:ee:01(on wlan0)\n\tSSID: Caf\\xc3\\xa9\n")
+check(iw[0]["ssid"] == "Café", "iw decodes escaped UTF-8")

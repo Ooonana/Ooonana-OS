@@ -75,7 +75,7 @@ def parse_nmcli_wifi(output):
         if len(fields) != 6:
             continue
         in_use, bssid, ssid, signal, security, device = fields
-        ssid = clean_display_name(ssid)
+        # SSID is connection identity, not display text. Do not trim or normalize.
         if not ssid:
             continue
         try:
@@ -119,7 +119,7 @@ def parse_iw_wifi(output, device=""):
         )
 
     for raw_line in output.splitlines():
-        line = raw_line.strip()
+        line = raw_line.lstrip()
         if line.startswith("BSS "):
             finish()
             bssid = line.split()[1].split("(", 1)[0]
@@ -127,7 +127,14 @@ def parse_iw_wifi(output, device=""):
         elif current is None:
             continue
         elif line.startswith("SSID:"):
-            current["ssid"] = clean_display_name(line.split(":", 1)[1])
+            value = line.partition(":")[2]
+            if value.startswith(" "):
+                value = value[1:]
+            # iw renders non-printable bytes (including backslash) as hex escapes.
+            encoded = re.sub(r"\\x([0-9a-fA-F]{2})", lambda m: chr(int(m[1], 16)), value)
+            if all(ord(char) < 128 for char in value):
+                encoded = encoded.encode("latin1").decode("utf-8", errors="surrogateescape")
+            current["ssid"] = encoded
         elif line.startswith("signal:"):
             current["signal"] = line.split(":", 1)[1].strip().split()[0]
         elif line.startswith("capability:") and "Privacy" in line:

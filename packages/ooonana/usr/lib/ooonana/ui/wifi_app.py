@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-import os
+import json
 import sys
-import tempfile
 import time
 from pathlib import Path
 
@@ -362,7 +361,7 @@ class ManualNetworkDialog(Gtk.Dialog):
     def network(self):
         index = self.security.get_active()
         _title, kind, raw = SECURITY_OPTIONS[index if index >= 0 else 2]
-        ssid = self.ssid.get_text().strip()
+        ssid = self.ssid.get_text()
         return {
             "ssid": ssid,
             "security": raw,
@@ -795,8 +794,8 @@ class WifiWindow(Gtk.Window):
 
     @staticmethod
     def profile_name(ssid):
-        clean = " ".join(ssid.split())[:72]
-        return f"Ooonana Wi-Fi - {clean}"
+        # Preserve identity here too: profile deletion must not alias other SSIDs.
+        return f"Ooonana Wi-Fi - {ssid}"
 
     def connect_task(self, network, credentials):
         ssid = network["ssid"]
@@ -1074,6 +1073,7 @@ class WifiWindow(Gtk.Window):
             return rc, output
 
         properties = []
+        secrets = {}
         password = credentials.get("password", "")
         if network["security_kind"] == "personal":
             raw_security = (network.get("security") or "").upper()
@@ -1086,18 +1086,18 @@ class WifiWindow(Gtk.Window):
             ) else "wpa-psk"
             properties = [
                 "802-11-wireless-security.key-mgmt", key_mgmt,
-                "802-11-wireless-security.psk", password,
                 "802-11-wireless-security.psk-flags", "0",
             ]
+            secrets = {"psk": password}
         elif network["security_kind"] == "wep":
             is_hex = len(password) in (10, 26) and all(char in "0123456789abcdefABCDEF" for char in password)
             key_type = "1" if len(password) in (5, 13) or is_hex else "2"
             properties = [
                 "802-11-wireless-security.key-mgmt", "none",
-                "802-11-wireless-security.wep-key0", password,
                 "802-11-wireless-security.wep-key-type", key_type,
                 "802-11-wireless-security.wep-key-flags", "0",
             ]
+            secrets = {"wep-key0": password}
         if properties:
             rc, output = run(
                 ["nmcli", "connection", "modify", profile, *properties],
@@ -1106,7 +1106,21 @@ class WifiWindow(Gtk.Window):
             )
             if rc != 0:
                 return rc, output
+        if secrets:
+            rc, output = WifiWindow.save_secrets(profile, {"802-11-wireless-security": secrets})
+            if rc != 0:
+                return rc, output
         return self.activate_profile(profile, network, device, network["security_kind"])
+
+    @staticmethod
+    def save_secrets(profile, secrets):
+        profile_uuid = WifiWindow.profile_uuid(profile)
+        if not profile_uuid:
+            return 1, "Could not identify Wi-Fi profile for credential storage."
+        return run(
+            ["python3", str(Path(__file__).with_name("wifi_secrets.py")), profile_uuid],
+            admin=True, timeout=40, input_text=json.dumps(secrets),
+        )
 
     def connect_owe(self, network, credentials, device):
         profile = self.profile_name(network["ssid"])
@@ -1315,6 +1329,7 @@ class WifiWindow(Gtk.Window):
         if rc != 0:
             return rc, output
 
+        secrets = {}
         properties = [
             "connection.autoconnect", "yes",
             "802-11-wireless-security.key-mgmt", "wpa-eap",
@@ -1347,45 +1362,26 @@ class WifiWindow(Gtk.Window):
             ])
             if credentials["private_key_password"]:
                 properties.extend([
-                    "802-1x.private-key-password", credentials["private_key_password"],
                     "802-1x.private-key-password-flags", "0",
                 ])
+                secrets["private-key-password"] = credentials["private_key_password"]
         elif credentials["eap"] in ("peap", "ttls"):
             properties.extend([
                 "802-1x.phase2-auth", credentials["phase2"],
-                "802-1x.password", credentials["password"],
             ])
+            secrets["password"] = credentials["password"]
         else:
-            properties.extend(["802-1x.password", credentials["password"]])
+            secrets["password"] = credentials["password"]
         rc, output = run(["nmcli", "connection", "modify", profile, *properties], admin=True, timeout=25)
         if rc != 0:
             return rc, output
 
-        secret_lines = [f"802-1x.identity:{credentials['identity']}"]
-        if credentials["eap"] == "tls":
-            if credentials.get("private_key_password"):
-                secret_lines.append(
-                    f"802-1x.private-key-password:{credentials['private_key_password']}"
-                )
-        else:
-            secret_lines.append(f"802-1x.password:{credentials['password']}")
-        secret_path = ""
-        try:
-            descriptor, secret_path = tempfile.mkstemp(prefix="ooonana-nm-", dir="/tmp", text=True)
-            os.fchmod(descriptor, 0o600)
-            with os.fdopen(descriptor, "w", encoding="utf-8") as secret_file:
-                secret_file.write("\n".join(secret_lines) + "\n")
-            return self.activate_profile(
-                profile, network, device, "enterprise", passwd_file=secret_path,
-            )
-        except OSError as error:
-            return 1, f"Could not prepare NetworkManager credentials: {error}"
-        finally:
-            if secret_path:
-                try:
-                    os.unlink(secret_path)
-                except FileNotFoundError:
-                    pass
+        if secrets:
+            rc, output = WifiWindow.save_secrets(profile, {"802-1x": secrets})
+            if rc != 0:
+                return rc, output
+
+        return self.activate_profile(profile, network, device, "enterprise")
 
     def disconnect_active(self):
         rc, active = self.nmcli("-t", "--escape", "yes", "-f", "NAME,TYPE", "connection", "show", "--active")

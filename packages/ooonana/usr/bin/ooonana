@@ -3,7 +3,7 @@
 # shellcheck disable=SC1090,SC3043
 set -eu
 
-VERSION="0.8.25"
+VERSION="0.8.26"
 HOME_DIR="${HOME:-/root}"
 if [ -n "${OOONANA_AI_CONFIG:-}" ]; then
   AI_CONFIG="$OOONANA_AI_CONFIG"
@@ -1970,12 +1970,16 @@ cmd_check() {
 }
 
 check_pkg_conflicts() {
+  local id conflict
   id="$1"
   for conflict in $OOONANA_PKG_CONFLICTS; do
     [ "$conflict" = "$id" ] && die "$id conflicts with itself"
     if pkg_installed "$conflict"; then
       die "$id conflicts with installed package: $conflict"
     fi
+    case " ${OOONANA_PLANNED:-} " in
+      *" $conflict "*) die "$id conflicts with planned package: $conflict" ;;
+    esac
   done
 }
 
@@ -1991,7 +1995,7 @@ installed_dependent_of() {
     for dep in $OOONANA_PKG_DEPS; do
       if [ "$dep" = "$target" ]; then
         printf '%s\n' "$dep_id"
-        return 0
+        break
       fi
     done
   done
@@ -2054,6 +2058,7 @@ install_one_pkg() {
   load_pkg "$id"
   OOONANA_PKG_DEPS="$deps"
   OOONANA_PKG_CONFLICTS="$conflicts"
+  check_pkg_conflicts "$id"
   if pkg_installed "$id"; then
     printf 'already installed %s\n' "$id"
     return 0
@@ -2125,6 +2130,7 @@ upgrade_one_pkg() {
     printf 'installed version newer %s %s > %s\n' "$id" "$old_version" "$new_version"
     return 0
   fi
+  check_pkg_conflicts "$id"
   if [ "$dry_run" -eq 1 ]; then
     OOONANA_UPGRADE_PLANNED="${OOONANA_UPGRADE_PLANNED:-} $id"
   fi
@@ -2147,6 +2153,7 @@ upgrade_one_pkg() {
   done
   OOONANA_UPGRADING="$old_upgrading"
   load_pkg "$id"
+  check_pkg_conflicts "$id"
   if [ "$dry_run" -eq 1 ]; then
     printf 'would upgrade %s %s -> %s\n' "$id" "$old_version" "$new_version"
     [ -n "$OOONANA_PKG_ARCHIVE" ] && printf 'would unpack %s\n' "$OOONANA_PKG_ARCHIVE"
@@ -2155,10 +2162,7 @@ upgrade_one_pkg() {
   fi
 
   ensure_pkg_dirs
-  remove_pkg_archive_files "$id"
-  [ -n "$OOONANA_PKG_ARCHIVE" ] && install_pkg_archive "$id"
-  run_pkg_hook "$id" install
-  cp "$LOADED_PKG_FILE" "$INSTALLED_DIR/$id.pkg"
+  replace_pkg_transaction "$id"
   printf 'upgraded %s %s -> %s\n' "$id" "$old_version" "$new_version"
 }
 
@@ -2286,6 +2290,7 @@ cmd_purge() {
 }
 
 fix_one_pkg() {
+  local id dry_run reinstall broken deps dep
   id="$1"
   dry_run="$2"
   reinstall="$3"
@@ -2318,11 +2323,113 @@ fix_one_pkg() {
   fi
 
   load_pkg "$id"
-  remove_pkg_archive_files "$id"
-  rm -f "$INSTALLED_DIR/$id.pkg"
-  install_one_pkg "$id" 0
+  check_pkg_conflicts "$id"
+  validate_replacement "$id"
+  deps="$OOONANA_PKG_DEPS"
+  for dep in $deps; do
+    install_one_pkg "$dep" 0
+  done
+  load_pkg "$id"
+  check_pkg_conflicts "$id"
+  replace_pkg_transaction "$id"
   printf 'fixed %s\n' "$id"
 }
+
+validate_replacement() {
+  local id archive_path
+  id="$1"
+  [ -n "$OOONANA_PKG_ARCHIVE" ] || return 0
+  ensure_pkg_archive_available
+  archive_path="$(pkg_archive_path "$OOONANA_PKG_ARCHIVE")"
+  verify_loaded_archive_file
+  verify_pkg_archive "$id" "$archive_path"
+  validate_archive_entries "$id" "$archive_path"
+}
+
+replace_pkg_transaction() (
+  # Keep rollback scope to package-owned files. Hook effects outside payload
+  # cannot be undone here. Subshell retains errexit even inside caller loops.
+  set -eu
+  id="$1"
+  validate_replacement "$id"
+  ensure_pkg_dirs
+  mkdir -p "$OOONANA_ROOT"
+  transaction="$(mktemp -d "$STATE_DIR/.replace-$id.XXXXXX")"
+  active=0
+  committed=0
+  manifest="$(pkg_files_manifest "$id")"
+  rollback_and_cleanup() {
+    status=$?
+    trap - EXIT HUP INT TERM
+    if [ "$active" -eq 1 ] && [ "$committed" -eq 0 ]; then
+      set +e
+      rollback_ok=1
+      # Remove replacement files before restoring old symlinks and contents.
+      while IFS= read -r entry; do
+        target="$(root_join "/$entry")"
+        if [ ! -d "$target" ] || [ -L "$target" ]; then
+          rm -f "$target" || rollback_ok=0
+        fi
+      done < "$transaction/affected"
+      sed '1!G;h;$!d' "$transaction/new-dirs" | while IFS= read -r entry; do
+        rmdir "$(root_join "/$entry")" 2>/dev/null || true
+      done
+      tar -xf "$transaction/payload.tar" -C "$OOONANA_ROOT" || rollback_ok=0
+      cp -p "$transaction/installed.pkg" "$INSTALLED_DIR/$id.pkg" || rollback_ok=0
+      if [ -f "$transaction/manifest" ]; then
+        cp -p "$transaction/manifest" "$manifest" || rollback_ok=0
+      else
+        rm -f "$manifest" || rollback_ok=0
+      fi
+      if [ "$rollback_ok" -ne 1 ]; then
+        printf 'rollback incomplete; recovery files: %s\n' "$transaction" >&2
+        exit 1
+      fi
+      printf 'restored previous package: %s\n' "$id" >&2
+    fi
+    rm -rf "$transaction"
+    exit "$status"
+  }
+  trap rollback_and_cleanup EXIT
+  trap 'exit 129' HUP
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  cp -p "$INSTALLED_DIR/$id.pkg" "$transaction/installed.pkg"
+  : > "$transaction/affected"
+  : > "$transaction/backup-list"
+  : > "$transaction/new-dirs"
+  if [ -f "$manifest" ]; then
+    cp -p "$manifest" "$transaction/manifest"
+    cat "$manifest" >> "$transaction/affected"
+  fi
+  if [ -n "$OOONANA_PKG_ARCHIVE" ]; then
+    cp "$(pkg_archive_path "$OOONANA_PKG_ARCHIVE")" "$transaction/replacement.tar.gz"
+    tar_list_archive "$transaction/replacement.tar.gz" >> "$transaction/affected"
+  fi
+  sed -e 's#^\./##' -e '/^$/d' -e '/^\.$/d' "$transaction/affected" | sort -u > "$transaction/entries"
+  mv "$transaction/entries" "$transaction/affected"
+  while IFS= read -r entry; do
+    safe_manifest_entry "$entry" || die "unsafe replacement path: $entry"
+    target="$(root_join "/$entry")"
+    if [ -L "$target" ] || { [ -e "$target" ] && [ ! -d "$target" ]; }; then
+      printf '%s\n' "$entry" >> "$transaction/backup-list"
+    elif [ ! -e "$target" ]; then
+      printf '%s\n' "$entry" >> "$transaction/new-dirs"
+    fi
+  done < "$transaction/affected"
+  tar -cf "$transaction/payload.tar" -C "$OOONANA_ROOT" -T "$transaction/backup-list"
+  active=1
+  remove_pkg_archive_files "$id"
+  if [ -f "$transaction/replacement.tar.gz" ]; then
+    tar -xzf "$transaction/replacement.tar.gz" -C "$OOONANA_ROOT"
+    mkdir -p "$(pkg_files_dir)"
+    tar_list_archive "$transaction/replacement.tar.gz" | sed -e 's#^\./##' -e '/^$/d' > "$manifest"
+    printf 'unpacked %s\n' "$OOONANA_PKG_ARCHIVE"
+  fi
+  run_pkg_hook "$id" install
+  cp "$LOADED_PKG_FILE" "$INSTALLED_DIR/$id.pkg"
+  committed=1
+)
 
 cmd_fix() {
   dry_run=0

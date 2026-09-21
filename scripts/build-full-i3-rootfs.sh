@@ -466,11 +466,14 @@ log() {
 }
 
 unblock_rfkill() {
+  scope="${1:-all}"
+  [ "$scope" != wifi ] || scope=wlan
   if command -v rfkill >/dev/null 2>&1; then
-    rfkill unblock all >>"$LOG" 2>&1 || true
+    rfkill unblock "$scope" >>"$LOG" 2>&1 || true
   fi
   for state in /sys/class/rfkill/rfkill*/soft; do
     [ -e "$state" ] || continue
+    [ "$scope" = all ] || [ "$(cat "${state%/soft}/type" 2>/dev/null)" = "$scope" ] || continue
     [ -w "$state" ] || continue
     printf '0' >"$state" 2>/dev/null || true
   done
@@ -487,7 +490,7 @@ if [ "$force" -eq 0 ] && [ -f /run/ooonana-hardware-reprobe.done ]; then
   exit 0
 fi
 
-unblock_rfkill
+unblock_rfkill "$mode"
 
 if [ -w /sys/bus/pci/rescan ]; then
   printf '1' >/sys/bus/pci/rescan 2>>"$LOG" || true
@@ -707,11 +710,14 @@ log() {
 }
 
 unblock_rfkill() {
+  scope="${1:-all}"
+  [ "$scope" != wifi ] || scope=wlan
   if command -v rfkill >/dev/null 2>&1; then
-    rfkill unblock all >>"$LOG" 2>&1 || true
+    rfkill unblock "$scope" >>"$LOG" 2>&1 || true
   fi
   for state in /sys/class/rfkill/rfkill*/soft; do
     [ -e "$state" ] || continue
+    [ "$scope" = all ] || [ "$(cat "${state%/soft}/type" 2>/dev/null)" = "$scope" ] || continue
     [ -w "$state" ] || continue
     printf '0' >"$state" 2>/dev/null || true
   done
@@ -1051,7 +1057,7 @@ if [ -n "$reprobe_mode" ]; then
   command -v ooonana-hardware-reprobe >/dev/null 2>&1 &&
     run_limited 20 ooonana-hardware-reprobe "$reprobe_mode" >>"$LOG" 2>&1 || true
 fi
-unblock_rfkill
+unblock_rfkill "$MODE"
 
 result=0
 case "$MODE" in
@@ -2268,7 +2274,8 @@ fi
 log="${XDG_RUNTIME_DIR:-/tmp}/ooonana-settings.log"
 rm -f "$log" 2>/dev/null || true
 
-if ooonana-settings "$@" >"$log" 2>&1; then
+if command -v ooonana-settings >/dev/null 2>&1 &&
+  ooonana-settings "$@" >"$log" 2>&1; then
   exit 0
 fi
 
@@ -3801,7 +3808,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   version_output="$(/usr/bin/ooonana version 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.8.25' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.8.26' &&
     printf '%s\n' "$installed_output" | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else

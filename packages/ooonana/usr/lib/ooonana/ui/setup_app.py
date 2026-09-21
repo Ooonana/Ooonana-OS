@@ -231,7 +231,6 @@ class SetupWindow(Gtk.Window):
                 values["theme"],
                 "--cloud-repo",
                 values["repo"],
-                "--done",
             ]
             if values["mode"] == "static":
                 command.extend(["--address", values["address"], "--gateway", values["gateway"]])
@@ -255,6 +254,10 @@ class SetupWindow(Gtk.Window):
                         output = "\n".join(part for part in (output, result.stdout.strip()) if part)
                 except (OSError, subprocess.TimeoutExpired) as exc:
                     rc, output = 124, str(exc)
+            if rc == 0:
+                done_rc, done_output = run(["/usr/bin/ooonana-setup", "--done"], admin=True, timeout=15)
+                rc = done_rc
+                output = "\n".join(part for part in (output, done_output) if part)
             GLib.idle_add(self.finished, widget, rc, output)
 
         threading.Thread(target=worker, daemon=True).start()

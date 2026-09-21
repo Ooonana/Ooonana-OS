@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import sys
+import json
 from pathlib import Path
 from types import MethodType, SimpleNamespace
 
@@ -86,10 +87,13 @@ def network(kind):
 
 commands = []
 secret_payloads = []
+saved_secrets = []
 
 
 def fake_run(command, **_kwargs):
     commands.append(command)
+    if command[0] == "python3" and command[1].endswith("wifi_secrets.py"):
+        saved_secrets.append(json.loads(_kwargs["input_text"]))
     if "passwd-file" in command:
         path = Path(command[command.index("passwd-file") + 1])
         secret_payloads.append((path, path.read_text(encoding="utf-8")))
@@ -150,7 +154,9 @@ try:
     modify = [command for command in commands if command[1:3] == ["connection", "modify"]]
     check(any("802-11-wireless.hidden" in command and "no" in command for command in modify), "visible profile enabled")
     check(any("connection.interface-name" in command and "802-11-wireless.bssid" in command for command in modify), "stale hardware binding cleared")
-    check(any("wpa-psk" in command and "school-secret" in command for command in modify), "personal security profile")
+    check(any("wpa-psk" in command for command in modify), "personal security profile")
+    check(all("school-secret" not in command for command in commands), "PSK excluded from process arguments")
+    check(saved_secrets[-1] == {"802-11-wireless-security": {"psk": "school-secret"}}, "PSK transferred through stdin")
     check(any("802-11-wireless-security.psk-flags" in command and "0" in command for command in modify), "personal secret saved")
     check(all("uuid" in command for command in connects), "profile activated by UUID")
 
@@ -250,11 +256,11 @@ try:
     check("wpa-eap" in modify and "802-1x.domain-suffix-match" in modify, "enterprise security properties")
     check("802-1x.system-ca-certs" in modify and "yes" in modify, "enterprise system CA")
     check("802-1x.password-flags" in modify and "0" in modify, "enterprise password saved")
+    check(all("enterprise-secret" not in command for command in commands), "enterprise secret excluded from argv")
+    check(saved_secrets[-1] == {"802-1x": {"password": "enterprise-secret"}}, "enterprise secret transferred through stdin")
     enterprise_up = [command for command in commands if "connection" in command and "up" in command]
-    check(enterprise_up and all("passwd-file" in command for command in enterprise_up), "enterprise activation uses protected secret file")
-    check(secret_payloads and "802-1x.identity:student@example.org" in secret_payloads[-1][1], "enterprise identity supplied")
-    check("802-1x.password:enterprise-secret" in secret_payloads[-1][1], "enterprise password supplied")
-    check(not secret_payloads[-1][0].exists(), "enterprise secret file removed")
+    check(enterprise_up and all("passwd-file" not in command for command in enterprise_up), "enterprise activation uses saved NetworkManager secrets")
+    check(not secret_payloads, "no temporary credential files")
 
     commands.clear()
     enterprise_advanced = dict(credentials)
@@ -287,7 +293,7 @@ try:
     rc, _output = target.connect_enterprise(network("enterprise"), pwd_credentials, "wlan0")
     check(rc == 0, "EAP-PWD connection")
     modify = next(command for command in commands if command[1:3] == ["connection", "modify"] and "wpa-eap" in command)
-    check("802-1x.password" in modify, "EAP-PWD password")
+    check(saved_secrets[-1] == {"802-1x": {"password": "enterprise-secret"}}, "EAP-PWD secret stored through stdin")
     check("802-1x.phase2-auth" not in modify, "EAP-PWD omits invalid phase2")
 
     commands.clear()

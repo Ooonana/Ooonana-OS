@@ -148,7 +148,7 @@ EOF
 chmod +x "$scratch/bin/busybox"
 cat > "$scratch/usr/bin/ooonana" <<'EOF'
 #!/bin/sh
-echo ooonana 0.8.25
+echo ooonana 0.8.26
 EOF
 chmod +x "$scratch/usr/bin/ooonana"
 cat > "$scratch/usr/bin/ooonana-setup" <<'EOF'
@@ -602,7 +602,7 @@ assert_not_contains "$bt_panel" "--text-info --filename="
 assert_contains "$bt_panel" "rfkill list bluetooth"
 assert_contains "$bt_panel" "bluetoothctl devices"
 hardware_reprobe="$(<"$rootfs/usr/bin/ooonana-hardware-reprobe")"
-assert_contains "$hardware_reprobe" "rfkill unblock all"
+assert_contains "$hardware_reprobe" 'rfkill unblock "$scope"'
 assert_contains "$hardware_reprobe" "/sys/class/rfkill/rfkill*/soft"
 assert_not_contains "$hardware_reprobe" "/sys/class/rfkill/rfkill*/hard"
 assert_contains "$hardware_reprobe" "/sys/bus/pci/rescan"

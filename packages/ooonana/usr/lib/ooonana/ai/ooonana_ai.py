@@ -1139,9 +1139,20 @@ def read_streaming_response(response: Any) -> str:
             event = json.loads(data)
         except json.JSONDecodeError:
             continue
-        delta = event.get("choices", [{}])[0].get("delta", {})
+        if not isinstance(event, dict):
+            continue
+        if "error" in event:
+            error = event["error"]
+            detail = error.get("message", "generation failed") if isinstance(error, dict) else str(error)
+            raise OoonanaError(detail)
+        choices = event.get("choices")
+        if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+            continue
+        delta = choices[0].get("delta")
+        if not isinstance(delta, dict):
+            continue
         text = delta.get("content") or ""
-        if text:
+        if isinstance(text, str) and text:
             chunks.append(text)
             print(text, end="", flush=True)
     print()

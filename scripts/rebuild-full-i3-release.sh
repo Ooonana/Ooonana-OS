@@ -133,7 +133,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 kernel_cache_matches_fragment() {
-  local kernel_option
+  local kernel_option cached_version
   KERNEL_CACHE_ERROR=""
 
   if [[ ! -s "$KERNEL" ]]; then
@@ -142,6 +142,11 @@ kernel_cache_matches_fragment() {
   fi
   if [[ ! -s "$KERNEL_CONFIG" ]]; then
     KERNEL_CACHE_ERROR="cached kernel has no resolved config: $KERNEL_CONFIG"
+    return 1
+  fi
+  cached_version="$(awk -F= '$1 == "OOONANA_KERNEL_VERSION" { print $2 }' "$(dirname "$KERNEL")/kernel.env" 2>/dev/null || true)"
+  if [[ "$cached_version" != "$KERNEL_SOURCE_VERSION" ]]; then
+    KERNEL_CACHE_ERROR="cached kernel version unknown or differs from requested $KERNEL_SOURCE_VERSION"
     return 1
   fi
   while IFS= read -r kernel_option; do

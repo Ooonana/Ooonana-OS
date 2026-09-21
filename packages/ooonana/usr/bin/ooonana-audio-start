@@ -8,8 +8,21 @@ mkdir -p "$runtime" "$state" 2>/dev/null || true
 chmod 0700 "$runtime" 2>/dev/null || true
 export XDG_RUNTIME_DIR="$runtime"
 
+owned_pids() {
+  for pid in $(/bin/busybox pidof "$1" 2>/dev/null); do
+    owner="$(awk '/^Uid:/ {print $3; exit}' "/proc/$pid/status" 2>/dev/null)"
+    [ "$owner" != "$uid" ] || printf '%s\n' "$pid"
+  done
+}
+
 running() {
-  /bin/busybox pidof "$1" >/dev/null 2>&1
+  [ -n "$(owned_pids "$1")" ]
+}
+
+stop_owned() {
+  for audio_pid in $(owned_pids "$1"); do
+    kill "$audio_pid" 2>/dev/null || true
+  done
 }
 
 audio_card_ready() {
@@ -36,11 +49,11 @@ fi
 
 if [ "${1:-}" = "--restart" ]; then
   for process in pipewire-pulse wireplumber pipewire pulseaudio; do
-    /bin/busybox killall "$process" >/dev/null 2>&1 || true
+    stop_owned "$process"
   done
   sleep 1
 elif [ "$use_pipewire" -eq 1 ] && running pulseaudio; then
-  /bin/busybox killall pulseaudio >/dev/null 2>&1 || true
+  stop_owned pulseaudio
   sleep 1
 fi
 
