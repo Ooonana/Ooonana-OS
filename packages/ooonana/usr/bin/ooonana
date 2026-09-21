@@ -3,7 +3,7 @@
 # shellcheck disable=SC1090,SC3043
 set -eu
 
-VERSION="0.8.26"
+VERSION="0.8.27"
 HOME_DIR="${HOME:-/root}"
 if [ -n "${OOONANA_AI_CONFIG:-}" ]; then
   AI_CONFIG="$OOONANA_AI_CONFIG"
@@ -2374,7 +2374,9 @@ replace_pkg_transaction() (
       sed '1!G;h;$!d' "$transaction/new-dirs" | while IFS= read -r entry; do
         rmdir "$(root_join "/$entry")" 2>/dev/null || true
       done
-      tar -xf "$transaction/payload.tar" -C "$OOONANA_ROOT" || rollback_ok=0
+      if [ -f "$transaction/payload.tar" ]; then
+        tar -xf "$transaction/payload.tar" -C "$OOONANA_ROOT" || rollback_ok=0
+      fi
       cp -p "$transaction/installed.pkg" "$INSTALLED_DIR/$id.pkg" || rollback_ok=0
       if [ -f "$transaction/manifest" ]; then
         cp -p "$transaction/manifest" "$manifest" || rollback_ok=0
@@ -2417,7 +2419,9 @@ replace_pkg_transaction() (
       printf '%s\n' "$entry" >> "$transaction/new-dirs"
     fi
   done < "$transaction/affected"
-  tar -cf "$transaction/payload.tar" -C "$OOONANA_ROOT" -T "$transaction/backup-list"
+  if [ -s "$transaction/backup-list" ]; then
+    tar -cf "$transaction/payload.tar" -C "$OOONANA_ROOT" -T "$transaction/backup-list"
+  fi
   active=1
   remove_pkg_archive_files "$id"
   if [ -f "$transaction/replacement.tar.gz" ]; then

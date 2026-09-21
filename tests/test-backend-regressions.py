@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import shutil
 import tarfile
 import tempfile
 
@@ -101,6 +102,25 @@ with tempfile.TemporaryDirectory(prefix='ooonana-audit-') as temporary:
         assert 'VERSION="1"' in (base/'state/installed/healthy.pkg').read_text(), result.stdout
         assert not list((base/'state').glob('.replace-*')), result.stdout
         print('ROLLBACK_OK', operation)
+
+    base = work/'metadata-only'
+    base.mkdir()
+    env = fixture(base)
+    busybox = shutil.which('busybox')
+    if busybox:
+        (base/'bin').mkdir()
+        wrapper = base/'bin/tar'
+        wrapper.write_text(f'#!/bin/sh\nexec "{busybox}" tar "$@"\n')
+        wrapper.chmod(0o755)
+        env['PATH'] = str(base/'bin') + ':' + env['PATH']
+    pkg(base, 'meta')
+    assert command([str(CLI), 'install', 'meta'], env).returncode == 0
+    pkg(base, 'meta', version='2')
+    result = command([str(CLI), 'upgrade', 'meta'], env)
+    assert result.returncode == 0, result.stdout
+    result = command([str(CLI), 'reinstall', 'meta'], env)
+    assert result.returncode == 0, result.stdout
+    print('METADATA_ONLY_OK', 'BusyBox tar' if busybox else 'system tar')
 
     kernel = work / 'kernel'
     (kernel/'source').mkdir(parents=True)

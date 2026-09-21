@@ -175,6 +175,17 @@ printf '%%wheel ALL=(ALL:ALL) NOPASSWD: ALL\n' >/etc/sudoers.d/ooonana
 chmod 0440 /etc/sudoers.d/ooonana
 chmod 4755 /usr/bin/doas /usr/bin/sudo /bin/su
 
+# Imported APK files may retain root group when an older WSL rootfs was updated
+# outside the full-rootfs builder. D-Bus activation requires messagebus group.
+if [ -f /usr/libexec/dbus-daemon-launch-helper ]; then
+  grep -q '^messagebus:x:81:' /etc/group || {
+    echo 'update-installed-wsl: messagebus group must have gid 81' >&2
+    exit 1
+  }
+  chown 0:81 /usr/libexec/dbus-daemon-launch-helper
+  chmod 4750 /usr/libexec/dbus-daemon-launch-helper
+fi
+
 command -v sudo >/dev/null
 command -v su >/dev/null
 command -v doas >/dev/null
