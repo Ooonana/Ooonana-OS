@@ -9,6 +9,7 @@ sys.path.insert(0, str(ROOT / "packages/ooonana/usr/lib/ooonana/ui"))
 from wireless_utils import (  # noqa: E402
     group_wifi_access_points,
     parse_bluetooth_info,
+    parse_ip_neighbors,
     parse_iw_wifi,
     parse_nmcli_wifi,
     security_kind,
@@ -68,5 +69,13 @@ bluetooth = parse_bluetooth_info(
 )
 check(bluetooth["paired"] and bluetooth["trusted"], "Bluetooth state parsing")
 check(not bluetooth["connected"] and bluetooth["signal"] > 0, "Bluetooth RSSI parsing")
+
+neighbors = parse_ip_neighbors(
+    "192.168.1.1 dev wlan0 lladdr aa:bb:cc:dd:ee:01 REACHABLE\n"
+    "192.168.1.2 dev wlan0 INCOMPLETE\n"
+    "fe80::1 dev wlan0 lladdr aa:bb:cc:dd:ee:01 STALE\n"
+)
+check(len(neighbors) == 1, "LAN neighbor filtering and deduplication")
+check(neighbors[0]["address"] == "AA:BB:CC:DD:EE:01", "LAN neighbor address")
 
 print("ok wireless-utils")

@@ -21,6 +21,7 @@ help="$(bash "$SCRIPT" --help)"
 assert_contains "$help" "Verify Ooonana ISO Rufus USB readiness"
 assert_contains "$help" "--iso PATH"
 assert_contains "$help" "--edition full-i3|minimal"
+assert_contains "$(<"$SCRIPT")" "-find / -type f -exec echo"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -32,7 +33,11 @@ printf 'fake iso\n' > "$tmp/min.iso"
 cat > "$tmp/full-grub.cfg" <<'EOF'
 terminal_input console serial
 terminal_output console serial
-terminal_output gfxterm serial
+if terminal_output gfxterm serial; then
+  true
+else
+  terminal_output console serial
+fi
 insmod png
 set color_normal=yellow/black
 set color_highlight=black/yellow
@@ -116,6 +121,26 @@ case "$*" in
 -e '/efi.img'
 REPORT
     ;;
+  *"-find / -type f -exec echo"*)
+    case "$OOONANA_FAKE_EDITION" in
+      minimal)
+        printf '%s\n' \
+          /boot/vmlinuz \
+          /boot/initramfs.cpio.gz \
+          /images/ooonana-scratch.ext4
+        ;;
+      *)
+        printf '%s\n' \
+          /boot/vmlinuz \
+          /boot/install-initramfs.cpio.gz \
+          /boot/live-initramfs.cpio.gz
+        if [ "${OOONANA_FAKE_MISSING_PAYLOAD:-0}" != 1 ]; then
+          printf '%s\n' /images/ooonana-full-i3-live-rootfs.ext4
+        fi
+        printf '%s\n' /images/ooonana-full-i3-disk.raw.gz
+        ;;
+    esac
+    ;;
   *"-extract /boot/grub/grub.cfg"*)
     for arg in "$@"; do
       last="$arg"
@@ -155,6 +180,7 @@ chmod +x "$tmp/bin/xorriso"
 
 out="$(OOONANA_FAKE_ROOT="$tmp" OOONANA_FAKE_EDITION=full-i3 PATH="$tmp/bin:$PATH" bash "$SCRIPT" --iso "$tmp/full.iso")"
 assert_contains "$out" "[done] ISOHybrid BIOS and UEFI boot paths"
+assert_contains "$out" "[done] kernel, initramfs, live rootfs, and installer payloads"
 assert_contains "$out" "[done] Rufus ISO-mode note and orange GRUB"
 assert_contains "$out" "[done] edition menus"
 assert_contains "$out" "[done] release GRUB has no smoke auto-reboot args"
@@ -163,5 +189,12 @@ assert_contains "$out" "OOONANA_RUFUS_ISO_OK"
 
 minimal_out="$(OOONANA_FAKE_ROOT="$tmp" OOONANA_FAKE_EDITION=minimal PATH="$tmp/bin:$PATH" bash "$SCRIPT" --iso "$tmp/min.iso" --edition minimal)"
 assert_contains "$minimal_out" "OOONANA_RUFUS_ISO_OK"
+
+if OOONANA_FAKE_ROOT="$tmp" OOONANA_FAKE_EDITION=full-i3 OOONANA_FAKE_MISSING_PAYLOAD=1 \
+  PATH="$tmp/bin:$PATH" bash "$SCRIPT" --iso "$tmp/full.iso" >"$tmp/missing.log" 2>&1; then
+  fail "verifier accepted ISO without live rootfs"
+fi
+grep -qF "ISO payload missing: /images/ooonana-full-i3-live-rootfs.ext4" "$tmp/missing.log" ||
+  fail "missing-payload failure was unclear"
 
 printf 'ok rufus-iso-verify\n'

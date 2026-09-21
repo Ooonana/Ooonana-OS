@@ -24,6 +24,7 @@ exec_always --no-startup-id sh -c 'command -v polybar >/dev/null 2>&1 && killall
 exec --no-startup-id sh -c 'command -v nm-applet >/dev/null 2>&1 && [ -S /run/dbus/system_bus_socket ] && nm-applet --indicator &'
 exec --no-startup-id sh -c 'if command -v blueman-applet >/dev/null 2>&1 && [ -S /run/dbus/system_bus_socket ] && ls /sys/class/bluetooth/hci* >/dev/null 2>&1; then blueman-applet & fi'
 exec --no-startup-id sh -c 'command -v pulseaudio >/dev/null 2>&1 && pulseaudio --start --exit-idle-time=-1 >/dev/null 2>&1 || true'
+exec_always --no-startup-id ooonana-keyboard apply
 
 bindsym $mod+Return exec ooonana-theme-env xterm
 bindsym $mod+d exec ooonana-apps
@@ -48,6 +49,12 @@ bindsym $mod+Shift+u exec ooonana-ranger
 bindsym XF86TouchpadToggle exec ooonana-touchpad toggle
 bindsym XF86TouchpadOn exec ooonana-touchpad on
 bindsym XF86TouchpadOff exec ooonana-touchpad off
+bindsym XF86MonBrightnessUp exec --no-startup-id ooonana-brightness +5%
+bindsym XF86MonBrightnessDown exec --no-startup-id ooonana-brightness 5%-
+bindsym XF86AudioRaiseVolume exec --no-startup-id ooonana-audio up
+bindsym XF86AudioLowerVolume exec --no-startup-id ooonana-audio down
+bindsym XF86AudioMute exec --no-startup-id ooonana-audio mute
+bindsym XF86AudioMicMute exec --no-startup-id pactl set-source-mute @DEFAULT_SOURCE@ toggle
 bindsym $mod+Shift+r restart
 bindsym $mod+Shift+q kill
 bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'Exit Ooonana i3?' -b 'Exit' 'i3-msg exit'"

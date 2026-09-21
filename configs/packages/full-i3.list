@@ -47,6 +47,7 @@ xsetroot
 xset
 xrandr
 xinput
+setxkbmap
 xf86-input-libinput
 xf86-input-evdev
 eudev
@@ -111,6 +112,7 @@ ranger
 htop
 vim
 brightnessctl
+lm-sensors
 coreutils
 parted
 grub-bios

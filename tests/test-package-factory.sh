@@ -136,6 +136,8 @@ assert_contains "$full_i3_profile" "ranger"
 assert_contains "$full_i3_profile" "htop"
 assert_contains "$full_i3_profile" "vim"
 assert_contains "$full_i3_profile" "brightnessctl"
+assert_contains "$full_i3_profile" "setxkbmap"
+assert_contains "$full_i3_profile" "lm-sensors"
 assert_contains "$full_i3_profile" "xrandr"
 assert_contains "$full_i3_profile" "dosfstools"
 

@@ -126,6 +126,13 @@ def main() -> int:
         "rfkill",
         "ip",
         "brightnessctl",
+        "setxkbmap",
+        "sensors",
+        "ooonana-audio",
+        "ooonana-keyboard",
+        "ooonana-keyboard-panel",
+        "ooonana-hardware-profile",
+        "ooonana-thermal-panel",
         "grub-install",
     )
     for command in required_commands:

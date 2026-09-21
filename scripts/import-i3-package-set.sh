@@ -110,7 +110,7 @@ build_branding_archive() {
 
 main() {
   ooonana_require_linux
-  ooonana_require_commands chmod gzip install mkdir sed sha256sum tar
+  ooonana_require_commands chmod cp gzip install mkdir sed sha256sum tar
   [[ -f "$ROOT/branding/logo.svg" ]] || ooonana_die "missing branding/logo.svg"
   [[ -f "$ROOT/branding/logo.png" ]] || ooonana_die "missing branding/logo.png"
   [[ -f "$ROOT/branding/wallpaper.svg" ]] || ooonana_die "missing branding/wallpaper.svg"
@@ -170,6 +170,12 @@ main() {
     "" \
     "edition full-i3" \
     "Full edition marker package; minimal edition remains separate"
+
+  # Keep direct import-i3 outputs self-contained. Otherwise full-i3 depends on
+  # base metadata that only build-package-repo happens to seed later.
+  if [[ ! -f "$OUT_DIR/base.pkg" ]]; then
+    cp "$ROOT/packages/ooonana/usr/lib/ooonana/repo/base.pkg" "$OUT_DIR/base.pkg"
+  fi
 
   "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$OUT_DIR" >/dev/null
   ooonana_log "full-i3 package set ready: $OUT_DIR"

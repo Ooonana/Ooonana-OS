@@ -782,6 +782,13 @@ indexed_update="$(OOONANA_REPO_DIR="$index_repo" \
 assert_contains "$indexed_update" "synced 1 package(s)"
 assert_contains "$(<"$tmp/index-cache/index.tsv")" "indexed"
 
+awk '{ printf "%s\r\n", $0 }' "$index_repo/SHA256SUMS" >"$index_repo/SHA256SUMS.crlf"
+mv "$index_repo/SHA256SUMS.crlf" "$index_repo/SHA256SUMS"
+indexed_crlf_update="$(OOONANA_REPO_DIR="$index_repo" \
+  OOONANA_CACHE_DIR="$tmp/index-crlf-cache" \
+  "$CLI" update)"
+assert_contains "$indexed_crlf_update" "synced 1 package(s)"
+
 printf '# tamper\n' >> "$index_repo/indexed.pkg"
 indexed_bad="$(OOONANA_REPO_DIR="$index_repo" \
   OOONANA_CACHE_DIR="$tmp/index-bad-cache" \

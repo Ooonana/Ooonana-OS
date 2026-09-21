@@ -76,7 +76,9 @@ main() {
 
   local used_kb image_kb
   read -r used_kb _ < <(du -sk "$ROOTFS")
-  image_kb=$((used_kb + used_kb / 3 + 262144))
+  # Live root is read-only. Overlay writes go to tmpfs, so a large free-space
+  # reserve only inflates the ISO. Keep enough room for ext4 metadata and patches.
+  image_kb=$((used_kb + used_kb / 8 + 131072))
   truncate -s "${image_kb}K" "$ROOTFS_IMAGE"
   mke2fs -q -t ext4 -L OOONANA_LIVE -d "$ROOTFS" "$ROOTFS_IMAGE"
 

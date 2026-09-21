@@ -22,6 +22,7 @@ from common import (  # noqa: E402
 from signal_map import SignalMapWindow  # noqa: E402
 from wireless_utils import (  # noqa: E402
     group_wifi_access_points,
+    parse_ip_neighbors,
     parse_iw_wifi,
     parse_nmcli_wifi,
     security_kind,
@@ -32,12 +33,19 @@ from wireless_utils import (  # noqa: E402
 SECURITY_OPTIONS = (
     ("Open", "open", "--"),
     ("Enhanced Open (OWE)", "owe", "OWE"),
-    ("WPA/WPA2 Personal", "personal", "WPA2 PSK"),
+    ("WPA2/WPA3 Personal", "personal", "WPA2 PSK"),
     ("WPA3 Personal", "personal", "WPA3 SAE"),
-    ("WPA/WPA2 Enterprise", "enterprise", "WPA2 802.1X"),
+    ("WPA2/WPA3 Enterprise", "enterprise", "WPA2 802.1X"),
     ("WPA3 Enterprise", "enterprise", "WPA3 802.1X"),
     ("WEP", "wep", "WEP"),
 )
+
+# Firmware reprobe plus udev settling can exceed one minute on newer laptops.
+# Killing the helper early also kills NetworkManager in its process group.
+SERVICE_START_TIMEOUT = 120
+SERVICE_REPAIR_TIMEOUT = 180
+WIFI_DEVICE_READY_TIMEOUT = 60
+WIFI_SCAN_SETTLE_TIMEOUT = 30
 
 
 def add_grid_row(grid, row, text, widget):
@@ -75,6 +83,24 @@ class WifiCredentialsDialog(Gtk.Dialog):
         area.pack_start(grid, False, False, 0)
 
         self.password = text_entry(secret=True)
+        self.security = Gtk.ComboBoxText()
+        for title, _kind, _raw in SECURITY_OPTIONS:
+            self.security.append_text(title)
+        detected_index = 2
+        detected_kind = network.get("security_kind", "unknown")
+        detected_raw = (network.get("security") or "").upper()
+        if detected_kind == "open":
+            detected_index = 0
+        elif detected_kind == "owe":
+            detected_index = 1
+        elif detected_kind == "personal" and "SAE" in detected_raw and "PSK" not in detected_raw:
+            detected_index = 3
+        elif detected_kind == "enterprise":
+            detected_index = 5 if "WPA3" in detected_raw or "SUITE-B" in detected_raw else 4
+        elif detected_kind == "wep":
+            detected_index = 6
+        self.security.set_active(detected_index)
+        self.security.connect("changed", self.update_security_fields)
         self.identity = text_entry(placeholder="user@example.org")
         self.anonymous_identity = text_entry(placeholder="anonymous@example.org")
         self.domain = text_entry(placeholder="school.example.org")
@@ -86,41 +112,101 @@ class WifiCredentialsDialog(Gtk.Dialog):
         for value in ("MSCHAPv2", "PAP", "GTC", "CHAP"):
             self.phase2.append_text(value)
         self.phase2.set_active(0)
-        self.system_ca = Gtk.CheckButton.new_with_label("Use system CA certificates")
-        self.system_ca.set_active(True)
+        self.ca_policy = Gtk.ComboBoxText()
+        self.ca_policy.append("system", "Use system certificates")
+        self.ca_policy.append("custom", "Choose CA certificate")
+        self.ca_policy.append("insecure", "Do not validate certificate (unsafe)")
+        self.ca_policy.set_active_id("system")
         self.ca_cert = Gtk.FileChooserButton.new("Choose CA certificate", Gtk.FileChooserAction.OPEN)
+        self.ca_cert.set_sensitive(False)
+        self.ca_warning = label(
+            "System certificates plus the server domain protect against fake access points.",
+            "muted",
+        )
+        self.ca_warning.set_line_wrap(True)
+        self.ca_policy.connect("changed", self.update_ca_policy)
         self.client_cert = Gtk.FileChooserButton.new("Choose client certificate", Gtk.FileChooserAction.OPEN)
         self.private_key = Gtk.FileChooserButton.new("Choose private key", Gtk.FileChooserAction.OPEN)
         self.private_key_password = text_entry(secret=True)
 
-        kind = network["security_kind"]
         row = 0
-        if kind in ("personal", "wep"):
-            row = add_grid_row(grid, row, "Password", self.password)
-        elif kind == "enterprise":
-            row = add_grid_row(grid, row, "EAP method", self.eap)
-            row = add_grid_row(grid, row, "Identity", self.identity)
-            row = add_grid_row(grid, row, "Anonymous identity", self.anonymous_identity)
-            row = add_grid_row(grid, row, "Password", self.password)
-            row = add_grid_row(grid, row, "Inner authentication", self.phase2)
-            row = add_grid_row(grid, row, "Server domain", self.domain)
-            grid.attach(self.system_ca, 1, row, 1, 1)
+        row = add_grid_row(grid, row, "Security", self.security)
+        self.password_row = self.attach_row(grid, row, "Password", self.password)
+        row += 1
+        self.enterprise_rows = []
+        for title, widget in (
+            ("EAP method", self.eap),
+            ("Identity", self.identity),
+            ("Anonymous identity", self.anonymous_identity),
+            ("Inner authentication", self.phase2),
+            ("Server domain", self.domain),
+            ("Certificate validation", self.ca_policy),
+            ("CA certificate", self.ca_cert),
+        ):
+            self.enterprise_rows.append(self.attach_row(grid, row, title, widget))
             row += 1
-            row = add_grid_row(grid, row, "CA certificate", self.ca_cert)
-            row = add_grid_row(grid, row, "Client certificate", self.client_cert)
-            row = add_grid_row(grid, row, "Private key", self.private_key)
-            add_grid_row(grid, row, "Private key password", self.private_key_password)
+        grid.attach(self.ca_warning, 1, row, 1, 1)
+        self.enterprise_rows.append((self.ca_warning,))
+        row += 1
+        for title, widget in (
+            ("Client certificate", self.client_cert),
+            ("Private key", self.private_key),
+            ("Private key password", self.private_key_password),
+        ):
+            self.enterprise_rows.append(self.attach_row(grid, row, title, widget))
+            row += 1
         self.show_all()
+        self.update_security_fields()
+
+    @staticmethod
+    def attach_row(grid, row, text, widget):
+        prompt = label(text)
+        grid.attach(prompt, 0, row, 1, 1)
+        grid.attach(widget, 1, row, 1, 1)
+        return prompt, widget
+
+    def selected_security(self):
+        index = self.security.get_active()
+        return SECURITY_OPTIONS[index if index >= 0 else 2]
+
+    def update_security_fields(self, _widget=None):
+        _title, kind, _raw = self.selected_security()
+        for widget in self.password_row:
+            widget.set_visible(kind in ("personal", "wep", "enterprise"))
+        for row in self.enterprise_rows:
+            for widget in row:
+                widget.set_visible(kind == "enterprise")
+
+    def update_ca_policy(self, _widget=None):
+        policy = self.ca_policy.get_active_id() or "system"
+        self.ca_cert.set_sensitive(policy == "custom")
+        if policy == "insecure":
+            self.ca_warning.set_text(
+                "Unsafe: server identity is not checked. Use only when network administrator requires it."
+            )
+            self.ca_warning.get_style_context().add_class("status-bad")
+        elif policy == "custom":
+            self.ca_warning.set_text("Select CA certificate supplied by network administrator.")
+            self.ca_warning.get_style_context().remove_class("status-bad")
+        else:
+            self.ca_warning.set_text(
+                "System certificates plus server domain protect against fake access points."
+            )
+            self.ca_warning.get_style_context().remove_class("status-bad")
 
     def values(self):
+        security_label, security_kind_value, security_raw = self.selected_security()
         return {
+            "security": security_raw,
+            "security_kind": security_kind_value,
+            "security_label": security_label,
             "password": self.password.get_text(),
             "identity": self.identity.get_text().strip(),
             "anonymous_identity": self.anonymous_identity.get_text().strip(),
             "domain": self.domain.get_text().strip(),
             "eap": (self.eap.get_active_text() or "PEAP").lower(),
             "phase2": (self.phase2.get_active_text() or "MSCHAPv2").lower(),
-            "system_ca": self.system_ca.get_active(),
+            "ca_policy": self.ca_policy.get_active_id() or "system",
             "ca_cert": self.ca_cert.get_filename() or "",
             "client_cert": self.client_cert.get_filename() or "",
             "private_key": self.private_key.get_filename() or "",
@@ -129,7 +215,7 @@ class WifiCredentialsDialog(Gtk.Dialog):
 
     def validate(self):
         values = self.values()
-        kind = self.network["security_kind"]
+        kind = values["security_kind"]
         if kind in ("personal", "wep") and not values["password"]:
             return "Password is required."
         if kind == "enterprise":
@@ -140,9 +226,9 @@ class WifiCredentialsDialog(Gtk.Dialog):
                     return "EAP-TLS needs a client certificate and private key."
             elif not values["password"]:
                 return "Enterprise password is required for this EAP method."
-            if not values["ca_cert"] and not values["system_ca"]:
-                return "Choose a CA certificate or enable system CA certificates."
-            if values["system_ca"] and not values["ca_cert"] and not values["domain"]:
+            if values["ca_policy"] == "custom" and not values["ca_cert"]:
+                return "Choose a CA certificate."
+            if values["ca_policy"] == "system" and not values["domain"]:
                 return "Enter the school server domain when using system CA certificates."
         return ""
 
@@ -226,7 +312,7 @@ class WifiWindow(Gtk.Window):
         toolbar.pack_start(self.scan_button, False, False, 0)
         toolbar.pack_start(button("Other network", "list-add-symbolic", self.connect_manual), False, False, 0)
         toolbar.pack_start(button("Signal map", "find-location-symbolic", self.show_signal_map), False, False, 0)
-        toolbar.pack_start(button("3D mode", "video-display-symbolic", self.launch_ruview), False, False, 0)
+        toolbar.pack_start(button("CSI 3D", "video-display-symbolic", self.launch_csi_3d), False, False, 0)
         toolbar.pack_start(button("Profiles", "document-edit-symbolic", lambda *_: launch(["nm-connection-editor"])), False, False, 0)
         toolbar.pack_end(button("Repair service", "emblem-system-symbolic", self.repair_service), False, False, 0)
         root.pack_start(toolbar, False, False, 0)
@@ -299,7 +385,12 @@ class WifiWindow(Gtk.Window):
                 message(self, "NetworkManager repair failed", output or f"Exit status {rc}. Check /var/log/ooonana-services.log.", Gtk.MessageType.ERROR)
             self.refresh(scan=True)
 
-        run_async(["ooonana-service-repair", "wifi"], done, admin=True, timeout=20)
+        run_async(
+            ["ooonana-service-repair", "wifi"],
+            done,
+            admin=True,
+            timeout=SERVICE_START_TIMEOUT,
+        )
 
     def refresh(self, scan=False):
         daemon_rc, _daemon = run(["/bin/busybox", "pidof", "NetworkManager"], timeout=2)
@@ -316,9 +407,18 @@ class WifiWindow(Gtk.Window):
         scan_errors = []
         if scan:
             for device in self.wifi_devices:
-                self.nmcli("device", "set", device, "managed", "yes", timeout=5)
+                managed_rc, managed = self.nmcli("-g", "GENERAL.NM-MANAGED", "device", "show", device, timeout=5)
+                if managed_rc != 0 or managed.strip().lower() != "yes":
+                    self.nmcli("device", "set", device, "managed", "yes", timeout=5)
+                    time.sleep(1)
                 run(["ip", "link", "set", "dev", device, "up"], admin=True, timeout=5)
                 run(["iw", "dev", device, "set", "power_save", "off"], admin=True, timeout=5)
+                ready_rc, ready_output = self.wait_for_device_ready(
+                    device, timeout=WIFI_DEVICE_READY_TIMEOUT
+                )
+                if ready_rc != 0:
+                    scan_errors.append(f"{device}: {ready_output.splitlines()[0]}")
+                    continue
                 rc, output = self.nmcli("device", "wifi", "rescan", "ifname", device, timeout=25)
                 if rc != 0 and output:
                     scan_errors.append(f"{device}: {output.splitlines()[-1]}")
@@ -427,20 +527,21 @@ class WifiWindow(Gtk.Window):
             selected["signal"] = network.get("signal", 0)
             selected["bssid"] = network.get("bssid", "")
             network = selected
-        credentials = {}
-        if network["security_kind"] in ("personal", "wep", "enterprise"):
-            dialog = WifiCredentialsDialog(self, network)
-            while True:
-                response = dialog.run()
-                if response != Gtk.ResponseType.OK:
-                    dialog.destroy()
-                    return
-                error = dialog.validate()
-                if not error:
-                    credentials = dialog.values()
-                    dialog.destroy()
-                    break
-                message(dialog, "Missing connection details", error, Gtk.MessageType.ERROR)
+        dialog = WifiCredentialsDialog(self, network)
+        while True:
+            response = dialog.run()
+            if response != Gtk.ResponseType.OK:
+                dialog.destroy()
+                return
+            error = dialog.validate()
+            if not error:
+                credentials = dialog.values()
+                dialog.destroy()
+                break
+            message(dialog, "Missing connection details", error, Gtk.MessageType.ERROR)
+        network = dict(network)
+        for key in ("security", "security_kind", "security_label"):
+            network[key] = credentials[key]
         self.set_busy(True, f"Connecting to {network['ssid']}")
 
         def task():
@@ -461,8 +562,51 @@ class WifiWindow(Gtk.Window):
 
     def connect_task(self, network, credentials):
         ssid = network["ssid"]
-        device = network.get("device") or (self.wifi_devices[0] if self.wifi_devices else "")
-        self.prepare_device(device, ssid)
+        device_candidates = []
+        for candidate in [network.get("device"), *self.wifi_devices]:
+            if candidate and candidate not in device_candidates:
+                device_candidates.append(candidate)
+        if not device_candidates:
+            return 1, "No Wi-Fi adapter is available."
+        preparation_errors = []
+        fresh_access_points = []
+        device = ""
+        for candidate in device_candidates:
+            try:
+                candidate_access_points = self.prepare_device(
+                    candidate,
+                    ssid,
+                    network.get("hidden", False),
+                )
+                if not network.get("hidden", False) and not candidate_access_points:
+                    preparation_errors.append(
+                        f"{candidate}: {ssid!r} was not visible after a fresh scan."
+                    )
+                    continue
+                fresh_access_points = candidate_access_points
+                device = candidate
+                break
+            except RuntimeError as exc:
+                preparation_errors.append(f"{candidate}: {exc}")
+        if not device:
+            detail = "\n".join(preparation_errors)
+            return 1, (
+                f"No ready Wi-Fi adapter can currently see {ssid!r}.\n"
+                f"{detail}\nRefresh scan, move closer, or use Other network for a hidden SSID."
+            )
+        if fresh_access_points:
+            network = dict(network)
+            access_points = list(network.get("access_points", []))
+            seen = {
+                (item.get("bssid"), item.get("device"), item.get("security_kind"))
+                for item in access_points
+            }
+            for item in fresh_access_points:
+                key = (item.get("bssid"), item.get("device"), item.get("security_kind"))
+                if item.get("ssid") == ssid and key not in seen:
+                    access_points.append(item)
+                    seen.add(key)
+            network["access_points"] = access_points
         if network["security_kind"] == "enterprise":
             return self.connect_enterprise(network, credentials, device)
         if network["security_kind"] == "owe":
@@ -470,22 +614,97 @@ class WifiWindow(Gtk.Window):
         return self.connect_standard(network, credentials, device)
 
     @staticmethod
-    def prepare_device(device, ssid):
+    def scan_access_points(device):
+        rc, output = run(
+            [
+                "nmcli", "-t", "--escape", "yes", "-f",
+                "IN-USE,BSSID,SSID,SIGNAL,SECURITY,DEVICE",
+                "device", "wifi", "list", "ifname", device, "--rescan", "no",
+            ],
+            admin=True,
+            timeout=15,
+        )
+        return parse_nmcli_wifi(output) if rc == 0 else []
+
+    @staticmethod
+    def prepare_device(device, ssid, hidden=False):
         run(["nmcli", "networking", "on"], admin=True, timeout=8)
         run(["nmcli", "radio", "wifi", "on"], admin=True, timeout=8)
         if not device:
-            return
-        run(["nmcli", "device", "set", device, "managed", "yes"], admin=True, timeout=8)
+            return []
+        managed_rc, managed = run(
+            ["nmcli", "-g", "GENERAL.NM-MANAGED", "device", "show", device],
+            admin=True,
+            timeout=8,
+        )
+        if managed_rc != 0 or managed.strip().lower() != "yes":
+            run(["nmcli", "device", "set", device, "managed", "yes"], admin=True, timeout=8)
         run(["ip", "link", "set", "dev", device, "up"], admin=True, timeout=8)
         run(["iw", "dev", device, "set", "power_save", "off"], admin=True, timeout=8)
-        run(
-            ["nmcli", "device", "wifi", "rescan", "ifname", device, "ssid", ssid],
-            admin=True,
-            timeout=30,
+        ready_rc, ready_output = WifiWindow.wait_for_device_ready(
+            device, timeout=WIFI_DEVICE_READY_TIMEOUT
         )
-        # rescan requests are asynchronous. Give NetworkManager time to publish
-        # the access point before profile activation.
-        time.sleep(2)
+        if ready_rc != 0:
+            raise RuntimeError(ready_output)
+        if hidden:
+            run(
+                ["nmcli", "device", "wifi", "rescan", "ifname", device],
+                admin=True,
+                timeout=WIFI_SCAN_SETTLE_TIMEOUT,
+            )
+            return []
+
+        # Rescans are asynchronous. New adapters and campus APs may need
+        # multiple scans before NetworkManager has a usable BSSID.
+        deadline = time.monotonic() + WIFI_SCAN_SETTLE_TIMEOUT
+        next_rescan = 0
+        while time.monotonic() < deadline:
+            now = time.monotonic()
+            if now >= next_rescan:
+                run(
+                    ["nmcli", "device", "wifi", "rescan", "ifname", device],
+                    admin=True,
+                    timeout=WIFI_SCAN_SETTLE_TIMEOUT,
+                )
+                next_rescan = now + 5
+            access_points = WifiWindow.scan_access_points(device)
+            matches = [item for item in access_points if item.get("ssid") == ssid]
+            if matches:
+                return matches
+            time.sleep(2)
+        return []
+
+    @staticmethod
+    def wait_for_device_ready(device, timeout=WIFI_DEVICE_READY_TIMEOUT):
+        deadline = time.monotonic() + timeout
+        last_output = ""
+        while time.monotonic() < deadline:
+            rc, output = run(
+                [
+                    "nmcli", "-g", "GENERAL.TYPE,GENERAL.NM-MANAGED,GENERAL.STATE,GENERAL.REASON",
+                    "device", "show", device,
+                ],
+                admin=True,
+                timeout=6,
+            )
+            last_output = output
+            fields = output.splitlines()
+            if rc == 0 and len(fields) >= 3:
+                device_type = fields[0].strip().lower()
+                managed = fields[1].strip().lower()
+                try:
+                    state = int(fields[2].strip().split()[0])
+                except (ValueError, IndexError):
+                    state = 0
+                if device_type != "wifi":
+                    return 1, f"Device {device} is not a Wi-Fi adapter.\n{output}"
+                if managed == "yes" and state >= 30:
+                    return 0, output
+            time.sleep(1)
+        return 1, (
+            f"Wi-Fi adapter {device} did not become available after {timeout} seconds.\n"
+            f"{last_output}\nTry Repair service once, then Scan."
+        )
 
     @staticmethod
     def profile_uuid(profile):
@@ -503,20 +722,23 @@ class WifiWindow(Gtk.Window):
             "nmcli", "connection", "add", "type", "wifi",
             "con-name", profile, "ssid", ssid,
         ]
-        if device:
-            command.extend(["ifname", device])
         rc, output = run(command, admin=True, timeout=20)
         if rc != 0:
             return rc, output
         properties = [
             "connection.autoconnect", "yes",
+            "connection.metered", "unknown",
             "ipv4.method", "auto",
             "ipv6.method", "auto",
+            "proxy.method", "none",
             "802-11-wireless.mode", "infrastructure",
             # Scan results shown by this UI are visible networks. Marking every
             # profile hidden makes roaming campus APs fail with SSID_NOT_FOUND.
             "802-11-wireless.hidden", "yes" if hidden else "no",
             "802-11-wireless.powersave", "2",
+            # Stable per-network randomization matches modern mobile defaults
+            # without changing the address on every reconnect.
+            "802-11-wireless.cloned-mac-address", "stable",
         ]
         return run(
             ["nmcli", "connection", "modify", profile, *properties],
@@ -587,7 +809,24 @@ class WifiWindow(Gtk.Window):
         uuid = self.profile_uuid(profile)
         identifier = ["uuid", uuid] if uuid else ["id", profile]
         errors = []
-        candidates = [item for item in network.get("access_points", []) if item.get("security_kind") == security]
+        candidates = sorted(
+            (
+                item for item in network.get("access_points", [])
+                if item.get("security_kind") == security
+                and item.get("bssid")
+                and (not device or not item.get("device") or item.get("device") == device)
+            ),
+            key=lambda item: item.get("signal", 0),
+            reverse=True,
+        )
+        unique_candidates = []
+        seen_bssids = set()
+        for item in candidates:
+            bssid = item["bssid"].upper()
+            if bssid not in seen_bssids:
+                unique_candidates.append(item)
+                seen_bssids.add(bssid)
+        candidates = unique_candidates
 
         # Let NetworkManager choose the strongest matching BSSID first. This is
         # required for roaming networks where one SSID is advertised by many APs.
@@ -611,7 +850,7 @@ class WifiWindow(Gtk.Window):
             errors.append(f"{access_point['bssid']}: {output}")
             if device:
                 run(
-                    ["nmcli", "device", "wifi", "rescan", "ifname", device, "ssid", network["ssid"]],
+                    ["nmcli", "device", "wifi", "rescan", "ifname", device],
                     admin=True,
                     timeout=30,
                 )
@@ -650,14 +889,24 @@ class WifiWindow(Gtk.Window):
             "802-1x.eap", credentials["eap"],
             "802-1x.identity", credentials["identity"],
         ]
+        raw_security = (network.get("security") or "").upper()
+        if "WPA3" in raw_security and "WPA2" not in raw_security:
+            properties.extend(["802-11-wireless-security.pmf", "3"])
         if credentials["anonymous_identity"]:
             properties.extend(["802-1x.anonymous-identity", credentials["anonymous_identity"]])
-        if credentials["domain"]:
+        ca_policy = credentials.get(
+            "ca_policy",
+            "system" if credentials.get("system_ca", True) else "insecure",
+        )
+        if credentials["domain"] and ca_policy != "insecure":
             properties.extend(["802-1x.domain-suffix-match", credentials["domain"]])
-        if credentials["ca_cert"]:
+        if ca_policy == "custom":
             properties.extend(["802-1x.ca-cert", credentials["ca_cert"]])
+            properties.extend(["802-1x.system-ca-certs", "no"])
+        elif ca_policy == "system":
+            properties.extend(["802-1x.system-ca-certs", "yes"])
         else:
-            properties.extend(["802-1x.system-ca-certs", "yes" if credentials["system_ca"] else "no"])
+            properties.extend(["802-1x.system-ca-certs", "no"])
         if credentials["eap"] == "tls":
             properties.extend([
                 "802-1x.client-cert", credentials["client_cert"],
@@ -665,11 +914,13 @@ class WifiWindow(Gtk.Window):
             ])
             if credentials["private_key_password"]:
                 properties.extend(["802-1x.private-key-password", credentials["private_key_password"]])
-        else:
+        elif credentials["eap"] in ("peap", "ttls"):
             properties.extend([
                 "802-1x.phase2-auth", credentials["phase2"],
                 "802-1x.password", credentials["password"],
             ])
+        else:
+            properties.extend(["802-1x.password", credentials["password"]])
         rc, output = run(["nmcli", "connection", "modify", profile, *properties], admin=True, timeout=25)
         if rc != 0:
             return rc, output
@@ -702,34 +953,71 @@ class WifiWindow(Gtk.Window):
     def update_signal_map(self):
         if not self.signal_window:
             return
-        self.signal_window.update_items([
+        items = [
             {
                 "key": item.get("bssid") or f"{item['ssid']}-{index}",
                 "name": f"{item['ssid']} {item.get('bssid', '')[-5:]}",
                 "signal": item.get("signal", 0),
+                "category": "router",
             }
             for index, item in enumerate(self.access_points)
-        ])
+        ]
+        neigh_rc, neighbors = run(["ip", "neigh", "show"], timeout=5)
+        if neigh_rc == 0:
+            items.extend(
+                {
+                    "key": item["address"],
+                    "name": item["name"],
+                    "signal": 35,
+                    "category": "device",
+                    "signal_known": False,
+                }
+                for item in parse_ip_neighbors(neighbors)
+            )
+        self.signal_window.update_items(items)
 
-    def launch_ruview(self, _widget):
-        # RuView's supported native server is sensing-server. Pointcloud is a
-        # workspace-only crate and does not provide the old `serve --bind` CLI.
+    def launch_csi_3d(self, _widget):
+        for command_name in ("wifi-3d-fusion", "wifi3d-fusion"):
+            if command_exists(command_name):
+                if not launch([command_name]):
+                    message(self, "Wi-Fi 3D failed", f"Could not start {command_name}.", Gtk.MessageType.ERROR)
+                return
+
         if command_exists("sensing-server"):
+            use_linux_rssi = bool(self.wifi_devices)
             command = [
-                "sensing-server", "--source", "simulate",
+                "sensing-server", "--source", "wifi" if use_linux_rssi else "simulate",
                 "--http-port", "3000", "--ws-port", "3001",
             ]
+            if use_linux_rssi:
+                command.extend(["--tick-ms", "500"])
             for ui_path in ("/usr/share/ruview/ui", "/opt/ruview/ui"):
                 if Path(ui_path).is_dir():
                     command.extend(["--ui-path", ui_path])
                     break
-            launch(command)
+            if not launch(command, admin=use_linux_rssi):
+                message(self, "RuView failed", "Could not start sensing-server.", Gtk.MessageType.ERROR)
+                return
 
-            def open_viewer():
-                launch(["ooonana-browser", "http://127.0.0.1:3000/ui/index.html"])
-                return False
+            viewer = "http://127.0.0.1:3000/ui/observatory.html"
 
-            GLib.timeout_add_seconds(2, open_viewer)
+            def probe(attempt=0):
+                def done(rc, _output):
+                    if rc == 0:
+                        launch(["ooonana-browser", viewer])
+                    elif attempt < 11:
+                        GLib.timeout_add_seconds(1, lambda: probe(attempt + 1) or False)
+                    else:
+                        message(
+                            self,
+                            "RuView failed",
+                            "sensing-server did not become ready on port 3000.",
+                            Gtk.MessageType.ERROR,
+                        )
+
+                run_async(["curl", "-fsS", viewer], done, timeout=3)
+
+            probe()
             return
 
         dialog = Gtk.MessageDialog(
@@ -737,17 +1025,21 @@ class WifiWindow(Gtk.Window):
             modal=True,
             message_type=Gtk.MessageType.INFO,
             buttons=Gtk.ButtonsType.NONE,
-            text="RuView 3D runtime is not installed",
+            text="CSI 3D runtime is not installed",
         )
         dialog.format_secondary_text(
-            "RuView is not bundled. Full 3D sensing needs CSI hardware such as ESP32-S3, "
-            "Intel 5300, or Atheros AR9580. This laptop can use the RSSI signal map. "
-            "A separately installed sensing-server can run a simulated 3D demo."
+            "Normal laptop Wi-Fi cannot measure a room in 3D. RuView and wifi-3d-fusion "
+            "need compatible CSI capture hardware, drivers, and large optional runtimes. "
+            "Ooonana keeps the lightweight RSSI signal map preinstalled."
         )
         dialog.add_button("Close", Gtk.ResponseType.CLOSE)
-        dialog.add_button("Open RuView", Gtk.ResponseType.OK)
-        if dialog.run() == Gtk.ResponseType.OK:
+        dialog.add_button("RuView", 1)
+        dialog.add_button("wifi-3d-fusion", 2)
+        response = dialog.run()
+        if response == 1:
             launch(["xdg-open", "https://github.com/ruvnet/RuView"])
+        elif response == 2:
+            launch(["xdg-open", "https://github.com/MaliosDark/wifi-3d-fusion"])
         dialog.destroy()
 
     def repair_service(self, _widget):
@@ -759,13 +1051,18 @@ class WifiWindow(Gtk.Window):
                 message(self, "Network repair failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)
             self.refresh(scan=True)
 
-        run_async(["ooonana-service-repair", "force-wifi"], done, admin=True, timeout=30)
+        run_async(
+            ["ooonana-service-repair", "force-wifi"],
+            done,
+            admin=True,
+            timeout=SERVICE_REPAIR_TIMEOUT,
+        )
 
 
 def main():
     if "--dry-run" in sys.argv:
         print("native GTK Ooonana Wi-Fi")
-        print("actions: radio scan grouped-ssid personal enterprise certificates map 3d-mode ruvnet-ruview disconnect repair")
+        print("actions: radio scan grouped-ssid security-selector certificate-policy router-map device-map csi-3d disconnect repair")
         print("OOONANA_WIFI_NATIVE_OK")
         return 0
     apply_theme()

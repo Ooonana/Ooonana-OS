@@ -10,6 +10,7 @@ SCRATCH_ROOTFS="$WORK_DIR/scratch-rootfs"
 ROOTFS="$WORK_DIR/full-i3-rootfs"
 TARBALL="$WORK_DIR/ooonana-full-i3-rootfs.tar.gz"
 REPO="$WORK_DIR/full-i3-repo"
+PACKAGE_PROFILE="$ROOT/configs/packages/full-i3.list"
 OS_VERSION="${OOONANA_OS_VERSION:-0.1.8}"
 FORCE=0
 
@@ -26,6 +27,8 @@ Options:
   --rootfs PATH         Full i3 rootfs output path
   --tarball PATH        Full i3 rootfs tarball output path
   --repo PATH           Ooonana repo containing branding/i3/full-i3 package metadata
+  --package-profile PATH
+                        Required full-edition package list
   --force               Delete existing rootfs and tarball first
   -h, --help            Show help
 USAGE
@@ -38,6 +41,7 @@ while [[ $# -gt 0 ]]; do
     --rootfs) ROOTFS="$2"; shift 2 ;;
     --tarball) TARBALL="$2"; shift 2 ;;
     --repo) REPO="$2"; shift 2 ;;
+    --package-profile) PACKAGE_PROFILE="$2"; shift 2 ;;
     --force) FORCE=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) ooonana_die "unknown option: $1" ;;
@@ -397,7 +401,8 @@ if command -v chromium >/dev/null 2>&1; then
   chromium --no-first-run --disable-default-apps --disable-dev-shm-usage "$url" 2>"$log" && exit 0
   printf '\nNormal GPU launch failed; retrying software rendering.\n' >>"$log"
   chromium --no-first-run --disable-default-apps --disable-dev-shm-usage \
-    --disable-gpu --use-gl=disabled "$url" 2>>"$log" && exit 0
+    --disable-gpu --disable-software-rasterizer --disable-vulkan \
+    --disable-features=Vulkan "$url" 2>>"$log" && exit 0
   exec ooonana-theme-env xterm -e sh -lc 'echo "Chromium failed:"; tail -80 "${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/chromium.log"; echo; echo "Log saved. Press Enter."; read _'
 fi
 if command -v chromium-browser >/dev/null 2>&1; then
@@ -436,9 +441,8 @@ log() {
 unblock_rfkill() {
   if command -v rfkill >/dev/null 2>&1; then
     rfkill unblock all >>"$LOG" 2>&1 || true
-    return 0
   fi
-  for state in /sys/class/rfkill/rfkill*/soft /sys/class/rfkill/rfkill*/hard; do
+  for state in /sys/class/rfkill/rfkill*/soft; do
     [ -e "$state" ] || continue
     [ -w "$state" ] || continue
     printf '0' >"$state" 2>/dev/null || true
@@ -668,9 +672,8 @@ log() {
 unblock_rfkill() {
   if command -v rfkill >/dev/null 2>&1; then
     rfkill unblock all >>"$LOG" 2>&1 || true
-    return 0
   fi
-  for state in /sys/class/rfkill/rfkill*/soft /sys/class/rfkill/rfkill*/hard; do
+  for state in /sys/class/rfkill/rfkill*/soft; do
     [ -e "$state" ] || continue
     [ -w "$state" ] || continue
     printf '0' >"$state" 2>/dev/null || true
@@ -837,12 +840,28 @@ start_network_manager() {
   for interface in /sys/class/net/wl*; do
     [ -d "$interface" ] || continue
     interface="${interface##*/}"
-    run_limited 4 nmcli device set "$interface" managed yes >>"$LOG" 2>&1 || true
+    managed="$(run_limited 4 nmcli -g GENERAL.NM-MANAGED device show "$interface" 2>>"$LOG" || true)"
+    if [ "$(printf '%s' "$managed" | tr '[:upper:]' '[:lower:]')" != yes ]; then
+      run_limited 4 nmcli device set "$interface" managed yes >>"$LOG" 2>&1 || true
+    fi
     run_limited 4 ip link set dev "$interface" up >>"$LOG" 2>&1 || true
     if command -v iw >/dev/null 2>&1; then
       run_limited 4 iw dev "$interface" set power_save off >>"$LOG" 2>&1 || true
     fi
-    run_limited 15 nmcli device wifi rescan ifname "$interface" >>"$LOG" 2>&1 || true
+    i=0
+    while [ "$i" -lt 60 ]; do
+      state="$(run_limited 4 nmcli -g GENERAL.STATE device show "$interface" 2>>"$LOG" || true)"
+      state_code="${state%% *}"
+      case "$state_code" in
+        3[0-9]|4[0-9]|5[0-9]|6[0-9]|7[0-9]|8[0-9]|9[0-9]|100) break ;;
+      esac
+      sleep 1
+      i=$((i + 1))
+    done
+    if [ "$i" -ge 60 ]; then
+      log "Wi-Fi device $interface remained unavailable: ${state:-unknown}"
+    fi
+    run_limited 30 nmcli device wifi rescan ifname "$interface" >>"$LOG" 2>&1 || true
   done
   return 0
 }
@@ -1323,7 +1342,7 @@ if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
     --button=Cancel:1 --button=Apply:0 2>/dev/null)"
   rc="$?"
   set -e
-  [ "$rc" -eq 0 ] && [ -n "$value" ] && exec brightnessctl set "${value}%"
+  [ "$rc" -eq 0 ] && [ -n "$value" ] && exec ooonana-brightness "${value}%"
   exit 0
 fi
 exec ooonana-brightness
@@ -1386,6 +1405,103 @@ if command -v amixer >/dev/null 2>&1; then
   [ -n "$volume" ] && { printf '\357\200\247 %s\n' "$volume"; exit 0; }
 fi
 printf '\357\200\246 --\n'
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-audio" <<'EOF'
+#!/bin/sh
+set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+if ! command -v pactl >/dev/null 2>&1; then
+  echo "pactl missing" >&2
+  exit 127
+fi
+if ! pactl info >/dev/null 2>&1 && command -v pulseaudio >/dev/null 2>&1; then
+  pulseaudio --start --exit-idle-time=-1 >/dev/null 2>&1 || true
+fi
+case "${1:-status}" in
+  up) pactl set-sink-volume @DEFAULT_SINK@ +5% ;;
+  down) pactl set-sink-volume @DEFAULT_SINK@ -5% ;;
+  mute|toggle) pactl set-sink-mute @DEFAULT_SINK@ toggle ;;
+  status) pactl get-sink-volume @DEFAULT_SINK@; pactl get-sink-mute @DEFAULT_SINK@ ;;
+  *) echo "usage: ooonana-audio [up|down|mute|status]" >&2; exit 2 ;;
+esac
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-keyboard" <<'EOF'
+#!/bin/sh
+set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+config="${XDG_CONFIG_HOME:-${HOME:-/tmp}/.config}/ooonana/keyboard-layout"
+layout="$(cat "$config" 2>/dev/null || printf 'us')"
+validate() {
+  case "$1" in us|us,kr|kr|gb|de|fr|jp) return 0 ;; esac
+  echo "unsupported keyboard layout: $1" >&2
+  return 2
+}
+apply_layout() {
+  validate "$layout"
+  [ -n "${DISPLAY:-}" ] || return 0
+  command -v setxkbmap >/dev/null 2>&1 || {
+    echo "setxkbmap missing" >&2
+    return 127
+  }
+  setxkbmap -option ''
+  case "$layout" in
+    *,*) setxkbmap -layout "$layout" -option grp:alt_shift_toggle ;;
+    *) setxkbmap -layout "$layout" ;;
+  esac
+}
+case "${1:-status}" in
+  set)
+    layout="${2:-}"
+    validate "$layout"
+    mkdir -p "${config%/*}"
+    printf '%s\n' "$layout" >"$config"
+    apply_layout
+    ;;
+  apply) apply_layout ;;
+  status)
+    printf 'saved layout: %s\n' "$layout"
+    if [ -n "${DISPLAY:-}" ] && command -v setxkbmap >/dev/null 2>&1; then
+      setxkbmap -query
+    fi
+    ;;
+  *) echo "usage: ooonana-keyboard [status|apply|set LAYOUT]" >&2; exit 2 ;;
+esac
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-keyboard-panel" <<'EOF'
+#!/bin/sh
+set -eu
+exec /usr/bin/python3 /usr/lib/ooonana/ui/controls_app.py keyboard "$@"
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-hardware-profile" <<'EOF'
+#!/bin/sh
+set -eu
+profile="${1:-}"
+if [ "$(id -u 2>/dev/null || echo 1)" != 0 ]; then
+  exec ooonana-run-admin "$0" "$@"
+fi
+choices_file=/sys/firmware/acpi/platform_profile_choices
+profile_file=/sys/firmware/acpi/platform_profile
+[ -r "$choices_file" ] && [ -w "$profile_file" ] || {
+  echo "firmware platform profile control unavailable" >&2
+  exit 1
+}
+case " $(cat "$choices_file") " in
+  *" $profile "*) printf '%s' "$profile" >"$profile_file" ;;
+  *) echo "unsupported platform profile: $profile" >&2; exit 2 ;;
+esac
+printf 'platform profile: %s\n' "$(cat "$profile_file")"
+EOF
+
+  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-thermal-panel" <<'EOF'
+#!/bin/sh
+set -eu
+exec /usr/bin/python3 /usr/lib/ooonana/ui/controls_app.py thermal "$@"
 EOF
 
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-battery-status" <<'EOF'
@@ -1598,13 +1714,14 @@ if ! command -v brightnessctl >/dev/null 2>&1; then
   exec ooonana-theme-env xterm -e sh -lc 'echo "brightnessctl missing"; echo "run: ooonana get brightnessctl"; exec sh'
 fi
 if [ "$#" -gt 0 ]; then
-  exec brightnessctl set "$1"
+  brightnessctl set "$1" >/dev/null 2>&1 && exit 0
+  exec ooonana-run-admin brightnessctl set "$1"
 fi
 if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
   current="$(brightnessctl -m 2>/dev/null | awk -F, '{gsub(/%/,"",$4); print $4; exit}')"
   [ -n "$current" ] || current=75
   value="$(yad --center --title "Ooonana Brightness" --scale --min-value=1 --max-value=100 --value="$current" --button=Apply:0 2>/dev/null || true)"
-  [ -n "$value" ] && exec brightnessctl set "${value}%"
+  [ -n "$value" ] && exec ooonana-brightness "${value}%"
 fi
 exec ooonana-theme-env xterm -e sh -lc 'brightnessctl; echo; echo "Usage: ooonana-brightness 75%"; exec sh'
 EOF
@@ -2105,8 +2222,10 @@ EOF
 [main]
 plugins=keyfile
 dhcp=internal
+wifi.backend=wpa_supplicant
 
 [device]
+managed=1
 wifi.scan-rand-mac-address=no
 
 [ifupdown]
@@ -2294,7 +2413,7 @@ label-padding = 2
 [module/wifi]
 type = custom/script
 exec = ooonana-wifi-status
-interval = 3
+interval = 10
 label = %output%
 label-foreground = ${colors.accent}
 label-background = ${colors.background-alt}
@@ -2304,7 +2423,7 @@ click-left = ooonana-wifi-panel
 [module/bluetooth]
 type = custom/script
 exec = ooonana-bluetooth-status
-interval = 3
+interval = 10
 label = %output%
 label-foreground = ${colors.accent}
 label-background = ${colors.background-alt}
@@ -2327,26 +2446,26 @@ label-disconnected-padding = 2
 [module/audio]
 type = custom/script
 exec = ooonana-audio-status
-interval = 2
+interval = 5
 label = %output%
 label-foreground = ${colors.accent}
 label-background = ${colors.background-alt}
 label-padding = 2
 click-left = ooonana-audio-panel
-scroll-up = pactl set-sink-volume @DEFAULT_SINK@ +5%
-scroll-down = pactl set-sink-volume @DEFAULT_SINK@ -5%
+scroll-up = ooonana-audio up
+scroll-down = ooonana-audio down
 
 [module/brightness]
 type = custom/script
 exec = ooonana-brightness-status
-interval = 2
+interval = 5
 label = %output%
 label-foreground = ${colors.accent}
 label-background = ${colors.background-alt}
 label-padding = 2
 click-left = ooonana-brightness-panel
-scroll-up = brightnessctl set +5%
-scroll-down = brightnessctl set 5%-
+scroll-up = ooonana-brightness +5%
+scroll-down = ooonana-brightness 5%-
 
 [module/power]
 type = custom/text
@@ -2506,18 +2625,22 @@ EOF
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/picom.conf" <<'EOF'
 backend = "xrender";
 vsync = true;
-shadow = true;
-shadow-radius = 16;
-shadow-offset-x = -8;
-shadow-offset-y = -8;
-shadow-opacity = 0.36;
-fading = true;
-fade-delta = 6;
-fade-in-step = 0.045;
-fade-out-step = 0.045;
-inactive-opacity = 0.94;
+use-damage = true;
+unredir-if-possible = true;
+shadow = false;
+fading = false;
+inactive-opacity = 1.0;
 active-opacity = 1.0;
 corner-radius = 0;
+EOF
+
+  install -D -m 0644 /dev/stdin "$ROOTFS/etc/sysctl.d/90-ooonana-performance.conf" <<'EOF'
+# Responsive desktop defaults for low-memory systems.
+vm.swappiness = 10
+vm.vfs_cache_pressure = 50
+vm.dirty_background_ratio = 5
+vm.dirty_ratio = 15
+kernel.sched_autogroup_enabled = 1
 EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/dunstrc" <<'EOF'
@@ -3340,6 +3463,9 @@ mkdir -p /dev/shm
 mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /dev/shm 2>/dev/null || true
 mount -t tmpfs tmpfs /run 2>/dev/null || true
 mkdir -p /run/dbus /var
+if command -v sysctl >/dev/null 2>&1; then
+  sysctl -p /etc/sysctl.d/90-ooonana-performance.conf >/dev/null 2>&1 || true
+fi
 if [ ! -L /var/run ]; then
   rm -rf /var/run
   ln -s /run /var/run
@@ -3445,7 +3571,10 @@ fi
 
 start_system_services() {
   if command -v ooonana-service-repair >/dev/null 2>&1; then
-    ooonana-service-repair boot >/var/log/ooonana-service-repair.log 2>&1 || true
+    if ! ooonana-service-repair boot >/var/log/ooonana-service-repair.log 2>&1; then
+      sleep 2
+      ooonana-service-repair force >>/var/log/ooonana-service-repair.log 2>&1 || true
+    fi
     return 0
   fi
   mkdir -p /run/dbus /var/lib/dbus /etc
@@ -3683,6 +3812,18 @@ fix_blueman_activation() {
   sed -i '/^SystemdService=/d' "$service"
 }
 
+normalize_service_paths() {
+  local candidate
+  mkdir -p "$ROOTFS/usr/sbin"
+  if [[ ! -e "$ROOTFS/usr/sbin/bluetoothd" ]]; then
+    if [[ -x "$ROOTFS/usr/lib/bluetooth/bluetoothd" ]]; then
+      ln -s ../lib/bluetooth/bluetoothd "$ROOTFS/usr/sbin/bluetoothd"
+    elif [[ -x "$ROOTFS/usr/libexec/bluetooth/bluetoothd" ]]; then
+      ln -s ../libexec/bluetooth/bluetoothd "$ROOTFS/usr/sbin/bluetoothd"
+    fi
+  fi
+}
+
 shell_escape() {
   printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
@@ -3707,6 +3848,27 @@ install_full_i3_packages() {
     OOONANA_STATE_DIR="$ROOTFS/var/lib/ooonana/packages" \
     OOONANA_CACHE_DIR="$ROOTFS/var/cache/ooonana" \
     "$ROOT/packages/ooonana/usr/bin/ooonana" get full-i3 >/dev/null
+}
+
+verify_full_i3_repo() {
+  local package work
+  [[ -f "$REPO/base.pkg" ]] || ooonana_die "full-i3 repo missing base.pkg"
+  [[ -f "$REPO/full-i3.pkg" ]] || ooonana_die "full-i3 repo missing full-i3.pkg"
+  while IFS= read -r package; do
+    [[ -f "$REPO/$package.pkg" ]] ||
+      ooonana_die "full-i3 repo missing profile package: $package"
+  done < <(ooonana_read_package_profile "$PACKAGE_PROFILE")
+  work="$(mktemp -d)"
+  mkdir -p "$work/sources" "$work/state" "$work/cache"
+  if ! OOONANA_REPO_DIR="$REPO" \
+    OOONANA_SOURCES_DIR="$work/sources" \
+    OOONANA_STATE_DIR="$work/state" \
+    OOONANA_CACHE_DIR="$work/cache" \
+    "$ROOT/packages/ooonana/usr/bin/ooonana" get full-i3 --dry-run >/dev/null; then
+    rm -rf "$work"
+    ooonana_die "full-i3 repo dependency closure is incomplete"
+  fi
+  rm -rf "$work"
 }
 
 write_default_cloud_source() {
@@ -3942,7 +4104,7 @@ normalize_rootfs_permissions() {
 
 main() {
   ooonana_require_linux
-  ooonana_require_commands awk chmod cp gzip install mkdir rm sed sha256sum stat tar
+  ooonana_require_commands awk chmod cp gzip install mkdir mktemp rm sed sha256sum stat tar
   [[ -d "$SCRATCH_ROOTFS" ]] || ooonana_die "missing scratch rootfs: $SCRATCH_ROOTFS"
   [[ -x "$SCRATCH_ROOTFS/bin/sh" ]] || ooonana_die "invalid scratch rootfs: missing /bin/sh"
   [[ -f "$ROOT/branding/logo.svg" ]] || ooonana_die "missing branding/logo.svg"
@@ -3950,6 +4112,7 @@ main() {
   [[ -f "$ROOT/branding/wallpaper.svg" ]] || ooonana_die "missing branding/wallpaper.svg"
   [[ -f "$ROOT/branding/wallpaper.png" ]] || ooonana_die "missing branding/wallpaper.png"
   [[ -f "$ROOT/branding/i3/config" ]] || ooonana_die "missing branding/i3/config"
+  verify_full_i3_repo
 
   mkdir -p "$(dirname "$ROOTFS")"
   ooonana_require_unix_permissions "$(dirname "$ROOTFS")"
@@ -3994,6 +4157,7 @@ main() {
     ln -s python3 "$ROOTFS/usr/bin/python"
   fi
   fix_blueman_activation
+  normalize_service_paths
   install_downloader_fallbacks
   write_default_cloud_source
   compile_glib_schemas

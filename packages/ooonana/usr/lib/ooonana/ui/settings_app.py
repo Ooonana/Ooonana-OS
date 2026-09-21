@@ -24,6 +24,9 @@ from common import (  # noqa: E402
 )
 
 
+SERVICE_REPAIR_TIMEOUT = 180
+
+
 class SettingsWindow(Gtk.Window):
     PAGES = [
         ("overview", "Overview", "computer-symbolic"),
@@ -198,14 +201,27 @@ class SettingsWindow(Gtk.Window):
 
     def build_network(self):
         page = self.page("Network", "Wireless, Bluetooth, radio state, and service repair.")
-        wifi = card("Wi-Fi", "Scan, connect, disconnect, and edit saved networks.", "network-wireless-symbolic")
+        wifi = card(
+            "Wi-Fi",
+            "Scan, connect, roam, and configure personal or enterprise networks.",
+            "network-wireless-symbolic",
+        )
         self.status_widgets["wifi_detail"] = label("Checking...", "status-warn")
         wifi.pack_start(self.status_widgets["wifi_detail"], False, False, 0)
         wifi.pack_start(
+            label(
+                "Enterprise validation: system certificates, custom CA, or explicit unsafe mode.",
+                "muted",
+            ),
+            False,
+            False,
+            0,
+        )
+        wifi.pack_start(
             self.actions(
                 button("Open Wi-Fi", "network-wireless-symbolic", lambda *_: launch(["ooonana-wifi-panel"]), "suggested-action"),
-                button("Connection editor", "document-edit-symbolic", lambda *_: launch(["nm-connection-editor"])),
-                button("Repair", "view-refresh-symbolic", self.repair_services),
+                button("Saved profiles", "document-edit-symbolic", lambda *_: launch(["nm-connection-editor"])),
+                button("Repair", "view-refresh-symbolic", lambda widget: self.repair_service("force-wifi", widget)),
             ),
             False,
             False,
@@ -220,7 +236,7 @@ class SettingsWindow(Gtk.Window):
             self.actions(
                 button("Open Bluetooth", "bluetooth-symbolic", lambda *_: launch(["ooonana-bluetooth-panel"]), "suggested-action"),
                 button("Blueman", "preferences-system-bluetooth-symbolic", lambda *_: launch(["blueman-manager"])),
-                button("Repair", "view-refresh-symbolic", self.repair_services),
+                button("Repair", "view-refresh-symbolic", lambda widget: self.repair_service("force-bluetooth", widget)),
             ),
             False,
             False,
@@ -230,16 +246,22 @@ class SettingsWindow(Gtk.Window):
         return page
 
     def build_hardware(self):
-        page = self.page("Hardware", "Display, sound, brightness, touchpad, and device diagnostics.")
+        page = self.page("Hardware", "Display, sound, brightness, input, and safe thermal policy.")
         grid = self.two_column_grid()
         items = [
             ("Display", "Arrange monitors and resolution.", "video-display-symbolic", ["arandr"]),
             ("Sound", "Output devices and volume mixer.", "audio-volume-high-symbolic", ["ooonana-audio-panel"]),
             ("Brightness", "Backlight level and hotkey control.", "display-brightness-symbolic", ["ooonana-brightness-panel"]),
             ("Touchpad", "Enable, disable, and inspect input devices.", "input-touchpad-symbolic", ["ooonana-touchpad", "status"]),
+            ("Keyboard", "Layout, language switching, and media keys.", "input-keyboard-symbolic", ["ooonana-keyboard-panel"]),
+            ("Thermal and fan", "Firmware performance profile and cooling telemetry.", "weather-clear-symbolic", ["ooonana-thermal-panel"]),
         ]
         for index, (title, description, icon_name, command) in enumerate(items):
             box = card(title, description, icon_name)
+            status_key = title.lower().replace(" ", "_")
+            status = label("Checking...", "muted")
+            self.status_widgets[status_key] = status
+            box.pack_start(status, False, False, 0)
             box.pack_start(
                 button("Open", icon_name, lambda _w, cmd=command: launch(cmd), "suggested-action"),
                 False,
@@ -251,7 +273,7 @@ class SettingsWindow(Gtk.Window):
         diagnostics = card("Hardware diagnostics", "Reprobe drivers and inspect boot-time service logs.", "utilities-system-monitor-symbolic")
         diagnostics.pack_start(
             self.actions(
-                button("Reprobe", "view-refresh-symbolic", self.repair_services),
+                button("Reprobe", "view-refresh-symbolic", lambda widget: self.repair_service("force", widget)),
                 button("Service log", "text-x-log-symbolic", self.show_service_log),
             ),
             False,
@@ -389,6 +411,24 @@ class SettingsWindow(Gtk.Window):
         self.set_status("bluetooth", bt_text, bt_state)
         self.set_status("bluetooth_detail", bt_text, bt_state)
 
+        sound_rc, sound_out = run(["pactl", "get-sink-volume", "@DEFAULT_SINK@"], timeout=4)
+        sound_text = "Output ready"
+        if sound_rc == 0 and "/" in sound_out:
+            sound_text = "Volume " + sound_out.split("/")[1].strip()
+        elif sound_rc != 0:
+            sound_text = sound_out.splitlines()[-1] if sound_out else "No output"
+        self.set_status("sound", sound_text, "good" if sound_rc == 0 else "warn")
+        bright_rc, bright_out = run(["brightnessctl", "-m"], timeout=4)
+        bright_fields = bright_out.splitlines()[0].split(",") if bright_out else []
+        brightness = bright_fields[3] if bright_rc == 0 and len(bright_fields) > 3 else "No backlight"
+        self.set_status("brightness", brightness, "good" if bright_rc == 0 else "warn")
+        self.set_status("display", "Open monitor layout", "good")
+        self.set_status("touchpad", "libinput managed", "good" if command_exists("xinput") else "warn")
+        keyboard = read_file(Path.home() / ".config/ooonana/keyboard-layout", "us")
+        self.set_status("keyboard", keyboard, "good" if command_exists("setxkbmap") else "warn")
+        profile = read_file("/sys/firmware/acpi/platform_profile", "Firmware control unavailable")
+        self.set_status("thermal_and_fan", profile, "good" if profile != "Firmware control unavailable" else "warn")
+
         repo = self.repo_uri()
         self.set_status("repo", repo, "good" if repo.startswith("http") else "warn")
         self.set_status("repo_detail", repo, "good" if repo.startswith("http") else "warn")
@@ -446,7 +486,7 @@ class SettingsWindow(Gtk.Window):
         launch(["ooonana-wallpaper", path])
         self.status_widgets["wallpaper"].set_text(path)
 
-    def repair_services(self, widget):
+    def repair_service(self, mode, widget):
         widget.set_sensitive(False)
 
         def done(_rc, output):
@@ -455,7 +495,12 @@ class SettingsWindow(Gtk.Window):
             if output and "failed" in output.lower():
                 message(self, "Service repair", output, Gtk.MessageType.WARNING)
 
-        run_async(["ooonana-service-repair", "force"], done, admin=True, timeout=30)
+        run_async(
+            ["ooonana-service-repair", mode],
+            done,
+            admin=True,
+            timeout=SERVICE_REPAIR_TIMEOUT,
+        )
 
     def show_service_log(self, *_args):
         text = "\n\n".join(

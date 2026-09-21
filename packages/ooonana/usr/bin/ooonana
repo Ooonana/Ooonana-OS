@@ -875,7 +875,15 @@ sha256_file() {
 repo_checksum_expected() {
   sums_file="$1"
   rel_path="$2"
-  awk -v rel="$rel_path" '$2 == rel { print $1; found = 1; exit } END { if (!found) exit 1 }' "$sums_file"
+  awk -v rel="$rel_path" '{
+    path = $2
+    sub(/\r$/, "", path)
+    if (path == rel) {
+      print $1
+      found = 1
+      exit
+    }
+  } END { if (!found) exit 1 }' "$sums_file"
 }
 
 repo_signature_key() {

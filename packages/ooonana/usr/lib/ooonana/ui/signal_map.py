@@ -21,11 +21,31 @@ class SignalMapWindow(Gtk.Window):
         heading = label(title, "page-title")
         root.pack_start(heading, False, False, 0)
         root.pack_start(
-            label("Estimated proximity from signal strength. Direction is a stable layout, not measured position.", "muted"),
+            label("Computer is center. Distance uses signal strength. Direction is stable layout, not measured bearing.", "muted"),
             False,
             False,
             0,
         )
+        self.router_toggle = None
+        self.device_toggle = None
+        if kind == "wireless":
+            controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=18)
+            self.router_toggle = Gtk.CheckButton.new_with_label("Wi-Fi routers (orange)")
+            self.device_toggle = Gtk.CheckButton.new_with_label("Nearby LAN devices (green)")
+            self.router_toggle.set_active(True)
+            self.device_toggle.set_active(True)
+            self.router_toggle.connect("toggled", lambda *_: self.area.queue_draw())
+            self.device_toggle.connect("toggled", lambda *_: self.area.queue_draw())
+            controls.pack_start(self.router_toggle, False, False, 0)
+            controls.pack_start(self.device_toggle, False, False, 0)
+            root.pack_start(controls, False, False, 0)
+        elif kind == "bluetooth":
+            controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=18)
+            self.device_toggle = Gtk.CheckButton.new_with_label("Nearby Bluetooth devices (blue)")
+            self.device_toggle.set_active(True)
+            self.device_toggle.connect("toggled", lambda *_: self.area.queue_draw())
+            controls.pack_start(self.device_toggle, False, False, 0)
+            root.pack_start(controls, False, False, 0)
         self.area = Gtk.DrawingArea()
         self.area.set_size_request(620, 500)
         self.area.connect("draw", self.draw)
@@ -62,8 +82,31 @@ class SignalMapWindow(Gtk.Window):
         context.set_source_rgb(1.0, 0.70, 0.10)
         context.arc(center_x, center_y, 7, 0, math.tau)
         context.fill()
+        context.set_source_rgb(0.96, 0.92, 0.82)
+        context.set_font_size(11)
+        context.move_to(center_x + 12, center_y + 4)
+        context.show_text("This computer")
 
-        ordered = sorted(self.items, key=lambda item: int(item.get("signal", 0)), reverse=True)
+        context.set_source_rgb(0.61, 0.66, 0.72)
+        context.set_font_size(12)
+        for text, x, y in (
+            ("N", center_x - 4, center_y - radius - 10),
+            ("E", center_x + radius + 12, center_y + 4),
+            ("S", center_x - 4, center_y + radius + 20),
+            ("W", center_x - radius - 22, center_y + 4),
+        ):
+            context.move_to(x, y)
+            context.show_text(text)
+
+        visible_items = []
+        for item in self.items:
+            category = item.get("category", "router")
+            if category == "router" and self.router_toggle and not self.router_toggle.get_active():
+                continue
+            if category == "device" and self.device_toggle and not self.device_toggle.get_active():
+                continue
+            visible_items.append(item)
+        ordered = sorted(visible_items, key=lambda item: int(item.get("signal", 0)), reverse=True)
         for index, item in enumerate(ordered):
             strength = max(0, min(100, int(item.get("signal", 0))))
             key = str(item.get("key") or item.get("name") or "signal")
@@ -71,8 +114,11 @@ class SignalMapWindow(Gtk.Window):
             distance = radius * (0.18 + 0.78 * (1 - strength / 100))
             x = center_x + math.cos(angle) * distance
             y = center_y + math.sin(angle) * distance
+            category = item.get("category", "router")
             if self.kind == "bluetooth":
                 context.set_source_rgb(0.27, 0.73, 1.0)
+            elif category == "device":
+                context.set_source_rgb(0.31, 0.86, 0.50)
             else:
                 context.set_source_rgb(1.0, 0.70, 0.10)
             context.arc(x, y, 5 + strength / 22, 0, math.tau)
@@ -84,5 +130,6 @@ class SignalMapWindow(Gtk.Window):
                 context.set_source_rgb(0.96, 0.92, 0.82)
                 context.set_font_size(11)
                 context.move_to(x + 10, y + 4)
-                context.show_text(f"{name}  {strength}%")
+                suffix = f"{strength}%" if item.get("signal_known", True) else "known LAN peer"
+                context.show_text(f"{name}  {suffix}")
         return False

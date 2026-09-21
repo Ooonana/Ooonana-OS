@@ -155,7 +155,7 @@ write_disk_metadata() {
   printf 'full-i3-disk\n' > "$MOUNT_POINT/var/lib/ooonana/disk-ok"
   printf 'full-i3\n' > "$MOUNT_POINT/etc/ooonana/edition"
   cat > "$MOUNT_POINT/etc/fstab" <<'EOF'
-LABEL=OOONANA_ROOT / ext4 defaults 0 1
+LABEL=OOONANA_ROOT / ext4 defaults,noatime,lazytime 0 1
 LABEL=OOONANA_EFI /boot/efi vfat umask=0077 0 1
 proc /proc proc defaults 0 0
 EOF

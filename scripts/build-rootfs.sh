@@ -69,7 +69,7 @@ configure_rootfs() {
 EOF
 
   cat > "$ROOTFS/etc/fstab" <<'EOF'
-/dev/vda / ext4 defaults 0 1
+/dev/vda / ext4 defaults,noatime,lazytime 0 1
 proc /proc proc defaults 0 0
 EOF
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -19,6 +20,10 @@ from common import (  # noqa: E402
 )
 from signal_map import SignalMapWindow  # noqa: E402
 from wireless_utils import parse_bluetooth_info  # noqa: E402
+
+
+SERVICE_START_TIMEOUT = 90
+SERVICE_REPAIR_TIMEOUT = 150
 
 
 class PairDialog(Gtk.Dialog):
@@ -150,7 +155,12 @@ class BluetoothWindow(Gtk.Window):
                 message(self, "Bluetooth repair failed", output or f"Exit status {rc}. Check /var/log/ooonana-services.log.", Gtk.MessageType.ERROR)
             self.refresh()
 
-        run_async(["ooonana-service-repair", "bluetooth"], done, admin=True, timeout=20)
+        run_async(
+            ["ooonana-service-repair", "bluetooth"],
+            done,
+            admin=True,
+            timeout=SERVICE_START_TIMEOUT,
+        )
 
     def refresh(self):
         self.store.clear()
@@ -234,6 +244,7 @@ class BluetoothWindow(Gtk.Window):
         def task():
             self.btctl("power", "on", timeout=8)
             self.btctl("pairable", "on", timeout=8)
+            self.btctl("discoverable", "on", timeout=8)
             return self.btctl("--timeout", "12", "scan", "on", timeout=18)
 
         def done(rc, output):
@@ -283,19 +294,26 @@ class BluetoothWindow(Gtk.Window):
             mac = device["address"]
             self.btctl("power", "on", timeout=8)
             self.btctl("pairable", "on", timeout=8)
+            self.btctl("--timeout", "8", "scan", "on", timeout=14)
             answers = ""
             if pin:
                 answers += pin + "\n"
             answers += "yes\n"
             rc, output = self.btctl("--timeout", "40", "--agent", "KeyboardDisplay", "pair", mac, timeout=48, input_text=answers)
-            info_rc, info = self.btctl("info", mac, timeout=8)
-            state = parse_bluetooth_info(info if info_rc == 0 else "")
+            state = {}
+            info = ""
+            for _attempt in range(5):
+                info_rc, info = self.btctl("info", mac, timeout=8)
+                state = parse_bluetooth_info(info if info_rc == 0 else "")
+                if state["paired"]:
+                    break
+                time.sleep(1)
             if not state["paired"]:
-                return rc or 1, output or "BlueZ did not confirm pairing. Try Blueman for device-specific passkey entry."
-            trust_rc, trust_output = self.btctl("trust", mac, timeout=12)
-            if trust_rc != 0:
-                return trust_rc, trust_output
-            connect_rc, connect_output = self.btctl("--timeout", "30", "connect", mac, timeout=38)
+                return rc or 1, (output + "\n" + info + "\nBlueZ did not confirm pairing. Try Blueman for device-specific passkey entry.").strip()
+            self.btctl("trust", mac, timeout=12)
+            if state["connected"]:
+                return 0, output or "BlueZ confirmed pairing and connection."
+            connect_rc, connect_output = self.connect_with_retry(mac)
             if connect_rc != 0:
                 return connect_rc, (output + "\nPaired and trusted, but connection failed:\n" + connect_output).strip()
             return 0, (output + "\n" + connect_output).strip()
@@ -307,13 +325,33 @@ class BluetoothWindow(Gtk.Window):
 
         def task():
             mac = device["address"]
-            if not device["trusted"]:
-                rc, output = self.btctl("trust", mac, timeout=12)
-                if rc != 0:
-                    return rc, output
-            return self.btctl("--timeout", "30", "connect", mac, timeout=38)
+            return self.connect_with_retry(mac)
 
         self.finish_device_task(task)
+
+    def connect_with_retry(self, mac):
+        errors = []
+        run(["rfkill", "unblock", "bluetooth"], admin=True, timeout=8)
+        self.btctl("power", "on", timeout=8)
+        self.btctl("pairable", "on", timeout=8)
+        trust_rc, trust_output = self.btctl("trust", mac, timeout=12)
+        if trust_rc != 0:
+            return trust_rc, trust_output
+
+        for attempt in range(3):
+            rc, output = self.btctl("--timeout", "30", "connect", mac, timeout=38)
+            info_rc, info = self.btctl("info", mac, timeout=8)
+            state = parse_bluetooth_info(info if info_rc == 0 else "")
+            if state["connected"]:
+                return 0, output or "BlueZ confirmed connection."
+            errors.append((output + "\n" + info).strip() or "BlueZ did not confirm Connected: yes.")
+            if attempt < 2:
+                self.btctl("--timeout", "10", "scan", "on", timeout=16)
+                time.sleep(1)
+        show_rc, show = self.btctl("show", timeout=8)
+        if show_rc == 0:
+            errors.append("Adapter state:\n" + show)
+        return rc or 1, "\n".join(errors)
 
     def finish_device_task(self, task):
         def done(rc, output):
@@ -346,7 +384,12 @@ class BluetoothWindow(Gtk.Window):
         if not self.signal_window:
             return
         self.signal_window.update_items([
-            {"key": mac, "name": values["name"], "signal": values["signal"]}
+            {
+                "key": mac,
+                "name": values["name"],
+                "signal": values["signal"],
+                "category": "device",
+            }
             for mac, values in self.devices.items()
             if values["signal"] > 0
         ])
@@ -360,13 +403,18 @@ class BluetoothWindow(Gtk.Window):
             if rc != 0:
                 message(self, "Bluetooth repair failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)
 
-        run_async(["ooonana-service-repair", "force-bluetooth"], done, admin=True, timeout=30)
+        run_async(
+            ["ooonana-service-repair", "force-bluetooth"],
+            done,
+            admin=True,
+            timeout=SERVICE_REPAIR_TIMEOUT,
+        )
 
 
 def main():
     if "--dry-run" in sys.argv:
         print("native GTK Ooonana Bluetooth")
-        print("actions: power scan pair agent trust connect disconnect remove map repair")
+        print("actions: power scan pair agent trust connect-retry disconnect remove signal-map repair")
         print("OOONANA_BLUETOOTH_NATIVE_OK")
         return 0
     apply_theme()

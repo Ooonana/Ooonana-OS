@@ -93,7 +93,7 @@ create_busybox_links() {
   for applet in adduser awk basename cat chmod clear cp cut date dd df dirname dmesg echo env free grep hostname ifconfig ip ls mkdir mount mv passwd ps pwd readlink rm rmdir route sed sh sha256sum sleep sort sync tar touch tr udhcpc umount uname wc wget; do
     ln -sf busybox "$ROOTFS/bin/$applet"
   done
-  for applet in mdev reboot; do
+  for applet in mdev reboot sysctl; do
     ln -sf ../bin/busybox "$ROOTFS/sbin/$applet"
   done
   ln -sf ../../bin/busybox "$ROOTFS/usr/bin/env"

@@ -126,7 +126,7 @@ write_disk_metadata() {
   mkdir -p "$MOUNT_POINT/var/lib/ooonana"
   printf 'disk\n' > "$MOUNT_POINT/var/lib/ooonana/disk-ok"
   cat > "$MOUNT_POINT/etc/fstab" <<'EOF'
-LABEL=OOONANA_ROOT / ext4 defaults 0 1
+LABEL=OOONANA_ROOT / ext4 defaults,noatime,lazytime 0 1
 proc /proc proc defaults 0 0
 EOF
 }

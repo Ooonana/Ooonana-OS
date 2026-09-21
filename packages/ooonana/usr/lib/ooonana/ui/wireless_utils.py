@@ -207,3 +207,33 @@ def parse_bluetooth_info(output):
             values[key.lower()] = value
     values["signal"] = signal_percent(values["rssi"]) if values["rssi"] is not None else 0
     return values
+
+
+def parse_ip_neighbors(output):
+    """Return reachable LAN peers from `ip neigh show` output."""
+    neighbors = []
+    seen = set()
+    ignored_states = {"FAILED", "INCOMPLETE", "NOARP"}
+    for raw_line in output.splitlines():
+        fields = raw_line.split()
+        if len(fields) < 5 or "lladdr" not in fields:
+            continue
+        state = fields[-1].upper()
+        if state in ignored_states:
+            continue
+        mac_index = fields.index("lladdr") + 1
+        if mac_index >= len(fields):
+            continue
+        address = fields[mac_index].upper()
+        if address in seen:
+            continue
+        seen.add(address)
+        interface = fields[fields.index("dev") + 1] if "dev" in fields else ""
+        neighbors.append(
+            {
+                "address": address,
+                "name": f"{fields[0]} ({interface})" if interface else fields[0],
+                "state": state,
+            }
+        )
+    return neighbors

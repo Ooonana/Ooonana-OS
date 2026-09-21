@@ -19,7 +19,6 @@ INSTALL_TARGET="auto"
 SMOKE=0
 LIVE_SMOKE=0
 FORCE=0
-UEFI_MODE="auto"
 
 usage() {
   cat <<'USAGE'
@@ -43,7 +42,7 @@ Options:
   --install-target DEV Installer target device, or auto (default: auto)
   --smoke              Add smoke boot kernel argument
   --live-smoke         Smoke-test live i3 path instead of installer path
-  --uefi               Require GRUB x86_64 EFI modules for UEFI boot
+  --uefi               Require GRUB x86_64 EFI modules (default)
   --force              Delete existing ISO staging tree and ISO first
   -h, --help           Show help
 USAGE
@@ -63,7 +62,7 @@ while [[ $# -gt 0 ]]; do
     --install-target) INSTALL_TARGET="$2"; shift 2 ;;
     --smoke) SMOKE=1; shift ;;
     --live-smoke) LIVE_SMOKE=1; shift ;;
-    --uefi) UEFI_MODE="on"; shift ;;
+    --uefi) shift ;;
     --force) FORCE=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) ooonana_die "unknown option: $1" ;;
@@ -99,7 +98,11 @@ fi
 serial --unit=0 --speed=115200
 terminal_input console serial
 terminal_output console serial
-terminal_output gfxterm serial
+if terminal_output gfxterm serial; then
+  true
+else
+  terminal_output console serial
+fi
 set color_normal=yellow/black
 set color_highlight=black/yellow
 set ooonana_hardware_args=
@@ -229,7 +232,7 @@ stage_iso_tree() {
   install -m 0644 "$INITRAMFS" "$ISO_TREE/boot/install-initramfs.cpio.gz"
   install -m 0644 "$LIVE_INITRAMFS" "$ISO_TREE/boot/live-initramfs.cpio.gz"
   stage_large_file "$LIVE_ROOTFS_IMAGE" "$ISO_TREE/images/ooonana-full-i3-live-rootfs.ext4"
-  gzip -n -c "$DISK_IMAGE" > "$ISO_TREE/images/$DISK_IMAGE_STAGED"
+  gzip -9 -n -c "$DISK_IMAGE" > "$ISO_TREE/images/$DISK_IMAGE_STAGED"
   awk '
     { lines[NR] = $0; if (length($0) > width) width = length($0) }
     END {
@@ -241,7 +244,7 @@ stage_iso_tree() {
   chmod 0644 "$ISO_TREE/boot/grub/ooonana-logo.txt"
   write_rufus_note
   cat > "$ISO_TREE/boot/grub/theme.txt" <<'EOF'
-title-text: "Ooonana OS"
+title-text: ""
 title-color: "#ffb21a"
 desktop-image: "/boot/grub/background.png"
 desktop-color: "#050505"
@@ -263,86 +266,86 @@ message-bg-color: "#050505"
 
 + label {
   id = "ooonana-logo-2"
-  text = "__________________"
-  left = 0%
+  text = "      __________________"
+  left = 50%-108
   top = 30
-  width = 100%
+  width = 216
   height = 20
   color = "#ffb21a"
   font = "Unifont Regular 16"
-  align = "center"
+  align = "left"
 }
 
 + label {
   id = "ooonana-logo-3"
-  text = "|    __      __    |"
-  left = 0%
+  text = "     |    __      __    |"
+  left = 50%-108
   top = 50
-  width = 100%
+  width = 216
   height = 20
   color = "#ffb21a"
   font = "Unifont Regular 16"
-  align = "center"
+  align = "left"
 }
 
 + label {
   id = "ooonana-logo-4"
-  text = "|   /  \\    /  \\   |"
-  left = 0%
+  text = "     |   /  \\    /  \\   |"
+  left = 50%-108
   top = 70
-  width = 100%
+  width = 216
   height = 20
   color = "#ffb21a"
   font = "Unifont Regular 16"
-  align = "center"
+  align = "left"
 }
 
 + label {
   id = "ooonana-logo-5"
-  text = "/ |                  |\\"
-  left = 0%
+  text = "   / |                  |\\"
+  left = 50%-108
   top = 90
-  width = 100%
+  width = 216
   height = 20
   color = "#ffb21a"
   font = "Unifont Regular 16"
-  align = "center"
+  align = "left"
 }
 
 + label {
   id = "ooonana-logo-6"
-  text = "/  |     \\______/     | \\"
-  left = 0%
+  text = "  /  |     \\______/     | \\"
+  left = 50%-108
   top = 110
-  width = 100%
+  width = 216
   height = 20
   color = "#ffb21a"
   font = "Unifont Regular 16"
-  align = "center"
+  align = "left"
 }
 
 + label {
   id = "ooonana-logo-7"
-  text = "|__________________|"
-  left = 0%
+  text = "     |__________________|"
+  left = 50%-108
   top = 130
-  width = 100%
+  width = 216
   height = 20
   color = "#ffb21a"
   font = "Unifont Regular 16"
-  align = "center"
+  align = "left"
 }
 
 + label {
   id = "ooonana-logo-8"
-  text = "|        |"
-  left = 0%
+  text = "          |        |"
+  left = 50%-108
   top = 150
-  width = 100%
+  width = 216
   height = 20
   color = "#ffb21a"
   font = "Unifont Regular 16"
-  align = "center"
+  align = "left"
 }
 
 + boot_menu {
@@ -399,10 +402,8 @@ validate_grub_modules() {
   [[ -d /usr/lib/grub/i386-pc ]] || ooonana_die "missing GRUB BIOS modules: install grub-pc-bin"
   if [[ -d /usr/lib/grub/x86_64-efi ]]; then
     ooonana_log "GRUB EFI modules found: building hybrid BIOS/UEFI ISO"
-  elif [[ "$UEFI_MODE" == "on" ]]; then
-    ooonana_die "missing GRUB EFI modules: install grub-efi-amd64-bin"
   else
-    ooonana_log "GRUB EFI modules missing: building BIOS-only ISO"
+    ooonana_die "missing GRUB EFI modules: install grub-efi-amd64-bin"
   fi
 }
 

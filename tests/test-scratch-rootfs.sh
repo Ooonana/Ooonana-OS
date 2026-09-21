@@ -91,6 +91,7 @@ rootfs="$tmp/build/scratch-rootfs"
 [[ -f "$rootfs/var/lib/ooonana/packages/installed/base.pkg" ]] || fail "missing installed base package marker"
 [[ -f "$rootfs/usr/lib/ooonana/repo/gui.pkg" ]] || fail "missing ooonana repo metadata"
 [[ -L "$rootfs/bin/dd" ]] || fail "missing dd applet"
+[[ -L "$rootfs/sbin/sysctl" ]] || fail "missing sysctl applet"
 
 rcs="$(<"$rootfs/etc/init.d/rcS")"
 init_script="$(<"$rootfs/sbin/init")"

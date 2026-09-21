@@ -6,6 +6,9 @@ ISO="$ROOT/../release-current/ooonana-full-i3.iso"
 WORK="${TMPDIR:-/var/tmp}/ooonana-qemu-service-smoke.$$"
 ALPINE="https://dl-cdn.alpinelinux.org/alpine/v3.20"
 USE_ISO_RUNTIME=0
+QEMU_TIMEOUT="${OOONANA_QEMU_SMOKE_TIMEOUT:-240}"
+QEMU_MEMORY="${OOONANA_QEMU_SMOKE_MEMORY:-1280}"
+KEEP_WORK="${OOONANA_KEEP_SMOKE_WORK:-0}"
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -25,6 +28,10 @@ fail() {
 }
 
 cleanup() {
+  if [ "$KEEP_WORK" = 1 ]; then
+    echo "QEMU smoke work kept: $WORK" >&2
+    return
+  fi
   rm -rf "$WORK"
 }
 trap cleanup EXIT INT TERM
@@ -63,6 +70,9 @@ if [ "$USE_ISO_RUNTIME" -eq 0 ]; then
   extract_block 'ROOTFS/usr/bin/ooonana-run-admin' "$WORK/patch/smoke-root/usr/bin/ooonana-run-admin"
   extract_block 'ROOTFS/usr/bin/ooonana-rofi-power' "$WORK/patch/smoke-root/usr/bin/ooonana-rofi-power"
   extract_block 'ROOTFS/usr/bin/ooonana-power-menu' "$WORK/patch/smoke-root/usr/bin/ooonana-power-menu"
+  extract_block 'ROOTFS/usr/bin/ooonana-audio"' "$WORK/patch/smoke-root/usr/bin/ooonana-audio"
+  extract_block 'ROOTFS/usr/bin/ooonana-keyboard"' "$WORK/patch/smoke-root/usr/bin/ooonana-keyboard"
+  extract_block 'ROOTFS/usr/bin/ooonana-hardware-profile' "$WORK/patch/smoke-root/usr/bin/ooonana-hardware-profile"
   install -m 0755 "$ROOT/packages/ooonana/usr/bin/bunana" "$WORK/patch/smoke-root/usr/bin/bunana"
 
   for url in \
@@ -116,8 +126,9 @@ fail() {
 
 echo OOONANA_SERVICE_SMOKE_BEGIN
 for command in \
-  dbus-daemon dbus-run-session NetworkManager nmcli bluetoothd bluetoothctl \
+  dbus-daemon dbus-run-session NetworkManager nmcli wpa_supplicant bluetoothd bluetoothctl \
   doas sudo su aplay pulseaudio pactl chromium \
+  ooonana-audio ooonana-keyboard ooonana-hardware-profile \
   python3 Xorg startx i3 rofi polybar alacritty xterm nemo; do
   command -v "$command" >/dev/null 2>&1 || fail "missing $command"
 done
@@ -129,6 +140,7 @@ done
 /usr/bin/ooonana-service-repair force-wifi || fail "forced Wi-Fi repair"
 /usr/bin/ooonana-service-repair force-bluetooth || fail "forced Bluetooth repair"
 /usr/bin/ooonana-service-repair status
+echo OOONANA_SERVICE_SMOKE_PHASE=services
 grep -q '^pulse:' /etc/passwd || fail "PulseAudio service identity"
 grep -q '^pulse-access:' /etc/group || fail "PulseAudio access group"
 if grep -q 'Unknown username' /var/log/ooonana-services.log 2>/dev/null; then
@@ -136,16 +148,26 @@ if grep -q 'Unknown username' /var/log/ooonana-services.log 2>/dev/null; then
 fi
 /bin/busybox pidof NetworkManager >/dev/null 2>&1 || fail "NetworkManager stopped"
 /bin/busybox pidof bluetoothd >/dev/null 2>&1 || fail "bluetoothd stopped"
+wpa_supplicant -v >/dev/null 2>&1 || fail "wpa_supplicant runtime"
+
+nm_device="$(nmcli -t -f DEVICE,TYPE device status | awk -F: '$2 == "ethernet" { print $1; exit }')"
+[ -n "$nm_device" ] || fail "NetworkManager ethernet device missing"
+nm_managed="$(nmcli -g GENERAL.NM-MANAGED device show "$nm_device")" ||
+  fail "NetworkManager GENERAL.NM-MANAGED query"
+[ "$nm_managed" = yes ] || fail "NetworkManager device not managed"
 
 nmcli connection add type wifi con-name Ooonana-WiFi-Smoke ssid Ooonana-WiFi-Smoke >/dev/null ||
   fail "Wi-Fi profile creation"
 nmcli connection modify Ooonana-WiFi-Smoke \
   connection.autoconnect yes \
+  connection.metered unknown \
   ipv4.method auto \
   ipv6.method auto \
+  proxy.method none \
   802-11-wireless.mode infrastructure \
   802-11-wireless.hidden no \
   802-11-wireless.powersave 2 \
+  802-11-wireless.cloned-mac-address stable \
   802-11-wireless-security.key-mgmt wpa-psk \
   802-11-wireless-security.psk ooonana-smoke >/dev/null ||
   fail "Wi-Fi profile settings"
@@ -170,6 +192,7 @@ nmcli connection modify Ooonana-OWE-Smoke \
   802-11-wireless-security.key-mgmt owe >/dev/null ||
   fail "OWE Wi-Fi profile settings"
 nmcli connection delete Ooonana-OWE-Smoke >/dev/null || fail "OWE Wi-Fi profile cleanup"
+echo OOONANA_SERVICE_SMOKE_PHASE=network
 
 [ -r /proc/asound/cards ] || fail "ALSA cards file missing"
 grep -Eq '^[[:space:]]*[0-9]+[[:space:]]+\[' /proc/asound/cards || fail "Intel HDA card not detected"
@@ -184,8 +207,13 @@ chmod 0700 /run/user/1000
   fail "PulseAudio control"
 /bin/su -s /bin/sh -c 'HOME=/home/ooonana XDG_RUNTIME_DIR=/run/user/1000 pactl get-sink-volume @DEFAULT_SINK@' ooonana >/dev/null ||
   fail "PulseAudio default sink"
+/bin/su -s /bin/sh -c 'HOME=/home/ooonana XDG_RUNTIME_DIR=/run/user/1000 ooonana-audio status' ooonana >/dev/null ||
+  fail "Ooonana audio hotkey helper"
+/bin/su -s /bin/sh -c 'HOME=/home/ooonana ooonana-keyboard status' ooonana >/dev/null ||
+  fail "Ooonana keyboard helper"
+echo OOONANA_SERVICE_SMOKE_PHASE=audio
 
-/bin/su -s /bin/sh -c 'HOME=/home/ooonana XDG_RUNTIME_DIR=/run/user/1000 /bin/busybox timeout 60 dbus-run-session -- chromium --headless=new --no-first-run --disable-default-apps --disable-dev-shm-usage --disable-gpu --use-gl=disabled --user-data-dir=/tmp/ooonana-chromium-smoke --dump-dom "data:text/html,<title>Ooonana</title><p>chromium-ok</p>"' ooonana >/tmp/ooonana-chromium-smoke.html 2>/tmp/ooonana-chromium-smoke.log ||
+/bin/su -s /bin/sh -c 'HOME=/home/ooonana XDG_RUNTIME_DIR=/run/user/1000 /bin/busybox timeout 120 dbus-run-session -- chromium --headless --no-sandbox --disable-dev-shm-usage --disable-gpu --disable-notifications --no-first-run --user-data-dir=/tmp/ooonana-chromium-smoke --dump-dom "data:text/html,<title>Ooonana</title><p>chromium-ok</p>"' ooonana >/tmp/ooonana-chromium-smoke.html 2>/tmp/ooonana-chromium-smoke.log ||
   fail "Chromium headless launch: $(tail -20 /tmp/ooonana-chromium-smoke.log 2>/dev/null)"
 if ! grep -q 'chromium-ok' /tmp/ooonana-chromium-smoke.html; then
   echo '--- chromium output ---'
@@ -194,6 +222,7 @@ if ! grep -q 'chromium-ok' /tmp/ooonana-chromium-smoke.html; then
   tail -100 /tmp/ooonana-chromium-smoke.log 2>/dev/null || true
   fail "Chromium rendered output"
 fi
+echo OOONANA_SERVICE_SMOKE_PHASE=chromium
 
 python3 -c 'import gi; gi.require_version("Gtk", "3.0"); from gi.repository import Gtk; assert Gtk.MAJOR_VERSION == 3' ||
   fail "Python GTK import"
@@ -203,6 +232,10 @@ for app in wifi_app.py bluetooth_app.py settings_app.py; do
 done
 python3 /usr/lib/ooonana/ui/controls_app.py audio --dry-run >/tmp/controls_app.py.log 2>&1 ||
   fail "controls app dry-run: $(tail -20 /tmp/controls_app.py.log 2>/dev/null)"
+python3 /usr/lib/ooonana/ui/controls_app.py keyboard --dry-run >/tmp/controls-keyboard.log 2>&1 ||
+  fail "keyboard controls dry-run: $(tail -20 /tmp/controls-keyboard.log 2>/dev/null)"
+python3 /usr/lib/ooonana/ui/controls_app.py thermal --dry-run >/tmp/controls-thermal.log 2>&1 ||
+  fail "thermal controls dry-run: $(tail -20 /tmp/controls-thermal.log 2>/dev/null)"
 i3 -C -c /etc/i3/config >/tmp/ooonana-i3-check.log 2>&1 ||
   fail "i3 config: $(tail -40 /tmp/ooonana-i3-check.log 2>/dev/null)"
 rofi -version >/dev/null 2>&1 || fail "rofi dynamic libraries"
@@ -223,6 +256,7 @@ for binary in /usr/bin/Xorg /usr/bin/i3 /usr/bin/rofi /usr/bin/polybar \
     fail "dynamic libraries for $binary: $(tail -40 /tmp/ooonana-loader.log)"
   fi
 done
+echo OOONANA_SERVICE_SMOKE_PHASE=desktop
 
 doas_result="$(/bin/su -s /bin/sh -c '/usr/bin/doas /usr/bin/id -u' ooonana)"
 [ "$doas_result" = 0 ] || fail "doas elevation"
@@ -248,8 +282,8 @@ chmod 0755 "$WORK/patch/ooonana-service-smoke"
 cat "$WORK/live-initramfs.cpio.gz" "$WORK/patch.cpio.gz" >"$WORK/smoke-initramfs.cpio.gz"
 
 set +e
-timeout 240 qemu-system-x86_64 \
-  -machine q35 -m 2048 -smp 2 \
+timeout "$QEMU_TIMEOUT" qemu-system-x86_64 \
+  -machine q35 -m "$QEMU_MEMORY" -smp 2 \
   -kernel "$WORK/vmlinuz" -initrd "$WORK/smoke-initramfs.cpio.gz" \
   -append 'console=ttyS0 loglevel=4 ooonana.live=1' \
   -cdrom "$ISO" -nic user,model=e1000 \

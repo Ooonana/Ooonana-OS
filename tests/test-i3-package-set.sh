@@ -130,6 +130,7 @@ bash "$SCRIPT" --repo-url "file://$apk_repo" --out-dir "$out" --packages "i3wm i
 [[ -f "$out/i3.pkg" ]] || fail "missing i3 wrapper"
 [[ -f "$out/branding.pkg" ]] || fail "missing branding wrapper"
 [[ -f "$out/full-i3.pkg" ]] || fail "missing full-i3 wrapper"
+[[ -f "$out/base.pkg" ]] || fail "missing base dependency metadata"
 [[ -f "$out/archives/ooonana-branding-0.1.2.tar.gz" ]] || fail "missing branding archive"
 [[ -f "$out/index.tsv" ]] || fail "missing index"
 [[ -f "$out/SHA256SUMS" ]] || fail "missing checksums"
@@ -144,6 +145,7 @@ assert_contains "$branding_pkg" 'OOONANA_PKG_VERSION="0.1.2"'
 assert_contains "$branding_pkg" 'OOONANA_PKG_ARCHIVE="archives/ooonana-branding-0.1.2.tar.gz"'
 assert_contains "$full_pkg" 'OOONANA_PKG_VERSION="0.1.2"'
 assert_contains "$full_pkg" 'OOONANA_PKG_DEPS="base branding i3"'
+grep -q '^base	' "$out/index.tsv" || fail "base missing from repo index"
 
 branding_contents="$(tar -tzf "$out/archives/ooonana-branding-0.1.2.tar.gz" | sort)"
 assert_contains "$branding_contents" "./etc/i3/config"

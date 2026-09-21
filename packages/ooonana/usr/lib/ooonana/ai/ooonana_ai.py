@@ -561,7 +561,12 @@ def tool_registry_snapshot() -> str:
 
 def process_snapshot() -> str:
     output = run_capture(["sh", "-lc", "ps -eo pid,ppid,stat,comm,args --sort=-%mem | head -n 25"], timeout=2.0)
-    return output or "PID PPID STAT COMMAND ARGS\nprocess table unavailable"
+    if output and "PID" in output.splitlines()[0].upper():
+        return output
+    output = run_capture(["ps"], timeout=2.0)
+    if output and "PID" in output.splitlines()[0].upper():
+        return output
+    return "PID PPID STAT COMMAND ARGS\nprocess table unavailable"
 
 
 def package_snapshot() -> str:
