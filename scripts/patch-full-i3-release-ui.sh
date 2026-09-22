@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-RELEASE_DIR="${OOONANA_RELEASE_DIR:-/mnt/f/Ooonana/ooonana-os/release-current}"
+RELEASE_DIR="${OOONANA_RELEASE_DIR:-/mnt/winf/Ooonana/ooonana-os/release-current}"
 ISO="${OOONANA_ISO:-$RELEASE_DIR/ooonana-full-i3.iso}"
 WORK="${OOONANA_PATCH_WORK:-$RELEASE_DIR/patch-full-i3-ui}"
 OUT_ISO="${OOONANA_OUT_ISO:-$RELEASE_DIR/ooonana-full-i3.iso.new}"
@@ -607,6 +607,17 @@ resume_after_live_rootfs() {
 }
 
 main() {
+  need findmnt
+  case "$RELEASE_DIR" in
+    /mnt/winf|/mnt/winf/*)
+      mkdir -p /mnt/winf
+      mountpoint -q /mnt/winf || mount -t drvfs F: /mnt/winf -o metadata,uid=0,gid=0,umask=022
+      [[ "$(findmnt -n -o SOURCE --target /mnt/winf)" == F: ]] || {
+        printf 'Expected F: mounted at /mnt/winf\n' >&2
+        exit 1
+      }
+      ;;
+  esac
   need xorriso
   need debugfs
   need e2fsck

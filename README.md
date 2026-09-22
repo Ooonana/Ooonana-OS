@@ -43,10 +43,10 @@ Current release artifacts on this machine live in:
 
 ```text
 F:\Ooonana\ooonana-os\release-current
-/mnt/f/Ooonana/ooonana-os/release-current
+/mnt/winf/Ooonana/ooonana-os/release-current
 ```
 
-If WSL `/mnt/f` does not show the Windows F: drive, mount it manually:
+For direct WSL access to F:, mount it at `/mnt/winf`:
 
 ```bash
 sudo mkdir -p /mnt/winf
@@ -57,7 +57,7 @@ Main full-i3 live/install ISO:
 
 ```text
 F:\Ooonana\ooonana-os\release-current\ooonana-full-i3.iso
-/mnt/f/Ooonana/ooonana-os/release-current/ooonana-full-i3.iso
+/mnt/winf/Ooonana/ooonana-os/release-current/ooonana-full-i3.iso
 ```
 
 GitHub release download is split because GitHub rejects single release assets over 2 GiB:
@@ -136,7 +136,7 @@ qemu-full-i3-vnc.png               full-i3 VNC screenshot proof
 Verify files:
 
 ```bash
-cd /mnt/f/Ooonana/ooonana-os/release-current
+cd /mnt/winf/Ooonana/ooonana-os/release-current
 sha256sum -c SHA256SUMS
 sha256sum -c SHA256SUMS.full-i3
 ```
@@ -744,7 +744,7 @@ Use the full-i3 ISO:
 
 ```text
 F:\Ooonana\ooonana-os\release-current\ooonana-full-i3.iso
-/mnt/f/Ooonana/ooonana-os/release-current/ooonana-full-i3.iso
+/mnt/winf/Ooonana/ooonana-os/release-current/ooonana-full-i3.iso
 ```
 
 Compatibility:
@@ -825,7 +825,7 @@ Verify before uploading or flashing:
 
 ```bash
 bash scripts/verify-rufus-iso.sh \
-  --iso /mnt/f/Ooonana/ooonana-os/release-current/ooonana-full-i3.iso
+  --iso /mnt/winf/Ooonana/ooonana-os/release-current/ooonana-full-i3.iso
 ```
 
 Expected marker:
