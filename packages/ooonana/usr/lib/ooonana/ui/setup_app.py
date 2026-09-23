@@ -168,7 +168,7 @@ class SetupWindow(Gtk.Window):
         footer.set_border_width(14)
         self.spinner = Gtk.Spinner()
         footer.pack_start(self.spinner, False, False, 0)
-        self.status = label("Ready", "muted", wrap=False)
+        self.status = label("Scroll for theme and package repo ↓", "muted", wrap=False)
         footer.pack_start(self.status, True, True, 0)
         footer.pack_end(button("Apply setup", "object-select-symbolic", self.apply, "suggested-action"), False, False, 0)
         footer.pack_end(button("Not now", "window-close-symbolic", lambda *_: self.destroy()), False, False, 0)

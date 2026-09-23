@@ -1836,12 +1836,12 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-brightness-status" <<'EOF'
 #!/bin/sh
 set -eu
-value="0"
+value=""
 if command -v brightnessctl >/dev/null 2>&1; then
   value="$(brightnessctl -m 2>/dev/null | awk -F, '{gsub(/%/,"",$4); print $4; exit}')"
 fi
 case "$value" in
-  ''|*[!0-9]*) value=0 ;;
+  ''|*[!0-9]*) printf ' --\n'; exit 0 ;;
 esac
 printf ' %s%%\n' "$value"
 EOF
@@ -2369,7 +2369,7 @@ font-2 = "Font Awesome 6 Free Solid:size=10;2"
 font-3 = "Font Awesome 5 Free Solid:size=10;2"
 font-4 = "Font Awesome 6 Brands:size=10;2"
 font-5 = "Font Awesome 5 Brands:size=10;2"
-modules-left = brand workspaces terminal browser files editor media windows processes win-min win-full win-close
+modules-left = brand workspaces terminal files windows
 modules-center =
 modules-right = audio brightness battery bluetooth wifi date power
 tray-position = right
