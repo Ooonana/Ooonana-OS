@@ -131,6 +131,7 @@ echo 'Ooonana OS'
 if [ -f /boot/grub/ooonana-logo.txt ]; then
   cat /boot/grub/ooonana-logo.txt
 fi
+echo 'Arrows choose a mode. Enter boots.'
 set timeout=5
 set default=0
 

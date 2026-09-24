@@ -39,6 +39,7 @@ headerbar .subtitle { color: #9ba5b4; }
 .status-bad { color: #ff675c; font-weight: 700; }
 button { background: #171e27; color: #f7ead0; border: 1px solid #364252; border-radius: 4px; padding: 7px 12px; }
 button:hover { background: #222c38; border-color: #ffb21a; }
+button:focus, entry:focus, combobox button:focus { border-color: #ffb21a; box-shadow: 0 0 0 2px rgba(255, 178, 26, 0.45); }
 button:disabled { background: #11161d; color: #66717f; border-color: #242d38; }
 button.suggested-action { background: #ffb21a; color: #080a0d; border-color: #ffb21a; font-weight: 700; }
 button.suggested-action:disabled { background: #3a301e; color: #81745c; border-color: #4a3d24; }

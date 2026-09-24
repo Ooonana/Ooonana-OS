@@ -106,8 +106,8 @@ else
 fi
 set color_normal=yellow/black
 set color_highlight=black/yellow
-function ooonana_progress_bar {
-  echo '                         [#####-----] booting Ooonana OS'
+function ooonana_boot_hint {
+  echo '                      Arrows choose a mode. Enter boots.'
 }
 function ooonana_show_logo {
   set color_normal=yellow/black
@@ -126,7 +126,7 @@ ooonana_show_logo
 if [ -f /boot/grub/ooonana-logo.txt ]; then
   true
 fi
-ooonana_progress_bar
+ooonana_boot_hint
 if [ -f /boot/grub/theme.txt ]; then
   set theme=/boot/grub/theme.txt
   export theme
@@ -265,7 +265,7 @@ stage_iso_tree() {
   chmod 0644 "$ISO_TREE/boot/grub/ooonana-logo.txt"
   write_rufus_note
   cat > "$ISO_TREE/boot/grub/theme.txt" <<'EOF'
-title-text: "Ooonana OS"
+title-text: "Ooonana OS  /  STARTUP"
 title-color: "#ffb21a"
 desktop-image: "/boot/grub/background.png"
 desktop-color: "#050505"
@@ -299,6 +299,16 @@ EOF
   done < "$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt"
 
   cat >> "$ISO_TREE/boot/grub/theme.txt" <<'EOF'
++ label {
+  text = "STARTUP MODES"
+  left = 16%
+  top = 33%
+  width = 68%
+  height = 20
+  color = "#ffd37a"
+  font = "Unifont Regular 16"
+}
+
 + boot_menu {
   left = 16%
   top = 38%
@@ -316,7 +326,7 @@ EOF
 }
 
 + label {
-  text = "Use arrows. Enter boots selected."
+  text = "ARROWS select  |  ENTER boot  |  ESC back"
   left = 16%
   top = 78%
   width = 68%

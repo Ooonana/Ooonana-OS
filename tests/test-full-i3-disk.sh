@@ -85,6 +85,7 @@ assert_contains "$script_src" "snd_intel_dspcfg.dsp_driver=3"
 assert_contains "$script_src" "terminal_input console serial"
 assert_contains "$script_src" "terminal_output console serial"
 assert_contains "$script_src" "terminal_output gfxterm serial"
+assert_contains "$script_src" "Arrows choose a mode. Enter boots."
 assert_contains "$script_src" "set color_normal=yellow/black"
 assert_contains "$script_src" "set color_highlight=black/yellow"
 assert_contains "$script_src" 'title-color: "#ffb21a"'
