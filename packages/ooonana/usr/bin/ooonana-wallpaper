@@ -32,7 +32,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 if [ -z "$wallpaper" ]; then
-  wallpaper="/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png"
+  wallpaper="/usr/share/ooonana/wallpapers/ooonana-notes.jpg"
   if [ -f "$config_dir/wallpaper" ]; then
     IFS= read -r saved <"$config_dir/wallpaper" || saved=""
     [ -n "$saved" ] && wallpaper="$saved"

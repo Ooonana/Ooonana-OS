@@ -62,6 +62,7 @@ assert_contains "$source_text" "KERNEL_FRAGMENT=\"\$ROOT/configs/kernel/ooonana-
 assert_contains "$source_text" "# CONFIG_[A-Z0-9_]+ is not set"
 assert_contains "$source_text" 'cached kernel differs from requested option'
 assert_contains "$source_text" 'bash "$ROOT/scripts/fetch-kernel-source.sh"'
+assert_contains "$source_text" 'fetch_args+=(--tarball "$BUILD_DIR/linux-$KERNEL_SOURCE_VERSION.tar.xz")'
 assert_contains "$source_text" 'bash "$ROOT/scripts/build-kernel.sh"'
 assert_contains "$source_text" '--config-fragment "$KERNEL_FRAGMENT"'
 assert_contains "$source_text" '--jobs "$KERNEL_JOBS"'

@@ -36,7 +36,7 @@ KNOWLEDGE_MODELS_DIR = Path(
 ).expanduser()
 MODEL_MANIFEST_NAME = ".openvino-chat-model.json"
 
-DEFAULT_CONTEXT_LENGTH = 16384
+DEFAULT_CONTEXT_LENGTH = 4096
 DEFAULT_AUTO_COMPACT = True
 DEFAULT_DUCK_MODE = False
 GENERATION_EFFORTS = ("low", "medium", "high", "custom")

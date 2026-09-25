@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR=""
-VERSION="0.9.0"
+VERSION="0.9.1"
 DRY_RUN=0
 
 usage() {
@@ -14,7 +14,7 @@ Usage:
   scripts/build-ooonana-core-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER  Package version (default: 0.9.0)
+  --version VER  Package version (default: 0.9.1)
   --dry-run      Print resolved package details
   -h, --help     Show help
 USAGE

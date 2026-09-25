@@ -181,6 +181,19 @@ class SettingsWindow(Gtk.Window):
             1,
             1,
         )
+        grid.attach(
+            self.status_card(
+                "memory",
+                "Memory and swap",
+                "Available RAM, compressed swap, and live storage mode.",
+                "utilities-system-monitor-symbolic",
+                button("Processes", "utilities-system-monitor-symbolic", lambda *_: launch(["ooonana-processes"])),
+            ),
+            0,
+            2,
+            2,
+            1,
+        )
         page.pack_start(grid, False, False, 0)
         quick = card("Quick actions", "Common Ooonana tasks.", "system-run-symbolic")
         quick.pack_start(
@@ -385,6 +398,8 @@ class SettingsWindow(Gtk.Window):
         state = "good" if uid != 0 else "bad"
         self.set_status("session", f"{user} (uid {uid})" + (" - root session" if uid == 0 else " - protected desktop"), state)
         self.set_status("identity", f"User: {user}\nUID: {uid}\nHost: {socket.gethostname()}\nEdition: {read_file('/etc/ooonana/edition', 'full-i3')}", state)
+        memory_rc, memory_text = run(["ooonana-memory", "status"], timeout=3)
+        self.set_status("memory", memory_text or "Memory status unavailable", "good" if memory_rc == 0 and "Swap: 0 MiB" not in memory_text else "warn")
         self.set_status("network", "Checking NetworkManager...", "warn")
         self.set_status("wifi_detail", "Checking Wi-Fi service...", "warn")
         self.set_status("bluetooth", "Checking BlueZ...", "warn")
@@ -447,7 +462,7 @@ class SettingsWindow(Gtk.Window):
     @staticmethod
     def current_wallpaper():
         user_wallpaper = Path.home() / ".config/ooonana/wallpaper"
-        return read_file(user_wallpaper, "/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png")
+        return read_file(user_wallpaper, "/usr/share/ooonana/wallpapers/ooonana-notes.jpg")
 
     @staticmethod
     def current_wallpaper_mode():
@@ -487,7 +502,7 @@ class SettingsWindow(Gtk.Window):
         dialog.destroy()
 
     def default_wallpaper(self, *_args):
-        path = "/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png"
+        path = "/usr/share/ooonana/wallpapers/ooonana-notes.jpg"
         self.wallpaper_mode_combo.set_active_id("fit")
         launch(["ooonana-wallpaper", "--mode", "fit", path])
         self.status_widgets["wallpaper"].set_text(f"{path}\nLayout: fit")

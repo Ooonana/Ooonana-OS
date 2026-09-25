@@ -286,7 +286,8 @@ openvino chat --ctx 16384 --max-new-tokens 4096
 openvino chat --kv-cache u4
 ```
 
-`--ctx` is total prompt plus response capacity. Default is `16384`; Ornith can
+`--ctx` is total prompt plus response capacity. Default is `4096` to reduce
+memory pressure on live USB; Ornith can
 address much more, but very large context is impractical on a 16 GB machine.
 `/max-tokens` sets response ceiling. Old conversation turns are omitted
 automatically when needed, while saved session history stays intact.
@@ -780,6 +781,10 @@ previous successful load. Later loads may still take time because OpenVINO perfo
 device transformations.
 
 For out-of-memory or long-context failures:
+
+On Ooonana live USB, run `ooonana-memory status` first. A RAM-only overlay stores
+downloads in memory; create `OOONANA_PERSIST` and boot persistent mode before
+OpenVINO setup. Zram swap helps pressure but does not replace physical RAM.
 
 1. Use `/kv u4` or `/kv u8`.
 2. Reduce `/ctx`.

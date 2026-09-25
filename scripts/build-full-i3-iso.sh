@@ -208,6 +208,7 @@ Create an extra ext4 partition labeled `OOONANA_PERSIST`.
 Ooonana uses it as the writable live-root overlay, including user files, settings, and packages.
 The persistence partition must be on the same physical USB as Ooonana boot media.
 Normal live mode uses a cleared temporary overlay on that same USB partition when available, then resets it on next boot. It falls back to RAM when no matching USB partition exists.
+Compressed zram swap starts at boot, but it is not extra physical RAM. OpenVINO setup requires persistent live mode and OOONANA_PERSIST; RAM-only live storage cannot hold its runtime and models.
 Installer writes disks only after confirmation.
 EOF
 }

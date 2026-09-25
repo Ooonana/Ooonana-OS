@@ -262,7 +262,7 @@ scrollbar slider:hover { background: @ooonana_accent; }
 tooltip { background: @ooonana_panel; color: @ooonana_fg; border: 1px solid @ooonana_accent; border-radius: 10px; }
 CSS
     xsetroot -solid "$OOONANA_BG" 2>/dev/null || true
-    wallpaper="/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png"
+    wallpaper="/usr/share/ooonana/wallpapers/ooonana-notes.jpg"
     wallpaper_mode="fit"
     if [ -n "${HOME:-}" ] && [ -f "$HOME/.config/ooonana/wallpaper" ]; then
       IFS= read -r saved_wallpaper <"$HOME/.config/ooonana/wallpaper" || saved_wallpaper=""
@@ -2012,7 +2012,7 @@ wallpaper_status() {
   if [ -f "${HOME:-/root}/.config/ooonana/wallpaper" ]; then
     read -r wallpaper <"${HOME:-/root}/.config/ooonana/wallpaper" || wallpaper=""
   else
-    wallpaper="/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png"
+    wallpaper="/usr/share/ooonana/wallpapers/ooonana-notes.jpg"
   fi
   printf '%s\n' "$wallpaper"
 }
@@ -2370,7 +2370,7 @@ height = 40
 offset-x = 1%
 offset-y = 8
 radius = 14
-fixed-center = true
+fixed-center = false
 background = ${colors.background}
 foreground = ${colors.foreground}
 border-size = 1
@@ -2388,14 +2388,42 @@ font-2 = "Font Awesome 6 Free Solid:size=10;2"
 font-3 = "Font Awesome 5 Free Solid:size=10;2"
 font-4 = "Font Awesome 6 Brands:size=10;2"
 font-5 = "Font Awesome 5 Brands:size=10;2"
-modules-left = brand workspaces terminal files windows
-modules-center =
-modules-right = audio brightness battery bluetooth wifi date power
+modules-left = brand workspaces win-min win-full win-close windows
+modules-center = media
+modules-right = memory audio brightness battery bluetooth wifi date power
 tray-position = right
 tray-padding = 2
 wm-restack = i3
 override-redirect = false
 enable-ipc = true
+
+[bar/ooonana-dock]
+width = 36%
+height = 48
+offset-x = 32%
+offset-y = 10
+bottom = true
+radius = 16
+fixed-center = true
+background = ${colors.background}
+foreground = ${colors.foreground}
+border-size = 1
+border-color = ${colors.border}
+padding-left = 2
+padding-right = 2
+module-margin = 2
+separator = ""
+font-0 = "DejaVu Sans:size=11;2"
+font-1 = "Font Awesome 7 Free Solid:size=12;2"
+font-2 = "Font Awesome 6 Free Solid:size=12;2"
+font-3 = "Font Awesome 5 Free Solid:size=12;2"
+font-4 = "Font Awesome 6 Brands:size=12;2"
+font-5 = "Font Awesome 5 Brands:size=12;2"
+modules-left =
+modules-center = launcher terminal browser files editor music processes
+modules-right =
+wm-restack = i3
+override-redirect = false
 
 [module/brand]
 type = custom/text
@@ -2408,7 +2436,7 @@ click-right = ooonana-settings-launch
 
 [module/launcher]
 type = custom/text
-content = Ooonana
+content = 
 content-foreground = ${colors.cool}
 content-background = ${colors.background-alt}
 content-padding = 2
@@ -2460,6 +2488,16 @@ click-right = ooonana-media-control next
 scroll-up = ooonana-media-control volume +5
 scroll-down = ooonana-media-control volume -5
 
+[module/music]
+type = custom/text
+content = 
+content-foreground = ${colors.accent}
+content-background = ${colors.background-alt}
+content-padding = 2
+click-left = ooonana-music
+click-middle = ooonana-media-control play-pause
+click-right = ooonana-media-control next
+
 [module/processes]
 type = custom/text
 content = 
@@ -2472,8 +2510,8 @@ click-right = ooonana-process-kill
 [module/win-close]
 type = custom/text
 content = 
-content-foreground = ${colors.background}
-content-background = ${colors.foreground}
+content-foreground = #ffaaa3
+content-background = ${colors.background-alt}
 content-padding = 2
 click-left = i3-msg kill
 
@@ -2536,6 +2574,16 @@ label-background = ${colors.background}
 label-padding = 2
 click-left = ooonana-window-list --menu
 click-right = ooonana-window-list --close-menu
+
+[module/memory]
+type = custom/script
+exec = ooonana-memory --short
+interval = 5
+label = %output%
+label-foreground = ${colors.foreground}
+label-background = ${colors.background-alt}
+label-padding = 2
+click-left = ooonana-processes
 
 [module/wifi]
 type = custom/script
@@ -3631,6 +3679,13 @@ start_device_manager() {
 start_device_manager
 start_persistence
 
+if command -v ooonana-memory >/dev/null 2>&1; then
+  ooonana-memory start >/var/log/ooonana-memory.log 2>&1 || true
+fi
+if command -v swapon >/dev/null 2>&1; then
+  swapon -a >>/var/log/ooonana-memory.log 2>&1 || true
+fi
+
 capture_audio_boot_state() {
   command -v ooonana-audio-hardware-reprobe >/dev/null 2>&1 || return 0
   (
@@ -3824,7 +3879,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   version_output="$(/usr/bin/ooonana version 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.0' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.1' &&
     printf '%s\n' "$installed_output" | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else

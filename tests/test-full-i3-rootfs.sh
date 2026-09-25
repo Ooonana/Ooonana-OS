@@ -148,7 +148,7 @@ EOF
 chmod +x "$scratch/bin/busybox"
 cat > "$scratch/usr/bin/ooonana" <<'EOF'
 #!/bin/sh
-echo ooonana 0.9.0
+echo ooonana 0.9.1
 EOF
 chmod +x "$scratch/usr/bin/ooonana"
 cat > "$scratch/usr/bin/ooonana-setup" <<'EOF'
@@ -306,6 +306,7 @@ fi
 [[ -f "$rootfs/usr/share/ooonana/wallpapers/ooonana-wallpaper.png" ]] || fail "missing rootfs wallpaper"
 [[ -f "$rootfs/usr/share/ooonana/wallpapers/ooonana-notes.jpg" ]] || fail "missing Notes rootfs wallpaper"
 [[ -f "$rootfs/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png" ]] || fail "missing 0.9 rootfs wallpaper"
+[[ -x "$rootfs/usr/bin/ooonana-memory" ]] || fail "missing memory helper"
 assert_contains "$(<"$rootfs/etc/gtk-3.0/settings.ini")" "gtk-decoration-layout=menu:minimize,maximize,close"
 [[ -f "$rootfs/etc/i3/config" ]] || fail "missing rootfs i3 config"
 [[ -f "$rootfs/etc/ooonana/polybar.ini" ]] || fail "missing polybar config"
@@ -878,11 +879,16 @@ assert_contains "$polybar_cfg" "click-left = i3-msg move scratchpad"
 assert_contains "$polybar_cfg" "click-right = i3-msg scratchpad show"
 assert_contains "$polybar_cfg" "[module/win-full]"
 assert_contains "$polybar_cfg" "click-left = i3-msg fullscreen toggle"
-assert_contains "$polybar_cfg" "modules-left = brand workspaces terminal files windows"
+assert_contains "$polybar_cfg" "modules-left = brand workspaces win-min win-full win-close windows"
+assert_contains "$polybar_cfg" "modules-center = media"
+assert_contains "$polybar_cfg" "[bar/ooonana-dock]"
+assert_contains "$polybar_cfg" "modules-center = launcher terminal browser files editor music processes"
+assert_contains "$polybar_cfg" "[module/music]"
+assert_contains "$polybar_cfg" "[module/memory]"
 assert_contains "$polybar_cfg" "[module/windows]"
 assert_contains "$polybar_cfg" "exec = ooonana-window-list"
 assert_contains "$polybar_cfg" "click-right = ooonana-window-list --close-menu"
-assert_contains "$polybar_cfg" "modules-right = audio brightness battery bluetooth wifi date power"
+assert_contains "$polybar_cfg" "modules-right = memory audio brightness battery bluetooth wifi date power"
 assert_contains "$polybar_cfg" "exec = ooonana-audio-status"
 assert_contains "$polybar_cfg" "exec = ooonana-wifi-status"
 assert_contains "$polybar_cfg" "exec = ooonana-bluetooth-status"
@@ -1063,6 +1069,8 @@ assert_contains "$rcs" "mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /dev/shm"
 assert_contains "$rcs" "ln -s /run /var/run"
 assert_contains "$rcs" "read -r host </etc/hostname"
 assert_contains "$rcs" "start_device_manager()"
+assert_contains "$rcs" 'ooonana-memory start >/var/log/ooonana-memory.log'
+assert_contains "$rcs" 'swapon -a >>/var/log/ooonana-memory.log'
 assert_contains "$rcs" "udevd --daemon"
 assert_contains "$rcs" "udevadm trigger"
 assert_contains "$rcs" "udevadm settle"

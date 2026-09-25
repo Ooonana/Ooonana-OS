@@ -1,0 +1,70 @@
+#!/bin/sh
+set -eu
+
+meminfo="${OOONANA_MEMORY_MEMINFO:-/proc/meminfo}"
+value_kb() {
+  awk -v key="$1:" '$1 == key { print $2; exit }' "$meminfo" 2>/dev/null
+}
+
+total_kb="$(value_kb MemTotal)"
+available_kb="$(value_kb MemAvailable)"
+[ -n "$available_kb" ] || available_kb="$(value_kb MemFree)"
+swap_total_kb="$(value_kb SwapTotal)"
+swap_free_kb="$(value_kb SwapFree)"
+[ -n "$available_kb" ] || available_kb=0
+[ -n "$swap_total_kb" ] || swap_total_kb=0
+[ -n "$swap_free_kb" ] || swap_free_kb=0
+case "$total_kb:$available_kb:$swap_total_kb:$swap_free_kb" in
+  *[!0-9:]*|:*|0:*) echo 'ooonana-memory: memory information unavailable' >&2; exit 1 ;;
+esac
+
+size_mib=$((total_kb / 2048))
+[ "$size_mib" -ge 128 ] || size_mib=128
+[ "$size_mib" -le 8192 ] || size_mib=8192
+
+case "${1:-status}" in
+  --short)
+    used_percent=$(((total_kb - available_kb) * 100 / total_kb))
+    [ "$used_percent" -ge 0 ] || used_percent=0
+    printf 'RAM %s%%\n' "$used_percent"
+    ;;
+  status)
+    overlay="$(cat /mnt/ooonana-live/persistence-mode 2>/dev/null || true)"
+    [ -n "$overlay" ] || overlay=installed
+    printf 'RAM: %s MiB total, %s MiB available\n' "$((total_kb / 1024))" "$((available_kb / 1024))"
+    printf 'Swap: %s MiB total, %s MiB free\n' "$((swap_total_kb / 1024))" "$((swap_free_kb / 1024))"
+    printf 'Live storage: %s\n' "$overlay"
+    ;;
+  --dry-run)
+    printf 'zram size: %s MiB (half RAM, max 8192 MiB)\n' "$size_mib"
+    ;;
+  start)
+    [ "$(id -u)" -eq 0 ] || { echo 'ooonana-memory: root required' >&2; exit 1; }
+    if grep -q '^/dev/zram0[[:space:]]' /proc/swaps 2>/dev/null; then
+      echo 'OOONANA_ZRAM_ALREADY_ACTIVE'
+      exit 0
+    fi
+    [ -e /sys/block/zram0/disksize ] || modprobe zram 2>/dev/null || true
+    [ -e /sys/block/zram0/disksize ] || {
+      echo 'ooonana-memory: zram unavailable; kernel needs CONFIG_ZRAM=y' >&2
+      exit 1
+    }
+    [ "$(cat /sys/block/zram0/disksize)" = 0 ] || {
+      echo 'ooonana-memory: zram0 already configured; leaving untouched' >&2
+      exit 1
+    }
+    if [ -w /sys/block/zram0/comp_algorithm ] &&
+      grep -qw lz4 /sys/block/zram0/comp_algorithm; then
+      printf 'lz4\n' >/sys/block/zram0/comp_algorithm
+    fi
+    printf '%sM\n' "$size_mib" >/sys/block/zram0/disksize
+    if [ ! -b /dev/zram0 ] && command -v mdev >/dev/null 2>&1; then
+      mdev -s 2>/dev/null || true
+    fi
+    [ -b /dev/zram0 ] || { echo 'ooonana-memory: /dev/zram0 missing' >&2; exit 1; }
+    mkswap -L OOONANA_ZRAM /dev/zram0 >/dev/null
+    swapon -p 100 /dev/zram0
+    printf 'OOONANA_ZRAM_READY %s MiB\n' "$size_mib"
+    ;;
+  *) echo 'usage: ooonana-memory [status|--short|--dry-run|start]' >&2; exit 2 ;;
+esac

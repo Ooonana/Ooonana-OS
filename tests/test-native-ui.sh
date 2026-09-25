@@ -69,6 +69,8 @@ assert_contains "$common" "button:disabled"
 assert_contains "$common" "textview text"
 assert_contains "$common" "progressbar progress"
 assert_contains "$settings" "Desktop runs without root privileges"
+assert_contains "$settings" '"Memory and swap"'
+assert_contains "$settings" 'run(["ooonana-memory", "status"]'
 assert_contains "$settings" "ooonana-wifi-panel"
 assert_contains "$settings" "ooonana-bluetooth-panel"
 assert_contains "$settings" "Fit height / black bars"

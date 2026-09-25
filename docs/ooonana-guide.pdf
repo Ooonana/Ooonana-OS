@@ -34,7 +34,7 @@ T*
 T*
 () Tj
 T*
-(Ooonana OS 0.9.0 field guide) Tj
+(Ooonana OS 0.9.1 field guide) Tj
 T*
 () Tj
 T*
@@ -117,7 +117,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>
 endobj
 6 0 obj
-<< /Length 2299 >>
+<< /Length 2436 >>
 stream
 BT
 /F1 10 Tf
@@ -181,11 +181,13 @@ T*
 T*
 (The i3 desktop uses solid graphite and orange styling, rounded controls, smooth page) Tj
 T*
-(transitions, a compact panel, media playback, audio, brightness, power, Wi-Fi,) Tj
+(transitions, a top panel with window and music controls, an app dock, audio,) Tj
 T*
-(Bluetooth, and wallpaper modes. Default fit mode preserves aspect ratio with solid) Tj
+(brightness, power, Wi-Fi, Bluetooth, and wallpaper modes.) Tj
 T*
-(side bars.) Tj
+(Live USB starts compressed zram swap. OpenVINO setup requires persistent USB storage) Tj
+T*
+(or an installed system; RAM-only live storage cannot hold its runtime and models.) Tj
 T*
 (Wi-Fi supports personal and enterprise profiles. NetworkManager, BlueZ, D-Bus, Intel) Tj
 T*
@@ -224,9 +226,9 @@ xref
 0000000195 00000 n 
 0000002174 00000 n 
 0000002300 00000 n 
-0000004651 00000 n 
+0000004788 00000 n 
 trailer
 << /Size 8 /Root 1 0 R >>
 startxref
-4777
+4914
 %%EOF

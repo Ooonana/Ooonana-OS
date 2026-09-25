@@ -41,6 +41,25 @@ if [ "$DRY_RUN" -eq 1 ]; then
   exit 0
 fi
 
+live_mode_file="${OOONANA_LIVE_MODE_FILE:-/mnt/ooonana-live/persistence-mode}"
+live_mode="$(cat "$live_mode_file" 2>/dev/null || true)"
+case "$live_mode" in
+  ram|usb-temporary)
+    if [ "${OOONANA_OPENVINO_ALLOW_VOLATILE:-0}" != 1 ]; then
+      printf 'openvino setup: live storage is %s; runtime and models would fill RAM or vanish on reboot.\n' "$live_mode" >&2
+      printf 'Create an OOONANA_PERSIST ext4 partition and boot Persistent USB mode, or install Ooonana to disk.\n' >&2
+      exit 1
+    fi
+    printf 'openvino setup: WARNING: volatile live storage (%s)\n' "$live_mode" >&2
+    ;;
+esac
+
+available_kb="$(awk '$1 == "MemAvailable:" { print $2; exit }' /proc/meminfo 2>/dev/null || true)"
+swap_free_kb="$(awk '$1 == "SwapFree:" { print $2; exit }' /proc/meminfo 2>/dev/null || true)"
+if [ -n "$available_kb" ] && [ "$((available_kb + ${swap_free_kb:-0}))" -lt 4194304 ]; then
+  printf 'openvino setup: WARNING: less than 4 GiB RAM plus free swap available; large models may not load.\n' >&2
+fi
+
 [ "$(uname -m)" = x86_64 ] || {
   printf 'openvino setup: x86_64 Intel systems only\n' >&2
   exit 1

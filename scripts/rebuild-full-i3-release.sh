@@ -177,10 +177,11 @@ refresh_cached_kernel() {
   (( available_kb >= KERNEL_MIN_FREE_KB )) ||
     die "need at least 20 GiB free for kernel work: $KERNEL_WORK_DIR"
 
-  bash "$ROOT/scripts/fetch-kernel-source.sh" \
-    --work-dir "$KERNEL_WORK_DIR" \
-    --version "$KERNEL_SOURCE_VERSION" \
-    --force
+  fetch_args=(--work-dir "$KERNEL_WORK_DIR" --version "$KERNEL_SOURCE_VERSION" --force)
+  if [[ -s "$BUILD_DIR/linux-$KERNEL_SOURCE_VERSION.tar.xz" ]]; then
+    fetch_args+=(--tarball "$BUILD_DIR/linux-$KERNEL_SOURCE_VERSION.tar.xz")
+  fi
+  bash "$ROOT/scripts/fetch-kernel-source.sh" "${fetch_args[@]}"
   bash "$ROOT/scripts/build-kernel.sh" \
     --work-dir "$KERNEL_WORK_DIR" \
     --config-fragment "$KERNEL_FRAGMENT" \

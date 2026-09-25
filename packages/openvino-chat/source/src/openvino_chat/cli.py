@@ -1809,7 +1809,7 @@ def _parser() -> argparse.ArgumentParser:
     chat_parser = subparsers.add_parser("chat")
     chat_parser.add_argument("prompt", nargs="*")
     chat_parser.add_argument("--device", default="GPU", choices=["GPU", "CPU"])
-    chat_parser.add_argument("--max-new-tokens", type=int, default=4096)
+    chat_parser.add_argument("--max-new-tokens", type=int, default=2048)
     chat_parser.add_argument("--ctx", "--context-length", dest="context_length", type=int, default=None)
     chat_parser.add_argument("--temperature", type=float, default=None)
     chat_parser.add_argument("--top-p", type=float, default=None)

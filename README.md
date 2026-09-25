@@ -738,6 +738,8 @@ Persistence label: OOONANA_PERSIST
 
 For Rufus/native USB, flash the ISO normally, then add an ext4 persistence partition labeled `OOONANA_PERSIST`. Ooonana uses it as the full writable live-root overlay. User files, settings, Wi-Fi, Bluetooth pairings, installed packages, and system changes survive reboot. An internal disk carrying the same label is ignored.
 
+`ooonana-memory status` reports available RAM, swap, and live storage mode. Ooonana starts compressed zram swap at boot (half physical RAM, capped at 8 GiB); it does not silently create a USB swapfile. Zram helps memory pressure but cannot replace physical RAM for a large model. OpenVINO setup on live USB needs the persistent GRUB entry plus `OOONANA_PERSIST`; RAM-only and temporary overlays cannot safely hold its runtime and model files.
+
 ## Rufus USB
 
 Use the full-i3 ISO:

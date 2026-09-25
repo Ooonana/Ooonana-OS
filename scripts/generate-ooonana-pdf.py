@@ -53,7 +53,7 @@ def build_lines() -> list[str]:
     return [
         *logo,
         "",
-        "Ooonana OS 0.9.0 field guide",
+        "Ooonana OS 0.9.1 field guide",
         "",
         "What it is",
         "Ooonana OS is a scratch-built Linux project with its own rootfs, boot flow, installer experiments, WSL export, and custom ooonana package manager.",
@@ -104,7 +104,8 @@ def build_lines() -> list[str]:
         "The full-i3 desktop includes a ChatGPT-style AI workspace, Settings, Wi-Fi, Bluetooth, Packages, and Spotlight-style application launcher.",
         "",
         "Desktop and hardware",
-        "The i3 desktop uses solid graphite and orange styling, rounded controls, smooth page transitions, a compact panel, media playback, audio, brightness, power, Wi-Fi, Bluetooth, and wallpaper modes. Default fit mode preserves aspect ratio with solid side bars.",
+        "The i3 desktop uses solid graphite and orange styling, rounded controls, smooth page transitions, a top panel with window and music controls, an app dock, audio, brightness, power, Wi-Fi, Bluetooth, and wallpaper modes.",
+        "Live USB starts compressed zram swap. OpenVINO setup requires persistent USB storage or an installed system; RAM-only live storage cannot hold its runtime and models.",
         "Wi-Fi supports personal and enterprise profiles. NetworkManager, BlueZ, D-Bus, Intel Wi-Fi/Bluetooth firmware, Chromium, Python 3, sudo, su, and doas are included in full-i3.",
         "",
         "Build proof markers",

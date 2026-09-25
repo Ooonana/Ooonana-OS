@@ -47,6 +47,9 @@ case "${1:-}" in
     printf 'runtime: %s\n' "$runtime_state"
     printf 'bubblewrap: %s\n' "$([ -x /usr/bin/bwrap ] && printf ready || printf missing)"
     printf 'gpu: %s\n' "$([ -d /dev/dri ] && printf detected || printf missing)"
+    if command -v ooonana-memory >/dev/null 2>&1; then
+      ooonana-memory status || true
+    fi
     if [ "$runtime_state" != ready ]; then
       printf 'next: openvino setup\n'
       exit 1

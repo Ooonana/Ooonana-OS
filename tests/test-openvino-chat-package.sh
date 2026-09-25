@@ -31,7 +31,8 @@ settings_text="$(<"$SOURCE/src/openvino_chat/settings.py")"
 pyproject_text="$(<"$SOURCE/pyproject.toml")"
 assert_contains "$source_text" 'choices=["GPU", "CPU"]'
 assert_contains "$settings_text" '"ornith"'
-assert_contains "$pyproject_text" 'version = "0.1.6"'
+assert_contains "$settings_text" 'DEFAULT_CONTEXT_LENGTH = 4096'
+assert_contains "$pyproject_text" 'version = "0.1.7"'
 
 PYTHONPATH="$SOURCE/src" python3 - <<'PY'
 import os
@@ -103,6 +104,16 @@ assert_contains "$launcher_text" "--unshare-uts"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
+printf 'ram\n' >"$tmp/live-mode"
+if setup_rejection="$(OOONANA_LIVE_MODE_FILE="$tmp/live-mode" sh "$PAYLOAD/usr/bin/ooonana-openvino-setup" 2>&1)"; then
+  fail "OpenVINO setup accepted RAM-only live storage"
+fi
+assert_contains "$setup_rejection" 'OOONANA_PERSIST'
+printf 'usb-temporary\n' >"$tmp/live-mode"
+if setup_rejection="$(OOONANA_LIVE_MODE_FILE="$tmp/live-mode" sh "$PAYLOAD/usr/bin/ooonana-openvino-setup" 2>&1)"; then
+  fail "OpenVINO setup accepted temporary live storage"
+fi
+assert_contains "$setup_rejection" 'vanish on reboot'
 mkdir -p "$tmp/state/rootfs"
 touch "$tmp/state/rootfs/.ooonana-openvino-ready"
 if doctor="$(OOONANA_OPENVINO_STATE_DIR="$tmp/state" OOONANA_OPENVINO_PROJECT="$SOURCE" "$PAYLOAD/usr/bin/openvino" doctor)"; then
@@ -111,10 +122,10 @@ fi
 assert_contains "$doctor" "runtime: outdated"
 assert_contains "$doctor" "next: openvino setup"
 assert_contains "$setup_text" 'sha256sum /opt/openvino-chat/pyproject.toml'
-built="$(bash "$BUILDER" --out-dir "$tmp/repo" --version 0.1.6)"
+built="$(bash "$BUILDER" --out-dir "$tmp/repo" --version 0.1.7)"
 assert_contains "$built" "openvino-chat.pkg"
 [[ -f "$tmp/repo/openvino-chat.pkg" ]] || fail "missing package metadata"
-[[ -f "$tmp/repo/archives/openvino-chat-0.1.6.tar.gz" ]] || fail "missing package archive"
+[[ -f "$tmp/repo/archives/openvino-chat-0.1.7.tar.gz" ]] || fail "missing package archive"
 
 metadata="$(<"$tmp/repo/openvino-chat.pkg")"
 assert_contains "$metadata" 'OOONANA_PKG_ID="openvino-chat"'
@@ -122,7 +133,7 @@ assert_contains "$metadata" 'OOONANA_PKG_DEPS="bubblewrap xz curl ca-certificate
 assert_contains "$metadata" "Offline Ooonana AI"
 assert_contains "$metadata" "intel gpu cpu"
 
-contents="$(tar -tzf "$tmp/repo/archives/openvino-chat-0.1.6.tar.gz")"
+contents="$(tar -tzf "$tmp/repo/archives/openvino-chat-0.1.7.tar.gz")"
 [[ "$contents" != *'__pycache__'* ]] || fail "OpenVINO contains Python cache"
 [[ "$contents" != *'.pyc'* ]] || fail "OpenVINO contains Python bytecode"
 assert_contains "$contents" "./usr/bin/openvino"

@@ -55,7 +55,7 @@ EOF
 chmod +x "$rootfs/bin/sh"
 cat > "$rootfs/usr/bin/ooonana" <<'EOF'
 #!/bin/sh
-echo ooonana 0.9.0
+echo ooonana 0.9.1
 EOF
 chmod +x "$rootfs/usr/bin/ooonana"
 printf 'NAME="Ooonana OS"\n' > "$rootfs/etc/os-release"
