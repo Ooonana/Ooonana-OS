@@ -101,8 +101,9 @@ xorriso -osirrox on -indev "$ISO" -extract /RUFUS.md "$tmp/RUFUS.md" >/dev/null 
 need_contains "$tmp/grub.cfg" "terminal_input console serial"
 case "$EDITION" in
   full-i3)
-    need_contains "$tmp/grub.cfg" "ooonana_progress_bar"
-    need_contains "$tmp/grub.cfg" "[#####-----]"
+    need_contains "$tmp/grub.cfg" "function ooonana_boot_hint"
+    need_contains "$tmp/grub.cfg" "function ooonana_show_logo"
+    need_contains "$tmp/grub.cfg" "Arrows choose a mode. Enter boots."
     need_contains "$tmp/grub.cfg" "terminal_output console serial"
     need_contains "$tmp/grub.cfg" "terminal_output gfxterm serial"
     need_contains "$tmp/grub.cfg" "if terminal_output gfxterm serial; then"

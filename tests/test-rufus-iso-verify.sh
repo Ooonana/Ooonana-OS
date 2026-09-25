@@ -40,9 +40,14 @@ fi
 insmod png
 set color_normal=yellow/black
 set color_highlight=black/yellow
-function ooonana_progress_bar {
-  echo '[#####-----] booting Ooonana OS'
+function ooonana_boot_hint {
+  echo 'Arrows choose a mode. Enter boots.'
 }
+function ooonana_show_logo {
+  cat /boot/grub/ooonana-logo.txt
+}
+ooonana_show_logo
+ooonana_boot_hint
 set theme=/boot/grub/theme.txt
 export theme
 set gfxpayload=keep
