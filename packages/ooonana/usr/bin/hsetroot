@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-color="#050505"
+color="#101317"
 image=""
 mode="fit"
 

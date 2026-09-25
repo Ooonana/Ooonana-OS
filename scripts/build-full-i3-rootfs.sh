@@ -161,15 +161,27 @@ load_theme() {
   case "$theme" in
     light)
       OOONANA_THEME="light"
-      OOONANA_BG="#ffb21a"
-      OOONANA_FG="#1b1202"
+      OOONANA_BG="#f5f5f7"
+      OOONANA_FG="#1b1f26"
+      OOONANA_PANEL="#ffffff"
+      OOONANA_PANEL_ALT="#e9edf1"
+      OOONANA_BORDER="#adb7c2"
+      OOONANA_MUTED="#55616e"
+      OOONANA_ENTRY="#ffffff"
+      OOONANA_HOVER="#d8dee6"
       OOONANA_GTK_THEME="Adwaita"
       OOONANA_GTK_DARK="false"
       ;;
     *)
       OOONANA_THEME="dark"
-      OOONANA_BG="#050505"
-      OOONANA_FG="#ffb21a"
+      OOONANA_BG="#101317"
+      OOONANA_FG="#f5f5f7"
+      OOONANA_PANEL="#1b1f26"
+      OOONANA_PANEL_ALT="#272d36"
+      OOONANA_BORDER="#46505c"
+      OOONANA_MUTED="#b4bdc8"
+      OOONANA_ENTRY="#15191f"
+      OOONANA_HOVER="#39414b"
       OOONANA_GTK_THEME="Adwaita:dark"
       OOONANA_GTK_DARK="true"
       ;;
@@ -177,7 +189,7 @@ load_theme() {
   OOONANA_CURSOR="#ffb21a"
   GTK_THEME="$OOONANA_GTK_THEME"
   GDK_BACKEND="${GDK_BACKEND:-x11}"
-  export OOONANA_THEME OOONANA_BG OOONANA_FG OOONANA_CURSOR OOONANA_GTK_THEME OOONANA_GTK_DARK GTK_THEME GDK_BACKEND
+  export OOONANA_THEME OOONANA_BG OOONANA_FG OOONANA_CURSOR OOONANA_PANEL OOONANA_PANEL_ALT OOONANA_BORDER OOONANA_MUTED OOONANA_ENTRY OOONANA_HOVER OOONANA_GTK_THEME OOONANA_GTK_DARK GTK_THEME GDK_BACKEND
 }
 
 load_theme
@@ -222,33 +234,35 @@ SETTINGS
 @define-color ooonana_bg $OOONANA_BG;
 @define-color ooonana_fg $OOONANA_FG;
 @define-color ooonana_accent #ffb21a;
-@define-color ooonana_panel #11161d;
-@define-color ooonana_panel_alt #171e27;
-@define-color ooonana_border #364252;
-@define-color ooonana_muted #9ba5b4;
+@define-color ooonana_panel $OOONANA_PANEL;
+@define-color ooonana_panel_alt $OOONANA_PANEL_ALT;
+@define-color ooonana_border $OOONANA_BORDER;
+@define-color ooonana_muted $OOONANA_MUTED;
+@define-color ooonana_entry $OOONANA_ENTRY;
+@define-color ooonana_hover $OOONANA_HOVER;
 window, dialog, .background { background-color: @ooonana_bg; color: @ooonana_fg; }
-window.background, dialog.background, messagedialog.background { border-radius: 0; }
-headerbar { background: @ooonana_panel; color: @ooonana_accent; border-bottom: 1px solid @ooonana_border; border-radius: 0; padding: 4px 8px; }
+window.background, dialog.background, messagedialog.background { border-radius: 14px; }
+headerbar { background: @ooonana_panel; color: @ooonana_fg; border-bottom: 1px solid @ooonana_border; border-radius: 14px 14px 0 0; padding: 5px 10px; }
 headerbar .title { font-weight: bold; }
 headerbar .subtitle { color: @ooonana_muted; }
-button { background: @ooonana_panel_alt; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 4px; padding: 7px 12px; }
-button:hover { background: #222c38; border-color: @ooonana_accent; }
-button:checked, button.suggested-action { background: @ooonana_accent; color: #080a0d; border-color: @ooonana_accent; }
-entry, textview, treeview, list { background: #0d1117; color: @ooonana_fg; border-color: @ooonana_border; }
-entry { padding: 8px; border-radius: 4px; }
+button { background: @ooonana_panel_alt; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 10px; padding: 8px 14px; transition: background-color 180ms ease-out; }
+button:hover { background: @ooonana_hover; border-color: @ooonana_accent; }
+button:checked, button.suggested-action { background: @ooonana_accent; color: #101317; border-color: @ooonana_accent; }
+entry, textview, treeview, list { background: @ooonana_entry; color: @ooonana_fg; border-color: @ooonana_border; }
+entry { padding: 8px 10px; border-radius: 10px; }
 treeview header button { background: @ooonana_panel_alt; color: @ooonana_accent; }
-treeview:selected, row:selected { background: #283441; color: #ffffff; }
-notebook header { background: #0d1117; }
+treeview:selected, row:selected { background: @ooonana_panel_alt; color: @ooonana_fg; }
+notebook header { background: @ooonana_panel; }
 notebook tab { padding: 8px 14px; }
 notebook tab:checked { color: @ooonana_accent; border-bottom: 2px solid @ooonana_accent; }
 scale highlight { background: @ooonana_accent; }
-scale trough { background: #2a3442; min-height: 6px; border-radius: 3px; }
-scrollbar slider { background: #4d5a69; border-radius: 4px; min-width: 7px; min-height: 7px; }
+scale trough { background: @ooonana_panel_alt; min-height: 6px; border-radius: 6px; }
+scrollbar slider { background: @ooonana_border; border-radius: 6px; min-width: 7px; min-height: 7px; }
 scrollbar slider:hover { background: @ooonana_accent; }
-tooltip { background: @ooonana_panel; color: @ooonana_fg; border: 1px solid @ooonana_accent; }
+tooltip { background: @ooonana_panel; color: @ooonana_fg; border: 1px solid @ooonana_accent; border-radius: 10px; }
 CSS
     xsetroot -solid "$OOONANA_BG" 2>/dev/null || true
-    wallpaper="/usr/share/ooonana/wallpapers/ooonana-notes.jpg"
+    wallpaper="/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png"
     wallpaper_mode="fit"
     if [ -n "${HOME:-}" ] && [ -f "$HOME/.config/ooonana/wallpaper" ]; then
       IFS= read -r saved_wallpaper <"$HOME/.config/ooonana/wallpaper" || saved_wallpaper=""
@@ -333,19 +347,22 @@ gtk-menu-images=1
 EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/root/.config/gtk-3.0/gtk.css" <<'EOF'
-@define-color ooonana_bg #050505;
-@define-color ooonana_fg #f7ead0;
+@define-color ooonana_bg #101317;
+@define-color ooonana_fg #f5f5f7;
 @define-color ooonana_accent #ffb21a;
-@define-color ooonana_panel #11161d;
-@define-color ooonana_border #364252;
+@define-color ooonana_panel #1b1f26;
+@define-color ooonana_panel_alt #272d36;
+@define-color ooonana_border #46505c;
+@define-color ooonana_entry #15191f;
 window, dialog, .background { background-color: @ooonana_bg; color: @ooonana_fg; }
-window.background, dialog.background, messagedialog.background { border-radius: 0; }
-headerbar { background: @ooonana_panel; color: @ooonana_accent; border-bottom: 1px solid @ooonana_border; border-radius: 0; }
-button { background: #171e27; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 4px; padding: 7px 12px; }
-button:hover { background: #222c38; border-color: @ooonana_accent; }
-button:checked, button.suggested-action { background: @ooonana_accent; color: #080a0d; }
-entry, textview, treeview, list { background: #0d1117; color: @ooonana_fg; border-color: @ooonana_border; }
-treeview:selected, row:selected { background: #283441; color: #ffffff; }
+window.background, dialog.background, messagedialog.background { border-radius: 14px; }
+headerbar { background: @ooonana_panel; color: @ooonana_fg; border-bottom: 1px solid @ooonana_border; border-radius: 14px 14px 0 0; }
+button { background: @ooonana_panel_alt; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 10px; padding: 8px 14px; transition: background-color 180ms ease-out; }
+button:hover { background: #39414b; border-color: @ooonana_accent; }
+button:checked, button.suggested-action { background: @ooonana_accent; color: #101317; }
+entry, textview, treeview, list { background: @ooonana_entry; color: @ooonana_fg; border-color: @ooonana_border; }
+entry { padding: 8px 10px; border-radius: 10px; }
+treeview:selected, row:selected { background: @ooonana_panel_alt; color: @ooonana_fg; }
 scale highlight { background: @ooonana_accent; }
 EOF
 }
@@ -1995,7 +2012,7 @@ wallpaper_status() {
   if [ -f "${HOME:-/root}/.config/ooonana/wallpaper" ]; then
     read -r wallpaper <"${HOME:-/root}/.config/ooonana/wallpaper" || wallpaper=""
   else
-    wallpaper="/usr/share/ooonana/wallpapers/ooonana-notes.jpg"
+    wallpaper="/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png"
   fi
   printf '%s\n' "$wallpaper"
 }
@@ -2338,32 +2355,34 @@ EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/polybar.ini" <<'EOF'
 [colors]
-background = #080a0d
-background-alt = #151a21
-foreground = #ffb21a
-accent = #ffd37a
-muted = #7a5014
-urgent = #050505
-cool = #5eb6ff
+background = #1b1f26
+background-alt = #272d36
+foreground = #f5f5f7
+accent = #ffb21a
+muted = #9ca7b6
+urgent = #3b2324
+cool = #9ec3ff
+border = #414957
 
 [bar/ooonana]
-width = 100%
-height = 34
-offset-x = 0
-offset-y = 0
-radius = 0
+width = 98%
+height = 40
+offset-x = 1%
+offset-y = 8
+radius = 14
 fixed-center = true
 background = ${colors.background}
 foreground = ${colors.foreground}
-border-size = 0
+border-size = 1
+border-color = ${colors.border}
 padding-left = 1
 padding-right = 1
-module-margin = 0
-separator = "  "
+module-margin = 1
+separator = ""
 separator-foreground = ${colors.muted}
-line-size = 2
+line-size = 0
 line-color = ${colors.accent}
-font-0 = monospace:size=10;2
+font-0 = "DejaVu Sans:size=10;2"
 font-1 = "Font Awesome 7 Free Solid:size=10;2"
 font-2 = "Font Awesome 6 Free Solid:size=10;2"
 font-3 = "Font Awesome 5 Free Solid:size=10;2"
@@ -2381,7 +2400,7 @@ enable-ipc = true
 [module/brand]
 type = custom/text
 content = Ooonana
-content-foreground = ${colors.foreground}
+content-foreground = ${colors.accent}
 content-background = ${colors.background}
 content-padding = 2
 click-left = ooonana-apps
@@ -2620,25 +2639,26 @@ configuration {
   display-window: "Windows";
 }
 * {
-  background: #050505;
-  background-alt: #0f0c08;
-  foreground: #ffb21a;
-  accent: #ffd37a;
-  muted: #7a5014;
-  selected-normal-background: #ffb21a;
-  selected-normal-foreground: #050505;
-  selected-active-background: #ffd37a;
-  selected-active-foreground: #050505;
-  alternate-normal-background: #111111;
-  urgent: #050505;
-  font: "monospace 11";
+  background: #101317;
+  background-alt: #1b1f26;
+  foreground: #f5f5f7;
+  accent: #ffb21a;
+  muted: #9ca7b6;
+  selected-normal-background: #303640;
+  selected-normal-foreground: #f5f5f7;
+  selected-active-background: #ffb21a;
+  selected-active-foreground: #101317;
+  alternate-normal-background: #171b21;
+  urgent: #3b2324;
+  font: "Sans 11";
 }
 window {
-  width: 48%;
+  width: 52%;
   location: center;
   anchor: center;
-  border: 2px;
-  border-color: #ffb21a;
+  border: 1px;
+  border-color: #46505c;
+  border-radius: 18px;
   background-color: @background;
   padding: 0;
 }
@@ -2646,19 +2666,20 @@ mainbox {
   background-color: @background;
   children: [ inputbar, mode-switcher, listview ];
   spacing: 10px;
-  padding: 18px;
+  padding: 20px;
 }
 inputbar {
-  background-color: @background;
+  background-color: @background-alt;
   text-color: @foreground;
-  border: 0 0 2px 0;
-  border-color: @foreground;
-  padding: 8px;
+  border: 1px;
+  border-color: #46505c;
+  border-radius: 12px;
+  padding: 10px;
   children: [ prompt, textbox-prompt-colon, entry ];
 }
 prompt {
   text-color: @foreground;
-  font: "monospace bold 11";
+  font: "Sans Bold 11";
 }
 textbox-prompt-colon {
   expand: false;
@@ -2681,12 +2702,13 @@ button {
   text-color: @foreground;
   padding: 6px 10px;
   border: 1px;
-  border-color: @muted;
+  border-color: #46505c;
+  border-radius: 9px;
 }
 button selected {
   background-color: @selected-normal-background;
   text-color: @selected-normal-foreground;
-  border-color: @selected-normal-background;
+  border-color: @accent;
 }
 listview {
   background-color: @background;
@@ -2700,8 +2722,9 @@ listview {
 element {
   background-color: @background-alt;
   text-color: @foreground;
-  padding: 8px;
-  margin: 2px 0;
+  padding: 10px;
+  margin: 3px 0;
+  border-radius: 10px;
 }
 element normal.normal {
   background-color: @background-alt;
@@ -2730,7 +2753,7 @@ element-text {
   text-color: inherit;
 }
 scrollbar {
-  width: 4px;
+  width: 6px;
   handle-color: @foreground;
   background-color: @background-alt;
 }
@@ -2741,17 +2764,10 @@ vsync = true;
 use-damage = true;
 unredir-if-possible = true;
 shadow = false;
-shadow-radius = 16;
-shadow-offset-x = -8;
-shadow-offset-y = -8;
-shadow-opacity = 0.36;
 fading = false;
-fade-delta = 6;
-fade-in-step = 0.045;
-fade-out-step = 0.045;
 inactive-opacity = 1.0;
 active-opacity = 1.0;
-corner-radius = 6;
+corner-radius = 14;
 rounded-corners-exclude = [
   "window_type = 'dock'",
   "window_type = 'desktop'"
@@ -2760,22 +2776,22 @@ EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/dunstrc" <<'EOF'
 [global]
-font = monospace 10
+font = Sans 10
 frame_color = "#ffb21a"
 separator_color = "#ffb21a"
-background = "#050505"
-foreground = "#ffb21a"
+background = "#1b1f26"
+foreground = "#f5f5f7"
 origin = top-right
-offset = 20x42
+offset = 20x58
 width = 340
 height = 160
-frame_width = 2
-corner_radius = 6
+frame_width = 1
+corner_radius = 14
 highlight = "#ffb21a"
 [urgency_critical]
-background = "#050505"
-foreground = "#ffb21a"
-frame_color = "#ffb21a"
+background = "#3b2324"
+foreground = "#f5f5f7"
+frame_color = "#ff675c"
 EOF
 }
 
@@ -2974,12 +2990,12 @@ fi
 xterm_theme() {
   case "${OOONANA_THEME:-dark}" in
     light)
-      XTERM_BG="#ffb21a"
-      XTERM_FG="#1b1202"
+      XTERM_BG="#f5f5f7"
+      XTERM_FG="#1b1f26"
       ;;
     *)
-      XTERM_BG="#050505"
-      XTERM_FG="#ffb21a"
+      XTERM_BG="#101317"
+      XTERM_FG="#f5f5f7"
       ;;
   esac
   XTERM_CURSOR="#ffb21a"
@@ -3808,7 +3824,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   version_output="$(/usr/bin/ooonana version 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.8.28' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.0' &&
     printf '%s\n' "$installed_output" | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else
@@ -3853,6 +3869,8 @@ install_branding() {
   install -D -m 0644 "$ROOT/branding/logo.png" "$ROOTFS/usr/share/ooonana/logo.png"
   install -D -m 0644 "$ROOT/branding/wallpaper.svg" "$ROOTFS/usr/share/ooonana/wallpapers/ooonana-wallpaper.svg"
   install -D -m 0644 "$ROOT/branding/wallpaper.png" "$ROOTFS/usr/share/ooonana/wallpapers/ooonana-wallpaper.png"
+  install -D -m 0644 "$ROOT/branding/desktop-0.9.svg" "$ROOTFS/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.svg"
+  install -D -m 0644 "$ROOT/branding/desktop-0.9.png" "$ROOTFS/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/wallpapers/ooonana-notes.jpg" "$ROOTFS/usr/share/ooonana/wallpapers/ooonana-notes.jpg"
   install -D -m 0644 "$ROOT/branding/i3/config" "$ROOTFS/etc/i3/config"
   install -D -m 0644 "$ROOT/branding/i3/config" "$ROOTFS/etc/i3/config.keycodes"
@@ -4213,6 +4231,8 @@ main() {
   [[ -f "$ROOT/branding/logo.png" ]] || ooonana_die "missing branding/logo.png"
   [[ -f "$ROOT/branding/wallpaper.svg" ]] || ooonana_die "missing branding/wallpaper.svg"
   [[ -f "$ROOT/branding/wallpaper.png" ]] || ooonana_die "missing branding/wallpaper.png"
+  [[ -f "$ROOT/branding/desktop-0.9.svg" ]] || ooonana_die "missing branding/desktop-0.9.svg"
+  [[ -f "$ROOT/branding/desktop-0.9.png" ]] || ooonana_die "missing branding/desktop-0.9.png"
   [[ -f "$ROOT/branding/i3/config" ]] || ooonana_die "missing branding/i3/config"
   if [[ ! -s "$REPO/index.tsv" || ! -s "$REPO/SHA256SUMS" ]]; then
     ooonana_log "package repository metadata missing; indexing $REPO"

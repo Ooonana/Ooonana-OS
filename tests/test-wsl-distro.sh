@@ -23,6 +23,7 @@ assert_contains() {
 assert_contains "$(<"$UPDATE_SCRIPT")" 'packages/ooonana/usr/bin/*'
 assert_contains "$(<"$UPDATE_SCRIPT")" 'packages/ooonana/usr/lib/ooonana/ui/*.py'
 assert_contains "$(<"$UPDATE_SCRIPT")" 'packages/ooonana/usr/share/ooonana/wallpapers/*'
+assert_contains "$(<"$UPDATE_SCRIPT")" 'branding/desktop-0.9.png'
 assert_contains "$(<"$UPDATE_SCRIPT")" 'packages/ooonana/etc/gtk-3.0/settings.ini'
 assert_contains "$(<"$UPDATE_SCRIPT")" 'doas-6.8.2-r7.apk'
 assert_contains "$(<"$UPDATE_SCRIPT")" 'refusing non-Ooonana distro'

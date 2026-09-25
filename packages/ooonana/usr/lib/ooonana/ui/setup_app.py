@@ -68,6 +68,8 @@ class SetupWindow(Gtk.Window):
 
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_kinetic_scrolling(True)
+        scroll.set_overlay_scrolling(False)
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
         content.set_border_width(20)
         scroll.add(content)
@@ -121,18 +123,23 @@ class SetupWindow(Gtk.Window):
         self.gateway_entry.set_placeholder_text("192.168.1.1")
         self.dns_entry = Gtk.Entry()
         self.dns_entry.set_placeholder_text("1.1.1.1,8.8.8.8")
-        self.static_rows = []
-        for title, widget in (
+        self.static_revealer = Gtk.Revealer()
+        self.static_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_DOWN)
+        self.static_revealer.set_transition_duration(240)
+        static_grid = Gtk.Grid(column_spacing=12, row_spacing=8)
+        for static_row, (title, widget) in enumerate((
             ("Address", self.address_entry),
             ("Gateway", self.gateway_entry),
             ("DNS", self.dns_entry),
-        ):
+        )):
             title_widget = label(title, xalign=1.0, wrap=False)
             title_widget.set_size_request(130, -1)
-            network_grid.attach(title_widget, 0, row, 1, 1)
-            network_grid.attach(widget, 1, row, 1, 1)
-            self.static_rows.extend((title_widget, widget))
-            row += 1
+            widget.set_hexpand(True)
+            static_grid.attach(title_widget, 0, static_row, 1, 1)
+            static_grid.attach(widget, 1, static_row, 1, 1)
+        self.static_revealer.add(static_grid)
+        network_grid.attach(self.static_revealer, 0, row, 2, 1)
+        row += 1
 
         wifi_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         wifi_row.pack_start(
@@ -148,13 +155,13 @@ class SetupWindow(Gtk.Window):
 
         defaults = card(
             "Desktop and updates",
-            "Dark mode uses Ooonana black and sunset orange. Repository metadata stays small.",
+            "Dark mode uses solid graphite and warm orange. Repository metadata stays small.",
             "preferences-desktop-theme-symbolic",
         )
         defaults_grid = Gtk.Grid(column_spacing=12, row_spacing=8)
         self.theme_combo = Gtk.ComboBoxText()
-        self.theme_combo.append("dark", "Dark - black and orange")
-        self.theme_combo.append("light", "Light - orange and ink")
+        self.theme_combo.append("dark", "Dark - graphite and orange")
+        self.theme_combo.append("light", "Light - paper and ink")
         self.theme_combo.set_active_id("dark")
         row = field_row(defaults_grid, 0, "Theme", self.theme_combo)
         self.repo_entry = Gtk.Entry()
@@ -178,9 +185,7 @@ class SetupWindow(Gtk.Window):
         self.connect("destroy", Gtk.main_quit)
 
     def network_changed(self, *_args):
-        visible = self.network_combo.get_active_id() == "static"
-        for widget in self.static_rows:
-            widget.set_visible(visible)
+        self.static_revealer.set_reveal_child(self.network_combo.get_active_id() == "static")
 
     def validate(self):
         user = self.user_entry.get_text().strip()

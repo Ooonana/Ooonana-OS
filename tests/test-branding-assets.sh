@@ -14,6 +14,12 @@ assert_contains() {
   [[ "$haystack" == *"$needle"* ]] || fail "missing: $needle"
 }
 
+assert_not_contains() {
+  local haystack="$1"
+  local needle="$2"
+  [[ "$haystack" != *"$needle"* ]] || fail "unexpected: $needle"
+}
+
 assert_png() {
   local path="$1"
   [[ -f "$path" ]] || fail "missing PNG: $path"
@@ -32,9 +38,11 @@ grub_logo="$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt"
 [[ -f "$grub_logo" ]] || fail "missing GRUB logo"
 assert_png "$ROOT/branding/logo.png"
 assert_png "$ROOT/branding/wallpaper.png"
+assert_png "$ROOT/branding/desktop-0.9.png"
 
 logo="$(<"$logo_svg")"
 wallpaper="$(<"$wallpaper_svg")"
+desktop_wallpaper="$(<"$ROOT/branding/desktop-0.9.svg")"
 config="$(<"$i3_config")"
 grub="$(<"$grub_logo")"
 readme_grub="$(awk '/^```$/ { if (inside) exit; inside=1; next } inside { print }' "$ROOT/README.md")"
@@ -62,6 +70,10 @@ assert_contains "$wallpaper" "black background / orange cursor"
 assert_contains "$wallpaper" "#ffb21a"
 assert_contains "$wallpaper" '      __________________'
 assert_contains "$wallpaper" '  /  |     \______/     | \'
+assert_contains "$desktop_wallpaper" 'viewBox="0 0 1920 1080"'
+assert_contains "$desktop_wallpaper" 'fill="#101317"'
+assert_contains "$desktop_wallpaper" 'stroke="#ffb21a"'
+assert_not_contains "$desktop_wallpaper" 'opacity='
 assert_contains "$config" '# i3 config file (v4)'
 assert_contains "$config" 'set $mod Mod4'
 assert_contains "$config" 'bindsym $mod+Return exec ooonana-theme-env xterm'
@@ -74,8 +86,8 @@ assert_contains "$config" 'picom --backend xrender --config /etc/ooonana/picom.c
 assert_contains "$config" 'dunst -config /etc/ooonana/dunstrc'
 assert_contains "$config" 'xsettingsd -c /etc/ooonana/xsettingsd.conf'
 assert_contains "$config" 'hide_edge_borders none'
-assert_contains "$config" 'default_border normal 2'
-assert_contains "$config" 'default_floating_border normal 2'
+assert_contains "$config" 'default_border normal 1'
+assert_contains "$config" 'default_floating_border normal 1'
 assert_contains "$config" 'class="^OoonanaApp$"'
 assert_contains "$config" 'class="^OoonanaSpotlight$"'
 assert_contains "$config" 'bindsym $mod+r mode "resize"'

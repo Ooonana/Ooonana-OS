@@ -59,9 +59,9 @@ assert_contains "$common" 'window-close-symbolic'
 assert_contains "$common" 'OoonanaApp'
 assert_contains "$common" "#ffb21a"
 assert_contains "$common" "window.background"
-assert_contains "$common" "window.background, dialog.background, messagedialog.background { border-radius: 0; }"
+assert_contains "$common" "window.background, dialog.background, messagedialog.background { border-radius: 14px; }"
 assert_contains "$common" "headerbar"
-assert_contains "$common" "border-radius: 0"
+assert_contains "$common" "transition: background-color 180ms ease-out"
 assert_contains "$common" "decoration_layout"
 assert_not_contains "$common" "bar.set_spacing"
 assert_contains "$common" "def flow_row"

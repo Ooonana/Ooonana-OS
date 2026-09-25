@@ -220,7 +220,7 @@ assert_contains "$gitlab_ci" "OOONANA_REPO_SIGN_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_REPO_PUBLIC_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_CORE_VERSION"
-assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.8.28"'
+assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.9.0"'
 assert_contains "$gitlab_ci" "OOONANA_OPENVINO_CHAT_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_URL"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_SHA256"
@@ -373,6 +373,7 @@ tar -tzf "$core_runtime_archive" | grep 'var/lib/ooonana/packages/files/ooonana-
 tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-audio-start' >/dev/null || fail "core runtime missing audio session helper"
 tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-game-launch' >/dev/null || fail "core runtime missing game launcher"
 tar -tzf "$core_runtime_archive" | grep './usr/share/ooonana/wallpapers/ooonana-notes.jpg' >/dev/null || fail "core runtime missing Notes wallpaper"
+tar -tzf "$core_runtime_archive" | grep './usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png' >/dev/null || fail "core runtime missing 0.9 wallpaper"
 tar -tzf "$core_runtime_archive" | grep './etc/gtk-3.0/settings.ini' >/dev/null || fail "core runtime missing GTK window controls"
 [[ "$(tar -tvzf "$core_runtime_archive" ./usr/bin/ooonana-game-launch | awk '{print $1}')" == "-rwxr-xr-x" ]] ||
   fail "core runtime game launcher is not executable"
@@ -409,7 +410,7 @@ core_upgrade="$(OOONANA_REPO_DIR="$tmp/repo" \
 assert_contains "$core_upgrade" "installed ooonana-core-runtime"
 assert_contains "$core_upgrade" "upgraded ooonana-core 0.8.1"
 [[ -x "$core_upgrade_root/usr/bin/ooonana" ]] || fail "core migration removed upgraded CLI"
-assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.8.28"
+assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.9.0"
 assert_contains "$(<"$tmp/repo/cloud.repo")" 'OOONANA_REPO_URI="https://example.test/repo"'
 assert_contains "$(<"$tmp/repo/README.txt")" "ooonana update"
 

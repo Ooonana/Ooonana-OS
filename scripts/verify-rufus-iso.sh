@@ -124,18 +124,21 @@ if grep -qF 'set theme=/boot/grub/theme.txt' "$tmp/grub.cfg"; then
   need_contains "$tmp/theme.txt" "+ progress_bar"
   need_contains "$tmp/theme.txt" 'id = "__timeout__"'
   need_contains "$tmp/theme.txt" 'fg_color = "#ffb21a"'
-  need_contains "$tmp/theme.txt" 'bg_color = "#050505"'
   if [[ "$EDITION" == "full-i3" ]]; then
     need_contains "$tmp/grub.cfg" "set timeout_style=menu"
     need_contains "$tmp/theme.txt" 'desktop-image: "/boot/grub/background.png"'
-    need_contains "$tmp/theme.txt" 'item_color = "#ffb21a"'
-    need_contains "$tmp/theme.txt" 'selected_item_color = "#ffd37a"'
+    need_contains "$tmp/theme.txt" 'desktop-image-scale-method: "stretch"'
+    need_contains "$tmp/theme.txt" 'bg_color = "#343b46"'
+    need_contains "$tmp/theme.txt" 'item_color = "#b4bdc8"'
+    need_contains "$tmp/theme.txt" 'selected_item_color = "#ffb21a"'
     need_contains "$tmp/theme.txt" 'id = "ooonana-logo-1"'
     need_contains "$tmp/theme.txt" 'id = "ooonana-logo-8"'
     need_contains "$tmp/theme.txt" 'visible = true'
     need_contains "$tmp/theme.txt" 'item_font = "Unifont Regular 16"'
     need_contains "$tmp/theme.txt" 'scrollbar = false'
     [[ -s "$tmp/background.png" ]] || fail "GRUB theme background missing or empty"
+  else
+    need_contains "$tmp/theme.txt" 'bg_color = "#050505"'
   fi
   done_item "GRUB timeout progress bar"
 fi

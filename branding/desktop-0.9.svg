@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc">
+  <title id="title">Ooonana OS wallpaper</title>
+  <desc id="desc">Opaque graphite desktop with soft nested forms and a warm orange accent.</desc>
+  <rect id="ooonana-desktop" width="1920" height="1080" fill="#101317"/>
+  <circle cx="1460" cy="510" r="446" fill="#171b21"/>
+  <circle cx="1460" cy="510" r="354" fill="#272d36"/>
+  <circle cx="1460" cy="510" r="260" fill="#1b1f26"/>
+  <path d="M1130 210 A446 446 0 0 1 1856 504" fill="none" stroke="#ffb21a" stroke-width="26" stroke-linecap="round"/>
+  <path d="M1240 866 A354 354 0 0 0 1798 598" fill="none" stroke="#46505c" stroke-width="24" stroke-linecap="round"/>
+  <circle cx="1460" cy="510" r="92" fill="#101317"/>
+  <circle cx="1460" cy="510" r="25" fill="#ffb21a"/>
+  <rect x="144" y="311" width="9" height="114" rx="4" fill="#ffb21a"/>
+  <text x="190" y="398" fill="#f5f5f7" font-family="DejaVu Sans, Sans" font-size="92" font-weight="700">Ooonana</text>
+  <text x="194" y="454" fill="#b4bdc8" font-family="DejaVu Sans, Sans" font-size="28" letter-spacing="6">OS</text>
+  <rect x="144" y="838" width="270" height="60" rx="30" fill="#272d36"/>
+  <circle cx="176" cy="868" r="7" fill="#ffb21a"/>
+  <text x="202" y="877" fill="#f5f5f7" font-family="DejaVu Sans, Sans" font-size="24" font-weight="600">CORE 0.9</text>
+</svg>

@@ -68,12 +68,12 @@ shell_escape() {
 xterm_theme() {
   case "${OOONANA_THEME:-dark}" in
     light)
-      XTERM_BG="#ffb21a"
-      XTERM_FG="#1b1202"
+      XTERM_BG="#f5f5f7"
+      XTERM_FG="#1b1f26"
       ;;
     *)
-      XTERM_BG="#050505"
-      XTERM_FG="#ffb21a"
+      XTERM_BG="#101317"
+      XTERM_FG="#f5f5f7"
       ;;
   esac
   XTERM_CURSOR="#ffb21a"

@@ -24,8 +24,8 @@ assert_contains "$setup_src" "OOONANA_SETUP_GUI_OK"
 assert_contains "$setup_src" "controls: account password network wifi theme cloud-repo"
 assert_contains "$setup_src" 'xterm -title "Ooonana Setup"'
 assert_contains "$setup_src" 'OOONANA_THEME:-dark'
-assert_contains "$setup_src" 'XTERM_BG="#050505"'
-assert_contains "$setup_src" 'XTERM_BG="#ffb21a"'
+assert_contains "$setup_src" 'XTERM_BG="#101317"'
+assert_contains "$setup_src" 'XTERM_BG="#f5f5f7"'
 assert_contains "$setup_src" '-cr "$XTERM_CURSOR"'
 assert_not_contains() {
   local haystack="$1"

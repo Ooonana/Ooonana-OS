@@ -88,8 +88,9 @@ assert_contains "$script_src" "terminal_output gfxterm serial"
 assert_contains "$script_src" "Arrows choose a mode. Enter boots."
 assert_contains "$script_src" "set color_normal=yellow/black"
 assert_contains "$script_src" "set color_highlight=black/yellow"
-assert_contains "$script_src" 'title-color: "#ffb21a"'
-assert_contains "$script_src" 'message-color: "#ffb21a"'
+assert_contains "$script_src" 'title-color: "#f5f5f7"'
+assert_contains "$script_src" 'desktop-color: "#101317"'
+assert_contains "$script_src" 'message-color: "#f5f5f7"'
 assert_not_contains "$script_src" "selected-item-color"
 assert_not_contains "$script_src" "selected-item-background-color"
 assert_not_contains "$script_src" "item-color"

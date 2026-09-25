@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" role="img" aria-labelledby="title desc">
+  <title id="title">Ooonana OS boot background</title>
+  <desc id="desc">Solid graphite backdrop with rounded startup panel and warm Ooonana accent.</desc>
+  <rect width="1280" height="800" fill="#101317"/>
+  <rect x="72" y="60" width="1136" height="680" rx="32" fill="#1b1f26" stroke="#414957" stroke-width="2"/>
+  <rect x="112" y="96" width="8" height="72" rx="4" fill="#ffb21a"/>
+  <rect x="112" y="265" width="1056" height="2" fill="#343b46"/>
+  <rect x="112" y="608" width="1056" height="2" fill="#343b46"/>
+  <rect x="112" y="669" width="1056" height="56" rx="18" fill="#272d36"/>
+  <circle cx="1148" cy="130" r="8" fill="#ffb21a"/>
+</svg>

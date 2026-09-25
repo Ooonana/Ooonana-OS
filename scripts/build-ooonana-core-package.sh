@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR=""
-VERSION="0.8.28"
+VERSION="0.9.0"
 DRY_RUN=0
 
 usage() {
@@ -14,7 +14,7 @@ Usage:
   scripts/build-ooonana-core-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER  Package version (default: 0.8.28)
+  --version VER  Package version (default: 0.9.0)
   --dry-run      Print resolved package details
   -h, --help     Show help
 USAGE
@@ -86,6 +86,8 @@ chmod 0755 "$staging/usr/lib/ooonana/oonana_game.py"
 mkdir -p "$staging/etc/i3"
 install -m 0644 "$ROOT/branding/i3/config" "$staging/etc/i3/config"
 install -m 0644 "$ROOT/branding/i3/config" "$staging/etc/i3/config.keycodes"
+install -D -m 0644 "$ROOT/branding/desktop-0.9.svg" "$staging/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.svg"
+install -D -m 0644 "$ROOT/branding/desktop-0.9.png" "$staging/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png"
 for helper in \
   ooonana-theme-env ooonana-open ooonana-apps ooonana-run-admin \
   ooonana-browser ooonana-files ooonana-hardware-reprobe \

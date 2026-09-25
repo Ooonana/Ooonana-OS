@@ -173,6 +173,7 @@ def main() -> int:
         "/var/lib/dbus/machine-id",
         "/usr/share/ooonana/logo.png",
         "/usr/share/ooonana/wallpapers/ooonana-wallpaper.png",
+        "/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png",
         "/usr/share/ooonana/wallpapers/ooonana-notes.jpg",
     )
     for path in required_files:

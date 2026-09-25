@@ -1,6 +1,6 @@
 # i3 config file (v4)
 set $mod Mod4
-font pango:monospace 10
+font pango:Sans 10
 
 floating_modifier $mod
 tiling_drag modifier titlebar
@@ -8,8 +8,8 @@ focus_follows_mouse yes
 mouse_warping none
 workspace_layout default
 hide_edge_borders none
-default_border normal 2
-default_floating_border normal 2
+default_border normal 1
+default_floating_border normal 1
 for_window [class="Yad"] floating enable
 for_window [class="^OoonanaApp$"] floating enable, border normal 2, move position center
 for_window [class="^OoonanaSpotlight$"] floating enable, border normal 2, resize set 760 520, move position center
@@ -94,7 +94,7 @@ mode "resize" {
 }
 bindsym $mod+r mode "resize"
 
-client.focused #ffb21a #1d1207 #fff0c7 #ffb21a #ffb21a
-client.unfocused #1d1207 #050505 #ffd37a #1d1207 #1d1207
-client.focused_inactive #281604 #0b1012 #ffd37a #281604 #281604
-client.urgent #ff4d2e #281604 #fff0c7 #ff4d2e #ff4d2e
+client.focused #ffb21a #1b1f26 #f5f5f7 #ffb21a #ffb21a
+client.unfocused #414957 #101317 #b4bdc8 #414957 #414957
+client.focused_inactive #414957 #171b21 #b4bdc8 #414957 #414957
+client.urgent #ff675c #3b2324 #f5f5f7 #ff675c #ff675c

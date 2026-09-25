@@ -10,7 +10,7 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Courier >>
 endobj
 4 0 obj
-<< /Length 1928 >>
+<< /Length 1927 >>
 stream
 BT
 /F1 10 Tf
@@ -34,7 +34,7 @@ T*
 T*
 () Tj
 T*
-(Ooonana OS 0.8.19 field guide) Tj
+(Ooonana OS 0.9.0 field guide) Tj
 T*
 () Tj
 T*
@@ -117,7 +117,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>
 endobj
 6 0 obj
-<< /Length 2239 >>
+<< /Length 2299 >>
 stream
 BT
 /F1 10 Tf
@@ -127,9 +127,9 @@ BT
 T*
 (USB live modes) Tj
 T*
-(Normal live mode mounts ISO and rootfs read-only; session writes stay in RAM and) Tj
+(Normal live mode mounts ISO and rootfs read-only. It uses a cleared temporary overlay) Tj
 T*
-(vanish at shutdown.) Tj
+(on OOONANA_PERSIST when available on the same boot USB, with RAM fallback.) Tj
 T*
 (Persistent live mode accepts only an ext4 OOONANA_PERSIST partition on the same) Tj
 T*
@@ -179,11 +179,11 @@ T*
 T*
 (Desktop and hardware) Tj
 T*
-(The i3 desktop uses black/orange Ooonana styling, explicit close/minimize/fullscreen) Tj
+(The i3 desktop uses solid graphite and orange styling, rounded controls, smooth page) Tj
 T*
-(controls, icon-first polybar, media playback, audio, brightness, power, Wi-Fi,) Tj
+(transitions, a compact panel, media playback, audio, brightness, power, Wi-Fi,) Tj
 T*
-(Bluetooth, and wallpaper modes. Default fit mode preserves aspect ratio with black) Tj
+(Bluetooth, and wallpaper modes. Default fit mode preserves aspect ratio with solid) Tj
 T*
 (side bars.) Tj
 T*
@@ -222,11 +222,11 @@ xref
 0000000064 00000 n 
 0000000127 00000 n 
 0000000195 00000 n 
-0000002175 00000 n 
-0000002301 00000 n 
-0000004592 00000 n 
+0000002174 00000 n 
+0000002300 00000 n 
+0000004651 00000 n 
 trailer
 << /Size 8 /Root 1 0 R >>
 startxref
-4718
+4777
 %%EOF

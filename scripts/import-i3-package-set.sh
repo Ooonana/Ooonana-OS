@@ -99,6 +99,8 @@ build_branding_archive() {
   install -m 0644 "$ROOT/branding/logo.png" "$payload/usr/share/ooonana/logo.png"
   install -m 0644 "$ROOT/branding/wallpaper.svg" "$payload/usr/share/ooonana/wallpapers/ooonana-wallpaper.svg"
   install -m 0644 "$ROOT/branding/wallpaper.png" "$payload/usr/share/ooonana/wallpapers/ooonana-wallpaper.png"
+  install -m 0644 "$ROOT/branding/desktop-0.9.svg" "$payload/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.svg"
+  install -m 0644 "$ROOT/branding/desktop-0.9.png" "$payload/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png"
   install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/wallpapers/ooonana-notes.jpg" "$payload/usr/share/ooonana/wallpapers/ooonana-notes.jpg"
   install -m 0644 "$ROOT/branding/i3/config" "$payload/etc/i3/config"
   tar \
@@ -122,6 +124,8 @@ main() {
   [[ -f "$ROOT/branding/logo.png" ]] || ooonana_die "missing branding/logo.png"
   [[ -f "$ROOT/branding/wallpaper.svg" ]] || ooonana_die "missing branding/wallpaper.svg"
   [[ -f "$ROOT/branding/wallpaper.png" ]] || ooonana_die "missing branding/wallpaper.png"
+  [[ -f "$ROOT/branding/desktop-0.9.svg" ]] || ooonana_die "missing branding/desktop-0.9.svg"
+  [[ -f "$ROOT/branding/desktop-0.9.png" ]] || ooonana_die "missing branding/desktop-0.9.png"
   [[ -f "$ROOT/branding/i3/config" ]] || ooonana_die "missing branding/i3/config"
   mkdir -p "$OUT_DIR"
   [[ -n "$I3_PACKAGES" ]] || I3_PACKAGES="$(load_default_packages)"

@@ -108,10 +108,10 @@ write_grub_config() {
   fi
   cat > "$target/boot/grub/theme.txt" <<'EOF'
 title-text: "Ooonana OS"
-title-color: "#ffb21a"
-desktop-color: "#050505"
+title-color: "#f5f5f7"
+desktop-color: "#101317"
 terminal-font: "Unifont Regular 16"
-message-color: "#ffb21a"
+message-color: "#f5f5f7"
 EOF
   cat > "$target/boot/grub/grub.cfg" <<EOF
 insmod all_video

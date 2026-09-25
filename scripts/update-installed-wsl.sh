@@ -97,6 +97,8 @@ for source in "$ROOT"/packages/ooonana/usr/share/ooonana/wallpapers/*; do
   [ -f "$source" ] || continue
   install -m 0644 "$source" "/usr/share/ooonana/wallpapers/${source##*/}"
 done
+install -m 0644 "$ROOT/branding/desktop-0.9.svg" /usr/share/ooonana/wallpapers/ooonana-desktop-0.9.svg
+install -m 0644 "$ROOT/branding/desktop-0.9.png" /usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png
 install -m 0644 \
   "$ROOT/packages/ooonana/var/lib/ooonana/packages/installed/ooonana-core.pkg" \
   /var/lib/ooonana/packages/installed/ooonana-core.pkg

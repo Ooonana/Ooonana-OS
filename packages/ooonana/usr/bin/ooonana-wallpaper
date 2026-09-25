@@ -32,7 +32,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 if [ -z "$wallpaper" ]; then
-  wallpaper="/usr/share/ooonana/wallpapers/ooonana-notes.jpg"
+  wallpaper="/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png"
   if [ -f "$config_dir/wallpaper" ]; then
     IFS= read -r saved <"$config_dir/wallpaper" || saved=""
     [ -n "$saved" ] && wallpaper="$saved"
@@ -70,7 +70,7 @@ if command -v hsetroot >/dev/null 2>&1; then
   exec hsetroot "-$mode" "$wallpaper"
 fi
 if command -v feh >/dev/null 2>&1; then
-  command -v xsetroot >/dev/null 2>&1 && xsetroot -solid '#050505' 2>/dev/null || true
+  command -v xsetroot >/dev/null 2>&1 && xsetroot -solid '#101317' 2>/dev/null || true
   case "$mode" in
     fit) exec feh --bg-max "$wallpaper" ;;
     fill) exec feh --bg-fill "$wallpaper" ;;

@@ -146,7 +146,7 @@ class AiWindow(Gtk.Window):
             "user", foreground="#ffb21a", weight=700, pixels_above_lines=10
         )
         self.ai_tag = buffer.create_tag(
-            "assistant", foreground="#f7ead0", pixels_above_lines=10
+            "assistant", foreground="#f5f5f7", pixels_above_lines=10
         )
         self.meta_tag = buffer.create_tag(
             "meta", foreground="#9ba5b4", style=2, pixels_above_lines=6

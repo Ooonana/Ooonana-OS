@@ -85,13 +85,14 @@ Ooonana OS Minimal
 EOF
 
 cat > "$tmp/theme.txt" <<'EOF'
-title-color: "#ffb21a"
+title-color: "#f5f5f7"
 desktop-image: "/boot/grub/background.png"
-message-color: "#ffb21a"
+desktop-image-scale-method: "stretch"
+message-color: "#f5f5f7"
 + boot_menu {
   left = 16%
-  item_color = "#ffb21a"
-  selected_item_color = "#ffd37a"
+  item_color = "#b4bdc8"
+  selected_item_color = "#ffb21a"
   visible = true
   item_font = "Unifont Regular 16"
   scrollbar = false
@@ -102,6 +103,13 @@ message-color: "#ffb21a"
 + label {
   id = "ooonana-logo-8"
 }
++ progress_bar {
+  id = "__timeout__"
+  fg_color = "#ffb21a"
+  bg_color = "#343b46"
+}
+EOF
+cat > "$tmp/min-theme.txt" <<'EOF'
 + progress_bar {
   id = "__timeout__"
   fg_color = "#ffb21a"
@@ -157,7 +165,10 @@ REPORT
     for arg in "$@"; do
       last="$arg"
     done
-    cp "$OOONANA_FAKE_ROOT/theme.txt" "$last"
+    case "$OOONANA_FAKE_EDITION" in
+      minimal) cp "$OOONANA_FAKE_ROOT/min-theme.txt" "$last" ;;
+      *) cp "$OOONANA_FAKE_ROOT/theme.txt" "$last" ;;
+    esac
     ;;
   *"-extract /boot/grub/background.png"*)
     for arg in "$@"; do

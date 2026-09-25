@@ -153,8 +153,9 @@ theme="$(<"$tmp/build/full-i3-iso-tree/boot/grub/theme.txt")"
 assert_contains "$theme" "+ progress_bar"
 assert_contains "$theme" 'id = "__timeout__"'
 assert_contains "$theme" 'desktop-image: "/boot/grub/background.png"'
-assert_contains "$theme" 'item_color = "#ffb21a"'
-assert_contains "$theme" 'selected_item_color = "#ffd37a"'
+assert_contains "$theme" 'desktop-image-scale-method: "stretch"'
+assert_contains "$theme" 'item_color = "#b4bdc8"'
+assert_contains "$theme" 'selected_item_color = "#ffb21a"'
 logo_index=0
 while IFS= read -r logo_line || [[ -n "$logo_line" ]]; do
   logo_index=$((logo_index + 1))
@@ -176,9 +177,8 @@ assert_contains "$theme" "scrollbar = false"
 assert_contains "$theme" "STARTUP MODES"
 assert_contains "$theme" "ARROWS select  |  ENTER boot  |  ESC back"
 [[ -s "$tmp/build/full-i3-iso-tree/boot/grub/background.png" ]] || fail "missing GRUB background bitmap"
-black_bg_b64="$(base64 -w0 "$tmp/build/full-i3-iso-tree/boot/grub/background.png")"
-[[ "$black_bg_b64" == "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNgYGD4DwABBAEAgLvRWwAAAABJRU5ErkJggg==" ]] ||
-  fail "GRUB background must be black PNG"
+cmp -s "$ROOT/branding/grub-background.png" "$tmp/build/full-i3-iso-tree/boot/grub/background.png" ||
+  fail "GRUB background differs from branded asset"
 assert_contains "$normal_cfg" "ooonana_show_logo"
 assert_contains "$normal_cfg" "menuentry 'Ooonana OS Full i3 Live'"
 assert_contains "$normal_cfg" "menuentry 'Ooonana OS Full i3 Live (persistent USB)'"

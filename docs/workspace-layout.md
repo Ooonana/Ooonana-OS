@@ -21,8 +21,10 @@ Old Ooonana build artifacts directly under Ubuntu `/` were moved intact to
 Active native release staging remains `/var/tmp/ooonana-release-stage`.
 Other project families and installed model/runtime stores were left in place.
 
-Ooonana WSL was updated through the local core package to `0.8.28`, with backups
-under `/var/backups/ooonana`. A BusyBox empty-archive incompatibility found during
-deployment was corrected; metadata-only package upgrades now have regression
+Ooonana WSL was updated through the local core package to `0.9.0` on 2026-09-25,
+with backups under `/var/backups/ooonana`. Its saved wallpaper choice remains
+unchanged; fresh 0.9 installs use the new solid graphite wallpaper. A BusyBox
+empty-archive incompatibility found during deployment was corrected;
+metadata-only package upgrades now have regression
 coverage. The stale D-Bus launch-helper group was repaired to `0:81:4750`, and
 `update-installed-wsl.sh` now performs the same validation/repair.

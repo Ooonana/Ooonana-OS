@@ -148,7 +148,7 @@ EOF
 chmod +x "$scratch/bin/busybox"
 cat > "$scratch/usr/bin/ooonana" <<'EOF'
 #!/bin/sh
-echo ooonana 0.8.28
+echo ooonana 0.9.0
 EOF
 chmod +x "$scratch/usr/bin/ooonana"
 cat > "$scratch/usr/bin/ooonana-setup" <<'EOF'
@@ -305,6 +305,7 @@ fi
 [[ -f "$rootfs/usr/share/ooonana/boot-logo.txt" ]] || fail "missing rootfs boot logo"
 [[ -f "$rootfs/usr/share/ooonana/wallpapers/ooonana-wallpaper.png" ]] || fail "missing rootfs wallpaper"
 [[ -f "$rootfs/usr/share/ooonana/wallpapers/ooonana-notes.jpg" ]] || fail "missing Notes rootfs wallpaper"
+[[ -f "$rootfs/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png" ]] || fail "missing 0.9 rootfs wallpaper"
 assert_contains "$(<"$rootfs/etc/gtk-3.0/settings.ini")" "gtk-decoration-layout=menu:minimize,maximize,close"
 [[ -f "$rootfs/etc/i3/config" ]] || fail "missing rootfs i3 config"
 [[ -f "$rootfs/etc/ooonana/polybar.ini" ]] || fail "missing polybar config"
@@ -495,7 +496,7 @@ assert_contains "$i3_config" 'bindsym XF86TouchpadOn exec ooonana-touchpad on'
 assert_contains "$i3_config" 'bindsym XF86TouchpadOff exec ooonana-touchpad off'
 assert_contains "$i3_config" 'bindsym $mod+minus scratchpad show'
 assert_contains "$i3_config" 'bindsym $mod+Shift+minus move scratchpad'
-assert_contains "$i3_config" 'default_border normal 2'
+assert_contains "$i3_config" 'default_border normal 1'
 assert_contains "$i3_config" 'tiling_drag modifier titlebar'
 assert_contains "$i3_config" 'bindsym $mod+r mode "resize"'
 assert_contains "$i3_config" 'bindsym $mod+m move scratchpad'
@@ -520,8 +521,8 @@ assert_contains "$xorg_video" 'Driver "fbdev"'
 assert_contains "$xorg_video" 'Identifier "Ooonana framebuffer"'
 
 theme_helper="$(<"$rootfs/usr/bin/ooonana-theme-env")"
-assert_contains "$theme_helper" 'OOONANA_BG="#050505"'
-assert_contains "$theme_helper" 'OOONANA_BG="#ffb21a"'
+assert_contains "$theme_helper" 'OOONANA_BG="#101317"'
+assert_contains "$theme_helper" 'OOONANA_BG="#f5f5f7"'
 assert_contains "$theme_helper" "/etc/ooonana/theme"
 assert_contains "$theme_helper" ".config/ooonana/wallpaper"
 assert_contains "$theme_helper" 'hsetroot "-$wallpaper_mode"'
@@ -540,7 +541,7 @@ assert_contains "$yad_wrapper" "ooonana-theme-env env"
 assert_contains "$yad_wrapper" "--window-icon=/usr/share/ooonana/logo.png"
 
 assert_contains "$(<"$rootfs/etc/gtk-3.0/settings.ini")" "gtk-application-prefer-dark-theme=true"
-assert_contains "$(<"$rootfs/root/.config/gtk-3.0/gtk.css")" "button { background: #171e27"
+assert_contains "$(<"$rootfs/root/.config/gtk-3.0/gtk.css")" "button { background: @ooonana_panel_alt"
 assert_contains "$(<"$rootfs/root/.config/gtk-3.0/gtk.css")" "headerbar"
 network_manager_config="$(<"$rootfs/etc/NetworkManager/NetworkManager.conf")"
 assert_contains "$network_manager_config" "wifi.scan-rand-mac-address=no"
@@ -851,7 +852,9 @@ assert_contains "$(<"$rootfs/usr/share/applications/oonana.desktop")" "Exec=ooon
 polybar_cfg="$(<"$rootfs/etc/ooonana/polybar.ini")"
 assert_contains "$polybar_cfg" "Ooonana OS"
 assert_contains "$polybar_cfg" "#ffb21a"
-assert_contains "$polybar_cfg" "#080a0d"
+assert_contains "$polybar_cfg" "background = #1b1f26"
+assert_contains "$polybar_cfg" "width = 98%"
+assert_contains "$polybar_cfg" "radius = 14"
 assert_contains "$polybar_cfg" "modules-left = brand workspaces"
 assert_contains "$polybar_cfg" "font-1 = \"Font Awesome"
 assert_contains "$polybar_cfg" "Font Awesome 6 Brands"
@@ -928,30 +931,31 @@ rofi_cfg="$(<"$rootfs/etc/ooonana/rofi.rasi")"
 assert_contains "$rofi_cfg" "show-icons: true"
 assert_contains "$rofi_cfg" "Ooonana"
 assert_contains "$rofi_cfg" 'display-run: "Ooonana"'
-assert_contains "$rofi_cfg" "selected-normal-background: #ffb21a"
+assert_contains "$rofi_cfg" "selected-normal-background: #303640"
 assert_contains "$rofi_cfg" "textbox-prompt-colon"
 assert_contains "$rofi_cfg" "mode-switcher"
 assert_contains "$rofi_cfg" "element selected.active"
 assert_contains "$rofi_cfg" "element alternate.normal"
-assert_contains "$rofi_cfg" "border-color: #ffb21a"
+assert_contains "$rofi_cfg" "border-radius: 18px"
+assert_contains "$rofi_cfg" "border-color: #46505c"
 
 picom_cfg="$(<"$rootfs/etc/ooonana/picom.conf")"
-assert_contains "$picom_cfg" "shadow-radius = 16"
 assert_contains "$picom_cfg" "use-damage = true"
 assert_contains "$picom_cfg" "unredir-if-possible = true"
 assert_contains "$picom_cfg" "shadow = false"
 assert_contains "$picom_cfg" "fading = false"
 assert_contains "$picom_cfg" "inactive-opacity = 1.0"
-assert_contains "$picom_cfg" "corner-radius = 6"
+assert_contains "$picom_cfg" "active-opacity = 1.0"
+assert_contains "$picom_cfg" "corner-radius = 14"
 assert_contains "$picom_cfg" "rounded-corners-exclude"
 gtk_css="$(<"$rootfs/root/.config/gtk-3.0/gtk.css")"
-assert_contains "$gtk_css" "window.background, dialog.background, messagedialog.background { border-radius: 0; }"
+assert_contains "$gtk_css" "window.background, dialog.background, messagedialog.background { border-radius: 14px; }"
 assert_not_contains "$picom_cfg" 'backend = "xrender"'
 
 dunst_cfg="$(<"$rootfs/etc/ooonana/dunstrc")"
 assert_contains "$dunst_cfg" 'origin = top-right'
 assert_contains "$dunst_cfg" 'highlight = "#ffb21a"'
-assert_contains "$dunst_cfg" "corner_radius = 6"
+assert_contains "$dunst_cfg" "corner_radius = 14"
 
 gui_installer="$(<"$rootfs/usr/bin/ooonana-gui-installer")"
 assert_contains "$gui_installer" "ooonana-installer-gui --dry-run"
@@ -959,7 +963,7 @@ assert_contains "$gui_installer" "/usr/bin/ooonana-installer-gui"
 assert_contains "$gui_installer" "OOONANA_INSTALL_WIZARD_IN_TERMINAL"
 assert_contains "$gui_installer" 'xterm -title "Ooonana Installer"'
 assert_contains "$gui_installer" 'OOONANA_THEME:-dark'
-assert_contains "$gui_installer" 'XTERM_BG="#050505"'
+assert_contains "$gui_installer" 'XTERM_BG="#101317"'
 assert_contains "$gui_installer" '-cr "$XTERM_CURSOR"'
 assert_not_contains "$gui_installer" 'XTERM_FONT_ARGS="-fa monospace -fs 10"'
 assert_contains "$gui_installer" "ooonana-install-wizard --dry-run"
@@ -1142,6 +1146,7 @@ assert_contains "$contents" "./usr/bin/ooonana-settings-launch"
 assert_contains "$contents" "./usr/bin/ooonana-i3-session"
 assert_contains "$contents" "./usr/bin/start-ooonana-i3"
 assert_contains "$contents" "./usr/share/ooonana/wallpapers/ooonana-wallpaper.png"
+assert_contains "$contents" "./usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png"
 assert_contains "$contents" "./usr/share/ooonana/wallpapers/ooonana-notes.jpg"
 
 shell_script_count=0

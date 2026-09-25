@@ -266,16 +266,17 @@ stage_iso_tree() {
   write_rufus_note
   cat > "$ISO_TREE/boot/grub/theme.txt" <<'EOF'
 title-text: "Ooonana OS  /  STARTUP"
-title-color: "#ffb21a"
+title-color: "#f5f5f7"
 desktop-image: "/boot/grub/background.png"
-desktop-color: "#050505"
+desktop-image-scale-method: "stretch"
+desktop-color: "#101317"
 terminal-font: "Unifont Regular 16"
-message-color: "#ffb21a"
-message-bg-color: "#050505"
+message-color: "#f5f5f7"
+message-bg-color: "#101317"
 EOF
 
   local logo_index=0
-  local logo_top=10
+  local logo_top=96
   local logo_line escaped_logo_line
   while IFS= read -r logo_line || [[ -n "$logo_line" ]]; do
     logo_index=$((logo_index + 1))
@@ -317,8 +318,8 @@ EOF
   visible = true
   item_font = "Unifont Regular 16"
   selected_item_font = "Unifont Regular 16"
-  item_color = "#ffb21a"
-  selected_item_color = "#ffd37a"
+  item_color = "#b4bdc8"
+  selected_item_color = "#ffb21a"
   item_height = 30
   item_padding = 6
   item_spacing = 4
@@ -342,12 +343,11 @@ EOF
   width = 68%
   height = 18
   fg_color = "#ffb21a"
-  bg_color = "#050505"
-  border_color = "#ffb21a"
+  bg_color = "#343b46"
+  border_color = "#596574"
 }
 EOF
-  printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNgYGD4DwABBAEAgLvRWwAAAABJRU5ErkJggg==' |
-    base64 -d > "$ISO_TREE/boot/grub/background.png"
+  install -m 0644 "$ROOT/branding/grub-background.png" "$ISO_TREE/boot/grub/background.png"
   write_grub_config
   check_iso_mode_file_sizes
   chmod -R a+rwX "$ISO_TREE" 2>/dev/null || true

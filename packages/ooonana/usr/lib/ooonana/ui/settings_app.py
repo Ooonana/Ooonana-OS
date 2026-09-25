@@ -62,8 +62,8 @@ class SettingsWindow(Gtk.Window):
         root.pack_start(self.sidebar, False, False, 0)
 
         self.stack = Gtk.Stack()
-        self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
-        self.stack.set_transition_duration(140)
+        self.stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
+        self.stack.set_transition_duration(240)
         root.pack_start(self.stack, True, True, 0)
 
         builders = {
@@ -447,7 +447,7 @@ class SettingsWindow(Gtk.Window):
     @staticmethod
     def current_wallpaper():
         user_wallpaper = Path.home() / ".config/ooonana/wallpaper"
-        return read_file(user_wallpaper, "/usr/share/ooonana/wallpapers/ooonana-notes.jpg")
+        return read_file(user_wallpaper, "/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png")
 
     @staticmethod
     def current_wallpaper_mode():
@@ -487,7 +487,7 @@ class SettingsWindow(Gtk.Window):
         dialog.destroy()
 
     def default_wallpaper(self, *_args):
-        path = "/usr/share/ooonana/wallpapers/ooonana-notes.jpg"
+        path = "/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png"
         self.wallpaper_mode_combo.set_active_id("fit")
         launch(["ooonana-wallpaper", "--mode", "fit", path])
         self.status_widgets["wallpaper"].set_text(f"{path}\nLayout: fit")

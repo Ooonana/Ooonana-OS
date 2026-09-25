@@ -167,8 +167,9 @@ assert_contains "$installer_src" "ooonana-logo.txt"
 assert_not_contains "$installer_src" "set theme=/boot/grub/theme.txt"
 assert_contains "$installer_src" "set color_normal=yellow/black"
 assert_contains "$installer_src" "set color_highlight=black/yellow"
-assert_contains "$installer_src" 'title-color: "#ffb21a"'
-assert_contains "$installer_src" 'message-color: "#ffb21a"'
+assert_contains "$installer_src" 'title-color: "#f5f5f7"'
+assert_contains "$installer_src" 'desktop-color: "#101317"'
+assert_contains "$installer_src" 'message-color: "#f5f5f7"'
 assert_not_contains "$installer_src" "selected-item-color"
 assert_not_contains "$installer_src" "selected-item-background-color"
 assert_not_contains "$installer_src" "item-color"
