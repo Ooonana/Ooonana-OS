@@ -96,11 +96,11 @@ Live environment status:
 ```text
 ooonana-full-i3.iso    live desktop by default, persistent live second, installer third
 ooonana-scratch.iso    minimal shell plus installer menu
-full-i3 live desktop   i3, polybar, rofi, wallpaper, GUI installer launcher
+full-i3 live desktop   i3, rounded top panel and app dock, rofi, Notes wallpaper
 full-i3 install menu   live GUI installer session, VGA-first fallback, safe graphics fallback
 rufus usb              ISO mode, BIOS/UEFI, Secure Boot off
 rufus persistence      second GRUB entry plus ext4 partition labeled OOONANA_PERSIST
-full-i3 VM RAM         2048 MB tested after live rootfs moved outside initramfs
+full-i3 VM RAM         2048 MB boot smoke only; local AI needs more physical RAM
 live kernel            Linux 6.18.37 with Ooonana responsiveness and Galaxy Book support
 ```
 
@@ -174,15 +174,15 @@ Working now:
 - Installer ISO opens a fallback shell on install failure or cancel
 - Installer has a serial-safe xterm UI with logo, disk picker, user/password, hostname, theme, cloud repo picker, progress, logs, fail shell, and reboot prompt
 - Live/install ISO keeps interactive prompts on the VGA console for VMware while smoke tests log through serial
-- GRUB uses a stable orange-on-black menu with a centered Ooonana logo, BIOS/UEFI hybrid support, live/install/safe graphics menus, and a persistent USB boot entry. After selection, the live initramfs keeps the larger orange logo and loading bar visible while it finds boot media, mounts the live rootfs read-only, creates a RAM or USB persistence overlay, and starts i3. Full-i3 does not force a fixed `gfxmode`; it preserves the firmware framebuffer for a clean splash handoff.
+- GRUB uses a solid graphite background with orange accents and a centered Ooonana logo, BIOS/UEFI hybrid support, live/install/safe graphics menus, and a persistent USB boot entry. After selection, the live initramfs keeps the larger orange logo and loading bar visible while it finds boot media, mounts the live rootfs read-only, creates a RAM or USB persistence overlay, and starts i3. Full-i3 does not force a fixed `gfxmode`; it preserves the firmware framebuffer for a clean splash handoff.
 - Kernel config is tuned for desktop responsiveness: performance compiler mode, full preemption, dynamic preemption, high-resolution timers, 1000 Hz scheduler tick, and scheduler autogroup.
 - Rufus support has an ISO-mode note inside the ISO, USB-friendly volume labels, and `scripts/verify-rufus-iso.sh`
 - Full-i3 live starts eudev before Xorg and ships libinput config for PS/2 keyboard, mouse, and touchpad discovery
 - Full-i3 live mode does not format or write internal disks. Normal live uses a cleared temporary overlay on `OOONANA_PERSIST` when that partition exists on the same boot USB, with RAM fallback. Persistent live keeps its separate saved overlay there. Only the confirmed installer target can be partitioned or formatted.
 - Full-i3 runs the desktop as the unprivileged `ooonana` user (UID 1000). Administrative commands use a validated wheel-only `doas` policy.
 - Full-i3 mounts `/run` and `/dev/shm` before desktop services, maps `/var/run` to `/run`, starts system D-Bus first, then starts NetworkManager and BlueZ. This runtime order supports Chromium, Wi-Fi, Bluetooth, and desktop applets from live USB and installed systems.
-- Full-i3 ships an Ooonana i3 desktop: icon-first polybar, Spotlight-style searchable application launcher, movable Ooonana app windows with explicit close/minimize/fullscreen controls, picom shadows/fades, dunst notifications, Chromium, Nemo, editor/media shortcuts, Wi-Fi, Bluetooth, audio, brightness, battery, power controls, wallpaper switching, and dark Ooonana colors. The default wallpaper preserves aspect ratio, fits screen height, and uses black side bars instead of stretching.
-- Setup, Settings, Wi-Fi, Bluetooth, Packages, AI, controls, and application launcher are native GTK3 apps with a shared black/orange design. The panel status scripts degrade cleanly when a VM has no battery, radio, audio, or backlight hardware.
+- Full-i3 ships an Ooonana i3 desktop: solid rounded top panel with music status, RAM gauge, workspace/window list, and visible minimize/fullscreen/close controls; separate app dock; Spotlight-style launcher; opaque rounded GTK windows; dunst notifications; Chromium, Nemo, and editor/media shortcuts. Notes is the default wallpaper again; the graphite wallpaper remains selectable. Fit mode preserves aspect ratio rather than stretching.
+- Setup, Settings, Wi-Fi, Bluetooth, Packages, AI, controls, and application launcher are native GTK3 apps with a shared graphite/orange design and short slide transitions. Picom keeps windows opaque; shadows and fades are disabled. Panel status scripts degrade cleanly when a VM has no battery, radio, audio, or backlight hardware.
 - Wi-Fi groups repeated school/campus access points by exact SSID, shows real security instead of treating missing metadata as open, retries secured BSSIDs during roaming, and supports WPA/WPA2/WPA3 Personal, OWE, WEP, and 802.1X enterprise identity/password/CA/client-certificate profiles. Wi-Fi and Bluetooth include an RSSI proximity map. Optional `3D mode` launches RuView when its CSI point-cloud runtime is installed; normal laptop adapters remain RSSI-only.
 - Installed disk boots in QEMU
 - `ooonana-install` can partition a raw/whole disk, install to an existing root partition, mount optional home/swap/EFI partitions, format or keep selected filesystems, copy rootfs, install kernel, write GRUB, and persist user, hostname, and theme
@@ -699,7 +699,7 @@ sudo ooonana-install \
   --yes
 ```
 
-Default full-i3 UI is dark: black background, orange text/cursor, Ooonana polybar/rofi/picom/dunst config, and a black/orange Ooonana wallpaper. The panel uses an `Ooonana` launcher label plus icon buttons for terminal, browser, files, editor, media, audio, brightness, Wi-Fi, Bluetooth, battery, clock, and power. Brightness has scroll support and a clickable scale. `Mod+d` opens the native Ooonana Spotlight launcher; `Mod+Shift+d` opens rofi. The old sunset look is light mode:
+Default full-i3 UI uses solid dark graphite, light text, and orange accents. Top panel shows workspaces, focused-window list, minimize/fullscreen/close, music status, RAM, audio, brightness, battery, Bluetooth, Wi-Fi, clock, and power. Bottom dock launches apps, files, terminal, editor, music, and process monitor. Notes wallpaper is default; graphite wallpaper remains available in Settings. `Mod+d` opens native Ooonana Spotlight; `Mod+Shift+d` opens rofi. Light mode remains available:
 
 ```bash
 ooonana help ui
@@ -726,7 +726,7 @@ Mod+Shift+X  htop process monitor
 Mod+Shift+U  ranger file manager
 ```
 
-`ooonana-settings` opens the native Ooonana Control Center. It starts with status cards for theme, wallpaper, display, audio, Wi-Fi, Bluetooth, and repo state, then opens grouped controls for System, Hardware, Apps, Ooonana, and Logs. Wallpaper layout choices are fit with black bars, fill/crop, center, stretch, and tile. It can open display/audio/Wi-Fi/Bluetooth tools, package manager, AI, Chromium, Nemo, terminal, screenshots, and system logs. It falls back to the terminal help path when GTK is missing.
+`ooonana-settings` opens native Ooonana Control Center. Overview shows session, network, Bluetooth, package source, and available RAM/swap. Appearance controls theme and wallpaper; other pages expose hardware, apps, and system tools. Wallpaper choices are fit, fill/crop, center, stretch, and tile. It can open display/audio/Wi-Fi/Bluetooth tools, package manager, AI, Chromium, Nemo, terminal, screenshots, and system logs. Terminal help remains fallback when GTK is missing.
 
 Persistent live USB:
 
@@ -739,6 +739,8 @@ Persistence label: OOONANA_PERSIST
 For Rufus/native USB, flash the ISO normally, then add an ext4 persistence partition labeled `OOONANA_PERSIST`. Ooonana uses it as the full writable live-root overlay. User files, settings, Wi-Fi, Bluetooth pairings, installed packages, and system changes survive reboot. An internal disk carrying the same label is ignored.
 
 `ooonana-memory status` reports available RAM, swap, and live storage mode. Ooonana starts compressed zram swap at boot (half physical RAM, capped at 8 GiB); it does not silently create a USB swapfile. Zram helps memory pressure but cannot replace physical RAM for a large model. OpenVINO setup on live USB needs the persistent GRUB entry plus `OOONANA_PERSIST`; RAM-only and temporary overlays cannot safely hold its runtime and model files.
+
+WSL uses its host kernel, not the ISO kernel. `ooonana-memory status` may show zero swap in WSL even though the rebuilt ISO is configured to activate zram. To diagnose physical USB RAM use, run `free -h` and compare `available` RAM with `used`; file cache is often reclaimable. For model-load failures, record `ooonana-memory status`, `df -h /`, and the final OpenVINO error. OpenVINO Chat 0.1.7 defaults to a 4096-token context; larger models may still need more physical RAM.
 
 ## Rufus USB
 
