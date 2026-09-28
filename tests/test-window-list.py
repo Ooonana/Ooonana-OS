@@ -24,6 +24,11 @@ module.tree = lambda: tree
 items = module.windows()
 assert items == [(3, "Terminal", True, False), (4, "Browser", False, True)], items
 assert module.compact(items) == "* Terminal +1 (1 hidden)"
+bar = module.bar(items)
+assert "ooonana-window-list --focus 3" in bar
+assert "ooonana-window-list --actions 3" in bar
+assert "ooonana-window-list --focus 4" in bar
+assert module.bar([]) == "desktop"
 commands = []
 selection = "0"
 
@@ -41,4 +46,25 @@ module.menu(items)
 assert commands[-1] == ["i3-msg", "[con_id=4] scratchpad show; [con_id=4] focus"]
 module.menu(items, close=True)
 assert commands[-1] == ["i3-msg", "[con_id=4] kill"]
+selection = "1"
+module.actions_menu(items, 3)
+assert commands[-1] == ["i3-msg", "[con_id=3] move scratchpad"]
+selection = "0"
+module.actions_menu(items, 4)
+assert commands[-1] == ["i3-msg", "[con_id=4] scratchpad show; [con_id=4] focus"]
+selection = "2"
+module.actions_menu(items, 4)
+assert commands[-1] == ["i3-msg", "[con_id=4] fullscreen toggle"]
+selection = "3"
+module.actions_menu(items, 3)
+assert commands[-1] == ["i3-msg", "[con_id=3] kill"]
+module.sys.argv = ["ooonana-window-list", "--focus", "4"]
+module.main()
+assert commands[-1] == ["i3-msg", "[con_id=4] scratchpad show; [con_id=4] focus"]
+module.sys.argv = ["ooonana-window-list", "--actions"]
+selection = "1"
+module.main()
+assert commands[-1] == ["i3-msg", "[con_id=4] move scratchpad"]
+tree["nodes"].append(window(5, "100%{A1:bad:} CPU"))
+assert "%{A1:bad:}" not in module.bar(module.windows())
 print("ok window-list")

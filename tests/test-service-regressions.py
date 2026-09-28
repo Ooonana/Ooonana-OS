@@ -54,7 +54,8 @@ for password_rc in [0, 1]:
                      threading=SimpleNamespace(Thread=thread),
                      GLib=SimpleNamespace(idle_add=lambda callback, *args: completion.append(args)))
     exec(compile(ast.Module(body=[method], type_ignores=[]), 'setup-test', 'exec'), namespace)
-    values = dict(user='test', password='secret', mode='dhcp', theme='dark', repo='file:///repo')
+    values = dict(user='test', password='secret', mode='dhcp', theme='dark',
+                  zram_percent='50', disk_swap='on', repo='file:///repo')
     target = SimpleNamespace(validate=lambda: (values, ''), spinner=SimpleNamespace(start=lambda: None),
                              status=SimpleNamespace(set_text=lambda _: None), finished=lambda *args: None)
     namespace['apply'](target, SimpleNamespace(set_sensitive=lambda _: None))

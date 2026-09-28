@@ -197,9 +197,9 @@ assert_contains "$workflow" "configs/packages/full-i3.list"
 assert_contains "$workflow" "configs/packages/both.list"
 assert_contains "$workflow" "default: \"configs/packages/both.list\""
 assert_contains "$workflow" "default: true"
-assert_contains "$workflow" 'default: "6.18.37-2"'
-assert_contains "$workflow" 'vmlinuz-ooonana-6.18.37-2'
-assert_contains "$workflow" 'faf177e16785fb1419353cc98e23c0bfdb056509292646665ec2c5af7326bf6a'
+assert_contains "$workflow" 'default: "6.18.37-3"'
+assert_contains "$workflow" 'vmlinuz-ooonana-6.18.37-3'
+assert_contains "$workflow" 'bc30e38e0ff539ac3b573a03a15c763ee49c072224e2d4620ba2e2be910065a3'
 
 gitlab_ci="$(<"$GITLAB_CI")"
 assert_contains "$gitlab_ci" "workflow:"
@@ -220,13 +220,13 @@ assert_contains "$gitlab_ci" "OOONANA_REPO_SIGN_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_REPO_PUBLIC_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_CORE_VERSION"
-assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.9.1"'
+assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.9.2"'
 assert_contains "$gitlab_ci" "OOONANA_OPENVINO_CHAT_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_URL"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_SHA256"
-assert_contains "$gitlab_ci" 'OOONANA_KERNEL_VERSION: "6.18.37-2"'
-assert_contains "$gitlab_ci" 'vmlinuz-ooonana-6.18.37-2'
-assert_contains "$gitlab_ci" 'faf177e16785fb1419353cc98e23c0bfdb056509292646665ec2c5af7326bf6a'
+assert_contains "$gitlab_ci" 'OOONANA_KERNEL_VERSION: "6.18.37-3"'
+assert_contains "$gitlab_ci" 'vmlinuz-ooonana-6.18.37-3'
+assert_contains "$gitlab_ci" 'bc30e38e0ff539ac3b573a03a15c763ee49c072224e2d4620ba2e2be910065a3'
 assert_contains "$gitlab_ci" "--kernel-url"
 assert_contains "$gitlab_ci" "--kernel-sha256"
 assert_contains "$gitlab_ci" "--kernel-version"
@@ -358,7 +358,7 @@ OOONANA_TEST_ROOT="$ROOT" OOONANA_IMPORT_APK_SCRIPT="$stub" \
 [[ -f "$tmp/repo/ooonana-core.pkg" ]] || fail "builder missing core meta package"
 [[ -f "$tmp/repo/ooonana-core-runtime.pkg" ]] || fail "builder missing core runtime package"
 [[ -f "$tmp/repo/openvino-chat.pkg" ]] || fail "builder missing OpenVINO Chat package"
-[[ -f "$tmp/repo/archives/openvino-chat-0.1.7.tar.gz" ]] || fail "builder missing OpenVINO Chat archive"
+[[ -f "$tmp/repo/archives/openvino-chat-0.2.0.tar.gz" ]] || fail "builder missing OpenVINO Chat archive"
 [[ -f "$tmp/repo/devicechat.pkg" ]] || fail "builder missing DeviceChat package"
 [[ -f "$tmp/repo/wine.pkg" ]] || fail "builder missing Wine package"
 assert_contains "$(<"$tmp/repo/ooonana-core.pkg")" 'OOONANA_PKG_DEPS="ooonana-core-runtime"'
@@ -373,6 +373,9 @@ tar -tzf "$core_runtime_archive" | grep 'var/lib/ooonana/packages/files/ooonana-
 tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-audio-start' >/dev/null || fail "core runtime missing audio session helper"
 tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-game-launch' >/dev/null || fail "core runtime missing game launcher"
 tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-memory' >/dev/null || fail "core runtime missing memory helper"
+tar -tzf "$core_runtime_archive" | grep './etc/init.d/rcS' >/dev/null || fail "core runtime missing boot memory policy"
+tar -xOzf "$core_runtime_archive" ./etc/os-release | grep -q 'PRETTY_NAME="Ooonana OS 0.9.2"' || fail "core runtime OS release stale"
+tar -tzf "$core_runtime_archive" | grep './usr/lib/ooonana/ui/task_manager_app.py' >/dev/null || fail "core runtime missing task manager"
 tar -tzf "$core_runtime_archive" | grep './usr/share/ooonana/wallpapers/ooonana-notes.jpg' >/dev/null || fail "core runtime missing Notes wallpaper"
 tar -tzf "$core_runtime_archive" | grep './usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png' >/dev/null || fail "core runtime missing 0.9 wallpaper"
 tar -tzf "$core_runtime_archive" | grep './etc/gtk-3.0/settings.ini' >/dev/null || fail "core runtime missing GTK window controls"
@@ -411,7 +414,7 @@ core_upgrade="$(OOONANA_REPO_DIR="$tmp/repo" \
 assert_contains "$core_upgrade" "installed ooonana-core-runtime"
 assert_contains "$core_upgrade" "upgraded ooonana-core 0.8.1"
 [[ -x "$core_upgrade_root/usr/bin/ooonana" ]] || fail "core migration removed upgraded CLI"
-assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.9.1"
+assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.9.2"
 assert_contains "$(<"$tmp/repo/cloud.repo")" 'OOONANA_REPO_URI="https://example.test/repo"'
 assert_contains "$(<"$tmp/repo/README.txt")" "ooonana update"
 

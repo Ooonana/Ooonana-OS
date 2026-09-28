@@ -175,17 +175,17 @@ Working now:
 - Installer has a serial-safe xterm UI with logo, disk picker, user/password, hostname, theme, cloud repo picker, progress, logs, fail shell, and reboot prompt
 - Live/install ISO keeps interactive prompts on the VGA console for VMware while smoke tests log through serial
 - GRUB uses a solid graphite background with orange accents and a centered Ooonana logo, BIOS/UEFI hybrid support, live/install/safe graphics menus, and a persistent USB boot entry. After selection, the live initramfs keeps the larger orange logo and loading bar visible while it finds boot media, mounts the live rootfs read-only, creates a RAM or USB persistence overlay, and starts i3. Full-i3 does not force a fixed `gfxmode`; it preserves the firmware framebuffer for a clean splash handoff.
-- Kernel config is tuned for desktop responsiveness: performance compiler mode, full preemption, dynamic preemption, high-resolution timers, 1000 Hz scheduler tick, and scheduler autogroup.
+- Kernel config is tuned for desktop responsiveness: performance compiler mode, full preemption, dynamic preemption, high-resolution timers, 1000 Hz scheduler tick, scheduler autogroup, zram, and CPU/NVMe temperature sensors.
 - Rufus support has an ISO-mode note inside the ISO, USB-friendly volume labels, and `scripts/verify-rufus-iso.sh`
 - Full-i3 live starts eudev before Xorg and ships libinput config for PS/2 keyboard, mouse, and touchpad discovery
 - Full-i3 live mode does not format or write internal disks. Normal live uses a cleared temporary overlay on `OOONANA_PERSIST` when that partition exists on the same boot USB, with RAM fallback. Persistent live keeps its separate saved overlay there. Only the confirmed installer target can be partitioned or formatted.
 - Full-i3 runs the desktop as the unprivileged `ooonana` user (UID 1000). Administrative commands use a validated wheel-only `doas` policy.
 - Full-i3 mounts `/run` and `/dev/shm` before desktop services, maps `/var/run` to `/run`, starts system D-Bus first, then starts NetworkManager and BlueZ. This runtime order supports Chromium, Wi-Fi, Bluetooth, and desktop applets from live USB and installed systems.
-- Full-i3 ships an Ooonana i3 desktop: solid rounded top panel with music status, RAM gauge, workspace/window list, and visible minimize/fullscreen/close controls; separate app dock; Spotlight-style launcher; opaque rounded GTK windows; dunst notifications; Chromium, Nemo, and editor/media shortcuts. Notes is the default wallpaper again; the graphite wallpaper remains selectable. Fit mode preserves aspect ratio rather than stretching.
-- Setup, Settings, Wi-Fi, Bluetooth, Packages, AI, controls, and application launcher are native GTK3 apps with a shared graphite/orange design and short slide transitions. Picom keeps windows opaque; shadows and fades are disabled. Panel status scripts degrade cleanly when a VM has no battery, radio, audio, or backlight hardware.
+- Full-i3 ships an Ooonana i3 desktop: solid rounded top panel with clickable open-window chips, right-click window actions, music status, RAM gauge, workspaces, and minimize/fullscreen/close controls; separate app dock; Spotlight-style launcher; opaque rounded GTK windows; dunst notifications; Chromium, Nemo, and editor/media shortcuts. Focus changes on click, not cursor hover. Notes is the default wallpaper again; the graphite wallpaper remains selectable. Fit mode preserves aspect ratio rather than stretching.
+- Setup, Settings, Wi-Fi, Bluetooth, Packages, AI, Task Manager, controls, and application launcher are native GTK3 apps with shared graphite/orange design and short slide transitions. Picom keeps windows opaque; shadows and fades are disabled. Panel status scripts degrade cleanly when a VM has no battery, radio, audio, or backlight hardware.
 - Wi-Fi groups repeated school/campus access points by exact SSID, shows real security instead of treating missing metadata as open, retries secured BSSIDs during roaming, and supports WPA/WPA2/WPA3 Personal, OWE, WEP, and 802.1X enterprise identity/password/CA/client-certificate profiles. Wi-Fi and Bluetooth include an RSSI proximity map. Optional `3D mode` launches RuView when its CSI point-cloud runtime is installed; normal laptop adapters remain RSSI-only.
 - Installed disk boots in QEMU
-- `ooonana-install` can partition a raw/whole disk, install to an existing root partition, mount optional home/swap/EFI partitions, format or keep selected filesystems, copy rootfs, install kernel, write GRUB, and persist user, hostname, and theme
+- `ooonana-install` can partition a raw/whole disk with optional disk swap, install to an existing root partition, mount optional same-disk home/swap/EFI partitions, format or keep selected filesystems, copy rootfs, install kernel, write GRUB, and persist user, hostname, and theme
 - Generic `ooonana-rootfs.tar.gz` can be unpacked for chroot/container-style use
 - Minimal and full-i3 WSL distro exports can be imported
 - `ooonana` package manager has repo add/remove/doctor, repo index, checksums, install/add, remove/uninstall, purge, upgrade, fix, check, files, verify
@@ -194,13 +194,14 @@ Working now:
 - Cloud builds include `ooonana-core`; `ooonana update && ooonana upgrade` updates CLI, native apps, services, defaults, and the `oonana` game without downloading every application archive
 - Alpine `.apk` packages can be imported into Ooonana `.pkg` repos
 - Full-i3 branding assets, package profiles, input drivers, package-installed rootfs, boot disk, live/install ISO, GUI installer wizard, AI desktop launcher, and real QEMU boot proof exist as a separate edition path
-- First-boot setup can create the everyday account, set a password, choose DHCP/static networking or Wi-Fi, select theme defaults, and add the GitLab cloud package repo. Repository signing is supported when CI signing keys are configured; current public repo publishes checksums but is not yet signed.
+- First-boot setup can create the everyday account, set a password, choose DHCP/static networking or Wi-Fi, set zram and installed disk-swap policy, select theme defaults, and add the GitLab cloud package repo. Repository signing is supported when CI signing keys are configured; current public repo publishes checksums but is not yet signed.
 - GitLab Pages repo is default source: `https://ooonana.gitlab.io/ooonana-repo`. Normal maintenance is `ooonana update && ooonana upgrade`; package archives download only when install or upgrade needs them.
 - `ooonana-ai` supports NVIDIA NIM, Google Gemini, tools, tasks, audit, shell fallback for scratch WSL, and a full-i3 GUI app with home/actions/ask/chat/provider-model/log panels
 
 Next work:
 
 - Better graphical installer layout inside live desktop
+- Physical USB RAM/model-load and fan-sensor validation
 - Full ISO export/install polish for VMware and other hypervisors
 - More first-party packages
 - Service manager, login defaults, security hardening
@@ -511,8 +512,9 @@ PACKAGE_SET=both
 PACKAGE_PROFILE=          # optional override
 OOONANA_REPO_NAME=gitlab
 OOONANA_PAGES_REPO_URL=https://ooonana.gitlab.io/ooonana-repo
-OOONANA_KERNEL_VERSION=6.18.37
-OOONANA_KERNEL_PACKAGE_URL=https://github.com/Ooonana/Ooonana-OS/releases/download/v0.1.8-ui-hardware/vmlinuz-ooonana
+OOONANA_KERNEL_VERSION=6.18.37-3
+OOONANA_KERNEL_PACKAGE_URL=https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/vmlinuz-ooonana-6.18.37-3
+OOONANA_KERNEL_PACKAGE_SHA256=bc30e38e0ff539ac3b573a03a15c763ee49c072224e2d4620ba2e2be910065a3
 ```
 
 GitLab Pages uses the generated `public/` directory. GitLab.com Pages currently has a 1 GB maximum site size, so the full package repo is close to the limit. The CI fails before publishing if `public/` grows past `OOONANA_PAGES_MAX_BYTES`; the default uses 1 GiB in bytes.
@@ -668,7 +670,7 @@ ooonana-gui-installer
 ooonana-install-wizard
 ```
 
-`ooonana-installer-gui` uses `yad` windows for install mode, target/root partition, optional `/home`, swap, EFI, format/keep toggles, user/password, hostname, theme, cloud repo, and source root. It shows the exact `ooonana-install --dry-run` preview before install, writes logs, and offers a fallback shell if install fails.
+`ooonana-installer-gui` uses `yad` windows for install mode, explicit target/root partition, optional `/home`, swap, EFI, format/keep toggles, user/password, hostname, theme, cloud repo, and source root. Erase-disk mode offers an optional disk swap size in MiB (`0` keeps zram only). It requires a successful `ooonana-install --dry-run` preview before enabling installation, writes logs, and offers a fallback shell if install fails. No disk is preselected.
 
 Inside full-i3, the GUI package manager launcher is:
 
@@ -678,7 +680,9 @@ ooonana-packages-app
 
 `ooonana-packages-app` uses `yad` for update, search, install, remove, upgrade, source listing, and repo doctor. It falls back to terminal package help when GUI pieces are missing.
 
-The terminal wizard still exists as fallback. It opens in a themed xterm under i3, walks disk picker, user/password, hostname, theme, cloud repo picker, source root, confirmation, install progress, and reboot prompt steps, logs to `/var/log/ooonana-install-wizard.log`, and blocks installing over the current root disk unless `OOONANA_INSTALL_ALLOW_ROOT_TARGET=1` is set. If install fails, it prints `OOONANA_INSTALL_WIZARD_FAIL` and drops to a fallback shell.
+The terminal wizard still exists as fallback. It opens in a themed xterm under i3, requires an exact typed target path, asks optional disk swap size, then walks user/password, hostname, theme, cloud repo picker, source root, confirmation, install progress, and reboot prompt steps. It logs to `/var/log/ooonana-install-wizard.log` and blocks installing over the current root or live-boot disk. If install fails, it prints `OOONANA_INSTALL_WIZARD_FAIL` and drops to a fallback shell. Custom root, home, swap, and EFI partitions must belong to the same selected disk.
+
+Normal live boot may probe removable media read-only to find the Ooonana ISO. It writes no unrelated SSD/USB/SD disk automatically. Persistent mode writes only the `OOONANA_PERSIST` partition on the boot-media parent disk. Installation writes the explicitly confirmed target disk; verify its path before confirmation.
 
 Custom partition backend example:
 
@@ -699,7 +703,7 @@ sudo ooonana-install \
   --yes
 ```
 
-Default full-i3 UI uses solid dark graphite, light text, and orange accents. Top panel shows workspaces, focused-window list, minimize/fullscreen/close, music status, RAM, audio, brightness, battery, Bluetooth, Wi-Fi, clock, and power. Bottom dock launches apps, files, terminal, editor, music, and process monitor. Notes wallpaper is default; graphite wallpaper remains available in Settings. `Mod+d` opens native Ooonana Spotlight; `Mod+Shift+d` opens rofi. Light mode remains available:
+Default full-i3 UI uses solid dark graphite, light text, and orange accents. Top panel shows workspaces, clickable open-window chips, minimize/fullscreen/close, music status, RAM, audio, brightness, battery, Bluetooth, Wi-Fi, clock, and power. Left-click a window chip to focus or restore it; right-click for Open, Minimize, Fullscreen, and Close. Hover alone does not change focus. Bottom dock launches apps, files, terminal, editor, music, and Task Manager. Notes wallpaper is default; graphite wallpaper remains available in Settings. `Mod+d` opens native Ooonana Spotlight; `Mod+Shift+d` opens rofi. Light mode remains available:
 
 ```bash
 ooonana help ui
@@ -722,11 +726,14 @@ Mod+Shift+P  Wallpaper changer
 Print        Screenshot
 Mod+Shift+G  Geany/Vim editor
 Mod+Shift+M  Ooonana Music player
-Mod+Shift+X  htop process monitor
+Mod+Shift+X  Ooonana Task Manager
+Ctrl+Shift+Esc Ooonana Task Manager
 Mod+Shift+U  ranger file manager
 ```
 
 `ooonana-settings` opens native Ooonana Control Center. Overview shows session, network, Bluetooth, package source, and available RAM/swap. Appearance controls theme and wallpaper; other pages expose hardware, apps, and system tools. Wallpaper choices are fit, fill/crop, center, stretch, and tile. It can open display/audio/Wi-Fi/Bluetooth tools, package manager, AI, Chromium, Nemo, terminal, screenshots, and system logs. Terminal help remains fallback when GTK is missing.
+
+Ooonana Task Manager shows searchable/sortable processes and CPU, GPU, RAM, disk, network, storage, temperature, and fan readings. GPU and fan counters say unavailable when drivers or hardware do not expose them. End Task requires confirmation and can terminate only your own process. Native GTK apps have close, minimize-to-scratchpad, and fullscreen buttons; top-panel controls and window list cover third-party windows.
 
 Persistent live USB:
 
@@ -740,7 +747,9 @@ For Rufus/native USB, flash the ISO normally, then add an ext4 persistence parti
 
 `ooonana-memory status` reports available RAM, swap, and live storage mode. Ooonana starts compressed zram swap at boot (half physical RAM, capped at 8 GiB); it does not silently create a USB swapfile. Zram helps memory pressure but cannot replace physical RAM for a large model. OpenVINO setup on live USB needs the persistent GRUB entry plus `OOONANA_PERSIST`; RAM-only and temporary overlays cannot safely hold its runtime and model files.
 
-WSL uses its host kernel, not the ISO kernel. `ooonana-memory status` may show zero swap in WSL even though the rebuilt ISO is configured to activate zram. To diagnose physical USB RAM use, run `free -h` and compare `available` RAM with `used`; file cache is often reclaimable. For model-load failures, record `ooonana-memory status`, `df -h /`, and the final OpenVINO error. OpenVINO Chat 0.1.7 defaults to a 4096-token context; larger models may still need more physical RAM.
+First-boot Setup writes `/etc/ooonana/memory.conf`: choose zram at 0, 25, 50, 75, or 100 percent of RAM, plus enable/disable configured disk swap. Settings apply next boot. Setup does not create partitions; installer offers optional disk swap during erase-disk installation.
+
+WSL uses its host kernel, not the ISO kernel. `ooonana-memory status` may show zero swap in WSL even though the rebuilt ISO is configured to activate zram. To diagnose physical USB RAM use, run `free -h` and compare `available` RAM with `used`; file cache is often reclaimable. For model-load failures, record `ooonana-memory status`, `df -h /`, and the final OpenVINO error. Ooonana OpenVINO Chat 0.2.0 defaults to a 4096-token context; larger models may still need more physical RAM.
 
 ## Rufus USB
 
@@ -881,7 +890,7 @@ First-boot setup launches from the full-i3 session through xterm when possible:
 ooonana setup --first-boot --gui
 ```
 
-It can create a user, prompt for a password, write `/etc/network/interfaces`, write `/etc/ooonana/theme`, and add `/etc/ooonana/sources.d/cloud.repo` so `ooonana update` can use a published cloud package repo. The GitLab Pages cloud repo is added by default, and `--cloud-repo URI` overrides it. In full-i3 it opens a `yad` setup form first, then falls back to themed xterm when GUI pieces are missing.
+It can create a user, prompt for a password, set zram/disk-swap policy, write `/etc/network/interfaces`, write `/etc/ooonana/theme`, and add `/etc/ooonana/sources.d/cloud.repo` so `ooonana update` can use a published cloud package repo. The GitLab Pages cloud repo is added by default, and `--cloud-repo URI` overrides it. In full-i3 it opens a native GTK setup form first, then falls back to themed xterm when GUI pieces are missing.
 
 Cloud package build:
 
@@ -903,6 +912,8 @@ Inside Ooonana OS:
 ooonana update
 ooonana upgrade
 ```
+
+That upgrades installed packages, including `ooonana-core` and `openvino-chat` when installed. Kernel upgrades are separate: on an installed disk, run `ooonana get ooonana-kernel` when a verified newer kernel package is available, then reboot. A live USB still boots kernel embedded in its ISO; package upgrades do not replace ISO boot files. Major boot-layout changes require a fresh ISO/reinstall or an explicitly tested migration.
 
 The combined cloud build uses:
 
@@ -961,6 +972,8 @@ ooonana-ai chat
 
 Use `--device CPU` when Intel GPU acceleration is unavailable. Runtime and model download once; inference then stays local. Native Ooonana AI app has package install, runtime setup, model download, GPU/CPU start, stop, and provider controls.
 
+`Ooonana Offline AI` launcher now starts `openvino chat --gui`: OpenVINO's authenticated loopback GUI opens in desktop Chromium while terminal session stays alive. `/tui` returns to terminal. Linux does not expose Windows-only computer-control tools; local shell/file tools remain available with their permissions. Linux setup honors `OPENVINO_MODEL_ROOT` and `OPENVINO_CHAT_CONFIG`. After upgrading `openvino-chat`, run `openvino setup` to refresh isolated runtime; models in `~/.openvino` remain separate.
+
 Full-i3 includes an Ooonana AI app launcher:
 
 ```text
@@ -1001,10 +1014,10 @@ docs/jarvis-agi-research.md
 
 ## Build From Source
 
-For the prepared Windows/WSL release workspace, run in PowerShell:
+For prepared Windows/WSL release workspace, run in PowerShell:
 
 ```powershell
-wsl.exe -d Ubuntu -u root -- bash -lc 'cd "/mnt/c/Users/7ryan/OneDrive/문서/Ooonana OS" && exec bash scripts/rebuild-full-i3-release.sh'
+& 'F:\Ooonana\ooonana-os\Build-ISO.ps1'
 ```
 
 Output: `F:\Ooonana\ooonana-os\release-current\ooonana-full-i3.iso`.

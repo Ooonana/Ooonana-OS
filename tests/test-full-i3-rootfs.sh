@@ -148,7 +148,7 @@ EOF
 chmod +x "$scratch/bin/busybox"
 cat > "$scratch/usr/bin/ooonana" <<'EOF'
 #!/bin/sh
-echo ooonana 0.9.1
+echo ooonana 0.9.2
 EOF
 chmod +x "$scratch/usr/bin/ooonana"
 cat > "$scratch/usr/bin/ooonana-setup" <<'EOF'
@@ -326,7 +326,7 @@ assert_contains "$(<"$rootfs/etc/gtk-3.0/settings.ini")" "gtk-decoration-layout=
 [[ -f "$rootfs/etc/profile.d/00-ooonana-locale.sh" ]] || fail "missing UTF-8 locale profile"
 [[ -f "$rootfs/etc/environment" ]] || fail "missing desktop environment file"
 [[ -d "$rootfs/home/ooonana" ]] || fail "missing live user home"
-for native_app in common setup_app settings_app wifi_app bluetooth_app packages_app ai_app controls_app launcher_app; do
+for native_app in common setup_app settings_app wifi_app bluetooth_app packages_app ai_app controls_app launcher_app task_manager_app; do
   [[ -f "$rootfs/usr/lib/ooonana/ui/$native_app.py" ]] || fail "missing native app: $native_app"
 done
 [[ -f "$rootfs/etc/neofetch/config.conf" ]] || fail "missing neofetch config"
@@ -339,6 +339,7 @@ done
 [[ -f "$rootfs/usr/share/applications/ooonana-settings.desktop" ]] || fail "missing settings desktop entry"
 [[ -f "$rootfs/usr/share/applications/ooonana-apps.desktop" ]] || fail "missing app launcher desktop entry"
 [[ -f "$rootfs/usr/share/applications/ooonana-music.desktop" ]] || fail "missing music desktop entry"
+[[ -f "$rootfs/usr/share/applications/ooonana-task-manager.desktop" ]] || fail "missing task manager desktop entry"
 [[ -f "$rootfs/usr/share/applications/oonana.desktop" ]] || fail "missing game desktop entry"
 [[ -x "$rootfs/usr/bin/ooonana-game-launch" ]] || fail "missing game terminal launcher"
 [[ -d "$rootfs/var/log" ]] || fail "missing var log for Xorg"
@@ -371,7 +372,7 @@ assert_contains "$(<"$rootfs/etc/doas.conf")" "permit nopass keepenv :wheel"
 assert_contains "$(<"$rootfs/etc/sudoers.d/ooonana")" '%wheel ALL=(ALL:ALL) NOPASSWD: ALL'
 assert_contains "$(<"$rootfs/etc/wsl.conf")" "default=ooonana"
 assert_contains "$(<"$rootfs/etc/wsl.conf")" "mountFsTab=false"
-assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS 0.1.8"'
+assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS 0.9.2"'
 [[ "$(<"$rootfs/etc/ooonana/default-user")" == "ooonana" ]] || fail "wrong default desktop user"
 [[ -s "$rootfs/etc/machine-id" ]] || fail "missing machine-id"
 [[ -s "$rootfs/var/lib/dbus/machine-id" ]] || fail "missing dbus machine-id"
@@ -803,6 +804,7 @@ media_status="$(<"$rootfs/usr/bin/ooonana-media-status")"
 assert_contains "$media_status" "mpc --format '%title%' current"
 processes_helper="$(<"$rootfs/usr/bin/ooonana-processes")"
 assert_contains "$processes_helper" "htop"
+assert_contains "$processes_helper" "task_manager_app.py"
 ranger_helper="$(<"$rootfs/usr/bin/ooonana-ranger")"
 assert_contains "$ranger_helper" "ranger"
 brightness_helper="$(<"$rootfs/usr/bin/ooonana-brightness")"
@@ -887,7 +889,7 @@ assert_contains "$polybar_cfg" "[module/music]"
 assert_contains "$polybar_cfg" "[module/memory]"
 assert_contains "$polybar_cfg" "[module/windows]"
 assert_contains "$polybar_cfg" "exec = ooonana-window-list"
-assert_contains "$polybar_cfg" "click-right = ooonana-window-list --close-menu"
+assert_contains "$polybar_cfg" "click-right = ooonana-window-list --actions"
 assert_contains "$polybar_cfg" "modules-right = memory audio brightness battery bluetooth wifi date power"
 assert_contains "$polybar_cfg" "exec = ooonana-audio-status"
 assert_contains "$polybar_cfg" "exec = ooonana-wifi-status"
@@ -1015,6 +1017,7 @@ assert_contains "$install_wizard" 'set -- ooonana-run-admin "$@"'
 
 wizard_dry="$("$rootfs/usr/bin/ooonana-install-wizard" --dry-run --target /dev/vdb --source / --user ryan --hostname ooonana-lab --theme dark --cloud-repo https://example.test/repo)"
 assert_contains "$wizard_dry" "Step 1/8 choose target disk: /dev/vdb"
+assert_contains "$wizard_dry" "Disk swap size: 0 MiB"
 assert_contains "$wizard_dry" "Step 2/8 create user: ryan"
 assert_contains "$wizard_dry" "Step 3/8 set hostname: ooonana-lab"
 assert_contains "$wizard_dry" "Step 4/8 choose theme: dark"
@@ -1024,8 +1027,10 @@ assert_contains "$wizard_dry" "Step 7/8 confirm erase: INSTALL"
 assert_contains "$wizard_dry" "Step 8/8 install, log, reboot"
 assert_contains "$wizard_dry" "Progress log: "
 assert_contains "$wizard_dry" "ooonana-install-wizard.log"
-assert_contains "$wizard_dry" "/usr/sbin/ooonana-install --target /dev/vdb --source / --hostname ooonana-lab --user ryan --theme dark --cloud-repo https://example.test/repo --yes"
+assert_contains "$wizard_dry" "/usr/sbin/ooonana-install --target /dev/vdb --source / --hostname ooonana-lab --user ryan --theme dark --swap-size-mib 0 --cloud-repo https://example.test/repo --yes"
 assert_contains "$wizard_dry" "OOONANA_INSTALL_WIZARD_OK"
+wizard_no_target="$("$rootfs/usr/bin/ooonana-install-wizard" --dry-run)"
+assert_contains "$wizard_no_target" "Step 1/8 choose target disk: TARGET_REQUIRED"
 
 gui_dry="$("$rootfs/usr/bin/ooonana-gui-installer" --dry-run)"
 assert_contains "$gui_dry" "ooonana-installer-gui --dry-run"
@@ -1070,7 +1075,7 @@ assert_contains "$rcs" "ln -s /run /var/run"
 assert_contains "$rcs" "read -r host </etc/hostname"
 assert_contains "$rcs" "start_device_manager()"
 assert_contains "$rcs" 'ooonana-memory start >/var/log/ooonana-memory.log'
-assert_contains "$rcs" 'swapon -a >>/var/log/ooonana-memory.log'
+assert_contains "$rcs" 'ooonana-memory disk-start >>/var/log/ooonana-memory.log'
 assert_contains "$rcs" "udevd --daemon"
 assert_contains "$rcs" "udevadm trigger"
 assert_contains "$rcs" "udevadm settle"
@@ -1140,6 +1145,8 @@ assert_contains "$contents" "./usr/bin/ooonana-screenshot"
 assert_contains "$contents" "./usr/bin/ooonana-editor"
 assert_contains "$contents" "./usr/bin/ooonana-music"
 assert_contains "$contents" "./usr/bin/ooonana-processes"
+assert_contains "$contents" "./usr/lib/ooonana/ui/task_manager_app.py"
+assert_contains "$contents" "./usr/share/applications/ooonana-task-manager.desktop"
 assert_contains "$contents" "./usr/bin/ooonana-process-kill"
 assert_contains "$contents" "./usr/bin/ooonana-ranger"
 assert_contains "$contents" "./usr/bin/ooonana-brightness"

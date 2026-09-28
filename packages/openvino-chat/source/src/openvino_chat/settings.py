@@ -7,6 +7,9 @@ from pathlib import Path
 DEFAULT_OPENVINO_HOME = Path.home() / ".openvino"
 OPENVINO_HOME = Path(os.environ.get("OPENVINO_HOME", DEFAULT_OPENVINO_HOME)).expanduser()
 MODEL_ROOT = Path(os.environ.get("OPENVINO_MODEL_ROOT", OPENVINO_HOME / "models")).expanduser()
+MODEL_REMOTES_PATH = Path(
+    os.environ.get("OPENVINO_MODEL_REMOTES", OPENVINO_HOME / "model-remotes.json")
+).expanduser()
 CONFIG_PATH = Path(
     os.environ.get("OPENVINO_CHAT_CONFIG", OPENVINO_HOME / "config.json")
 ).expanduser()
@@ -55,6 +58,7 @@ RAG_RERANK_REPO = "OpenVINO/bge-reranker-base-int8-ov"
 
 MODEL_REPOS = {
     "qwen3.5": "OpenVINO/Qwen3.5-9B-int4-ov",
+    "oxcoder": "OrionLLM/OxCoder-9B",
     "tiny": "empero-ai/Qwen3.8-4B-Distill",
     "gemma": "OpenVINO/gemma-4-E4B-it-int4-ov",
     "ornith": "ornith-ai/Ornith-1.5-9B",
@@ -62,15 +66,20 @@ MODEL_REPOS = {
 MODEL_DIRS = {
     "qwen3.5": MODEL_ROOT / "qwen3.5-9b-int4-ov",
     "qwen3.8": MODEL_ROOT / "qwen3.8-9b-int4-ov",
+    "oxcoder": MODEL_ROOT / "oxcoder-9b-int4-ov",
+    "granite": MODEL_ROOT / "granite-4.2-8b-int4",
     "tiny": MODEL_ROOT / "qwen3.8-4b-int4-ov",
     "gemma": MODEL_ROOT / "gemma-4-e4b-it-int4-ov",
     "ornith": MODEL_ROOT / "ornith-1.5-9b-int4-ov",
 }
 MODEL_ALIASES = {
+    "granite4.2": "granite",
     "qwen": "qwen3.5",
     "qwen38": "qwen3.8",
 }
 MODEL_EXPORT_REQUIRED = {
+    "granite": "Granite 4.2 8B is a local OpenVINO export; import the converted folder or archive.",
+    "oxcoder": "OxCoder-9B must be exported to OpenVINO first; import a converted OpenVINO folder or compatible conversion archive.",
     "tiny": "Qwen3.8-4B-Distill needs OpenVINO INT4 export; import a converted folder or compatible conversion archive.",
     "ornith": "Ornith-1.5-9B must be exported to OpenVINO INT4 first; place the converted model in the ornith model path.",
 }
@@ -79,6 +88,10 @@ DEFAULT_GENERATION_SETTINGS = {
     "top_p": 0.9,
 }
 MODEL_GENERATION_SETTINGS = {
+    "oxcoder": {
+        "general": {"temperature": 1.0, "top_p": 0.95},
+        "coding": {"temperature": 0.6, "top_p": 0.95},
+    },
     "gemma": {
         "general": {"temperature": 1.0, "top_p": 0.95, "top_k": 64},
         "coding": {"temperature": 1.0, "top_p": 0.95, "top_k": 64},
@@ -306,7 +319,9 @@ def generation_settings(
     generation_effort: str = DEFAULT_GENERATION_EFFORT,
 ) -> dict[str, float | int]:
     name = model_name.lower()
-    if "ornith" in name:
+    if "oxcoder" in name:
+        key = "oxcoder"
+    elif "ornith" in name:
         key = "ornith"
     elif "qwen3.8" in name:
         key = "qwen3.8"

@@ -37,7 +37,7 @@ class SettingsWindow(Gtk.Window):
 
     def __init__(self):
         super().__init__(title="Ooonana Settings")
-        self.set_default_size(1040, 680)
+        self.set_default_size(1000, 620)
         self.set_size_request(820, 540)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.status_widgets = {}
@@ -330,7 +330,7 @@ class SettingsWindow(Gtk.Window):
             ("Files", "Nemo file manager.", "system-file-manager-symbolic", ["ooonana-files"]),
             ("Editor", "Geany graphical editor.", "accessories-text-editor-symbolic", ["ooonana-editor"]),
             ("Music", "Local library, playback, and volume.", "multimedia-player-symbolic", ["ooonana-music"]),
-            ("Processes", "System process monitor.", "utilities-system-monitor-symbolic", ["ooonana-processes"]),
+            ("Task Manager", "Processes and CPU, GPU, RAM, disk, and network performance.", "utilities-system-monitor-symbolic", ["ooonana-processes"]),
         ]
         for index, (title, description, icon_name, command) in enumerate(apps):
             box = card(title, description, icon_name)

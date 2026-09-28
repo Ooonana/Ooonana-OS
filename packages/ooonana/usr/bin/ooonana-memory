@@ -2,6 +2,15 @@
 set -eu
 
 meminfo="${OOONANA_MEMORY_MEMINFO:-/proc/meminfo}"
+config_file="${OOONANA_MEMORY_CONFIG:-/etc/ooonana/memory.conf}"
+config_value() {
+  [ -f "$config_file" ] || return 0
+  sed -n "s/^$1=//p" "$config_file" | head -n 1
+}
+zram_percent="$(config_value OOONANA_ZRAM_PERCENT)"
+disk_swap="$(config_value OOONANA_DISK_SWAP)"
+case "$zram_percent" in 0|25|50|75|100) ;; *) zram_percent=50 ;; esac
+case "$disk_swap" in on|off) ;; *) disk_swap=on ;; esac
 value_kb() {
   awk -v key="$1:" '$1 == key { print $2; exit }' "$meminfo" 2>/dev/null
 }
@@ -18,8 +27,8 @@ case "$total_kb:$available_kb:$swap_total_kb:$swap_free_kb" in
   *[!0-9:]*|:*|0:*) echo 'ooonana-memory: memory information unavailable' >&2; exit 1 ;;
 esac
 
-size_mib=$((total_kb / 2048))
-[ "$size_mib" -ge 128 ] || size_mib=128
+size_mib=$((total_kb / 1024 * zram_percent / 100))
+if [ "$zram_percent" -ne 0 ] && [ "$size_mib" -lt 128 ]; then size_mib=128; fi
 [ "$size_mib" -le 8192 ] || size_mib=8192
 
 case "${1:-status}" in
@@ -33,12 +42,17 @@ case "${1:-status}" in
     [ -n "$overlay" ] || overlay=installed
     printf 'RAM: %s MiB total, %s MiB available\n' "$((total_kb / 1024))" "$((available_kb / 1024))"
     printf 'Swap: %s MiB total, %s MiB free\n' "$((swap_total_kb / 1024))" "$((swap_free_kb / 1024))"
+    printf 'Zram policy: %s%%; disk swap: %s\n' "$zram_percent" "$disk_swap"
     printf 'Live storage: %s\n' "$overlay"
     ;;
   --dry-run)
-    printf 'zram size: %s MiB (half RAM, max 8192 MiB)\n' "$size_mib"
+    printf 'zram size: %s MiB (%s%% RAM, max 8192 MiB)\n' "$size_mib" "$zram_percent"
     ;;
   start)
+    if [ "$zram_percent" -eq 0 ]; then
+      echo 'OOONANA_ZRAM_DISABLED'
+      exit 0
+    fi
     [ "$(id -u)" -eq 0 ] || { echo 'ooonana-memory: root required' >&2; exit 1; }
     if grep -q '^/dev/zram0[[:space:]]' /proc/swaps 2>/dev/null; then
       echo 'OOONANA_ZRAM_ALREADY_ACTIVE'
@@ -66,5 +80,14 @@ case "${1:-status}" in
     swapon -p 100 /dev/zram0
     printf 'OOONANA_ZRAM_READY %s MiB\n' "$size_mib"
     ;;
-  *) echo 'usage: ooonana-memory [status|--short|--dry-run|start]' >&2; exit 2 ;;
+  disk-start)
+    if [ "$disk_swap" = off ]; then
+      echo 'OOONANA_DISK_SWAP_DISABLED'
+      exit 0
+    fi
+    [ "$(id -u)" -eq 0 ] || { echo 'ooonana-memory: root required' >&2; exit 1; }
+    swapon -a
+    echo 'OOONANA_DISK_SWAP_CHECKED'
+    ;;
+  *) echo 'usage: ooonana-memory [status|--short|--dry-run|start|disk-start]' >&2; exit 2 ;;
 esac

@@ -15,6 +15,8 @@ ADDRESS=""
 GATEWAY=""
 DNS_SERVERS=""
 THEME=""
+ZRAM_PERCENT=""
+DISK_SWAP=""
 DEFAULT_CLOUD_REPO="${OOONANA_DEFAULT_CLOUD_REPO:-https://ooonana.gitlab.io/ooonana-repo}"
 CLOUD_REPO="$DEFAULT_CLOUD_REPO"
 
@@ -36,6 +38,8 @@ Options:
   --gateway IP          Static gateway
   --dns LIST            Comma-separated DNS servers
   --theme dark|light    Write Ooonana UI theme
+  --zram-percent N      Compressed swap: 0, 25, 50, 75, or 100 percent of RAM
+  --disk-swap on|off    Activate only swap already listed in installed /etc/fstab
   --cloud-repo URI      Add Ooonana cloud package repo (default: https://ooonana.gitlab.io/ooonana-repo)
   --done                Mark setup complete
   --dry-run             Print actions only
@@ -82,7 +86,7 @@ xterm_theme() {
 run_gui_setup() {
   if [ "$DRY_RUN" -eq 1 ]; then
     printf 'native GTK setup gui\n'
-    printf 'controls: account password network wifi theme cloud-repo\n'
+    printf 'controls: account password network wifi theme zram disk-swap cloud-repo\n'
     printf 'OOONANA_SETUP_GUI_OK\n'
     return 0
   fi
@@ -370,6 +374,30 @@ write_theme() {
   printf 'theme: %s\n' "$THEME"
 }
 
+validate_memory_options() {
+  [ -n "$ZRAM_PERCENT$DISK_SWAP" ] || return 0
+  [ -n "$ZRAM_PERCENT" ] || ZRAM_PERCENT=50
+  [ -n "$DISK_SWAP" ] || DISK_SWAP=on
+  case "$ZRAM_PERCENT" in 0|25|50|75|100) ;; *) die "zram percent must be 0, 25, 50, 75, or 100" ;; esac
+  case "$DISK_SWAP" in on|off) ;; *) die "disk swap must be on or off" ;; esac
+}
+
+write_memory() {
+  [ -n "$ZRAM_PERCENT$DISK_SWAP" ] || return 0
+  if [ "$DRY_RUN" -eq 1 ]; then
+    printf 'would configure zram %s%% and installed disk swap %s (next boot)\n' "$ZRAM_PERCENT" "$DISK_SWAP"
+    return 0
+  fi
+  memory_file="$(root_join /etc/ooonana/memory.conf)"
+  mkdir -p "$(dirname "$memory_file")"
+  {
+    printf 'OOONANA_ZRAM_PERCENT=%s\n' "$ZRAM_PERCENT"
+    printf 'OOONANA_DISK_SWAP=%s\n' "$DISK_SWAP"
+  } >"$memory_file"
+  chmod 0644 "$memory_file"
+  printf 'memory: zram %s%%, installed disk swap %s (next boot)\n' "$ZRAM_PERCENT" "$DISK_SWAP"
+}
+
 set_password() {
   [ "$PASSWORD_SETUP" -eq 1 ] || return 0
   [ -n "$USER_NAME" ] || die "--password requires --user NAME"
@@ -451,6 +479,16 @@ prompt_first_boot() {
     read -r answer
     THEME="${answer:-dark}"
   fi
+  if [ -z "$ZRAM_PERCENT" ]; then
+    printf 'Compressed swap percent 0/25/50/75/100 [50]: '
+    read -r answer
+    ZRAM_PERCENT="${answer:-50}"
+  fi
+  if [ -z "$DISK_SWAP" ]; then
+    printf 'Use installer-configured disk swap on next boot? on/off [on]: '
+    read -r answer
+    DISK_SWAP="${answer:-on}"
+  fi
   if [ -z "$CLOUD_REPO" ]; then
     printf 'Cloud repo URI blank to skip: '
     read -r CLOUD_REPO
@@ -470,6 +508,8 @@ while [ "$#" -gt 0 ]; do
     --gateway) GATEWAY="$2"; shift 2 ;;
     --dns) DNS_SERVERS="$2"; shift 2 ;;
     --theme) THEME="$2"; shift 2 ;;
+    --zram-percent) ZRAM_PERCENT="$2"; shift 2 ;;
+    --disk-swap) DISK_SWAP="$2"; shift 2 ;;
     --cloud-repo) CLOUD_REPO="$2"; shift 2 ;;
     --done) DONE=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
@@ -494,10 +534,12 @@ if [ "$GUI" -eq 1 ] && [ -n "${DISPLAY:-}" ] && [ -z "${OOONANA_SETUP_IN_TERMINA
 fi
 
 prompt_first_boot
+validate_memory_options
 write_user
 set_password
 write_network
 write_theme
+write_memory
 write_cloud_repo
 mark_done
 printf 'OOONANA_SETUP_OK\n'

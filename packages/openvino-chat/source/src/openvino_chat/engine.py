@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -50,7 +51,22 @@ class OpenVinoChatEngine:
         self._tokenizer_checked = False
         self.last_metrics: GenerationMetrics | None = None
         self._structured_tool_configs: dict[str, Any] = {}
-        self._structured_tools_disabled = False
+        self._chat_stop_ids: set[int] | None = None
+
+    def _conversation_stop_ids(self) -> set[int]:
+        if self._chat_stop_ids is not None:
+            return self._chat_stop_ids
+        self._chat_stop_ids = set()
+        if self.model_dir is None:
+            return self._chat_stop_ids
+        try:
+            data = json.loads((self.model_dir / "tokenizer.json").read_text(encoding="utf-8"))
+            self._chat_stop_ids = {item["id"] for item in data.get("added_tokens", [])
+                                   if item.get("content") in {"<|im_end|>", "<|im_start|>"}
+                                   and type(item.get("id")) is int and item["id"] >= 0}
+        except (OSError, ValueError, TypeError, AttributeError):
+            pass
+        return self._chat_stop_ids
 
     @property
     def media_capabilities(self) -> frozenset[str]:
@@ -116,6 +132,7 @@ class OpenVinoChatEngine:
         tokenizer = self._get_tokenizer()
         formatter = getattr(tokenizer, "apply_chat_template", None)
         if not callable(formatter):
+            logging.getLogger(__name__).debug("native_tool_template_failed=formatter unavailable")
             return None
         effort = self.resolve_thinking_effort(thinking_effort)
         try:
@@ -126,7 +143,8 @@ class OpenVinoChatEngine:
             if tools:
                 kwargs["tools"] = tools
             return str(formatter(messages, **kwargs))
-        except Exception:
+        except Exception as exc:
+            logging.getLogger(__name__).debug("native_tool_template_failed=%s: %s", type(exc).__name__, str(exc)[:300])
             return None
 
     def generate(
@@ -194,10 +212,16 @@ class OpenVinoChatEngine:
             history.set_extra_context(self._thinking_context(effort))
         except (ImportError, AttributeError, TypeError):
             return self.generate(prompt, thinking_effort=effort, **generation_kwargs)
-        structured_tools = self._structured_tool_output(
-            tools,
-            require_tool=tool_choice == "required",
-        )
+        try:
+            structured_tools = self._structured_tool_output(
+                tools,
+                require_tool=tool_choice == "required",
+            )
+        except (RuntimeError, ValueError) as exc:
+            if not _is_structured_grammar_error(exc):
+                raise
+            logging.getLogger(__name__).debug("structured_tool_fallback=%s: %s", type(exc).__name__, str(exc)[:300])
+            structured_tools = None
         if structured_tools is not None:
             generation_kwargs.setdefault("structured_output_config", structured_tools)
         return self._generate_input(
@@ -213,7 +237,7 @@ class OpenVinoChatEngine:
         *,
         require_tool: bool = False,
     ) -> Any | None:
-        if self._structured_tools_disabled or not tools or "gemma" in self.model_name.lower():
+        if not tools or "gemma" in self.model_name.lower():
             return None
         try:
             import openvino_genai as ov_genai
@@ -321,6 +345,17 @@ class OpenVinoChatEngine:
             "do_sample": effective_temperature > 0,
             **sampling,
         }
+        chat_stops = self._conversation_stop_ids()
+        if chat_stops:
+            inherited = set()
+            getter = getattr(self._pipeline, "get_generation_config", None)
+            if callable(getter):
+                config = getter()
+                inherited.update(getattr(config, "stop_token_ids", ()) or ())
+                eos = getattr(config, "eos_token_id", None)
+                if type(eos) is int and eos >= 0:
+                    inherited.add(eos)
+            kwargs["stop_token_ids"] = inherited | chat_stops
         if structured_output_config is not None:
             kwargs["structured_output_config"] = structured_output_config
         if media_inputs is not None:
@@ -341,7 +376,7 @@ class OpenVinoChatEngine:
                 or not _is_structured_grammar_error(exc)
             ):
                 raise
-            self._structured_tools_disabled = True
+            logging.getLogger(__name__).debug("structured_tool_fallback=%s: %s", type(exc).__name__, str(exc)[:300])
             kwargs.pop("structured_output_config", None)
             started = time.perf_counter()
             first_token_at = None
@@ -415,6 +450,10 @@ def _pipeline_cls(model_dir: Path) -> type:
 
 def _model_name(model_dir: Path) -> str:
     name = model_dir.name.lower()
+    if "oxcoder" in name:
+        return "OxCoder"
+    if "granite" in name:
+        return "Granite 4.2 8B"
     if "gemma" in name:
         return "Gemma"
     if "ornith" in name:

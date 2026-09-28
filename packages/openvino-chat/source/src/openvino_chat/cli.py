@@ -29,10 +29,14 @@ from openvino_chat.api import (
     stop_api_process,
 )
 from openvino_chat.download import (
+    backup_named_model,
     delete_named_model,
     download_named_model,
     is_hf_repo_reference,
     is_openvino_model_dir,
+    model_retention_status,
+    remote_model_dirs,
+    restore_named_model,
 )
 from openvino_chat.engine import (
     OpenVinoChatEngine,
@@ -234,7 +238,7 @@ class CommandSpec:
 
 
 COMMAND_SPECS: tuple[CommandSpec, ...] = (
-    CommandSpec("Chat", "/help", "/help", "Show help."),
+    CommandSpec("Chat", "/help", "/help [topic]", "Show help for all functions or one topic."),
     CommandSpec("Chat", "/commands", "/commands", "Show command palette."),
     CommandSpec("Chat", "/copy", "/copy", "Copy latest assistant response."),
     CommandSpec("Chat", "/raw", "/raw", "Toggle raw transcript display."),
@@ -246,6 +250,10 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     CommandSpec("Chat", "/archive", "/archive", "Save current session and quit."),
     CommandSpec("Chat", "/exit", "/exit", "Quit."),
     CommandSpec("UI", "/ui", "/ui", "Show UI layout."),
+    CommandSpec("UI", "/gui", "/gui [desktop|browser]", "Open desktop window or browser with current session."),
+    CommandSpec("Chat", "/queue", "/queue [pause|resume|clear|remove ID|edit ID]", "Manage messages queued during generation."),
+    CommandSpec("Tools", "/computer", "/computer [status|ask|session|always|stop]", "Computer access policy and global emergency stop."),
+    CommandSpec("UI", "/tui", "/tui", "Return current session to terminal interface."),
     CommandSpec("UI", "/sidepanel", "/sidepanel [on|off]", "Show or hide responsive side panel."),
     CommandSpec("UI", "/chart", "/chart a=2 b=4", "Show bar chart in visual panel."),
     CommandSpec("UI", "/big", "/big <text>", "Show block letters in visual panel."),
@@ -255,7 +263,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     CommandSpec("System Prompt", "/system", "/system", "Show current system prompt."),
     CommandSpec("Personality", "/duck", "/duck [on|off]", "Toggle loud Quack personality for every task."),
     CommandSpec("Reasoning", "/effort", "/effort [low|medium|high|custom]", "Set model sampling effort."),
-    CommandSpec("Reasoning", "/thinking", "/thinking", "Set model-native thinking mode."),
+    CommandSpec("Reasoning", "/thinking", "/thinking [on|off|low|medium|xhigh]", "Set supported model-native thinking mode."),
     CommandSpec("Context and Performance", "/ctx", "/ctx [tokens]", "Show or set context tokens."),
     CommandSpec("Context and Performance", "/kv", "/kv [auto|u4|u8|f16]", "Set KV-cache precision."),
     CommandSpec("Context and Performance", "/max-tokens", "/max-tokens [tokens]", "Show or set maximum response tokens."),
@@ -304,6 +312,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
 )
 
 ADVANCED_COMMAND_SPECS: tuple[CommandSpec, ...] = (
+    CommandSpec("Reasoning", "/effort custom", "/effort custom [key=value ...]", "Edit temperature, top_p, top_k, min_p, presence_penalty, repetition_penalty."),
     CommandSpec("Chat", "/raw on", "/raw on", "Show raw model protocol text."),
     CommandSpec("Chat", "/raw off", "/raw off", "Render thoughts, tools, and Markdown."),
     CommandSpec("Chat", "/compact status", "/compact status", "Show context compaction state."),
@@ -316,6 +325,8 @@ ADVANCED_COMMAND_SPECS: tuple[CommandSpec, ...] = (
     CommandSpec("Models", "/model list", "/model list", "List configured models."),
     CommandSpec("Models", "/model unload", "/model unload", "Unload current model."),
     CommandSpec("Models", "/model download", "/model download <name|owner/repo>", "Install built-in or Hugging Face OpenVINO model."),
+    CommandSpec("Models", "/model backup", "/model backup <name> [owner/repo]", "Upload and verify a private Hugging Face backup."),
+    CommandSpec("Models", "/model restore", "/model restore <name>", "Restore a model from its verified Hugging Face backup."),
     CommandSpec("Models", "/model delete", "/model delete <name>", "Delete model."),
     CommandSpec("System Prompt", "/system set", "/system set <text>", "Replace system prompt."),
     CommandSpec("System Prompt", "/system show", "/system show", "Show current system prompt."),
@@ -348,6 +359,11 @@ ADVANCED_COMMAND_SPECS: tuple[CommandSpec, ...] = (
 SLASH_COMMAND_POPUP_LIMIT = 15
 REWIND_HISTORY_LIMIT = 50
 SESSION_TIMELINE_EXCLUDED_COMMANDS = {
+    "/gui",
+    "/tui",
+    "/help",
+    "/commands",
+    "/cmds",
     "/archive",
     "/delete",
     "/exit",
@@ -382,7 +398,9 @@ EXACT_USAGE_COMMANDS = {
     "/big": "/big <text>",
     "/tilt": "/tilt <text>",
     "/model download": "/model download <name|owner/repo>",
-    "/model delete": "/model delete <name>",
+    "/model backup": "/model backup <name> [owner/repo]",
+    "/model restore": "/model restore <name>",
+    "/model delete": "/model delete <name> [--force]",
     "/model use": "/model use <name|path>",
     "/model import": "/model import <path|owner/repo>",
     "/system set": "/system set <text>",
@@ -1222,6 +1240,15 @@ def _persist_permission_mode(value: str) -> None:
         _save_config(config)
 
 
+def _persist_computer_permission(value: str) -> None:
+    config = _load_config()
+    if value == "always":
+        config["computer_permission_mode"] = "always"
+    else:
+        config.pop("computer_permission_mode", None)
+    _save_config(config)
+
+
 def _configured_thinking_effort() -> str:
     try:
         return normalize_thinking_effort(
@@ -1721,8 +1748,12 @@ def main(
         return 0
     if command == "download":
         return _download(args.model, args.model_dir, downloader)
+    if command == "backup":
+        return _backup_model(args.model, args.repo)
+    if command == "restore":
+        return _restore_model(args.model)
     if command == "delete":
-        return _delete_model(args.model)
+        return _delete_model(args.model, force=args.force)
     if command == "serve":
         if not model_dir.exists():
             print(f"model missing: {model_dir}", file=sys.stderr)
@@ -1770,6 +1801,7 @@ def main(
             ),
             engine_loader=engine_loader,
             input_fn=input_fn,
+            start_gui=getattr(args, "gui", False),
         )
     parser.print_help()
     return 2
@@ -1786,8 +1818,16 @@ def _parser() -> argparse.ArgumentParser:
     download_parser = subparsers.add_parser("download")
     download_parser.add_argument("model", help="built-in name or Hugging Face owner/repo")
 
+    backup_parser = subparsers.add_parser("backup")
+    backup_parser.add_argument("model", help="model name shown by openvino models")
+    backup_parser.add_argument("--repo", default=None, help="optional Hugging Face owner/repo")
+
+    restore_parser = subparsers.add_parser("restore")
+    restore_parser.add_argument("model", help="model name shown by openvino models")
+
     delete_parser = subparsers.add_parser("delete")
     delete_parser.add_argument("model", help="model name shown by openvino models")
+    delete_parser.add_argument("--force", action="store_true", help="delete even without a verified backup")
 
     serve_parser = subparsers.add_parser("serve")
     serve_parser.add_argument("--host", default=DEFAULT_API_HOST)
@@ -1809,11 +1849,12 @@ def _parser() -> argparse.ArgumentParser:
     chat_parser = subparsers.add_parser("chat")
     chat_parser.add_argument("prompt", nargs="*")
     chat_parser.add_argument("--device", default="GPU", choices=["GPU", "CPU"])
-    chat_parser.add_argument("--max-new-tokens", type=int, default=2048)
+    chat_parser.add_argument("--max-new-tokens", type=int, default=4096)
     chat_parser.add_argument("--ctx", "--context-length", dest="context_length", type=int, default=None)
     chat_parser.add_argument("--temperature", type=float, default=None)
     chat_parser.add_argument("--top-p", type=float, default=None)
     chat_parser.add_argument("--kv-cache", dest="kv_cache_precision", choices=["auto", "u4", "u8", "f16"])
+    chat_parser.add_argument("--gui", action="store_true", help="Open browser GUI on startup")
     return parser
 
 
@@ -1842,9 +1883,32 @@ def _download(model: str, model_dir: Path | None, downloader: Downloader) -> int
     return 0
 
 
-def _delete_model(model: str) -> int:
+def _backup_model(model: str, repo: str | None = None) -> int:
     try:
-        path = delete_named_model(model)
+        record = backup_named_model(model, repo)
+    except (ImportError, OSError, RuntimeError, ValueError) as exc:
+        print(f"backup failed: {exc}", file=sys.stderr)
+        return 3
+    print(f"backup_repo={record['repo_id']}")
+    print(f"backup_verified={bool(record.get('verified'))}")
+    print(f"backup_files={record.get('file_count', 0)}")
+    print(f"backup_bytes={record.get('bytes', 0)}")
+    return 0
+
+
+def _restore_model(model: str) -> int:
+    try:
+        path = restore_named_model(model)
+    except (ImportError, OSError, RuntimeError, ValueError) as exc:
+        print(f"restore failed: {exc}", file=sys.stderr)
+        return 3
+    print(f"restored_model={path}")
+    return 0
+
+
+def _delete_model(model: str, *, force: bool = False) -> int:
+    try:
+        path = delete_named_model(model, force=True) if force else delete_named_model(model)
     except Exception as exc:
         print(str(exc), file=sys.stderr)
         return 3
@@ -1900,10 +1964,14 @@ def _chat(
     kv_cache_precision: str,
     engine_loader: EngineLoader,
     input_fn: InputFn,
+    start_gui: bool = False,
 ) -> int:
-    if not model_dir.exists():
+    if not model_dir.exists() and not start_gui:
         print(f"model missing: {model_dir}", file=sys.stderr)
         print("run: openvino download qwen3.5", file=sys.stderr)
+        return 2
+    if start_gui and prompt:
+        print("--gui needs interactive chat without an initial prompt", file=sys.stderr)
         return 2
     if prompt:
         try:
@@ -1948,7 +2016,11 @@ def _chat(
             tasks_text=lambda: "",
             chat_buffer=chat_buffer,
             completer=_command_completer(),
+            **({"start_frontend": "desktop" if os.name == "nt" else "browser"} if start_gui else {}),
         )
+    if start_gui:
+        print("--gui needs an interactive terminal", file=sys.stderr)
+        return 2
     print(f"model={model_dir}")
     print("loaded=no")
     return _repl(
@@ -2070,7 +2142,7 @@ def _repl(
     def approve_tool(request):
         mediator = tui_mod.active_mediator()
         if mediator is not None:
-            decision = mediator.request_tool_approval(request.name, request.args)
+            decision = mediator.request_tool_approval(request.name, request.args, request.context) if request.context else mediator.request_tool_approval(request.name, request.args)
         else:
             prompt_text = (
                 f"Allow {request.name}? [d]eny/[o]nce/[s]ession/[a]lways: "
@@ -2086,8 +2158,10 @@ def _repl(
                 "a": "always",
                 "always": "always",
             }.get(answer, "deny")
-        if decision == "always":
+        if decision == "always" and request.name != "computer":
             _persist_permission_mode("always")
+        elif decision == "always" and mediator is not None and getattr(mediator, "computer_auto_stop_available", False):
+            _persist_computer_permission("always")
         return decision
 
     registry = ToolRegistry(
@@ -2095,6 +2169,8 @@ def _repl(
         permission_mode=_configured_permission_mode(),
         approval_callback=approve_tool,
     )
+    registry.computer_permission_mode = "always" if _load_config().get("computer_permission_mode") == "always" else "ask"
+    registry.auto_stop_available = lambda: bool(getattr(tui_mod.active_mediator(), "computer_auto_stop_available", False))
     knowledge = _knowledge_store()
     session = ToolChatSession(
         engine,
@@ -2596,8 +2672,13 @@ def _repl(
         context_length = snapshot.context_length
         max_new_tokens = snapshot.max_new_tokens
         kv_cache_precision = snapshot.kv_cache_precision
-        if snapshot.config_existed:
-            _save_config(dict(snapshot.config))
+        computer_policy = _load_config().get("computer_permission_mode")
+        restored_config = dict(snapshot.config)
+        restored_config.pop("computer_permission_mode", None)
+        if computer_policy == "always":
+            restored_config["computer_permission_mode"] = "always"
+        if snapshot.config_existed or computer_policy == "always":
+            _save_config(restored_config)
         else:
             _config_path().unlink(missing_ok=True)
         estimate = estimate_model_memory(model_dir, context_length, kv_cache_precision)
@@ -2658,6 +2739,7 @@ def _repl(
                     restored = False
             if not restored:
                 redraw_tui_history()
+            sync_quack_dialogue()
             _invalidate_buffer()
         refresh_context_meter()
         if snapshot.engine_loaded and engine is None:
@@ -2815,6 +2897,23 @@ def _repl(
         mediator = tui_mod.active_mediator()
         return bool(mediator is not None and mediator.should_stop())
 
+    registry.stop_checker = tui_should_stop
+
+    def sync_quack_dialogue() -> None:
+        buffer = _tui_buffer()
+        setter = getattr(buffer, "set_quack_dialogue", None)
+        if not callable(setter):
+            return
+        speech = ""
+        user = ""
+        for role, content in reversed(session.history):
+            if role == "assistant" and not speech:
+                speech = sanitize_tool_artifacts(split_thinking(content)[1])
+            elif role == "user":
+                user = content
+                break
+        setter(user, speech)
+
     def redraw_tui_history(include_history: bool = True) -> None:
         buffer = _tui_buffer()
         if buffer is None:
@@ -2840,6 +2939,8 @@ def _repl(
                 )
             )
         buffer.replace("\n\n".join(part for part in parts if part).rstrip() + "\n")
+        if include_history:
+            sync_quack_dialogue()
         _invalidate_buffer()
 
     def set_ui_layout(layout: str) -> None:
@@ -2852,6 +2953,7 @@ def _repl(
         return {
             "context_length": context_length,
             "max_new_tokens": max_new_tokens,
+            "should_stop": tui_should_stop,
         }
 
     def compaction_status_text() -> str:
@@ -2966,6 +3068,7 @@ def _repl(
         mediator = tui_mod.active_mediator()
         if mediator is not None:
             mediator.clear_visual_panel()
+        sync_quack_dialogue()
         refresh_context_meter()
         return True
 
@@ -3031,6 +3134,36 @@ def _repl(
                     continue
                 clean_exit = True
                 return 0
+            if _command_matches(prompt, "/gui") or prompt.lower() == "/tui":
+                mediator = tui_mod.active_mediator()
+                if mediator is None:
+                    show("GUI requires interactive openvino terminal session")
+                elif _command_matches(prompt, "/gui"):
+                    frontend = prompt.split(maxsplit=1)[1].lower() if len(prompt.split(maxsplit=1)) > 1 else "desktop"
+                    if frontend not in {"desktop", "browser"}:
+                        notify("Usage: /gui [desktop|browser]")
+                        continue
+                    try:
+                        mediator.open_gui(frontend)
+                        notify("GUI opened | /tui returns to terminal")
+                    except (OSError, RuntimeError) as exc:
+                        notify(f"GUI failed: {exc}")
+                else:
+                    mediator._gui_active = False
+                    mediator.invalidate()
+                    notify("Terminal control restored")
+                continue
+            if _command_matches(prompt, "/help") or prompt.lower() in {"/commands", "/cmds"}:
+                parts = prompt.split(maxsplit=1)
+                query = parts[1] if len(parts) > 1 else ""
+                text = _help_text(query) if _command_matches(prompt, "/help") else _commands_text()
+                mediator = tui_mod.active_mediator()
+                open_help = getattr(mediator, "open_help", None)
+                if callable(open_help):
+                    open_help(text)
+                else:
+                    show(text, plain=True)
+                continue
             buffer = _tui_buffer()
             tui_before_prompt = buffer.checkpoint() if buffer is not None else None
             if prompt:
@@ -3051,12 +3184,6 @@ def _repl(
                 show(f"archived={name}" if name else "nothing to archive")
                 clean_exit = True
                 return 0
-            if prompt.lower() == "/help":
-                show(_help_text())
-                continue
-            if prompt.lower() in {"/commands", "/cmds"}:
-                show(_commands_text())
-                continue
             if prompt.lower() == "/copy":
                 latest = _last_assistant_message(session.history)
                 if not latest:
@@ -3754,7 +3881,35 @@ def _repl(
                 show(text)
                 continue
             if prompt.lower() == "/tools":
-                show("tools: pwd, ls, read, scan, grep, write, append, shell, storage, startup_apps, web_search, web_fetch, diff, undo, chart, big, tilt")
+                from openvino_chat.tools import TOOL_DEFINITIONS
+                show("tools: " + ", ".join(item["function"]["name"] for item in TOOL_DEFINITIONS))
+                continue
+            if _command_matches(prompt, "/computer"):
+                parts = prompt.split(maxsplit=1)
+                mode = parts[1].lower() if len(parts) > 1 else "status"
+                mediator = tui_mod.active_mediator()
+                if mode == "stop" and mediator is not None:
+                    mediator.emergency_stop()
+                elif mode == "ask":
+                    registry.computer_permission_mode = "ask"
+                    _persist_computer_permission("ask")
+                elif mode in {"session", "always"}:
+                    if mediator is None or not mediator.computer_auto_stop_available:
+                        show("Automatic computer access requires active Alt+Shift+S global stop. Allow once is still available.")
+                        continue
+                    decision = mediator.request_tool_approval("computer", {"access":mode}, "Enable automatic computer actions; file/shell policy is unchanged.", auto_mode=mode)
+                    if decision in {"session", "always"}:
+                        registry.computer_permission_mode = decision
+                        _persist_computer_permission(decision)
+                elif mode != "status":
+                    show("Usage: /computer [status|ask|session|always|stop]")
+                    continue
+                show(f"computer access: {registry.computer_permission_mode}\nAlt+Shift+S: {'ready' if registry.auto_stop_available() else 'unavailable'}\n/computer ask revokes automatic access. Stop pauses queue; it does not revoke saved access.")
+                continue
+            if _command_matches(prompt, "/queue"):
+                mediator = tui_mod.active_mediator()
+                if mediator is None:
+                    show("Queue requires interactive session")
                 continue
             if prompt.lower().startswith("/chart "):
                 _, _, data = prompt.partition(" ")
@@ -3897,14 +4052,49 @@ def _repl(
                     continue
                 show(f"downloaded={target}")
                 continue
+            if prompt.lower().startswith("/model backup "):
+                _, _, value = prompt.partition("/model backup ")
+                parts = value.strip().split(maxsplit=1)
+                if not parts:
+                    show("usage: /model backup <name> [owner/repo]")
+                    continue
+                try:
+                    record = backup_named_model(parts[0], parts[1] if len(parts) > 1 else None)
+                except Exception as exc:
+                    show(f"backup failed: {exc}")
+                    continue
+                show(
+                    f"backup_verified={record['repo_id']} files={record.get('file_count', 0)} "
+                    f"bytes={record.get('bytes', 0)}"
+                )
+                continue
+            if prompt.lower().startswith("/model restore "):
+                _, _, value = prompt.partition("/model restore ")
+                try:
+                    target = restore_named_model(value.strip())
+                except Exception as exc:
+                    show(f"restore failed: {exc}")
+                    continue
+                show(f"restored_model={target}")
+                continue
             if prompt.lower().startswith("/model delete "):
                 _, _, value = prompt.partition("/model delete ")
-                model_name = value.strip().lower()
+                delete_parts = [part for part in value.strip().split() if part]
+                force_delete = "--force" in delete_parts
+                delete_parts = [part for part in delete_parts if part != "--force"]
+                model_name = " ".join(delete_parts).lower()
+                if not model_name:
+                    show("usage: /model delete <name> [--force]")
+                    continue
                 deleting_active = _catalog_model_path(model_name) == model_dir
                 if deleting_active:
                     unload_engine()
                 try:
-                    target = delete_named_model(model_name)
+                    target = (
+                        delete_named_model(model_name, force=True)
+                        if force_delete
+                        else delete_named_model(model_name)
+                    )
                 except Exception as exc:
                     if deleting_active:
                         redraw_tui_history()
@@ -4084,7 +4274,7 @@ def _repl(
                     if session.history and saved is None:
                         continue
                     if load_saved_session(value):
-                        show(f"loaded={active_session}")
+                        notify(f"loaded={active_session}")
                     continue
             if prompt.lower() == "/delete":
                 name = active_session
@@ -4145,7 +4335,7 @@ def _repl(
                 if session.history and saved is None:
                     continue
                 if load_saved_session(name.strip()):
-                    show(f"loaded={active_session}")
+                    notify(f"loaded={active_session}")
                 continue
             if prompt.lower().startswith("/delete "):
                 _, _, name = prompt.partition(" ")
@@ -4180,7 +4370,10 @@ def _repl(
                         monitor.write_response(request_text, "dim", "\n")
                     elif not defer_output():
                         ui.tool_request(request.name, request.args)
-                    tool_result = session.tools.run(request)
+                    try:
+                        tool_result = session.tools.run(request)
+                    finally:
+                        session.tools.finish_computer_turn()
                     result = tool_result.output
                     if use_live_work_ui():
                         finish_tool = getattr(monitor, "finish_tool", None)
@@ -4633,22 +4826,153 @@ def _resolve_user_path(path_text: str, cwd: Path) -> Path:
     return cwd / path
 
 
-def _help_text() -> str:
+def _help_sections() -> tuple[tuple[str, str], ...]:
+    from openvino_chat.tools import TOOL_DEFINITIONS
+
+    tool_lines = []
+    for definition in TOOL_DEFINITIONS:
+        function = definition["function"]
+        schema = function.get("parameters", {})
+        required = schema.get("required", [])
+        args = ", ".join(
+            name if name in required else name + "?"
+            for name in schema.get("properties", {})
+        )
+        tool_lines.append(f"  {function['name']}({args})\n    {function['description']}")
     return (
-        _format_command_specs("OpenVINO Chat commands", COMMAND_SPECS + ADVANCED_COMMAND_SPECS)
-        + "\n\nKeys:"
-        + "\n  Esc                         Stop current generation."
-        + "\n  PageUp / PageDown           Scroll chat history."
-        + "\n  Ctrl+Up / Ctrl+Down         Scroll history by three rows."
-        + "\n  Drag                         Select terminal text."
-        + "\n  F6                           Toggle mouse-wheel history scrolling."
-        + "\n  Shift+drag                   Select while mouse scrolling is enabled."
-        + "\n  Ctrl+Home / Ctrl+End        Oldest / latest message."
-        + "\n  Up/Down or Ctrl+N/Ctrl+P    Navigate slash command palette."
-        + "\n  Tab / Enter / Esc           Complete / run / close palette."
-        + "\n  Home/End or PageUp/PageDown Navigate model and session pickers."
-        + "\n\nMedia: drop or type a local image/video/audio path in a message; /media shows support."
+        ("Keys", "\n".join((
+            "  F1                         Open / close help; /help <topic> filters.",
+            "  F2                         Quack: open / close complete latest reply.",
+            "  F3                         Quack: cycle Chat / Tools / Charts sidebar.",
+            "  F4                         Open tool timeline while idle.",
+            "  F6                         Toggle mouse-wheel scrolling (off by default).",
+            "  Drag / Shift+drag           Select text / select with mouse mode enabled.",
+            "  PageUp / PageDown           Scroll help, reply, active sidebar, or history.",
+            "  Ctrl+Up / Ctrl+Down         Scroll by three rows.",
+            "  Ctrl+Home / Ctrl+End        Go to beginning / end of current view.",
+            "  Up / Down                  Move through wrapped input rows.",
+            "  Ctrl+J / Enter              Insert newline / send message.",
+            "  Esc                        Close help/reply/dialog first; otherwise stop generation.",
+            "  Ctrl+C / Ctrl+D             Interrupt / request exit.",
+            "  /                          Open command palette, maximum 15 visible rows.",
+            "  Up/Down or Ctrl+N/Ctrl+P    Navigate palette; Tab completes, Enter runs.",
+            "  Home/End, PageUp/PageDown   Navigate model/session pickers.",
+        ))),
+        ("Pickers", "\n".join((
+            "  Model: Enter select+load, i install, d delete, u unload, Esc cancel.",
+            "  Session: Enter resume, n new, s save, d delete, Esc cancel.",
+            "  Effort custom: Up/Down field, Left/Right adjust, r reset, Enter save, Esc cancel.",
+            "  Tool timeline: Up/Down select, Enter expand, PageUp/PageDown details, r retry, Esc close.",
+            "  Permission: Deny (n), Allow once (y), Allow session (s), Always allow (a).",
+            "  Permission defaults to deny; global permission mode defaults to ask.",
+        ))),
+        ("Quack", "\n".join((
+            "  /duck on enables Quack; fresh launches always start in normal mode.",
+            "  Yellow-orange theme, centered character, eye expressions, speaking bob.",
+            "  White speech in paragraph bubbles; F2 reads full reply without truncation.",
+            "  Tool badge shows action and elapsed time without replacing speech.",
+            "  F3 tabs: Chat history with unread rows, Tools summary, Charts/diagrams/tables.",
+            "  /sidepanel on|off toggles panel; narrow terminals use main history instead.",
+            "  Esc while idle dismisses visual; F2/Esc closes reply reader first.",
+            "  Thinking stays off in Quack mode; /duck off restores normal behavior.",
+        ))),
+        ("GUI", "\n".join((
+            "  /gui opens desktop window; /gui browser opens browser fallback. /tui returns to terminal.",
+            "  openvino.html is normal mode; duck.html is Quack. Windows desktop uses WebView2; Linux opens browser.",
+            "  Same model, commands, tools, permissions, sessions and rewind/redo. No duplicate model process.",
+            "  Closing browser restores terminal control after 15 seconds; reload reconnects while app runs.",
+            "  Browser GUI is loopback-only and authenticated. Keep terminal running.",
+            "  Attach button or file drop copies media into data-root/attachments/gui (up to 256 MiB/file).",
+            "  Uploaded files remain available for resumed sessions. Ordinary local paths also work.",
+            "  Enter sends; Shift+Enter/Ctrl+J inserts newline; slash menu lists all commands.",
+            "  During generation, Enter queues next message (up to 8). /queue manages pending messages.",
+            "  /queue pause, resume, clear, remove ID, edit ID. Queue is in memory, not saved across exit.",
+            "  Esc stops generation and pauses queue. Permission denial also pauses queue.",
+        ))),
+        ("Computer Use", "\n".join((
+            "  computer_* tools: apps/windows, launch, state/capture, click, type/set value, keys, scroll, drag, secondary action, activate.",
+            "  /computer [status|ask|session|always|stop] manages computer-only access. Default Ask; auto modes require warning confirmation.",
+            "  Alt+Shift+S globally stops current work and pauses queue; F8 also stops active computer worker; Esc works in app.",
+            "  Always does not grant file/shell access; /computer ask revokes it. Auto modes disabled if global shortcut unavailable.",
+            "  Background UIA/native-message actions never inject global mouse/keyboard input. Orange marker is not a second OS cursor.",
+            "  Not full Codex runtime parity: OLE drag/drop, arbitrary shared shortcuts and unsupported app controls fail explicitly.",
+            "  Fresh snapshots expire after 60 seconds and are consumed by actions. Inspect again afterward.",
+            "  Text-only models use accessibility element IDs. Screenshot-coordinate clicks require vision.",
+            "  Password fields, secure desktops and OpenVINO's own windows are blocked. No auto-elevation.",
+            "  User must complete financial, account-security and irreversible operations manually.",
+            "  GUI actions cannot be undone by /rewind. Screenshots use one rolling file per process under attachments/computer.",
+        ))),
+        ("Automatic Features", "\n".join((
+            "  Streaming replies, separate gray thoughts/tool activity, Markdown and code colors.",
+            "  Automatic context compaction continues long chats; /compact status shows state.",
+            "  Automatic session save on exit; crash recovery restores saved session and unfinished input.",
+            "  Repeatable /rewind restores previous turn plus tracked file edits and pre-fills prompt.",
+            "  Repeatable /redo restores rewound state; a new action clears redo history.",
+            "  Arbitrary shell/network side effects cannot be reliably undone.",
+            "  Live process RAM, system RAM, active CPU/GPU, generation state and context/KV status.",
+            "  Models load lazily; switching unloads old model. Valid model folders are auto-discovered.",
+        ))),
+        ("Model Configuration", "\n".join((
+            "  /effort controls sampling presets, not guaranteed reasoning strength.",
+            "  /effort custom opens editor; key=value arguments also work and save per model.",
+            "  temperature=0..2 top_p=0..1 top_k=1..1000 min_p=0..1",
+            "  presence_penalty=-2..2 repetition_penalty=0.01..2",
+            "  /thinking only offers native modes supported by local chat template.",
+            "  /ctx changes context capacity; /max-tokens limits response length; /kv sets cache precision.",
+            "  /model import <folder|owner/repo> requires OpenVINO export, not raw/AWQ/GGUF weights.",
+        ))),
+        ("Tools and Functions", "Optional arguments have ?. Tools use workspace boundaries and permission rules.\n" + "\n".join(tool_lines)),
+        ("Media", "\n".join((
+            "  Drop or type quoted local image/video/audio paths in your message.",
+            "  Attachment tray previews detected files. /media shows current model support.",
+            "  Images and extracted video frames require compatible vision model exports.",
+            "  Audio support depends on installed export/runtime; unsupported inputs report an error.",
+            "  Luci history is optional, read-only, and starts on demand when installed.",
+            "  Only Luci instances started by this app are stopped after querying.",
+        ))),
+        ("API Usage", "\n".join((
+            "  /api start [port], /api status, /api stop manage local server.",
+            "  Default OpenAI-compatible base URL: http://127.0.0.1:11435/v1",
+            "  GET /health; GET /v1/models; POST /v1/chat/completions; POST /v1/completions.",
+            "  Streaming, reasoning_content and tool_calls supported; client executes API tool calls.",
+            "  Starting API unloads chat model to avoid duplicate model RAM use.",
+            "  Remote binding requires API key; localhost is default.",
+        ))),
+        ("Paths", "\n".join((
+            "  Data root: OPENVINO_HOME, otherwise ~/.openvino. /config and /status show configured paths.",
+            "  Model folders, sessions, config, API state and knowledge data live under data root.",
+            "  Drop valid OpenVINO export folder under models/; it appears in /model automatically.",
+            "  /workspace set <path> changes tool boundary; /cd stays inside that boundary.",
+        ))),
+        ("Terminal Commands", "\n".join((
+            "  openvino                     Start interactive chat.",
+            "  openvino chat [prompt]       Interactive chat or one prompt.",
+            "  openvino status / models     Check paths / list available models.",
+            "  openvino download <name|owner/repo> / restore <name>",
+            "  openvino backup <name> [--repo owner/repo] / delete <name> [--force]",
+            "  openvino serve               Foreground OpenAI-compatible server.",
+            "  openvino api start|status|stop",
+            "  openvino --help / openvino chat --help / openvino serve --help",
+        ))),
+        ("Aliases", "  /cmds = /commands; /models = /model list; /models pick = /model\n"
+         "  /tasks = /task; /sidepannel = /sidepanel; /quit = /exit\n"
+         "  /model <name|path> also selects a model; exit, quit and :q also quit."),
     )
+
+
+def _help_text(topic: str = "") -> str:
+    query = topic.strip().casefold().lstrip("/")
+    specs = COMMAND_SPECS + ADVANCED_COMMAND_SPECS
+    sections = _help_sections()
+    if query and query != "all":
+        matches = tuple(spec for spec in specs if query in f"{spec.group} {spec.usage} {spec.description}".casefold())
+        matched_sections = tuple((title, body) for title, body in sections if query in title.casefold())
+        if not matches and not matched_sections:
+            return f"No help found for: {topic}\nUse /help for all functions, /help keys, /help model, /help tools, or /help quack."
+        specs, sections = matches, matched_sections
+    parts = [_format_command_specs("OpenVINO Chat commands", specs)] if specs else []
+    parts.extend(f"{title}:\n{body}" for title, body in sections)
+    return "\n\n".join(parts)
 
 
 def _commands_text() -> str:
@@ -4703,7 +5027,10 @@ def _project_status(cwd: Path) -> str:
 
 
 def _model_catalog() -> dict[str, Path]:
-    return discover_model_dirs(MODEL_ROOT, MODEL_DIRS)
+    catalog = discover_model_dirs(MODEL_ROOT, MODEL_DIRS)
+    for name, path in remote_model_dirs().items():
+        catalog.setdefault(name, path)
+    return catalog
 
 
 def _catalog_model_path(value: str) -> Path | None:
@@ -4736,7 +5063,7 @@ def _resolve_model(value: str) -> Path:
 
 def _available_models_summary() -> str:
     return ", ".join(
-        f"{name}: {_model_install_state(path)}"
+        f"{name}: {_model_catalog_state(name, path)}"
         for name, path in _model_catalog().items()
     )
 
@@ -4751,13 +5078,15 @@ def _model_list(active_model_dir: Path, loaded: bool) -> str:
     ]
     for name, path in _model_catalog().items():
         marker = "*" if path == active_model_dir else " "
-        state = _model_install_state(path)
+        state = _model_catalog_state(name, path)
         size = _model_dir_size_text(path)
         repo = _model_repo(name, path)
+        retention = model_retention_status(name, path)
         active = " active" if path == active_model_dir else ""
         loaded_text = " loaded" if path == active_model_dir and loaded else ""
         lines.append(f"{marker} {name}: {state}{active}{loaded_text}")
         lines.append(f"  repo: {repo}")
+        lines.append(f"  retention: {retention}")
         lines.append(f"  size: {size}")
         lines.append(f"  media: {_model_media_text(path)}")
         lines.append("  effort: " + ", ".join(reversed(GENERATION_EFFORTS)))
@@ -4783,6 +5112,13 @@ def _model_install_state(path: Path) -> str:
     if not path.exists():
         return "missing"
     return "installed" if _validate_model_dir(path) else "invalid"
+
+
+def _model_catalog_state(name: str, path: Path) -> str:
+    state = _model_install_state(path)
+    if state == "missing" and model_retention_status(name, path).startswith("backup verified"):
+        return "remote only"
+    return state
 
 
 def _model_dir_size_text(path: Path) -> str:

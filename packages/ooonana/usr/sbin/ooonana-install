@@ -23,6 +23,7 @@ TARGET_MODE=""
 TARGET_PARTUUID=""
 HOME_PART=""
 SWAP_PART=""
+SWAP_SIZE_MIB=0
 EFI_PART=""
 FORMAT_ROOT=1
 FORMAT_HOME=1
@@ -50,6 +51,7 @@ Options:
   --bootloader auto|grub|none
   --home-part PATH    Optional /home partition
   --swap-part PATH    Optional swap partition
+  --swap-size-mib N   Whole-disk install: create N MiB swap (0 = zram only)
   --efi-part PATH     Optional /boot/efi partition
   --keep-root         Do not format root partition in partition mode
   --keep-home         Do not format /home partition
@@ -271,12 +273,24 @@ require_block_or_dry() {
 
 partition_owner_disk() {
   local path="$1"
-  local pkname=""
-  [[ "$DRY_RUN" -eq 0 ]] || return 1
-  command -v lsblk >/dev/null 2>&1 || return 1
-  pkname="$(lsblk -no PKNAME "$path" 2>/dev/null | sed -n '1p' || true)"
-  [[ -n "$pkname" ]] || return 1
-  printf '/dev/%s\n' "$pkname"
+  local pkname="" resolved
+  if [[ "$DRY_RUN" -eq 0 ]] && command -v lsblk >/dev/null 2>&1; then
+    pkname="$(lsblk -no PKNAME "$path" 2>/dev/null | sed -n '1p' || true)"
+    if [[ -n "$pkname" ]]; then
+      printf '/dev/%s\n' "$pkname"
+      return 0
+    fi
+  fi
+  resolved="$(readlink -f "$path" 2>/dev/null || printf '%s\n' "$path")"
+  if [[ "$resolved" =~ ^(/dev/(nvme[0-9]+n[0-9]+|mmcblk[0-9]+|loop[0-9]+))p[0-9]+$ ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}"
+  elif [[ "$resolved" =~ ^(/dev/(sd[a-z]+|vd[a-z]+|xvd[a-z]+|hd[a-z]+))[0-9]+$ ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}"
+  elif [[ "$resolved" =~ ^(/dev/disk/(by-id|by-path)/.+)-part[0-9]+$ ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}"
+  else
+    return 1
+  fi
 }
 
 same_target_path() {
@@ -315,10 +329,13 @@ validate_unique_install_parts() {
 }
 
 validate_live_media_safety() {
-  local source live_disk target_disk
-  [[ "$ALLOW_CURRENT_ROOT" -eq 0 && "$DRY_RUN" -eq 0 ]] || return 0
-  command -v findmnt >/dev/null 2>&1 || return 0
-  source="$(findmnt -n -o SOURCE /mnt/ooonana-live/iso 2>/dev/null | sed -n '1p' || true)"
+  local source live_disk target_disk part part_disk
+  [[ "$ALLOW_CURRENT_ROOT" -eq 0 ]] || return 0
+  [[ "$DRY_RUN" -eq 0 || -b "$TARGET" ]] || return 0
+  source=""
+  if command -v findmnt >/dev/null 2>&1; then
+    source="$(findmnt -n -o SOURCE /mnt/ooonana-live/iso 2>/dev/null | sed -n '1p' || true)"
+  fi
   source="${source%%\[*}"
   if [[ "$source" != /dev/* ]]; then
     source="$(cat /mnt/ooonana-live/boot-device 2>/dev/null || true)"
@@ -336,34 +353,50 @@ validate_live_media_safety() {
   if same_target_path "$TARGET_PART" "$source" || same_target_path "$target_disk" "$live_disk"; then
     die "refusing live boot media target: $TARGET"
   fi
-}
-
-validate_disk_extra_parts() {
-  local part owner
-  [[ "$TARGET_MODE" == "disk" ]] || return 0
   for part in "$HOME_PART" "$SWAP_PART" "$EFI_PART"; do
     [[ -n "$part" ]] || continue
-    case "$part" in
-      "$TARGET"*) die "extra partition would be wiped by disk target: $part on $TARGET" ;;
-    esac
-    if [[ "$DRY_RUN" -eq 0 ]]; then
-      owner="$(partition_owner_disk "$part" || true)"
-      [[ -z "$owner" ]] || ! same_target_path "$owner" "$TARGET" ||
-        die "extra partition would be wiped by disk target: $part on $TARGET"
+    part_disk="$(partition_owner_disk "$part" || printf '%s\n' "$part")"
+    if same_target_path "$part" "$source" || same_target_path "$part_disk" "$live_disk"; then
+      die "refusing live boot media partition: $part"
     fi
   done
 }
 
+validate_disk_extra_parts() {
+  [[ "$TARGET_MODE" == "disk" ]] || return 0
+  [[ -z "$HOME_PART" && -z "$SWAP_PART" && -z "$EFI_PART" ]] ||
+    die "whole-disk mode creates its own partitions; do not name extra partitions"
+}
+
+validate_partition_roles_same_disk() {
+  local root_disk part owner
+  [[ "$TARGET_MODE" == "partition" ]] || return 0
+  [[ -n "$HOME_PART$SWAP_PART$EFI_PART" ]] || return 0
+  root_disk="$(partition_owner_disk "$TARGET_PART" || true)"
+  [[ -n "$root_disk" ]] || die "cannot identify root partition's parent disk: $TARGET_PART"
+  for part in "$HOME_PART" "$SWAP_PART" "$EFI_PART"; do
+    [[ -n "$part" ]] || continue
+    owner="$(partition_owner_disk "$part" || true)"
+    [[ -n "$owner" ]] && same_target_path "$owner" "$root_disk" ||
+      die "refusing cross-disk install partition: $part (root disk $root_disk)"
+  done
+}
+
 validate_current_root_safety() {
-  local root_part root_disk target_disk
+  local root_part root_disk target_disk part part_disk
   [[ "$ALLOW_CURRENT_ROOT" -eq 0 ]] || return 0
-  [[ "$DRY_RUN" -eq 0 ]] || return 0
+  [[ "$DRY_RUN" -eq 0 || -b "$TARGET" ]] || return 0
   root_part="$(current_root_source || true)"
   [[ -n "$root_part" ]] || return 0
   root_disk="$(partition_owner_disk "$root_part" || true)"
-  if same_target_path "$TARGET_PART" "$root_part"; then
-    die "refusing current root partition target: $TARGET_PART"
-  fi
+  for part in "$TARGET_PART" "$HOME_PART" "$SWAP_PART" "$EFI_PART"; do
+    [[ -n "$part" ]] || continue
+    part_disk="$(partition_owner_disk "$part" || true)"
+    if same_target_path "$part" "$root_part" ||
+      { [[ -n "$root_disk" && -n "$part_disk" ]] && same_target_path "$part_disk" "$root_disk"; }; then
+      die "refusing current root partition target: $part"
+    fi
+  done
   if [[ "$TARGET_MODE" == "disk" ]]; then
     target_disk="$INSTALL_DEVICE"
     [[ -n "$target_disk" ]] || target_disk="$TARGET"
@@ -615,7 +648,28 @@ apply_install_config() {
   write_cloud_repo "$root"
 }
 
+swap_start_boundary() {
+  local bytes disk_mib start_mib
+  if [[ "$DRY_RUN" -eq 1 && ! -f "$TARGET" && ! -b "$TARGET" ]]; then
+    printf 'SWAP_START_MIB\n'
+    return 0
+  fi
+  if [[ -b "$TARGET" ]]; then
+    require_commands lsblk
+    bytes="$(lsblk -b -d -n -o SIZE "$TARGET" 2>/dev/null | sed -n '1p')"
+  else
+    bytes="$(stat -c %s "$TARGET")"
+  fi
+  [[ "$bytes" =~ ^[0-9]+$ ]] || die "cannot determine target size: $TARGET"
+  disk_mib=$((bytes / 1048576))
+  start_mib=$((disk_mib - SWAP_SIZE_MIB))
+  (( start_mib >= 8192 )) || die "target too small for root plus $SWAP_SIZE_MIB MiB swap: $TARGET"
+  printf '%sMiB\n' "$start_mib"
+}
+
 prepare_target() {
+  local swap_start
+  local -a partition_args
   TARGET_MODE="$(detect_target_mode)"
   require_block_or_dry "$HOME_PART" "--home-part"
   require_block_or_dry "$SWAP_PART" "--swap-part"
@@ -630,29 +684,38 @@ prepare_target() {
   validate_target_unmounted
   validate_install_partitions_unmounted
   validate_disk_extra_parts
+  validate_partition_roles_same_disk
+  if [[ "$TARGET_MODE" == "partition" && "$SWAP_SIZE_MIB" -ne 0 ]]; then
+    die "--swap-size-mib requires a whole-disk target"
+  fi
   case "$TARGET_MODE" in
     disk)
       require_commands parted mkfs.ext4 mkfs.vfat mount rsync grub-install install
+      partition_args=(mklabel gpt
+        mkpart BIOSBOOT 1MiB 3MiB set 1 bios_grub on
+        mkpart ESP fat32 3MiB 515MiB set 2 esp on)
+      if (( SWAP_SIZE_MIB > 0 )); then
+        swap_start="$(swap_start_boundary)"
+        partition_args+=(mkpart ROOT ext4 515MiB "$swap_start"
+          mkpart SWAP linux-swap "$swap_start" 100%)
+      else
+        partition_args+=(mkpart ROOT ext4 515MiB 100%)
+      fi
+      run_cmd parted -s "$TARGET" "${partition_args[@]}"
       if [[ "$DRY_RUN" -eq 1 ]]; then
-        run_cmd parted -s "$TARGET" mklabel gpt \
-          mkpart BIOSBOOT 1MiB 3MiB set 1 bios_grub on \
-          mkpart ESP fat32 3MiB 515MiB set 2 esp on \
-          mkpart ROOT ext4 515MiB 100%
         if [[ "$TARGET" == /dev/* ]]; then
           INSTALL_DEVICE="$TARGET"
           EFI_PART="$(partition_path "$INSTALL_DEVICE" 2)"
           TARGET_PART="$(partition_path "$INSTALL_DEVICE" 3)"
+          (( SWAP_SIZE_MIB == 0 )) || SWAP_PART="$(partition_path "$INSTALL_DEVICE" 4)"
         else
           run_cmd losetup --find --show --partscan "$TARGET"
           INSTALL_DEVICE="LOOP_DEVICE"
           EFI_PART="LOOP_EFI_PARTITION"
           TARGET_PART="LOOP_ROOT_PARTITION"
+          (( SWAP_SIZE_MIB == 0 )) || SWAP_PART="LOOP_SWAP_PARTITION"
         fi
       else
-        parted -s "$TARGET" mklabel gpt \
-          mkpart BIOSBOOT 1MiB 3MiB set 1 bios_grub on \
-          mkpart ESP fat32 3MiB 515MiB set 2 esp on \
-          mkpart ROOT ext4 515MiB 100%
         if [[ -f "$TARGET" ]]; then
           require_commands losetup
           LOOP_DEV="$(losetup --find --show --partscan "$TARGET")"
@@ -667,6 +730,10 @@ prepare_target() {
         TARGET_PART="$(partition_path "$INSTALL_DEVICE" 3)"
         wait_for_block "$EFI_PART" || die "missing EFI partition: $EFI_PART"
         wait_for_block "$TARGET_PART" || die "missing target partition: $TARGET_PART"
+        if (( SWAP_SIZE_MIB > 0 )); then
+          SWAP_PART="$(partition_path "$INSTALL_DEVICE" 4)"
+          wait_for_block "$SWAP_PART" || die "missing swap partition: $SWAP_PART"
+        fi
       fi
       FORMAT_EFI=1
       ;;
@@ -746,6 +813,7 @@ while [[ $# -gt 0 ]]; do
     --bootloader) BOOTLOADER="$2"; shift 2 ;;
     --home-part) HOME_PART="$2"; shift 2 ;;
     --swap-part) SWAP_PART="$2"; shift 2 ;;
+    --swap-size-mib) SWAP_SIZE_MIB="$2"; shift 2 ;;
     --efi-part) EFI_PART="$2"; shift 2 ;;
     --keep-root) FORMAT_ROOT=0; shift ;;
     --keep-home) FORMAT_HOME=0; shift ;;
@@ -764,6 +832,13 @@ done
 
 [[ -n "$TARGET" ]] || die "--target required"
 [[ "$YES" -eq 1 ]] || die "--yes required because install formats target"
+[[ "$SWAP_SIZE_MIB" =~ ^[0-9]+$ ]] || die "--swap-size-mib must be a nonnegative integer"
+if (( SWAP_SIZE_MIB != 0 && (SWAP_SIZE_MIB < 512 || SWAP_SIZE_MIB > 131072) )); then
+  die "--swap-size-mib must be 0 or 512..131072"
+fi
+if (( SWAP_SIZE_MIB != 0 && FORMAT_SWAP == 0 )); then
+  die "--keep-swap cannot be used with newly created swap"
+fi
 case "$BOOTLOADER" in
   auto|grub|none) ;;
   *) die "bootloader must be auto, grub, or none" ;;

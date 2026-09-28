@@ -12,7 +12,7 @@ TARBALL="$WORK_DIR/ooonana-full-i3-rootfs.tar.gz"
 REPO="$WORK_DIR/full-i3-repo"
 STAGED_REPO=""
 PACKAGE_PROFILE="$ROOT/configs/packages/full-i3.list"
-OS_VERSION="${OOONANA_OS_VERSION:-0.1.8}"
+OS_VERSION="${OOONANA_OS_VERSION:-0.9.2}"
 FORCE=0
 
 usage() {
@@ -1768,6 +1768,11 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-processes" <<'EOF'
 #!/bin/sh
 set -eu
+NATIVE_APP=/usr/lib/ooonana/ui/task_manager_app.py
+if [ -x /usr/bin/python3 ] && [ -f "$NATIVE_APP" ] &&
+  /usr/bin/python3 -c 'import gi; gi.require_version("Gtk", "3.0")' >/dev/null 2>&1; then
+  exec /usr/bin/python3 "$NATIVE_APP" "$@"
+fi
 if command -v htop >/dev/null 2>&1; then
   exec ooonana-theme-env xterm -e htop
 fi
@@ -2117,7 +2122,7 @@ show_category() {
         "" screenshot "Screenshot" "Take screenshot" \
         "" editor "Editor" "Open Geany or Vim" \
         "" music "Music" "Open MPD client" \
-        "" processes "Processes" "Open htop" \
+        "" processes "Task Manager" "Open Ooonana Task Manager" \
         "" ranger "Ranger" "Open terminal file manager" 2>/dev/null || true
       ;;
     Ooonana)
@@ -2573,7 +2578,7 @@ label-foreground = ${colors.accent}
 label-background = ${colors.background}
 label-padding = 2
 click-left = ooonana-window-list --menu
-click-right = ooonana-window-list --close-menu
+click-right = ooonana-window-list --actions
 
 [module/memory]
 type = custom/script
@@ -2851,7 +2856,7 @@ set -eu
 if [ "${1:-}" = "--dry-run" ]; then
   echo "yad installer gui"
   echo "modes: erase-disk custom-existing-partitions"
-  echo "fields: target home swap efi format-root format-home format-swap format-efi user password hostname theme repo source"
+  echo "fields: target home swap efi format-root format-home format-swap format-efi user password hostname theme repo source swap-size-mib"
   echo "custom bootloader: UEFI GRUB requires an EFI partition"
   echo "OOONANA_INSTALLER_GUI_OK"
   exit 0
@@ -2865,10 +2870,9 @@ if [ -z "${DISPLAY:-}" ] || ! command -v yad >/dev/null 2>&1; then
   fallback "$@"
 fi
 
-default_target="/dev/vdb"
-for dev in /dev/vdb /dev/sdb /dev/xvdb /dev/nvme0n2; do
-  [ -b "$dev" ] && { default_target="$dev"; break; }
-done
+default_target=""
+disk_summary="$(lsblk -dn -o PATH,SIZE,MODEL,TRAN 2>/dev/null | head -n 8 || true)"
+[ -n "$disk_summary" ] || disk_summary="Disk list unavailable; run lsblk in a terminal."
 
 parent_disk() {
   if command -v lsblk >/dev/null 2>&1 && [ -b "$1" ]; then
@@ -2896,6 +2900,8 @@ root_disk() {
 }
 
 form="$(yad --center --title "Install Ooonana OS" --width=720 \
+  --text "Enter exact target. Only chosen target and listed partitions may be changed.
+$disk_summary" \
   --form --separator='|' \
   --field "Mode:CB" "erase-disk!custom-existing-partitions" \
   --field "Target disk or root partition" "$default_target" \
@@ -2911,7 +2917,8 @@ form="$(yad --center --title "Install Ooonana OS" --width=720 \
   --field "Hostname" "ooonana" \
   --field "Theme:CB" "dark!light" \
   --field "Cloud repo" "https://ooonana.gitlab.io/ooonana-repo" \
-  --field "Source root" "/" 2>/dev/null || true)"
+  --field "Source root" "/" \
+  --field "Disk swap MiB (erase-disk only)" "0" 2>/dev/null || true)"
 [ -n "$form" ] || exit 0
 
 field() {
@@ -2933,6 +2940,7 @@ host_name="$(field 12)"
 theme="$(field 13)"
 cloud_repo="$(field 14)"
 source_root="$(field 15)"
+swap_size_mib="$(field 16)"
 
 [ -n "$target" ] || { yad --center --title "Install Ooonana OS" --text "Target required"; exit 1; }
 [ -n "$source_root" ] || source_root="/"
@@ -2964,7 +2972,7 @@ case "$mode" in
     [ "$format_efi" = "TRUE" ] && set -- "$@" --format-efi || set -- "$@" --keep-efi
     ;;
   *)
-    :
+    [ "$swap_size_mib" = "0" ] || set -- "$@" --swap-size-mib "$swap_size_mib"
     ;;
 esac
 
@@ -2978,10 +2986,16 @@ preview="$tmp_dir/preview.txt"
 log="$tmp_dir/install.log"
 status_file="$tmp_dir/status"
 
+preview_ok=0
 if [ -n "$password" ]; then
-  printf '%s\n' "$password" | "$@" --dry-run --yes >"$preview" 2>&1 || true
+  printf '%s\n' "$password" | "$@" --dry-run --yes >"$preview" 2>&1 && preview_ok=1
 else
-  "$@" --dry-run --yes >"$preview" 2>&1 || true
+  "$@" --dry-run --yes >"$preview" 2>&1 && preview_ok=1
+fi
+if [ "$preview_ok" -ne 1 ]; then
+  yad --center --title "Ooonana Install Blocked" --width=860 --height=420 \
+    --text-info --filename="$preview" --button=Close:0 2>/dev/null || true
+  exit 1
 fi
 
 yad --center --title "Ooonana Install Preview" --width=860 --height=560 \
@@ -3070,6 +3084,7 @@ set -eu
 
 TARGET=""
 SOURCE="/"
+SWAP_SIZE_MIB=0
 USER_NAME="ooonana"
 HOSTNAME_VALUE="ooonana"
 THEME="${OOONANA_THEME:-dark}"
@@ -3093,6 +3108,7 @@ Usage:
 
 Options:
   --target PATH   Target disk or ext4 image
+  --swap-size-mib N  Whole-disk swap size (0 = zram only)
   --source PATH   Source root (default: /)
   --user NAME     Installed user (default: ooonana)
   --hostname NAME Installed hostname (default: ooonana)
@@ -3152,6 +3168,10 @@ valid_repo_uri() {
 }
 
 list_targets() {
+  if command -v lsblk >/dev/null 2>&1; then
+    lsblk -dn -o PATH,SIZE,MODEL,TRAN 2>/dev/null || true
+    return 0
+  fi
   for dev in /dev/vd[a-z] /dev/sd[a-z] /dev/xvd[a-z] /dev/nvme[0-9]n[0-9]; do
     [ -b "$dev" ] && printf '%s\n' "$dev"
   done
@@ -3188,22 +3208,6 @@ is_root_target() {
   [ "$1" = "$root" ] || [ "$(parent_disk "$1")" = "$root" ]
 }
 
-suggest_target() {
-  for dev in /dev/vdb /dev/sdb /dev/xvdb /dev/nvme0n2; do
-    if [ -b "$dev" ] && ! is_root_target "$dev"; then
-      printf '%s\n' "$dev"
-      return 0
-    fi
-  done
-  for dev in /dev/vd[a-z] /dev/sd[a-z] /dev/xvd[a-z] /dev/nvme[0-9]n[0-9]; do
-    if [ -b "$dev" ] && ! is_root_target "$dev"; then
-      printf '%s\n' "$dev"
-      return 0
-    fi
-  done
-  printf '/dev/vdb\n'
-}
-
 confirm_root_target() {
   if is_root_target "$TARGET" && [ "${OOONANA_INSTALL_ALLOW_ROOT_TARGET:-0}" != "1" ]; then
     die "target looks like current root disk: $TARGET"
@@ -3213,6 +3217,7 @@ confirm_root_target() {
 run_installer() {
   mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
   set -- /usr/sbin/ooonana-install --target "$TARGET" --source "$SOURCE" --hostname "$HOSTNAME_VALUE" --user "$USER_NAME" --theme "$THEME" --yes
+  [ "$SWAP_SIZE_MIB" = 0 ] || set -- "$@" --swap-size-mib "$SWAP_SIZE_MIB"
   if [ -n "$CLOUD_REPO" ]; then
     set -- "$@" --cloud-repo "$CLOUD_REPO"
   fi
@@ -3269,6 +3274,7 @@ finish_prompt() {
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --target) TARGET="$2"; shift 2 ;;
+    --swap-size-mib) SWAP_SIZE_MIB="$2"; shift 2 ;;
     --source) SOURCE="$2"; shift 2 ;;
     --user) USER_NAME="$2"; shift 2 ;;
     --hostname) HOSTNAME_VALUE="$2"; shift 2 ;;
@@ -3287,9 +3293,10 @@ while [ "$#" -gt 0 ]; do
 done
 
 if [ "$DRY_RUN" -eq 1 ]; then
-  target="${TARGET:-/dev/vdb}"
+  target="${TARGET:-TARGET_REQUIRED}"
   printf 'Ooonana installer wizard\n'
   printf 'Step 1/8 choose target disk: %s\n' "$target"
+  printf 'Disk swap size: %s MiB\n' "$SWAP_SIZE_MIB"
   printf 'Step 2/8 create user: %s\n' "$USER_NAME"
   printf 'Step 3/8 set hostname: %s\n' "$HOSTNAME_VALUE"
   printf 'Step 4/8 choose theme: %s\n' "$THEME"
@@ -3298,7 +3305,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
   printf 'Step 7/8 confirm erase: INSTALL\n'
   printf 'Step 8/8 install, log, reboot\n'
   printf 'Progress log: %s\n' "$LOG_FILE"
-  printf '/usr/sbin/ooonana-install --target %s --source %s --hostname %s --user %s --theme %s' "$target" "$SOURCE" "$HOSTNAME_VALUE" "$USER_NAME" "$THEME"
+  printf '/usr/sbin/ooonana-install --target %s --source %s --hostname %s --user %s --theme %s --swap-size-mib %s' "$target" "$SOURCE" "$HOSTNAME_VALUE" "$USER_NAME" "$THEME" "$SWAP_SIZE_MIB"
   [ -z "$CLOUD_REPO" ] || printf ' --cloud-repo %s' "$CLOUD_REPO"
   printf ' --yes\n'
   printf 'OOONANA_INSTALL_WIZARD_OK\n'
@@ -3309,10 +3316,18 @@ if [ "$YES" -eq 0 ]; then
   screen "Step 1/8: Target disk"
   printf 'Known target disks:\n'
   list_targets || true
-  default_target="$(suggest_target)"
-  printf '\nTarget disk [%s]: ' "$default_target"
+  if [ -n "$TARGET" ]; then
+    printf '\nTarget disk [%s]: ' "$TARGET"
+    read -r answer
+    [ -z "$answer" ] || TARGET="$answer"
+  else
+    printf '\nType exact target disk or image (no default): '
+    read -r TARGET
+  fi
+  [ -n "$TARGET" ] || die "target required; no disk selected automatically"
+  printf 'Disk swap size MiB [0 = zram only]: '
   read -r answer
-  TARGET="${answer:-$default_target}"
+  [ -z "$answer" ] || SWAP_SIZE_MIB="$answer"
 
   screen "Step 2/8: User account"
   printf 'User name [%s]: ' "$USER_NAME"
@@ -3358,6 +3373,11 @@ if [ "$YES" -eq 0 ]; then
 fi
 
 [ -n "$TARGET" ] || die "target required"
+case "$SWAP_SIZE_MIB" in ''|*[!0-9]*) die "swap size must be numeric MiB" ;; esac
+if [ "$SWAP_SIZE_MIB" -ne 0 ] &&
+  { [ "$SWAP_SIZE_MIB" -lt 512 ] || [ "$SWAP_SIZE_MIB" -gt 131072 ]; }; then
+  die "swap size must be 0 or 512..131072 MiB"
+fi
 [ -n "$SOURCE" ] || die "source required"
 [ -n "$USER_NAME" ] || die "user required"
 [ -n "$HOSTNAME_VALUE" ] || die "hostname required"
@@ -3368,6 +3388,7 @@ confirm_root_target
 if [ "$YES" -eq 0 ]; then
   screen "Step 7/8: Confirm install"
   printf 'Target disk: %s\n' "$TARGET"
+  printf 'Disk swap: %s MiB\n' "$SWAP_SIZE_MIB"
   printf 'Source root: %s\n' "$SOURCE"
   printf 'User: %s\n' "$USER_NAME"
   printf 'Hostname: %s\n' "$HOSTNAME_VALUE"
@@ -3682,8 +3703,8 @@ start_persistence
 if command -v ooonana-memory >/dev/null 2>&1; then
   ooonana-memory start >/var/log/ooonana-memory.log 2>&1 || true
 fi
-if command -v swapon >/dev/null 2>&1; then
-  swapon -a >>/var/log/ooonana-memory.log 2>&1 || true
+if command -v ooonana-memory >/dev/null 2>&1; then
+  ooonana-memory disk-start >>/var/log/ooonana-memory.log 2>&1 || true
 fi
 
 capture_audio_boot_state() {
@@ -3879,7 +3900,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   version_output="$(/usr/bin/ooonana version 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.1' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.2' &&
     printf '%s\n' "$installed_output" | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else

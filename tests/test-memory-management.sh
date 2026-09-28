@@ -22,5 +22,18 @@ short="$(OOONANA_MEMORY_MEMINFO="$tmp/meminfo" sh "$HELPER" --short)"
 status="$(OOONANA_MEMORY_MEMINFO="$tmp/meminfo" sh "$HELPER" status)"
 [[ "$status" == *'RAM: 8192 MiB total, 6144 MiB available'* ]]
 [[ "$status" == *'Swap: 4096 MiB total, 4096 MiB free'* ]]
+cat >"$tmp/memory.conf" <<'EOF'
+OOONANA_ZRAM_PERCENT=25
+OOONANA_DISK_SWAP=off
+EOF
+plan="$(OOONANA_MEMORY_MEMINFO="$tmp/meminfo" OOONANA_MEMORY_CONFIG="$tmp/memory.conf" sh "$HELPER" --dry-run)"
+[[ "$plan" == *'zram size: 2048 MiB (25% RAM'* ]] || { echo "bad configured plan: $plan" >&2; exit 1; }
+status="$(OOONANA_MEMORY_MEMINFO="$tmp/meminfo" OOONANA_MEMORY_CONFIG="$tmp/memory.conf" sh "$HELPER" status)"
+[[ "$status" == *'Zram policy: 25%; disk swap: off'* ]]
+disk_off="$(OOONANA_MEMORY_MEMINFO="$tmp/meminfo" OOONANA_MEMORY_CONFIG="$tmp/memory.conf" sh "$HELPER" disk-start)"
+[[ "$disk_off" == 'OOONANA_DISK_SWAP_DISABLED' ]]
+printf 'OOONANA_ZRAM_PERCENT=0\nOOONANA_DISK_SWAP=off\n' >"$tmp/memory.conf"
+zram_off="$(OOONANA_MEMORY_MEMINFO="$tmp/meminfo" OOONANA_MEMORY_CONFIG="$tmp/memory.conf" sh "$HELPER" start)"
+[[ "$zram_off" == 'OOONANA_ZRAM_DISABLED' ]]
 
 printf 'ok memory-management\n'

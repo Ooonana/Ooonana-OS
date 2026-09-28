@@ -44,6 +44,7 @@ button:disabled { background: #1b1f26; color: #78828f; border-color: #313944; }
 button.suggested-action { background: #ffb21a; color: #101317; border-color: #ffb21a; font-weight: 700; }
 button.suggested-action:disabled { background: #403624; color: #a5987f; border-color: #544733; }
 button.destructive-action { background: #3b2324; color: #ffaaa3; border-color: #8a4749; }
+button.destructive-action:disabled { background: #1b1f26; color: #78828f; border-color: #313944; }
 entry, textview, textview text, textview.view, textview.view text, treeview, list {
   background: #15191f;
   color: #f5f5f7;

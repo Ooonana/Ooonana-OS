@@ -13,11 +13,11 @@ variables:
   ALPINE_REPOS: "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64 https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64"
   OOONANA_REPO_NAME: "gitlab"
   OOONANA_PAGES_MAX_BYTES: "1073741824"
-  OOONANA_KERNEL_VERSION: "6.18.37-2"
-  OOONANA_CORE_VERSION: "0.9.1"
-  OOONANA_OPENVINO_CHAT_VERSION: "0.1.7"
-  OOONANA_KERNEL_PACKAGE_URL: "https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/vmlinuz-ooonana-6.18.37-2"
-  OOONANA_KERNEL_PACKAGE_SHA256: "faf177e16785fb1419353cc98e23c0bfdb056509292646665ec2c5af7326bf6a"
+  OOONANA_KERNEL_VERSION: "6.18.37-3"
+  OOONANA_CORE_VERSION: "0.9.2"
+  OOONANA_OPENVINO_CHAT_VERSION: "0.2.0"
+  OOONANA_KERNEL_PACKAGE_URL: "https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/vmlinuz-ooonana-6.18.37-3"
+  OOONANA_KERNEL_PACKAGE_SHA256: "bc30e38e0ff539ac3b573a03a15c763ee49c072224e2d4620ba2e2be910065a3"
 
 ci-smoke:
   image: alpine:3.20

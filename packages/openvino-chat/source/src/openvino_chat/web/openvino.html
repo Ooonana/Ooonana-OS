@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenVINO Chat</title>
+  <link rel="stylesheet" href="duck.css">
+  <script src="duck.js" defer></script>
+</head>
+<body>
+  <svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="m3 3 19 9-19 9 4-9-4-9Zm4 9h15"/></symbol>
+    <symbol id="i-attach" viewBox="0 0 24 24"><path d="m8 13 7-7a3 3 0 0 1 4 4L9 20a5 5 0 0 1-7-7L12 3a7 7 0 0 1 10 10l-9 9"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24"><path d="m4 5 6 7-6 7m9 0h7"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 8a3 3 0 0 1 6 0c0 3-3 2-3 5m0 3v1"/></symbol>
+    <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 10a9 9 0 1 1 2 8M3 4v6h6m3-4v6l4 2"/></symbol>
+    <symbol id="i-prev" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V3H3v14h5"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+    <symbol id="i-read" viewBox="0 0 24 24"><path d="M4 5h6a3 3 0 0 1 3 3v13a3 3 0 0 0-3-3H4V5Zm9 3a3 3 0 0 1 3-3h5v13h-5a3 3 0 0 0-3 3"/></symbol>
+  </svg>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">OV</span><div class="brand-copy"><strong id="brand">OpenVINO</strong><span id="active-model"></span></div></div>
+      <nav aria-label="Chat controls">
+        <button data-command="/model" title="Select model">Models</button>
+        <button data-command="/session" title="Resume or manage sessions">Sessions</button>
+        <button data-command="/effort" title="Sampling configuration">Effort</button>
+        <button data-command="/duck" id="quack-toggle" title="Quack personality">Quack</button>
+        <button class="icon" id="help-button" title="Help (F1)" aria-label="Help"><svg><use href="#i-help"/></svg></button>
+        <button class="icon" id="side-toggle" title="Toggle side panel" aria-label="Toggle side panel"><svg><use href="#i-panel"/></svg></button>
+        <button id="tui-button" title="Return to terminal (/tui)"><svg><use href="#i-terminal"/></svg><span>TUI</span></button>
+      </nav>
+    </header>
+    <main id="workspace">
+      <section id="primary" aria-label="Conversation">
+        <div id="chat-view" class="scroll-view"><pre id="chat-log" class="transcript"></pre></div>
+        <div id="quack-view" hidden>
+          <div class="speech-zone"><div id="speech-bubbles" aria-label="Quack reply"></div><div id="speech-controls" hidden><button class="icon" id="speech-prev" title="Previous paragraph" aria-label="Previous paragraph"><svg><use href="#i-prev"/></svg></button><span id="paragraph-count"></span><button class="icon" id="speech-next" title="Next paragraph" aria-label="Next paragraph"><svg><use href="#i-next"/></svg></button><button id="speech-latest">Latest</button></div></div>
+          <div class="character-zone"><div id="character-stage" role="img" aria-label="Quack character"><pre id="character" aria-hidden="true"></pre><span class="eye" id="eye-left"></span><span class="eye" id="eye-right"></span><pre id="beak" aria-hidden="true">  .----.
+&lt;========&gt;
+  '----'</pre></div></div>
+          <div class="quack-caption"><span class="user-marker">&gt;</span><span id="user-caption"></span></div>
+          <div class="quack-actions"><span id="tool-badge"></span><button id="read-button" title="Read full reply (F2)"><svg><use href="#i-read"/></svg>Read reply</button><button class="icon" id="copy-reply" title="Copy full reply" aria-label="Copy full reply"><svg><use href="#i-copy"/></svg></button><button class="icon" id="motion-toggle" title="Pause animation" aria-label="Pause animation" aria-pressed="false"><svg><use href="#i-pause"/></svg></button></div>
+        </div>
+        <section id="reader-view" hidden aria-label="Document reader">
+          <header><strong id="reader-title">Help</strong><button class="icon" id="reader-close" title="Close reader (Esc)" aria-label="Close reader"><svg><use href="#i-close"/></svg></button></header>
+          <pre id="reader-content" class="scroll-view"></pre>
+        </section>
+        <button id="main-latest" class="latest" hidden>Latest reply</button>
+      </section>
+      <aside id="sidebar" hidden aria-label="Side panel">
+        <div class="side-tabs" role="tablist" aria-label="Side panel tabs">
+          <button data-tab="chat" role="tab" aria-selected="true">Chat</button>
+          <button data-tab="tools" role="tab" aria-selected="false">Tools</button>
+          <button data-tab="charts" role="tab" aria-selected="false">Charts</button>
+          <strong id="tasks-title" hidden>Tasks</strong><button class="icon" id="side-close" title="Close side panel" aria-label="Close side panel"><svg><use href="#i-close"/></svg></button>
+        </div>
+        <div id="side-chat" class="scroll-view"><pre id="side-log" class="transcript"></pre></div>
+        <div id="side-tools" class="scroll-view" hidden></div>
+        <div id="side-charts" class="scroll-view" hidden><header><span id="visual-title">Visual</span><button class="icon" id="visual-close" title="Dismiss visual" aria-label="Dismiss visual"><svg><use href="#i-close"/></svg></button></header><pre id="visual-content"></pre></div>
+        <div id="side-tasks" class="scroll-view" hidden><pre id="tasks-content"></pre></div>
+        <button id="side-latest" class="latest" hidden>New messages</button>
+      </aside>
+    </main>
+    <section class="composer" aria-label="Message input">
+      <div id="activity" role="status" hidden></div>
+      <section id="queue-panel" aria-label="Message queue" hidden><header><strong id="queue-title"></strong><button id="queue-pause">Pause</button><button id="queue-clear">Clear</button></header><div id="queue-items"></div></section>
+      <div id="notice" role="status" hidden></div>
+      <div id="palette" role="listbox" aria-label="Commands" hidden></div>
+      <div id="attachment-tray" hidden></div>
+      <div class="input-row"><span class="user-marker">&gt;</span><textarea id="input" aria-label="Message" placeholder="Message or /command" rows="1" spellcheck="false" autocomplete="off"></textarea><button class="icon" id="attach-button" title="Attach image, audio or video" aria-label="Attach media"><svg><use href="#i-attach"/></svg></button><button class="icon primary-button" id="send-button" title="Send (Enter)" aria-label="Send"><svg><use href="#i-send"/></svg></button><button class="icon stop-button" id="stop-button" title="Stop (Esc)" aria-label="Stop generation" hidden><svg><use href="#i-stop"/></svg></button></div>
+      <input id="file-input" type="file" accept="image/*,audio/*,video/*" multiple hidden>
+    </section>
+    <footer class="statusbar"><span id="connection" class="connection">Connecting</span><span id="state-label">ready</span><details id="runtime-details"><summary>Runtime details</summary><div id="metrics"></div></details></footer>
+  </div>
+  <dialog id="menu-dialog" aria-labelledby="menu-title"><header><h2 id="menu-title"></h2><button class="icon" id="menu-close" title="Cancel" aria-label="Cancel"><svg><use href="#i-close"/></svg></button></header><pre id="menu-description" hidden></pre><p id="menu-warning" hidden></p><div id="menu-items"></div><div id="menu-error" role="alert" hidden></div><footer id="menu-actions"></footer></dialog>
+  <section id="disconnected" hidden><h1 id="disconnect-title">Terminal active</h1><p id="disconnect-message">Session continues in terminal.</p><button id="reconnect">Return to GUI</button></section>
+</body>
+</html>

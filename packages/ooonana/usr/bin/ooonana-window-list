@@ -36,7 +36,7 @@ def windows():
         con_id = node.get("id")
         if not isinstance(con_id, int):
             continue
-        name = " ".join(str(node.get("name", "")).split()) or "window"
+        name = " ".join("".join(ch for ch in str(node.get("name", "")) if ch.isprintable() and ch != "%").split()) or "window"
         items.append((con_id, name, bool(node.get("focused")), hidden))
     return items
 
@@ -53,16 +53,48 @@ def compact(items):
     return f"* {title}{suffix}{hidden}"
 
 
-def menu(items, close=False):
+def bar(items):
+    """Clickable, bounded window chips for Polybar; titles cannot inject tags."""
     if not items:
-        return
+        return "desktop"
+    ordered = sorted(items, key=lambda item: (not item[2], item[3]))
+    chips = []
+    for con_id, name, focused, hidden in ordered[:3]:
+        if not isinstance(con_id, int) or con_id <= 0:
+            continue
+        title = name[:12] + ("…" if len(name) > 12 else "")
+        prefix = "●" if focused else "○" if hidden else "·"
+        color = "#ffb21a" if focused else "#b4bdc8"
+        background = "#303640" if focused else "#272d36"
+        chips.append(
+            f"%{{A1:ooonana-window-list --focus {con_id}:}}"
+            f"%{{A3:ooonana-window-list --actions {con_id}:}}"
+            f"%{{F{color}}}%{{B{background}}} {prefix} {title} %{{B-}}%{{F-}}%{{A}}%{{A}}"
+        )
+    if len(ordered) > 3:
+        chips.append(f"%{{A1:ooonana-window-list --menu:}} +{len(ordered) - 3} %{{A}}")
+    return " ".join(chips) or "desktop"
+
+
+def focus(item):
+    con_id, _name, _active, hidden = item
+    commands = []
+    if hidden:
+        commands.append(f"[con_id={con_id}] scratchpad show")
+    commands.append(f"[con_id={con_id}] focus")
+    subprocess.run(["i3-msg", "; ".join(commands)], check=False)
+
+
+def choose(items, prompt):
+    if not items:
+        return None
     choices = [
         f"{'* ' if active else '  '}{name}{' [hidden]' if hidden else ''}"
         for _con_id, name, active, hidden in items
     ]
     try:
         result = subprocess.run(
-            ["rofi", "-dmenu", "-i", "-p", "Close window" if close else "Windows", "-format", "i"],
+            ["rofi", "-dmenu", "-i", "-p", prompt, "-format", "i"],
             input="\n".join(choices) + "\n",
             text=True,
             stdout=subprocess.PIPE,
@@ -72,17 +104,44 @@ def menu(items, close=False):
         )
         selected = int(result.stdout.strip())
     except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+    return items[selected] if 0 <= selected < len(items) else None
+
+
+def menu(items, close=False):
+    item = choose(items, "Close window" if close else "Open window")
+    if item is None:
         return
-    if 0 <= selected < len(items):
-        con_id, _name, _active, hidden = items[selected]
-        if close:
-            subprocess.run(["i3-msg", f"[con_id={con_id}] kill"], check=False)
-            return
-        commands = []
-        if hidden:
-            commands.append(f"[con_id={con_id}] scratchpad show")
-        commands.append(f"[con_id={con_id}] focus")
-        subprocess.run(["i3-msg", "; ".join(commands)], check=False)
+    if close:
+        subprocess.run(["i3-msg", f"[con_id={item[0]}] kill"], check=False)
+    else:
+        focus(item)
+
+
+def actions_menu(items, con_id=None):
+    item = next((entry for entry in items if entry[0] == con_id), None) if con_id else choose(items, "Window actions")
+    if item is None:
+        return
+    choices = ("Open / focus", "Minimize / hide", "Fullscreen toggle", "Close window")
+    try:
+        result = subprocess.run(
+            ["rofi", "-dmenu", "-i", "-p", item[1][:20], "-format", "i"],
+            input="\n".join(choices) + "\n", text=True,
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=30, check=False,
+        )
+        selected = int(result.stdout.strip())
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return
+    if selected == 0:
+        focus(item)
+    elif selected == 1:
+        subprocess.run(["i3-msg", f"[con_id={item[0]}] move scratchpad"], check=False)
+    elif selected == 2:
+        if item[3]:
+            focus(item)
+        subprocess.run(["i3-msg", f"[con_id={item[0]}] fullscreen toggle"], check=False)
+    elif selected == 3:
+        subprocess.run(["i3-msg", f"[con_id={item[0]}] kill"], check=False)
 
 
 def main():
@@ -93,7 +152,28 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] in ("--close-menu", "--kill-menu"):
         menu(items, close=True)
         return
-    print(compact(items))
+    if len(sys.argv) > 1 and sys.argv[1] == "--actions" and len(sys.argv) == 2:
+        actions_menu(items)
+        return
+    if len(sys.argv) > 1 and sys.argv[1] in ("--focus", "--actions"):
+        try:
+            con_id = int(sys.argv[2])
+        except (IndexError, ValueError):
+            return
+        if con_id <= 0:
+            return
+        item = next((entry for entry in items if entry[0] == con_id), None)
+        if item is None:
+            return
+        if sys.argv[1] == "--focus":
+            focus(item)
+        else:
+            actions_menu(items, con_id)
+        return
+    if len(sys.argv) > 1 and sys.argv[1] == "--plain":
+        print(compact(items))
+        return
+    print(bar(items))
 
 
 if __name__ == "__main__":

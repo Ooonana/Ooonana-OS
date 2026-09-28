@@ -103,6 +103,8 @@ assert_contains "$script_src" "/images/ooonana-full-i3-live-rootfs.ext4"
 assert_contains "$script_src" 'used_kb / 8 + 131072'
 assert_contains "$script_src" "-m 0 -O '^has_journal'"
 assert_contains "$script_src" "mount -t iso9660"
+assert_contains "$script_src" 'mount -t iso9660 -o ro "$candidate" /mnt/iso'
+assert_contains "$script_src" 'mount -t vfat -o ro "$candidate" /mnt/iso'
 assert_contains "$script_src" "losetup /dev/loop0"
 assert_contains "$script_src" "mount -t overlay overlay"
 assert_contains "$script_src" "switch_root /newroot /sbin/init"

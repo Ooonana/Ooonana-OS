@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+
+if [ "${1:-}" = --dry-run ]; then
+  echo 'Ooonana OpenVINO GUI launcher: browser GUI, terminal kept on setup error'
+  echo OOONANA_OPENVINO_LAUNCH_OK
+  exit 0
+fi
+
+exec ooonana-theme-env xterm -title 'Ooonana Offline AI' -e /bin/sh -lc '
+  openvino chat --device GPU --gui
+  status=$?
+  if [ "$status" -ne 0 ]; then
+    printf "\nOpenVINO not ready. Run: openvino setup\n"
+    printf "Then install a model: openvino download qwen3.5\n"
+    printf "Press Enter to close."
+    read _ || true
+  fi
+  exit "$status"
+'

@@ -44,7 +44,7 @@ class SetupWindow(Gtk.Window):
     def __init__(self, first_boot=False):
         super().__init__(title="Ooonana Setup")
         self.first_boot = first_boot
-        self.set_default_size(820, 700)
+        self.set_default_size(800, 600)
         self.set_position(Gtk.WindowPosition.CENTER)
         header(self, "Ooonana Setup", "First boot and system defaults", "system-run-symbolic")
 
@@ -171,11 +171,28 @@ class SetupWindow(Gtk.Window):
         defaults.pack_start(defaults_grid, False, False, 0)
         content.pack_start(defaults, False, False, 0)
 
+        memory = card(
+            "Memory and swap",
+            "Compressed swap runs in RAM. Disk swap uses only a partition already chosen during installation. Applies next boot.",
+            "utilities-system-monitor-symbolic",
+        )
+        memory_grid = Gtk.Grid(column_spacing=12, row_spacing=8)
+        self.zram_combo = Gtk.ComboBoxText()
+        for percent, title in (("0", "Off"), ("25", "Light - 25%"), ("50", "Balanced - 50%"), ("75", "Large - 75%"), ("100", "Maximum - 100%")):
+            self.zram_combo.append(percent, title)
+        self.zram_combo.set_active_id("50")
+        row = field_row(memory_grid, 0, "Compressed swap", self.zram_combo)
+        self.disk_swap_check = Gtk.CheckButton(label="Use installer-configured disk swap")
+        self.disk_swap_check.set_active(True)
+        memory_grid.attach(self.disk_swap_check, 1, row, 1, 1)
+        memory.pack_start(memory_grid, False, False, 0)
+        content.pack_start(memory, False, False, 0)
+
         footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         footer.set_border_width(14)
         self.spinner = Gtk.Spinner()
         footer.pack_start(self.spinner, False, False, 0)
-        self.status = label("Scroll for theme and package repo ↓", "muted", wrap=False)
+        self.status = label("Scroll for memory, theme, and package repo ↓", "muted", wrap=False)
         footer.pack_start(self.status, True, True, 0)
         footer.pack_end(button("Apply setup", "object-select-symbolic", self.apply, "suggested-action"), False, False, 0)
         footer.pack_end(button("Not now", "window-close-symbolic", lambda *_: self.destroy()), False, False, 0)
@@ -213,6 +230,8 @@ class SetupWindow(Gtk.Window):
             "gateway": gateway,
             "dns": self.dns_entry.get_text().strip(),
             "theme": self.theme_combo.get_active_id() or "dark",
+            "zram_percent": self.zram_combo.get_active_id() or "50",
+            "disk_swap": "on" if self.disk_swap_check.get_active() else "off",
             "repo": repo,
         }, ""
 
@@ -234,6 +253,10 @@ class SetupWindow(Gtk.Window):
                 values["mode"],
                 "--theme",
                 values["theme"],
+                "--zram-percent",
+                values["zram_percent"],
+                "--disk-swap",
+                values["disk_swap"],
                 "--cloud-repo",
                 values["repo"],
             ]
@@ -278,7 +301,7 @@ class SetupWindow(Gtk.Window):
         message(
             self,
             "Ooonana is ready",
-            "Account, network defaults, theme, and package repository were saved.",
+            "Account, network, theme, memory policy, and package repository were saved. Swap settings apply next boot.",
             Gtk.MessageType.INFO,
         )
         self.destroy()
@@ -289,7 +312,7 @@ def main():
     first_boot = "--first-boot" in sys.argv
     if "--dry-run" in sys.argv:
         print("native GTK Ooonana first-boot setup")
-        print("controls: account password network wifi theme cloud-repo")
+        print("controls: account password network wifi theme zram disk-swap cloud-repo")
         print("OOONANA_SETUP_NATIVE_OK")
         return 0
     if first_boot and Path("/var/lib/ooonana/setup.done").exists():

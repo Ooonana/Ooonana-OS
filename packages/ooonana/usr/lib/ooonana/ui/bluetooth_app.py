@@ -51,7 +51,7 @@ class PairDialog(Gtk.Dialog):
 class BluetoothWindow(Gtk.Window):
     def __init__(self):
         super().__init__(title="Ooonana Bluetooth")
-        self.set_default_size(980, 660)
+        self.set_default_size(940, 600)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.devices = {}
         self.scan_observations = {}

@@ -21,7 +21,7 @@ setup_src="$(<"$SETUP")"
 assert_contains "$setup_src" '/usr/lib/ooonana/ui/setup_app.py'
 assert_contains "$setup_src" 'exec "$@"'
 assert_contains "$setup_src" "OOONANA_SETUP_GUI_OK"
-assert_contains "$setup_src" "controls: account password network wifi theme cloud-repo"
+assert_contains "$setup_src" "controls: account password network wifi theme zram disk-swap cloud-repo"
 assert_contains "$setup_src" 'xterm -title "Ooonana Setup"'
 assert_contains "$setup_src" 'OOONANA_THEME:-dark'
 assert_contains "$setup_src" 'XTERM_BG="#101317"'
@@ -44,15 +44,18 @@ assert_contains "$help" "--interface DEVICE"
 assert_contains "$help" "--user NAME"
 assert_contains "$help" "--password"
 assert_contains "$help" "--theme dark|light"
+assert_contains "$help" "--zram-percent N"
+assert_contains "$help" "--disk-swap on|off"
 
 cli_help="$("$CLI" help)"
 assert_contains "$cli_help" "  setup - run first-boot setup"
 
-dry="$("$CLI" setup --dry-run --user ryan --password --network dhcp --theme dark --cloud-repo https://example.test/repo --done)"
+dry="$("$CLI" setup --dry-run --user ryan --password --network dhcp --theme dark --zram-percent 75 --disk-swap off --cloud-repo https://example.test/repo --done)"
 assert_contains "$dry" "would create user ryan"
 assert_contains "$dry" "would set password for ryan"
 assert_contains "$dry" "would configure dhcp network"
 assert_contains "$dry" "would write theme dark"
+assert_contains "$dry" "would configure zram 75% and installed disk swap off"
 assert_contains "$dry" "would add cloud repo https://example.test/repo"
 assert_contains "$dry" "would mark setup done"
 assert_contains "$dry" "OOONANA_SETUP_OK"
@@ -63,7 +66,7 @@ assert_contains "$default_dry" "OOONANA_SETUP_OK"
 
 gui_dry="$("$SETUP" --gui --dry-run)"
 assert_contains "$gui_dry" "native GTK setup gui"
-assert_contains "$gui_dry" "controls: account password network wifi theme cloud-repo"
+assert_contains "$gui_dry" "controls: account password network wifi theme zram disk-swap cloud-repo"
 assert_contains "$gui_dry" "OOONANA_SETUP_GUI_OK"
 
 tmp="$(mktemp -d)"
@@ -85,11 +88,14 @@ real_run="$(OOONANA_ROOT="$rootfs" "$SETUP" \
   --gateway 10.0.2.2 \
   --dns 1.1.1.1,8.8.8.8 \
   --theme light \
+  --zram-percent 75 \
+  --disk-swap off \
   --cloud-repo http://127.0.0.1/repo \
   --done)"
 assert_contains "$real_run" "user: ryan"
 assert_contains "$real_run" "network: static"
 assert_contains "$real_run" "theme: light"
+assert_contains "$real_run" "memory: zram 75%, installed disk swap off"
 assert_contains "$real_run" "cloud repo: http://127.0.0.1/repo"
 assert_contains "$real_run" "OOONANA_SETUP_OK"
 
@@ -103,6 +109,8 @@ assert_contains "$(<"$rootfs/etc/network/interfaces")" "dns-nameservers 1.1.1.1 
 assert_contains "$(<"$rootfs/etc/ooonana/network.conf")" 'OOONANA_NETWORK_INTERFACE="enp2s0"'
 [[ "$(<"$rootfs/etc/ooonana/theme")" == "light" ]] || fail "wrong setup theme"
 assert_contains "$(<"$rootfs/etc/ooonana/theme.conf")" 'OOONANA_THEME="light"'
+assert_contains "$(<"$rootfs/etc/ooonana/memory.conf")" 'OOONANA_ZRAM_PERCENT=75'
+assert_contains "$(<"$rootfs/etc/ooonana/memory.conf")" 'OOONANA_DISK_SWAP=off'
 assert_contains "$(<"$rootfs/etc/ooonana/sources.d/cloud.repo")" 'OOONANA_REPO_NAME="cloud"'
 assert_contains "$(<"$rootfs/etc/ooonana/sources.d/cloud.repo")" 'OOONANA_REPO_URI="http://127.0.0.1/repo"'
 [[ -f "$rootfs/var/lib/ooonana/setup.done" ]] || fail "missing setup marker"

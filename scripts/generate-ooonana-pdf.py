@@ -34,7 +34,7 @@ def page_stream(lines: list[str]) -> str:
     return "\n".join(body)
 
 
-def paginate(lines: list[str], per_page: int = 47) -> list[list[str]]:
+def paginate(lines: list[str], per_page: int = 48) -> list[list[str]]:
     pages: list[list[str]] = []
     current: list[str] = []
     for line in lines:
@@ -53,7 +53,7 @@ def build_lines() -> list[str]:
     return [
         *logo,
         "",
-        "Ooonana OS 0.9.1 field guide",
+        "Ooonana OS 0.9.2 field guide",
         "",
         "What it is",
         "Ooonana OS is a scratch-built Linux project with its own rootfs, boot flow, installer experiments, WSL export, and custom ooonana package manager.",
@@ -83,15 +83,15 @@ def build_lines() -> list[str]:
         "GitHub Releases remains a backup tarball repository path.",
         "",
         "Installer",
-        "Full-i3 live ISO boots i3 by default. The installer wizard has disk picker, partition controls, user/password, hostname, theme and repo pickers, progress log, failure shell, and reboot prompt.",
+        "Full-i3 live ISO boots i3 by default. Installer requires an explicit target and successful dry-run preview. Erase-disk mode offers optional disk swap; custom root, home, swap and EFI must share the target disk.",
         "",
         "USB live modes",
         "Normal live mode mounts ISO and rootfs read-only. It uses a cleared temporary overlay on OOONANA_PERSIST when available on the same boot USB, with RAM fallback.",
         "Persistent live mode accepts only an ext4 OOONANA_PERSIST partition on the same physical boot USB. Its full writable overlay saves files, settings, Wi-Fi, Bluetooth pairings, packages, and system changes.",
-        "Internal disks are ignored by both live modes. Only the confirmed installer target can be partitioned or formatted.",
+        "Other disks may be probed read-only. Live mode writes only to matching boot USB persistence. Only the confirmed installer target can be partitioned or formatted.",
         "",
         "First boot",
-        "ooonana setup --first-boot --gui can create user, set password, write network config, choose theme, add cloud repo, and mark setup complete.",
+        "ooonana setup --first-boot --gui can create user, set password, write network config, choose theme, set zram and disk-swap policy, add cloud repo, and mark setup complete.",
         "",
         "WSL",
         "Import full-i3 with scripts/install-wsl-distro.sh --distro Ooonana --tarball /var/tmp/ooonana-os/release/ooonana-full-i3-wsl-rootfs.tar.gz --force",
@@ -105,7 +105,9 @@ def build_lines() -> list[str]:
         "",
         "Desktop and hardware",
         "The i3 desktop uses solid graphite and orange styling, rounded controls, smooth page transitions, a top panel with window and music controls, an app dock, audio, brightness, power, Wi-Fi, Bluetooth, and wallpaper modes.",
+        "Ctrl+Shift+Esc opens native Task Manager with processes, performance, and available temperature and fan sensors. Unavailable hardware counters are labeled, not guessed.",
         "Live USB starts compressed zram swap. OpenVINO setup requires persistent USB storage or an installed system; RAM-only live storage cannot hold its runtime and models.",
+        "Ooonana OpenVINO Chat 0.2.0 has a browser GUI through an authenticated loopback bridge. Windows-only computer-control tools are unavailable on Linux.",
         "Wi-Fi supports personal and enterprise profiles. NetworkManager, BlueZ, D-Bus, Intel Wi-Fi/Bluetooth firmware, Chromium, Python 3, sudo, su, and doas are included in full-i3.",
         "",
         "Build proof markers",

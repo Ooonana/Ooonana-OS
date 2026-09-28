@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import signal
 import socket
@@ -105,6 +106,7 @@ class ApiRuntime:
         body: dict[str, Any],
         on_token: Callable[[str], None] | None = None,
     ) -> GenerationResult:
+        _validate_generation_numbers(body)
         messages = _normalize_messages(body.get("messages"))
         tools = _normalize_tools(body.get("tools"))
         mode = normalize_knowledge_mode(str(body.get("knowledge_mode", self.knowledge_mode)))
@@ -211,13 +213,19 @@ class ApiRuntime:
                     generator=generator,
                 )
             self._record_metrics(engine)
-            return _generation_result(engine, prompt, raw)
+            allowed_tools = {
+                str(tool["function"]["name"])
+                for tool in tools
+                if isinstance(tool["function"].get("name"), str)
+            }
+            return _generation_result(engine, prompt, raw, allowed_tools=allowed_tools)
 
     def complete(
         self,
         body: dict[str, Any],
         on_token: Callable[[str], None] | None = None,
     ) -> GenerationResult:
+        _validate_generation_numbers(body)
         prompt = body.get("prompt")
         if isinstance(prompt, list):
             if len(prompt) != 1 or not isinstance(prompt[0], str):
@@ -245,7 +253,7 @@ class ApiRuntime:
             engine = self._ensure_engine()
             raw = _generate(engine, prompt, body, self.context_length, on_token=on_token)
             self._record_metrics(engine)
-            return _generation_result(engine, prompt, raw)
+            return _generation_result(engine, prompt, raw, allowed_tools=set())
 
     def _record_metrics(self, engine: OpenVinoChatEngine) -> None:
         metrics = getattr(engine, "last_metrics", None)
@@ -473,8 +481,15 @@ class OpenVinoApiHandler(BaseHTTPRequestHandler):
         tool_filter = _ToolSafeStreamer(deltas.push)
         result = self.server.runtime.chat(body, on_token=tool_filter.push)
         if tool_filter.raw:
-            tool_filter.finish(show_buffered=not result.tool_calls)
+            blocked_native_call = (
+                not result.tool_calls
+                and bool(parse_tool_requests(tool_filter.raw))
+                and result.text != tool_filter.raw.strip()
+            )
+            tool_filter.finish(show_buffered=not result.tool_calls and not blocked_native_call)
             deltas.finish()
+            if blocked_native_call and not tool_filter.emitted and result.text:
+                self._sse(chunk({"content": result.text}))
         else:
             if result.reasoning:
                 self._sse(chunk({"reasoning_content": result.reasoning}))
@@ -721,7 +736,7 @@ def stop_api_process() -> bool:
         completed = subprocess.run(
             ["taskkill", "/PID", str(pid), "/T", "/F"],
             capture_output=True,
-            creationflags=subprocess.CREATE_NO_WINDOW,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             timeout=10,
         )
         if completed.returncode != 0:
@@ -1270,12 +1285,54 @@ def _optional_int(body: dict[str, Any], name: str) -> int | None:
     return None if value is None else int(value)
 
 
-def _generation_result(engine: OpenVinoChatEngine, prompt: str, raw: str) -> GenerationResult:
-    calls = parse_tool_requests(raw)
+def _validate_generation_numbers(body: dict[str, Any]) -> None:
+    ranges = {
+        "temperature": (0.0, 2.0),
+        "top_p": (0.0, 1.0),
+        "min_p": (0.0, 1.0),
+        "presence_penalty": (-2.0, 2.0),
+        "repetition_penalty": (0.0, math.inf),
+        "top_k": (0.0, math.inf),
+    }
+    length_key = "max_completion_tokens" if "max_completion_tokens" in body else "max_tokens"
+    ranges[length_key] = (1.0, math.inf)
+    for name, (low, high) in ranges.items():
+        value = body.get(name)
+        if value is None:
+            continue
+        try:
+            number = float(value)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError(f"invalid generation parameter: {name}") from exc
+        integer_required = name in {"top_k", length_key}
+        if (
+            isinstance(value, bool)
+            or not math.isfinite(number)
+            or not low <= number <= high
+            or (integer_required and not number.is_integer())
+            or (name == "repetition_penalty" and number == 0)
+        ):
+            raise ValueError(f"invalid generation parameter: {name}")
+
+
+def _generation_result(
+    engine: OpenVinoChatEngine,
+    prompt: str,
+    raw: str,
+    allowed_tools: set[str] | None = None,
+) -> GenerationResult:
+    parsed_calls = parse_tool_requests(raw)
+    calls = [call for call in parsed_calls if allowed_tools is None or call.name in allowed_tools]
     visible = _visible_before_tool_call(raw)
     reasoning, answer = split_thinking(visible)
+    if calls and parse_tool_requests(answer):
+        answer = ""
     if not reasoning and not answer and not calls:
-        answer = raw.strip()
+        answer = (
+            raw.strip()
+            if not parsed_calls or raw.lstrip().startswith(("{", "[", "```"))
+            else "Model requested an unavailable tool."
+        )
     return GenerationResult(
         text=answer,
         reasoning=reasoning,

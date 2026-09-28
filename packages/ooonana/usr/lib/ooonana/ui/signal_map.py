@@ -12,7 +12,7 @@ class SignalMapWindow(Gtk.Window):
         super().__init__(title=title)
         self.kind = kind
         self.items = []
-        self.set_default_size(720, 620)
+        self.set_default_size(720, 560)
         self.set_position(Gtk.WindowPosition.CENTER)
         header(self, title, "Signal map", "find-location-symbolic")
 

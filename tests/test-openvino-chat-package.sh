@@ -23,8 +23,12 @@ assert_contains() {
 [[ -f "$SOURCE/src/openvino_chat/benchmarks.py" ]] || fail "missing benchmark support"
 [[ -f "$SOURCE/src/openvino_chat/compaction.py" ]] || fail "missing context compaction"
 [[ -f "$SOURCE/src/openvino_chat/knowledge.py" ]] || fail "missing local knowledge support"
+[[ -f "$SOURCE/src/openvino_chat/gui.py" ]] || fail "missing browser GUI"
+[[ -f "$SOURCE/src/openvino_chat/web/openvino.html" ]] || fail "missing browser GUI assets"
+[[ -f "$SOURCE/scripts/browser-bridge.sh" ]] || fail "missing Linux browser bridge"
 [[ -x "$PAYLOAD/usr/bin/openvino" ]] || fail "missing OpenVINO launcher"
 [[ -x "$PAYLOAD/usr/bin/ooonana-openvino-setup" ]] || fail "missing runtime setup"
+[[ -f "$PAYLOAD/usr/bin/ooonana-openvino-launch" ]] || fail "missing GUI launcher"
 
 source_text="$(<"$SOURCE/src/openvino_chat/cli.py")"
 settings_text="$(<"$SOURCE/src/openvino_chat/settings.py")"
@@ -32,7 +36,13 @@ pyproject_text="$(<"$SOURCE/pyproject.toml")"
 assert_contains "$source_text" 'choices=["GPU", "CPU"]'
 assert_contains "$settings_text" '"ornith"'
 assert_contains "$settings_text" 'DEFAULT_CONTEXT_LENGTH = 4096'
-assert_contains "$pyproject_text" 'version = "0.1.7"'
+assert_contains "$pyproject_text" 'version = "0.2.0"'
+assert_contains "$pyproject_text" 'pywebview>=6; sys_platform == '\''win32'\'''
+assert_contains "$(<"$SOURCE/scripts/setup-linux.sh")" 'OPENVINO_MODEL_ROOT'
+assert_contains "$(<"$SOURCE/scripts/setup-linux.sh")" 'OPENVINO_CHAT_CONFIG'
+linux_paths="$(OPENVINO_HOME=/tmp/ov-runtime OPENVINO_MODEL_ROOT=/tmp/ov-models OPENVINO_CHAT_CONFIG=/tmp/ov-config/custom.json bash "$SOURCE/scripts/setup-linux.sh" --dry-run)"
+assert_contains "$linux_paths" 'models: /tmp/ov-models'
+assert_contains "$linux_paths" 'config: /tmp/ov-config/custom.json'
 
 PYTHONPATH="$SOURCE/src" python3 - <<'PY'
 import os
@@ -46,14 +56,26 @@ from openvino_chat.tools import TOOL_DEFINITIONS, _parse_search_results
 from openvino_chat.media import extract_media_paths, model_media_capabilities
 from openvino_chat.sessions import CrashRecoveryStore
 from openvino_chat.settings import canonical_model_name
+from openvino_chat.cli import _parser
+from openvino_chat.cli import _chat
+from unittest.mock import patch
 
 import openvino_chat
 for path in Path(openvino_chat.__file__).parent.glob("*.py"):
     ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 assert canonical_model_name("qwen") == "qwen3.5"
 assert canonical_model_name("qwen38") == "qwen3.8"
+assert _parser().parse_args(["chat", "--gui"]).gui is True
 with tempfile.TemporaryDirectory() as temporary:
     root = Path(temporary)
+    with patch("openvino_chat.cli._command_completer", return_value=None), patch(
+        "openvino_chat.cli._can_use_persistent_tui", return_value=True
+    ), patch(
+        "openvino_chat.cli.tui_mod.run_persistent_repl", return_value=0
+    ) as repl:
+        assert _chat(root, "", "CPU", 128, None, None, 4096, "auto", lambda *a, **k: None, input, start_gui=True) == 0
+        assert repl.call_args.kwargs["start_frontend"] == "browser"
+        assert _chat(root / "missing", "", "CPU", 128, None, None, 4096, "auto", lambda *a, **k: None, input, start_gui=True) == 0
     first, second = root / "Photo.png", root / "photo.png"
     first.touch()
     second.touch()
@@ -104,6 +126,15 @@ assert_contains "$launcher_text" "--unshare-uts"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
+mkfifo "$tmp/browser-request"
+(IFS= read -r request < "$tmp/browser-request"; printf '%s\n' "$request" > "$tmp/browser-captured") &
+browser_reader=$!
+OOONANA_OPENVINO_BROWSER_FIFO="$tmp/browser-request" sh "$SOURCE/scripts/browser-bridge.sh" 'http://127.0.0.1:12345/openvino.html#token=test-token'
+wait "$browser_reader"
+assert_contains "$(<"$tmp/browser-captured")" 'http://127.0.0.1:12345/openvino.html#token=test-token'
+if OOONANA_OPENVINO_BROWSER_FIFO="$tmp/browser-request" sh "$SOURCE/scripts/browser-bridge.sh" 'https://example.com/' 2>/dev/null; then
+  fail "browser bridge accepted remote URL"
+fi
 printf 'ram\n' >"$tmp/live-mode"
 if setup_rejection="$(OOONANA_LIVE_MODE_FILE="$tmp/live-mode" sh "$PAYLOAD/usr/bin/ooonana-openvino-setup" 2>&1)"; then
   fail "OpenVINO setup accepted RAM-only live storage"
@@ -122,10 +153,10 @@ fi
 assert_contains "$doctor" "runtime: outdated"
 assert_contains "$doctor" "next: openvino setup"
 assert_contains "$setup_text" 'sha256sum /opt/openvino-chat/pyproject.toml'
-built="$(bash "$BUILDER" --out-dir "$tmp/repo" --version 0.1.7)"
+built="$(bash "$BUILDER" --out-dir "$tmp/repo" --version 0.2.0)"
 assert_contains "$built" "openvino-chat.pkg"
 [[ -f "$tmp/repo/openvino-chat.pkg" ]] || fail "missing package metadata"
-[[ -f "$tmp/repo/archives/openvino-chat-0.1.7.tar.gz" ]] || fail "missing package archive"
+[[ -f "$tmp/repo/archives/openvino-chat-0.2.0.tar.gz" ]] || fail "missing package archive"
 
 metadata="$(<"$tmp/repo/openvino-chat.pkg")"
 assert_contains "$metadata" 'OOONANA_PKG_ID="openvino-chat"'
@@ -133,16 +164,23 @@ assert_contains "$metadata" 'OOONANA_PKG_DEPS="bubblewrap xz curl ca-certificate
 assert_contains "$metadata" "Offline Ooonana AI"
 assert_contains "$metadata" "intel gpu cpu"
 
-contents="$(tar -tzf "$tmp/repo/archives/openvino-chat-0.1.7.tar.gz")"
+contents="$(tar -tzf "$tmp/repo/archives/openvino-chat-0.2.0.tar.gz")"
 [[ "$contents" != *'__pycache__'* ]] || fail "OpenVINO contains Python cache"
 [[ "$contents" != *'.pyc'* ]] || fail "OpenVINO contains Python bytecode"
+[[ "$contents" != *'/.openvino/'* && "$contents" != *'/models/'* && "$contents" != *'.venv/'* ]] || fail "OpenVINO package contains user runtime or models"
 assert_contains "$contents" "./usr/bin/openvino"
 assert_contains "$contents" "./usr/bin/ooonana-openvino-setup"
+assert_contains "$contents" "./usr/bin/ooonana-openvino-launch"
 assert_contains "$contents" "./usr/lib/ooonana/openvino-chat/src/openvino_chat/cli.py"
 assert_contains "$contents" "./usr/lib/ooonana/openvino-chat/src/openvino_chat/benchmarks.py"
 assert_contains "$contents" "./usr/lib/ooonana/openvino-chat/src/openvino_chat/compaction.py"
 assert_contains "$contents" "./usr/lib/ooonana/openvino-chat/src/openvino_chat/knowledge.py"
+assert_contains "$contents" "./usr/lib/ooonana/openvino-chat/src/openvino_chat/gui.py"
+assert_contains "$contents" "./usr/lib/ooonana/openvino-chat/src/openvino_chat/web/openvino.html"
+assert_contains "$contents" "./usr/lib/ooonana/openvino-chat/scripts/browser-bridge.sh"
 assert_contains "$contents" "./usr/share/applications/ooonana-openvino.desktop"
 assert_contains "$(<"$ROOT/packages/openvino-chat/rootfs/usr/share/applications/ooonana-openvino.desktop")" "Icon=/usr/share/ooonana/logo.png"
+assert_contains "$(<"$ROOT/packages/openvino-chat/rootfs/usr/share/applications/ooonana-openvino.desktop")" "Exec=ooonana-openvino-launch"
+assert_contains "$(sh "$PAYLOAD/usr/bin/ooonana-openvino-launch" --dry-run)" "OOONANA_OPENVINO_LAUNCH_OK"
 
 printf 'ok openvino-chat-package\n'

@@ -25,8 +25,11 @@ assert_not_contains() {
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
-for app in common wireless_utils signal_map setup_app settings_app wifi_app bluetooth_app packages_app ai_app controls_app launcher_app; do
+for app in common wireless_utils signal_map setup_app settings_app wifi_app bluetooth_app packages_app ai_app controls_app launcher_app task_manager_app; do
   [[ -f "$UI_DIR/$app.py" ]] || fail "missing GTK app: $app"
+done
+for app in signal_map setup_app settings_app wifi_app bluetooth_app packages_app ai_app controls_app launcher_app task_manager_app; do
+  assert_contains "$(<"$UI_DIR/$app.py")" 'header('
 done
 
 PYTHONPYCACHEPREFIX="$tmp/pycache" "$PYTHON" -m py_compile "$UI_DIR"/*.py
@@ -42,6 +45,7 @@ ai="$(<"$UI_DIR/ai_app.py")"
 controls="$(<"$UI_DIR/controls_app.py")"
 setup="$(<"$UI_DIR/setup_app.py")"
 launcher="$(<"$UI_DIR/launcher_app.py")"
+task_manager="$(<"$UI_DIR/task_manager_app.py")"
 window_list="$(<"$ROOT/packages/ooonana/usr/bin/ooonana-window-list")"
 i3_config="$(<"$ROOT/branding/i3/config")"
 
@@ -204,6 +208,9 @@ power_window="$(sed -n '/^class PowerWindow/,/^def main/p' "$UI_DIR/controls_app
 assert_contains "$power_window" 'self.add(root)'
 assert_contains "$controls" 'run_async(command, done, timeout=20)'
 assert_contains "$setup" "SetupWindow"
+assert_contains "$setup" '"Memory and swap"'
+assert_contains "$setup" '"--zram-percent"'
+assert_contains "$setup" '"--disk-swap"'
 assert_contains "$setup" "Apply setup"
 assert_contains "$setup" "admin_command"
 assert_contains "$launcher" "Gio.AppInfo.get_all"
@@ -215,11 +222,21 @@ assert_contains "$launcher" "PREFERRED_COMMANDS"
 assert_contains "$launcher" '"chromium.desktop": ["ooonana-browser"]'
 assert_contains "$launcher" "get_app_launch_context"
 assert_contains "$launcher" "header("
+assert_contains "$task_manager" "Ooonana Task Manager"
+assert_contains "$task_manager" "Gtk.TreeView"
+assert_contains "$task_manager" "CPU %"
+assert_contains "$task_manager" "Wi-Fi / network"
+assert_contains "$task_manager" "gpu_busy_percent"
+assert_contains "$task_manager" "os.kill(pid, signal.SIGTERM)"
+assert_not_contains "$task_manager" "signal.SIGKILL"
+assert_contains "$i3_config" 'bindsym Control+Shift+Escape exec ooonana-processes'
+assert_contains "$i3_config" 'focus_follows_mouse no'
 assert_contains "$window_list" 'node.get("name") == "__i3_scratch"'
 assert_contains "$window_list" 'scratchpad show'
 assert_contains "$window_list" 'hidden_count'
 assert_contains "$window_list" '"--close-menu"'
-assert_contains "$window_list" 'f"[con_id={con_id}] kill"'
+assert_contains "$window_list" '"--actions"'
+assert_contains "$window_list" 'f"[con_id={item[0]}] kill"'
 full_builder="$(<"$ROOT/scripts/build-full-i3-rootfs.sh")"
 assert_contains "$full_builder" 'ROOTFS/usr/bin/ooonana-process-kill'
 assert_contains "$full_builder" 'click-right = ooonana-process-kill'

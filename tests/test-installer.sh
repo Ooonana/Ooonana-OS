@@ -37,6 +37,7 @@ assert_contains "$installer_help" "--kernel PATH"
 assert_contains "$installer_help" "--bootloader auto|grub|none"
 assert_contains "$installer_help" "--home-part PATH"
 assert_contains "$installer_help" "--swap-part PATH"
+assert_contains "$installer_help" "--swap-size-mib N"
 assert_contains "$installer_help" "--efi-part PATH"
 assert_contains "$installer_help" "--keep-root"
 assert_contains "$installer_help" "--keep-home"
@@ -136,7 +137,13 @@ assert_contains "$duplicate_part" "partition reused for install roles: /dev/sda2
 wiped_extra="$(bash "$INSTALLER" --dry-run --yes \
   --target /dev/sda \
   --home-part /dev/sda3 2>&1 || true)"
-assert_contains "$wiped_extra" "extra partition would be wiped by disk target: /dev/sda3 on /dev/sda"
+assert_contains "$wiped_extra" "whole-disk mode creates its own partitions; do not name extra partitions"
+cross_disk_swap="$(bash "$INSTALLER" --dry-run --yes \
+  --target /dev/sda2 --bootloader none --swap-part /dev/sdb3 2>&1 || true)"
+assert_contains "$cross_disk_swap" "refusing cross-disk install partition: /dev/sdb3"
+bad_swap_size="$(bash "$INSTALLER" --dry-run --yes \
+  --target /dev/sda --swap-size-mib nope 2>&1 || true)"
+assert_contains "$bad_swap_size" "--swap-size-mib must be a nonnegative integer"
 
 installer_src="$(<"$INSTALLER")"
 assert_not_contains "$installer_src" "750XGK"
@@ -148,6 +155,8 @@ assert_contains "$installer_src" "snd_intel_dspcfg.dsp_driver=3"
 assert_contains "$installer_src" "refusing current root partition target"
 assert_contains "$installer_src" "refusing current root disk target"
 assert_contains "$installer_src" "refusing live boot media target"
+assert_contains "$installer_src" "refusing live boot media partition"
+assert_contains "$installer_src" "validate_partition_roles_same_disk"
 assert_contains "$installer_src" "/mnt/ooonana-live/iso"
 assert_contains "$installer_src" "/mnt/ooonana-live/boot-device"
 prepare_target_src="$(sed -n '/^prepare_target()/,/^}/p' "$INSTALLER")"
@@ -186,6 +195,16 @@ assert_contains "$iso_help" "--install-target"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
+truncate -s 12G "$tmp/swap-disk.raw"
+swap_preview="$(bash "$INSTALLER" --dry-run --yes \
+  --target "$tmp/swap-disk.raw" --swap-size-mib 4096)"
+assert_contains "$swap_preview" "mkpart ROOT ext4 515MiB 8192MiB mkpart SWAP linux-swap 8192MiB 100%"
+assert_contains "$swap_preview" "mkswap -L OOONANA_SWAP LOOP_SWAP_PARTITION"
+assert_contains "$swap_preview" "LABEL=OOONANA_SWAP none swap sw 0 0"
+truncate -s 6G "$tmp/too-small.raw"
+too_small="$(bash "$INSTALLER" --dry-run --yes \
+  --target "$tmp/too-small.raw" --swap-size-mib 4096 2>&1 || true)"
+assert_contains "$too_small" "target too small for root plus 4096 MiB swap"
 mkdir -p "$tmp/rootfs/boot"
 touch "$tmp/rootfs/boot/vmlinuz-6.1.0-ooonana"
 touch "$tmp/rootfs/boot/initrd.img-6.1.0-ooonana"

@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR=""
-VERSION="0.9.1"
+VERSION="0.9.2"
 DRY_RUN=0
 
 usage() {
@@ -14,7 +14,7 @@ Usage:
   scripts/build-ooonana-core-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER  Package version (default: 0.9.1)
+  --version VER  Package version (default: 0.9.2)
   --dry-run      Print resolved package details
   -h, --help     Show help
 USAGE
@@ -106,6 +106,17 @@ for helper in \
   ooonana-i3-installer-session; do
   extract_helper "ROOTFS/usr/bin/$helper" "$staging/usr/bin/$helper"
 done
+mkdir -p "$staging/etc/init.d"
+extract_helper 'ROOTFS/etc/init.d/rcS' "$staging/etc/init.d/rcS"
+cat > "$staging/etc/os-release" <<EOF
+NAME="Ooonana OS"
+ID=ooonana
+PRETTY_NAME="Ooonana OS $VERSION"
+VERSION="$VERSION"
+VERSION_ID="$VERSION"
+HOME_URL="https://github.com/Ooonana/Ooonana-OS"
+SUPPORT_URL="https://github.com/Ooonana/Ooonana-OS/issues"
+EOF
 
 for config in \
   etc/NetworkManager/NetworkManager.conf \

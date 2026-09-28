@@ -18,6 +18,7 @@ import shutil
 import sys
 import threading
 import time
+from functools import lru_cache
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -130,6 +131,7 @@ class ChatBuffer:
         self._duck_theme = False
         self._quack_user = ""
         self._quack_speech = ""
+        self._quack_speech_pending: list[str] = []
 
     @property
     def duck_theme(self) -> bool:
@@ -165,6 +167,7 @@ class ChatBuffer:
             self._segments.append(f"{spacer}{BLUE}> {RESET}{prompt}\n")
             self._quack_user = str(prompt).strip()
             self._quack_speech = ""
+            self._quack_speech_pending.clear()
             self._dirty = True
 
     def begin_assistant(self) -> None:
@@ -187,25 +190,40 @@ class ChatBuffer:
             self._segments.append(f"{spacer}{accent}{label}:{RESET} {value}{suffix}")
             if self._duck_theme:
                 self._quack_speech = value.strip()
+                self._quack_speech_pending.clear()
             self._dirty = True
 
     def begin_quack_response(self) -> None:
         with self._lock:
             self._quack_speech = ""
+            self._quack_speech_pending.clear()
             self._dirty = True
 
     def append_quack_response(self, text: str) -> None:
         if not text:
             return
         with self._lock:
-            self._quack_speech += str(text)
-            if len(self._quack_speech) > 1600:
-                self._quack_speech = "..." + self._quack_speech[-1597:]
+            self._quack_speech_pending.append(str(text))
             self._dirty = True
 
-    def quack_dialogue(self) -> tuple[str, str]:
+    def _flush_quack_speech(self) -> None:
+        if self._quack_speech_pending:
+            self._quack_speech += "".join(self._quack_speech_pending)
+            self._quack_speech_pending.clear()
+
+    def quack_dialogue(self, *, full: bool = False) -> tuple[str, str]:
         with self._lock:
-            return self._quack_user, self._quack_speech
+            self._flush_quack_speech()
+            speech = self._quack_speech
+            if not full and len(speech) > 1600:
+                speech = "..." + speech[-1597:]
+            return self._quack_user, speech
+
+    def set_quack_dialogue(self, user: str, speech: str) -> None:
+        with self._lock:
+            self._quack_user = str(user)
+            self._quack_speech = str(speech)
+            self._quack_speech_pending.clear()
 
     def append_tool(self, name: str, args_text: str) -> None:
         self.append(f"\n{GRAY}[tool] {name}  {args_text}{RESET}\n")
@@ -253,6 +271,7 @@ class ChatBuffer:
             self._segments.clear()
             self._quack_user = ""
             self._quack_speech = ""
+            self._quack_speech_pending.clear()
             self._dirty = True
             self._epoch += 1
 
@@ -261,11 +280,13 @@ class ChatBuffer:
             self._segments[:] = [text] if text else []
             self._quack_user = ""
             self._quack_speech = ""
+            self._quack_speech_pending.clear()
             self._dirty = True
             self._epoch += 1
 
     def checkpoint(self) -> ChatBufferCheckpoint:
         with self._lock:
+            self._flush_quack_speech()
             return ChatBufferCheckpoint(
                 self._epoch,
                 len(self._segments),
@@ -304,6 +325,7 @@ class ChatBuffer:
                 self._quack_speech = checkpoint.quack_speech
             else:
                 return False
+            self._quack_speech_pending.clear()
             self._dirty = True
             self._snapshot = ""
             return True
@@ -348,6 +370,10 @@ class ChatBuffer:
         plain_user = rendered.find("\n> ")
         if plain_user >= 0:
             starts.append(plain_user + 1)
+        for marker in (f"{CYAN}openvino:{RESET}", f"{ORANGE}Quack:{RESET}"):
+            system = rendered.find(marker)
+            if system >= 0:
+                starts.append(system)
         if not starts:
             return "No conversation yet."
         return rendered[min(starts) :]
@@ -598,6 +624,7 @@ class TuiResponseStream:
         self._quack_started = False
         self._answer_text = ""
         self._visual_callback = visual_callback
+        self._visual_probe_at = float("-inf")
         self.inner = ResponseStream(
             writer=self._write,
             phase_callback=phase_callback,
@@ -618,6 +645,7 @@ class TuiResponseStream:
         self.region = None
         self._quack_started = False
         self._answer_text = ""
+        self._visual_probe_at = float("-inf")
 
     def _write(self, text: str, style: str | None, end: str) -> None:
         if self.region is None:
@@ -632,11 +660,14 @@ class TuiResponseStream:
             self.buffer.append_quack_response(value)
         if style is None and value:
             self._answer_text += value
-            should_probe = self._answer_text.count("```") >= 2 or (
-                "\n" in value and "|" in self._answer_text
-            )
-            if should_probe and self._visual_callback is not None:
-                self._visual_callback(self._answer_text)
+            now = time.monotonic()
+            if self._visual_callback is not None and now - self._visual_probe_at >= 0.2:
+                should_probe = self._answer_text.count("```") >= 2 or (
+                    "\n" in value and "|" in self._answer_text
+                )
+                if should_probe:
+                    self._visual_probe_at = now
+                    self._visual_callback(self._answer_text)
         self.invalidate()
 
 
@@ -693,14 +724,14 @@ def _has_terminal_markup(text: str) -> bool:
     return _needs_code_coloring([(text, None)])
 
 
-def _render_terminal_markup(text: str) -> str:
+def _render_terminal_markup(text: str, width: int | None = None) -> str:
     import io
 
     from rich.console import Console
     from rich.markdown import Markdown
     from openvino_chat.ui import _needs_code_coloring, format_code_colored_text
 
-    width = max(40, min(100, shutil.get_terminal_size((100, 30)).columns - 4))
+    width = max(1, int(width)) if width is not None else max(40, min(100, shutil.get_terminal_size((100, 30)).columns - 4))
     sink = io.StringIO()
     console = Console(
         file=sink,
@@ -715,6 +746,16 @@ def _render_terminal_markup(text: str) -> str:
         console.print(Markdown(text.rstrip(), code_theme="monokai"), end="")
     rendered = console.export_text(styles=True)
     return rendered + ("\n" if text.endswith("\n") and not rendered.endswith("\n") else "")
+
+
+@lru_cache(maxsize=8)
+def _quack_bubbles(text: str, label: str, width: int, rows: int) -> str:
+    if _has_terminal_markup(text):
+        text = _strip(_render_terminal_markup(text, width=max(12, width - 12)))
+    return render_speech_bubbles(
+        text, label=label, width=width, max_rows=rows,
+        border_style=ORANGE, text_style=WHITE, label_style=YELLOW,
+    )
 
 
 class TuiStatusMonitor:
@@ -909,6 +950,9 @@ class _TuiInputMediator:
         self._conversation_row_count = 0
         self._conversation_rows_width = 0
         self._conversation_epoch = chat_buffer.epoch
+        self._conversation_rows_text = ""
+        self._conversation_cached_rows: list[list[tuple[str, str]]] = [[]]
+        self._conversation_unread_rows = 0
         self._chat_render_snapshot = ""
         self._chat_rows_text = ""
         self._chat_rows_width = 0
@@ -920,6 +964,181 @@ class _TuiInputMediator:
         self._side_panel_enabled = True
         self._visual_panel_kind = ""
         self._visual_panel_text = ""
+        self._side_tab = "chat"
+        self._side_tool_scroll = 0
+        self._side_visual_scroll = 0
+        self._reply_reader_open = False
+        self._reply_reader_scroll = 0
+        self._reader_key: tuple[str, int, bool] | None = None
+        self._reader_rows: list[list[tuple[str, str]]] = []
+        self._help_document = ""
+        self._help_scroll = 0
+        self._last_tool_outcome: tuple[bool, float] | None = None
+        self._gui_active = False
+        self._gui_server: Any = None
+        self._dialog_revision = 0
+        self._input_revision = 0
+        self._message_queue: list[dict[str, Any]] = []
+        self._queue_paused = False
+        self._queue_serial = 0
+        from openvino_chat.hotkeys import EmergencyHotkey
+        self._stop_hotkey = EmergencyHotkey(self.emergency_stop)
+        self._approval_pending_auto: str | None = None
+        self._approval_configuration_only = False
+
+    @property
+    def computer_auto_stop_available(self) -> bool:
+        return self._stop_hotkey.available
+
+    def emergency_stop(self) -> None:
+        running = not self._busy.is_set() or self._approval_menu_active
+        if running:
+            self._interrupted.set()
+        self._queue_paused = True
+        def update() -> None:
+            self._approval_pending_auto = None
+            if self._approval_menu_active:
+                self._finish_tool_approval("deny")
+            self.show_notice("Stopped by Alt+Shift+S. Queue paused.")
+            if running:
+                self.set_operation("stopping")
+            else:
+                self.clear_operation()
+        loop = getattr(self._app, "loop", None)
+        if loop is not None and not loop.is_closed():
+            loop.call_soon_threadsafe(update)
+        else:
+            update()
+
+    def queue_snapshot(self) -> list[dict[str, Any]]:
+        return [{"id": item["id"], "text": item["text"][:240]} for item in self._message_queue]
+
+    def enqueue_input(self, text: str) -> None:
+        if len(self._message_queue) >= 8:
+            raise ValueError("Queue full (8 messages). Remove one before adding more.")
+        if not text.strip() or len(text) > 64000:
+            raise ValueError("Queued message must contain 1..64000 characters")
+        self._queue_serial += 1
+        self._message_queue.append({"id": self._queue_serial, "text": text})
+        self.show_notice(f"Queued #{self._queue_serial}")
+        self._schedule_queue()
+
+    def queue_action(self, action: str, item_id: int | None = None) -> None:
+        if self._any_menu_active():
+            raise ValueError("Answer current dialog first")
+        if action == "clear":
+            self._message_queue.clear()
+        elif action in {"pause", "resume"}:
+            self._queue_paused = action == "pause"
+        elif action in {"remove", "edit"}:
+            item = next((item for item in self._message_queue if item["id"] == item_id), None)
+            if item is None:
+                raise ValueError("Queued message no longer exists")
+            if action == "edit":
+                if self._input_area.text.strip():
+                    raise ValueError("Clear current draft before editing queued message")
+                self._input_area.text = item["text"]
+                self._input_area.buffer.cursor_position = len(item["text"])
+            self._message_queue.remove(item)
+        elif action != "list":
+            raise ValueError("Usage: /queue [pause|resume|clear|remove ID|edit ID]")
+        self.invalidate()
+        self._schedule_queue()
+
+    def _queue_command(self, text: str) -> bool:
+        parts = text.strip().split()
+        if not parts or parts[0].lower() != "/queue":
+            return False
+        self._input_area.text = ""
+        try:
+            action = parts[1].lower() if len(parts) > 1 else "list"
+            item_id = int(parts[2]) if len(parts) == 3 else None
+            if len(parts) > 3:
+                raise ValueError("Usage: /queue [pause|resume|clear|remove ID|edit ID]")
+            self.queue_action(action, item_id)
+            if action == "list":
+                self.show_notice(self._queue_text() or "Queue empty. Type during generation, then Enter to queue.")
+        except ValueError as exc:
+            self.show_notice(str(exc))
+        return True
+
+    def _queue_text(self) -> str:
+        if not self._message_queue:
+            return "Queue paused | /queue resume" if self._queue_paused else ""
+        _rows, columns = self._output_dimensions()
+        lines = [f"Queue {len(self._message_queue)} | {'paused' if self._queue_paused else 'automatic'} | /queue pause, remove ID, edit ID"]
+        lines += [f"#{item['id']} " + _plain_display_head(item["text"].replace("\n", " "), max(10, columns - 8)) for item in self._message_queue[:3]]
+        return "\n".join(lines)
+
+    def _schedule_queue(self) -> None:
+        loop = getattr(self._app, "loop", None)
+        if loop is not None and not loop.is_closed():
+            loop.call_soon_threadsafe(self._consume_queue)
+
+    def _consume_queue(self) -> None:
+        if self._queue_paused or not self._message_queue or not self._busy.is_set() or not self._request_event.is_set() or self._any_menu_active():
+            return
+        item = self._message_queue.pop(0)
+        self._deliver_input(item["text"], preserve_draft=True)
+
+    def open_gui(self, frontend: str = "desktop") -> str:
+        from openvino_chat.gui import GuiServer
+
+        if self._gui_server is None:
+            server = GuiServer(self)
+            self._gui_server = server
+            try:
+                return server.start(frontend=frontend)
+            except Exception:
+                server.stop()
+                self._gui_server = None
+                self._gui_active = False
+                raise
+        self._gui_server.activate(frontend=frontend)
+        return self._gui_server.url
+
+    def close_gui(self) -> None:
+        if self._gui_server is not None:
+            self._gui_server.stop()
+            self._gui_server = None
+        self._gui_active = False
+
+    def submit_input(self, *, use_palette: bool = True) -> bool:
+        if self._any_menu_active():
+            return False
+        if self._input_area.text.strip().lower() == "/computer stop":
+            self._input_area.text = ""
+            self.emergency_stop()
+            return False
+        if self._queue_command(self._input_area.text):
+            return False
+        if not self._busy.is_set() or (getattr(self._app, "is_running", False) and not self._request_event.is_set()):
+            try:
+                self.enqueue_input(self._input_area.text)
+                self._input_area.text = ""
+                self.clear_attachments()
+            except ValueError as exc:
+                self.show_notice(str(exc))
+            return False
+        if use_palette and self._apply_slash_selection():
+            return False
+        text = self._input_area.text
+        self._deliver_input(text)
+        return True
+
+    def _deliver_input(self, text: str, preserve_draft: bool = False) -> None:
+        self.notify_busy()
+        if not preserve_draft:
+            self._input_area.text = ""
+            self.clear_attachments()
+        self._chat_scroll_lines = 0
+        self._chat_history_active = False
+        self._conversation_scroll_lines = 0
+        self._reply_reader_open = False
+        self._last_tool_outcome = None
+        self._help_document = ""
+        self._prompt_value = text
+        self._prompt_event.set()
 
     def set_duck_theme(self, enabled: bool) -> None:
         changed = self._duck_theme != bool(enabled)
@@ -928,6 +1147,8 @@ class _TuiInputMediator:
             self._chat_scroll_lines = 0
             self._chat_history_active = False
             self._conversation_scroll_lines = 0
+            self._reply_reader_open = False
+            self._side_tab = "chat"
         self.chat_buffer.set_duck_theme(self._duck_theme)
         self.invalidate()
 
@@ -962,14 +1183,15 @@ class _TuiInputMediator:
 
     def request_prompt(self, prompt_text: str) -> str:
         # Mark generation complete so the input bar accepts the next prompt.
-        self._busy.set()
+        self._prompt_event.clear()
         self._interrupted.clear()
         self._prompt_text = prompt_text
         self._request_event.set()
-        self._prompt_event.clear()
+        self._busy.set()
         # Wake the app so it can re-render the (now-cleared) input bar.
         self.invalidate()
         self._schedule_queued_input_prefill()
+        self._schedule_queue()
         self._prompt_event.wait()
         self._request_event.clear()
         if self._interrupted.is_set():
@@ -1078,6 +1300,8 @@ class _TuiInputMediator:
         ok: bool,
         duration: float,
     ) -> None:
+        if not ok and str(result).strip().lower() in {"interrupted", "permission denied"}:
+            self._queue_paused = True
         with self._timeline_lock:
             entry = next(
                 (
@@ -1096,6 +1320,7 @@ class _TuiInputMediator:
             entry.ok = bool(ok)
             entry.duration = max(0.0, float(duration))
             entry.active = False
+            self._last_tool_outcome = (bool(ok), time.monotonic())
         self.invalidate()
 
     def set_attachments(self, paths: list[Path], state: str = "attached") -> None:
@@ -1172,7 +1397,7 @@ class _TuiInputMediator:
 
     def can_show_visual_panel(self) -> bool:
         rows, columns = self._output_dimensions()
-        return columns >= 88
+        return self._gui_active or columns >= 88
 
     def update_visual_from_response(self, text: str) -> None:
         if not self._duck_theme or not self.can_show_visual_panel():
@@ -1186,13 +1411,23 @@ class _TuiInputMediator:
         self.set_visual_panel(kind, content)
 
     def set_visual_panel(self, kind: str, text: str) -> None:
+        is_new = str(kind).strip().lower() != self._visual_panel_kind or not self._visual_panel_text
         self._visual_panel_kind = str(kind).strip().lower()
         self._visual_panel_text = str(text)
+        if is_new:
+            self._side_visual_scroll = 0
+            if not self._conversation_scroll_lines:
+                self._side_tab = "charts"
+            else:
+                self.show_notice("New visual in Charts | F3 switch")
         self.invalidate()
 
     def clear_visual_panel(self) -> None:
         self._visual_panel_kind = ""
         self._visual_panel_text = ""
+        self._side_visual_scroll = 0
+        if self._side_tab == "charts":
+            self._side_tab = "chat"
         self.invalidate()
 
     def dismiss_visual_panel(self) -> bool:
@@ -1230,6 +1465,7 @@ class _TuiInputMediator:
         )
         self._model_menu_result = ("cancel", None)
         self._model_menu_event.clear()
+        self._dialog_revision += 1
         self._model_menu_active = True
         self._busy.set()
         self.invalidate()
@@ -1311,6 +1547,7 @@ class _TuiInputMediator:
         )
         self._session_menu_result = ("cancel", None)
         self._session_menu_event.clear()
+        self._dialog_revision += 1
         self._session_menu_active = True
         self._busy.set()
         self.invalidate()
@@ -1392,6 +1629,7 @@ class _TuiInputMediator:
         )
         self._kv_menu_result = None
         self._kv_menu_event.clear()
+        self._dialog_revision += 1
         self._kv_menu_active = True
         self._busy.set()
         self.invalidate()
@@ -1457,6 +1695,7 @@ class _TuiInputMediator:
         self._sampling_menu_index = 0
         self._sampling_menu_result = None
         self._sampling_menu_event.clear()
+        self._dialog_revision += 1
         self._sampling_menu_active = True
         self._busy.set()
         self.invalidate()
@@ -1521,6 +1760,7 @@ class _TuiInputMediator:
         )
         self._thinking_menu_result = None
         self._thinking_menu_event.clear()
+        self._dialog_revision += 1
         self._thinking_menu_active = True
         self._busy.set()
         self.invalidate()
@@ -1591,6 +1831,7 @@ class _TuiInputMediator:
         )
         self._permission_menu_result = None
         self._permission_menu_event.clear()
+        self._dialog_revision += 1
         self._permission_menu_active = True
         self._busy.set()
         self.invalidate()
@@ -1627,13 +1868,17 @@ class _TuiInputMediator:
             lines.append(self._selected_row(row, index == self._permission_menu_index))
         return "\n".join(lines)
 
-    def request_tool_approval(self, name: str, args: dict[str, Any]) -> str:
+    def request_tool_approval(self, name: str, args: dict[str, Any], context: str = "", auto_mode: str | None = None) -> str:
         self._approval_restore_busy = self._busy.is_set()
         self._approval_request_name = str(name)
         self._approval_request_args = dict(args)
+        self._approval_context = context
+        self._approval_pending_auto = auto_mode
+        self._approval_configuration_only = auto_mode is not None
         self._approval_result = "deny"
         self._approval_index = 0
         self._approval_event.clear()
+        self._dialog_revision += 1
         self._approval_menu_active = True
         self._busy.set()
         self.invalidate()
@@ -1643,7 +1888,35 @@ class _TuiInputMediator:
     def _finish_tool_approval(self, decision: bool | str) -> None:
         if isinstance(decision, bool):
             decision = "once" if decision else "deny"
+        if self._approval_request_name == "computer":
+            pending = self._approval_pending_auto
+            if pending:
+                if decision == "deny":
+                    self._approval_pending_auto = None
+                    if not self._approval_configuration_only:
+                        self._approval_index = 0
+                        self._dialog_revision += 1
+                        self.invalidate()
+                        return
+                elif decision != "once" or not self.computer_auto_stop_available:
+                    self.show_notice("Auto-allow requires working Alt+Shift+S stop shortcut")
+                    return
+                else:
+                    decision = pending
+                self._approval_pending_auto = None
+            elif decision in {"session", "always"}:
+                if not self.computer_auto_stop_available:
+                    self.show_notice("Auto-allow unavailable: Alt+Shift+S is not registered. Allow once still works.")
+                    return
+                self._approval_pending_auto = str(decision)
+                self._approval_index = 0
+                self._dialog_revision += 1
+                self.invalidate()
+                return
         self._approval_result = str(decision)
+        self._approval_configuration_only = False
+        if decision == "deny":
+            self._queue_paused = True
         self._approval_menu_active = False
         self._approval_request_name = ""
         self._approval_request_args = {}
@@ -1657,11 +1930,19 @@ class _TuiInputMediator:
     def _move_tool_approval_selection(self, amount: int) -> None:
         self._approval_index = max(
             0,
-            min(len(self._approval_choices) - 1, self._approval_index + amount),
+            min(1 if self._approval_pending_auto else len(self._approval_choices) - 1, self._approval_index + amount),
         )
         self.invalidate()
 
     def _tool_approval_menu_text(self) -> str:
+        if self._approval_pending_auto:
+            return "\n".join([
+                self._menu_header("Automatic computer control", "Enter choose | Esc back"),
+                "Warning: future computer actions may run without asking and change other apps.",
+                "Alt+Shift+S stops current work and pauses queue. /computer ask revokes access.",
+                self._selected_row("> Cancel" if self._approval_index == 0 else "  Cancel", self._approval_index == 0),
+                self._selected_row(("> " if self._approval_index == 1 else "  ") + "Confirm " + self._approval_pending_auto + " access", self._approval_index == 1),
+            ])
         try:
             import json
 
@@ -1678,6 +1959,8 @@ class _TuiInputMediator:
             if compact
             else "This action can change files or run a command."
         )
+        if self._approval_request_name == "computer":
+            warning = "Computer control | Alt+Shift+S stops | /computer ask revokes auto access" if self.computer_auto_stop_available else "Alt+Shift+S unavailable: auto access disabled; use Allow once / Esc / F8"
         labels = {
             "deny": "Deny",
             "once": "Allow once",
@@ -1689,10 +1972,13 @@ class _TuiInputMediator:
             f"{YELLOW}[tool]{RESET} {BOLD}{_plain_display_head(self._approval_request_name, max(1, columns - 12))}{RESET}",
             f"{GRAY}{args}{RESET}",
         ]
+        if getattr(self, "_approval_context", ""):
+            lines.append(_plain_display_head(self._approval_context, max(16, columns - 6)))
         height = self._popup_height(8, minimum=4)
         if height >= 8:
             lines.append(warning)
-        start, end = _picker_bounds(4, self._approval_index, height - len(lines))
+        count = 4
+        start, end = _picker_bounds(count, self._approval_index, height - len(lines))
         for index in range(start, end):
             value = self._approval_choices[index]
             marker = ">" if index == self._approval_index else " "
@@ -1716,6 +2002,7 @@ class _TuiInputMediator:
         with self._timeline_lock:
             self._timeline_index = max(0, len(self._timeline_entries) - 1)
         self._timeline_event.clear()
+        self._dialog_revision += 1
         self._timeline_menu_active = True
         self._busy.set()
         self.invalidate()
@@ -1949,6 +2236,17 @@ class _TuiInputMediator:
 
     def _render_chat_view(self) -> list[tuple[str, str]]:
         max_rows, width = self._chat_dimensions()
+        if self._gui_active:
+            return [("ansiyellow" if self._duck_theme else "ansicyan", "GUI active\n\n"),
+                    ("", "Same session is open in browser.\nUse /tui there to return.\nClosing browser restores terminal control after 15 seconds.")]
+        if self._help_document:
+            fragments, self._help_scroll = self._render_text_reader(
+                self._help_document, "Help | F1 / Esc close", width, max_rows,
+                self._help_scroll, markup=False,
+            )
+            return fragments
+        if self._duck_theme and self._reply_reader_open:
+            return self._render_reply_reader(width, max_rows)
         rows = self._chat_visual_rows(width)
         max_scroll = max(0, len(rows) - max_rows)
         self._chat_scroll_lines = min(self._chat_scroll_lines, max_scroll)
@@ -1961,10 +2259,12 @@ class _TuiInputMediator:
         return _join_visual_rows(selected)
 
     def _quack_scene_text(self, width: int, height: int) -> str:
-        width = max(24, int(width))
+        width = max(1, int(width))
         height = max(1, int(height))
         frame = int(time.monotonic() * 4)
-        user_text, speech = self.chat_buffer.quack_dialogue()
+        user_text, full_speech = self.chat_buffer.quack_dialogue(full=True)
+        speech_limit = max(2400, width * height * 2)
+        speech = full_speech if len(full_speech) <= speech_limit else "..." + full_speech[-(speech_limit - 3):]
         operation = str(self._operation_label or "").strip()
         tool_operation = operation in {
             "running command",
@@ -1972,13 +2272,11 @@ class _TuiInputMediator:
             "searching web",
             "searching history",
         }
-        if tool_operation:
-            bubble_text = " | ".join(
-                part for part in (self._operation_detail, operation) if part
-            )
-            bubble_label = "Tool"
-        elif speech:
+        if speech:
             bubble_text = speech
+            bubble_label = "Quack"
+        elif tool_operation:
+            bubble_text = "On it. QUACK."
             bubble_label = "Quack"
         elif operation:
             bubble_text = operation.upper()
@@ -1990,22 +2288,20 @@ class _TuiInputMediator:
             bubble_text = "QUACK. Your move."
             bubble_label = "Quack"
 
-        if height < 4:
+        if height < 4 or width < 24:
             return _plain_display_head(f"{bubble_label}: {bubble_text}", width)
 
         has_history = (
             bool(self.chat_buffer.render().strip())
-            and not self._show_conversation_side()
+            and not self._show_quack_side()
         )
         history_reserve = min(8, max(3, height // 5)) if has_history else 0
         scene_limit = max(1, height - history_reserve)
         user_lines = self._quack_user_lines(user_text, width)
-        user_rows = len(user_lines) + 1 if user_lines else 0
-        minimum_bubble_rows = 5
-        if scene_limit < len(QUACK_PORTRAIT_NANO.splitlines()) + minimum_bubble_rows + user_rows:
-            user_lines = []
-            user_rows = 0
-        minimum_chrome = 5 + user_rows
+        user_rows = 3 if scene_limit >= 30 else 2 if scene_limit >= 16 else 0
+        user_lines = user_lines[:user_rows]
+        bob_room = 1 if scene_limit >= 26 else 0
+        minimum_chrome = 5 + user_rows + bob_room
         if width >= 64 and len(QUACK_PORTRAIT.splitlines()) + minimum_chrome <= scene_limit:
             portrait = QUACK_PORTRAIT
         elif width >= 40 and len(QUACK_PORTRAIT_SMALL.splitlines()) + minimum_chrome <= scene_limit:
@@ -2019,55 +2315,121 @@ class _TuiInputMediator:
         else:
             portrait = ""
         speaking = operation == "generating" and bool(speech)
-        art = animate_quack_portrait(portrait, frame, speaking=speaking)
+        expression = "neutral"
+        if self._approval_menu_active or operation in {"thinking", "compacting"}:
+            expression = "curious"
+        elif tool_operation or (operation == "generating" and not speech):
+            expression = "listening"
+        elif not operation and self._last_tool_outcome:
+            ok, ended = self._last_tool_outcome
+            if time.monotonic() - ended < 3:
+                expression = "pleased" if ok else "concerned"
+        art = animate_quack_portrait(portrait, frame, speaking=speaking, expression=expression)
         art_lines = art.splitlines()
-        bubble_rows_available = max(
-            4,
-            scene_limit - len(art_lines) - 2 - user_rows,
-        )
-        bubble = render_speech_bubbles(
+        # Reserve geometry from terminal size, never from the current sentence.
+        art_top = max(5, scene_limit - len(art_lines) - user_rows - bob_room - 2)
+        bubble_rows_available = max(4, art_top - 1)
+        bubble = _quack_bubbles(
             bubble_text,
-            label=bubble_label,
-            width=min(84, width - 4),
-            max_rows=bubble_rows_available,
+            bubble_label,
+            min(84, width - 4),
+            bubble_rows_available,
         )
         bubble_lines = bubble.splitlines()
         bubble_width = max((_display_width(line) for line in bubble_lines), default=0)
         art_width = max((len(line) for line in art_lines), default=0)
-        art_gap = 1 if art_lines else 0
-        base_rows = len(bubble_lines) + art_gap + len(art_lines) + user_rows
-        bob_room = 1 if speaking and base_rows < scene_limit else 0
-        bob_down = 1 if bob_room and frame % 4 in {1, 2} else 0
+        bob_down = 1 if speaking and bob_room and frame % 4 in {1, 2} else 0
 
         def center_block_line(line: str, block_width: int) -> str:
             return (" " * max(0, (width - block_width) // 2)) + line
 
-        rendered: list[str] = []
-        bubble_style = GRAY if tool_operation else ORANGE
-        bubble_weight = "" if tool_operation else BOLD
+        rendered: list[str] = [""] * max(0, bubble_rows_available - len(bubble_lines))
         for line in bubble_lines:
             centered = center_block_line(line, bubble_width)
-            rendered.append(f"{bubble_style}{bubble_weight}{centered}{RESET}")
+            rendered.append(centered)
+        if tool_operation:
+            elapsed = max(0, int(time.monotonic() - self._operation_started))
+            badge = f"Tool: {self._operation_detail} | {operation} | {elapsed}s"
+        elif full_speech:
+            paragraphs = len(re.split(r"\n\s*\n", full_speech.strip()))
+            badge = f"{paragraphs} paragraph{'s' if paragraphs != 1 else ''} | F2 read reply"
+        else:
+            badge = "F2 reply | F3 sidebar"
+        badge = _plain_display_head(badge, max(1, width - 2))
+        rendered.append(f"{GRAY}{center_block_line(badge, _display_width(badge))}{RESET}")
         if art_lines:
-            rendered.append("")
             rendered.extend("" for _ in range(bob_down))
             for row_index, line in enumerate(art_lines):
                 centered = center_block_line(line, art_width)
                 rendered.append(self._quack_art_line(centered, row_index, art_lines))
             rendered.extend("" for _ in range(bob_room - bob_down))
 
+        rendered.extend("" for _ in range(max(0, scene_limit - user_rows - len(rendered))))
         if user_lines:
-            rendered.append("")
+            if user_rows > len(user_lines):
+                rendered.append("")
             caption_width = max(2 + _display_width(line) for line in user_lines)
             user_padding = " " * max(0, (width - caption_width) // 2)
             for index, user_line in enumerate(user_lines):
                 marker = f"{BLUE}> {RESET}" if index == 0 else "  "
                 rendered.append(f"{user_padding}{marker}{user_line}")
 
-        padding = max(0, scene_limit - len(rendered))
-        top = padding // 2
-        bottom = padding - top
-        return "\n".join([*("" for _ in range(top)), *rendered, *("" for _ in range(bottom))])
+        rendered.extend("" for _ in range(max(0, scene_limit - len(rendered))))
+        return "\n".join(rendered[:scene_limit])
+
+    def _toggle_reply_reader(self) -> None:
+        if not self._duck_theme:
+            return
+        if not self._reply_reader_open and not self.chat_buffer.quack_dialogue(full=True)[1]:
+            self.show_notice("No reply yet")
+            return
+        self._reply_reader_open = not self._reply_reader_open
+        self._reply_reader_scroll = 0
+        self._help_document = ""
+        self.invalidate()
+
+    def open_help(self, text: str) -> None:
+        self._help_document = text
+        self._help_scroll = 0
+        self.invalidate()
+
+    def _toggle_help(self) -> None:
+        if self._help_document:
+            self._help_document = ""
+            self.invalidate()
+        else:
+            from openvino_chat.cli import _help_text
+
+            self.open_help(_help_text())
+
+    def _render_reply_reader(self, width: int, height: int) -> list[tuple[str, str]]:
+        speech = self.chat_buffer.quack_dialogue(full=True)[1]
+        fragments, self._reply_reader_scroll = self._render_text_reader(
+            speech, "Quack | Reply | F2 / Esc close", width, height,
+            self._reply_reader_scroll,
+        )
+        return fragments
+
+    def _render_text_reader(
+        self, text: str, title: str, width: int, height: int, offset: int,
+        *, markup: bool = True,
+    ) -> tuple[list[tuple[str, str]], int]:
+        key = (text, width, markup)
+        if key != self._reader_key:
+            formatted = _render_terminal_markup(text, width=width) if markup and _has_terminal_markup(text) else text
+            self._reader_rows = _ansi_visual_rows(formatted, width)
+            self._reader_key = key
+        available = max(1, height - 2)
+        offset = max(0, min(offset, max(0, len(self._reader_rows) - available)))
+        visible = self._reader_rows[offset:offset + available]
+        header = _plain_display_head(title, width)
+        footer = _plain_display_head(
+            f"{offset + 1}-{min(offset + available, len(self._reader_rows))}/{len(self._reader_rows)} | PgUp/PgDn", width,
+        )
+        rows = [[("ansiyellow bold" if self._duck_theme else "ansicyan bold", header)], *visible]
+        rows.extend([] for _ in range(max(0, height - 1 - len(rows))))
+        rows.append([("ansibrightblack", footer)])
+        return _join_visual_rows(rows[:height]), offset
 
     @staticmethod
     def _quack_user_lines(text: str, width: int) -> list[str]:
@@ -2105,12 +2467,6 @@ class _TuiInputMediator:
             -1,
         )
         beak_end = beak_start
-        if beak_start >= 0:
-            for index in range(beak_start + 1, min(len(source_lines), beak_start + 5)):
-                beak_end = index
-                span = central_span(source_lines[index])
-                if span is None or "=" not in span.group():
-                    break
         leg_start = next(
             (
                 index
@@ -2129,7 +2485,7 @@ class _TuiInputMediator:
         eye_columns: set[int] = set()
         if eye_row:
             offset = max(0, len(line) - len(source))
-            for match in re.finditer(r"(?:[%#@]{2}|-{2})", source):
+            for match in re.finditer(r"(?:[%#@^!o-]{2})", source):
                 eye_columns.update(range(offset + match.start(), offset + match.end()))
         chunks: list[str] = []
         active = ""
@@ -2168,7 +2524,7 @@ class _TuiInputMediator:
             return self._chat_rows
         max_rows, _columns = self._chat_dimensions()
         scene = _ansi_visual_rows(self._quack_scene_text(width, max_rows), width)
-        if self._show_conversation_side():
+        if self._show_quack_side():
             return scene
         return [*self._chat_rows, [], *scene]
 
@@ -2197,7 +2553,23 @@ class _TuiInputMediator:
         return self._chat_history_active or self._chat_scroll_lines > 0
 
     def _move_visible_history(self, rows: int) -> None:
-        if self._show_conversation_side() or self._conversation_scroll_lines:
+        if self._help_document:
+            self._help_scroll = max(0, self._help_scroll - rows)
+            self.invalidate()
+            return
+        if self._duck_theme and self._reply_reader_open:
+            self._reply_reader_scroll = max(0, self._reply_reader_scroll - rows)
+            self.invalidate()
+            return
+        if self._show_quack_side() and self._side_tab == "charts":
+            self._side_visual_scroll = max(0, self._side_visual_scroll - rows)
+            self.invalidate()
+            return
+        if self._show_quack_side() and self._side_tab == "tools":
+            self._side_tool_scroll = max(0, self._side_tool_scroll + rows)
+            self.invalidate()
+            return
+        if self._show_conversation_side():
             self._move_conversation_scroll(rows)
             return
         self._move_chat_scroll(rows)
@@ -2224,7 +2596,7 @@ class _TuiInputMediator:
         positions = _visual_cursor_positions(text, self._input_content_width())
         visual_rows = max(row for row, _column in positions) + 1
         terminal_rows, _columns = self._output_dimensions()
-        maximum = max(1, min(8, terminal_rows // 3))
+        maximum = max(1, min(32, terminal_rows // 3))
         return max(1, min(visual_rows, maximum))
 
     def _move_input_visual_row(self, amount: int) -> None:
@@ -2405,6 +2777,7 @@ class _TuiInputMediator:
         _rows, columns = self._output_dimensions()
         return (
             self._side_panel_enabled
+            and not self._help_document
             and not self._duck_theme
             and not self._history_view_open()
             and bool(self._task_lines())
@@ -2415,6 +2788,7 @@ class _TuiInputMediator:
         _rows, columns = self._output_dimensions()
         return (
             self._side_panel_enabled
+            and not self._help_document
             and not self._duck_theme
             and not self._history_view_open()
             and bool(self._task_lines())
@@ -2444,27 +2818,77 @@ class _TuiInputMediator:
 
     def _show_visual_side(self) -> bool:
         return (
-            self._duck_theme
-            and not self._history_view_open()
-            and self.can_show_visual_panel()
+            self._show_quack_side()
+            and self._side_tab == "charts"
             and bool(self._visual_panel_kind)
             and bool(self._visual_panel_text.strip())
         )
 
     def _show_conversation_side(self) -> bool:
+        return self._show_quack_side() and self._side_tab == "chat"
+
+    def _show_quack_side(self) -> bool:
         return (
             self._side_panel_enabled
+            and not self._help_document
             and self._duck_theme
             and not self._history_view_open()
+            and not self._reply_reader_open
             and self.can_show_visual_panel()
         )
 
     def _show_right_side(self) -> bool:
         return (
-            self._show_visual_side()
-            or self._show_conversation_side()
+            self._show_quack_side()
             or self._show_task_side()
         )
+
+    def _cycle_side_tab(self) -> None:
+        if not self._duck_theme:
+            return
+        if not self.can_show_visual_panel():
+            self.show_notice("Sidebar needs 88 columns | F2 reads full reply")
+            return
+        self._side_panel_enabled = True
+        self._help_document = ""
+        self._reply_reader_open = False
+        tabs = ("chat", "tools", "charts")
+        self._side_tab = tabs[(tabs.index(self._side_tab) + 1) % len(tabs)]
+        self.invalidate()
+
+    def _sidebar_fragments(self) -> list[tuple[str, str]]:
+        tabs: list[tuple[str, str]] = []
+        for name in ("chat", "tools", "charts"):
+            selected = name == self._side_tab
+            label = f"[{name.title()}]" if selected else name.title()
+            tabs.append(("ansiyellow bold" if selected else "ansibrightblack", f" {label}"))
+        tabs.append(("", "\n"))
+        if self._side_tab == "chat":
+            return tabs + self._conversation_panel_fragments()
+        if self._side_tab == "charts":
+            rows = _ansi_visual_rows(self._visual_panel_text_rendered(), self._right_panel_content_width())
+            return tabs + _join_visual_rows(rows)
+        return tabs + self._side_tools_fragments()
+
+    def _side_tools_fragments(self) -> list[tuple[str, str]]:
+        height, width = self._conversation_view_size()
+        with self._timeline_lock:
+            entries = [ToolTimelineEntry(**vars(entry)) for entry in self._timeline_entries]
+        rows: list[list[tuple[str, str]]] = []
+        for entry in entries:
+            state = "running" if entry.active else "ok" if entry.ok else "failed"
+            color = YELLOW if entry.active else GREEN if entry.ok else RED
+            duration = f"{entry.duration:.1f}s" if entry.duration is not None else ""
+            args = str(entry.args.get("command", entry.args))
+            rows.extend(_ansi_visual_rows(
+                f"{color}{state}{RESET} {entry.name} {duration}\n{GRAY}{_plain_display_head(args, width)}{RESET}\n", width,
+            ))
+        if not rows:
+            rows = [[("ansibrightblack", "No tool calls yet")]]
+        self._side_tool_scroll = min(self._side_tool_scroll, max(0, len(rows) - height))
+        end = len(rows) - self._side_tool_scroll
+        header = [[("ansibrightblack", _plain_display_head("F3 tabs | F4 details", width))], []]
+        return _join_visual_rows([*header, *rows[max(0, end - height):end]])
 
     def _chart_panel_text(self) -> str:
         return self._visual_panel_text_rendered()
@@ -2481,21 +2905,23 @@ class _TuiInputMediator:
         content = YELLOW if self._duck_theme else ""
         height = self._visual_panel_height()
         width = self._right_panel_content_width()
-        source = self._visual_panel_text.splitlines()
-        available = max(1, height - 2)
-        visible = source[:available]
-        if len(source) > available:
-            visible[-1] = f"... {len(source) - available + 1} more rows"
+        source = self._visual_panel_text.splitlines() or ["No visual yet"]
+        available = max(1, height - 3)
+        self._side_visual_scroll = min(self._side_visual_scroll, max(0, len(source) - available))
+        offset = self._side_visual_scroll
+        visible = source[offset:offset + available]
         lines = [f"{accent}{BOLD} {title}{RESET}  {GRAY}Esc dismiss{RESET}", ""]
         lines.extend(
             f"{content}{_plain_display_head(line, width)}{RESET}" for line in visible
         )
+        lines.extend("" for _ in range(max(0, height - 1 - len(lines))))
+        remaining = max(0, len(source) - offset - available)
+        lines.append(f"{GRAY}{_plain_display_head(f'{remaining} more rows | PgUp/PgDn', width)}{RESET}")
         return "\n".join(lines)
 
     def _visual_panel_height(self) -> int:
-        rows, _columns = self._output_dimensions()
-        desired = len(self._visual_panel_text.splitlines()) + 2
-        return max(4, min(desired, max(4, rows // 2)))
+        height, _width = self._conversation_view_size()
+        return height + 2
 
     def _conversation_panel_text(self) -> str:
         rows, columns = self._output_dimensions()
@@ -2512,10 +2938,15 @@ class _TuiInputMediator:
     def _conversation_view_size(self) -> tuple[int, int]:
         rows, columns = self._output_dimensions()
         width = self._right_panel_content_width(columns)
-        chart_rows = self._visual_panel_height() if self._show_visual_side() else 0
-        return max(3, rows - 9 - chart_rows), width
+        info = getattr(getattr(self, "_right_window", None), "render_info", None)
+        height = getattr(info, "window_height", 0) or max(1, rows - 4)
+        return max(1, height - 3), width
 
     def _right_panel_content_width(self, columns: int | None = None) -> int:
+        info = getattr(getattr(self, "_right_window", None), "render_info", None)
+        rendered = getattr(info, "window_width", 0)
+        if rendered:
+            return max(1, int(rendered))
         if columns is None:
             _rows, columns = self._output_dimensions()
         return max(24, min(48, int(columns) // 3) - 2)
@@ -2526,7 +2957,16 @@ class _TuiInputMediator:
             self._conversation_scroll_lines = 0
             self._conversation_row_count = 0
             self._conversation_epoch = epoch
-        rows = _ansi_visual_rows(self.chat_buffer.render_conversation(), width)
+            self._conversation_rows_text = ""
+            self._conversation_cached_rows = [[]]
+            self._conversation_unread_rows = 0
+        text = self.chat_buffer.render_conversation()
+        if width != self._conversation_rows_width or not text.startswith(self._conversation_rows_text):
+            self._conversation_cached_rows = _ansi_visual_rows(text, width)
+        elif text != self._conversation_rows_text:
+            _append_ansi_visual_rows(self._conversation_cached_rows, text[len(self._conversation_rows_text):], width)
+        self._conversation_rows_text = text
+        rows = self._conversation_cached_rows
         count = len(rows)
         if (
             self._conversation_scroll_lines
@@ -2534,6 +2974,9 @@ class _TuiInputMediator:
             and count > self._conversation_row_count
         ):
             self._conversation_scroll_lines += count - self._conversation_row_count
+            self._conversation_unread_rows += count - self._conversation_row_count
+        if not self._conversation_scroll_lines:
+            self._conversation_unread_rows = 0
         self._conversation_row_count = count
         self._conversation_rows_width = width
         return rows
@@ -2548,11 +2991,11 @@ class _TuiInputMediator:
         end = max(0, len(rows) - self._conversation_scroll_lines)
         start = max(0, end - max_rows)
         if self._conversation_scroll_lines:
-            hint = f"{self._conversation_scroll_lines} rows up | End latest"
+            hint = f"{self._conversation_scroll_lines} rows up | +{self._conversation_unread_rows} new | Ctrl+End"
         else:
-            hint = "PgUp history | F6 wheel"
+            hint = "F3 tabs | PgUp/PgDn history"
         header = to_formatted_text(
-            ANSI(f"{ORANGE}{BOLD} Conversation{RESET}  {GRAY}{hint}{RESET}\n\n")
+            ANSI(f"{GRAY}{_plain_display_head(hint, width)}{RESET}\n\n")
         )
         return [*header, *_join_visual_rows(rows[start:end])]
 
@@ -2611,11 +3054,13 @@ class _TuiInputMediator:
         if self._status_thread is not None:
             return
         self._status_stop.clear()
+        self._stop_hotkey.start()
         self._status_thread = threading.Thread(target=self._status_loop, name="openvino-status", daemon=True)
         self._status_thread.start()
 
     def _stop_status_updates(self) -> None:
         self._status_stop.set()
+        self._stop_hotkey.stop()
         if self._status_thread is not None:
             self._status_thread.join(timeout=1)
             self._status_thread = None
@@ -2681,6 +3126,8 @@ class _TuiInputMediator:
     def _handle_chat_mouse(self, mouse_event: Any) -> Any:
         from prompt_toolkit.mouse_events import MouseEventType
 
+        if self._any_menu_active():
+            return None
         if mouse_event.event_type == MouseEventType.SCROLL_UP:
             self._move_visible_history(3)
             return None
@@ -2692,11 +3139,23 @@ class _TuiInputMediator:
     def _handle_conversation_mouse(self, mouse_event: Any) -> Any:
         from prompt_toolkit.mouse_events import MouseEventType
 
+        if self._any_menu_active():
+            return None
+        if mouse_event.event_type == MouseEventType.MOUSE_DOWN and mouse_event.position.y == 0:
+            x = 0
+            for name in ("chat", "tools", "charts"):
+                label = f"[{name.title()}]" if name == self._side_tab else name.title()
+                end = x + len(label) + 1
+                if x <= mouse_event.position.x < end:
+                    self._side_tab = name
+                    self.invalidate()
+                    return None
+                x = end
         if mouse_event.event_type == MouseEventType.SCROLL_UP:
-            self._move_conversation_scroll(3)
+            self._move_visible_history(3)
             return None
         if mouse_event.event_type == MouseEventType.SCROLL_DOWN:
-            self._move_conversation_scroll(-3)
+            self._move_visible_history(-3)
             return None
         return NotImplemented
 
@@ -2759,10 +3218,11 @@ class _TuiInputMediator:
             style="class:input",
             completer=self.completer,
             complete_while_typing=True,
-            read_only=Condition(lambda: not self._busy.is_set() or self._any_menu_active()),
+            read_only=Condition(self._any_menu_active),
         )
 
         def _input_changed(_buffer) -> None:
+            self._input_revision += 1
             query = self._input_area.text
             if query != self._slash_query:
                 self._slash_query = query
@@ -2955,31 +3415,14 @@ class _TuiInputMediator:
             VSplit([vertical_separator, task_window]),
             filter=Condition(self._show_task_side),
         )
-        chart_window = Window(
-            FormattedTextControl(lambda: ANSI(self._visual_panel_text_rendered())),
-            height=self._visual_panel_height,
-            wrap_lines=False,
-            always_hide_cursor=True,
-            width=Dimension(min=28, preferred=40, max=52),
-            style="class:task",
-        )
-        chart_separator = Window(
-            width=1,
-            char="|",
-            style="class:separator",
-            always_hide_cursor=True,
-        )
-        chart_side = ConditionalContainer(
-            VSplit([chart_separator, chart_window]),
-            filter=Condition(self._show_visual_side),
-        )
         conversation_window = Window(
-            FormattedTextControl(self._conversation_panel_fragments),
+            FormattedTextControl(self._sidebar_fragments),
             wrap_lines=False,
             always_hide_cursor=True,
             width=Dimension(min=28, preferred=40, max=52),
             style="class:task",
         )
+        self._right_window = conversation_window
         conversation_window._mouse_handler = self._handle_conversation_mouse
         conversation_separator = Window(
             width=1,
@@ -2989,10 +3432,10 @@ class _TuiInputMediator:
         )
         conversation_side = ConditionalContainer(
             VSplit([conversation_separator, conversation_window]),
-            filter=Condition(self._show_conversation_side),
+            filter=Condition(self._show_quack_side),
         )
         right_side = ConditionalContainer(
-            HSplit([chart_side, conversation_side, task_side]),
+            HSplit([conversation_side, task_side]),
             filter=Condition(self._show_right_side),
         )
         task_strip = ConditionalContainer(
@@ -3032,6 +3475,11 @@ class _TuiInputMediator:
                 task_strip,
                 notice,
                 command_bar,
+                ConditionalContainer(
+                    Window(FormattedTextControl(lambda: [("class:task.label", self._queue_text())]),
+                           height=lambda: min(4, 1 + len(self._message_queue)), always_hide_cursor=True),
+                    filter=Condition(lambda: bool(self._message_queue or self._queue_paused) and not self._any_menu_active()),
+                ),
                 attachment_tray,
                 input_container,
                 primary_toolbar,
@@ -3076,26 +3524,11 @@ class _TuiInputMediator:
 
         @keys.add("enter", filter=menus_inactive)
         def _accept(_event) -> None:
-            if not self._busy.is_set():
-                # A turn is running; ignore further Enter presses.
-                return
-            if self._apply_slash_selection():
-                return
-            text = self._input_area.text
-            self.notify_busy()
-            self._input_area.text = ""
-            self.clear_attachments()
-            self._chat_scroll_lines = 0
-            self._chat_history_active = False
-            self._conversation_scroll_lines = 0
-            self._prompt_value = text
-            self.notify_busy()
-            self._prompt_event.set()
+            self.submit_input()
 
         @keys.add("c-j", filter=menus_inactive)
         def _insert_newline(_event) -> None:
-            if self._busy.is_set():
-                self._input_area.buffer.insert_text("\n")
+            self._input_area.buffer.insert_text("\n")
 
         @keys.add("up", filter=plain_input, eager=True)
         def _input_up(_event) -> None:
@@ -3107,20 +3540,30 @@ class _TuiInputMediator:
 
         @keys.add("escape", filter=menus_inactive)
         def _stop_generation(_event) -> None:
+            if self._help_document:
+                self._help_document = ""
+                self.invalidate()
+                return
             if self._busy.is_set() and self._slash_menu_active():
                 self._input_area.text = ""
                 self._slash_navigation = False
                 self._slash_index = 0
                 self.invalidate()
                 return
+            if self._reply_reader_open:
+                self._reply_reader_open = False
+                self.invalidate()
+                return
             if self._busy.is_set() and self.dismiss_visual_panel():
                 return
             if not self._busy.is_set():
+                self._queue_paused = True
                 self._interrupted.set()
                 self.set_operation("stopping")
 
         @keys.add("c-c", filter=menus_inactive)
         def _interrupt(_event) -> None:
+            self._queue_paused = True
             self._interrupted.set()
             self._prompt_value = ""
             self._prompt_event.set()
@@ -3160,10 +3603,26 @@ class _TuiInputMediator:
 
         @keys.add("c-end", filter=menus_inactive)
         def _chat_latest(_event) -> None:
+            if self._help_document or self._reply_reader_open or (self._show_quack_side() and self._side_tab == "charts"):
+                self._move_visible_history(-10**9)
+                return
             self._chat_scroll_lines = 0
             self._chat_history_active = False
             self._conversation_scroll_lines = 0
+            self._side_tool_scroll = 0
             self.invalidate()
+
+        @keys.add("f1", filter=menus_inactive)
+        def _help(_event) -> None:
+            self._toggle_help()
+
+        @keys.add("f2", filter=menus_inactive)
+        def _read_reply(_event) -> None:
+            self._toggle_reply_reader()
+
+        @keys.add("f3", filter=menus_inactive)
+        def _switch_sidebar(_event) -> None:
+            self._cycle_side_tab()
 
         @keys.add("f6")
         def _toggle_mouse_mode(_event) -> None:
@@ -3521,6 +3980,7 @@ def run_persistent_repl(
     tasks_text: Callable[[], str],
     chat_buffer: ChatBuffer,
     completer: Any = None,
+    start_frontend: str | None = None,
 ) -> int:
     """Run the persistent TUI for a whole REPL session.
 
@@ -3554,15 +4014,24 @@ def run_persistent_repl(
             mediator._prompt_value = ""
             mediator._prompt_event.set()
             try:
-                mediator._app.exit(result=exit_code_box["code"])
+                mediator._app.loop.call_soon_threadsafe(
+                    lambda: mediator._app.exit(result=exit_code_box["code"])
+                    if not mediator._app.is_done else None
+                )
             except Exception:
                 pass
 
     worker_thread = threading.Thread(target=_worker, name="openvino-repl", daemon=True)
     worker_thread.start()
+    if start_frontend:
+        try:
+            mediator.open_gui(start_frontend)
+        except (OSError, RuntimeError) as exc:
+            mediator.show_notice(f"GUI unavailable: {exc}")
     try:
         code = mediator.run_until_exit()
     finally:
+        mediator.close_gui()
         set_active_mediator(None)
         _set_tui_active(False)
     if error_box.get("message"):

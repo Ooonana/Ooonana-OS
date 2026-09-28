@@ -36,7 +36,7 @@ class AiWindow(Gtk.Window):
 
     def __init__(self):
         super().__init__(title="Ooonana AI")
-        self.set_default_size(1120, 720)
+        self.set_default_size(1040, 620)
         self.set_size_request(860, 560)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.transcript_path = (

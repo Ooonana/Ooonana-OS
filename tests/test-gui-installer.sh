@@ -28,6 +28,10 @@ assert_contains "$builder" 'yad --center --title "Install Ooonana OS"'
 assert_contains "$builder" "custom-existing-partitions"
 assert_contains "$builder" "--home-part"
 assert_contains "$builder" "--swap-part"
+assert_contains "$builder" "--swap-size-mib"
+assert_contains "$builder" 'default_target=""'
+assert_contains "$builder" 'preview_ok=0'
+assert_contains "$builder" 'Ooonana Install Blocked'
 assert_contains "$builder" "--efi-part"
 assert_contains "$builder" 'xterm -title "Ooonana Installer"'
 assert_contains "$builder" "Step 1/8: Target disk"

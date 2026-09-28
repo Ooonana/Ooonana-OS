@@ -78,7 +78,55 @@ esac
 
 mkdir -p "$OPENVINO_HOME" "$CACHE_DIR"
 
-exec /usr/bin/bwrap \
+# Browser GUI uses loopback HTTP in shared network namespace. Pass only validated
+# localhost GUI URLs through user-private FIFO to host Chromium.
+umask 077
+BRIDGE_DIR="$(mktemp -d "$CACHE_DIR/.gui-bridge.XXXXXXXX")"
+BRIDGE_FIFO="$BRIDGE_DIR/request"
+mkfifo -m 600 "$BRIDGE_FIFO"
+inside_fifo="/root/.cache/${BRIDGE_DIR##*/}/request"
+bridge_pid=""
+cleanup_bridge() {
+  if [ -n "$bridge_pid" ]; then
+    kill "$bridge_pid" 2>/dev/null || true
+    wait "$bridge_pid" 2>/dev/null || true
+  fi
+  rm -f -- "$BRIDGE_FIFO"
+  rmdir -- "$BRIDGE_DIR" 2>/dev/null || true
+}
+trap cleanup_bridge EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+valid_gui_url() {
+  case "$1" in
+    http://127.0.0.1:*) ;;
+    *) return 1 ;;
+  esac
+  rest="${1#http://127.0.0.1:}"
+  port="${rest%%/*}"
+  case "$port" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$port" -ge 1 ] && [ "$port" -le 65535 ] || return 1
+  case "$rest" in
+    "$port/openvino.html#token="*|"$port/duck.html#token="*) ;;
+    *) return 1 ;;
+  esac
+  token="${rest#*#token=}"
+  case "$token" in ''|*[!A-Za-z0-9_-]*) return 1 ;; esac
+  [ "${#token}" -le 100 ]
+}
+watch_browser() {
+  while :; do
+    if IFS= read -r browser_url < "$BRIDGE_FIFO"; then
+      if valid_gui_url "$browser_url"; then
+        ooonana-browser "$browser_url" >/dev/null 2>&1 &
+      fi
+    fi
+  done
+}
+watch_browser &
+bridge_pid=$!
+
+/usr/bin/bwrap \
   --unshare-user \
   --unshare-uts \
   --unshare-ipc \
@@ -97,6 +145,8 @@ exec /usr/bin/bwrap \
   --setenv HOME /root \
   --setenv OPENVINO_HOME /root/.openvino \
   --setenv HF_HOME /root/.cache/huggingface \
+  --setenv BROWSER /opt/openvino-chat/scripts/browser-bridge.sh \
+  --setenv OOONANA_OPENVINO_BROWSER_FIFO "$inside_fifo" \
   --setenv PATH /opt/openvino-venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
   --setenv TERM "${TERM:-xterm-256color}" \
   --chdir /workspace \

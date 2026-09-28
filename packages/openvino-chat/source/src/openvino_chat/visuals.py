@@ -13,12 +13,12 @@ QUACK_PORTRAIT = dedent(
                      .-                      =.
                     -                         :.
                    :                           :.
-                  ..      =+.          .+=.     =
+                  ..                            =
                   =.     .%%=    ...   =%%.      :
-                  :          .--====--.          =
-                 :         .-=========--.         .
-         :..:.:. =.        .:==========:.         - .:.::::
-        ..     .:-            .:----:.            =:.     .
+                  :          .-======-.          =
+                 :                               .
+         :..:.:. =.                              - .:.::::
+        ..     .:-                               =:.     .
          ..                                              .:
          ..                                              ..
           ::.                                          .::
@@ -55,8 +55,8 @@ QUACK_PORTRAIT_SMALL = dedent(
           :                :
          .    %#      #%   ..
          .      -====-      -
-    =:-. :    .-=======     . .:=-
-   .    ..        ::.       ..   :.
+    =:-. :                 . .:=-
+   .    ..                  ..   :.
     -.                          .:
      :.                        .:
        -                      :
@@ -81,8 +81,8 @@ QUACK_PORTRAIT_TINY = dedent(
       .:         .:
      :  %#      #%  :
     .     -====-     .
-=:-.:   .-=======.   :.:=-
-.   ..      ::       ..   .
+=:-.:               :.:=-
+.   ..               ..   .
  -.                    .-
    :.                .:
      :.            .:
@@ -117,7 +117,9 @@ QUACK_PORTRAIT_NANO = dedent(
 QUACK_PORTRAIT_MINI = QUACK_PORTRAIT_TINY
 
 
-def animate_quack_portrait(portrait: str, frame: int, speaking: bool = False) -> str:
+def animate_quack_portrait(
+    portrait: str, frame: int, speaking: bool = False, expression: str = "neutral",
+) -> str:
     """Animate supplied Quack art without changing its outer dimensions."""
     phase = int(frame) % 8
     text = str(portrait)
@@ -125,6 +127,17 @@ def animate_quack_portrait(portrait: str, frame: int, speaking: bool = False) ->
     if blink:
         text = text.replace(".%%=", ".--=").replace("=%%.", "=--.")
         text = text.replace("%#", "--").replace("#%", "--")
+    else:
+        eyes = {
+            "listening": ("oo", "oo"),
+            "curious": ("o-", "-o"),
+            "pleased": ("^^", "^^"),
+            "concerned": ("!!", "!!"),
+        }.get(expression)
+        if eyes:
+            left, right = eyes
+            text = text.replace(".%%=", f".{left}=").replace("=%%.", f"={right}.")
+            text = text.replace("%#", left).replace("#%", right)
     return text
 
 
@@ -133,6 +146,10 @@ def render_speech_bubble(
     label: str = "Quack",
     width: int = 54,
     max_lines: int = 4,
+    border_style: str = "",
+    text_style: str = "",
+    label_style: str = "",
+    fixed_width: bool = False,
 ) -> str:
     clean = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", str(text or ""))
     clean = " ".join(clean.replace("```", "").split()) or "..."
@@ -145,17 +162,27 @@ def render_speech_bubble(
         lines = lines[-limit:]
         lines[0] = _display_head("... " + lines[0].lstrip(". "), payload_width)
     lines[0] = prefix + lines[0]
-    content_width = max(18, max(_terminal_width(line) for line in lines))
+    content_width = max(_terminal_width(line) for line in lines)
+    content_width = max(min(18, inner), content_width)
+    if fixed_width:
+        content_width = inner
     top = "." + "-" * (content_width + 2) + "."
     body = []
+    reset = "\x1b[0m" if border_style or text_style or label_style else ""
     for index, line in enumerate(lines):
         left, right = ("/", "\\") if index == 0 else ("|", "|")
         padding = " " * max(0, content_width - _terminal_width(line))
-        body.append(f"{left} {line}{padding} {right}")
+        shown = line
+        if index == 0 and label_style:
+            shown = f"{label_style}{prefix}{text_style}{line[len(prefix):]}"
+        body.append(f"{border_style}{left}{reset} {text_style}{shown}{reset}{padding} {border_style}{right}{reset}")
     tail_at = max(4, min(content_width - 2, content_width // 2))
     bottom = "\\" + "_" * tail_at + "  " + "_" * (content_width - tail_at) + "/"
     tail = " " * (tail_at + 2) + "\\/"
-    return "\n".join([top, *body, bottom, tail])
+    return "\n".join([
+        f"{border_style}{top}{reset}", *body,
+        f"{border_style}{bottom}{reset}", f"{border_style}{tail}{reset}",
+    ])
 
 
 def wrap_display_text(text: str, width: int) -> list[str]:
@@ -218,6 +245,9 @@ def render_speech_bubbles(
     width: int = 54,
     max_rows: int = 12,
     max_bubbles: int = 4,
+    border_style: str = "",
+    text_style: str = "",
+    label_style: str = "",
 ) -> str:
     """Render latest spoken paragraphs as separate bubbles within row budget."""
     clean = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", str(text or ""))
@@ -242,13 +272,17 @@ def render_speech_bubbles(
             label=label,
             width=width,
             max_lines=max(1, available - 3),
+            border_style=border_style, text_style=text_style, label_style=label_style,
+            fixed_width=True,
         )
         block_rows = len(bubble.splitlines())
         blocks.insert(0, bubble)
         used_rows += separator_rows + block_rows
 
     return "\n\n".join(blocks) if blocks else render_speech_bubble(
-        paragraphs[-1], label=label, width=width, max_lines=1
+        paragraphs[-1], label=label, width=width, max_lines=1,
+        border_style=border_style, text_style=text_style, label_style=label_style,
+        fixed_width=True,
     )
 
 
@@ -266,8 +300,9 @@ _TABLE_RULE = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$")
 def extract_visual_panel(text: str) -> tuple[str, str] | None:
     """Extract a terminal-friendly chart, diagram, or table from model output."""
     value = str(text or "")
-    for match in _VISUAL_FENCE.finditer(value):
-        language = match.group(1).strip().lower().split(maxsplit=1)[0]
+    for match in reversed(list(_VISUAL_FENCE.finditer(value))):
+        info = match.group(1).strip().lower().split(maxsplit=1)
+        language = info[0] if info else ""
         body = match.group(2).strip("\n")
         if not body:
             continue

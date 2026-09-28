@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "openvino-chat"
-version = "0.1.7"
+version = "0.2.0"
 description = "Local OpenVINO chat and coding agent CLI"
 requires-python = ">=3.12"
 dependencies = [
@@ -16,6 +16,9 @@ dependencies = [
   "prompt_toolkit",
   "rich",
   "soundfile",
+  "psutil",
+  "pywebview>=6; sys_platform == 'win32'",
+  "pywinauto>=0.6.8; sys_platform == 'win32'",
 ]
 
 [project.scripts]
@@ -26,6 +29,9 @@ dev = ["pytest"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+openvino_chat = ["web/*.html", "web/*.css", "web/*.js"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

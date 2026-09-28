@@ -70,7 +70,7 @@ class WifiCredentialsDialog(Gtk.Dialog):
         super().__init__(title=f"Connect to {network['ssid']}", transient_for=parent, modal=True)
         self.network = network
         self.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Connect", Gtk.ResponseType.OK)
-        self.set_default_size(620, 720)
+        self.set_default_size(620, 600)
         area = self.get_content_area()
         area.set_border_width(16)
         area.set_spacing(12)
@@ -380,7 +380,7 @@ class ManualNetworkDialog(Gtk.Dialog):
 class WifiWindow(Gtk.Window):
     def __init__(self):
         super().__init__(title="Ooonana Wi-Fi")
-        self.set_default_size(980, 660)
+        self.set_default_size(940, 600)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.networks = {}
         self.access_points = []

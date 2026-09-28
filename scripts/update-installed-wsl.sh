@@ -138,6 +138,18 @@ for helper in \
   extract_block "ROOTFS/usr/bin/$helper" "$work/$helper"
   install -m 0755 "$work/$helper" "/usr/bin/$helper"
 done
+extract_block 'ROOTFS/etc/init.d/rcS' "$work/rcS"
+install -D -m 0755 "$work/rcS" /etc/init.d/rcS
+os_version="$(/usr/bin/ooonana version | awk '{print $2}')"
+cat > /etc/os-release <<EOF
+NAME="Ooonana OS"
+ID=ooonana
+PRETTY_NAME="Ooonana OS $os_version"
+VERSION="$os_version"
+VERSION_ID="$os_version"
+HOME_URL="https://github.com/Ooonana/Ooonana-OS"
+SUPPORT_URL="https://github.com/Ooonana/Ooonana-OS/issues"
+EOF
 
 for config in \
   etc/NetworkManager/NetworkManager.conf \

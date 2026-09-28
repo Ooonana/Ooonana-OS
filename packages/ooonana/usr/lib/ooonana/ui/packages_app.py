@@ -18,7 +18,7 @@ from common import (  # noqa: E402
 class PackagesWindow(Gtk.Window):
     def __init__(self):
         super().__init__(title="Ooonana Packages")
-        self.set_default_size(980, 650)
+        self.set_default_size(940, 600)
         self.set_position(Gtk.WindowPosition.CENTER)
         bar = header(
             self,
