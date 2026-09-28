@@ -148,7 +148,7 @@ EOF
 chmod +x "$scratch/bin/busybox"
 cat > "$scratch/usr/bin/ooonana" <<'EOF'
 #!/bin/sh
-echo ooonana 0.9.2
+echo ooonana 0.9.3
 EOF
 chmod +x "$scratch/usr/bin/ooonana"
 cat > "$scratch/usr/bin/ooonana-setup" <<'EOF'
@@ -372,7 +372,7 @@ assert_contains "$(<"$rootfs/etc/doas.conf")" "permit nopass keepenv :wheel"
 assert_contains "$(<"$rootfs/etc/sudoers.d/ooonana")" '%wheel ALL=(ALL:ALL) NOPASSWD: ALL'
 assert_contains "$(<"$rootfs/etc/wsl.conf")" "default=ooonana"
 assert_contains "$(<"$rootfs/etc/wsl.conf")" "mountFsTab=false"
-assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS 0.9.2"'
+assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS 0.9.3"'
 [[ "$(<"$rootfs/etc/ooonana/default-user")" == "ooonana" ]] || fail "wrong default desktop user"
 [[ -s "$rootfs/etc/machine-id" ]] || fail "missing machine-id"
 [[ -s "$rootfs/var/lib/dbus/machine-id" ]] || fail "missing dbus machine-id"
@@ -881,10 +881,15 @@ assert_contains "$polybar_cfg" "click-left = i3-msg move scratchpad"
 assert_contains "$polybar_cfg" "click-right = i3-msg scratchpad show"
 assert_contains "$polybar_cfg" "[module/win-full]"
 assert_contains "$polybar_cfg" "click-left = i3-msg fullscreen toggle"
-assert_contains "$polybar_cfg" "modules-left = brand workspaces win-min win-full win-close windows"
+assert_contains "$polybar_cfg" "modules-left = brand workspaces win-min win-full win-close"
 assert_contains "$polybar_cfg" "modules-center = media"
 assert_contains "$polybar_cfg" "[bar/ooonana-dock]"
-assert_contains "$polybar_cfg" "modules-center = launcher terminal browser files editor music processes"
+assert_contains "$polybar_cfg" "width = 52%"
+assert_contains "$polybar_cfg" "offset-x = 24%"
+assert_contains "$polybar_cfg" 'Font Awesome 6 Free Solid:size=15;2'
+assert_contains "$polybar_cfg" "modules-center = dock-apps"
+assert_contains "$polybar_cfg" "exec = ooonana-window-list --dock"
+assert_contains "$polybar_cfg" "override-redirect = true"
 assert_contains "$polybar_cfg" "[module/music]"
 assert_contains "$polybar_cfg" "[module/memory]"
 assert_contains "$polybar_cfg" "[module/windows]"
@@ -894,7 +899,7 @@ assert_contains "$polybar_cfg" "modules-right = memory audio brightness battery 
 assert_contains "$polybar_cfg" "exec = ooonana-audio-status"
 assert_contains "$polybar_cfg" "exec = ooonana-wifi-status"
 assert_contains "$polybar_cfg" "exec = ooonana-bluetooth-status"
-assert_contains "$polybar_cfg" "tray-position = right"
+assert_contains "$polybar_cfg" "tray-position = none"
 assert_contains "$polybar_cfg" "wm-restack = i3"
 assert_contains "$polybar_cfg" "content = Ooonana"
 assert_contains "$polybar_cfg" "content = "

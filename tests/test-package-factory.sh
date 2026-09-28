@@ -220,7 +220,7 @@ assert_contains "$gitlab_ci" "OOONANA_REPO_SIGN_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_REPO_PUBLIC_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_CORE_VERSION"
-assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.9.2"'
+assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.9.3"'
 assert_contains "$gitlab_ci" "OOONANA_OPENVINO_CHAT_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_URL"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_SHA256"
@@ -374,7 +374,7 @@ tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-audio-start' >/dev/nu
 tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-game-launch' >/dev/null || fail "core runtime missing game launcher"
 tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-memory' >/dev/null || fail "core runtime missing memory helper"
 tar -tzf "$core_runtime_archive" | grep './etc/init.d/rcS' >/dev/null || fail "core runtime missing boot memory policy"
-tar -xOzf "$core_runtime_archive" ./etc/os-release | grep -q 'PRETTY_NAME="Ooonana OS 0.9.2"' || fail "core runtime OS release stale"
+tar -xOzf "$core_runtime_archive" ./etc/os-release | grep -q 'PRETTY_NAME="Ooonana OS 0.9.3"' || fail "core runtime OS release stale"
 tar -tzf "$core_runtime_archive" | grep './usr/lib/ooonana/ui/task_manager_app.py' >/dev/null || fail "core runtime missing task manager"
 tar -tzf "$core_runtime_archive" | grep './usr/share/ooonana/wallpapers/ooonana-notes.jpg' >/dev/null || fail "core runtime missing Notes wallpaper"
 tar -tzf "$core_runtime_archive" | grep './usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png' >/dev/null || fail "core runtime missing 0.9 wallpaper"
@@ -414,7 +414,7 @@ core_upgrade="$(OOONANA_REPO_DIR="$tmp/repo" \
 assert_contains "$core_upgrade" "installed ooonana-core-runtime"
 assert_contains "$core_upgrade" "upgraded ooonana-core 0.8.1"
 [[ -x "$core_upgrade_root/usr/bin/ooonana" ]] || fail "core migration removed upgraded CLI"
-assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.9.2"
+assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.9.3"
 assert_contains "$(<"$tmp/repo/cloud.repo")" 'OOONANA_REPO_URI="https://example.test/repo"'
 assert_contains "$(<"$tmp/repo/README.txt")" "ooonana update"
 

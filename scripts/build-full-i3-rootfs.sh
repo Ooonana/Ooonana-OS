@@ -12,7 +12,7 @@ TARBALL="$WORK_DIR/ooonana-full-i3-rootfs.tar.gz"
 REPO="$WORK_DIR/full-i3-repo"
 STAGED_REPO=""
 PACKAGE_PROFILE="$ROOT/configs/packages/full-i3.list"
-OS_VERSION="${OOONANA_OS_VERSION:-0.9.2}"
+OS_VERSION="${OOONANA_OS_VERSION:-0.9.3}"
 FORCE=0
 
 usage() {
@@ -2388,47 +2388,46 @@ separator-foreground = ${colors.muted}
 line-size = 0
 line-color = ${colors.accent}
 font-0 = "DejaVu Sans:size=10;2"
-font-1 = "Font Awesome 7 Free Solid:size=10;2"
+font-1 = "Font Awesome 6 Free Solid:size=10;2"
 font-2 = "Font Awesome 6 Free Solid:size=10;2"
 font-3 = "Font Awesome 5 Free Solid:size=10;2"
 font-4 = "Font Awesome 6 Brands:size=10;2"
 font-5 = "Font Awesome 5 Brands:size=10;2"
-modules-left = brand workspaces win-min win-full win-close windows
+modules-left = brand workspaces win-min win-full win-close
 modules-center = media
 modules-right = memory audio brightness battery bluetooth wifi date power
-tray-position = right
-tray-padding = 2
+tray-position = none
 wm-restack = i3
 override-redirect = false
 enable-ipc = true
 
 [bar/ooonana-dock]
-width = 36%
-height = 48
-offset-x = 32%
-offset-y = 10
+width = 52%
+height = 58
+offset-x = 24%
+offset-y = 12
 bottom = true
-radius = 16
+radius = 20
 fixed-center = true
 background = ${colors.background}
 foreground = ${colors.foreground}
 border-size = 1
 border-color = ${colors.border}
-padding-left = 2
-padding-right = 2
-module-margin = 2
+padding-left = 1
+padding-right = 1
+module-margin = 0
 separator = ""
 font-0 = "DejaVu Sans:size=11;2"
-font-1 = "Font Awesome 7 Free Solid:size=12;2"
+font-1 = "Font Awesome 6 Free Solid:size=15;2"
 font-2 = "Font Awesome 6 Free Solid:size=12;2"
 font-3 = "Font Awesome 5 Free Solid:size=12;2"
 font-4 = "Font Awesome 6 Brands:size=12;2"
 font-5 = "Font Awesome 5 Brands:size=12;2"
 modules-left =
-modules-center = launcher terminal browser files editor music processes
+modules-center = dock-apps
 modules-right =
 wm-restack = i3
-override-redirect = false
+override-redirect = true
 
 [module/brand]
 type = custom/text
@@ -2579,6 +2578,15 @@ label-background = ${colors.background}
 label-padding = 2
 click-left = ooonana-window-list --menu
 click-right = ooonana-window-list --actions
+
+[module/dock-apps]
+type = custom/script
+exec = ooonana-window-list --dock
+interval = 2
+label = %output%
+label-foreground = ${colors.foreground}
+label-background = ${colors.background}
+label-padding = 0
 
 [module/memory]
 type = custom/script
@@ -3900,7 +3908,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   version_output="$(/usr/bin/ooonana version 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.2' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.3' &&
     printf '%s\n' "$installed_output" | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else

@@ -1,7 +1,24 @@
 #!/usr/bin/env python3
 import json
+import shutil
 import subprocess
 import sys
+
+
+PINS = (
+    ("apps", "", ("ooonana-apps",)),
+    ("terminal", "", ("ooonana-theme-env", "xterm")),
+    ("browser", "", ("ooonana-browser",)),
+    ("files", "", ("ooonana-files",)),
+    ("editor", "", ("ooonana-editor",)),
+    ("music", "", ("ooonana-music",)),
+    ("openvino", "", ("ooonana-openvino-launch",)),
+    ("tasks", "", ("ooonana-processes",)),
+)
+
+
+def available_pins():
+    return [pin for pin in PINS if pin[0] != "openvino" or shutil.which(pin[2][0])]
 
 
 def tree():
@@ -37,7 +54,8 @@ def windows():
         if not isinstance(con_id, int):
             continue
         name = " ".join("".join(ch for ch in str(node.get("name", "")) if ch.isprintable() and ch != "%").split()) or "window"
-        items.append((con_id, name, bool(node.get("focused")), hidden))
+        wm_class = str((node.get("window_properties") or {}).get("class", "")).casefold()
+        items.append((con_id, name, bool(node.get("focused")), hidden, wm_class))
     return items
 
 
@@ -59,7 +77,8 @@ def bar(items):
         return "desktop"
     ordered = sorted(items, key=lambda item: (not item[2], item[3]))
     chips = []
-    for con_id, name, focused, hidden in ordered[:3]:
+    for item in ordered[:3]:
+        con_id, name, focused, hidden = item[:4]
         if not isinstance(con_id, int) or con_id <= 0:
             continue
         title = name[:12] + ("…" if len(name) > 12 else "")
@@ -76,8 +95,96 @@ def bar(items):
     return " ".join(chips) or "desktop"
 
 
+def pin_for(item):
+    name = item[1].casefold()
+    wm_class = item[4] if len(item) > 4 else ""
+    if wm_class == "ooonanaspotlight" or "spotlight" in name:
+        return "apps"
+    if "task manager" in name or "processes" in name:
+        return "tasks"
+    if name == "music" or wm_class in ("ncmpcpp", "mpd"):
+        return "music"
+    if "openvino chat" in name or "ooonana offline ai" in name:
+        return "openvino"
+    if wm_class in ("xterm", "alacritty") or name in ("xterm", "terminal"):
+        return "terminal"
+    if "chromium" in wm_class or "chrome" in wm_class or "firefox" in wm_class:
+        return "browser"
+    if wm_class in ("nemo", "thunar", "pcmanfm"):
+        return "files"
+    if wm_class in ("geany", "mousepad", "code"):
+        return "editor"
+    return None
+
+
+def dock(items):
+    """Opaque icon dock with per-app running dots and bounded extra windows."""
+    chips = []
+    pins = available_pins()
+    for key, icon, _command in pins:
+        matches = [item for item in items if pin_for(item) == key]
+        active = any(item[2] for item in matches)
+        background = "#303640" if active else "#272d36" if matches else "#1b1f26"
+        foreground = "#ffb21a" if active else "#f5f5f7" if matches else "#b4bdc8"
+        dot = "•" if matches else " "
+        chips.append(
+            f"%{{A1:ooonana-window-list --dock-open {key}:}}"
+            f"%{{A3:ooonana-window-list --dock-actions {key}:}}"
+            f"%{{B{background}}}%{{F{foreground}}}%{{T2}} {icon} %{{T-}}{dot} "
+            f"%{{B-}}%{{F-}}%{{A}}%{{A}}"
+        )
+    pinned_keys = {pin[0] for pin in pins}
+    other = sorted((item for item in items if pin_for(item) not in pinned_keys), key=lambda item: (not item[2], item[3]))
+    if other:
+        chips.append("%{F#596574}│%{F-}")
+    for item in other[:1]:
+        con_id, name, focused, hidden = item[:4]
+        if not isinstance(con_id, int) or con_id <= 0:
+            continue
+        title = name[:8] + ("…" if len(name) > 8 else "")
+        marker = "●" if focused else "○" if hidden else "·"
+        chips.append(
+            f"%{{A1:ooonana-window-list --focus {con_id}:}}"
+            f"%{{A3:ooonana-window-list --actions {con_id}:}}"
+            f"%{{B#272d36}}%{{F#ffb21a}} {marker} %{{F#f5f5f7}}{title} "
+            f"%{{F-}}%{{B-}}%{{A}}%{{A}}"
+        )
+    if len(other) > 1:
+        chips.append(f"%{{A1:ooonana-window-list --menu:}} +{len(other) - 1} %{{A}}")
+    return " ".join(chips)
+
+
+def dock_open(items, key):
+    command = next((command for pin, _icon, command in PINS if pin == key), None)
+    if command is None:
+        return
+    matches = [item for item in items if pin_for(item) == key]
+    if matches:
+        item = matches[0] if len(matches) == 1 else choose(matches, "Open app session")
+        if item is not None:
+            focus(item)
+        return
+    try:
+        subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    except OSError:
+        return
+
+
+def dock_actions(items, key):
+    if not any(pin == key for pin, _icon, _command in PINS):
+        return
+    matches = [item for item in items if pin_for(item) == key]
+    if not matches:
+        if choose([(0, f"Open {key.title()}", False, False, "")], "Dock") is not None:
+            dock_open(items, key)
+        return
+    item = matches[0] if len(matches) == 1 else choose(matches, "App sessions")
+    if item is not None:
+        actions_menu(items, item[0])
+
+
 def focus(item):
-    con_id, _name, _active, hidden = item
+    con_id, _name, _active, hidden = item[:4]
     commands = []
     if hidden:
         commands.append(f"[con_id={con_id}] scratchpad show")
@@ -89,8 +196,8 @@ def choose(items, prompt):
     if not items:
         return None
     choices = [
-        f"{'* ' if active else '  '}{name}{' [hidden]' if hidden else ''}"
-        for _con_id, name, active, hidden in items
+        f"{'* ' if item[2] else '  '}{item[1]}{' [hidden]' if item[3] else ''}"
+        for item in items
     ]
     try:
         result = subprocess.run(
@@ -146,6 +253,15 @@ def actions_menu(items, con_id=None):
 
 def main():
     items = windows()
+    if len(sys.argv) > 1 and sys.argv[1] == "--dock":
+        print(dock(items))
+        return
+    if len(sys.argv) > 2 and sys.argv[1] == "--dock-open":
+        dock_open(items, sys.argv[2])
+        return
+    if len(sys.argv) > 2 and sys.argv[1] == "--dock-actions":
+        dock_actions(items, sys.argv[2])
+        return
     if len(sys.argv) > 1 and sys.argv[1] == "--menu":
         menu(items)
         return
