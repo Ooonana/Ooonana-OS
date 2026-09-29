@@ -15,7 +15,7 @@ Ooonana OS is a custom Linux distribution built from scratch around its own boot
 
 Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Linux, BusyBox, GRUB, i3, and other open-source components. Ooonana package factory currently imports selected Alpine package payloads into Ooonana `.pkg` repositories while native packages replace them over time.
 
-![Ooonana OS full-i3 live desktop](docs/assets/ooonana-full-i3-desktop.png)
+Current desktop source: core 0.9.3. Fresh desktop screenshot pending; the older image predates the centered dock and is not shown here.
 
 ## Quick Links
 
@@ -79,7 +79,7 @@ copy /b ooonana-full-i3.iso.part01+ooonana-full-i3.iso.part02+ooonana-full-i3.is
 Get-FileHash -Algorithm SHA256 .\ooonana-full-i3.iso
 ```
 
-Current full-i3 ISO SHA256:
+Last built full-i3 ISO SHA256 (September 25, 2026; predates current desktop source):
 
 ```text
 1e9f6aeceb6be45f9b2625688275b2b2aa8a24aaaacb4983797344d0ff65eef3
@@ -165,6 +165,8 @@ Core pieces:
 - Optional AI CLI with provider routing
 
 ## Current Status
+
+Source core 0.9.3 passed release preflight on September 29, 2026 (`OOONANA_RELEASE_PREFLIGHT_OK`). Existing ISO was built September 25 and does not contain the latest dock. Rebuild before USB testing. Full WSL desktop capture and physical USB RAM/OpenVINO checks remain pending.
 
 Working now:
 
@@ -265,10 +267,9 @@ Import full-i3 WSL rootfs as `Ooonana`, recommended:
 bash scripts/install-wsl-distro.sh --distro Ooonana --force \
   --tarball /var/tmp/ooonana-os/release/ooonana-full-i3-wsl-rootfs.tar.gz
 wsl.exe -d Ooonana -- /usr/bin/ooonana me
-wsl.exe -d Ooonana -- /usr/bin/start-ooonana-i3
 ```
 
-Full-i3 WSL GUI launch needs WSLg or an X server with `DISPLAY` set.
+Full-desktop i3 launch in WSL is under repair. WSLg remotes individual windows, but current i3 panel and dock need a nested X server. Do not treat direct `start-ooonana-i3` as a full desktop proof yet.
 
 ## Ooonana Command
 
@@ -1021,7 +1022,7 @@ For prepared Windows/WSL release workspace, run in PowerShell:
 ```
 
 Output: `F:\Ooonana\ooonana-os\release-current\ooonana-full-i3.iso`.
-Use `--preflight-only` to check inputs without building. Run a fresh build after
+Use `& 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --preflight-only` to check inputs without building. Run a fresh build after
 source or package changes; do not reuse rootfs/ISO resume stages from older code.
 The release script validates package checksums and kernel config, builds in WSL,
 and verifies the ISO before replacing the previous release.
