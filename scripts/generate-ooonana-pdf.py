@@ -53,7 +53,7 @@ def build_lines() -> list[str]:
     return [
         *logo,
         "",
-        "Ooonana OS 0.9.3 field guide",
+        "Ooonana OS 0.9.4 field guide",
         "",
         "What it is",
         "Ooonana OS is a scratch-built Linux project with its own rootfs, boot flow, installer experiments, WSL export, and custom ooonana package manager.",
@@ -83,7 +83,7 @@ def build_lines() -> list[str]:
         "GitHub Releases remains a backup tarball repository path.",
         "",
         "Installer",
-        "Full-i3 live ISO boots i3 by default. Installer requires an explicit target and successful dry-run preview. Erase-disk mode offers optional disk swap; custom root, home, swap and EFI must share the target disk.",
+        "Full-i3 live ISO boots i3. Installer requires explicit target and dry-run preview. Erase-disk mode offers optional swap; custom root, home, swap and EFI must share target disk.",
         "",
         "USB live modes",
         "Normal live mode mounts ISO and rootfs read-only. It uses a cleared temporary overlay on OOONANA_PERSIST when available on the same boot USB, with RAM fallback.",
@@ -95,8 +95,8 @@ def build_lines() -> list[str]:
         "",
         "WSL",
         "Import full-i3 with scripts/install-wsl-distro.sh --distro Ooonana --tarball /var/tmp/ooonana-os/release/ooonana-full-i3-wsl-rootfs.tar.gz --force",
-        "Launch with: wsl.exe -d Ooonana -- /usr/bin/start-ooonana-i3",
-        "WSL GUI needs WSLg or an X server with DISPLAY set.",
+        "Launch nested full desktop with: wsl.exe -d Ooonana -- /usr/bin/start-ooonana-i3 --nested",
+        "WSL GUI needs WSLg and Xephyr, or an X server with DISPLAY set. Nested mode keeps i3 panel and dock together in one window.",
         "Update an imported distro with: ooonana update && ooonana upgrade",
         "",
         "AI",
@@ -115,7 +115,6 @@ def build_lines() -> list[str]:
         "OOONANA_BOOT_OK",
         "OOONANA_INSTALL_OK",
         "OOONANA_FULL_I3_OK",
-        "",
         "More detail lives in README.md, docs/ooonana-ai.md, and docs/jarvis-agi-research.md.",
     ]
 

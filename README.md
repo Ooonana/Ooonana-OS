@@ -15,7 +15,9 @@ Ooonana OS is a custom Linux distribution built from scratch around its own boot
 
 Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Linux, BusyBox, GRUB, i3, and other open-source components. Ooonana package factory currently imports selected Alpine package payloads into Ooonana `.pkg` repositories while native packages replace them over time.
 
-Current desktop source: core 0.9.3. Fresh desktop screenshot pending; the older image predates the centered dock and is not shown here.
+![Ooonana OS core 0.9.4 full-i3 desktop with Settings and centered dock](docs/assets/ooonana-full-i3-desktop.png)
+
+Real core 0.9.4 nested-WSL i3 capture. Live ISO and physical USB visuals still need fresh build/test.
 
 ## Quick Links
 
@@ -166,7 +168,7 @@ Core pieces:
 
 ## Current Status
 
-Source core 0.9.3 passed release preflight on September 29, 2026 (`OOONANA_RELEASE_PREFLIGHT_OK`). Existing ISO was built September 25 and does not contain the latest dock. Rebuild before USB testing. Full WSL desktop capture and physical USB RAM/OpenVINO checks remain pending.
+Source core 0.9.4 includes nested WSL i3, centered dock, native window controls, and an original tailless pointer. Existing ISO was built September 25 and does not contain these changes. Rebuild before USB testing. Physical USB RAM/OpenVINO and fan-sensor checks remain pending.
 
 Working now:
 
@@ -184,6 +186,7 @@ Working now:
 - Full-i3 runs the desktop as the unprivileged `ooonana` user (UID 1000). Administrative commands use a validated wheel-only `doas` policy.
 - Full-i3 mounts `/run` and `/dev/shm` before desktop services, maps `/var/run` to `/run`, starts system D-Bus first, then starts NetworkManager and BlueZ. This runtime order supports Chromium, Wi-Fi, Bluetooth, and desktop applets from live USB and installed systems.
 - Full-i3 ships an Ooonana i3 desktop: solid rounded top panel with music status, RAM gauge, workspaces, and minimize/fullscreen/close controls; centered opaque app dock with pinned icons, running dots, restore-on-click, and right-click window actions; Spotlight-style launcher; opaque rounded GTK windows; dunst notifications; Chromium, Nemo, and editor/media shortcuts. Focus changes on click, not cursor hover. Notes is the default wallpaper again; the graphite wallpaper remains selectable. Fit mode preserves aspect ratio rather than stretching.
+- OoonanaTailless cursor keeps a rounded, narrow black-and-white pointer. It is drawn for this project; third-party Windows cursor-pack files are not redistributed.
 - Setup, Settings, Wi-Fi, Bluetooth, Packages, AI, Task Manager, controls, and application launcher are native GTK3 apps with shared graphite/orange design and short slide transitions. Picom keeps windows opaque; shadows and fades are disabled. Panel status scripts degrade cleanly when a VM has no battery, radio, audio, or backlight hardware.
 - Wi-Fi groups repeated school/campus access points by exact SSID, shows real security instead of treating missing metadata as open, retries secured BSSIDs during roaming, and supports WPA/WPA2/WPA3 Personal, OWE, WEP, and 802.1X enterprise identity/password/CA/client-certificate profiles. Wi-Fi and Bluetooth include an RSSI proximity map. Optional `3D mode` launches RuView when its CSI point-cloud runtime is installed; normal laptop adapters remain RSSI-only.
 - Installed disk boots in QEMU
@@ -267,9 +270,10 @@ Import full-i3 WSL rootfs as `Ooonana`, recommended:
 bash scripts/install-wsl-distro.sh --distro Ooonana --force \
   --tarball /var/tmp/ooonana-os/release/ooonana-full-i3-wsl-rootfs.tar.gz
 wsl.exe -d Ooonana -- /usr/bin/ooonana me
+wsl.exe -d Ooonana -- env OOONANA_NO_AUDIO=1 /usr/bin/start-ooonana-i3 --nested
 ```
 
-Full-desktop i3 launch in WSL is under repair. WSLg remotes individual windows, but current i3 panel and dock need a nested X server. Do not treat direct `start-ooonana-i3` as a full desktop proof yet.
+WSLg shows the full i3 desktop inside a Xephyr window. `--nested` needs `xorg-server-xephyr` and uses a private X socket namespace because WSLg mounts its socket directory read-only. No audio is started with `OOONANA_NO_AUDIO=1`. Close i3 with Super+Shift+E or its window close button.
 
 ## Ooonana Command
 

@@ -22,6 +22,7 @@ util-linux-login
 py3-gobject3
 gtk+3.0
 xorg-server
+xorg-server-xephyr
 xinit
 libxcb
 libxau

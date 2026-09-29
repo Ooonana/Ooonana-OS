@@ -20,14 +20,14 @@ for_window [window_role="pop-up"] floating enable
 for_window [class="^OonanaGame$"] fullscreen enable
 
 exec_always --no-startup-id ooonana-theme-env apply
-exec --no-startup-id xsetroot -name "Ooonana OS"
-exec --no-startup-id sh -c 'command -v picom >/dev/null 2>&1 && (picom --backend glx --config /etc/ooonana/picom.conf || exec picom --backend xrender --config /etc/ooonana/picom.conf) &'
+exec --no-startup-id xsetroot -name "Ooonana OS" -cursor_name left_ptr
+exec --no-startup-id sh -c 'if command -v picom >/dev/null 2>&1; then if [ "${OOONANA_WSL_SOCKET_READY:-0}" = 1 ]; then picom --backend xrender --config /etc/ooonana/picom.conf; else picom --backend glx --config /etc/ooonana/picom.conf || exec picom --backend xrender --config /etc/ooonana/picom.conf; fi; fi &'
 exec --no-startup-id sh -c 'command -v dunst >/dev/null 2>&1 && dunst -config /etc/ooonana/dunstrc &'
 exec --no-startup-id sh -c 'command -v xsettingsd >/dev/null 2>&1 && xsettingsd -c /etc/ooonana/xsettingsd.conf &'
 exec_always --no-startup-id sh -c 'killall polybar >/dev/null 2>&1 || true; if command -v polybar >/dev/null 2>&1; then polybar -c /etc/ooonana/polybar.ini ooonana & polybar -c /etc/ooonana/polybar.ini ooonana-dock & fi'
 exec --no-startup-id sh -c 'command -v nm-applet >/dev/null 2>&1 && [ -S /run/dbus/system_bus_socket ] && nm-applet --indicator &'
 exec --no-startup-id sh -c 'if command -v blueman-applet >/dev/null 2>&1 && [ -S /run/dbus/system_bus_socket ] && ls /sys/class/bluetooth/hci* >/dev/null 2>&1; then blueman-applet & fi'
-exec --no-startup-id sh -c 'command -v ooonana-audio-start >/dev/null 2>&1 && ooonana-audio-start >/dev/null 2>&1 || true'
+exec --no-startup-id sh -c '[ "${OOONANA_NO_AUDIO:-0}" = 1 ] || { command -v ooonana-audio-start >/dev/null 2>&1 && ooonana-audio-start >/dev/null 2>&1; } || true'
 
 bindsym $mod+Return exec ooonana-theme-env xterm
 bindsym $mod+d exec ooonana-apps

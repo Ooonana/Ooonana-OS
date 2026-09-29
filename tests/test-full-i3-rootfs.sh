@@ -148,7 +148,7 @@ EOF
 chmod +x "$scratch/bin/busybox"
 cat > "$scratch/usr/bin/ooonana" <<'EOF'
 #!/bin/sh
-echo ooonana 0.9.3
+echo ooonana 0.9.4
 EOF
 chmod +x "$scratch/usr/bin/ooonana"
 cat > "$scratch/usr/bin/ooonana-setup" <<'EOF'
@@ -372,7 +372,11 @@ assert_contains "$(<"$rootfs/etc/doas.conf")" "permit nopass keepenv :wheel"
 assert_contains "$(<"$rootfs/etc/sudoers.d/ooonana")" '%wheel ALL=(ALL:ALL) NOPASSWD: ALL'
 assert_contains "$(<"$rootfs/etc/wsl.conf")" "default=ooonana"
 assert_contains "$(<"$rootfs/etc/wsl.conf")" "mountFsTab=false"
-assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS 0.9.3"'
+assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS 0.9.4"'
+[[ "$(head -c 4 "$rootfs/usr/share/icons/OoonanaTailless/cursors/left_ptr")" == Xcur ]] || fail "tailless cursor missing or invalid"
+assert_contains "$(<"$rootfs/usr/share/icons/default/index.theme")" 'Inherits=OoonanaTailless'
+assert_contains "$(<"$rootfs/etc/gtk-3.0/settings.ini")" 'gtk-cursor-theme-name=OoonanaTailless'
+assert_contains "$(<"$rootfs/etc/ooonana/xsettingsd.conf")" 'Gtk/CursorThemeName "OoonanaTailless"'
 [[ "$(<"$rootfs/etc/ooonana/default-user")" == "ooonana" ]] || fail "wrong default desktop user"
 [[ -s "$rootfs/etc/machine-id" ]] || fail "missing machine-id"
 [[ -s "$rootfs/var/lib/dbus/machine-id" ]] || fail "missing dbus machine-id"
@@ -404,6 +408,12 @@ assert_contains "$start_script" "ooonana.gui-smoke=1"
 assert_contains "$start_script" "ooonana.install=1"
 assert_contains "$start_script" "startx /usr/bin/ooonana-i3-installer-session"
 assert_contains "$start_script" "ooonana-i3-session"
+assert_contains "$start_script" 'Xephyr ":$nested_number"'
+assert_contains "$start_script" '-nolisten tcp'
+assert_contains "$start_script" 'unshare -m --propagation private'
+assert_contains "$start_script" 'mount --bind "$socket_dir" /tmp/.X11-unix'
+assert_contains "$start_script" 'OOONANA_WSL_SOCKET_READY=1'
+assert_contains "$start_script" '--nested'
 assert_contains "$start_script" "WSL_DISTRO_NAME"
 assert_contains "$start_script" "grep -qi microsoft /proc/version"
 assert_contains "$start_script" 'exec /usr/bin/ooonana-i3-session'
@@ -426,6 +436,8 @@ assert_contains "$i3_smoke_session" "# i3 config file (v4)"
 assert_contains "$i3_smoke_session" "exec i3"
 
 i3_session="$(<"$rootfs/usr/bin/ooonana-i3-session")"
+assert_contains "$i3_session" 'OOONANA_NO_AUDIO'
+assert_contains "$i3_session" 'OOONANA_SKIP_SETUP'
 assert_contains "$i3_session" "ooonana-setup --first-boot --gui"
 assert_contains "$i3_session" "setup.log"
 assert_contains "$i3_session" '/bin/busybox su -m -s /bin/sh'
@@ -1171,6 +1183,7 @@ assert_contains "$contents" "./usr/share/ooonana/wallpapers/ooonana-notes.jpg"
 
 shell_script_count=0
 while IFS= read -r -d '' generated; do
+  [[ "$(head -c 2 "$generated")" == '#!' ]] || continue
   interpreter="$(head -n 1 "$generated")"
   case "$interpreter" in
     '#!'*/bash|'#!'*'env bash') bash -n "$generated" ;;

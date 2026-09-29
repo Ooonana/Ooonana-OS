@@ -12,7 +12,7 @@ TARBALL="$WORK_DIR/ooonana-full-i3-rootfs.tar.gz"
 REPO="$WORK_DIR/full-i3-repo"
 STAGED_REPO=""
 PACKAGE_PROFILE="$ROOT/configs/packages/full-i3.list"
-OS_VERSION="${OOONANA_OS_VERSION:-0.9.3}"
+OS_VERSION="${OOONANA_OS_VERSION:-0.9.4}"
 FORCE=0
 
 usage() {
@@ -55,10 +55,25 @@ write_start_script() {
 set -eu
 
 SESSION_USER=""
-if [ "${1:-}" = "--user" ]; then
-  SESSION_USER="${2:-}"
-  shift 2
-fi
+NESTED="auto"
+SOCKET_NAMESPACE=0
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --user)
+      SESSION_USER="${2:-}"
+      [ -n "$SESSION_USER" ] || { echo 'start-ooonana-i3: --user needs a name' >&2; exit 2; }
+      shift 2
+      ;;
+    --nested) NESTED=1; shift ;;
+    --direct) NESTED=0; shift ;;
+    --wsl-socket-namespace) SOCKET_NAMESPACE=1; shift ;;
+    -h|--help)
+      echo 'usage: start-ooonana-i3 [--nested|--direct] [--user NAME]'
+      exit 0
+      ;;
+    *) echo "start-ooonana-i3: unknown option: $1" >&2; exit 2 ;;
+  esac
+done
 
 case "${HOME:-}" in
   ""|/) export HOME="/root" ;;
@@ -115,10 +130,88 @@ is_wsl_session() {
   return 1
 }
 
+run_nested_i3() {
+  command -v Xephyr >/dev/null 2>&1 || {
+    echo 'WSLg full desktop needs Xephyr: ooonana update && ooonana get xorg-server-xephyr' >&2
+    return 1
+  }
+  if [ "$SOCKET_NAMESPACE" = 1 ]; then
+    [ "$(id -u)" = 0 ] || { echo 'start-ooonana-i3: socket namespace needs root' >&2; return 1; }
+    [ -S /mnt/wslg/.X11-unix/X0 ] || { echo 'start-ooonana-i3: WSLg X0 socket missing' >&2; return 1; }
+    socket_dir="$(mktemp -d /tmp/ooonana-wsl-x11.XXXXXX)"
+    chmod 1777 "$socket_dir"
+    ln -s /mnt/wslg/.X11-unix/X0 "$socket_dir/X0"
+    if ! mount --bind "$socket_dir" /tmp/.X11-unix; then
+      rm -f "$socket_dir/X0"
+      rmdir "$socket_dir"
+      echo 'start-ooonana-i3: cannot create private X socket directory' >&2
+      return 1
+    fi
+    trap 'umount /tmp/.X11-unix 2>/dev/null || true; rm -f "$socket_dir/X0"; rmdir "$socket_dir" 2>/dev/null || true' EXIT
+    desktop_home="$(awk -F: -v name="$SESSION_USER" '$1 == name {print $6; exit}' /etc/passwd)"
+    [ -n "$desktop_home" ] || { echo 'start-ooonana-i3: unknown desktop user' >&2; return 1; }
+    export HOME="$desktop_home" USER="$SESSION_USER" LOGNAME="$SESSION_USER"
+    export OOONANA_WSL_SOCKET_READY=1
+    unset XAUTHORITY
+    /bin/busybox su -m -s /bin/sh "$SESSION_USER" -c 'exec /usr/bin/start-ooonana-i3 --nested'
+    return $?
+  fi
+  if [ "${OOONANA_WSL_SOCKET_READY:-0}" != 1 ] &&
+    [ -d /mnt/wslg/.X11-unix ] &&
+    [ "$(stat -c %a /tmp/.X11-unix 2>/dev/null || true)" != 1777 ]; then
+    [ -n "$SESSION_USER" ] || SESSION_USER="$(id -un)"
+    command -v unshare >/dev/null 2>&1 || { echo 'start-ooonana-i3: missing unshare' >&2; return 1; }
+    if [ "$(id -u)" = 0 ]; then
+      exec unshare -m --propagation private /usr/bin/start-ooonana-i3 --nested --wsl-socket-namespace --user "$SESSION_USER"
+    fi
+    command -v doas >/dev/null 2>&1 || { echo 'start-ooonana-i3: missing doas' >&2; return 1; }
+    exec doas -n unshare -m --propagation private /usr/bin/start-ooonana-i3 --nested --wsl-socket-namespace --user "$SESSION_USER"
+  fi
+  nested_number=""
+  for candidate in 2 3 4 5 6 7 8 9; do
+    if [ ! -e "/tmp/.X11-unix/X$candidate" ] && [ ! -e "/tmp/.X$candidate-lock" ]; then
+      nested_number="$candidate"
+      break
+    fi
+  done
+  [ -n "$nested_number" ] || { echo 'start-ooonana-i3: no free nested display' >&2; return 1; }
+  Xephyr ":$nested_number" -screen 1280x800 -nolisten tcp -br -noreset -title 'Ooonana OS i3' &
+  xephyr_pid=$!
+  trap 'kill "$xephyr_pid" 2>/dev/null || true; wait "$xephyr_pid" 2>/dev/null || true' EXIT INT TERM
+  tries=0
+  while [ ! -S "/tmp/.X11-unix/X$nested_number" ]; do
+    kill -0 "$xephyr_pid" 2>/dev/null || { echo 'start-ooonana-i3: Xephyr exited' >&2; return 1; }
+    tries=$((tries + 1))
+    [ "$tries" -le 50 ] || { echo 'start-ooonana-i3: Xephyr timed out' >&2; return 1; }
+    sleep 0.1
+  done
+  export DISPLAY=":$nested_number"
+  unset XAUTHORITY
+  unset WAYLAND_DISPLAY
+  if [ "${OOONANA_WSL_SOCKET_READY:-0}" = 1 ]; then
+    XDG_RUNTIME_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/ooonana/wsl-runtime"
+    mkdir -p "$XDG_RUNTIME_DIR"
+    chmod 0700 "$XDG_RUNTIME_DIR"
+    export XDG_RUNTIME_DIR
+  fi
+  if [ -n "$SESSION_USER" ]; then
+    /usr/bin/ooonana-i3-session --user "$SESSION_USER"
+  else
+    /usr/bin/ooonana-i3-session
+  fi
+}
+
 if is_wsl_session &&
   [ -n "${DISPLAY:-}" ] &&
   command -v i3 >/dev/null 2>&1 &&
   [ -x /usr/bin/ooonana-i3-session ]; then
+  if [ "$NESTED" = auto ]; then
+    if [ -n "${WAYLAND_DISPLAY:-}" ] && [ -d /mnt/wslg ]; then NESTED=1; else NESTED=0; fi
+  fi
+  if [ "$NESTED" = 1 ]; then
+    run_nested_i3
+    exit $?
+  fi
   if [ -n "$SESSION_USER" ]; then
     exec /usr/bin/ooonana-i3-session --user "$SESSION_USER"
   fi
@@ -187,9 +280,11 @@ load_theme() {
       ;;
   esac
   OOONANA_CURSOR="#ffb21a"
+  XCURSOR_THEME="OoonanaTailless"
+  XCURSOR_SIZE=32
   GTK_THEME="$OOONANA_GTK_THEME"
   GDK_BACKEND="${GDK_BACKEND:-x11}"
-  export OOONANA_THEME OOONANA_BG OOONANA_FG OOONANA_CURSOR OOONANA_PANEL OOONANA_PANEL_ALT OOONANA_BORDER OOONANA_MUTED OOONANA_ENTRY OOONANA_HOVER OOONANA_GTK_THEME OOONANA_GTK_DARK GTK_THEME GDK_BACKEND
+  export OOONANA_THEME OOONANA_BG OOONANA_FG OOONANA_CURSOR OOONANA_PANEL OOONANA_PANEL_ALT OOONANA_BORDER OOONANA_MUTED OOONANA_ENTRY OOONANA_HOVER OOONANA_GTK_THEME OOONANA_GTK_DARK XCURSOR_THEME XCURSOR_SIZE GTK_THEME GDK_BACKEND
 }
 
 load_theme
@@ -212,10 +307,13 @@ case "${1:-env}" in
     printf 'OOONANA_BG="%s"\n' "$OOONANA_BG"
     printf 'OOONANA_FG="%s"\n' "$OOONANA_FG"
     printf 'OOONANA_CURSOR="%s"\n' "$OOONANA_CURSOR"
+    printf 'XCURSOR_THEME="%s"\n' "$XCURSOR_THEME"
+    printf 'XCURSOR_SIZE="%s"\n' "$XCURSOR_SIZE"
     printf 'OOONANA_GTK_THEME="%s"\n' "$OOONANA_GTK_THEME"
     printf 'OOONANA_GTK_DARK="%s"\n' "$OOONANA_GTK_DARK"
     printf 'GTK_THEME="%s"\n' "$OOONANA_GTK_THEME"
     printf 'GDK_BACKEND="x11"\n'
+    printf 'export OOONANA_THEME OOONANA_BG OOONANA_FG OOONANA_CURSOR OOONANA_GTK_THEME OOONANA_GTK_DARK XCURSOR_THEME XCURSOR_SIZE GTK_THEME GDK_BACKEND\n'
     ;;
   apply)
     config_home="${XDG_CONFIG_HOME:-${HOME:-/root}/.config}"
@@ -225,6 +323,8 @@ case "${1:-env}" in
 gtk-theme-name=Adwaita
 gtk-application-prefer-dark-theme=$OOONANA_GTK_DARK
 gtk-icon-theme-name=Adwaita
+gtk-cursor-theme-name=OoonanaTailless
+gtk-cursor-theme-size=32
 gtk-font-name=Sans 10
 gtk-button-images=1
 gtk-menu-images=1
@@ -330,6 +430,8 @@ EOF
 gtk-theme-name=Adwaita
 gtk-application-prefer-dark-theme=true
 gtk-icon-theme-name=Adwaita
+gtk-cursor-theme-name=OoonanaTailless
+gtk-cursor-theme-size=32
 gtk-font-name=Sans 10
 gtk-button-images=1
 gtk-menu-images=1
@@ -341,6 +443,8 @@ EOF
 gtk-theme-name=Adwaita
 gtk-application-prefer-dark-theme=true
 gtk-icon-theme-name=Adwaita
+gtk-cursor-theme-name=OoonanaTailless
+gtk-cursor-theme-size=32
 gtk-font-name=Sans 10
 gtk-button-images=1
 gtk-menu-images=1
@@ -2353,7 +2457,8 @@ EOF
 Net/ThemeName "Adwaita-dark"
 Net/IconThemeName "Adwaita"
 Gtk/FontName "Sans 10"
-Gtk/CursorThemeName "Adwaita"
+Gtk/CursorThemeName "OoonanaTailless"
+Gtk/CursorThemeSize 32
 Gtk/ButtonImages 1
 Gtk/MenuImages 1
 EOF
@@ -3521,9 +3626,11 @@ if [ -x /usr/bin/ooonana-theme-env ]; then
 fi
 
 mkdir -p "${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana"
-command -v ooonana-audio-start >/dev/null 2>&1 && ooonana-audio-start >/dev/null 2>&1 || true
+if [ "${OOONANA_NO_AUDIO:-0}" != 1 ]; then
+  command -v ooonana-audio-start >/dev/null 2>&1 && ooonana-audio-start >/dev/null 2>&1 || true
+fi
 
-if command -v ooonana-setup >/dev/null 2>&1; then
+if [ "${OOONANA_SKIP_SETUP:-0}" != 1 ] && command -v ooonana-setup >/dev/null 2>&1; then
   ooonana-setup --first-boot --gui >"${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/setup.log" 2>&1 &
 fi
 
@@ -3908,7 +4015,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   version_output="$(/usr/bin/ooonana version 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.3' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.4' &&
     printf '%s\n' "$installed_output" | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else

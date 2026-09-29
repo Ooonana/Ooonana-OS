@@ -97,6 +97,14 @@ for source in "$ROOT"/packages/ooonana/usr/share/ooonana/wallpapers/*; do
   [ -f "$source" ] || continue
   install -m 0644 "$source" "/usr/share/ooonana/wallpapers/${source##*/}"
 done
+install -D -m 0644 "$ROOT/packages/ooonana/usr/share/icons/OoonanaTailless/index.theme" \
+  /usr/share/icons/OoonanaTailless/index.theme
+install -D -m 0644 "$ROOT/packages/ooonana/usr/share/icons/default/index.theme" \
+  /usr/share/icons/default/index.theme
+for source in "$ROOT"/packages/ooonana/usr/share/icons/OoonanaTailless/cursors/*; do
+  [ -f "$source" ] || continue
+  install -D -m 0644 "$source" "/usr/share/icons/OoonanaTailless/cursors/${source##*/}"
+done
 install -m 0644 "$ROOT/branding/desktop-0.9.svg" /usr/share/ooonana/wallpapers/ooonana-desktop-0.9.svg
 install -m 0644 "$ROOT/branding/desktop-0.9.png" /usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png
 install -m 0644 \
@@ -134,7 +142,7 @@ for helper in \
   ooonana-brightness-status ooonana-packages-app ooonana-packages \
   ooonana-settings ooonana-settings-launch ooonana-installer-gui \
   ooonana-gui-installer ooonana-install-wizard ooonana-i3-smoke-session \
-  ooonana-i3-session ooonana-i3-installer-session; do
+  start-ooonana-i3 ooonana-i3-session ooonana-i3-installer-session; do
   extract_block "ROOTFS/usr/bin/$helper" "$work/$helper"
   install -m 0755 "$work/$helper" "/usr/bin/$helper"
 done

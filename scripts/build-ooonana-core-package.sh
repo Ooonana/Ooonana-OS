@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR=""
-VERSION="0.9.3"
+VERSION="0.9.4"
 DRY_RUN=0
 
 usage() {
@@ -14,7 +14,7 @@ Usage:
   scripts/build-ooonana-core-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER  Package version (default: 0.9.3)
+  --version VER  Package version (default: 0.9.4)
   --dry-run      Print resolved package details
   -h, --help     Show help
 USAGE
@@ -102,7 +102,7 @@ for helper in \
   ooonana-ranger ooonana-brightness ooonana-brightness-status \
   ooonana-packages-app ooonana-packages ooonana-settings \
   ooonana-settings-launch ooonana-installer-gui ooonana-gui-installer \
-  ooonana-install-wizard ooonana-i3-smoke-session ooonana-i3-session \
+  ooonana-install-wizard start-ooonana-i3 ooonana-i3-smoke-session ooonana-i3-session \
   ooonana-i3-installer-session; do
   extract_helper "ROOTFS/usr/bin/$helper" "$staging/usr/bin/$helper"
 done
