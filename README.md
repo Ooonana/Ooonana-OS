@@ -270,10 +270,10 @@ Import full-i3 WSL rootfs as `Ooonana`, recommended:
 bash scripts/install-wsl-distro.sh --distro Ooonana --force \
   --tarball /var/tmp/ooonana-os/release/ooonana-full-i3-wsl-rootfs.tar.gz
 wsl.exe -d Ooonana -- /usr/bin/ooonana me
-wsl.exe -d Ooonana -- env OOONANA_NO_AUDIO=1 /usr/bin/start-ooonana-i3 --nested
+wsl.exe -d Ooonana -- /usr/bin/start-ooonana-i3 --nested
 ```
 
-WSLg shows the full i3 desktop inside a Xephyr window. `--nested` needs `xorg-server-xephyr` and uses a private X socket namespace because WSLg mounts its socket directory read-only. No audio is started with `OOONANA_NO_AUDIO=1`. Close i3 with Super+Shift+E or its window close button.
+WSLg shows the full i3 desktop inside a Xephyr window. `--nested` needs `xorg-server-xephyr` and uses a private X socket namespace because WSLg mounts its socket directory read-only. Normal launch starts Ooonana audio services; `OOONANA_NO_AUDIO=1` is only a test override. Close i3 with Super+Shift+E or its window close button.
 
 ## Ooonana Command
 
