@@ -17,7 +17,7 @@ Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Li
 
 ![Ooonana OS core 0.9.5 preview with left music, centered AI, notification bell, and app dock](docs/assets/ooonana-full-i3-desktop.png)
 
-Earlier core 0.9.5 working-preview capture from nested WSL i3, before the GUI polish below. Cursor is excluded. Complete desktop and physical USB visuals still need a fresh image build/test; native GTK previews below show current app patches.
+Latest core 0.9.5 working desktop capture from nested WSL i3, refreshed after GTK/XDG startup repairs. Music sits left, AI stays centered, status controls align right, and dock tracks running windows. Cursor is excluded. Audio playback was not tested. Physical USB visuals still require a newly built image.
 
 Latest GUI polish previews, rendered from real GTK widgets in an isolated virtual display with sample data:
 
