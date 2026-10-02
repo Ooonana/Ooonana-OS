@@ -227,7 +227,11 @@ if ! command -v doas >/dev/null 2>&1 ||
 fi
 
 install -d -m 0755 /etc/sudoers.d
-printf '%%wheel ALL=(ALL:ALL) NOPASSWD: ALL\n' >/etc/sudoers.d/ooonana
+if [ "$(cat /etc/ooonana/system-mode 2>/dev/null)" = installed ]; then
+  printf '%%wheel ALL=(ALL:ALL) ALL\n' >/etc/sudoers.d/ooonana
+else
+  printf '%%wheel ALL=(ALL:ALL) NOPASSWD: ALL\n' >/etc/sudoers.d/ooonana
+fi
 chmod 0440 /etc/sudoers.d/ooonana
 chmod 4755 /usr/bin/doas /usr/bin/sudo /bin/su
 

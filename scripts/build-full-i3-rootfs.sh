@@ -165,7 +165,16 @@ run_nested_i3() {
       exec unshare -m --propagation private /usr/bin/start-ooonana-i3 --nested --wsl-socket-namespace --user "$SESSION_USER"
     fi
     command -v doas >/dev/null 2>&1 || { echo 'start-ooonana-i3: missing doas' >&2; return 1; }
-    exec doas -n unshare -m --propagation private /usr/bin/start-ooonana-i3 --nested --wsl-socket-namespace --user "$SESSION_USER"
+    # Preserve only session display/QA flags through environment-resetting
+    # admin policy. Never rely on broad doas keepenv for graphical startup.
+    exec ooonana-run-admin env \
+      DISPLAY="${DISPLAY:-:0}" \
+      WSL_DISTRO_NAME="${WSL_DISTRO_NAME:-Ooonana}" \
+      OOONANA_NO_AUDIO="${OOONANA_NO_AUDIO:-0}" \
+      OOONANA_SKIP_SETUP="${OOONANA_SKIP_SETUP:-0}" \
+      XDG_STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}" \
+      XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}" \
+      unshare -m --propagation private /usr/bin/start-ooonana-i3 --nested --wsl-socket-namespace --user "$SESSION_USER"
   fi
   nested_number=""
   for candidate in 2 3 4 5 6 7 8 9; do
