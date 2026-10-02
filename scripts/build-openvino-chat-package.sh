@@ -58,9 +58,15 @@ trap 'rm -rf "$staging"' EXIT
 cp -a "$PAYLOAD_DIR/." "$staging/"
 install -d "$staging/usr/lib/ooonana/openvino-chat"
 cp -a "$SOURCE_DIR/pyproject.toml" "$staging/usr/lib/ooonana/openvino-chat/"
+cp -a "$SOURCE_DIR/requirements-linux-runtime.lock" "$staging/usr/lib/ooonana/openvino-chat/"
 cp -a "$SOURCE_DIR/README.md" "$staging/usr/lib/ooonana/openvino-chat/"
 cp -a "$SOURCE_DIR/src" "$staging/usr/lib/ooonana/openvino-chat/"
 cp -a "$SOURCE_DIR/scripts" "$staging/usr/lib/ooonana/openvino-chat/"
+(
+  cd "$staging/usr/lib/ooonana/openvino-chat"
+  find src scripts -type f ! -name '*.pyc' ! -name '*.pyo' -print0 | sort -z | xargs -0 sha256sum
+  sha256sum pyproject.toml requirements-linux-runtime.lock
+) >"$staging/usr/lib/ooonana/openvino-chat/APP-MANIFEST.sha256"
 find "$staging" -type d -name __pycache__ -prune -exec rm -rf -- {} +
 find "$staging" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
 chmod 0755 \

@@ -41,6 +41,8 @@ install -d \
 BUILD_REF="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || printf working-tree)"
 
 cp -a --remove-destination "$ROOT/packages/ooonana/." "$TARGET_ROOT/"
+find "$TARGET_ROOT/usr/lib/ooonana" -type d -name __pycache__ -prune -exec rm -rf -- {} +
+find "$TARGET_ROOT/usr/lib/ooonana" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
 chmod 0755 "$TARGET_ROOT/usr/bin/ooonana" "$TARGET_ROOT/usr/bin/ooonana-ai" "$TARGET_ROOT/usr/sbin/ooonana-install" 2>/dev/null || true
 install -m 0644 "$ROOT/docs/logo.txt" "$TARGET_ROOT/usr/share/ooonana/logo.txt"
 cp "$TARGET_ROOT/usr/share/ooonana/logo.txt" "$TARGET_ROOT/etc/motd"
@@ -54,13 +56,14 @@ cat > "$TARGET_ROOT/etc/os-release" <<'EOF'
 NAME="Ooonana OS"
 ID=ooonana
 PRETTY_NAME="Ooonana OS PDF Minimal"
-VERSION_ID="0.5-pdf"
+VERSION_ID="0.6-pdf"
 EOF
 
 cat > "$TARGET_ROOT/etc/ooonana/pdf-release" <<EOF
 OOONANA_PDF_EDITION="minimal-riscv"
+OOONANA_PDF_VERSION="0.6"
 OOONANA_PDF_BUILD_REF="$BUILD_REF"
-OOONANA_PDF_PACKAGE_MANAGER="0.9.4"
+OOONANA_PDF_PACKAGE_MANAGER="0.9.5"
 EOF
 
 cat > "$TARGET_ROOT/etc/hostname" <<'EOF'
@@ -111,7 +114,7 @@ while /bin/true; do
   else
     echo "Ooonana OS"
   fi
-  echo "PDF Minimal 0.5 | pkg 0.9.4"
+  echo "PDF Minimal 0.6 | pkg 0.9.5"
   echo "OOONANA_PDF_BOOT_OK"
   echo "Run: ooonana help"
   if command -v cttyhack >/dev/null 2>&1; then

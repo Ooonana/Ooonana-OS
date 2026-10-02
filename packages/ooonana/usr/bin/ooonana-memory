@@ -3,6 +3,7 @@ set -eu
 
 meminfo="${OOONANA_MEMORY_MEMINFO:-/proc/meminfo}"
 config_file="${OOONANA_MEMORY_CONFIG:-/etc/ooonana/memory.conf}"
+zram_root="${OOONANA_MEMORY_ZRAM_ROOT:-/sys/block}"
 config_value() {
   [ -f "$config_file" ] || return 0
   sed -n "s/^$1=//p" "$config_file" | head -n 1
@@ -42,6 +43,22 @@ case "${1:-status}" in
     [ -n "$overlay" ] || overlay=installed
     printf 'RAM: %s MiB total, %s MiB available\n' "$((total_kb / 1024))" "$((available_kb / 1024))"
     printf 'Swap: %s MiB total, %s MiB free\n' "$((swap_total_kb / 1024))" "$((swap_free_kb / 1024))"
+    for device in "$zram_root"/zram*; do
+      [ -r "$device/mm_stat" ] || continue
+      stats="$(cat "$device/mm_stat")"
+      set -- $stats
+      [ "$#" -ge 3 ] || continue
+      original="$1"; compressed="$2"; resident="$3"
+      case "$original:$compressed:$resident" in *[!0-9:]*) continue ;; esac
+      capacity="$(cat "$device/disksize" 2>/dev/null || printf 0)"
+      case "$capacity" in ''|*[!0-9]*) capacity=0 ;; esac
+      printf 'Zram %s: %s MiB logical capacity, %s MiB data, %s MiB compressed, %s MiB physical RAM used\n' \
+        "${device##*/}" "$((capacity / 1048576))" "$((original / 1048576))" "$((compressed / 1048576))" "$((resident / 1048576))"
+      if [ "$resident" -gt 0 ]; then
+        awk -v original="$original" -v resident="$resident" 'BEGIN { printf "Zram effective ratio: %.2f:1 (data / physical consumption)\n", original/resident }'
+      fi
+    done
+    printf 'Compressed swap is not extra physical RAM. Available RAM excludes active zram consumption.\n'
     printf 'Zram policy: %s%%; disk swap: %s\n' "$zram_percent" "$disk_swap"
     printf 'Live storage: %s\n' "$overlay"
     ;;

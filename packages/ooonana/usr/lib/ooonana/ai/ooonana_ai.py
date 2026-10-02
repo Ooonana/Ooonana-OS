@@ -1488,7 +1488,19 @@ def cmd_ask(args: argparse.Namespace) -> int:
     if not prompt:
         raise OoonanaError("prompt required")
     active_agent = "" if args.no_agent else args.agent
-    messages = build_messages(prompt, include_env=not args.no_env, agent=active_agent, args=args)
+    history = None
+    if getattr(args, "context_stdin", False):
+        raw = sys.stdin.read(65537)
+        if len(raw.encode("utf-8")) > 65536:
+            raise OoonanaError("conversation context limited to 64 KB")
+        try:
+            history = json.loads(raw)
+        except ValueError as error:
+            raise OoonanaError("invalid conversation context") from error
+        if not isinstance(history, list) or len(history) > 24 or any(not isinstance(item, dict) or item.get("role") not in {"user", "assistant"} or not isinstance(item.get("content"), str) for item in history):
+            raise OoonanaError("context must contain at most 24 user/assistant messages")
+        history = [{"role": item["role"], "content": item["content"]} for item in history]
+    messages = build_messages(prompt, include_env=not args.no_env, agent=active_agent, args=args, history=history)
     stream_default = config_value(config, "OOONANA_AI_STREAM", "1") != "0"
     stream = stream_default and not args.no_stream and not args.json
     model = resolve_model(args.model, config, provider)
@@ -1806,6 +1818,7 @@ def build_parser() -> argparse.ArgumentParser:
     ask.add_argument("--no-agent", action="store_true", help="do not include local agent context")
     ask.add_argument("--session", default="", help="session id for saved history")
     ask.add_argument("--no-history", action="store_true", help="do not save this exchange")
+    ask.add_argument("--context-stdin", action="store_true", help="read bounded user/assistant context JSON from stdin")
     ask.add_argument("--no-stream", action="store_true", help="disable streaming output")
     ask.add_argument("--dry-run", action="store_true", help="print request JSON without calling provider")
     ask.add_argument("--json", action="store_true", help="print JSON response")
@@ -1818,6 +1831,7 @@ def build_parser() -> argparse.ArgumentParser:
     code.add_argument("--no-agent", action="store_true", help="do not include local agent context")
     code.add_argument("--session", default="", help="session id for saved history")
     code.add_argument("--no-history", action="store_true", help="do not save this exchange")
+    code.add_argument("--context-stdin", action="store_true", help="read bounded user/assistant context JSON from stdin")
     code.add_argument("--no-stream", action="store_true", help="disable streaming output")
     code.add_argument("--dry-run", action="store_true", help="print request JSON without calling provider")
     code.add_argument("--json", action="store_true", help="print JSON response")

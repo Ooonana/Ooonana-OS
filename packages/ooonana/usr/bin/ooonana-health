@@ -1,0 +1,45 @@
+#!/usr/bin/python3
+"""Read-only, on-demand diagnostics. No playback, radio changes or disk writes."""
+import argparse
+import json
+import os
+from pathlib import Path
+import platform
+import shutil
+
+
+def report():
+    memory = {}
+    try:
+        for line in Path("/proc/meminfo").read_text().splitlines():
+            name, value = line.split(":", 1)
+            if name in {"MemTotal", "MemAvailable", "SwapTotal", "SwapFree"}:
+                memory[name] = int(value.split()[0]) * 1024
+    except (OSError, ValueError):
+        pass
+    devices = {}
+    for name, pattern in (("network", "/sys/class/net"), ("audio", "/sys/class/sound"), ("bluetooth", "/sys/class/bluetooth"), ("gpu", "/sys/class/drm")):
+        directory = Path(pattern)
+        devices[name] = sorted(item.name for item in directory.iterdir()) if directory.is_dir() else []
+    zram = []
+    for block in Path("/sys/block").glob("zram*"):
+        try:
+            values = list(map(int, (block / "mm_stat").read_text().split()))
+            zram.append(dict(device=block.name, logical_capacity=int((block / "disksize").read_text()), original_data=values[0], compressed_data=values[1], physical_consumption=values[2]))
+        except (OSError, ValueError, IndexError):
+            continue
+    mode = Path("/etc/ooonana/system-mode")
+    return dict(kernel=platform.release(), architecture=platform.machine(), mode=mode.read_text().strip() if mode.is_file() else "live / developer", wsl="microsoft" in platform.release().lower(), memory_bytes=memory, zram=zram, compressed_swap_is_extra_ram=False, devices=devices, helpers={name: bool(shutil.which(name)) for name in ("i3", "NetworkManager", "bluetoothd", "pipewire", "wireplumber", "openvino", "sudo", "ooonana")}, reboot_required=Path("/run/ooonana/reboot-required").is_file(), audio_playback_tested=False, hardware_functionality_tested=False)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--json", action="store_true")
+    args = parser.parse_args()
+    result = report()
+    if args.json:
+        print(json.dumps(result, indent=2))
+    else:
+        print("Ooonana Health - read-only snapshot")
+        for key, value in result.items():
+            print(f"{key}: {json.dumps(value)}")

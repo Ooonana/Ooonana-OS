@@ -106,6 +106,11 @@ KERNEL_CONFIG="$BUILD_DIR/ooonana-kernel/config-ooonana"
 KERNEL_FRAGMENT="$ROOT/configs/kernel/ooonana-minimal-x86_64.fragment"
 KERNEL_CACHE_ERROR=""
 REPO="$BUILD_DIR/full-i3-repo"
+if [[ -f "$REPO/CURRENT" ]]; then
+  IFS= read -r repo_generation <"$REPO/CURRENT"
+  [[ "$repo_generation" =~ ^[0-9a-f]{64}$ ]] || die "invalid repository generation"
+  REPO="$REPO/generations/$repo_generation"
+fi
 NEW_ISO="$RELEASE_DIR/ooonana-full-i3.iso.new"
 ISO="$RELEASE_DIR/ooonana-full-i3.iso"
 STAGED_ISO="$STAGE_DIR/ooonana-full-i3.iso.new"
@@ -205,6 +210,14 @@ refresh_cached_kernel() {
 
 release_input_fingerprint() {
   {
+    if [[ -n "${OOONANA_PERSONAL_CURSOR_DIR:-}" ]]; then
+      find "$OOONANA_PERSONAL_CURSOR_DIR" -type f -print0 | sort -z | xargs -0 sha256sum
+      local cursor_size="${OOONANA_PERSONAL_CURSOR_SIZE:-}"
+      if [[ -z "$cursor_size" && -f "$OOONANA_PERSONAL_CURSOR_DIR/cursor-size" ]]; then
+        IFS= read -r cursor_size <"$OOONANA_PERSONAL_CURSOR_DIR/cursor-size" || true
+      fi
+      printf 'personal-cursor-size=%s\n' "${cursor_size:-32}"
+    fi
     find \
       "$ROOT/branding" \
       "$ROOT/packages/ooonana" \
@@ -216,7 +229,8 @@ release_input_fingerprint() {
       "$ROOT/scripts/build-full-i3-disk.sh" \
       "$ROOT/scripts/build-full-i3-iso.sh" \
       "$ROOT/scripts/install-intel-wireless-firmware.sh" \
-      -type f -print0 |
+      -type d -name __pycache__ -prune -o \
+      -type f ! -name '*.pyc' ! -name '*.pyo' -print0 |
       sort -z |
       xargs -0 sha256sum
     sha256sum "$KERNEL" "$KERNEL_CONFIG" "$REPO/SHA256SUMS" "$REPO/i3.pkg"

@@ -104,18 +104,25 @@ if [[ -n "$prefix" ]]; then
 fi
 target="${target%/}/"
 
-cmd=(aws s3 sync "${repo_dir%/}/" "$target" --endpoint-url "$endpoint_url" --delete --no-progress)
+generation="$( { cat "$repo_dir/SHA256SUMS" "$repo_dir/index.tsv"; for extra in SHA256SUMS.sig repo.pub; do [ ! -f "$repo_dir/$extra" ] || cat "$repo_dir/$extra"; done; } | sha256sum | awk '{print $1}')"
+generation_target="${target}generations/$generation/"
+cmd=(aws s3 sync "${repo_dir%/}/" "$generation_target" --endpoint-url "$endpoint_url" --no-progress)
 
 if [[ "$dry_run" -eq 1 ]]; then
   printf 'dry-run: '
   ooonana_print_command "${cmd[@]}"
 else
   ooonana_require_command aws
+  (cd "$repo_dir" && sha256sum -c SHA256SUMS >/dev/null)
   export AWS_ACCESS_KEY_ID="$access_key"
   export AWS_SECRET_ACCESS_KEY="$secret_key"
   export AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-auto}"
   export AWS_EC2_METADATA_DISABLED=true
   "${cmd[@]}"
+  pointer="$(mktemp)"
+  trap 'rm -f "$pointer"' EXIT
+  printf '%s\n' "$generation" >"$pointer"
+  aws s3 cp "$pointer" "${target}CURRENT" --endpoint-url "$endpoint_url" --no-progress --cache-control no-cache
 fi
 
 if [[ -n "$public_url" ]]; then

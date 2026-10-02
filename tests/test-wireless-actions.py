@@ -22,6 +22,7 @@ except ImportError:
         command_exists=lambda _name: False,
         flow_row=lambda *_args, **_kwargs: None,
         header=lambda *_args, **_kwargs: None,
+        host_radio_unavailable=lambda _kind: False,
         label=lambda *_args, **_kwargs: None,
         launch=lambda *_args, **_kwargs: False,
         message=lambda *_args, **_kwargs: None,

@@ -222,7 +222,7 @@ assert_contains "$gitlab_ci" "OOONANA_REPO_SIGN_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_REPO_PUBLIC_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_CORE_VERSION"
-assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.9.4"'
+assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.9.5"'
 assert_contains "$gitlab_ci" "OOONANA_OPENVINO_CHAT_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_URL"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_SHA256"
@@ -289,7 +289,7 @@ cli_dry="$(OOONANA_SOURCE_ROOT="$ROOT" "$ROOT/packages/ooonana/usr/bin/ooonana" 
 assert_contains "$cli_dry" "packages: nano bash curl wget ca-certificates ca-certificates-bundle python3 bubblewrap xz nodejs flatpak"
 
 tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
+trap 'if [[ "${OOONANA_TEST_KEEP_TMP:-0}" = 1 ]]; then printf "Fixture retained: %s\n" "$tmp"; else rm -rf "$tmp"; fi' EXIT
 fake_npm="$tmp/npm"
 cat > "$fake_npm" <<'EOF'
 #!/bin/sh
@@ -379,8 +379,14 @@ tar -tzf "$core_runtime_archive" | grep './etc/init.d/rcS' >/dev/null || fail "c
 tar -tzf "$core_runtime_archive" | grep './usr/bin/start-ooonana-i3' >/dev/null || fail "core runtime missing WSL nested launcher"
 tar -xOzf "$core_runtime_archive" ./usr/bin/start-ooonana-i3 | grep -q 'Xephyr' || fail "core runtime missing nested display support"
 tar -xOzf "$core_runtime_archive" ./usr/share/icons/OoonanaTailless/cursors/left_ptr | python3 -c 'import sys; raise SystemExit(not sys.stdin.buffer.read().startswith(b"Xcur"))' || fail "core runtime missing tailless cursor"
-tar -xOzf "$core_runtime_archive" ./etc/os-release | grep -q 'PRETTY_NAME="Ooonana OS 0.9.4"' || fail "core runtime OS release stale"
+tar -xOzf "$core_runtime_archive" ./etc/os-release | grep -q 'PRETTY_NAME="Ooonana OS 0.9.5"' || fail "core runtime OS release stale"
 tar -tzf "$core_runtime_archive" | grep './usr/lib/ooonana/ui/task_manager_app.py' >/dev/null || fail "core runtime missing task manager"
+for native_file in usr/bin/ooonana-panel-start usr/bin/ooonana-notifications usr/bin/ooonana-notification-status usr/bin/ooonana-wallpaper-fit usr/lib/ooonana/ui/notifications_app.py; do
+  [[ "$core_archive_files" == *"./$native_file"* ]] || fail "core runtime missing $native_file"
+done
+[[ "$core_archive_files" != *'WindowsCursorConceptPersonal'* ]] || fail "public core includes private cursor theme"
+tar -xOzf "$core_runtime_archive" ./etc/gtk-3.0/settings.ini | grep -q 'gtk-cursor-theme-size=17' || fail "core cursor size stale"
+tar -xOzf "$core_runtime_archive" ./etc/ooonana/polybar.ini | grep -q 'modules-center = ai' || fail "core panel center stale"
 tar -tzf "$core_runtime_archive" | grep './usr/share/ooonana/wallpapers/ooonana-notes.jpg' >/dev/null || fail "core runtime missing Notes wallpaper"
 tar -tzf "$core_runtime_archive" | grep './usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png' >/dev/null || fail "core runtime missing 0.9 wallpaper"
 tar -tzf "$core_runtime_archive" | grep './etc/gtk-3.0/settings.ini' >/dev/null || fail "core runtime missing GTK window controls"
@@ -415,11 +421,11 @@ EOF
 core_upgrade="$(OOONANA_REPO_DIR="$tmp/repo" \
   OOONANA_CACHE_DIR="$tmp/core-upgrade-cache" \
   OOONANA_ROOT="$core_upgrade_root" \
-  "$ROOT/packages/ooonana/usr/bin/ooonana" upgrade ooonana-core)"
+  "$ROOT/packages/ooonana/usr/bin/ooonana" upgrade --allow-major ooonana-core)"
 assert_contains "$core_upgrade" "installed ooonana-core-runtime"
 assert_contains "$core_upgrade" "upgraded ooonana-core 0.8.1"
 [[ -x "$core_upgrade_root/usr/bin/ooonana" ]] || fail "core migration removed upgraded CLI"
-assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.9.4"
+assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.9.5"
 assert_contains "$(<"$tmp/repo/cloud.repo")" 'OOONANA_REPO_URI="https://example.test/repo"'
 assert_contains "$(<"$tmp/repo/README.txt")" "ooonana update"
 

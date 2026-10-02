@@ -112,7 +112,7 @@ setup_text="$(<"$PAYLOAD/usr/bin/ooonana-openvino-setup")"
 assert_contains "$setup_text" "/tmp/ooonana-openvino-src"
 assert_contains "$setup_text" "--no-preserve=mode,ownership,timestamps,xattr"
 assert_contains "$setup_text" "chmod -R u+rwX /tmp/ooonana-openvino-src"
-assert_contains "$setup_text" "pip install --no-cache-dir --upgrade /tmp/ooonana-openvino-src"
+assert_contains "$setup_text" "requirements-linux-runtime.lock /tmp/ooonana-openvino-src"
 assert_contains "$setup_text" "--exclude='./dev/*'"
 
 launcher_help="$("$PAYLOAD/usr/bin/openvino" --help)"
@@ -152,7 +152,9 @@ if doctor="$(OOONANA_OPENVINO_STATE_DIR="$tmp/state" OOONANA_OPENVINO_PROJECT="$
 fi
 assert_contains "$doctor" "runtime: outdated"
 assert_contains "$doctor" "next: openvino setup"
-assert_contains "$setup_text" 'sha256sum /opt/openvino-chat/pyproject.toml'
+assert_contains "$setup_text" 'APP-MANIFEST.sha256'
+assert_contains "$setup_text" 'openvino-dependencies.lock'
+assert_contains "$setup_text" 'requirements-linux-runtime.lock'
 built="$(bash "$BUILDER" --out-dir "$tmp/repo" --version 0.2.0)"
 assert_contains "$built" "openvino-chat.pkg"
 [[ -f "$tmp/repo/openvino-chat.pkg" ]] || fail "missing package metadata"

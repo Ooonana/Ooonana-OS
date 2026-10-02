@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR=""
-VERSION="0.9.4"
+VERSION="0.9.5"
 DRY_RUN=0
 
 usage() {
@@ -14,7 +14,7 @@ Usage:
   scripts/build-ooonana-core-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER  Package version (default: 0.9.4)
+  --version VER  Package version (default: 0.9.5)
   --dry-run      Print resolved package details
   -h, --help     Show help
 USAGE
@@ -131,12 +131,28 @@ for config in \
 done
 mkdir -p "$staging/var/lib/ooonana/packages/files"
 : > "$staging/var/lib/ooonana/packages/files/ooonana-core.list"
-tar -C "$staging" -czf "$archive" .
+tar --sort=name --mtime="@${SOURCE_DATE_EPOCH:-0}" --numeric-owner --owner=0 --group=0 \
+  --pax-option=delete=atime,delete=ctime -C "$staging" -cf - . | gzip -n >"$archive"
 archive_sha="$(sha256sum "$archive" | awk '{print $1}')"
+mkdir -p "$OUT_DIR/hooks"
+cat >"$OUT_DIR/hooks/$runtime_id.healthcheck" <<'CHECK'
+#!/bin/sh
+set -eu
+prefix="${OOONANA_ROOT:-/}"
+cli="${prefix%/}/usr/bin/ooonana"
+[ -x "$cli" ] || { echo 'core healthcheck: CLI missing' >&2; exit 1; }
+"$cli" version | grep -q "ooonana ${OOONANA_PKG_VERSION}"
+for helper in ooonana-memory ooonana-panel-start ooonana-window-list gzip; do
+  [ -x "${prefix%/}/usr/bin/$helper" ] || { echo "core healthcheck: missing $helper" >&2; exit 1; }
+done
+echo 'OOONANA_CORE_HEALTHCHECK_OK'
+CHECK
+chmod 0755 "$OUT_DIR/hooks/$runtime_id.healthcheck"
 cat > "$runtime_metadata" <<EOF
 OOONANA_PKG_ID="$runtime_id"
 OOONANA_PKG_VERSION="$VERSION"
 OOONANA_PKG_KIND="archive"
+OOONANA_PKG_REBOOT=1
 OOONANA_PKG_SUMMARY="Ooonana OS native CLI, desktop apps, services, game, and defaults"
 OOONANA_PKG_DEPS="dbus-daemon-launch-helper"
 OOONANA_PKG_ARCHIVE="$archive_rel"

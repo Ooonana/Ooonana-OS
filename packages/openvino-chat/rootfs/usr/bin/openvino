@@ -8,10 +8,12 @@ OPENVINO_HOME="${OOONANA_OPENVINO_HOME:-$HOME/.openvino}"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/ooonana-openvino"
 WORKSPACE="${OOONANA_OPENVINO_WORKSPACE:-$PWD}"
 runtime_state=missing
+fingerprint_file="$PROJECT/pyproject.toml"
+[ ! -f "$PROJECT/APP-MANIFEST.sha256" ] || fingerprint_file="$PROJECT/APP-MANIFEST.sha256"
 if [ -f "$ROOTFS/.ooonana-openvino-ready" ]; then
   runtime_state=outdated
   if [ -f "$PROJECT/pyproject.toml" ] && \
-    [ "$(cat "$ROOTFS/.ooonana-openvino-ready")" = "$(sha256sum "$PROJECT/pyproject.toml" | awk '{print $1}')" ]; then
+    [ "$(cat "$ROOTFS/.ooonana-openvino-ready")" = "$(sha256sum "$fingerprint_file" | awk '{print $1}')" ]; then
     runtime_state=ready
   fi
 fi
@@ -144,6 +146,7 @@ bridge_pid=$!
   --tmpfs /tmp \
   --setenv HOME /root \
   --setenv OPENVINO_HOME /root/.openvino \
+  --setenv OPENVINO_MEMORY_POLICY "${OPENVINO_MEMORY_POLICY:-warn}" \
   --setenv HF_HOME /root/.cache/huggingface \
   --setenv BROWSER /opt/openvino-chat/scripts/browser-bridge.sh \
   --setenv OOONANA_OPENVINO_BROWSER_FIFO "$inside_fifo" \

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import json
 import signal
 import shutil
 import subprocess
@@ -13,12 +14,17 @@ gi.require_version("Gdk", "3.0")
 gi.require_version("Pango", "1.0")
 gi.require_version("PangoCairo", "1.0")
 from gi.repository import Gdk, GLib, Gtk, Pango, PangoCairo  # noqa: E402
+from ui_preferences import load_preferences, transition_ms  # noqa: E402
 
 
 CSS = b"""
 * { font-family: Sans; font-size: 10.5pt; }
 window, dialog, .background { background: #101317; color: #f5f5f7; }
 window.background, dialog.background, messagedialog.background { border-radius: 14px; }
+decoration { background: #101317; border: 1px solid #343b46; border-radius: 14px; box-shadow: none; }
+menu { background: #1b1f26; color: #f5f5f7; border: 1px solid #343b46; border-radius: 10px; padding: 6px; }
+menuitem { padding: 9px 12px; border-radius: 7px; }
+menuitem:hover { background: #303640; color: #ffb21a; }
 headerbar { background: #1b1f26; color: #ffb21a; border-bottom: 1px solid #343b46; border-radius: 14px 14px 0 0; padding: 5px 10px; }
 headerbar .title { font-weight: 700; }
 headerbar .subtitle { color: #b4bdc8; }
@@ -37,6 +43,7 @@ headerbar .subtitle { color: #b4bdc8; }
 .status-good { color: #70d69b; font-weight: 700; }
 .status-warn { color: #ffd37a; font-weight: 700; }
 .status-bad { color: #ff675c; font-weight: 700; }
+.status-neutral { color: #b4bdc8; }
 button { background: #272c34; color: #f5f5f7; border: 1px solid #46505c; border-radius: 10px; padding: 8px 14px; transition: background-color 180ms ease-out; }
 button:hover { background: #39414b; border-color: #ffb21a; }
 button:focus, entry:focus, combobox button:focus { border-color: #ffb21a; box-shadow: 0 0 0 2px #73521e; }
@@ -53,6 +60,8 @@ entry, textview, textview text, textview.view, textview.view text, treeview, lis
 entry { padding: 9px; border-radius: 10px; }
 combobox button { min-height: 28px; }
 checkbutton, radiobutton { padding: 4px 0; }
+checkbutton check { background: #15191f; border: 1px solid #596574; border-radius: 4px; min-width: 14px; min-height: 14px; }
+checkbutton check:checked { background: #ffb21a; color: #101317; border-color: #ffb21a; }
 treeview header button { background: #272c34; color: #ffcf77; padding: 7px; }
 treeview:selected, row:selected { background: #303640; color: #ffffff; }
 notebook header { background: #171b21; }
@@ -75,6 +84,15 @@ separator { background: #343b46; }
 .spotlight-app-name { font-size: 11pt; font-weight: 700; }
 """
 
+WINDOW_CONTROL_CSS = b"""
+button.window-control { min-width: 18px; min-height: 18px; padding: 4px; border-radius: 99px; border: 1px solid #242830; color: #101317; box-shadow: none; }
+button.close-control { background: #ff736b; }
+button.minimize-control { background: #ffd16c; }
+button.fullscreen-control { background: #7fd6a0; }
+button.window-control:hover { border-color: #f5f5f7; }
+button.window-control:focus { box-shadow: 0 0 0 2px #f5f5f7; }
+"""
+
 
 def apply_theme():
     provider = Gtk.CssProvider()
@@ -84,9 +102,41 @@ def apply_theme():
         Gtk.StyleContext.add_provider_for_screen(
             screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
+    settings = Gtk.Settings.get_default()
+    if settings:
+        settings.set_property("gtk-enable-animations", not load_preferences()["reduce_motion"])
+
+
+def is_wsl_session():
+    if os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        return "microsoft" in Path("/proc/sys/kernel/osrelease").read_text().lower()
+    except OSError:
+        return False
+
+
+def host_radio_unavailable(kind):
+    if not is_wsl_session():
+        return False
+    if kind == "wifi":
+        return not any(Path("/sys/class/net").glob("*/wireless"))
+    if kind == "bluetooth":
+        return not any(Path("/sys/class/bluetooth").glob("hci*"))
+    return False
 
 
 def icon(name, size=Gtk.IconSize.BUTTON):
+    theme = Gtk.IconTheme.get_default()
+    fallbacks = {
+        "preferences-desktop-peripherals-symbolic": "input-mouse-symbolic",
+        "preferences-desktop-theme-symbolic": "applications-graphics-symbolic",
+        "preferences-system-bluetooth-symbolic": "bluetooth-symbolic",
+        "text-x-log-symbolic": "view-list-symbolic",
+        "utilities-system-monitor-symbolic": "computer-symbolic",
+    }
+    if theme and not theme.has_icon(name):
+        name = fallbacks.get(name, "application-x-executable-symbolic")
     return Gtk.Image.new_from_icon_name(name, size)
 
 
@@ -103,12 +153,13 @@ def button(label_text, icon_name=None, callback=None, style=None):
 
 
 def flow_row(widgets, max_children=8):
+    widgets = list(widgets)
     row = Gtk.FlowBox()
     row.set_selection_mode(Gtk.SelectionMode.NONE)
     row.set_homogeneous(False)
     row.set_row_spacing(8)
     row.set_column_spacing(8)
-    row.set_min_children_per_line(1)
+    row.set_min_children_per_line(min(3, max_children, max(1, len(widgets))))
     row.set_max_children_per_line(max_children)
     row.set_valign(Gtk.Align.START)
     for widget in widgets:
@@ -116,52 +167,92 @@ def flow_row(widgets, max_children=8):
     return row
 
 
+def i3_window_action(window, action):
+    native = window.get_window()
+    if native is None or not command_exists("i3-msg"):
+        return False
+    try:
+        gi.require_version("GdkX11", "3.0")
+        from gi.repository import GdkX11
+        identifier = GdkX11.X11Window.get_xid(native)
+        result = subprocess.run(
+            ["i3-msg", f"[id={identifier}] {action}"], capture_output=True,
+            text=True, timeout=3, check=False,
+        )
+        return result.returncode == 0 and any(item.get("success") for item in json.loads(result.stdout))
+    except (ImportError, ValueError, TypeError, OSError, subprocess.SubprocessError):
+        return False
+
+
 def header(window, title, subtitle="", icon_name="preferences-system-symbolic"):
     window.set_resizable(True)
     window.set_wmclass("ooonana-app", "OoonanaApp")
+    display = Gdk.Display.get_default()
+    monitor = (display.get_primary_monitor() or display.get_monitor(0)) if display else None
+    if monitor:
+        geometry = monitor.get_geometry()
+        width, height = window.get_default_size()
+        window.set_default_size(
+            min(width, max(480, geometry.width - 64)) if width > 0 else width,
+            min(height, max(320, geometry.height - 224)) if height > 0 else height,
+        )
     bar = Gtk.HeaderBar()
     bar.set_show_close_button(False)
     bar.set_decoration_layout("")
     bar.set_title(title)
     bar.set_subtitle(subtitle)
-    if icon_name:
-        bar.pack_start(icon(icon_name, Gtk.IconSize.LARGE_TOOLBAR))
 
     def minimize(_widget):
-        if os.environ.get("I3SOCK") and command_exists("i3-msg"):
-            launch(["i3-msg", "move", "scratchpad"])
-        else:
+        if not i3_window_action(window, "move scratchpad"):
             window.iconify()
 
     def maximize(_widget):
-        if os.environ.get("I3SOCK") and command_exists("i3-msg"):
-            launch(["i3-msg", "fullscreen", "toggle"])
-        elif window.is_maximized():
+        if i3_window_action(window, "fullscreen toggle"):
+            return
+        if window.is_maximized():
             window.unmaximize()
         else:
             window.maximize()
 
     maximize_button = Gtk.Button()
     maximize_button.set_image(icon("view-fullscreen-symbolic"))
+    maximize_button.set_valign(Gtk.Align.CENTER)
     maximize_button.set_tooltip_text("Toggle fullscreen")
+    maximize_button.set_name("ooonana-window-fullscreen")
+    maximize_button.get_accessible().set_name("Toggle fullscreen")
     maximize_button.connect("clicked", maximize)
     maximize_button.get_style_context().add_class("window-control")
-    bar.pack_end(maximize_button)
+    maximize_button.get_style_context().add_class("fullscreen-control")
 
     minimize_button = Gtk.Button()
     minimize_button.set_image(icon("window-minimize-symbolic"))
-    minimize_button.set_tooltip_text("Minimize to scratchpad")
+    minimize_button.set_valign(Gtk.Align.CENTER)
+    minimize_button.set_tooltip_text("Minimize window")
+    minimize_button.set_name("ooonana-window-minimize")
+    minimize_button.get_accessible().set_name("Minimize window")
     minimize_button.connect("clicked", minimize)
     minimize_button.get_style_context().add_class("window-control")
-    bar.pack_end(minimize_button)
+    minimize_button.get_style_context().add_class("minimize-control")
 
     close_button = Gtk.Button()
     close_button.set_image(icon("window-close-symbolic"))
+    close_button.set_valign(Gtk.Align.CENTER)
     close_button.set_tooltip_text("Close")
+    close_button.set_name("ooonana-window-close")
+    close_button.get_accessible().set_name("Close window")
     close_button.connect("clicked", lambda _widget: window.close())
     close_button.get_style_context().add_class("window-control")
     close_button.get_style_context().add_class("close-control")
-    bar.pack_end(close_button)
+    controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+    controls.set_valign(Gtk.Align.CENTER)
+    for control in (close_button, minimize_button, maximize_button):
+        provider = Gtk.CssProvider()
+        provider.load_from_data(WINDOW_CONTROL_CSS)
+        control.get_style_context().add_provider(provider, Gtk.STYLE_PROVIDER_PRIORITY_USER + 1)
+        controls.pack_start(control, False, False, 0)
+    bar.pack_start(controls)
+    if icon_name:
+        bar.pack_start(icon(icon_name, Gtk.IconSize.LARGE_TOOLBAR))
     window.set_titlebar(bar)
     return bar
 

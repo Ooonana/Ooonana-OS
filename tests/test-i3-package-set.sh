@@ -139,7 +139,7 @@ bash "$SCRIPT" --repo-url "file://$apk_repo" --out-dir "$out" --packages "i3wm i
 [[ -f "$out/branding.pkg" ]] || fail "missing branding wrapper"
 [[ -f "$out/full-i3.pkg" ]] || fail "missing full-i3 wrapper"
 [[ -f "$out/base.pkg" ]] || fail "missing base dependency metadata"
-[[ -f "$out/archives/ooonana-branding-0.1.2.tar.gz" ]] || fail "missing branding archive"
+[[ -f "$out/archives/ooonana-branding-0.1.3.tar.gz" ]] || fail "missing branding archive"
 [[ -f "$out/index.tsv" ]] || fail "missing index"
 [[ -f "$out/SHA256SUMS" ]] || fail "missing checksums"
 
@@ -147,11 +147,11 @@ i3_pkg="$(<"$out/i3.pkg")"
 branding_pkg="$(<"$out/branding.pkg")"
 full_pkg="$(<"$out/full-i3.pkg")"
 assert_contains "$i3_pkg" 'OOONANA_PKG_ID="i3"'
-assert_contains "$i3_pkg" 'OOONANA_PKG_VERSION="0.1.2"'
+assert_contains "$i3_pkg" 'OOONANA_PKG_VERSION="0.1.3"'
 assert_contains "$i3_pkg" 'OOONANA_PKG_DEPS="i3wm i3status"'
-assert_contains "$branding_pkg" 'OOONANA_PKG_VERSION="0.1.2"'
-assert_contains "$branding_pkg" 'OOONANA_PKG_ARCHIVE="archives/ooonana-branding-0.1.2.tar.gz"'
-assert_contains "$full_pkg" 'OOONANA_PKG_VERSION="0.1.2"'
+assert_contains "$branding_pkg" 'OOONANA_PKG_VERSION="0.1.3"'
+assert_contains "$branding_pkg" 'OOONANA_PKG_ARCHIVE="archives/ooonana-branding-0.1.3.tar.gz"'
+assert_contains "$full_pkg" 'OOONANA_PKG_VERSION="0.1.3"'
 assert_contains "$full_pkg" 'OOONANA_PKG_DEPS="base branding i3"'
 
 bash "$ROOT/scripts/import-i3-package-set.sh" \
@@ -161,7 +161,7 @@ bash "$ROOT/scripts/import-i3-package-set.sh" \
 assert_contains "$(<"$out/i3.pkg")" 'OOONANA_PKG_DEPS="i3wm i3status"'
 grep -q '^base	' "$out/index.tsv" || fail "base missing from repo index"
 
-branding_contents="$(tar -tzf "$out/archives/ooonana-branding-0.1.2.tar.gz" | sort)"
+branding_contents="$(tar -tzf "$out/archives/ooonana-branding-0.1.3.tar.gz" | sort)"
 assert_contains "$branding_contents" "./etc/i3/config"
 assert_contains "$branding_contents" "./usr/share/ooonana/logo.svg"
 assert_contains "$branding_contents" "./usr/share/ooonana/logo.png"
@@ -216,7 +216,23 @@ upgrade_dry="$(OOONANA_REPO_DIR="$BUILTIN_REPO" \
   "$CLI" upgrade --dry-run)"
 assert_contains "$upgrade_dry" "would install i3wm"
 assert_contains "$upgrade_dry" "would install i3status"
-assert_contains "$upgrade_dry" "would upgrade i3 0.1.1 -> 0.1.2"
-assert_contains "$upgrade_dry" "would upgrade full-i3 0.1.1 -> 0.1.2"
+assert_contains "$upgrade_dry" "would upgrade i3 0.1.1 -> 0.1.3"
+assert_contains "$upgrade_dry" "would upgrade full-i3 0.1.1 -> 0.1.3"
 
+for dependency in bubblewrap xz curl ca-certificates coreutils; do
+  cat >"$out/$dependency.pkg" <<EOF
+OOONANA_PKG_ID="$dependency"
+OOONANA_PKG_VERSION="1.0"
+OOONANA_PKG_KIND="profile"
+OOONANA_PKG_SUMMARY="Fixture dependency"
+OOONANA_PKG_DEPS=""
+EOF
+done
+bash "$SCRIPT" --out-dir "$out" --packages "i3wm i3status" --metadata-only --include-openvino >/dev/null
+assert_contains "$(<"$out/full-i3.pkg")" 'OOONANA_PKG_DEPS="base branding i3 openvino-chat"'
+assert_contains "$(<"$out/full-i3.pkg")" 'OOONANA_PKG_VERSION="0.1.3"'
+[[ -s "$out/openvino-chat.pkg" ]] || fail "OpenVINO app metadata missing"
+[[ -s "$out/archives/openvino-chat-0.2.0.tar.gz" ]] || fail "OpenVINO app payload missing"
+native_dry="$(OOONANA_ROOT="$tmp/native-root" OOONANA_REPO_DIR="$out" OOONANA_SOURCES_DIR="$sources" OOONANA_STATE_DIR="$tmp/native-state" OOONANA_CACHE_DIR="$tmp/native-cache" "$CLI" get full-i3 --dry-run)"
+assert_contains "$native_dry" 'would install openvino-chat'
 printf 'ok i3-package-set\n'

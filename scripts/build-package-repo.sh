@@ -35,7 +35,7 @@ DEVICECHAT_SOURCE="${OOONANA_DEVICECHAT_SOURCE:-$ROOT/packages/devicechat/source
 BUNANACHAT_SOURCE_DIR="${OOONANA_BUNANACHAT_LINUX_SOURCE:-$ROOT/packages/bunanachat-linux/source/dist}"
 WINDOWS_CHAT_SOURCE="${OOONANA_OONANA_CHAT_WINDOWS_SOURCE:-$ROOT/packages/ooonana-chat-windows/source/OoonanaChat Setup 1.0.0.exe}"
 NATIVE_APK_PACKAGES="nodejs flatpak bluez dbus fontconfig freetype libx11 libice libsm mesa-gl icu-libs zlib libgcc libstdc++"
-CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.9.4}"
+CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.9.5}"
 KERNEL_PACKAGE_PATH="${OOONANA_KERNEL_PACKAGE_PATH:-}"
 KERNEL_PACKAGE_URL="${OOONANA_KERNEL_PACKAGE_URL:-}"
 KERNEL_PACKAGE_SHA256="${OOONANA_KERNEL_SHA256:-}"
@@ -62,7 +62,7 @@ Options:
   --kernel-url URL        Add Ooonana kernel package from remote kernel image
   --kernel-sha256 SHA256  Require this SHA-256 for the kernel image
   --kernel-version VER    Kernel package version (default: 6.18.37-3)
-  --core-version VER      Ooonana system update package version (default: 0.9.4)
+  --core-version VER      Ooonana system update package version (default: 0.9.5)
   --openvino-version VER  OpenVINO Chat package version (default: 0.2.0)
   --devicechat-version VER Native DeviceChat package version (default: 0.1.1)
   --bunanachat-version VER Native BunanaChat Linux package version (default: 0.1.1)
@@ -191,8 +191,8 @@ verify_repo_profile() {
   local work
 
   work="$(mktemp -d)"
-  mkdir -p "$work/sources" "$work/state" "$work/cache"
-  if ! OOONANA_REPO_DIR="$OUT_DIR" \
+  mkdir -p "$work/root" "$work/sources" "$work/state" "$work/cache"
+  if ! OOONANA_ROOT="$work/root" OOONANA_REPO_DIR="$OUT_DIR" \
     OOONANA_SOURCES_DIR="$work/sources" \
     OOONANA_STATE_DIR="$work/state" \
     OOONANA_CACHE_DIR="$work/cache" \
@@ -208,8 +208,8 @@ verify_repo_packages() {
   local work
 
   work="$(mktemp -d)"
-  mkdir -p "$work/sources" "$work/state" "$work/cache"
-  if ! OOONANA_REPO_DIR="$OUT_DIR" \
+  mkdir -p "$work/root" "$work/sources" "$work/state" "$work/cache"
+  if ! OOONANA_ROOT="$work/root" OOONANA_REPO_DIR="$OUT_DIR" \
     OOONANA_SOURCES_DIR="$work/sources" \
     OOONANA_STATE_DIR="$work/state" \
     OOONANA_CACHE_DIR="$work/cache" \
@@ -255,7 +255,7 @@ main() {
       printf 'kernel-version: %s\n' "$KERNEL_PACKAGE_VERSION"
     fi
     if [[ "$FULL_I3" -eq 1 ]]; then
-      ooonana_print_command bash "$IMPORT_I3_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --packages "$package_list"
+      ooonana_print_command bash "$IMPORT_I3_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --packages "$package_list" --include-openvino
     else
       ooonana_print_command bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" $package_list
     fi
@@ -282,10 +282,11 @@ main() {
     return 0
   fi
 
+  [[ ! -f "$OUT_DIR/CURRENT" ]] || ooonana_die "published generations are immutable; build in separate staging directory"
   [[ "$CLEAN" -eq 1 ]] && rm -rf "$OUT_DIR"
   mkdir -p "$OUT_DIR"
   if [[ "$FULL_I3" -eq 1 ]]; then
-    bash "$IMPORT_I3_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --packages "$package_list"
+    bash "$IMPORT_I3_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --packages "$package_list" --include-openvino
   else
     # shellcheck disable=SC2086
     bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" $package_list
@@ -340,6 +341,7 @@ main() {
     cp "$PUBLIC_KEY" "$OUT_DIR/repo.pub"
     chmod 0644 "$OUT_DIR/repo.pub" 2>/dev/null || true
   fi
+  python3 "$ROOT/scripts/record-release-manifest.py" --repo "$OUT_DIR"
   "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$OUT_DIR" >/dev/null
   native_packages="ooonana-core openvino-chat devicechat wine"
   [[ "$bunanachat_built" -eq 1 ]] && native_packages="$native_packages bunanachat"

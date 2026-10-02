@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+"""Fit wallpaper into desktop space while leaving panel and dock clear."""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+import gi
+
+gi.require_version("Gdk", "3.0")
+gi.require_version("GdkPixbuf", "2.0")
+from gi.repository import Gdk, GdkPixbuf  # noqa: E402
+
+
+def main() -> None:
+    if len(sys.argv) != 2:
+        raise SystemExit("usage: ooonana-wallpaper-fit IMAGE")
+    display = Gdk.Display.get_default()
+    root = Gdk.get_default_root_window()
+    if display is None or root is None:
+        raise SystemExit("Wallpaper fit needs an X11 display.")
+    image = GdkPixbuf.Pixbuf.new_from_file(sys.argv[1])
+    width, height = root.get_width(), root.get_height()
+    canvas = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, False, 8, width, height)
+    canvas.fill(0x000000FF)
+    for index in range(display.get_n_monitors()):
+        geometry = display.get_monitor(index).get_geometry()
+        top = min(58, geometry.height // 8)
+        bottom = min(84, geometry.height // 6)
+        available_width = max(1, geometry.width - 24)
+        available_height = max(1, geometry.height - top - bottom)
+        scale = min(available_width / image.get_width(), available_height / image.get_height())
+        image_width = max(1, round(image.get_width() * scale))
+        image_height = max(1, round(image.get_height() * scale))
+        fitted = image.scale_simple(image_width, image_height, GdkPixbuf.InterpType.BILINEAR)
+        left = geometry.x + (geometry.width - image_width) // 2
+        y = geometry.y + top + (available_height - image_height) // 2
+        target_x, target_y = max(0, left), max(0, y)
+        copy_width = min(width, left + image_width) - target_x
+        copy_height = min(height, y + image_height) - target_y
+        if copy_width > 0 and copy_height > 0:
+            fitted.copy_area(target_x - left, target_y - y, copy_width, copy_height,
+                             canvas, target_x, target_y)
+    cache = Path(os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache"))) / "ooonana"
+    cache.mkdir(parents=True, exist_ok=True)
+    target = cache / "wallpaper-fit.png"
+    temporary = cache / f"wallpaper-fit-{os.getpid()}.png"
+    try:
+        canvas.savev(str(temporary), "png", [], [])
+        temporary.replace(target)
+    finally:
+        temporary.unlink(missing_ok=True)
+    subprocess.run(["feh", "--no-xinerama", "--no-fehbg", "--bg-center", str(target)], check=True)
+
+
+if __name__ == "__main__":
+    main()

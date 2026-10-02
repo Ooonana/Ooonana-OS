@@ -12,6 +12,7 @@ DRY_RUN=0
 PREPARE_ONLY=0
 LITE=0
 OUT_SET=0
+NATIVE_RUNTIME=""
 
 usage() {
   cat <<'USAGE'
@@ -27,6 +28,7 @@ Options:
   --work-dir PATH   Work dir outside repo (default: /var/tmp/ooonana-os/linuxpdf)
   --out PATH        Output PDF (default: docs/ooonana.pdf)
   --bits 32|64      linuxpdf machine width (default: 32, faster)
+  --native-runtime PATH  Verified native RISC-V64 kernel/rootfs (implies --bits 64)
   --lite            Build terminal-only docs/ooonana-lite.pdf
   --prepare-only    Clone/patch/inject but do not run old Emscripten build
   --dry-run         Print actions only
@@ -44,6 +46,7 @@ while [[ $# -gt 0 ]]; do
     --work-dir) WORK_DIR="$2"; shift 2 ;;
     --out) OUT="$2"; OUT_SET=1; shift 2 ;;
     --bits) BITS="$2"; shift 2 ;;
+    --native-runtime) NATIVE_RUNTIME="$2"; BITS=64; shift 2 ;;
     --lite) LITE=1; shift ;;
     --prepare-only) PREPARE_ONLY=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
@@ -116,6 +119,18 @@ text = re.sub(
     text,
     flags=re.MULTILINE,
 )
+if "OOONANA_NATIVE_PDF_RUNTIME" not in text:
+    text = text.replace(
+        '  [ "$BITS" = "64" ] && root_dir="build/alpine" || root_dir="build/root"',
+        '  if [ -n "${OOONANA_NATIVE_PDF_RUNTIME:-}" ]; then root_dir="$OOONANA_NATIVE_PDF_RUNTIME/rootfs"; else [ "$BITS" = "64" ] && root_dir="build/alpine" || root_dir="build/root"; fi',
+    )
+    needle = 'sudo cp vm_$BITS.cfg build/vm/bbl$BITS.bin build/vm/kernel-riscv$BITS.bin build/files'
+    text = text.replace(needle, needle + '''
+if [ -n "${OOONANA_NATIVE_PDF_RUNTIME:-}" ]; then
+  sudo cp "$OOONANA_NATIVE_PDF_RUNTIME/kernel-riscv64.bin" build/files/kernel-riscv64.bin
+  sudo cp "$OOONANA_NATIVE_PDF_RUNTIME/RUNTIME-MANIFEST.json" build/files/RUNTIME-MANIFEST.json
+  sudo sed -i 's/console=tty0/console=hvc0 no4lvl/' build/files/vm_64.cfg
+fi''')
 if "OOONANA_PDF_LITE_GENERATOR" not in text:
     needle = "python3 gen_pdf.py out/compiled.js out/linux.pdf"
     replacement = '''# OOONANA_PDF_LITE_GENERATOR
@@ -127,6 +142,7 @@ fi'''
     if needle not in text:
         raise SystemExit("linuxpdf PDF generator patch point missing")
     text = text.replace(needle, replacement)
+text = text.replace("s/console=tty0/console=hvc0/", "s/console=tty0/console=hvc0 no4lvl/")
 build.write_text(text)
 
 gen = Path(sys.argv[2])
@@ -728,6 +744,12 @@ lib = lib.replace(
     'terminal_write(str, true); // OOONANA_SERIAL_CONSOLE_WRITE',
 )
 tinyemu.write_text(lib)
+
+# Apply release labels after all idempotent patches, including cached 0.5 trees.
+for release_file in (gen, lite_gen, display):
+    content = release_file.read_text()
+    content = re.sub(r"Ooonana OS PDF( Lite)? 0\.[0-9]+", r"Ooonana OS PDF\1 0.6", content)
+    release_file.write_text(content)
 PY
 }
 
@@ -737,6 +759,13 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   printf 'work: %s\n' "$SRC"
   printf 'out: %s\n' "$OUT"
   printf 'lite: %s\n' "$LITE"
+fi
+
+if [[ -n "$NATIVE_RUNTIME" && "$DRY_RUN" -eq 0 ]]; then
+  NATIVE_RUNTIME="$(realpath "$NATIVE_RUNTIME")"
+  [[ -f "$NATIVE_RUNTIME/kernel-riscv64.bin" && -x "$NATIVE_RUNTIME/rootfs/bin/busybox" && -f "$NATIVE_RUNTIME/RUNTIME-MANIFEST.json" ]] || {
+    printf 'Incomplete native PDF runtime: %s\n' "$NATIVE_RUNTIME" >&2; exit 2;
+  }
 fi
 
 if [[ ! -d "$SRC/.git" ]]; then
@@ -771,7 +800,7 @@ python3 -m venv "$SRC/.venv"
 "$SRC/.venv/bin/pip" install -r "$SRC/requirements.txt"
 (
   cd "$SRC"
-  OOONANA_SOURCE_ROOT="$ROOT" OOONANA_PDF_BITS="$BITS" OOONANA_PDF_LITE="$LITE" ./build.sh
+  OOONANA_SOURCE_ROOT="$ROOT" OOONANA_PDF_BITS="$BITS" OOONANA_PDF_LITE="$LITE" OOONANA_NATIVE_PDF_RUNTIME="$NATIVE_RUNTIME" ./build.sh
 )
 mkdir -p "$(dirname "$OUT")"
 cp -f "$SRC/out/linux.pdf" "$OUT"

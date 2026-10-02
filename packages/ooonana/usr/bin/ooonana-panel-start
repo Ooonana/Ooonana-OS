@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+command -v polybar >/dev/null 2>&1 || exit 0
+/bin/busybox killall polybar >/dev/null 2>&1 || true
+eval "$(ooonana-window-list --dock-geometry)"
+export OOONANA_DOCK_WIDTH OOONANA_DOCK_OFFSET
+polybar -c /etc/ooonana/polybar.ini ooonana &
+polybar -c /etc/ooonana/polybar.ini ooonana-dock &
+wait

@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from openvino_chat.memory_guard import preflight_model, is_memory_error
 
 from openvino_chat.media import MediaInputs, model_media_capabilities, prepare_media_inputs
 from openvino_chat.settings import (
@@ -400,12 +401,14 @@ def load_engine(
     fallback_device: str = "CPU",
     pipeline_cls: type | None = None,
     kv_cache_precision: str = "auto",
+    context_length: int = 4096,
 ) -> OpenVinoChatEngine:
     pipeline_type = pipeline_cls or _pipeline_cls(model_dir)
     first_device = device.upper()
     second_device = fallback_device.upper()
     model_name = _model_name(model_dir)
     kv_precision = normalize_kv_cache_precision(kv_cache_precision)
+    memory = preflight_model(Path(model_dir), context=context_length, kv_precision=kv_precision)
     properties = {} if kv_precision == "auto" else {"KV_CACHE_PRECISION": kv_precision}
     try:
         pipeline = pipeline_type(model_dir, first_device, **properties)
@@ -416,7 +419,9 @@ def load_engine(
             kv_precision,
             model_dir=model_dir,
         )
-    except Exception:
+    except Exception as exc:
+        if is_memory_error(exc):
+            raise MemoryError("OpenVINO allocation failed. " + memory.message()) from exc
         if first_device == second_device:
             raise
         pipeline = pipeline_type(model_dir, second_device, **properties)

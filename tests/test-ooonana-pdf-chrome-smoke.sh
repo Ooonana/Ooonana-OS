@@ -24,11 +24,13 @@ assert_contains "$body" "--screenshot="
 assert_contains "$body" "Start-Sleep -Milliseconds 100"
 assert_contains "$body" "ooonana.pdf"
 
-if command -v powershell.exe >/dev/null 2>&1; then
+if command -v powershell.exe >/dev/null 2>&1 && powershell.exe -NoProfile -NonInteractive -Command 'exit 0' >/dev/null 2>&1; then
   win_script="$(wslpath -w "$SCRIPT" 2>/dev/null || printf '%s' "$SCRIPT")"
   help="$(powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$win_script" -Help)"
   assert_contains "$help" "Test Ooonana OS PDF in Chrome"
   assert_contains "$help" "Chromium PDF viewer"
+else
+  printf 'skip Windows PDF helper invocation: PowerShell unavailable through this Linux session\n'
 fi
 
 printf 'ok ooonana-pdf-chrome-smoke\n'

@@ -91,6 +91,7 @@ run_inside() {
     --tmpfs /tmp \
     --setenv HOME /root \
     --setenv DEBIAN_FRONTEND noninteractive \
+    --setenv OOONANA_OPENVINO_REFRESH_DEPENDENCIES "${OOONANA_OPENVINO_REFRESH_DEPENDENCIES:-0}" \
     --setenv PATH /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     --chdir / \
     /bin/bash -lc '
@@ -111,9 +112,17 @@ run_inside() {
         /opt/openvino-chat/. /tmp/ooonana-openvino-src/
       chmod -R u+rwX /tmp/ooonana-openvino-src
       find /tmp/ooonana-openvino-src -type d -name "*.egg-info" -prune -exec rm -rf {} +
-      /opt/openvino-venv/bin/python -m pip install --no-cache-dir --upgrade /tmp/ooonana-openvino-src
+      if [ -f /opt/openvino-dependencies.lock ] && [ "$OOONANA_OPENVINO_REFRESH_DEPENDENCIES" != 1 ]; then
+        /opt/openvino-venv/bin/python -m pip install --no-cache-dir --upgrade -c /opt/openvino-dependencies.lock -c /tmp/ooonana-openvino-src/requirements-linux-runtime.lock /tmp/ooonana-openvino-src
+      else
+        /opt/openvino-venv/bin/python -m pip install --no-cache-dir --upgrade -c /tmp/ooonana-openvino-src/requirements-linux-runtime.lock /tmp/ooonana-openvino-src
+      fi
       /opt/openvino-venv/bin/python -c "import openvino, openvino_genai, openvino_chat; print(\"OpenVINO runtime ready\")"
-      sha256sum /opt/openvino-chat/pyproject.toml | awk "{print \$1}" > /.ooonana-openvino-ready
+      /opt/openvino-venv/bin/python -m pip freeze --all | grep -vi "^openvino-chat" > /opt/openvino-dependencies.lock
+      fingerprint=/opt/openvino-chat/pyproject.toml
+      [ ! -f /opt/openvino-chat/APP-MANIFEST.sha256 ] || fingerprint=/opt/openvino-chat/APP-MANIFEST.sha256
+      sha256sum "$fingerprint" | awk "{print \$1}" > /.ooonana-openvino-ready
+      /opt/openvino-venv/bin/python -c "import json,importlib.metadata as m; print(json.dumps({\"openvino\":m.version(\"openvino\"),\"genai\":m.version(\"openvino-genai\"),\"validation\":\"import-only\",\"inference_validated\":False},sort_keys=True))" > /opt/openvino-runtime-manifest.json
     '
 }
 

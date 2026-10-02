@@ -1,5 +1,6 @@
 *.sh text eol=lf
 *.desktop text eol=lf
+*.ini text eol=lf
 scripts/install-ooonana-ai-wsl.sh text eol=lf
 packages/ooonana/usr/bin/ooonana text eol=lf
 packages/ooonana/usr/bin/ooonana-setup text eol=lf

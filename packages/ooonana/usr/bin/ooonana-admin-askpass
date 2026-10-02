@@ -1,0 +1,29 @@
+#!/usr/bin/python3
+"""Sudo askpass: secret goes only to sudo-owned pipe, never to logs or state."""
+import sys
+sys.path.insert(0, "/usr/lib/ooonana/ui")
+from common import Gtk, apply_theme, header, label
+
+apply_theme()
+dialog = Gtk.Dialog(title="Authorize administration", modal=True)
+header(dialog, "Authorize", "Password required for system changes", "security-high-symbolic")
+dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Authorize", Gtk.ResponseType.OK)
+area = dialog.get_content_area()
+area.set_border_width(20)
+area.set_spacing(12)
+area.pack_start(label("Enter your account password."), False, False, 0)
+entry = Gtk.Entry()
+entry.set_visibility(False)
+entry.set_input_purpose(Gtk.InputPurpose.PASSWORD)
+entry.set_activates_default(True)
+area.pack_start(entry, False, False, 0)
+dialog.set_default_response(Gtk.ResponseType.OK)
+dialog.show_all()
+entry.grab_focus()
+accepted = dialog.run() == Gtk.ResponseType.OK
+secret = entry.get_text() if accepted else ""
+entry.set_text("")
+dialog.destroy()
+if not accepted or not secret:
+    sys.exit(1)
+sys.stdout.write(secret + "\n")

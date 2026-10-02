@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Ooonana Notifications
+Comment=Notification history and Do Not Disturb
+Exec=ooonana-notifications
+Icon=dialog-information-symbolic
+Terminal=false
+Categories=System;Utility;

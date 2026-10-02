@@ -9,7 +9,9 @@ from pathlib import Path
 ui_dir = Path(__file__).resolve().parents[1] / "packages/ooonana/usr/lib/ooonana/ui"
 sys.path.insert(0, str(ui_dir))
 
-from common import CSS, Gtk, apply_theme  # noqa: E402
+from common import CSS, WINDOW_CONTROL_CSS, Gtk, apply_theme, host_radio_unavailable, icon  # noqa: E402
+from wifi_app import WifiWindow  # noqa: E402
+from bluetooth_app import BluetoothWindow  # noqa: E402
 from settings_app import SettingsWindow  # noqa: E402
 from setup_app import SetupWindow  # noqa: E402
 from task_manager_app import TaskManagerWindow, cpu_totals, meminfo_values, parse_process_stat, thermal_fan_snapshot  # noqa: E402
@@ -24,14 +26,30 @@ provider = Gtk.CssProvider()
 provider.connect("parsing-error", lambda _provider, _section, error: errors.append(error.message))
 provider.load_from_data(CSS)
 assert not errors, errors
+provider.load_from_data(WINDOW_CONTROL_CSS)
+assert not errors, errors
 for css_path in sys.argv[1:]:
     errors.clear()
     provider.load_from_path(css_path)
     assert not errors, (css_path, errors)
 apply_theme()
+for name in ("preferences-desktop-theme-symbolic", "preferences-desktop-peripherals-symbolic", "utilities-system-monitor-symbolic"):
+    selected, _size = icon(name).get_icon_name()
+    assert Gtk.IconTheme.get_default().has_icon(selected), (name, selected)
+if host_radio_unavailable("wifi"):
+    wifi = WifiWindow()
+    assert "Windows" in wifi.service_label.get_text()
+    assert not wifi.toolbar.get_sensitive()
+if host_radio_unavailable("bluetooth"):
+    bluetooth = BluetoothWindow()
+    assert "Windows" in bluetooth.service_status.get_text()
+    assert not bluetooth.toolbar.get_sensitive()
 
 setup = SetupWindow()
-assert setup.get_default_size() == (800, 600)
+controls = next(child for child in setup.get_titlebar().get_children() if isinstance(child, Gtk.Box))
+assert [widget.get_accessible().get_name() for widget in controls.get_children()] == ["Close window", "Minimize window", "Toggle fullscreen"]
+assert setup.get_default_size().width == 800
+assert 320 <= setup.get_default_size().height <= 600
 assert not setup.static_revealer.get_reveal_child()
 setup.network_combo.set_active_id("static")
 assert setup.static_revealer.get_reveal_child()

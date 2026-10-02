@@ -24,6 +24,15 @@ assert_not_contains() {
   [[ "$haystack" != *"$needle"* ]] || fail "unexpected: $needle"
 }
 
+cached_repo() {
+  local path="$1"
+  if [[ -f "$path/CURRENT" ]]; then
+    printf '%s/generations/%s\n' "$path" "$(<"$path/CURRENT")"
+  else
+    printf '%s\n' "$path"
+  fi
+}
+
 assert_not_contains "$CLI_SRC" "<("
 assert_not_contains "$CLI_SRC" "[["
 assert_not_contains "$CLI_SRC" "local -a"
@@ -47,7 +56,7 @@ export OOONANA_CACHE_DIR="$tmp/cache"
 export OOONANA_ROOT="$tmp/root"
 
 help="$("$CLI" help)"
-assert_contains "$help" "ooonana 0.9.4"
+assert_contains "$help" "ooonana 0.9.5"
 assert_contains "$help" "Usage: ooonana [options] command"
 assert_contains "$help" "Most used commands:"
 assert_contains "$help" "  list - list packages based on names or installed state"
@@ -535,9 +544,9 @@ http_update="$(OOONANA_SOURCES_DIR="$http_sources" \
   "$CLI" update)"
 assert_contains "$http_update" "from 2 source(s)"
 assert_contains "$http_update" "metadata-only"
-[[ -f "$http_cache/repos/cloud/index.tsv" ]] || fail "missing remote cached index"
-[[ -f "$http_cache/repos/cloud/SHA256SUMS" ]] || fail "missing remote cached checksums"
-[[ ! -f "$http_cache/repos/cloud/archives/nano-1.0-r0.tar.gz" ]] || fail "update must not download archives"
+[[ -f "$(cached_repo "$http_cache/repos/cloud")/index.tsv" ]] || fail "missing remote cached index"
+[[ -f "$(cached_repo "$http_cache/repos/cloud")/SHA256SUMS" ]] || fail "missing remote cached checksums"
+[[ ! -f "$(cached_repo "$http_cache/repos/cloud")/archives/nano-1.0-r0.tar.gz" ]] || fail "update must not download archives"
 assert_contains "$(<"$http_cache/index.tsv")" "cloud"
 assert_contains "$(<"$http_cache/index.tsv")" "nano"
 http_search="$(OOONANA_SOURCES_DIR="$http_sources" \
@@ -545,7 +554,7 @@ http_search="$(OOONANA_SOURCES_DIR="$http_sources" \
   OOONANA_CACHE_DIR="$http_cache" \
   "$CLI" search nano)"
 assert_contains "$http_search" "nano"
-[[ ! -f "$http_cache/repos/cloud/nano.pkg" ]] || fail "search must use cached index, not download remote pkg metadata"
+[[ ! -f "$(cached_repo "$http_cache/repos/cloud")/nano.pkg" ]] || fail "search must use cached index, not download remote pkg metadata"
 
 python_fallback_bin="$tmp/python-fallback-bin"
 python_fallback_sources="$tmp/python-fallback-sources"
@@ -553,7 +562,7 @@ python_fallback_state="$tmp/python-fallback-state"
 python_fallback_cache="$tmp/python-fallback-cache"
 python_fallback_log="$tmp/python-fallback.log"
 mkdir -p "$python_fallback_bin" "$python_fallback_sources"
-for cmd in awk bash cat cp cut dirname grep mkdir mv rm sed sha256sum sort tar tr; do
+for cmd in awk bash cat chmod cp cut dirname grep mkdir mktemp mv rm sed sha256sum sort tar tr; do
   ln -sf "$(command -v "$cmd")" "$python_fallback_bin/$cmd"
 done
 cat > "$python_fallback_bin/wget" <<'EOF'
@@ -596,14 +605,14 @@ python_fallback_update="$(PATH="$python_fallback_bin" \
 assert_contains "$python_fallback_update" "from 2 source(s)"
 assert_contains "$(<"$python_fallback_log")" "index.tsv"
 assert_contains "$(<"$python_fallback_log")" "SHA256SUMS"
-[[ -f "$python_fallback_cache/repos/cloud/index.tsv" ]] || fail "missing python fallback cached index"
+[[ -f "$(cached_repo "$python_fallback_cache/repos/cloud")/index.tsv" ]] || fail "missing python fallback cached index"
 
 offline_bin="$tmp/offline-bin"
 offline_sources="$tmp/offline-sources"
 offline_state="$tmp/offline-state"
 offline_cache="$tmp/offline-cache"
 mkdir -p "$offline_bin" "$offline_sources"
-for cmd in awk cat cp cut dirname grep mkdir mv rm sed sha256sum sort tar tr wc; do
+for cmd in awk cat chmod cp cut dirname grep mkdir mktemp mv rm sed sha256sum sort tar tr wc; do
   ln -sf "$(command -v "$cmd")" "$offline_bin/$cmd"
 done
 cat > "$offline_bin/python3" <<'EOF'
@@ -646,8 +655,8 @@ http_install="$(OOONANA_SOURCES_DIR="$http_sources" \
 assert_contains "$http_install" "unpacked archives/nano-1.0-r0.tar.gz"
 assert_contains "$http_install" "installed nano"
 [[ -x "$http_install_root/usr/bin/nano" ]] || fail "remote package did not install executable"
-[[ -f "$http_cache/repos/cloud/nano.pkg" ]] || fail "missing remote cached pkg"
-[[ -f "$http_cache/repos/cloud/archives/nano-1.0-r0.tar.gz" ]] || fail "missing remote cached archive"
+[[ -f "$(cached_repo "$http_cache/repos/cloud")/nano.pkg" ]] || fail "missing remote cached pkg"
+[[ -f "$(cached_repo "$http_cache/repos/cloud")/archives/nano-1.0-r0.tar.gz" ]] || fail "missing remote cached archive"
 
 http_verify="$(OOONANA_SOURCES_DIR="$http_sources" \
   OOONANA_STATE_DIR="$http_state" \
@@ -672,10 +681,10 @@ release_update="$(OOONANA_SOURCES_DIR="$release_sources" \
   OOONANA_CACHE_DIR="$release_cache" \
   "$CLI" update)"
 assert_contains "$release_update" "from 2 source(s)"
-[[ -f "$release_cache/repos/release/index.tsv" ]] || fail "missing release cached index"
-[[ -f "$release_cache/repos/release/SHA256SUMS" ]] || fail "missing release cached checksums"
-[[ -f "$release_cache/repos/release/nano.pkg" ]] || fail "missing release cached pkg"
-[[ -f "$release_cache/repos/release/archives/nano-1.0-r0.tar.gz" ]] || fail "missing release cached archive"
+[[ -f "$(cached_repo "$release_cache/repos/release")/index.tsv" ]] || fail "missing release cached index"
+[[ -f "$(cached_repo "$release_cache/repos/release")/SHA256SUMS" ]] || fail "missing release cached checksums"
+[[ -f "$(cached_repo "$release_cache/repos/release")/nano.pkg" ]] || fail "missing release cached pkg"
+[[ -f "$(cached_repo "$release_cache/repos/release")/archives/nano-1.0-r0.tar.gz" ]] || fail "missing release cached archive"
 
 release_dry="$(OOONANA_SOURCES_DIR="$release_sources" \
   OOONANA_STATE_DIR="$release_state" \
@@ -724,7 +733,7 @@ http_upgrade="$(OOONANA_SOURCES_DIR="$http_sources" \
   "$CLI" upgrade nano)"
 assert_contains "$http_upgrade" "upgraded nano 1.0-r0 -> 2.0-r0"
 assert_contains "$($http_install_root/usr/bin/nano)" "fake nano v2"
-[[ -f "$http_cache/repos/cloud/archives/nano-2.0-r0.tar.gz" ]] || fail "remote upgrade did not cache archive"
+[[ -f "$(cached_repo "$http_cache/repos/cloud")/archives/nano-2.0-r0.tar.gz" ]] || fail "remote upgrade did not cache archive"
 
 private_sources="$tmp/private-release-sources"
 private_state="$tmp/private-release-state"
@@ -790,8 +799,8 @@ private_update="$(PATH="$fake_bin:$PATH" \
 assert_contains "$private_update" "from 2 source(s)"
 assert_contains "$(<"$fake_curl_log")" "https://api.github.com/repos/acme/lab/releases/tags/packages-latest auth=1 json=1"
 assert_contains "$(<"$fake_curl_log")" "https://api.github.com/repos/acme/lab/releases/assets/42 auth=1"
-[[ -f "$private_cache/repos/private/index.tsv" ]] || fail "missing private release cached index"
-[[ -f "$private_cache/repos/private/nano.pkg" ]] || fail "missing private release cached pkg"
+[[ -f "$(cached_repo "$private_cache/repos/private")/index.tsv" ]] || fail "missing private release cached index"
+[[ -f "$(cached_repo "$private_cache/repos/private")/nano.pkg" ]] || fail "missing private release cached pkg"
 
 index_repo="$tmp/index-repo"
 index_payload="$tmp/index-payload"

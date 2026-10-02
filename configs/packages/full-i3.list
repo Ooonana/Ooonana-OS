@@ -1,4 +1,5 @@
 # Ooonana full-i3 cloud package repo seed.
+# Native OpenVINO Chat is included by the full-i3 wrapper, not imported as an APK.
 bash
 perl
 python3

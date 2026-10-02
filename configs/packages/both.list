@@ -1,5 +1,6 @@
 # Ooonana combined cloud package repo seed.
 # Minimal CLI seed plus full-i3 desktop seed.
+# Native OpenVINO Chat is included by the full-i3 wrapper, not imported as an APK.
 nano
 bash
 perl

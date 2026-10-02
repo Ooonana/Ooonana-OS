@@ -1,0 +1,30 @@
+#!/bin/sh
+set -eu
+case "${1:-}" in
+  --toggle) exec dunstctl set-paused toggle ;;
+  '') ;;
+  *) echo 'usage: ooonana-notification-status [--toggle]' >&2; exit 2 ;;
+esac
+if command -v python3 >/dev/null 2>&1 && [ -f /usr/lib/ooonana/ui/notification_utils.py ]; then
+  exec python3 /usr/lib/ooonana/ui/notification_utils.py --badge
+fi
+if ! command -v dunstctl >/dev/null 2>&1; then
+  printf '%%{T2}\357\203\263%%{T-} --\n'
+  exit 0
+fi
+paused="$(dunstctl is-paused 2>/dev/null || true)"
+if [ "$paused" = true ]; then
+  printf '%%{T2}\357\207\266%%{T-} DND\n'
+  exit 0
+fi
+total=0
+for queue in history displayed waiting; do
+  count="$(dunstctl count "$queue" 2>/dev/null || true)"
+  case "$count" in ''|*[!0-9]*) count=0 ;; esac
+  total=$((total + count))
+done
+if [ "$total" -gt 0 ]; then
+  printf '%%{T2}\357\203\263%%{T-} %s\n' "$total"
+else
+  printf '%%{T2}\357\203\263%%{T-}\n'
+fi

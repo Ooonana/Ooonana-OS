@@ -102,4 +102,29 @@ assert_contains "$source_text" 'QEMU_ACCEL=tcg,thread=multi'
 assert_contains "$source_text" '-accel "$QEMU_ACCEL"'
 assert_contains "$(<"$ROOT/scripts/build-full-i3-iso.sh")" 'OOONANA_MAX_ISO_BYTES:-4500000000'
 
+fingerprint_work="$(mktemp -d)"
+trap 'rm -rf "$fingerprint_work"' EXIT
+ROOT="$fingerprint_work/source"
+REPO="$fingerprint_work/repo"
+KERNEL="$fingerprint_work/kernel"
+KERNEL_CONFIG="$fingerprint_work/kernel-config"
+mkdir -p "$ROOT/branding" "$ROOT/packages/ooonana" "$REPO"
+for input in configs/packages/full-i3.list scripts/build-scratch-rootfs.sh scripts/build-scratch-initramfs.sh scripts/build-full-i3-rootfs.sh scripts/build-full-i3-live-initramfs.sh scripts/build-full-i3-disk.sh scripts/build-full-i3-iso.sh scripts/install-intel-wireless-firmware.sh; do
+  install -D -m 0644 /dev/null "$ROOT/$input"
+done
+touch "$KERNEL" "$KERNEL_CONFIG" "$REPO/SHA256SUMS" "$REPO/i3.pkg"
+unset OOONANA_PERSONAL_CURSOR_DIR OOONANA_PERSONAL_CURSOR_SIZE
+eval "$(sed -n '/^release_input_fingerprint() {$/,/^}$/p' "$SCRIPT")"
+fingerprint_before="$(release_input_fingerprint)"
+mkdir -p "$ROOT/packages/ooonana/usr/lib/ooonana/ui/__pycache__"
+printf 'generated cache\n' >"$ROOT/packages/ooonana/usr/lib/ooonana/ui/__pycache__/module.pyc"
+[[ "$(release_input_fingerprint)" == "$fingerprint_before" ]] || fail "Python cache changes release inputs"
+printf 'real source\n' >"$ROOT/packages/ooonana/usr/lib/ooonana/ui/module.py"
+[[ "$(release_input_fingerprint)" != "$fingerprint_before" ]] || fail "Native source missing from release inputs"
+OOONANA_PERSONAL_CURSOR_DIR="$fingerprint_work/personal-cursor"
+mkdir -p "$OOONANA_PERSONAL_CURSOR_DIR"
+printf '19\n' >"$OOONANA_PERSONAL_CURSOR_DIR/cursor-size"
+fingerprint_before="$(release_input_fingerprint)"
+OOONANA_PERSONAL_CURSOR_SIZE=20
+[[ "$(release_input_fingerprint)" != "$fingerprint_before" ]] || fail "Personal cursor size missing from release inputs"
 printf 'ok rebuild-full-i3-release\n'

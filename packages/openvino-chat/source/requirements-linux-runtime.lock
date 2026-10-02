@@ -1,0 +1,7 @@
+# Linux x86_64 / Python 3.12 import smoke: 2026-10-02.
+# Pins core bindings; model inference and GPU remain separately verified.
+openvino==2026.4.1
+openvino-genai==2026.4.1.0
+openvino-tokenizers==2026.4.1.0
+numpy==2.5.3
+psutil==7.2.2

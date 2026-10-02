@@ -9,7 +9,8 @@ OUT_DIR="$ROOT/packages/ooonana/usr/lib/ooonana/repo"
 REPO_ARGS=()
 DEFAULT_I3_PROFILE="$ROOT/configs/packages/full-i3.list"
 I3_PACKAGES=""
-BRANDING_VERSION="0.1.2"
+INCLUDE_OPENVINO=auto
+BRANDING_VERSION="0.1.3"
 SOF_REPO_URL="https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64"
 METADATA_ONLY=0
 INDEX_REPO=1
@@ -26,6 +27,7 @@ Options:
   --out-dir PATH      Ooonana repo output directory
   --packages "LIST"   Space-separated APK packages for the i3 bundle
   --metadata-only     Refresh bundle metadata/index from packages already present
+  --include-openvino  Include native OpenVINO Chat in the full-i3 install profile
   --no-index          Write package metadata without rebuilding repository index
   -h, --help          Show help
 USAGE
@@ -37,6 +39,7 @@ while [[ $# -gt 0 ]]; do
     --out-dir) OUT_DIR="$2"; shift 2 ;;
     --packages) I3_PACKAGES="$2"; shift 2 ;;
     --metadata-only) METADATA_ONLY=1; shift ;;
+    --include-openvino) INCLUDE_OPENVINO=1; shift ;;
     --no-index) INDEX_REPO=0; shift ;;
     -h|--help) usage; exit 0 ;;
     *) ooonana_die "unknown option: $1" ;;
@@ -128,7 +131,12 @@ main() {
   [[ -f "$ROOT/branding/desktop-0.9.png" ]] || ooonana_die "missing branding/desktop-0.9.png"
   [[ -f "$ROOT/branding/i3/config" ]] || ooonana_die "missing branding/i3/config"
   mkdir -p "$OUT_DIR"
-  [[ -n "$I3_PACKAGES" ]] || I3_PACKAGES="$(load_default_packages)"
+  if [[ -z "$I3_PACKAGES" ]]; then
+    I3_PACKAGES="$(load_default_packages)"
+    if [[ "$INCLUDE_OPENVINO" == auto ]]; then INCLUDE_OPENVINO=1; fi
+  elif [[ "$INCLUDE_OPENVINO" == auto ]]; then
+    INCLUDE_OPENVINO=0
+  fi
 
   if [[ "$METADATA_ONLY" -eq 0 ]]; then
     # shellcheck disable=SC2086
@@ -178,13 +186,22 @@ main() {
     "xorg i3 dmenu feh xterm" \
     "Wrapper package for imported Alpine i3 desktop payloads"
 
+  full_deps="base branding i3"
+  full_version="$BRANDING_VERSION"
+  if [[ "$INCLUDE_OPENVINO" == 1 ]]; then
+    bash "${OOONANA_OPENVINO_CHAT_PACKAGE_SCRIPT:-$ROOT/scripts/build-openvino-chat-package.sh}" \
+      --out-dir "$OUT_DIR" --version "${OOONANA_OPENVINO_CHAT_VERSION:-0.2.0}"
+    full_deps="$full_deps openvino-chat"
+    full_version=0.1.3
+  fi
+
   write_pkg \
     "$OUT_DIR/full-i3.pkg" \
     "full-i3" \
-    "$BRANDING_VERSION" \
+    "$full_version" \
     "profile" \
     "Ooonana full i3 desktop profile" \
-    "base branding i3" \
+    "$full_deps" \
     "" \
     "" \
     "edition full-i3" \

@@ -45,7 +45,12 @@ done
 if [ -n "$image" ] && [ -f "$image" ] && command -v feh >/dev/null 2>&1; then
   command -v xsetroot >/dev/null 2>&1 && xsetroot -solid "$color" 2>/dev/null || true
   case "$mode" in
-    fit) exec feh --bg-max "$image" ;;
+    fit)
+      if command -v ooonana-wallpaper-fit >/dev/null 2>&1; then
+        exec ooonana-wallpaper-fit "$image"
+      fi
+      exec feh --bg-max "$image"
+      ;;
     fill) exec feh --bg-fill "$image" ;;
     center) exec feh --bg-center "$image" ;;
     stretch) exec feh --bg-scale "$image" ;;

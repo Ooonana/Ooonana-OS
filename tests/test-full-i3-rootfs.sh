@@ -148,7 +148,7 @@ EOF
 chmod +x "$scratch/bin/busybox"
 cat > "$scratch/usr/bin/ooonana" <<'EOF'
 #!/bin/sh
-echo ooonana 0.9.4
+echo ooonana 0.9.5
 EOF
 chmod +x "$scratch/usr/bin/ooonana"
 cat > "$scratch/usr/bin/ooonana-setup" <<'EOF'
@@ -290,7 +290,8 @@ fi
 [[ -x "$rootfs/usr/bin/wget" ]] || fail "missing wget fallback"
 [[ -x "$rootfs/usr/bin/ooonana-wallpaper" ]] || fail "missing wallpaper helper"
 [[ -x "$rootfs/usr/bin/hsetroot" ]] || fail "missing hsetroot fallback"
-[[ -x "$rootfs/usr/bin/xsettingsd" ]] || fail "missing xsettingsd fallback"
+[[ -x "$rootfs/usr/bin/ooonana-panel-start" ]] || fail "missing panel launcher"
+[[ -x "$rootfs/usr/bin/ooonana-wallpaper-fit" ]] || fail "missing desktop wallpaper fit"
 [[ -x "$rootfs/usr/bin/ooonana-screenshot" ]] || fail "missing screenshot helper"
 [[ -x "$rootfs/usr/bin/ooonana-editor" ]] || fail "missing editor helper"
 [[ -x "$rootfs/usr/bin/ooonana-music" ]] || fail "missing music helper"
@@ -367,15 +368,28 @@ assert_contains "$(<"$rootfs/etc/group")" "video:x:44:ooonana"
 assert_contains "$(<"$rootfs/etc/passwd")" "ooonana:x:1000:1000:Ooonana Live User:/home/ooonana:/bin/sh"
 assert_contains "$(<"$rootfs/etc/passwd")" "messagebus:x:81:81:DBus Message Bus:/run/dbus:/bin/false"
 assert_contains "$(<"$rootfs/etc/passwd")" "pulse:x:70:70:PulseAudio:/run/pulse:/bin/false"
-assert_contains "$(<"$rootfs/etc/doas.d/ooonana.conf")" "permit nopass keepenv :wheel"
-assert_contains "$(<"$rootfs/etc/doas.conf")" "permit nopass keepenv :wheel"
+assert_contains "$(<"$rootfs/etc/doas.d/ooonana.conf")" "permit nopass :wheel"
+assert_contains "$(<"$rootfs/etc/doas.conf")" "permit nopass :wheel"
 assert_contains "$(<"$rootfs/etc/sudoers.d/ooonana")" '%wheel ALL=(ALL:ALL) NOPASSWD: ALL'
 assert_contains "$(<"$rootfs/etc/wsl.conf")" "default=ooonana"
 assert_contains "$(<"$rootfs/etc/wsl.conf")" "mountFsTab=false"
-assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS 0.9.4"'
+assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS 0.9.5"'
 [[ "$(head -c 4 "$rootfs/usr/share/icons/OoonanaTailless/cursors/left_ptr")" == Xcur ]] || fail "tailless cursor missing or invalid"
+python3 - "$rootfs/usr/share/icons/OoonanaTailless/cursors/left_ptr" <<'PY'
+import struct
+import sys
+
+with open(sys.argv[1], "rb") as stream:
+    data = stream.read()
+magic, header_bytes, _version, count = struct.unpack_from("<4sIII", data)
+assert magic == b"Xcur" and header_bytes == 16
+sizes = {struct.unpack_from("<III", data, 16 + index * 12)[1] for index in range(count)}
+assert 17 in sizes, sizes
+PY
 assert_contains "$(<"$rootfs/usr/share/icons/default/index.theme")" 'Inherits=OoonanaTailless'
 assert_contains "$(<"$rootfs/etc/gtk-3.0/settings.ini")" 'gtk-cursor-theme-name=OoonanaTailless'
+assert_contains "$(<"$rootfs/etc/gtk-3.0/settings.ini")" 'gtk-cursor-theme-size=17'
+[[ ! -d "$rootfs/usr/lib/ooonana/ui/__pycache__" ]] || fail "full rootfs copied native UI bytecode cache"
 assert_contains "$(<"$rootfs/etc/ooonana/xsettingsd.conf")" 'Gtk/CursorThemeName "OoonanaTailless"'
 [[ "$(<"$rootfs/etc/ooonana/default-user")" == "ooonana" ]] || fail "wrong default desktop user"
 [[ -s "$rootfs/etc/machine-id" ]] || fail "missing machine-id"
@@ -482,13 +496,13 @@ assert_contains "$i3_installer_session" "exec i3"
 i3_config="$(<"$rootfs/etc/i3/config")"
 assert_contains "$i3_config" 'bindsym $mod+Shift+a exec ooonana-ai-launch'
 assert_contains "$i3_config" 'bindsym $mod+Shift+o exec ooonana-packages-app'
-assert_contains "$i3_config" "polybar -c /etc/ooonana/polybar.ini ooonana"
+assert_contains "$i3_config" "ooonana-panel-start"
 assert_contains "$i3_config" "picom --backend glx --config /etc/ooonana/picom.conf"
 assert_contains "$i3_config" "picom --backend xrender --config /etc/ooonana/picom.conf"
 assert_contains "$i3_config" "--backend glx"
 assert_contains "$i3_config" "--backend xrender"
 assert_contains "$i3_config" "dunst -config /etc/ooonana/dunstrc"
-assert_contains "$i3_config" "xsettingsd -c /etc/ooonana/xsettingsd.conf"
+assert_contains "$i3_config" '/ooonana/xsettingsd.conf'
 assert_contains "$i3_config" "[ -S /run/dbus/system_bus_socket ] && nm-applet --indicator"
 assert_contains "$i3_config" "ls /sys/class/bluetooth/hci*"
 assert_contains "$i3_config" "then blueman-applet"
@@ -796,8 +810,7 @@ OOONANA_WALLPAPER_TEST_LOG="$wallpaper_test/args" \
   "$rootfs/usr/bin/ooonana-wallpaper" --mode fit "$wallpaper_test/image.jpg"
 [[ "$(<"$wallpaper_test/args")" == "-fit $wallpaper_test/image.jpg" ]] || fail "wallpaper fit mode not applied"
 [[ "$(<"$wallpaper_test/home/.config/ooonana/wallpaper-mode")" == "fit" ]] || fail "wallpaper mode not saved"
-xsettingsd_helper="$(<"$rootfs/usr/bin/xsettingsd")"
-assert_contains "$xsettingsd_helper" "Ooonana xsettingsd compatibility daemon"
+[[ ! -e "$rootfs/usr/bin/xsettingsd" ]] || fail "unexpected idle xsettingsd placeholder"
 screenshot_helper="$(<"$rootfs/usr/bin/ooonana-screenshot")"
 assert_contains "$screenshot_helper" "maim"
 assert_contains "$screenshot_helper" "Pictures/Ooonana"
@@ -893,21 +906,25 @@ assert_contains "$polybar_cfg" "click-left = i3-msg move scratchpad"
 assert_contains "$polybar_cfg" "click-right = i3-msg scratchpad show"
 assert_contains "$polybar_cfg" "[module/win-full]"
 assert_contains "$polybar_cfg" "click-left = i3-msg fullscreen toggle"
-assert_contains "$polybar_cfg" "modules-left = brand workspaces win-min win-full win-close"
-assert_contains "$polybar_cfg" "modules-center = media"
+assert_contains "$polybar_cfg" "modules-left = brand workspaces win-close win-min win-full media"
+assert_contains "$polybar_cfg" "modules-center = ai"
+assert_contains "$polybar_cfg" "click-left = ooonana-notifications"
+assert_contains "$polybar_cfg" "click-left = ooonana-ai-launch"
 assert_contains "$polybar_cfg" "[bar/ooonana-dock]"
-assert_contains "$polybar_cfg" "width = 52%"
-assert_contains "$polybar_cfg" "offset-x = 24%"
+assert_contains "$polybar_cfg" 'width = ${env:OOONANA_DOCK_WIDTH:524}'
+assert_contains "$polybar_cfg" 'offset-x = ${env:OOONANA_DOCK_OFFSET:378}'
 assert_contains "$polybar_cfg" 'Font Awesome 6 Free Solid:size=15;2'
 assert_contains "$polybar_cfg" "modules-center = dock-apps"
-assert_contains "$polybar_cfg" "exec = ooonana-window-list --dock"
+assert_contains "$polybar_cfg" "exec = ooonana-window-list --watch-dock"
+assert_contains "$polybar_cfg" "tail = true"
 assert_contains "$polybar_cfg" "override-redirect = true"
 assert_contains "$polybar_cfg" "[module/music]"
 assert_contains "$polybar_cfg" "[module/memory]"
 assert_contains "$polybar_cfg" "[module/windows]"
 assert_contains "$polybar_cfg" "exec = ooonana-window-list"
 assert_contains "$polybar_cfg" "click-right = ooonana-window-list --actions"
-assert_contains "$polybar_cfg" "modules-right = memory audio brightness battery bluetooth wifi date power"
+assert_contains "$polybar_cfg" "modules-right = memory audio battery wifi notifications controls date power"
+assert_contains "$polybar_cfg" "click-left = ooonana-settings-launch --page hardware"
 assert_contains "$polybar_cfg" "exec = ooonana-audio-status"
 assert_contains "$polybar_cfg" "exec = ooonana-wifi-status"
 assert_contains "$polybar_cfg" "exec = ooonana-bluetooth-status"
@@ -1157,7 +1174,7 @@ assert_contains "$contents" "./usr/bin/ooonana-install-wizard"
 assert_contains "$contents" "./usr/bin/ooonana-ai-app"
 assert_contains "$contents" "./usr/bin/ooonana-ai-launch"
 assert_contains "$contents" "./usr/bin/hsetroot"
-assert_contains "$contents" "./usr/bin/xsettingsd"
+assert_contains "$contents" "./usr/bin/ooonana-panel-start"
 assert_contains "$contents" "./usr/bin/ooonana-screenshot"
 assert_contains "$contents" "./usr/bin/ooonana-editor"
 assert_contains "$contents" "./usr/bin/ooonana-music"

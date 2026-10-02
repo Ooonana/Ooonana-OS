@@ -646,6 +646,32 @@ apply_install_config() {
   write_hostname "$root"
   write_theme "$root"
   write_cloud_repo "$root"
+  # Live-media passwordless privileges never propagate into installed system.
+  mkdir -p "$root/etc/doas.d" "$root/etc/sudoers.d" "$root/etc/profile.d"
+  printf 'permit persist :wheel\n' >"$root/etc/doas.conf"
+  cp "$root/etc/doas.conf" "$root/etc/doas.d/ooonana.conf"
+  chmod 0400 "$root/etc/doas.conf" "$root/etc/doas.d/ooonana.conf"
+  printf '%%wheel ALL=(ALL:ALL) ALL\n' >"$root/etc/sudoers.d/ooonana"
+  chmod 0440 "$root/etc/sudoers.d/ooonana"
+  printf 'installed\n' >"$root/etc/ooonana/system-mode"
+  cat >"$root/etc/inittab" <<'LOGIN'
+::sysinit:/etc/init.d/rcS
+tty1::respawn:/sbin/getty 38400 tty1
+tty2::respawn:/sbin/getty 38400 tty2
+::ctrlaltdel:/sbin/reboot
+::shutdown:/bin/umount -a -r
+LOGIN
+  cat >"$root/etc/profile.d/ooonana-session.sh" <<'SESSION'
+if [ "$(id -u)" != 0 ] && [ -z "${DISPLAY:-}" ] &&
+  [ "$(tty 2>/dev/null)" = /dev/tty1 ] && [ -x /usr/bin/start-ooonana-i3 ]; then
+  exec /usr/bin/start-ooonana-i3
+fi
+SESSION
+  # Disable root password login. User can authorize administration through sudo.
+  awk -F: 'BEGIN { OFS=FS } $1=="root" { $2="!" } { print }' "$root/etc/shadow" >"$root/etc/shadow.login.$$"
+  mv "$root/etc/shadow.login.$$" "$root/etc/shadow"
+  chmod 0600 "$root/etc/shadow"
+  printf 'installed login: password required; live admin policy removed\n'
 }
 
 swap_start_boundary() {
@@ -849,6 +875,8 @@ if [[ "$PASSWORD_STDIN" -eq 1 && "$DRY_RUN" -eq 0 ]]; then
 fi
 
 if [[ "$DRY_RUN" -eq 0 ]]; then
+  [[ -n "$USER_NAME" && "$PASSWORD_STDIN" -eq 1 && -n "$PASSWORD_VALUE" ]] ||
+    die "installed system requires --user NAME and nonempty --password-stdin before formatting"
   [[ "${EUID:-$(id -u)}" -eq 0 ]] || die "run as root"
   [[ -e "$TARGET" ]] || die "target missing: $TARGET"
   [[ -d "$SOURCE" ]] || die "source missing: $SOURCE"

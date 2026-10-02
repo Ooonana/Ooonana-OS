@@ -20,6 +20,7 @@ from common import (  # noqa: E402
     launch,
     message,
     run,
+    transition_ms,
 )
 
 
@@ -125,7 +126,7 @@ class SetupWindow(Gtk.Window):
         self.dns_entry.set_placeholder_text("1.1.1.1,8.8.8.8")
         self.static_revealer = Gtk.Revealer()
         self.static_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_DOWN)
-        self.static_revealer.set_transition_duration(240)
+        self.static_revealer.set_transition_duration(transition_ms())
         static_grid = Gtk.Grid(column_spacing=12, row_spacing=8)
         for static_row, (title, widget) in enumerate((
             ("Address", self.address_entry),
@@ -239,6 +240,19 @@ class SetupWindow(Gtk.Window):
         values, error = self.validate()
         if error:
             message(self, "Check setup details", error, Gtk.MessageType.WARNING)
+            return
+        review = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.QUESTION, buttons=Gtk.ButtonsType.NONE, text="Review setup")
+        review.format_secondary_text(
+            f'Account: {values["user"]}\nNetwork: {values["mode"]}\nTheme: {values["theme"]}\n'
+            f'Compressed swap: {values["zram_percent"]}% of RAM, subject to system cap\n'
+            f'Existing installer disk swap: {values["disk_swap"]}\n\n'
+            "Setup does not create or format disk partitions. Memory policy applies next boot."
+        )
+        review.add_button("Back", Gtk.ResponseType.CANCEL)
+        review.add_button("Apply setup", Gtk.ResponseType.OK)
+        response = review.run()
+        review.destroy()
+        if response != Gtk.ResponseType.OK:
             return
         widget.set_sensitive(False)
         self.spinner.start()

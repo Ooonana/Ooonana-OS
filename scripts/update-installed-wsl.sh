@@ -82,13 +82,22 @@ for source in "$ROOT"/packages/ooonana/usr/bin/*; do
   [ -f "$source" ] || continue
   install -m 0755 "$source" "/usr/bin/${source##*/}"
 done
+if ! command -v killall >/dev/null 2>&1; then
+  ln -s busybox /bin/killall
+fi
 install -m 0755 "$ROOT/packages/ooonana/usr/lib/ooonana/oonana_game.py" /usr/lib/ooonana/oonana_game.py
+install -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/i3_events.py" /usr/lib/ooonana/i3_events.py
 install -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ai/ooonana_ai.py" /usr/lib/ooonana/ai/ooonana_ai.py
 for source in "$ROOT"/packages/ooonana/usr/lib/ooonana/ui/*.py; do
   install -m 0644 "$source" "/usr/lib/ooonana/ui/${source##*/}"
 done
 for source in "$ROOT"/packages/ooonana/usr/share/applications/*.desktop; do
   install -m 0644 "$source" "/usr/share/applications/${source##*/}"
+done
+install -d -m 0755 /etc/ooonana/trusted-keys
+for source in "$ROOT"/packages/ooonana/etc/ooonana/trusted-keys/*.pub; do
+  [ -f "$source" ] || continue
+  install -m 0644 "$source" "/etc/ooonana/trusted-keys/${source##*/}"
 done
 for source in "$ROOT"/packages/ooonana/usr/share/ooonana/*.txt; do
   install -m 0644 "$source" "/usr/share/ooonana/${source##*/}"
@@ -105,6 +114,31 @@ for source in "$ROOT"/packages/ooonana/usr/share/icons/OoonanaTailless/cursors/*
   [ -f "$source" ] || continue
   install -D -m 0644 "$source" "/usr/share/icons/OoonanaTailless/cursors/${source##*/}"
 done
+if [ -n "${OOONANA_PERSONAL_CURSOR_DIR:-}" ]; then
+  cursor_dir="$OOONANA_PERSONAL_CURSOR_DIR"
+  [ -f "$cursor_dir/index.theme" ] && [ -f "$cursor_dir/cursors/left_ptr" ] || {
+    echo "update-installed-wsl: invalid personal cursor directory" >&2; exit 2;
+  }
+  cursor_name="${cursor_dir##*/}"
+  case "$cursor_name" in ""|*[!A-Za-z0-9._-]*) echo "invalid cursor name" >&2; exit 2 ;; esac
+  cursor_size="${OOONANA_PERSONAL_CURSOR_SIZE:-}"
+  if [ -z "$cursor_size" ] && [ -f "$cursor_dir/cursor-size" ]; then
+    IFS= read -r cursor_size <"$cursor_dir/cursor-size" || true
+  fi
+  cursor_size="${cursor_size:-32}"
+  case "$cursor_size" in ""|*[!0-9]*) echo "invalid cursor size" >&2; exit 2 ;; esac
+  [ "$cursor_size" -ge 16 ] && [ "$cursor_size" -le 96 ] || { echo "invalid cursor size" >&2; exit 2; }
+  mkdir -p "/usr/share/icons/$cursor_name" /etc/ooonana
+  cp -a "$cursor_dir/." "/usr/share/icons/$cursor_name/"
+  printf '%s\n' "$cursor_name" >/etc/ooonana/cursor-theme
+  printf '%s\n' "$cursor_size" >/etc/ooonana/cursor-size
+fi
+if [ -f /usr/bin/xsettingsd ] &&
+  [ "$(head -c 2 /usr/bin/xsettingsd)" = '#!' ] &&
+  grep -q 'Ooonana xsettingsd compatibility daemon' /usr/bin/xsettingsd; then
+  rm -f /usr/bin/xsettingsd
+  echo "Removed obsolete xsettingsd placeholder"
+fi
 install -m 0644 "$ROOT/branding/desktop-0.9.svg" /usr/share/ooonana/wallpapers/ooonana-desktop-0.9.svg
 install -m 0644 "$ROOT/branding/desktop-0.9.png" /usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png
 install -m 0644 \

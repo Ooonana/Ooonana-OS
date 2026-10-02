@@ -1,20 +1,30 @@
 #!/bin/sh
 set -eu
 
+if [ "${1:-}" = --watch ]; then
+  while :; do
+    "$0" --once
+    if command -v mpc >/dev/null 2>&1; then
+      while mpc idle player mixer playlist options >/dev/null 2>&1; do "$0" --once; done
+    fi
+    sleep 10
+  done
+fi
+
 if ! command -v mpc >/dev/null 2>&1; then
-  printf '\357\200\201\n'
+  printf '%%{T2}\357\200\201%%{T-} Music\n'
   exit 0
 fi
 
 status="$(mpc status 2>/dev/null || true)"
 if [ -z "$status" ]; then
-  printf '\357\200\201\n'
+  printf '%%{T2}\357\200\201%%{T-} Music\n'
   exit 0
 fi
 
 title="$(mpc --format '%title%' current 2>/dev/null | sed -n '1p')"
 [ -n "$title" ] || title="$(mpc --format '%file%' current 2>/dev/null | sed -n '1p')"
-title="$(printf '%s' "$title" | cut -c1-22)"
+title="$(printf '%s' "$title" | tr -d '%' | cut -c1-18)"
 
 if printf '%s\n' "$status" | grep -q '\[playing\]'; then
   icon='\357\201\213'
@@ -25,7 +35,7 @@ else
 fi
 
 if [ -n "$title" ]; then
-  printf '%b %s\n' "$icon" "$title"
+  printf '%%{T2}%b%%{T-} %s\n' "$icon" "$title"
 else
-  printf '%b\n' "$icon"
+  printf '%%{T2}%b%%{T-} Music\n' "$icon"
 fi

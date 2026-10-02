@@ -53,7 +53,7 @@ def build_lines() -> list[str]:
     return [
         *logo,
         "",
-        "Ooonana OS 0.9.4 field guide",
+        "Ooonana OS 0.9.5 field guide",
         "",
         "What it is",
         "Ooonana OS is a scratch-built Linux project with its own rootfs, boot flow, installer experiments, WSL export, and custom ooonana package manager.",

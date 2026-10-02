@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 import json
+import os
+from pathlib import Path
 import shutil
 import subprocess
 import sys
+import time
 
 
 PINS = (
@@ -16,9 +19,30 @@ PINS = (
     ("tasks", "", ("ooonana-processes",)),
 )
 
+PIN_COLORS = {
+    "apps": "#c4a9ff", "terminal": "#c0c8d4", "browser": "#8cbcff",
+    "files": "#ffd079", "editor": "#82d2b2", "music": "#ff9ab2",
+    "openvino": "#c6b4ff", "tasks": "#93d5e5",
+}
+
 
 def available_pins():
     return [pin for pin in PINS if pin[0] != "openvino" or shutil.which(pin[2][0])]
+
+
+def dock_geometry():
+    width = 1280
+    try:
+        outputs = json.loads(subprocess.check_output(
+            ["i3-msg", "-t", "get_outputs"], text=True, stderr=subprocess.DEVNULL, timeout=3
+        ))
+        active = [output for output in outputs if output.get("active")]
+        chosen = next((output for output in active if output.get("primary")), active[0])
+        width = int(chosen["rect"]["width"])
+    except (OSError, subprocess.SubprocessError, ValueError, KeyError, IndexError, TypeError):
+        pass
+    dock_width = min(max(1, width - 24), len(available_pins()) * 58 + 168)
+    print(f"OOONANA_DOCK_WIDTH={dock_width}\nOOONANA_DOCK_OFFSET={max(0, (width - dock_width) // 2)}")
 
 
 def tree():
@@ -47,9 +71,9 @@ def leaves(node, in_scratchpad=False):
     return found
 
 
-def windows():
+def windows(snapshot=None):
     items = []
-    for node, hidden in leaves(tree()):
+    for node, hidden in leaves(tree() if snapshot is None else snapshot):
         con_id = node.get("id")
         if not isinstance(con_id, int):
             continue
@@ -125,8 +149,9 @@ def dock(items):
         matches = [item for item in items if pin_for(item) == key]
         active = any(item[2] for item in matches)
         background = "#303640" if active else "#272d36" if matches else "#1b1f26"
-        foreground = "#ffb21a" if active else "#f5f5f7" if matches else "#b4bdc8"
-        dot = "•" if matches else " "
+        hidden = bool(matches) and all(item[3] for item in matches)
+        foreground = "#ffb21a" if active else "#9ca7b6" if hidden else PIN_COLORS[key]
+        dot = "○" + (str(min(len(matches), 99)) if len(matches) > 1 else "") if hidden else str(min(len(matches), 99)) if len(matches) > 1 else "•" if matches else " "
         chips.append(
             f"%{{A1:ooonana-window-list --dock-open {key}:}}"
             f"%{{A3:ooonana-window-list --dock-actions {key}:}}"
@@ -141,7 +166,8 @@ def dock(items):
         con_id, name, focused, hidden = item[:4]
         if not isinstance(con_id, int) or con_id <= 0:
             continue
-        title = name[:8] + ("…" if len(name) > 8 else "")
+        short_name = name.removeprefix("Ooonana ")
+        title = short_name[:10] + ("…" if len(short_name) > 10 else "")
         marker = "●" if focused else "○" if hidden else "·"
         chips.append(
             f"%{{A1:ooonana-window-list --focus {con_id}:}}"
@@ -150,7 +176,7 @@ def dock(items):
             f"%{{F-}}%{{B-}}%{{A}}%{{A}}"
         )
     if len(other) > 1:
-        chips.append(f"%{{A1:ooonana-window-list --menu:}} +{len(other) - 1} %{{A}}")
+        chips.append(f"%{{A1:ooonana-window-list --menu:}}%{{A3:ooonana-window-list --actions:}} +{len(other) - 1} %{{A}}%{{A}}")
     return " ".join(chips)
 
 
@@ -229,6 +255,16 @@ def actions_menu(items, con_id=None):
     item = next((entry for entry in items if entry[0] == con_id), None) if con_id else choose(items, "Window actions")
     if item is None:
         return
+    popup = Path(__file__).resolve().parents[1] / "lib/ooonana/ui/window_menu.py"
+    if os.environ.get("DISPLAY") and os.environ.get("OOONANA_WINDOW_MENU", "gtk") != "rofi" and popup.is_file():
+        command = ["python3", str(popup), "--window", str(item[0]), "--title", item[1]]
+        if item[3]:
+            command.append("--hidden")
+        try:
+            subprocess.Popen(command, start_new_session=True)
+            return
+        except OSError:
+            pass
     choices = ("Open / focus", "Minimize / hide", "Fullscreen toggle", "Close window")
     try:
         result = subprocess.run(
@@ -239,20 +275,61 @@ def actions_menu(items, con_id=None):
         selected = int(result.stdout.strip())
     except (OSError, ValueError, subprocess.SubprocessError):
         return
-    if selected == 0:
+    if 0 <= selected < 4:
+        window_action(item, ("show", "minimize", "fullscreen", "close")[selected])
+
+
+def window_action(item, action):
+    if action == "show":
         focus(item)
-    elif selected == 1:
+    elif action == "minimize":
         subprocess.run(["i3-msg", f"[con_id={item[0]}] move scratchpad"], check=False)
-    elif selected == 2:
+    elif action == "fullscreen":
         if item[3]:
             focus(item)
         subprocess.run(["i3-msg", f"[con_id={item[0]}] fullscreen toggle"], check=False)
-    elif selected == 3:
+    elif action == "close":
         subprocess.run(["i3-msg", f"[con_id={item[0]}] kill"], check=False)
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--watch-dock":
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib/ooonana"))
+        from i3_events import trees
+        previous = None
+        while True:
+            try:
+                for snapshot in trees():
+                    value = dock(windows(snapshot))
+                    if value != previous:
+                        print(value, flush=True)
+                        previous = value
+            except BrokenPipeError:
+                return
+            except (OSError, EOFError, ValueError, subprocess.SubprocessError):
+                try:
+                    print(dock([]), flush=True)
+                except BrokenPipeError:
+                    return
+            time.sleep(2)
+        return
+    if len(sys.argv) > 1 and sys.argv[1] == "--dock-geometry":
+        dock_geometry()
+        return
     items = windows()
+    if len(sys.argv) == 4 and sys.argv[1] == "--window-action":
+        try:
+            identifier = int(sys.argv[3])
+        except ValueError:
+            return
+        item = next((entry for entry in items if entry[0] == identifier), None)
+        if item and sys.argv[2] in ("show", "minimize", "fullscreen", "close"):
+            window_action(item, sys.argv[2])
+        return
+    if len(sys.argv) > 1 and sys.argv[1] == "--focused-actions":
+        focused = next((item for item in items if item[2]), None)
+        actions_menu(items, focused[0] if focused else None)
+        return
     if len(sys.argv) > 1 and sys.argv[1] == "--dock":
         print(dock(items))
         return

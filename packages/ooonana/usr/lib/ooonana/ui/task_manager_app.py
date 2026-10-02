@@ -12,7 +12,7 @@ from collections import deque
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import GLib, Gtk, Pango, apply_theme, button, header, label, message  # noqa: E402
+from common import Gdk, GLib, Gtk, Pango, apply_theme, button, header, label, message  # noqa: E402
 
 
 def read_text(path: Path, limit: int = 65536) -> str:
@@ -41,6 +41,19 @@ def meminfo_values(text: str) -> dict[str, int]:
         except (IndexError, ValueError):
             continue
     return values
+
+
+def zram_consumption(base=Path("/sys/block")):
+    original = compressed = physical = 0
+    for device in base.glob("zram*"):
+        try:
+            values = list(map(int, read_text(device / "mm_stat").split()))
+            original += values[0]
+            compressed += values[1]
+            physical += values[2]
+        except (IndexError, ValueError):
+            continue
+    return original, compressed, physical
 
 
 def cpu_totals(text: str) -> tuple[int, int] | None:
@@ -176,7 +189,9 @@ class MetricCard(Gtk.Box):
         self.progress = Gtk.ProgressBar()
         self.pack_start(self.progress, False, False, 0)
         self.chart = Gtk.DrawingArea()
-        self.chart.set_size_request(-1, 54)
+        display = Gdk.Display.get_default()
+        monitor = (display.get_primary_monitor() or display.get_monitor(0)) if display else None
+        self.chart.set_size_request(-1, 40 if monitor and monitor.get_geometry().height <= 800 else 54)
         self.chart.connect("draw", self.draw_chart)
         self.pack_start(self.chart, True, True, 0)
 
@@ -447,7 +462,11 @@ class TaskManagerWindow(Gtk.Window):
         available = memory.get("MemAvailable", memory.get("MemFree", 0))
         if total > 0:
             percent = 100.0 * max(0, total - available) / total
-            self.metrics["ram"].update(f"{percent:.0f}% used • {available / 1048576:.1f} GiB available • swap {memory.get('SwapTotal', 0) / 1048576:.1f} GiB", percent)
+            swap_total = memory.get("SwapTotal", 0)
+            swap_used = max(0, swap_total - memory.get("SwapFree", 0))
+            original, _compressed, physical = zram_consumption()
+            zram = f" • zram physical {physical / 1048576:.0f} MiB ({original / physical:.1f}x effective)" if physical else ""
+            self.metrics["ram"].update(f"{percent:.0f}% used • {available / 1048576:.1f} GiB available • swap {swap_used / 1048576:.1f}/{swap_total / 1048576:.1f} GiB" + zram, percent)
         gpu_name, busy = gpu_busy()
         self.metrics["gpu"].update(f"{gpu_name}: {busy:.0f}%" if busy is not None else f"{gpu_name}: counter unavailable", busy)
 

@@ -12,7 +12,7 @@ TARBALL="$WORK_DIR/ooonana-full-i3-rootfs.tar.gz"
 REPO="$WORK_DIR/full-i3-repo"
 STAGED_REPO=""
 PACKAGE_PROFILE="$ROOT/configs/packages/full-i3.list"
-OS_VERSION="${OOONANA_OS_VERSION:-0.9.4}"
+OS_VERSION="${OOONANA_OS_VERSION:-0.9.5}"
 FORCE=0
 
 usage() {
@@ -280,8 +280,26 @@ load_theme() {
       ;;
   esac
   OOONANA_CURSOR="#ffb21a"
-  XCURSOR_THEME="OoonanaTailless"
-  XCURSOR_SIZE=32
+  cursor_config="${XDG_CONFIG_HOME:-${HOME:-/root}/.config}/ooonana"
+  XCURSOR_THEME="${OOONANA_XCURSOR_THEME:-}"
+  XCURSOR_SIZE="${OOONANA_XCURSOR_SIZE:-}"
+  if [ -z "$XCURSOR_THEME" ]; then
+    for cursor_file in "$cursor_config/cursor-theme" /etc/ooonana/cursor-theme; do
+      [ -f "$cursor_file" ] || continue
+      IFS= read -r XCURSOR_THEME <"$cursor_file" || XCURSOR_THEME=""
+      [ -z "$XCURSOR_THEME" ] || break
+    done
+  fi
+  if [ -z "$XCURSOR_SIZE" ]; then
+    for cursor_file in "$cursor_config/cursor-size" /etc/ooonana/cursor-size; do
+      [ -f "$cursor_file" ] || continue
+      IFS= read -r XCURSOR_SIZE <"$cursor_file" || XCURSOR_SIZE=""
+      [ -z "$XCURSOR_SIZE" ] || break
+    done
+  fi
+  case "$XCURSOR_THEME" in ""|*[!A-Za-z0-9._-]*) XCURSOR_THEME=OoonanaTailless ;; esac
+  case "$XCURSOR_SIZE" in ""|*[!0-9]*) XCURSOR_SIZE=17 ;; esac
+  [ "$XCURSOR_SIZE" -ge 16 ] && [ "$XCURSOR_SIZE" -le 96 ] || XCURSOR_SIZE=17
   GTK_THEME="$OOONANA_GTK_THEME"
   GDK_BACKEND="${GDK_BACKEND:-x11}"
   export OOONANA_THEME OOONANA_BG OOONANA_FG OOONANA_CURSOR OOONANA_PANEL OOONANA_PANEL_ALT OOONANA_BORDER OOONANA_MUTED OOONANA_ENTRY OOONANA_HOVER OOONANA_GTK_THEME OOONANA_GTK_DARK XCURSOR_THEME XCURSOR_SIZE GTK_THEME GDK_BACKEND
@@ -323,13 +341,22 @@ case "${1:-env}" in
 gtk-theme-name=Adwaita
 gtk-application-prefer-dark-theme=$OOONANA_GTK_DARK
 gtk-icon-theme-name=Adwaita
-gtk-cursor-theme-name=OoonanaTailless
-gtk-cursor-theme-size=32
+gtk-cursor-theme-name=$XCURSOR_THEME
+gtk-cursor-theme-size=$XCURSOR_SIZE
 gtk-font-name=Sans 10
 gtk-button-images=1
 gtk-menu-images=1
 gtk-decoration-layout=menu:minimize,maximize,close
 SETTINGS
+    mkdir -p "$config_home/ooonana"
+    case "$OOONANA_THEME" in light) xsettings_theme=Adwaita ;; *) xsettings_theme=Adwaita-dark ;; esac
+    cat >"$config_home/ooonana/xsettingsd.conf" <<XSETTINGS
+Net/ThemeName "$xsettings_theme"
+Net/IconThemeName "Adwaita"
+Gtk/FontName "Sans 10"
+Gtk/CursorThemeName "$XCURSOR_THEME"
+Gtk/CursorThemeSize $XCURSOR_SIZE
+XSETTINGS
     cat >"$config_home/gtk-3.0/gtk.css" <<CSS
 @define-color ooonana_bg $OOONANA_BG;
 @define-color ooonana_fg $OOONANA_FG;
@@ -342,12 +369,17 @@ SETTINGS
 @define-color ooonana_hover $OOONANA_HOVER;
 window, dialog, .background { background-color: @ooonana_bg; color: @ooonana_fg; }
 window.background, dialog.background, messagedialog.background { border-radius: 14px; }
+decoration { background: @ooonana_bg; border: 1px solid @ooonana_border; border-radius: 14px; box-shadow: none; }
+menu { background: @ooonana_panel; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 10px; padding: 6px; }
+menuitem:hover { background: @ooonana_panel_alt; color: @ooonana_accent; }
 headerbar { background: @ooonana_panel; color: @ooonana_fg; border-bottom: 1px solid @ooonana_border; border-radius: 14px 14px 0 0; padding: 5px 10px; }
 headerbar .title { font-weight: bold; }
 headerbar .subtitle { color: @ooonana_muted; }
 button { background: @ooonana_panel_alt; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 10px; padding: 8px 14px; transition: background-color 180ms ease-out; }
 button:hover { background: @ooonana_hover; border-color: @ooonana_accent; }
 button:checked, button.suggested-action { background: @ooonana_accent; color: #101317; border-color: @ooonana_accent; }
+button:disabled { background: @ooonana_panel; color: #78828f; border-color: @ooonana_border; }
+button.suggested-action:disabled { background: #403624; color: #a5987f; border-color: #544733; }
 entry, textview, treeview, list { background: @ooonana_entry; color: @ooonana_fg; border-color: @ooonana_border; }
 entry { padding: 8px 10px; border-radius: 10px; }
 treeview header button { background: @ooonana_panel_alt; color: @ooonana_accent; }
@@ -431,7 +463,7 @@ gtk-theme-name=Adwaita
 gtk-application-prefer-dark-theme=true
 gtk-icon-theme-name=Adwaita
 gtk-cursor-theme-name=OoonanaTailless
-gtk-cursor-theme-size=32
+gtk-cursor-theme-size=17
 gtk-font-name=Sans 10
 gtk-button-images=1
 gtk-menu-images=1
@@ -444,7 +476,7 @@ gtk-theme-name=Adwaita
 gtk-application-prefer-dark-theme=true
 gtk-icon-theme-name=Adwaita
 gtk-cursor-theme-name=OoonanaTailless
-gtk-cursor-theme-size=32
+gtk-cursor-theme-size=17
 gtk-font-name=Sans 10
 gtk-button-images=1
 gtk-menu-images=1
@@ -460,10 +492,13 @@ EOF
 @define-color ooonana_entry #15191f;
 window, dialog, .background { background-color: @ooonana_bg; color: @ooonana_fg; }
 window.background, dialog.background, messagedialog.background { border-radius: 14px; }
+decoration { background: @ooonana_bg; border: 1px solid @ooonana_border; border-radius: 14px; box-shadow: none; }
 headerbar { background: @ooonana_panel; color: @ooonana_fg; border-bottom: 1px solid @ooonana_border; border-radius: 14px 14px 0 0; }
 button { background: @ooonana_panel_alt; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 10px; padding: 8px 14px; transition: background-color 180ms ease-out; }
 button:hover { background: #39414b; border-color: @ooonana_accent; }
 button:checked, button.suggested-action { background: @ooonana_accent; color: #101317; }
+button:disabled { background: @ooonana_panel; color: #78828f; border-color: @ooonana_border; }
+button.suggested-action:disabled { background: #403624; color: #a5987f; border-color: #544733; }
 entry, textview, treeview, list { background: @ooonana_entry; color: @ooonana_fg; border-color: @ooonana_border; }
 entry { padding: 8px 10px; border-radius: 10px; }
 treeview:selected, row:selected { background: @ooonana_panel_alt; color: @ooonana_fg; }
@@ -502,7 +537,7 @@ set -eu
 
 if [ "${1:-}" = "--dry-run" ]; then
   echo "root: direct"
-  echo "user: passwordless sudo, doas fallback"
+  echo "user: sudo password prompt; passwordless live-media policy only"
   echo "OOONANA_ADMIN_HELPER_OK"
   exit 0
 fi
@@ -525,7 +560,15 @@ if command -v doas >/dev/null 2>&1; then
     exec doas -n "$@"
   fi
 fi
-echo "admin helper unavailable: install doas or sudo" >&2
+if [ -t 0 ]; then
+  if command -v sudo >/dev/null 2>&1; then exec sudo "$@"; fi
+  if command -v doas >/dev/null 2>&1; then exec doas "$@"; fi
+elif command -v sudo >/dev/null 2>&1 && [ -n "${DISPLAY:-}" ] &&
+  [ -x /usr/bin/ooonana-admin-askpass ]; then
+  export SUDO_ASKPASS=/usr/bin/ooonana-admin-askpass
+  exec sudo -A "$@"
+fi
+echo "admin authorization required: run command from terminal or install sudo for graphical password prompt" >&2
 exit 126
 EOF
 
@@ -1504,6 +1547,10 @@ EOF
 set -eu
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
+if [ -n "${WSL_DISTRO_NAME:-}" ] && ! ls -d /sys/class/net/*/wireless >/dev/null 2>&1; then
+  printf '\357\207\253 host\n'
+  exit 0
+fi
 if ! command -v nmcli >/dev/null 2>&1; then
   printf '\357\207\253 --\n'
   exit 0
@@ -1592,6 +1639,10 @@ EOF
 set -eu
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
+if [ -n "${WSL_DISTRO_NAME:-}" ] && ! ls /sys/class/bluetooth/hci* >/dev/null 2>&1; then
+  printf '\357\212\223 host\n'
+  exit 0
+fi
 if ! command -v bluetoothctl >/dev/null 2>&1; then
   printf '\357\212\223 --\n'
   exit 0
@@ -1810,20 +1861,6 @@ exec ooonana-rofi-power "$@"
 EOF
 
   install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/hsetroot" "$ROOTFS/usr/bin/hsetroot"
-
-  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/xsettingsd" <<'EOF'
-#!/bin/sh
-set -eu
-case "${1:-}" in
-  --help|-h)
-    echo "Ooonana xsettingsd compatibility daemon"
-    exit 0
-    ;;
-esac
-while :; do
-  sleep 3600
-done
-EOF
 
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-screenshot" <<'EOF'
 #!/bin/sh
@@ -2458,7 +2495,7 @@ Net/ThemeName "Adwaita-dark"
 Net/IconThemeName "Adwaita"
 Gtk/FontName "Sans 10"
 Gtk/CursorThemeName "OoonanaTailless"
-Gtk/CursorThemeSize 32
+Gtk/CursorThemeSize 17
 Gtk/ButtonImages 1
 Gtk/MenuImages 1
 EOF
@@ -2466,7 +2503,7 @@ EOF
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/polybar.ini" <<'EOF'
 [colors]
 background = #1b1f26
-background-alt = #272d36
+background-alt = #1b1f26
 foreground = #f5f5f7
 accent = #ffb21a
 muted = #9ca7b6
@@ -2480,7 +2517,7 @@ height = 40
 offset-x = 1%
 offset-y = 8
 radius = 14
-fixed-center = false
+fixed-center = true
 background = ${colors.background}
 foreground = ${colors.foreground}
 border-size = 1
@@ -2494,22 +2531,19 @@ line-size = 0
 line-color = ${colors.accent}
 font-0 = "DejaVu Sans:size=10;2"
 font-1 = "Font Awesome 6 Free Solid:size=10;2"
-font-2 = "Font Awesome 6 Free Solid:size=10;2"
-font-3 = "Font Awesome 5 Free Solid:size=10;2"
-font-4 = "Font Awesome 6 Brands:size=10;2"
-font-5 = "Font Awesome 5 Brands:size=10;2"
-modules-left = brand workspaces win-min win-full win-close
-modules-center = media
-modules-right = memory audio brightness battery bluetooth wifi date power
+font-2 = "Font Awesome 6 Brands:size=10;2"
+modules-left = brand workspaces win-close win-min win-full media
+modules-center = ai
+modules-right = memory audio battery wifi notifications controls date power
 tray-position = none
 wm-restack = i3
-override-redirect = false
+override-redirect = true
 enable-ipc = true
 
 [bar/ooonana-dock]
-width = 52%
+width = ${env:OOONANA_DOCK_WIDTH:524}
 height = 58
-offset-x = 24%
+offset-x = ${env:OOONANA_DOCK_OFFSET:378}
 offset-y = 12
 bottom = true
 radius = 20
@@ -2525,9 +2559,7 @@ separator = ""
 font-0 = "DejaVu Sans:size=11;2"
 font-1 = "Font Awesome 6 Free Solid:size=15;2"
 font-2 = "Font Awesome 6 Free Solid:size=12;2"
-font-3 = "Font Awesome 5 Free Solid:size=12;2"
-font-4 = "Font Awesome 6 Brands:size=12;2"
-font-5 = "Font Awesome 5 Brands:size=12;2"
+font-3 = "Font Awesome 6 Brands:size=12;2"
 modules-left =
 modules-center = dock-apps
 modules-right =
@@ -2585,8 +2617,8 @@ click-left = ooonana-editor
 
 [module/media]
 type = custom/script
-exec = ooonana-media-status
-interval = 2
+exec = ooonana-media-status --watch
+tail = true
 label = %output%
 label-foreground = ${colors.accent}
 label-background = ${colors.background-alt}
@@ -2596,6 +2628,32 @@ click-middle = ooonana-media-control play-pause
 click-right = ooonana-media-control next
 scroll-up = ooonana-media-control volume +5
 scroll-down = ooonana-media-control volume -5
+
+[module/ai]
+type = custom/text
+content = %{T2}%{T-} AI
+content-foreground = ${colors.accent}
+content-background = ${colors.background}
+content-padding = 2
+click-left = ooonana-ai-launch
+click-right = ooonana-openvino-launch
+
+[module/notifications]
+type = custom/script
+exec = ooonana-notification-status
+interval = 5
+label = %output%
+label-padding = 1
+click-left = ooonana-notifications
+click-right = ooonana-notification-status --toggle
+
+[module/controls]
+type = custom/text
+content = %{T2}%{T-}
+content-foreground = ${colors.accent}
+content-padding = 1
+click-left = ooonana-settings-launch --page hardware
+click-right = ooonana-audio-panel
 
 [module/music]
 type = custom/text
@@ -2621,7 +2679,7 @@ type = custom/text
 content = 
 content-foreground = #ffaaa3
 content-background = ${colors.background-alt}
-content-padding = 2
+content-padding = 1
 click-left = i3-msg kill
 
 [module/win-min]
@@ -2629,16 +2687,16 @@ type = custom/text
 content = 
 content-foreground = ${colors.accent}
 content-background = ${colors.background-alt}
-content-padding = 2
+content-padding = 1
 click-left = i3-msg move scratchpad
 click-right = i3-msg scratchpad show
 
 [module/win-full]
 type = custom/text
 content = 
-content-foreground = ${colors.accent}
+content-foreground = #70d69b
 content-background = ${colors.background-alt}
-content-padding = 2
+content-padding = 1
 click-left = i3-msg fullscreen toggle
 
 [module/logo]
@@ -2650,8 +2708,8 @@ content-foreground = ${colors.accent}
 type = internal/i3
 format = <label-state>
 label-focused = %name%
-label-focused-foreground = ${colors.background}
-label-focused-background = ${colors.foreground}
+label-focused-foreground = ${colors.accent}
+label-focused-background = #303640
 label-focused-padding = 2
 label-unfocused = %name%
 label-unfocused-foreground = ${colors.accent}
@@ -2686,8 +2744,8 @@ click-right = ooonana-window-list --actions
 
 [module/dock-apps]
 type = custom/script
-exec = ooonana-window-list --dock
-interval = 2
+exec = ooonana-window-list --watch-dock
+tail = true
 label = %output%
 label-foreground = ${colors.foreground}
 label-background = ${colors.background}
@@ -2738,7 +2796,7 @@ label-disconnected-padding = 2
 
 [module/audio]
 type = custom/script
-exec = ooonana-audio-status
+exec = ooonana-audio-status | sed '/ --$/d'
 interval = 5
 label = %output%
 label-foreground = ${colors.accent}
@@ -2775,7 +2833,7 @@ click-right = i3lock
 
 [module/battery]
 type = custom/script
-exec = ooonana-battery-status
+exec = ooonana-battery-status | sed '/ --$/d'
 interval = 30
 label = %output%
 label-foreground = ${colors.accent}
@@ -2943,6 +3001,8 @@ EOF
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/dunstrc" <<'EOF'
 [global]
 font = Sans 10
+history_length = 80
+sticky_history = false
 frame_color = "#ffb21a"
 separator_color = "#ffb21a"
 background = "#1b1f26"
@@ -3013,7 +3073,8 @@ root_disk() {
 }
 
 form="$(yad --center --title "Install Ooonana OS" --width=720 \
-  --text "Enter exact target. Only chosen target and listed partitions may be changed.
+  --text "Erase disk: deletes target disk contents. Custom: uses explicitly selected partitions.
+Only chosen target and listed partitions may be changed. Leave unrelated USB/SD cards unselected.
 $disk_summary" \
   --form --separator='|' \
   --field "Mode:CB" "erase-disk!custom-existing-partitions" \
@@ -3031,7 +3092,7 @@ $disk_summary" \
   --field "Theme:CB" "dark!light" \
   --field "Cloud repo" "https://ooonana.gitlab.io/ooonana-repo" \
   --field "Source root" "/" \
-  --field "Disk swap MiB (erase-disk only)" "0" 2>/dev/null || true)"
+  --field "Disk swap MiB (erase mode; 0 disables)" "0" 2>/dev/null || true)"
 [ -n "$form" ] || exit 0
 
 field() {
@@ -3056,6 +3117,7 @@ source_root="$(field 15)"
 swap_size_mib="$(field 16)"
 
 [ -n "$target" ] || { yad --center --title "Install Ooonana OS" --text "Target required"; exit 1; }
+[ -n "$user_name" ] && [ -n "$password" ] || { yad --center --title "Install Ooonana OS" --text "Username and password required for installed system login and administration."; exit 1; }
 [ -n "$source_root" ] || source_root="/"
 root="$(root_disk)"
 if [ -n "$root" ] && { [ "$target" = "$root" ] || [ "$(parent_disk "$target")" = "$root" ]; } &&
@@ -3112,8 +3174,9 @@ if [ "$preview_ok" -ne 1 ]; then
 fi
 
 yad --center --title "Ooonana Install Preview" --width=860 --height=560 \
+  --text "Final review. Installation changes only listed target/partitions. Verify sizes and format flags below before continuing." \
   --text-info --filename="$preview" \
-  --button=Cancel:1 --button=Install:0 2>/dev/null || exit 0
+  --button=Cancel:1 --button="Install selected target":0 2>/dev/null || exit 0
 
 : >"$log"
 (
@@ -3446,7 +3509,8 @@ if [ "$YES" -eq 0 ]; then
   printf 'User name [%s]: ' "$USER_NAME"
   read -r answer
   USER_NAME="${answer:-$USER_NAME}"
-  password_one="$(read_hidden 'Password blank to set later: ')"
+  password_one="$(read_hidden 'Password required: ')"
+  [ -n "$password_one" ] || die "installed system requires password"
   if [ -n "$password_one" ]; then
     password_two="$(read_hidden 'Password again: ')"
     [ "$password_one" = "$password_two" ] || die "password mismatch"
@@ -4015,7 +4079,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   version_output="$(/usr/bin/ooonana version 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.4' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.5' &&
     printf '%s\n' "$installed_output" | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else
@@ -4035,6 +4099,11 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   sync
   sleep 1
   reboot -f
+fi
+
+if [ "$(cat /etc/ooonana/system-mode 2>/dev/null)" = installed ]; then
+  echo "Installed system: console login required; desktop starts after authentication."
+  exit 0
 fi
 
 if [ -x /usr/bin/start-ooonana-i3 ]; then
@@ -4079,6 +4148,26 @@ Hidden=true
 EOF
 }
 
+install_personal_cursor() {
+  local cursor_dir="${OOONANA_PERSONAL_CURSOR_DIR:-}"
+  local cursor_name cursor_size="${OOONANA_PERSONAL_CURSOR_SIZE:-}"
+  [[ -n "$cursor_dir" ]] || return 0
+  [[ -f "$cursor_dir/index.theme" && -f "$cursor_dir/cursors/left_ptr" ]] ||
+    ooonana_die "invalid personal cursor directory: $cursor_dir"
+  cursor_name="$(basename "$cursor_dir")"
+  [[ "$cursor_name" =~ ^[A-Za-z0-9._-]+$ ]] || ooonana_die "invalid cursor theme name"
+  if [[ -z "$cursor_size" && -f "$cursor_dir/cursor-size" ]]; then
+    IFS= read -r cursor_size <"$cursor_dir/cursor-size" || true
+  fi
+  cursor_size="${cursor_size:-32}"
+  [[ "$cursor_size" =~ ^[0-9]+$ ]] && ((cursor_size >= 16 && cursor_size <= 96)) ||
+    ooonana_die "invalid personal cursor size: $cursor_size"
+  mkdir -p "$ROOTFS/usr/share/icons/$cursor_name" "$ROOTFS/etc/ooonana"
+  cp -a "$cursor_dir/." "$ROOTFS/usr/share/icons/$cursor_name/"
+  printf '%s\n' "$cursor_name" >"$ROOTFS/etc/ooonana/cursor-theme"
+  printf '%s\n' "$cursor_size" >"$ROOTFS/etc/ooonana/cursor-size"
+}
+
 install_downloader_fallbacks() {
   if [[ ! -e "$ROOTFS/usr/bin/wget" ]]; then
     install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/wget" <<'EOF'
@@ -4109,13 +4198,26 @@ install_full_i3_packages() {
     OOONANA_STATE_DIR="$ROOTFS/var/lib/ooonana/packages" \
     OOONANA_CACHE_DIR="$ROOTFS/var/cache/ooonana" \
     "$ROOT/packages/ooonana/usr/bin/ooonana" get full-i3 >/dev/null
+  # Older local repositories may not yet include this native app in full-i3.pkg.
+  if [[ "$PACKAGE_PROFILE" == "$ROOT/configs/packages/full-i3.list" ]]; then
+    OOONANA_ROOT="$ROOTFS" \
+      OOONANA_REPO_DIR="$STAGED_REPO" \
+      OOONANA_SOURCES_DIR="$sources_dir" \
+      OOONANA_STATE_DIR="$ROOTFS/var/lib/ooonana/packages" \
+      OOONANA_CACHE_DIR="$ROOTFS/var/cache/ooonana" \
+      "$ROOT/packages/ooonana/usr/bin/ooonana" get openvino-chat >/dev/null
+  fi
 }
 
 verify_full_i3_repo() {
-  local package work i3_deps
+  local package work i3_deps target targets="full-i3"
   [[ -f "$REPO/base.pkg" ]] || ooonana_die "full-i3 repo missing base.pkg"
   [[ -f "$REPO/full-i3.pkg" ]] || ooonana_die "full-i3 repo missing full-i3.pkg"
   [[ -f "$REPO/i3.pkg" ]] || ooonana_die "full-i3 repo missing i3.pkg"
+  if [[ "$PACKAGE_PROFILE" == "$ROOT/configs/packages/full-i3.list" ]]; then
+    [[ -f "$REPO/openvino-chat.pkg" ]] || ooonana_die "full-i3 repo missing preinstalled OpenVINO Chat"
+    targets="$targets openvino-chat"
+  fi
   i3_deps="$(awk -F'"' '$1 == "OOONANA_PKG_DEPS=" { print $2; exit }' "$REPO/i3.pkg")"
   while IFS= read -r package; do
     [[ -f "$REPO/$package.pkg" ]] ||
@@ -4130,15 +4232,17 @@ verify_full_i3_repo() {
   done < <(ooonana_read_package_profile "$PACKAGE_PROFILE")
   work="$(mktemp -d)"
   mkdir -p "$work/sources" "$work/state" "$work/cache"
+  for target in $targets; do
   if ! OOONANA_ROOT="$work/root" \
     OOONANA_REPO_DIR="$STAGED_REPO" \
     OOONANA_SOURCES_DIR="$work/sources" \
     OOONANA_STATE_DIR="$work/state" \
     OOONANA_CACHE_DIR="$work/cache" \
-    "$ROOT/packages/ooonana/usr/bin/ooonana" get full-i3 --dry-run >/dev/null; then
+    "$ROOT/packages/ooonana/usr/bin/ooonana" get "$target" --dry-run >/dev/null; then
     rm -rf "$work"
     ooonana_die "full-i3 repo dependency closure is incomplete"
   fi
+  done
   rm -rf "$work"
 }
 
@@ -4241,7 +4345,7 @@ refresh_font_caches() {
 restore_busybox_init_links() {
   [[ -x "$ROOTFS/bin/busybox" ]] || return 0
   mkdir -p "$ROOTFS/bin" "$ROOTFS/sbin" "$ROOTFS/usr/bin"
-  for applet in adduser awk basename cat chmod clear cp cut date dd df dirname dmesg echo env free grep hostname ifconfig ip ls mkdir mount mv passwd ps pwd readlink rm rmdir route sed sh sha256sum sleep sort sync tar touch tr udhcpc umount uname wc wget; do
+  for applet in adduser awk basename cat chmod clear cp cut date dd df dirname dmesg echo env free grep hostname ifconfig ip killall ls mkdir mount mv passwd ps pwd readlink rm rmdir route sed sh sha256sum sleep sort sync tar touch tr udhcpc umount uname wc wget; do
     ln -sf busybox "$ROOTFS/bin/$applet"
   done
   for applet in init reboot poweroff halt mdev switch_root; do
@@ -4332,10 +4436,10 @@ write_full_groups() {
   fi
 
   install -D -m 0400 /dev/stdin "$ROOTFS/etc/doas.d/ooonana.conf" <<'DOAS'
-permit nopass keepenv :wheel
+permit nopass :wheel
 DOAS
   install -D -m 0400 /dev/stdin "$ROOTFS/etc/doas.conf" <<'DOAS'
-permit nopass keepenv :wheel
+permit nopass :wheel
 DOAS
   install -D -m 0440 /dev/stdin "$ROOTFS/etc/sudoers.d/ooonana" <<'SUDOERS'
 %wheel ALL=(ALL:ALL) NOPASSWD: ALL
@@ -4415,7 +4519,7 @@ normalize_rootfs_permissions() {
 
 main() {
   ooonana_require_linux
-  ooonana_require_commands awk chmod cp gzip install ln mkdir mktemp rm sed sha256sum stat tar
+  ooonana_require_commands awk chmod cp find gzip install ln mkdir mktemp rm sed sha256sum stat tar
   [[ -d "$SCRATCH_ROOTFS" ]] || ooonana_die "missing scratch rootfs: $SCRATCH_ROOTFS"
   [[ -x "$SCRATCH_ROOTFS/bin/sh" ]] || ooonana_die "invalid scratch rootfs: missing /bin/sh"
   [[ -f "$ROOT/branding/logo.svg" ]] || ooonana_die "missing branding/logo.svg"
@@ -4445,6 +4549,8 @@ main() {
   mkdir -p "$(dirname "$ROOTFS")"
   cp -a "$SCRATCH_ROOTFS" "$ROOTFS"
   cp -a "$ROOT/packages/ooonana/." "$ROOTFS/"
+  find "$ROOTFS/usr/lib/ooonana" -type d -name __pycache__ -prune -exec rm -rf -- {} +
+  find "$ROOTFS/usr/lib/ooonana" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
   chmod 0755 \
     "$ROOTFS/usr/bin/ooonana" \
     "$ROOTFS/usr/bin/ooonana-ai" \
@@ -4462,6 +4568,10 @@ main() {
     "$ROOTFS/usr/bin/ooonana-audio-hardware-reprobe" \
     "$ROOTFS/usr/bin/ooonana-wifi-aware" \
     "$ROOTFS/usr/bin/ooonana-window-list" \
+    "$ROOTFS/usr/bin/ooonana-panel-start" \
+    "$ROOTFS/usr/bin/ooonana-wallpaper-fit" \
+    "$ROOTFS/usr/bin/ooonana-notifications" \
+    "$ROOTFS/usr/bin/ooonana-notification-status" \
     "$ROOTFS/usr/bin/which" \
     "$ROOTFS/usr/bin/strings" \
     "$ROOTFS/usr/bin/ooonana-settings-launch" \
@@ -4493,6 +4603,7 @@ main() {
   install_branding
   write_start_script
   write_theme_helpers
+  install_personal_cursor
   write_desktop_helpers
   write_gui_installer
   write_xorg_input_config

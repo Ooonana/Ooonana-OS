@@ -150,6 +150,7 @@ EOF
 OOONANA_PKG_ID="$(shell_escape "$PKG_ID")"
 OOONANA_PKG_VERSION="$(shell_escape "$VERSION")"
 OOONANA_PKG_KIND="kernel"
+OOONANA_PKG_REBOOT=1
 OOONANA_PKG_SUMMARY="$(shell_escape "$SUMMARY")"
 OOONANA_PKG_DEPS=""
 OOONANA_PKG_ARCHIVE="$(shell_escape "$archive_rel")"

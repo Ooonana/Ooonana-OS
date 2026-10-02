@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+if [ "${1:-}" = --dry-run ]; then
+  echo 'Ooonana notification center: Dunst history, clear, and Do Not Disturb'
+  exit 0
+fi
+if [ -n "${DISPLAY:-}" ] && command -v python3 >/dev/null 2>&1; then
+  exec python3 /usr/lib/ooonana/ui/notifications_app.py "$@"
+fi
+exec python3 /usr/lib/ooonana/ui/notification_utils.py

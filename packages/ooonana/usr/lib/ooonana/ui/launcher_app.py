@@ -67,7 +67,10 @@ class LauncherWindow(Gtk.Window):
             for app in Gio.AppInfo.get_all()
             if app.should_show() and not getattr(app, "get_nodisplay", lambda: False)()
         ]
-        apps.sort(key=lambda app: (app.get_display_name() or app.get_name()).casefold())
+        apps.sort(key=lambda app: (
+            not (app.get_id() or "").startswith("ooonana-"),
+            (app.get_display_name() or app.get_name()).casefold(),
+        ))
         for app in apps:
             self.add_app(app)
         self.titlebar.set_subtitle(f"{len(apps)} applications")
@@ -87,11 +90,25 @@ class LauncherWindow(Gtk.Window):
         row.search_text = f"{name} {description} {app.get_executable() or ''}".casefold()
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
         gicon = app.get_icon()
-        image = (
-            Gtk.Image.new_from_gicon(gicon, Gtk.IconSize.DIALOG)
-            if gicon
-            else icon("application-x-executable-symbolic", Gtk.IconSize.DIALOG)
-        )
+        image = None
+        if isinstance(gicon, Gio.ThemedIcon):
+            theme = Gtk.IconTheme.get_default()
+            selected = next((name for name in gicon.get_names() if theme and theme.has_icon(name)), None)
+            if selected:
+                image = Gtk.Image.new_from_icon_name(selected, Gtk.IconSize.DIALOG)
+        elif isinstance(gicon, Gio.FileIcon):
+            path = gicon.get_file().get_path()
+            if path and Path(path).is_file():
+                image = Gtk.Image.new_from_gicon(gicon, Gtk.IconSize.DIALOG)
+        elif gicon:
+            image = Gtk.Image.new_from_gicon(gicon, Gtk.IconSize.DIALOG)
+        if image is None:
+            fallback = {
+                "arandr.desktop": "video-display-symbolic",
+                "xterm.desktop": "utilities-terminal-symbolic",
+                "uxterm.desktop": "utilities-terminal-symbolic",
+            }.get((app.get_id() or "").lower(), "application-x-executable-symbolic")
+            image = icon(fallback, Gtk.IconSize.DIALOG)
         image.set_pixel_size(34)
         box.pack_start(image, False, False, 0)
         text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)

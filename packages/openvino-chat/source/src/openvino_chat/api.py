@@ -276,10 +276,12 @@ class ApiRuntime:
         if not self.model_dir.exists():
             raise RuntimeError(f"model missing: {self.model_dir}")
         try:
+            options = {"context_length": self.context_length} if self.engine_loader is load_engine else {}
             self._engine = self.engine_loader(
                 self.model_dir,
                 device=self.device,
                 kv_cache_precision=self.kv_cache_precision,
+                **options,
             )
         except TypeError as exc:
             if "kv_cache_precision" not in str(exc):

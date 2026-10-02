@@ -2,9 +2,11 @@
 from importlib.machinery import SourceFileLoader
 from importlib.util import module_from_spec, spec_from_loader
 from pathlib import Path
+import os
 from types import SimpleNamespace
 
 root = Path(__file__).resolve().parents[1]
+os.environ["OOONANA_WINDOW_MENU"] = "rofi"
 loader = SourceFileLoader("window_list", str(root / "packages/ooonana/usr/bin/ooonana-window-list"))
 module = module_from_spec(spec_from_loader(loader.name, loader))
 loader.exec_module(module)
@@ -81,6 +83,16 @@ module.sys.argv = ["ooonana-window-list", "--actions"]
 selection = "1"
 module.main()
 assert commands[-1] == ["i3-msg", "[con_id=4] move scratchpad"]
+module.sys.argv = ["ooonana-window-list", "--focused-actions"]
+module.main()
+assert commands[-1] == ["i3-msg", "[con_id=3] move scratchpad"]
+module.sys.argv = ["ooonana-window-list", "--window-action", "show", "4"]
+module.main()
+assert commands[-1] == ["i3-msg", "[con_id=4] scratchpad show; [con_id=4] focus"]
+module.sys.argv = ["ooonana-window-list", "--window-action", "close", "invalid"]
+before = len(commands)
+module.main()
+assert len(commands) == before
 module.dock_open(items, "browser")
 assert commands[-1] == ["i3-msg", "[con_id=4] scratchpad show; [con_id=4] focus"]
 module.dock_open(items, "music")

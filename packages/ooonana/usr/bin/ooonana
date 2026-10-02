@@ -3,7 +3,7 @@
 # shellcheck disable=SC1090,SC3043
 set -eu
 
-VERSION="0.9.4"
+VERSION="0.9.5"
 HOME_DIR="${HOME:-/root}"
 if [ -n "${OOONANA_AI_CONFIG:-}" ]; then
   AI_CONFIG="$OOONANA_AI_CONFIG"
@@ -47,7 +47,21 @@ else
   fi
 fi
 
-REPO_DIR="${OOONANA_REPO_DIR:-$(root_join /usr/lib/ooonana/repo)}"
+resolve_repo_generation() {
+  local base generation
+  base="$1"
+  if [ -f "$base/CURRENT" ]; then
+    generation="$(cat "$base/CURRENT")"
+    case "$generation" in ''|*[!0-9a-f]*) printf 'invalid repository generation\n' >&2; return 1 ;; esac
+    [ "${#generation}" -eq 64 ] || return 1
+    [ -f "$base/generations/$generation/index.tsv" ] && [ -f "$base/generations/$generation/SHA256SUMS" ] || return 1
+    printf '%s/generations/%s\n' "$base" "$generation"
+  else
+    printf '%s\n' "$base"
+  fi
+}
+REPO_BASE_DIR="${OOONANA_REPO_DIR:-$(root_join /usr/lib/ooonana/repo)}"
+REPO_DIR="$(resolve_repo_generation "$REPO_BASE_DIR")"
 SOURCES_DIR="${OOONANA_SOURCES_DIR:-$(root_join /etc/ooonana/sources.d)}"
 STATE_DIR="${OOONANA_STATE_DIR:-$(root_join /var/lib/ooonana/packages)}"
 CACHE_DIR="${OOONANA_CACHE_DIR:-$(root_join /var/cache/ooonana)}"
@@ -206,6 +220,8 @@ Meaning:
   - no package names: check every installed package
   - package names: upgrade only those packages
   - --dry-run: show changes, install nothing
+  - --allow-major: explicit approval for breaking OS version jumps
+  - --security-only: install only updates explicitly security-marked by repository
 
 Repair:
   ooonana fix
@@ -443,6 +459,8 @@ reset_pkg_vars() {
   OOONANA_PKG_NOTES=""
   OOONANA_PKG_ARCHIVE=""
   OOONANA_PKG_SHA256=""
+  OOONANA_PKG_SECURITY=0
+  OOONANA_PKG_REBOOT=0
   LOADED_PKG_FILE=""
   LOADED_REPO_DIR=""
   LOADED_REPO_NAME=""
@@ -461,9 +479,9 @@ reset_repo_vars() {
 repo_uri_path() {
   uri="$1"
   case "$uri" in
-    file://*) printf '%s\n' "${uri#file://}" ;;
+    file://*) resolve_repo_generation "${uri#file://}" ;;
     http://*|https://*) printf '%s\n' "$uri" ;;
-    *) printf '%s\n' "$uri" ;;
+    *) resolve_repo_generation "$uri" ;;
   esac
 }
 
@@ -668,7 +686,9 @@ remote_repo_cache_file() {
   repo_name="$1"
   repo_uri="$2"
   rel="$3"
-  cache_dir="$(repo_cache_dir "$repo_name")"
+  cache_dir="${4:-}"
+  [ -n "$cache_dir" ] || cache_dir="$(remote_repo_cached_dir "$repo_name" "$repo_uri")"
+  if [ -f "$cache_dir/ORIGIN" ]; then repo_uri="$(cat "$cache_dir/ORIGIN")"; fi
   target="$cache_dir/$rel"
   download_file "$(remote_repo_url "$repo_uri" "$rel")" "$target" || return 1
   printf '%s\n' "$target"
@@ -678,12 +698,32 @@ sync_remote_repo() {
   repo_name="$1"
   repo_uri="$2"
   cache_dir="$(repo_cache_dir "$repo_name")"
-  mkdir -p "$cache_dir"
-  download_file "$(remote_repo_url "$repo_uri" index.tsv)" "$cache_dir/index.tsv" || return 1
-  download_file "$(remote_repo_url "$repo_uri" SHA256SUMS)" "$cache_dir/SHA256SUMS" || return 1
-  rm -f "$cache_dir/SHA256SUMS.sig"
-  download_file "$(remote_repo_url "$repo_uri" SHA256SUMS.sig)" "$cache_dir/SHA256SUMS.sig" 2>/dev/null || true
-  printf '%s\n' "$cache_dir"
+  mkdir -p "$cache_dir/generations"
+  stage="$(mktemp -d "$cache_dir/generations/.download.XXXXXX")"
+  if download_file "$(remote_repo_url "$repo_uri" CURRENT)" "$stage/current" 2>/dev/null; then
+    generation="$(cat "$stage/current")"
+    case "$generation" in ''|*[!0-9a-f]*) rm -rf "$stage"; return 1 ;; esac
+    [ "${#generation}" -eq 64 ] || { rm -rf "$stage"; return 1; }
+    repo_uri="${repo_uri%/}/generations/$generation"
+  fi
+  if ! download_file "$(remote_repo_url "$repo_uri" index.tsv)" "$stage/index.tsv" ||
+     ! download_file "$(remote_repo_url "$repo_uri" SHA256SUMS)" "$stage/SHA256SUMS"; then
+    rm -rf "$stage"
+    return 1
+  fi
+  download_file "$(remote_repo_url "$repo_uri" SHA256SUMS.sig)" "$stage/SHA256SUMS.sig" 2>/dev/null || true
+  if ! verify_repo_signature "$stage" "${OOONANA_REPO_KEY:-}"; then rm -rf "$stage"; return 1; fi
+  if repo_checksum_expected "$stage/SHA256SUMS" index.tsv >/dev/null 2>&1; then
+    if ! verify_repo_checksum "$stage" index.tsv "${OOONANA_REPO_KEY:-}"; then rm -rf "$stage"; return 1; fi
+  fi
+  generation="$( { cat "$stage/index.tsv" "$stage/SHA256SUMS"; [ ! -f "$stage/SHA256SUMS.sig" ] || cat "$stage/SHA256SUMS.sig"; printf '%s\n' "$repo_uri"; } | sha256sum | awk '{print $1}')"
+  printf '%s\n' "$repo_uri" >"$stage/ORIGIN"
+  chmod 0600 "$stage/ORIGIN"
+  final="$cache_dir/generations/$generation"
+  if [ -d "$final" ]; then rm -rf "$stage"; else mv "$stage" "$final"; fi
+  printf '%s\n' "$generation" >"$cache_dir/CURRENT.tmp.$$"
+  replace_file "$cache_dir/CURRENT.tmp.$$" "$cache_dir/CURRENT"
+  printf '%s\n' "$final"
 }
 
 validate_repo_tarball_entries() {
@@ -723,7 +763,7 @@ sync_tarball_repo() {
   validate_repo_tarball_entries "$repo_name" "$tarball"
   tar -xzf "$tarball" -C "$tmp_dir/root"
 
-  repo_root="$tmp_dir/root"
+  repo_root="$(resolve_repo_generation "$tmp_dir/root")"
   if [ ! -f "$repo_root/index.tsv" ]; then
     first_dir="$(find "$repo_root" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sed -n '1p')"
     if [ -n "$first_dir" ] && [ -f "$first_dir/index.tsv" ]; then
@@ -733,18 +773,26 @@ sync_tarball_repo() {
   [ -f "$repo_root/index.tsv" ] || die "repo tarball missing index.tsv: $repo_name"
   [ -f "$repo_root/SHA256SUMS" ] || die "repo tarball missing SHA256SUMS: $repo_name"
 
-  rm -rf "$cache_dir"
-  mv "$repo_root" "$cache_dir"
+  verify_repo_signature "$repo_root" "${OOONANA_REPO_KEY:-}"
+  (cd "$repo_root" && sha256sum -c SHA256SUMS >/dev/null) || die "repo tarball checksum mismatch: $repo_name"
+  generation="$( { cat "$repo_root/index.tsv" "$repo_root/SHA256SUMS"; [ ! -f "$repo_root/SHA256SUMS.sig" ] || cat "$repo_root/SHA256SUMS.sig"; } | sha256sum | awk '{print $1}')"
+  mkdir -p "$cache_dir/generations"
+  final="$cache_dir/generations/$generation"
+  if [ ! -d "$final" ]; then mv "$repo_root" "$final"; fi
+  printf '%s\n' "$generation" >"$cache_dir/CURRENT.tmp.$$"
+  replace_file "$cache_dir/CURRENT.tmp.$$" "$cache_dir/CURRENT"
   rm -rf "$tmp_dir"
-  printf '%s\n' "$cache_dir"
+  printf '%s\n' "$final"
 }
 
 remote_repo_cached_dir() {
   repo_name="$1"
   repo_uri="$2"
   cache_dir="$(repo_cache_dir "$repo_name")"
+  cache_dir="$(resolve_repo_generation "$cache_dir")"
   if [ ! -f "$cache_dir/index.tsv" ] || [ ! -f "$cache_dir/SHA256SUMS" ]; then
     sync_remote_repo "$repo_name" "$repo_uri" >/dev/null
+    cache_dir="$(resolve_repo_generation "$(repo_cache_dir "$repo_name")")"
   fi
   printf '%s\n' "$cache_dir"
 }
@@ -753,8 +801,10 @@ tarball_repo_cached_dir() {
   repo_name="$1"
   repo_uri="$2"
   cache_dir="$(repo_cache_dir "$repo_name")"
+  cache_dir="$(resolve_repo_generation "$cache_dir")"
   if [ ! -f "$cache_dir/index.tsv" ] || [ ! -f "$cache_dir/SHA256SUMS" ]; then
     sync_tarball_repo "$repo_name" "$repo_uri" >/dev/null
+    cache_dir="$(resolve_repo_generation "$(repo_cache_dir "$repo_name")")"
   fi
   printf '%s\n' "$cache_dir"
 }
@@ -880,7 +930,7 @@ find_pkg_file() {
       remote_dir="$(remote_repo_cached_dir "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI")"
       candidate_version="$(available_pkg_version_from_repo "$remote_dir" "$id" 2>/dev/null || true)"
       if [ "$candidate_version" = "$target_version" ]; then
-        remote_repo_cache_file "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI" "$id.pkg" >/dev/null
+        remote_repo_cache_file "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI" "$id.pkg" "$remote_dir" >/dev/null
         use_pkg_candidate "$remote_dir/$id.pkg" "$remote_dir" "$OOONANA_REPO_NAME" "$OOONANA_REPO_URI" "$OOONANA_REPO_KEY" && return 0
       fi
     else
@@ -994,6 +1044,13 @@ repo_signature_key() {
     printf '%s\n' "$repo_path/repo.pub"
     return 0
   fi
+  # Bundled public key enrolls only new images/core installations. Existing
+  # clients must explicitly enroll it before switching signed repositories.
+  default_key="$SCRIPT_DIR/../../etc/ooonana/trusted-keys/repository-20261002.pub"
+  if [ -f "$default_key" ]; then
+    printf '%s\n' "$default_key"
+    return 0
+  fi
   return 1
 }
 
@@ -1104,7 +1161,7 @@ write_repo_index_entry() {
 }
 
 cmd_repo_index() {
-  repo_path="$REPO_DIR"
+  repo_path="$REPO_BASE_DIR"
   sign_key="${OOONANA_REPO_SIGN_KEY:-}"
   seen_repo_path=0
   while [ "$#" -gt 0 ]; do
@@ -1130,6 +1187,7 @@ cmd_repo_index() {
     esac
   done
   [ -d "$repo_path" ] || die "missing repo: $repo_path"
+  [ ! -f "$repo_path/CURRENT" ] || die "published generations are immutable; index a separate staging repository"
   index_tmp="$repo_path/index.tsv.tmp.$$"
   sums_tmp="$repo_path/SHA256SUMS.tmp.$$"
   : > "$index_tmp"
@@ -1141,6 +1199,14 @@ cmd_repo_index() {
     count=$((count + 1))
   done
   sort -u "$index_tmp" -o "$index_tmp"
+  printf '%s  index.tsv\n' "$(sha256_file "$index_tmp")" >>"$sums_tmp"
+  for hook in "$repo_path"/hooks/*; do
+    [ -f "$hook" ] || continue
+    printf '%s  hooks/%s\n' "$(sha256_file "$hook")" "${hook##*/}" >>"$sums_tmp"
+  done
+  if [ -f "$repo_path/BUILD-MANIFEST.json" ]; then
+    printf '%s  BUILD-MANIFEST.json\n' "$(sha256_file "$repo_path/BUILD-MANIFEST.json")" >>"$sums_tmp"
+  fi
   sort -u "$sums_tmp" -o "$sums_tmp"
   replace_file "$index_tmp" "$repo_path/index.tsv"
   replace_file "$sums_tmp" "$repo_path/SHA256SUMS"
@@ -1370,10 +1436,20 @@ pkg_hook() {
 }
 
 run_pkg_hook() {
+  local id action hook repo_path relative
   id="$1"
   action="$2"
+  repo_path="${LOADED_REPO_DIR:-$REPO_DIR}"
+  relative="hooks/$id.$action"
   hook="$(pkg_hook "$id" "$action")"
+  if [ ! -e "$hook" ] && [ -n "${LOADED_REPO_URI:-}" ] &&
+    repo_is_remote "$LOADED_REPO_URI" &&
+    repo_checksum_expected "$repo_path/SHA256SUMS" "$relative" >/dev/null 2>&1; then
+    remote_repo_cache_file "$LOADED_REPO_NAME" "$LOADED_REPO_URI" "$relative" "$repo_path" >/dev/null || die "hook download failed: $relative"
+    chmod 0755 "$hook"
+  fi
   [ -e "$hook" ] || return 0
+  verify_repo_checksum "$repo_path" "$relative" "${LOADED_REPO_KEY:-}"
   [ -x "$hook" ] || die "hook not executable: $hook"
   printf 'running %s hook %s\n' "$action" "$id"
   export OOONANA_ROOT
@@ -1382,6 +1458,42 @@ run_pkg_hook() {
   export OOONANA_CACHE_DIR="$CACHE_DIR"
   export OOONANA_PKG_ID OOONANA_PKG_VERSION OOONANA_PKG_KIND OOONANA_PKG_SUMMARY
   "$hook"
+}
+
+config_baseline_path() {
+  printf '%s/config-baselines/%s.sha256\n' "$STATE_DIR" "$1"
+}
+
+record_config_baseline() {
+  local id manifest output entry target
+  id="$1"; manifest="$(pkg_files_manifest "$id")"; output="$(config_baseline_path "$id")"
+  mkdir -p "$(dirname "$output")"
+  : >"$output.tmp.$$"
+  if [ -f "$manifest" ]; then
+    while IFS= read -r entry; do
+      entry="${entry#./}"
+      case "$entry" in etc/*) ;; *) continue ;; esac
+      target="$(root_join "/$entry")"
+      if [ -f "$target" ] && [ ! -L "$target" ]; then
+        printf '%s  %s\n' "$(sha256_file "$target")" "$entry" >>"$output.tmp.$$"
+      fi
+    done <"$manifest"
+  fi
+  replace_file "$output.tmp.$$" "$output"
+}
+
+major_os_update() {
+  case "$1" in ooonana-core|ooonana-core-runtime) ;; *) return 1 ;; esac
+  awk -v old="$2" -v new="$3" 'BEGIN { split(old,a,"[.+-]"); split(new,b,"[.+-]"); exit !((a[1]+0)!=(b[1]+0) || ((a[1]+0)==0 && (a[2]+0)!=(b[2]+0))) }'
+}
+
+mark_reboot_required() {
+  local marker
+  [ "${OOONANA_PKG_REBOOT:-0}" = 1 ] || [ "$OOONANA_PKG_KIND" = kernel ] || return 0
+  marker="$(root_join /run/ooonana/reboot-required)"
+  mkdir -p "$(dirname "$marker")"
+  printf '%s %s\n' "$OOONANA_PKG_ID" "$OOONANA_PKG_VERSION" >>"$marker"
+  printf 'reboot required: %s\n' "$OOONANA_PKG_ID"
 }
 
 pkg_archive_path() {
@@ -1499,7 +1611,7 @@ ensure_pkg_archive_available() {
   if [ ! -f "$archive_path" ] && [ -n "${LOADED_REPO_URI:-}" ]; then
     case "$OOONANA_PKG_ARCHIVE" in
       /*) ;;
-      *) remote_repo_cache_file "$LOADED_REPO_NAME" "$LOADED_REPO_URI" "$OOONANA_PKG_ARCHIVE" >/dev/null ;;
+      *) remote_repo_cache_file "$LOADED_REPO_NAME" "$LOADED_REPO_URI" "$OOONANA_PKG_ARCHIVE" "$LOADED_REPO_DIR" >/dev/null ;;
     esac
   fi
 }
@@ -1668,7 +1780,7 @@ cmd_update() {
       if repo_path="$(sync_tarball_repo "$repo_name" "$repo_uri")"; then
         :
       else
-        cached_repo="$(repo_cache_dir "$repo_name")"
+        cached_repo="$(resolve_repo_generation "$(repo_cache_dir "$repo_name")")"
         printf 'ooonana repo: source unavailable: %s %s\n' "$repo_name" "$repo_uri" >&2
         if [ -f "$cached_repo/index.tsv" ]; then
           printf 'ooonana repo: using cached metadata for %s\n' "$repo_name" >&2
@@ -1683,7 +1795,7 @@ cmd_update() {
       if repo_path="$(sync_remote_repo "$repo_name" "$repo_uri")"; then
         :
       else
-        cached_repo="$(repo_cache_dir "$repo_name")"
+        cached_repo="$(resolve_repo_generation "$(repo_cache_dir "$repo_name")")"
         printf 'ooonana repo: source unavailable: %s %s\n' "$repo_name" "$repo_uri" >&2
         if [ -f "$cached_repo/index.tsv" ]; then
           printf 'ooonana repo: using cached metadata for %s\n' "$repo_name" >&2
@@ -2073,7 +2185,9 @@ install_one_pkg() {
   ensure_pkg_dirs
   [ -n "$OOONANA_PKG_ARCHIVE" ] && install_pkg_archive "$id"
   run_pkg_hook "$id" install
+  run_pkg_hook "$id" healthcheck
   cp "$LOADED_PKG_FILE" "$INSTALLED_DIR/$id.pkg"
+  record_config_baseline "$id"
   printf 'installed %s %s\n' "$id" "$OOONANA_PKG_VERSION"
 }
 
@@ -2097,7 +2211,7 @@ cmd_get() {
 }
 
 upgrade_one_pkg() {
-  local id dry_run old_version new_version deps dep archive_path old_upgrading
+  local id dry_run old_version new_version deps dep archive_path old_upgrading old_security_only
   id="$1"
   dry_run="$2"
   safe_pkg_id "$id" || die "bad package id: $id"
@@ -2130,6 +2244,17 @@ upgrade_one_pkg() {
     printf 'installed version newer %s %s > %s\n' "$id" "$old_version" "$new_version"
     return 0
   fi
+  if [ "${OOONANA_SECURITY_ONLY:-0}" -eq 1 ] && [ "${OOONANA_PKG_SECURITY:-0}" != 1 ]; then
+    printf 'not security-marked: %s\n' "$id"
+    return 0
+  fi
+  if major_os_update "$id" "$old_version" "$new_version" && [ "${OOONANA_ALLOW_MAJOR:-0}" != 1 ]; then
+    if [ "$dry_run" -eq 1 ]; then
+      printf 'major update needs --allow-major: %s %s -> %s\n' "$id" "$old_version" "$new_version"
+      return 0
+    fi
+    die "major OS update requires explicit --allow-major: $id $old_version -> $new_version"
+  fi
   check_pkg_conflicts "$id"
   if [ "$dry_run" -eq 1 ]; then
     OOONANA_UPGRADE_PLANNED="${OOONANA_UPGRADE_PLANNED:-} $id"
@@ -2144,6 +2269,8 @@ upgrade_one_pkg() {
   deps="$OOONANA_PKG_DEPS"
   old_upgrading="${OOONANA_UPGRADING:-}"
   OOONANA_UPGRADING="$old_upgrading $id"
+  old_security_only="${OOONANA_SECURITY_ONLY:-0}"
+  OOONANA_SECURITY_ONLY=0
   for dep in $deps; do
     if pkg_installed "$dep"; then
       upgrade_one_pkg "$dep" "$dry_run"
@@ -2152,6 +2279,7 @@ upgrade_one_pkg() {
     fi
   done
   OOONANA_UPGRADING="$old_upgrading"
+  OOONANA_SECURITY_ONLY="$old_security_only"
   load_pkg "$id"
   check_pkg_conflicts "$id"
   if [ "$dry_run" -eq 1 ]; then
@@ -2171,9 +2299,14 @@ cmd_upgrade() {
   packages=""
   OOONANA_PLANNED=""
   OOONANA_UPGRADE_PLANNED=""
+  OOONANA_ALLOW_MAJOR=0
+  OOONANA_SECURITY_ONLY=0
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --dry-run) dry_run=1 ;;
+      --allow-major) OOONANA_ALLOW_MAJOR=1 ;;
+      --security-only) OOONANA_SECURITY_ONLY=1 ;;
+      -*) die "usage: ooonana upgrade [--dry-run] [--allow-major] [--security-only] [PACKAGE...]" ;;
       *) packages="$packages ${1}" ;;
     esac
     shift
@@ -2199,6 +2332,29 @@ cmd_upgrade() {
   for id in $packages; do
     safe_pkg_id "$id" || die "bad package id: $id"
     upgrade_one_pkg "$id" "$dry_run"
+  done
+}
+
+cmd_update_status() {
+  local file id old new category
+  printf 'update policy: major OS jumps require --allow-major; security-only requires repository markings\n'
+  if [ -f "$(root_join /run/ooonana/reboot-required)" ]; then
+    printf 'reboot_required: yes\n'
+    cat "$(root_join /run/ooonana/reboot-required)"
+  else
+    printf 'reboot_required: no\n'
+  fi
+  for file in "$INSTALLED_DIR"/*.pkg; do
+    [ -f "$file" ] || continue
+    id="${file##*/}"; id="${id%.pkg}"
+    old="$(installed_pkg_version "$id")"
+    new="$(available_pkg_version "$id" || true)"
+    [ -n "$new" ] && version_is_newer "$old" "$new" || continue
+    load_pkg "$id"
+    category=minor
+    major_os_update "$id" "$old" "$new" && category=major
+    [ "$OOONANA_PKG_SECURITY" != 1 ] || category=security
+    printf '%s %s -> %s [%s]\n' "$id" "$old" "$new" "$category"
   done
 }
 
@@ -2358,6 +2514,8 @@ replace_pkg_transaction() (
   active=0
   committed=0
   manifest="$(pkg_files_manifest "$id")"
+  baseline="$(config_baseline_path "$id")"
+  [ ! -f "$baseline" ] || cp -p "$baseline" "$transaction/config-baseline"
   rollback_and_cleanup() {
     status=$?
     trap - EXIT HUP INT TERM
@@ -2383,13 +2541,28 @@ replace_pkg_transaction() (
       else
         rm -f "$manifest" || rollback_ok=0
       fi
+      if [ -f "$transaction/config-baseline" ]; then
+        cp -p "$transaction/config-baseline" "$baseline" || rollback_ok=0
+      else
+        rm -f "$baseline" || rollback_ok=0
+      fi
       if [ "$rollback_ok" -ne 1 ]; then
         printf 'rollback incomplete; recovery files: %s\n' "$transaction" >&2
         exit 1
       fi
       printf 'restored previous package: %s\n' "$id" >&2
     fi
-    rm -rf "$transaction"
+    if [ "$committed" -eq 1 ] && { [ "${OOONANA_KEEP_UPDATE_BACKUPS:-core}" = all ] || { [ "${OOONANA_KEEP_UPDATE_BACKUPS:-core}" = core ] && { [ "$id" = ooonana-core-runtime ] || [ "$id" = ooonana-kernel ]; }; }; }; then
+      backup_root="$STATE_DIR/backups"
+      mkdir -p "$backup_root"
+      chmod 0700 "$backup_root"
+      rm -f "$transaction/replacement.tar.gz"
+      backup="$backup_root/${transaction##*/}"
+      mv "$transaction" "$backup"
+      printf 'update checkpoint: %s\n' "$backup"
+    else
+      rm -rf "$transaction"
+    fi
     exit "$status"
   }
   trap rollback_and_cleanup EXIT
@@ -2410,6 +2583,21 @@ replace_pkg_transaction() (
   fi
   sed -e 's#^\./##' -e '/^$/d' -e '/^\.$/d' "$transaction/affected" | sort -u > "$transaction/entries"
   mv "$transaction/entries" "$transaction/affected"
+  : >"$transaction/preserved-configs"
+  while IFS= read -r entry; do
+    case "$entry" in etc/os-release|*/) continue ;; etc/*) ;; *) continue ;; esac
+    target="$(root_join "/$entry")"
+    if [ -L "$target" ] || [ -f "$target" ]; then
+      old_hash=""
+      if [ -f "$baseline" ]; then
+        old_hash="$(awk -v wanted="$entry" '$2==wanted { print $1; exit }' "$baseline")"
+      fi
+      if [ -L "$target" ] || [ -z "$old_hash" ] || [ "$(sha256_file "$target")" != "$old_hash" ]; then
+        printf '%s\n' "$entry" >>"$transaction/preserved-configs"
+      fi
+    fi
+  done <"$transaction/affected"
+  while IFS= read -r entry; do printf '%s.ooonana-new\n' "$entry"; done <"$transaction/preserved-configs" >>"$transaction/affected"
   while IFS= read -r entry; do
     safe_manifest_entry "$entry" || die "unsafe replacement path: $entry"
     target="$(root_join "/$entry")"
@@ -2430,8 +2618,22 @@ replace_pkg_transaction() (
     tar_list_archive "$transaction/replacement.tar.gz" | sed -e 's#^\./##' -e '/^$/d' > "$manifest"
     printf 'unpacked %s\n' "$OOONANA_PKG_ARCHIVE"
   fi
+  record_config_baseline "$id"
+  while IFS= read -r entry; do
+    target="$(root_join "/$entry")"
+    if [ -e "$target" ] || [ -L "$target" ]; then
+      rm -f "$target.ooonana-new"
+      cp -a "$target" "$target.ooonana-new"
+      printf 'custom config preserved; new default: /%s.ooonana-new\n' "$entry"
+    fi
+  done <"$transaction/preserved-configs"
+  if [ -s "$transaction/preserved-configs" ]; then
+    tar -xf "$transaction/payload.tar" -C "$OOONANA_ROOT" -T "$transaction/preserved-configs"
+  fi
   run_pkg_hook "$id" install
+  run_pkg_hook "$id" healthcheck
   cp "$LOADED_PKG_FILE" "$INSTALLED_DIR/$id.pkg"
+  mark_reboot_required
   committed=1
 )
 
@@ -2850,8 +3052,17 @@ main() {
   if [ "$OOONANA_ROOT" = "/" ] &&
     [ "$(id -u 2>/dev/null || echo 1)" != "0" ] &&
     command -v ooonana-run-admin >/dev/null 2>&1; then
+    # Read-only inspection and dry runs must not discard caller paths or ask
+    # for root. Only operations which modify system state need escalation.
+    readonly=0
+    for argument in "$@"; do
+      [ "$argument" != --dry-run ] || readonly=1
+    done
     case "$cmd" in
-      update|info|show|depends|files|get|install|add|upgrade|remove|uninstall|purge|fix|reinstall|repo|clean)
+      info|show|depends|files) readonly=1 ;;
+    esac
+    case "$cmd:$readonly" in
+      update:0|get:0|install:0|add:0|upgrade:0|remove:0|uninstall:0|purge:0|fix:0|reinstall:0|repo:0|clean:0)
         exec ooonana-run-admin "$0" "$cmd" "$@"
         ;;
     esac
@@ -2875,6 +3086,7 @@ main() {
     check) cmd_check "$@" ;;
     get|install|add) cmd_get "$@" ;;
     upgrade) cmd_upgrade "$@" ;;
+    update-status) cmd_update_status ;;
     remove|uninstall) cmd_remove "$@" ;;
     purge) cmd_purge "$@" ;;
     fix) cmd_fix "$@" ;;

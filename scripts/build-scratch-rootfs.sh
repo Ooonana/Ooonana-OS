@@ -90,7 +90,7 @@ create_base_dirs() {
 
 create_busybox_links() {
   local applet
-  for applet in adduser awk basename cat chmod clear cp cut date dd df dirname dmesg echo env free grep hostname ifconfig ip ls mkdir mount mv passwd ps pwd readlink rm rmdir route sed sh sha256sum sleep sort sync tar touch tr udhcpc umount uname wc wget; do
+  for applet in adduser awk basename cat chmod clear cp cut date dd df dirname dmesg echo env free grep hostname ifconfig ip killall ls mkdir mount mv passwd ps pwd readlink rm rmdir route sed sh sha256sum sleep sort sync tar touch tr udhcpc umount uname wc wget; do
     ln -sf busybox "$ROOTFS/bin/$applet"
   done
   for applet in mdev reboot; do
@@ -113,6 +113,8 @@ create_device_nodes() {
 
 install_ooonana_payload() {
   cp -a "$ROOT/packages/ooonana/." "$ROOTFS/"
+  find "$ROOTFS/usr/lib/ooonana" -type d -name __pycache__ -prune -exec rm -rf -- {} +
+  find "$ROOTFS/usr/lib/ooonana" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
   chmod 0755 "$ROOTFS/usr/bin/ooonana" "$ROOTFS/usr/bin/ooonana-setup" "$ROOTFS/usr/sbin/ooonana-install"
   chmod 0755 "$ROOTFS/usr/bin/bunana" "$ROOTFS/usr/bin/oonana" "$ROOTFS/usr/bin/clear" "$ROOTFS/usr/bin/neofetch" "$ROOTFS/usr/bin/ooonana-neofetch" "$ROOTFS/usr/bin/which" "$ROOTFS/usr/bin/strings"
   cp "$ROOTFS/usr/lib/ooonana/repo/base.pkg" "$ROOTFS/var/lib/ooonana/packages/installed/base.pkg"
@@ -321,7 +323,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   list_output="$(/usr/bin/ooonana list 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.4' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.5' &&
     printf '%s\n' "$me_output" | grep -q 'Ooonana OS' &&
     printf '%s\n' "$list_output" | grep -q 'gui' &&
     printf '%s\n' "$installed_output" | grep -q 'base'; then
@@ -392,7 +394,7 @@ create_image() {
 
 main() {
   ooonana_require_linux
-  ooonana_require_commands install cp chmod ln mkdir stat truncate mkfs.ext4
+  ooonana_require_commands install cp chmod find ln mkdir rm stat truncate mkfs.ext4
 
   local busybox_path
   busybox_path="$(find_busybox)"

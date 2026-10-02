@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from ui_preferences import load_preferences, save_preferences, transition_ms
 from common import (  # noqa: E402
     Gtk,
     apply_theme,
@@ -63,7 +64,7 @@ class SettingsWindow(Gtk.Window):
 
         self.stack = Gtk.Stack()
         self.stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
-        self.stack.set_transition_duration(240)
+        self.stack.set_transition_duration(transition_ms())
         root.pack_start(self.stack, True, True, 0)
 
         builders = {
@@ -95,6 +96,7 @@ class SettingsWindow(Gtk.Window):
         viewport.add(content)
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_overlay_scrolling(False)
         scroll.add(viewport)
         return scroll
 
@@ -289,12 +291,19 @@ class SettingsWindow(Gtk.Window):
         theme.pack_start(row, False, False, 0)
         page.pack_start(theme, False, False, 0)
 
+        motion = card("Motion", "Short slide transitions; solid backgrounds throughout.", "preferences-desktop-theme-symbolic")
+        self.reduce_motion = Gtk.CheckButton.new_with_label("Reduce motion")
+        self.reduce_motion.set_active(load_preferences()["reduce_motion"])
+        self.reduce_motion.connect("toggled", self.motion_changed)
+        motion.pack_start(self.reduce_motion, False, False, 0)
+        page.pack_start(motion, False, False, 0)
+
         wallpaper = card("Wallpaper", "Choose image and control scaling without restarting i3.", "preferences-desktop-wallpaper-symbolic")
         self.status_widgets["wallpaper"] = label(self.wallpaper_status(), "muted")
         wallpaper.pack_start(self.status_widgets["wallpaper"], False, False, 0)
         mode_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         self.wallpaper_mode_combo = Gtk.ComboBoxText()
-        self.wallpaper_mode_combo.append("fit", "Fit height / black bars")
+        self.wallpaper_mode_combo.append("fit", "Fit desktop / keep dock clear")
         self.wallpaper_mode_combo.append("fill", "Fill screen / crop")
         self.wallpaper_mode_combo.append("center", "Center at original size")
         self.wallpaper_mode_combo.append("stretch", "Stretch to screen")
@@ -382,13 +391,24 @@ class SettingsWindow(Gtk.Window):
         if row:
             self.stack.set_visible_child_name(row.page_id)
 
+    def motion_changed(self, widget):
+        try:
+            save_preferences(reduce_motion=widget.get_active())
+        except OSError as exc:
+            message(self, "Could not save motion preference", str(exc), Gtk.MessageType.WARNING)
+            return
+        settings = Gtk.Settings.get_default()
+        if settings:
+            settings.set_property("gtk-enable-animations", not widget.get_active())
+        self.stack.set_transition_duration(transition_ms())
+
     def set_status(self, key, text, state="good"):
         widget = self.status_widgets.get(key)
         if not widget:
             return
         widget.set_text(text)
         context = widget.get_style_context()
-        for css in ("status-good", "status-warn", "status-bad"):
+        for css in ("status-good", "status-warn", "status-bad", "status-neutral"):
             context.remove_class(css)
         context.add_class(f"status-{state}")
 
@@ -410,6 +430,14 @@ class SettingsWindow(Gtk.Window):
         self.set_status("repo_detail", repo, "good" if repo.startswith("http") else "warn")
         if "wallpaper" in self.status_widgets:
             self.status_widgets["wallpaper"].set_text(self.wallpaper_status())
+
+        wsl = bool(os.environ.get("WSL_DISTRO_NAME")) or "microsoft" in read_file("/proc/sys/kernel/osrelease", "").lower()
+        if wsl and not Path("/run/dbus/system_bus_socket").exists():
+            self.set_status("network", "Network managed by Windows", "neutral")
+            self.set_status("wifi_detail", "Wi-Fi is controlled in Windows while using WSL.", "neutral")
+            self.set_status("bluetooth", "Bluetooth managed by Windows", "neutral")
+            self.set_status("bluetooth_detail", "Direct Bluetooth access needs a controller passed into WSL.", "neutral")
+            return
 
         def task():
             nm_rc, nm_out = run(["nmcli", "-t", "-f", "STATE,CONNECTIVITY", "general"], timeout=3)
@@ -570,6 +598,13 @@ def main():
         return 0
     apply_theme()
     window = SettingsWindow()
+    if "--page" in sys.argv:
+        position = sys.argv.index("--page") + 1
+        if position < len(sys.argv):
+            for index, (page_id, _title, _icon) in enumerate(SettingsWindow.PAGES):
+                if page_id == sys.argv[position]:
+                    window.sidebar.select_row(window.sidebar.get_row_at_index(index))
+                    break
     window.show_all()
     Gtk.main()
     return 0

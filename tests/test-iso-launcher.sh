@@ -8,5 +8,5 @@ bash -n "$SCRIPT"
 source="$(<"$SCRIPT")"
 [[ "$source" == *'mount -t drvfs F: "$MOUNT_DIR"'* ]]
 [[ "$source" == *'findmnt -n -o SOURCE --target "$MOUNT_DIR"'* ]]
-[[ "$source" == *'exec bash "$SCRIPT_DIR/rebuild-full-i3-release.sh" "$@"'* ]]
+[[ "$source" == *'exec bash "$SCRIPT_DIR/rebuild-full-i3-release.sh" "${release_args[@]}"'* ]]
 printf 'ok iso-launcher\n'

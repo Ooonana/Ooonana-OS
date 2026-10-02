@@ -15,9 +15,19 @@ Ooonana OS is a custom Linux distribution built from scratch around its own boot
 
 Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Linux, BusyBox, GRUB, i3, and other open-source components. Ooonana package factory currently imports selected Alpine package payloads into Ooonana `.pkg` repositories while native packages replace them over time.
 
-![Ooonana OS core 0.9.4 full-i3 desktop with Settings and centered dock](docs/assets/ooonana-full-i3-desktop.png)
+![Ooonana OS core 0.9.5 preview with left music, centered AI, notification bell, and app dock](docs/assets/ooonana-full-i3-desktop.png)
 
-Real core 0.9.4 nested-WSL i3 capture. Live ISO and physical USB visuals still need fresh build/test.
+Earlier core 0.9.5 working-preview capture from nested WSL i3, before the GUI polish below. Cursor is excluded. Complete desktop and physical USB visuals still need a fresh image build/test; native GTK previews below show current app patches.
+
+Latest GUI polish previews, rendered from real GTK widgets in an isolated virtual display with sample data:
+
+![Native window controls and motion preferences](docs/assets/ooonana-gui-polish-appearance.png)
+
+![Grouped notification center with optional private local history](docs/assets/ooonana-gui-polish-notifications.png)
+
+![Ooonana AI native chat interface, isolated sample conversation](docs/assets/ooonana-ai-chat.png)
+
+AI preview uses fixture messages, not an inference result. Native chat adds searchable private conversations, message bubbles, code copying, text attachments, Enter/Shift+Enter controls, and cancellable requests. Stopping a request does not stop the shared local API. History retains at most 60 chats / 120 messages per chat / 8 MiB total using private atomic writes; unreadable old history stays untouched.
 
 ## Quick Links
 
@@ -168,7 +178,9 @@ Core pieces:
 
 ## Current Status
 
-Source core 0.9.4 includes nested WSL i3, centered dock, native window controls, and an original tailless pointer. Existing ISO was built September 25 and does not contain these changes. Rebuild before USB testing. Physical USB RAM/OpenVINO and fan-sensor checks remain pending.
+Source core 0.9.5 includes nested WSL i3, centered dock, native window controls, smaller tailless pointer, left-aligned music, centered AI access, and a notification center. Existing ISO was built September 25 and does not contain these changes. Source/package preparation is not proof of new-image boot or successful public package deployment. Physical USB RAM/OpenVINO and fan-sensor checks remain pending.
+
+Backend pass adds verified repository generations, signed metadata, preserved custom `/etc` files, post-upgrade health checks with automatic payload rollback, retained core/kernel checkpoints, explicit major-update approval, security-update markings, and reboot status. New native **Health** and **Updates** apps provide on-demand diagnostics and upgrade review. Physical hardware, installed-login boot, and model inference remain separate verification gates. This pass does not build an ISO.
 
 Working now:
 
@@ -687,6 +699,8 @@ ooonana-packages-app
 
 The terminal wizard still exists as fallback. It opens in a themed xterm under i3, requires an exact typed target path, asks optional disk swap size, then walks user/password, hostname, theme, cloud repo picker, source root, confirmation, install progress, and reboot prompt steps. It logs to `/var/log/ooonana-install-wizard.log` and blocks installing over the current root or live-boot disk. If install fails, it prints `OOONANA_INSTALL_WIZARD_FAIL` and drops to a fallback shell. Custom root, home, swap, and EFI partitions must belong to the same selected disk.
 
+New installations require a nonempty account password before formatting. Installed boot uses console login, then starts desktop; live media keeps automatic desktop startup. Passwordless live sudo/doas rules do not carry into installation. This new installed-login path still requires boot testing on a newly built image.
+
 Normal live boot may probe removable media read-only to find the Ooonana ISO. It writes no unrelated SSD/USB/SD disk automatically. Persistent mode writes only the `OOONANA_PERSIST` partition on the boot-media parent disk. Installation writes the explicitly confirmed target disk; verify its path before confirmation.
 
 Custom partition backend example:
@@ -708,7 +722,11 @@ sudo ooonana-install \
   --yes
 ```
 
-Default full-i3 UI uses solid dark graphite, light text, and orange accents. Top panel shows workspaces, minimize/fullscreen/close, music status, RAM, audio, brightness, battery, Bluetooth, Wi-Fi, clock, and power. Centered bottom dock launches pinned apps and shows running dots; left-click restores an open app session, right-click offers Open, Minimize, Fullscreen, and Close. Unpinned third-party windows get bounded dock chips; overflow opens a session picker. OpenVINO gets its own icon when installed. Hover alone does not change focus. Notes wallpaper is default; graphite wallpaper remains available in Settings. `Mod+d` opens native Ooonana Spotlight; `Mod+Shift+d` opens rofi. Light mode remains available:
+Default full-i3 UI uses solid dark graphite, light text, and orange accents. Music sits on the left beside window controls; AI access sits in the center. Left-click AI opens Ooonana AI; right-click opens OpenVINO Chat. Right-side indicators cover RAM, audio, battery, Wi-Fi, unread notifications, compact hardware controls, clock, and power. Unavailable audio/battery placeholders are hidden; Bluetooth and brightness remain accessible through hardware controls. The notification center groups messages by app, supports individual removal, Clear all, and Do Not Disturb; right-click the bell toggles Do Not Disturb. Dunst retains up to 80 notifications during its session. Optional private local history saves messages collected by the center across sessions; default is off, and disabling it deletes saved history. Messages received while the center is closed are collected on reopening. Centered bottom dock shows running counts and hollow indicators for minimized apps; left-click restores an app session, right-click offers a native GTK action menu with rofi fallback. Unpinned windows get bounded chips and an overflow session picker. OpenVINO gets its own icon when installed. Hover alone does not change focus. Notes wallpaper is default; graphite wallpaper remains available in Settings. `Mod+d` opens native Ooonana Spotlight; `Mod+Shift+d` opens rofi. Light mode remains available:
+
+Native GTK window controls now sit on the left as red/yellow/green circles with visible symbols and accessible names. Appearance offers reduced motion; default page slides last 180ms without window transparency. The offline AI dialog separates app, runtime, model files, and API status without claiming that an active API proves successful model loading. Setup presents a review before applying settings; installer text clarifies erase/custom modes, target partitions, and disk swap. Formatter logic is unchanged. Universal titlebar buttons for third-party apps still require separate window-manager work; the dock/titlebar action menu provides current controls.
+
+This machine's private Windows cursor conversion uses a real 19px frame (previously 32px, about 60%), retaining original proportions and scaled hotspot. The separately drawn public tailless theme defaults to 17px. The private theme stays outside tracked sources and must not be redistributed. ISO and WSL overlay builders read its preferred size from the private theme's `cursor-size` file.
 
 ```bash
 ooonana help ui
@@ -731,6 +749,7 @@ Mod+Shift+P  Wallpaper changer
 Print        Screenshot
 Mod+Shift+G  Geany/Vim editor
 Mod+Shift+M  Ooonana Music player
+Mod+Shift+C  Notification center
 Mod+Shift+X  Ooonana Task Manager
 Ctrl+Shift+Esc Ooonana Task Manager
 Mod+Shift+U  ranger file manager
@@ -751,6 +770,8 @@ Persistence label: OOONANA_PERSIST
 For Rufus/native USB, flash the ISO normally, then add an ext4 persistence partition labeled `OOONANA_PERSIST`. Ooonana uses it as the full writable live-root overlay. User files, settings, Wi-Fi, Bluetooth pairings, installed packages, and system changes survive reboot. An internal disk carrying the same label is ignored.
 
 `ooonana-memory status` reports available RAM, swap, and live storage mode. Ooonana starts compressed zram swap at boot (half physical RAM, capped at 8 GiB); it does not silently create a USB swapfile. Zram helps memory pressure but cannot replace physical RAM for a large model. OpenVINO setup on live USB needs the persistent GRUB entry plus `OOONANA_PERSIST`; RAM-only and temporary overlays cannot safely hold its runtime and model files.
+
+Memory reporting now separates zram logical capacity, compressed bytes and physical consumption; Task Manager shows swap usage rather than capacity alone. OpenVINO preflight estimates weights/cache against available memory, including cgroup limits, and offers context/cache/model reductions. Linux core runtime pins were import-tested, not inference-tested. Use **Refresh runtime** in Offline setup when moving between tested dependency sets. See [backend update policy](docs/backend-update-policy.md) and [AI UI verification](docs/ai-ui-verification.md) for signing, enrollment, update/rollback boundaries and remaining checks.
 
 First-boot Setup writes `/etc/ooonana/memory.conf`: choose zram at 0, 25, 50, 75, or 100 percent of RAM, plus enable/disable configured disk swap. Settings apply next boot. Setup does not create partitions; installer offers optional disk swap during erase-disk installation.
 
@@ -974,6 +995,8 @@ ooonana ai provider set openvino
 ooonana ai model set qwen3.5-9b-int4-ov
 ooonana-ai chat
 ```
+
+Default full-i3 builds preinstall the native `openvino-chat` app package and launcher. The isolated OpenVINO runtime and model weights are not bundled; run `openvino setup` and download a model once on an installed system or persistent live USB. Older installations can still use `ooonana get openvino-chat`.
 
 Use `--device CPU` when Intel GPU acceleration is unavailable. Runtime and model download once; inference then stays local. Native Ooonana AI app has package install, runtime setup, model download, GPU/CPU start, stop, and provider controls.
 

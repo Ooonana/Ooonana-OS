@@ -13,6 +13,7 @@ from common import (  # noqa: E402
     command_exists,
     flow_row,
     header,
+    host_radio_unavailable,
     label,
     launch,
     message,
@@ -410,7 +411,7 @@ class WifiWindow(Gtk.Window):
         self.scan_button = button("Scan", "edit-find-symbolic", lambda *_: self.refresh(scan=True))
         self.repair_button = button("Repair service", "emblem-system-symbolic", self.repair_service)
         self.hardware_reset_button = button("Reset adapter", "view-refresh-symbolic", self.reset_hardware)
-        toolbar = flow_row(
+        self.toolbar = flow_row(
             (
                 self.radio_button,
                 self.scan_button,
@@ -424,7 +425,7 @@ class WifiWindow(Gtk.Window):
             ),
             5,
         )
-        root.pack_start(toolbar, False, False, 0)
+        root.pack_start(self.toolbar, False, False, 0)
 
         self.store = Gtk.ListStore(str, str, int, str, int, str, str, str, str)
         self.tree = Gtk.TreeView(model=self.store)
@@ -446,6 +447,7 @@ class WifiWindow(Gtk.Window):
         self.connect_button.set_sensitive(False)
         actions.pack_start(self.connect_button, False, False, 0)
         actions.pack_start(self.disconnect_button, False, False, 0)
+        self.actions = actions
         root.pack_start(actions, False, False, 0)
 
         self.progress = Gtk.ProgressBar()
@@ -466,7 +468,7 @@ class WifiWindow(Gtk.Window):
     def set_state(widget, text, state):
         widget.set_text(text)
         context = widget.get_style_context()
-        for css in ("status-good", "status-warn", "status-bad"):
+        for css in ("status-good", "status-warn", "status-bad", "status-neutral"):
             context.remove_class(css)
         context.add_class(f"status-{state}")
 
@@ -488,6 +490,8 @@ class WifiWindow(Gtk.Window):
             self.progress.hide()
 
     def initial_refresh(self):
+        if self.show_host_network_state():
+            return
         self.set_busy(True, "Starting NetworkManager")
 
         def task():
@@ -514,6 +518,10 @@ class WifiWindow(Gtk.Window):
         launch(["ooonana-wifi-aware", "--gui"])
 
     def refresh(self, scan=False):
+        if self.show_host_network_state():
+            return
+        self.toolbar.set_sensitive(True)
+        self.actions.set_sensitive(True)
         if self.refresh_running:
             self.refresh_pending_scan = self.refresh_pending_scan or scan
             return
@@ -536,6 +544,17 @@ class WifiWindow(Gtk.Window):
                 GLib.idle_add(self.refresh, True)
 
         run_async_task(task, done)
+
+    def show_host_network_state(self):
+        if not host_radio_unavailable("wifi"):
+            return False
+        self.set_state(self.service_label, "Network managed by Windows", "neutral")
+        self.set_state(self.radio_label, "Wi-Fi controlled in Windows", "neutral")
+        self.set_state(self.active_label, "Virtual WSL network", "neutral")
+        self.toolbar.set_sensitive(False)
+        self.actions.set_sensitive(False)
+        self.detail.set_text("Use Windows controls for host Wi-Fi. Ooonana can manage a Wi-Fi adapter passed into WSL.")
+        return True
 
     def collect_refresh_data(self, scan=False):
         dbus_ok = system_dbus_ready()

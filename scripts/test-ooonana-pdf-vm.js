@@ -73,6 +73,7 @@ vm.runInContext(fs.readFileSync(compiled, "utf8"), sandbox, { filename: compiled
 let sentInput = false;
 let sentEnter = false;
 let sentUpdate = false;
+let sentVersion = false;
 const monitor = setInterval(() => {
   const output = terminalText();
   if (output.includes("Kernel panic") || output.includes("Function not implemented") || output.includes("can't rename")) {
@@ -87,7 +88,11 @@ const monitor = setInterval(() => {
     sandbox.queue_console_text("\r");
     sentEnter = true;
   }
-  if (sentEnter && !sentUpdate && output.includes("66666")) {
+  if (sentEnter && !sentVersion && output.includes("66666")) {
+    sandbox.queue_console_text("ooonana version\r");
+    sentVersion = true;
+  }
+  if (sentVersion && !sentUpdate && output.includes("ooonana 0.9.5")) {
     sandbox.queue_console_text("ooonana update\r");
     sentUpdate = true;
   }

@@ -25,10 +25,10 @@ assert_not_contains() {
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
-for app in common wireless_utils signal_map setup_app settings_app wifi_app bluetooth_app packages_app ai_app controls_app launcher_app task_manager_app; do
+for app in common ui_preferences window_menu wireless_utils notification_utils signal_map setup_app settings_app wifi_app bluetooth_app packages_app ai_app controls_app launcher_app task_manager_app notifications_app; do
   [[ -f "$UI_DIR/$app.py" ]] || fail "missing GTK app: $app"
 done
-for app in signal_map setup_app settings_app wifi_app bluetooth_app packages_app ai_app controls_app launcher_app task_manager_app; do
+for app in signal_map setup_app settings_app wifi_app bluetooth_app packages_app ai_app controls_app launcher_app task_manager_app notifications_app; do
   assert_contains "$(<"$UI_DIR/$app.py")" 'header('
 done
 
@@ -57,7 +57,8 @@ assert_contains "$common" "process.kill()"
 assert_contains "$common" 'encoding="utf-8"'
 assert_contains "$common" 'command_env["LC_ALL"] = "C"'
 assert_contains "$common" 'command_env["LANG"] = "C"'
-assert_contains "$common" "Minimize to scratchpad"
+assert_contains "$common" "Minimize window"
+assert_contains "$common" 'i3_window_action(window, "move scratchpad")'
 assert_contains "$common" "Toggle fullscreen"
 assert_contains "$common" 'window-close-symbolic'
 assert_contains "$common" 'OoonanaApp'
@@ -77,7 +78,7 @@ assert_contains "$settings" '"Memory and swap"'
 assert_contains "$settings" 'run(["ooonana-memory", "status"]'
 assert_contains "$settings" "ooonana-wifi-panel"
 assert_contains "$settings" "ooonana-bluetooth-panel"
-assert_contains "$settings" "Fit height / black bars"
+assert_contains "$settings" "Fit desktop / keep dock clear"
 assert_contains "$settings" "current_wallpaper_mode"
 assert_contains "$settings" "apply_wallpaper_mode"
 assert_contains "$wifi" '["nmcli"'
@@ -169,7 +170,8 @@ assert_contains "$wireless" "parse_ip_neighbors"
 assert_contains "$packages" '["ooonana", "update"]'
 assert_contains "$packages" '["ooonana", "upgrade"]'
 assert_contains "$ai" "Chat"
-assert_contains "$ai" '["ooonana-ai", "ask", prompt]'
+assert_contains "$ai" '"--context-stdin"'
+assert_contains "$ai" 'ChatRequest('
 assert_contains "$ai" "Offline Intel"
 assert_contains "$ai" 'model = f"/root/.openvino/models/{model_name}"'
 assert_not_contains "$ai" 'Path.home() / ".openvino/models/'
@@ -250,6 +252,10 @@ PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-wireless-actions.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-audio-actions.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-window-list.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-offline-ai-flow.py"
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-ai-ui-status.py"
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-notifications.py"
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-gui-preferences.py"
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-cursor-theme.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-signal-map.py"
 
 boot_logo="$(<"$ROOT/packages/ooonana/usr/share/ooonana/boot-logo.txt")"

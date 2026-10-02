@@ -1980,6 +1980,7 @@ def _chat(
                 model_dir,
                 device,
                 kv_cache_precision,
+                context_length,
             )
         except RuntimeError as exc:
             print(str(exc), file=sys.stderr)
@@ -2055,12 +2056,15 @@ def _load_engine_for_cli(
     model_dir: Path,
     device: str,
     kv_cache_precision: str,
+    context_length: int = 4096,
 ) -> OpenVinoChatEngine:
     try:
+        options = {"context_length": context_length} if engine_loader is load_engine else {}
         return engine_loader(
             model_dir,
             device=device,
             kv_cache_precision=kv_cache_precision,
+            **options,
         )
     except TypeError as exc:
         if "kv_cache_precision" not in str(exc):
@@ -2774,6 +2778,7 @@ def _repl(
                 model_dir,
                 device,
                 kv_cache_precision,
+                context_length,
             )
             session.set_engine(engine)
             device = engine.device
