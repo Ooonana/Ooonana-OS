@@ -51,7 +51,7 @@ resolve_repo_generation() {
   local base generation
   base="$1"
   if [ -f "$base/CURRENT" ]; then
-    generation="$(cat "$base/CURRENT")"
+    generation="$(tr -d '\r' <"$base/CURRENT")"
     case "$generation" in ''|*[!0-9a-f]*) printf 'invalid repository generation\n' >&2; return 1 ;; esac
     [ "${#generation}" -eq 64 ] || return 1
     [ -f "$base/generations/$generation/index.tsv" ] && [ -f "$base/generations/$generation/SHA256SUMS" ] || return 1
@@ -701,7 +701,7 @@ sync_remote_repo() {
   mkdir -p "$cache_dir/generations"
   stage="$(mktemp -d "$cache_dir/generations/.download.XXXXXX")"
   if download_file "$(remote_repo_url "$repo_uri" CURRENT)" "$stage/current" 2>/dev/null; then
-    generation="$(cat "$stage/current")"
+    generation="$(tr -d '\r' <"$stage/current")"
     case "$generation" in ''|*[!0-9a-f]*) rm -rf "$stage"; return 1 ;; esac
     [ "${#generation}" -eq 64 ] || { rm -rf "$stage"; return 1; }
     repo_uri="${repo_uri%/}/generations/$generation"

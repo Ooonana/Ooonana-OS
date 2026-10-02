@@ -55,8 +55,11 @@ with tempfile.TemporaryDirectory() as directory:
     subprocess.run([sys.executable, str(root / "scripts/index-repo-fast.py"), "--repo", str(source)], check=True, capture_output=True)
     assert (source / "index.tsv").read_bytes() == index_before
     assert (source / "SHA256SUMS").read_bytes() == sums_before
+    (target / "CURRENT").write_bytes((target / "CURRENT").read_bytes().replace(b"\n", b"\r\n"))
     result = subprocess.run(["sh", str(cli), "show", "fixture"], env={**os.environ, "OOONANA_REPO_DIR": str(target), "OOONANA_SOURCES_DIR": str(work / "no-sources"), "OOONANA_ROOT": str(work / "root")}, text=True, capture_output=True)
     assert result.returncode == 0 and "1.1" in result.stdout, result.stderr
+    publication.publish(source, target)
+    assert b"\r" not in (target / "CURRENT").read_bytes()
     model = work / "model"
     model.mkdir()
     with (model / "openvino_model.bin").open("wb") as stream:

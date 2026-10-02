@@ -134,7 +134,7 @@ def publish(source, target, public_key=None):
             verify(final, public_key)
         descriptor, temporary = tempfile.mkstemp(prefix=".CURRENT-", dir=target)
         try:
-            with os.fdopen(descriptor, "w") as pointer:
+            with os.fdopen(descriptor, "w", newline="\n") as pointer:
                 pointer.write(identity + "\n")
                 pointer.flush()
                 os.fsync(pointer.fileno())

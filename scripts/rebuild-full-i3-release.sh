@@ -108,6 +108,7 @@ KERNEL_CACHE_ERROR=""
 REPO="$BUILD_DIR/full-i3-repo"
 if [[ -f "$REPO/CURRENT" ]]; then
   IFS= read -r repo_generation <"$REPO/CURRENT"
+  repo_generation="$(printf '%s' "$repo_generation" | tr -d '\r')"
   [[ "$repo_generation" =~ ^[0-9a-f]{64}$ ]] || die "invalid repository generation"
   REPO="$REPO/generations/$repo_generation"
 fi
