@@ -29,7 +29,8 @@ deploy-package-repo:
   image: alpine:3.20
   stage: deploy
   before_script:
-    - apk add --no-cache bash curl wget tar gzip coreutils findutils gawk grep sed openssl nodejs npm python3
+    - apk add --no-cache git bash curl wget tar gzip coreutils findutils gawk grep sed openssl nodejs npm python3
+    - command -v git && git rev-parse --verify HEAD
   script:
     - |
       bash <<'BASH'
