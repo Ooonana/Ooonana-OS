@@ -88,6 +88,14 @@ def publish(source, target, public_key=None):
     with publication_lock(target / ".publication.lock"):
         generations = target / "generations"
         generations.mkdir(exist_ok=True)
+        previous = None
+        previous_sums = {}
+        if (target / "CURRENT").is_file():
+            prior_id = (target / "CURRENT").read_text().strip()
+            if re.fullmatch(r"[0-9a-f]{64}", prior_id):
+                previous = generations / prior_id
+                if (previous / "SHA256SUMS").is_file():
+                    previous_sums = {relative: checksum for checksum, relative in (line.split("  ", 1) for line in (previous / "SHA256SUMS").read_text().splitlines())}
         final = generations / identity
         if not final.exists():
             stage = Path(tempfile.mkdtemp(prefix=".stage-", dir=generations))
@@ -103,8 +111,19 @@ def publish(source, target, public_key=None):
                             raise ValueError(f"Private key cannot be published: {relative}")
                         destination = stage / relative
                         destination.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(original, destination)
+                        shared = previous / relative if previous and relative.startswith("archives/") else None
+                        if shared and shared.is_file() and shared.resolve().is_relative_to(previous.resolve()) and previous_sums.get(relative) == entries.get(relative):
+                            try:
+                                # Share only an immutable published archive,
+                                # never mutable staging or legacy-root files.
+                                os.link(shared, destination)
+                            except OSError:
+                                shutil.copy2(original, destination)
+                        else:
+                            shutil.copy2(original, destination)
+                        destination.chmod(0o755 if relative.startswith("hooks/") else 0o644)
                 verify(stage, public_key)
+                stage.chmod(0o755)
                 os.replace(stage, final)
             finally:
                 if stage.exists():
@@ -119,6 +138,7 @@ def publish(source, target, public_key=None):
                 pointer.write(identity + "\n")
                 pointer.flush()
                 os.fsync(pointer.fileno())
+            Path(temporary).chmod(0o644)
             os.replace(temporary, target / "CURRENT")
         finally:
             Path(temporary).unlink(missing_ok=True)

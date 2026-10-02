@@ -25,7 +25,11 @@ with tempfile.TemporaryDirectory() as directory:
     work = Path(directory)
     source = work / "repo"
     source.mkdir()
-    metadata = 'OOONANA_PKG_ID="fixture"\nOOONANA_PKG_VERSION="1.0"\nOOONANA_PKG_KIND="profile"\nOOONANA_PKG_SUMMARY="Fixture"\nOOONANA_PKG_DEPS=""\n'
+    (source / "archives").mkdir()
+    (source / "archives/fixture.tar.gz").write_bytes(b"Fixture archive")
+    import hashlib
+    archive_sha = hashlib.sha256(b"Fixture archive").hexdigest()
+    metadata = f'OOONANA_PKG_ID="fixture"\nOOONANA_PKG_VERSION="1.0"\nOOONANA_PKG_KIND="archive"\nOOONANA_PKG_SUMMARY="Fixture"\nOOONANA_PKG_DEPS=""\nOOONANA_PKG_ARCHIVE="archives/fixture.tar.gz"\nOOONANA_PKG_SHA256="{archive_sha}"\n'
     (source / "fixture.pkg").write_text(metadata)
     subprocess.run(["sh", str(cli), "repo", "index", str(source)], check=True, capture_output=True)
     target = work / "published"
@@ -42,6 +46,10 @@ with tempfile.TemporaryDirectory() as directory:
     subprocess.run(["sh", str(cli), "repo", "index", str(source)], check=True, capture_output=True)
     second = publication.publish(source, target)
     assert second != first and first.is_dir()
+    assert first.stat().st_mode & 0o777 == 0o755
+    assert (target / "CURRENT").stat().st_mode & 0o777 == 0o644
+    assert (first / "archives/fixture.tar.gz").stat().st_ino == (second / "archives/fixture.tar.gz").stat().st_ino
+    assert (source / "archives/fixture.tar.gz").stat().st_ino != (first / "archives/fixture.tar.gz").stat().st_ino
     index_before = (source / "index.tsv").read_bytes()
     sums_before = (source / "SHA256SUMS").read_bytes()
     subprocess.run([sys.executable, str(root / "scripts/index-repo-fast.py"), "--repo", str(source)], check=True, capture_output=True)

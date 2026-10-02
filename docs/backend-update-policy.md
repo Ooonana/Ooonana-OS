@@ -3,6 +3,7 @@
 ## Verified behavior
 
 - Repository generations contain archives, package metadata, hashed index, hooks and build manifest. Validation happens before `CURRENT` changes. Old generations remain available locally and in the append-only R2 publisher.
+- Unchanged archive bytes can share hardlinks between immutable published generations, reducing disk duplication. Mutable staging files are never hardlinked into publication. Published files and pointer receive public-readable permissions; hooks remain executable. Never edit published archives in place.
 - HTTP metadata and release-tarball caches use verified generation snapshots. Package downloads stay bound to the selected snapshot. Untrusted keys are not automatically learned from remote `repo.pub`.
 - Changed or previously untracked package-owned `/etc` files survive upgrades. New defaults are written beside them as `.ooonana-new`. `/etc/os-release` intentionally follows the new release.
 - Install and health-check hooks run before transaction completion. Failed upgrade checks restore old package files, metadata, config baselines and custom configuration. Hooks changing files outside package ownership cannot be automatically undone.
