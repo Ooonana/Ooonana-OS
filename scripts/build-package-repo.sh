@@ -340,6 +340,11 @@ main() {
     [[ -f "$PUBLIC_KEY" ]] || ooonana_die "missing public key: $PUBLIC_KEY"
     cp "$PUBLIC_KEY" "$OUT_DIR/repo.pub"
     chmod 0644 "$OUT_DIR/repo.pub" 2>/dev/null || true
+  elif [[ -n "$SIGN_KEY" ]]; then
+    # Atomic publisher must verify signed staging output even when CI only
+    # supplies private key. Export public half; never copy private material.
+    openssl pkey -in "$SIGN_KEY" -pubout -out "$OUT_DIR/repo.pub"
+    chmod 0644 "$OUT_DIR/repo.pub"
   fi
   python3 "$ROOT/scripts/record-release-manifest.py" --repo "$OUT_DIR"
   "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$OUT_DIR" >/dev/null
