@@ -151,6 +151,9 @@ run_nested_i3() {
     desktop_home="$(awk -F: -v name="$SESSION_USER" '$1 == name {print $6; exit}' /etc/passwd)"
     [ -n "$desktop_home" ] || { echo 'start-ooonana-i3: unknown desktop user' >&2; return 1; }
     export HOME="$desktop_home" USER="$SESSION_USER" LOGNAME="$SESSION_USER"
+    export XDG_CONFIG_HOME="$desktop_home/.config"
+    export XDG_CACHE_HOME="$desktop_home/.cache"
+    export XDG_STATE_HOME="$desktop_home/.local/state"
     export OOONANA_WSL_SOCKET_READY=1
     unset XAUTHORITY
     /bin/busybox su -m -s /bin/sh "$SESSION_USER" -c 'exec /usr/bin/start-ooonana-i3 --nested'

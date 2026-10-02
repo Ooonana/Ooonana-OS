@@ -3049,6 +3049,19 @@ main() {
   [ -n "$cmd" ] || { usage; exit 0; }
   shift || true
 
+  # Queries may fetch metadata, but must never write a root-owned system cache.
+  # Installed package state stays read-only; use caller's private query cache.
+  if [ "$OOONANA_ROOT" = / ] && [ "$(id -u 2>/dev/null || echo 1)" != 0 ] &&
+    [ ! -w "$CACHE_DIR" ]; then
+    case "$cmd" in
+      info|show|depends|files|search|list|verify|check|sources|update-status)
+        CACHE_DIR="${XDG_CACHE_HOME:-${HOME:-/tmp}/.cache}/ooonana/package-queries"
+        mkdir -p "$CACHE_DIR"
+        chmod 0700 "$CACHE_DIR"
+        ;;
+    esac
+  fi
+
   if [ "$OOONANA_ROOT" = "/" ] &&
     [ "$(id -u 2>/dev/null || echo 1)" != "0" ] &&
     command -v ooonana-run-admin >/dev/null 2>&1; then
