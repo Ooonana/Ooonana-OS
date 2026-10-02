@@ -232,7 +232,7 @@ bash "$SCRIPT" --out-dir "$out" --packages "i3wm i3status" --metadata-only --inc
 assert_contains "$(<"$out/full-i3.pkg")" 'OOONANA_PKG_DEPS="base branding i3 openvino-chat"'
 assert_contains "$(<"$out/full-i3.pkg")" 'OOONANA_PKG_VERSION="0.1.3"'
 [[ -s "$out/openvino-chat.pkg" ]] || fail "OpenVINO app metadata missing"
-[[ -s "$out/archives/openvino-chat-0.2.0.tar.gz" ]] || fail "OpenVINO app payload missing"
+[[ -s "$out/archives/openvino-chat-0.2.1.tar.gz" ]] || fail "OpenVINO app payload missing"
 native_dry="$(OOONANA_ROOT="$tmp/native-root" OOONANA_REPO_DIR="$out" OOONANA_SOURCES_DIR="$sources" OOONANA_STATE_DIR="$tmp/native-state" OOONANA_CACHE_DIR="$tmp/native-cache" "$CLI" get full-i3 --dry-run)"
 assert_contains "$native_dry" 'would install openvino-chat'
 printf 'ok i3-package-set\n'

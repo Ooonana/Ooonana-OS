@@ -3,6 +3,6 @@ Type=Application
 Name=Ooonana Notifications
 Comment=Notification history and Do Not Disturb
 Exec=ooonana-notifications
-Icon=dialog-information-symbolic
+Icon=ooonana-notifications
 Terminal=false
 Categories=System;Utility;

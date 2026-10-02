@@ -25,8 +25,8 @@ fi
 
 command -v python3 >/dev/null || { echo "python3 not found" >&2; exit 1; }
 python3 -m venv "$VENV_DIR"
-"$VENV_DIR/bin/python" -m pip install --upgrade pip
-"$VENV_DIR/bin/python" -m pip install --upgrade -c "$PROJECT_DIR/requirements-linux-runtime.lock" "$PROJECT_DIR"
+"$VENV_DIR/bin/python" -m pip install --require-hashes -r "$PROJECT_DIR/requirements-linux-full.lock"
+"$VENV_DIR/bin/python" -m pip install --no-build-isolation --no-deps "$PROJECT_DIR"
 
 mkdir -p "$MODEL_ROOT" "$(dirname "$CONFIG_PATH")" "$BIN_DIR"
 if [[ -z "$ORNITH_ARCHIVE" ]]; then

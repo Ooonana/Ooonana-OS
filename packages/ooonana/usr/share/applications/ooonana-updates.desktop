@@ -3,6 +3,6 @@ Type=Application
 Name=Ooonana Updates
 Comment=Update policy, reboot status and upgrade review
 Exec=ooonana-updates
-Icon=system-software-update
+Icon=ooonana-updates
 Terminal=false
 Categories=System;PackageManager;

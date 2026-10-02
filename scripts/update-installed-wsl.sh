@@ -82,9 +82,11 @@ for source in "$ROOT"/packages/ooonana/usr/bin/*; do
   [ -f "$source" ] || continue
   install -m 0755 "$source" "/usr/bin/${source##*/}"
 done
-if ! command -v killall >/dev/null 2>&1; then
-  ln -s busybox /bin/killall
-fi
+for applet in find killall; do
+  if ! command -v "$applet" >/dev/null 2>&1; then
+    ln -s busybox "/bin/$applet"
+  fi
+done
 install -m 0755 "$ROOT/packages/ooonana/usr/lib/ooonana/oonana_game.py" /usr/lib/ooonana/oonana_game.py
 install -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/i3_events.py" /usr/lib/ooonana/i3_events.py
 install -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ai/ooonana_ai.py" /usr/lib/ooonana/ai/ooonana_ai.py
@@ -94,6 +96,14 @@ done
 for source in "$ROOT"/packages/ooonana/usr/share/applications/*.desktop; do
   install -m 0644 "$source" "/usr/share/applications/${source##*/}"
 done
+install -d -m 0755 /usr/share/icons/hicolor/scalable/apps
+for source in "$ROOT"/packages/ooonana/usr/share/icons/hicolor/scalable/apps/*.svg; do
+  [ -f "$source" ] || continue
+  install -m 0644 "$source" "/usr/share/icons/hicolor/scalable/apps/${source##*/}"
+done
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+  gtk-update-icon-cache -f -t /usr/share/icons/hicolor >/dev/null 2>&1 || true
+fi
 install -d -m 0755 /etc/ooonana/trusted-keys
 for source in "$ROOT"/packages/ooonana/etc/ooonana/trusted-keys/*.pub; do
   [ -f "$source" ] || continue

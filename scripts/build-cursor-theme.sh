@@ -10,7 +10,7 @@ command -v xcursorgen >/dev/null 2>&1 || { echo 'build-cursor-theme: missing xcu
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
-for size in 17 24 28 32 48 64; do
+for size in 17 19 24 28 32 48 64; do
   convert -background none "$SOURCE" -resize "${size}x${size}" "PNG32:$work/$size.png"
   hot=$((size / 8))
   printf '%s %s %s %s\n' "$size" "$hot" "$hot" "$work/$size.png" >>"$work/cursor.in"

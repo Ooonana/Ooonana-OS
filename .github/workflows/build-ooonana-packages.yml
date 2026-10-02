@@ -144,6 +144,9 @@ jobs:
             $sign_args \
             $kernel_args \
             $repo_args
+          staging="$RUNNER_TEMP/ooonana-repo-staging"
+          mv "$out" "$staging"
+          python3 scripts/publish-repo-generation.py --source "$staging" --target "$out"
           find "$out" -maxdepth 3 -type f -print | sort
 
       - name: Pack repo backup

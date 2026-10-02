@@ -15,9 +15,15 @@ Ooonana OS is a custom Linux distribution built from scratch around its own boot
 
 Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Linux, BusyBox, GRUB, i3, and other open-source components. Ooonana package factory currently imports selected Alpine package payloads into Ooonana `.pkg` repositories while native packages replace them over time.
 
-![Ooonana OS core 0.9.5 preview with left music, centered AI, notification bell, and app dock](docs/assets/ooonana-full-i3-desktop.png)
+![Ooonana OS core 0.9.6 preview with left music, centered AI, notification bell, and app dock](docs/assets/ooonana-full-i3-desktop.png)
 
-Latest core 0.9.5 working desktop capture from nested WSL i3, refreshed after GTK/XDG startup repairs. Music sits left, AI stays centered, status controls align right, and dock tracks running windows. Cursor is excluded. Audio playback was not tested. Physical USB visuals still require a newly built image.
+Core 0.9.6 working desktop capture from nested WSL i3, refreshed after cursor/icon updates and GTK/XDG startup repairs. Music sits left, AI stays centered, status controls align right, and dock tracks running windows. Cursor is excluded. Audio playback was not tested. Physical USB visuals still require a newly built image.
+
+Core 0.9.6 adds matching opaque native app icons and focus-neutral third-party titlebar controls. These previews use isolated rendering/test windows, not physical USB boot:
+
+![Core 0.9.6 native app icon family](docs/assets/ooonana-native-icons.png)
+
+![Third-party terminal with close, minimize and fullscreen buttons](docs/assets/ooonana-third-party-controls.png)
 
 Latest GUI polish previews, rendered from real GTK widgets in an isolated virtual display with sample data:
 
@@ -178,9 +184,9 @@ Core pieces:
 
 ## Current Status
 
-Source core 0.9.5 includes nested WSL i3, centered dock, native window controls, smaller tailless pointer, left-aligned music, centered AI access, and a notification center. Existing ISO was built September 25 and does not contain these changes. Source/package preparation is not proof of new-image boot or successful public package deployment. Physical USB RAM/OpenVINO and fan-sensor checks remain pending.
+Source core 0.9.6 includes nested WSL i3, centered dock, native and third-party window controls, tailless pointer enlarged 10% from previous defaults, matching native app icons, left-aligned music, centered AI access, and a notification center. Existing ISO was built September 25 and does not contain these changes. Source/package preparation is not proof of new-image boot or successful public package deployment. Physical USB RAM/OpenVINO and fan-sensor checks remain pending.
 
-Backend pass adds verified repository generations, signed metadata, preserved custom `/etc` files, post-upgrade health checks with automatic payload rollback, retained core/kernel checkpoints, explicit major-update approval, security-update markings, and reboot status. New native **Health** and **Updates** apps provide on-demand diagnostics and upgrade review. Physical hardware, installed-login boot, and model inference remain separate verification gates. This pass does not build an ISO.
+Backend pass adds verified repository generations, signed metadata, preserved custom `/etc` files, post-upgrade health checks with automatic payload rollback, retained core/kernel checkpoints, explicit major-update approval, security-update markings, and reboot status. Native **Health** and **Updates** apps provide on-demand diagnostics and upgrade review. Diskless login VM passed password rejection/authentication and UID-1000 desktop handoff; physical Xorg/hardware and model inference remain separate gates. OpenVINO Chat 0.2.1 uses complete hash-locked Linux wheels plus a pinned Ubuntu image/APT snapshot. Private signing key stays local by choice. This pass does not build an ISO.
 
 Working now:
 
@@ -221,8 +227,8 @@ Next work:
 - Physical USB RAM/model-load and fan-sensor validation
 - Full ISO export/install polish for VMware and other hypervisors
 - More first-party packages
-- Service manager, login defaults, security hardening
-- Native RISC-V Ooonana rootfs for the PDF OS path
+- Newly built installed-image Xorg/login and service hardening checks
+- Native RISC-V PDF package-sync performance and Chromium viewer verification (native boot/input/version checks passed)
 
 Detailed numbered roadmap:
 
@@ -726,7 +732,7 @@ Default full-i3 UI uses solid dark graphite, light text, and orange accents. Mus
 
 Native GTK window controls now sit on the left as red/yellow/green circles with visible symbols and accessible names. Appearance offers reduced motion; default page slides last 180ms without window transparency. The offline AI dialog separates app, runtime, model files, and API status without claiming that an active API proves successful model loading. Setup presents a review before applying settings; installer text clarifies erase/custom modes, target partitions, and disk swap. Formatter logic is unchanged. Universal titlebar buttons for third-party apps still require separate window-manager work; the dock/titlebar action menu provides current controls.
 
-This machine's private Windows cursor conversion uses a real 19px frame (previously 32px, about 60%), retaining original proportions and scaled hotspot. The separately drawn public tailless theme defaults to 17px. The private theme stays outside tracked sources and must not be redistributed. ISO and WSL overlay builders read its preferred size from the private theme's `cursor-size` file.
+This machine's private Windows cursor conversion uses a real 21px frame (+10% from 19px, rounded), retaining original proportions and scaled hotspot. The separately drawn public tailless theme defaults to a real 19px frame (+10% from 17px, rounded). The private theme stays outside tracked sources and must not be redistributed. ISO and WSL overlay builders read preferred size from the private theme's `cursor-size` file.
 
 ```bash
 ooonana help ui
@@ -775,7 +781,7 @@ Memory reporting now separates zram logical capacity, compressed bytes and physi
 
 First-boot Setup writes `/etc/ooonana/memory.conf`: choose zram at 0, 25, 50, 75, or 100 percent of RAM, plus enable/disable configured disk swap. Settings apply next boot. Setup does not create partitions; installer offers optional disk swap during erase-disk installation.
 
-WSL uses its host kernel, not the ISO kernel. `ooonana-memory status` may show zero swap in WSL even though the rebuilt ISO is configured to activate zram. To diagnose physical USB RAM use, run `free -h` and compare `available` RAM with `used`; file cache is often reclaimable. For model-load failures, record `ooonana-memory status`, `df -h /`, and the final OpenVINO error. Ooonana OpenVINO Chat 0.2.0 defaults to a 4096-token context; larger models may still need more physical RAM.
+WSL uses its host kernel, not the ISO kernel. `ooonana-memory status` may show zero swap in WSL even though the rebuilt ISO is configured to activate zram. To diagnose physical USB RAM use, run `free -h` and compare `available` RAM with `used`; file cache is often reclaimable. For model-load failures, record `ooonana-memory status`, `df -h /`, and the final OpenVINO error. Ooonana OpenVINO Chat 0.2.1 defaults to a 4096-token context; larger models may still need more physical RAM.
 
 ## Rufus USB
 

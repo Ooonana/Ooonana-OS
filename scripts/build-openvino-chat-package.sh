@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR=""
-VERSION="0.2.0"
+VERSION="0.2.1"
 SOURCE_DIR="${OOONANA_OPENVINO_CHAT_SOURCE:-$ROOT/packages/openvino-chat/source}"
 PAYLOAD_DIR="$ROOT/packages/openvino-chat/rootfs"
 DRY_RUN=0
@@ -16,7 +16,7 @@ Usage:
   scripts/build-openvino-chat-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER      Package version (default: 0.2.0)
+  --version VER      Package version (default: 0.2.1)
   --source-dir PATH  OpenVINO Chat source snapshot
   --dry-run          Print resolved package details
   -h, --help         Show help
@@ -59,13 +59,16 @@ cp -a "$PAYLOAD_DIR/." "$staging/"
 install -d "$staging/usr/lib/ooonana/openvino-chat"
 cp -a "$SOURCE_DIR/pyproject.toml" "$staging/usr/lib/ooonana/openvino-chat/"
 cp -a "$SOURCE_DIR/requirements-linux-runtime.lock" "$staging/usr/lib/ooonana/openvino-chat/"
+cp -a "$SOURCE_DIR/requirements-linux-full.lock" "$staging/usr/lib/ooonana/openvino-chat/"
+cp -a "$SOURCE_DIR/runtime-linux.env" "$staging/usr/lib/ooonana/openvino-chat/"
 cp -a "$SOURCE_DIR/README.md" "$staging/usr/lib/ooonana/openvino-chat/"
 cp -a "$SOURCE_DIR/src" "$staging/usr/lib/ooonana/openvino-chat/"
 cp -a "$SOURCE_DIR/scripts" "$staging/usr/lib/ooonana/openvino-chat/"
+find "$staging" -type d -name '*.egg-info' -prune -exec rm -rf -- {} +
 (
   cd "$staging/usr/lib/ooonana/openvino-chat"
   find src scripts -type f ! -name '*.pyc' ! -name '*.pyo' -print0 | sort -z | xargs -0 sha256sum
-  sha256sum pyproject.toml requirements-linux-runtime.lock
+  sha256sum pyproject.toml requirements-linux-runtime.lock requirements-linux-full.lock runtime-linux.env
 ) >"$staging/usr/lib/ooonana/openvino-chat/APP-MANIFEST.sha256"
 find "$staging" -type d -name __pycache__ -prune -exec rm -rf -- {} +
 find "$staging" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete

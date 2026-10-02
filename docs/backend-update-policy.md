@@ -1,4 +1,4 @@
-# Backend update policy - core 0.9.5
+# Backend update policy - core 0.9.6
 
 ## Verified behavior
 
@@ -43,12 +43,12 @@ CLI, Task Manager and Health show zram's real resident/compressed consumption. L
 
 Dock subscribes to i3 events; music subscribes to MPD idle events. Reconnects remain bounded. Health checks run on demand, not in a permanent polling loop.
 
-Core/branding/app archives normalize ordering, ownership and timestamps. Repository manifest records source revision/digest and package versions. Linux runtime constraints pin import-tested OpenVINO 2026.4.1 / GenAI 2026.4.1.0, tokenizers, NumPy and psutil. Setup records complete resolved dependency versions after import validation and reuses that lock on refresh. `OOONANA_OPENVINO_REFRESH_DEPENDENCIES=1` explicitly refreshes the resolved dependency set within release constraints. System apt packages and all first-install auxiliary Python dependencies are not yet a fully hermetic lock. Import validation does not prove model inference.
+Core/branding/app archives normalize ordering, ownership and timestamps. Repository manifest records source revision/digest and package versions. Linux x86_64/Python 3.12 runtime uses a complete 36-wheel version/hash lock, including import-tested OpenVINO 2026.4.1 / GenAI 2026.4.1.0. Fresh offline hash-checked installation and full app imports passed. Ubuntu runtime image is pinned by release URL and SHA-256; APT dependencies resolve against the dated `20261002T000000Z` snapshot using Ubuntu's [snapshot service](https://ubuntu.com/server/docs/how-to/software/snapshot-service/). Setup records the installed system/Python dependency lists after validation. `OOONANA_OPENVINO_REFRESH_DEPENDENCIES=1` permits refreshing local resolved constraints within the release's hash lock, not arbitrary latest packages. This pins runtime inputs; it is not a claim of bit-identical rootfs output or successful model inference.
 
 ## Installed login and live safety
 
 Installer requires username and nonempty password before any formatting. Installed system removes live passwordless sudo/doas rules, locks root password login, and uses console authentication before desktop startup. Graphical sudo uses a private password prompt; passwords are neither stored nor logged. Live media retains its explicit passwordless administration policy without broad environment preservation. No SSH/telnet listener was added.
 
-Existing installed systems are not silently converted to the new login policy during package upgrades. Installed nonroot Xorg/login still requires boot verification on a newly built image. Third-party titlebar buttons remain separate window-manager work; dock/window action menus provide current controls.
+Existing systems without an installed-mode marker are not silently converted to password login during package upgrades. Systems already marked installed now use BusyBox init/getty rather than the old root-shell loop. Diskless QEMU authentication test rejected a wrong fixture password and started the desktop launcher as UID 1000 after correct login. Actual nonroot Xorg still requires a newly built image/hardware check. Third-party titlebar buttons passed isolated i3 close/minimize/fullscreen/restore checks; native and dock/window controls remain available.
 
 USB live memory policy still avoids creating swapfiles or modifying unrelated disks. Disk swap operates only on explicitly configured installer/setup targets. Physical Wi-Fi, Bluetooth, audio, fan sensors, memory pressure and OpenVINO inference require hardware checks. No audio playback occurred during this pass.

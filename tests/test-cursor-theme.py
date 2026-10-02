@@ -30,11 +30,11 @@ parser.add_argument("--personal-dir", type=Path)
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
 public = frames(root / "packages/ooonana/usr/share/icons/OoonanaTailless/cursors/left_ptr")
-assert public[17] == (2, 2), public
-assert "gtk-cursor-theme-size=17" in (root / "packages/ooonana/etc/gtk-3.0/settings.ini").read_text()
+assert public[17] == public[19] == (2, 2), public
+assert "gtk-cursor-theme-size=19" in (root / "packages/ooonana/etc/gtk-3.0/settings.ini").read_text()
 if args.personal_dir:
     personal = frames(args.personal_dir / "cursors/left_ptr")
-    assert personal[19] == (2, 5), personal
+    assert personal[21] == (2, 6), personal
     assert personal[32] == (3, 9), personal
-    assert (args.personal_dir / "cursor-size").read_text().strip() == "19"
+    assert (args.personal_dir / "cursor-size").read_text().strip() == "21"
 print("ok cursor-theme")

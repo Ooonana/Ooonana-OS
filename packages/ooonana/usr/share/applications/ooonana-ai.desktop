@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
 Name=Ooonana AI
-Comment=Open Ooonana AI terminal app
+Comment=Chat with local and cloud models
 Exec=ooonana-ai-launch
-Icon=/usr/share/ooonana/logo.png
+Icon=ooonana-ai
 Terminal=false
 Categories=Utility;System;

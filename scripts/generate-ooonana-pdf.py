@@ -37,7 +37,13 @@ def page_stream(lines: list[str]) -> str:
 def paginate(lines: list[str], per_page: int = 48) -> list[list[str]]:
     pages: list[list[str]] = []
     current: list[str] = []
+    headings = {"What it is", "Editions", "Package install", "Cloud repo", "Installer",
+                "USB live modes", "First boot", "WSL", "AI", "Desktop and hardware",
+                "Bootable PDF", "Build proof markers"}
     for line in lines:
+        if line in headings and len(current) > per_page - 4:
+            pages.append(current)
+            current = []
         for wrapped in wrap_line(line):
             current.append(wrapped)
             if len(current) >= per_page:
@@ -53,7 +59,7 @@ def build_lines() -> list[str]:
     return [
         *logo,
         "",
-        "Ooonana OS 0.9.5 field guide",
+        "Ooonana OS 0.9.6 field guide",
         "",
         "What it is",
         "Ooonana OS is a scratch-built Linux project with its own rootfs, boot flow, installer experiments, WSL export, and custom ooonana package manager.",
@@ -95,7 +101,7 @@ def build_lines() -> list[str]:
         "",
         "WSL",
         "Import full-i3 with scripts/install-wsl-distro.sh --distro Ooonana --tarball /var/tmp/ooonana-os/release/ooonana-full-i3-wsl-rootfs.tar.gz --force",
-        "Launch nested full desktop with: wsl.exe -d Ooonana -- /usr/bin/start-ooonana-i3 --nested",
+        "Launch desktop with: wsl.exe -d Ooonana -u ooonana --exec start-ooonana-i3",
         "WSL GUI needs WSLg and Xephyr, or an X server with DISPLAY set. Nested mode keeps i3 panel and dock together in one window.",
         "Update an imported distro with: ooonana update && ooonana upgrade",
         "",
@@ -105,10 +111,17 @@ def build_lines() -> list[str]:
         "",
         "Desktop and hardware",
         "The i3 desktop uses solid graphite and orange styling, rounded controls, a top music/window bar, and a centered opaque dock with running dots, click-to-restore apps, and right-click window actions.",
+        "Core 0.9.6 adds matching native app icons, event-driven third-party titlebar controls and 10% larger cursor defaults (public 19px, personal 21px).",
         "Ctrl+Shift+Esc opens native Task Manager with processes, performance, and available temperature and fan sensors. Unavailable hardware counters are labeled, not guessed.",
         "Live USB starts compressed zram swap. OpenVINO setup requires persistent USB storage or an installed system; RAM-only live storage cannot hold its runtime and models.",
-        "Ooonana OpenVINO Chat 0.2.0 has a browser GUI through an authenticated loopback bridge. Windows-only computer-control tools are unavailable on Linux.",
+        "Ooonana OpenVINO Chat 0.2.1 has a browser GUI through an authenticated loopback bridge. Windows-only computer-control tools are unavailable on Linux.",
         "Wi-Fi supports personal and enterprise profiles. NetworkManager, BlueZ, D-Bus, Intel Wi-Fi/Bluetooth firmware, Chromium, Python 3, sudo, su, and doas are included in full-i3.",
+        "Installed password-login handoff passed diskless VM tests as UID 1000. Physical Xorg, wireless, audio, sensors and inference remain hardware checks; no sound was played.",
+        "OpenVINO Linux dependencies use exact wheel hashes and a pinned Ubuntu image/APT snapshot. Signing private key stays local; public CI signing is deferred.",
+        "",
+        "Bootable PDF",
+        "docs/ooonana.pdf now uses native RISC-V64 Linux 6.18.37 and BusyBox 1.37.0. TinyEMU boot, input and version checks passed; package-sync performance and Chromium viewer checks remain.",
+        "RV64 JavaScript emulator clock is scaled down 16x for CPU progress. Guest time is slower than real time. This terminal PDF is not the x86 i3 desktop.",
         "",
         "Build proof markers",
         "OOONANA_CLI_OK",

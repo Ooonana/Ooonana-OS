@@ -3,6 +3,6 @@ Type=Application
 Name=Ooonana Health
 Comment=Read-only system and memory diagnostics
 Exec=ooonana-health-app
-Icon=utilities-system-monitor
+Icon=ooonana-health
 Terminal=false
 Categories=System;Utility;

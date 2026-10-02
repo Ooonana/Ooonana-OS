@@ -12,7 +12,7 @@ TARBALL="$WORK_DIR/ooonana-full-i3-rootfs.tar.gz"
 REPO="$WORK_DIR/full-i3-repo"
 STAGED_REPO=""
 PACKAGE_PROFILE="$ROOT/configs/packages/full-i3.list"
-OS_VERSION="${OOONANA_OS_VERSION:-0.9.5}"
+OS_VERSION="${OOONANA_OS_VERSION:-0.9.6}"
 FORCE=0
 
 usage() {
@@ -310,8 +310,8 @@ load_theme() {
     done
   fi
   case "$XCURSOR_THEME" in ""|*[!A-Za-z0-9._-]*) XCURSOR_THEME=OoonanaTailless ;; esac
-  case "$XCURSOR_SIZE" in ""|*[!0-9]*) XCURSOR_SIZE=17 ;; esac
-  [ "$XCURSOR_SIZE" -ge 16 ] && [ "$XCURSOR_SIZE" -le 96 ] || XCURSOR_SIZE=17
+  case "$XCURSOR_SIZE" in ""|*[!0-9]*) XCURSOR_SIZE=19 ;; esac
+  [ "$XCURSOR_SIZE" -ge 16 ] && [ "$XCURSOR_SIZE" -le 96 ] || XCURSOR_SIZE=19
   GTK_THEME="$OOONANA_GTK_THEME"
   GDK_BACKEND="${GDK_BACKEND:-x11}"
   export OOONANA_THEME OOONANA_BG OOONANA_FG OOONANA_CURSOR OOONANA_PANEL OOONANA_PANEL_ALT OOONANA_BORDER OOONANA_MUTED OOONANA_ENTRY OOONANA_HOVER OOONANA_GTK_THEME OOONANA_GTK_DARK XCURSOR_THEME XCURSOR_SIZE GTK_THEME GDK_BACKEND
@@ -475,7 +475,7 @@ gtk-theme-name=Adwaita
 gtk-application-prefer-dark-theme=true
 gtk-icon-theme-name=Adwaita
 gtk-cursor-theme-name=OoonanaTailless
-gtk-cursor-theme-size=17
+gtk-cursor-theme-size=19
 gtk-font-name=Sans 10
 gtk-button-images=1
 gtk-menu-images=1
@@ -488,7 +488,7 @@ gtk-theme-name=Adwaita
 gtk-application-prefer-dark-theme=true
 gtk-icon-theme-name=Adwaita
 gtk-cursor-theme-name=OoonanaTailless
-gtk-cursor-theme-size=17
+gtk-cursor-theme-size=19
 gtk-font-name=Sans 10
 gtk-button-images=1
 gtk-menu-images=1
@@ -3710,6 +3710,12 @@ if [ "${OOONANA_SKIP_SETUP:-0}" != 1 ] && command -v ooonana-setup >/dev/null 2>
   ooonana-setup --first-boot --gui >"${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/setup.log" 2>&1 &
 fi
 
+# Existing custom i3 configs need not be overwritten to receive controls.
+# Config's exec_always entry is safe too: daemon holds a singleton lock.
+if command -v ooonana-window-controls >/dev/null 2>&1; then
+  ooonana-window-controls >"${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/window-controls.log" 2>&1 &
+fi
+
 exec i3
 EOF
 
@@ -3749,7 +3755,7 @@ EOF
 Type=Application
 Name=Install Ooonana OS
 Exec=ooonana-installer-gui
-Icon=/usr/share/ooonana/logo.png
+Icon=ooonana-installer
 Terminal=false
 Categories=System;
 EOF
@@ -3759,7 +3765,7 @@ EOF
 Type=Application
 Name=Ooonana Setup
 Exec=ooonana-setup --gui
-Icon=/usr/share/ooonana/logo.png
+Icon=ooonana-setup
 Terminal=false
 Categories=System;
 EOF
@@ -3769,7 +3775,7 @@ EOF
 Type=Application
 Name=Ooonana Settings
 Exec=ooonana-settings-launch
-Icon=/usr/share/ooonana/logo.png
+Icon=ooonana-settings
 Terminal=false
 Categories=Settings;System;
 EOF
@@ -3780,7 +3786,7 @@ Type=Application
 Name=Ooonana Applications
 Comment=Search and launch installed applications
 Exec=ooonana-apps
-Icon=/usr/share/ooonana/logo.png
+Icon=ooonana-apps
 Terminal=false
 Categories=System;Utility;
 EOF
@@ -3790,7 +3796,7 @@ EOF
 Type=Application
 Name=Ooonana Packages
 Exec=ooonana-packages-app
-Icon=/usr/share/ooonana/logo.png
+Icon=ooonana-packages
 Terminal=false
 Categories=System;PackageManager;
 EOF
@@ -4091,7 +4097,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   version_output="$(/usr/bin/ooonana version 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.5' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.6' &&
     printf '%s\n' "$installed_output" | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else

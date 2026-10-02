@@ -26,7 +26,7 @@ DEVICECHAT_PACKAGE_SCRIPT="${OOONANA_DEVICECHAT_PACKAGE_SCRIPT:-$ROOT/scripts/bu
 BUNANACHAT_PACKAGE_SCRIPT="${OOONANA_BUNANACHAT_PACKAGE_SCRIPT:-$ROOT/scripts/build-bunanachat-linux-package.sh}"
 WINE_COMPAT_PACKAGE_SCRIPT="${OOONANA_WINE_COMPAT_PACKAGE_SCRIPT:-$ROOT/scripts/build-wine-compat-package.sh}"
 WINDOWS_CHAT_PACKAGE_SCRIPT="${OOONANA_WINDOWS_CHAT_PACKAGE_SCRIPT:-$ROOT/scripts/build-ooonana-chat-windows-package.sh}"
-OPENVINO_CHAT_PACKAGE_VERSION="${OOONANA_OPENVINO_CHAT_VERSION:-0.2.0}"
+OPENVINO_CHAT_PACKAGE_VERSION="${OOONANA_OPENVINO_CHAT_VERSION:-0.2.1}"
 DEVICECHAT_PACKAGE_VERSION="${OOONANA_DEVICECHAT_VERSION:-0.1.1}"
 BUNANACHAT_PACKAGE_VERSION="${OOONANA_BUNANACHAT_VERSION:-0.1.1}"
 WINE_COMPAT_PACKAGE_VERSION="${OOONANA_WINE_COMPAT_VERSION:-1.0.1}"
@@ -34,8 +34,8 @@ WINDOWS_CHAT_PACKAGE_VERSION="${OOONANA_WINDOWS_CHAT_VERSION:-1.0.1}"
 DEVICECHAT_SOURCE="${OOONANA_DEVICECHAT_SOURCE:-$ROOT/packages/devicechat/source/devicechat-0.1.1.tgz}"
 BUNANACHAT_SOURCE_DIR="${OOONANA_BUNANACHAT_LINUX_SOURCE:-$ROOT/packages/bunanachat-linux/source/dist}"
 WINDOWS_CHAT_SOURCE="${OOONANA_OONANA_CHAT_WINDOWS_SOURCE:-$ROOT/packages/ooonana-chat-windows/source/OoonanaChat Setup 1.0.0.exe}"
-NATIVE_APK_PACKAGES="nodejs flatpak bluez dbus fontconfig freetype libx11 libice libsm mesa-gl icu-libs zlib libgcc libstdc++"
-CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.9.5}"
+NATIVE_APK_PACKAGES="openssl nodejs flatpak bluez dbus fontconfig freetype libx11 libice libsm mesa-gl icu-libs zlib libgcc libstdc++"
+CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.9.6}"
 KERNEL_PACKAGE_PATH="${OOONANA_KERNEL_PACKAGE_PATH:-}"
 KERNEL_PACKAGE_URL="${OOONANA_KERNEL_PACKAGE_URL:-}"
 KERNEL_PACKAGE_SHA256="${OOONANA_KERNEL_SHA256:-}"
@@ -62,8 +62,8 @@ Options:
   --kernel-url URL        Add Ooonana kernel package from remote kernel image
   --kernel-sha256 SHA256  Require this SHA-256 for the kernel image
   --kernel-version VER    Kernel package version (default: 6.18.37-3)
-  --core-version VER      Ooonana system update package version (default: 0.9.5)
-  --openvino-version VER  OpenVINO Chat package version (default: 0.2.0)
+  --core-version VER      Ooonana system update package version (default: 0.9.6)
+  --openvino-version VER  OpenVINO Chat package version (default: 0.2.1)
   --devicechat-version VER Native DeviceChat package version (default: 0.1.1)
   --bunanachat-version VER Native BunanaChat Linux package version (default: 0.1.1)
   --wine-version VER      Wine compatibility package version (default: 1.0.1)

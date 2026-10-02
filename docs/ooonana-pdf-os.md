@@ -9,15 +9,15 @@ Current 0.6 build is based on [ading2210/linuxpdf](https://github.com/ading2210/
 - The PDF exposes a real 80x30 serial terminal plus on-page keyboard controls.
 - Boot uses accelerated VM batches and shows live elapsed time before kernel logs.
 - Chromium PDF viewer is the main target.
-- Injected shell payload carries Ooonana package manager 0.9.5 and current logo/help.
+- Native RISC-V64 Linux 6.18.37 / static BusyBox 1.37.0 rootfs carries Ooonana package manager 0.9.6 and current logo/help.
 - Boot console prints `OOONANA_PDF_BOOT_OK` after Ooonana init starts.
 - Terminal uses bright orange monospaced text on black.
 - Kernel log stays visible during boot, then hands off to Ooonana shell.
 - Full boot logs and fixed 80x30 terminal geometry keep status readable.
 
-Ooonana cannot embed the current x86_64 QEMU kernel directly. linuxpdf boots
-RISC-V, so the PDF path injects the minimal Ooonana shell payload into the
-linuxpdf RISC-V rootfs.
+Ooonana cannot embed the x86_64 QEMU kernel directly. The current main PDF
+uses its separately built native RISC-V64 kernel/rootfs. The builder also
+retains the upstream 32-bit runtime as a fallback when no native runtime is supplied.
 
 The PDF remains a minimal RISC-V terminal edition, not the x86_64 i3 desktop.
 Native GTK panels, cursor theme, and OpenVINO models are not supported inside
@@ -48,19 +48,21 @@ That writes `docs/ooonana-guide.pdf`.
 ## Status
 
 - Build and Chromium smoke verification are automated by included scripts.
-- Native RISC-V64 Linux 6.18.37 and static BusyBox 1.37.0 now cross-build with manifests using `scripts/build-native-pdf-runtime.sh`. Native PDF boot has not passed TinyEMU verification; working 32-bit PDF remains release output. Do not treat successful cross-compilation as boot proof.
+- Native RISC-V64 Linux 6.18.37 and static BusyBox 1.37.0 cross-build with manifests using `scripts/build-native-pdf-runtime.sh`. Main `docs/ooonana.pdf` now uses this runtime. Host TinyEMU and JavaScript VM checks passed boot; JavaScript checks also passed keyboard input, arithmetic and core version. Full package-sync check timed out and remains pending. PDF-viewer behavior still requires a fresh Chromium check.
 - Reduce payload size for faster PDF load.
 - Add release artifact upload for `ooonana.pdf`.
 
-Native candidate workflow (not release-ready):
+Native build workflow:
 
 ```sh
 bash scripts/build-native-pdf-runtime.sh --source VERIFIED_LINUX_6_18_37_TREE
-bash scripts/build-ooonana-pdf-os.sh --native-runtime BUILT_RUNTIME --out /var/tmp/ooonana-native-candidate.pdf
-node scripts/test-ooonana-pdf-vm.js /var/tmp/ooonana-os/linuxpdf/linuxpdf/out/compiled.js 180000
+bash scripts/build-ooonana-pdf-os.sh --native-runtime BUILT_RUNTIME --out docs/ooonana.pdf
+OOONANA_PDF_BOOT_ONLY=1 node scripts/test-ooonana-pdf-vm.js /var/tmp/ooonana-os/linuxpdf/linuxpdf/out/compiled.js 90000
+# Full package-sync check (slow RV64 JavaScript; not yet passing):
+node scripts/test-ooonana-pdf-vm.js /var/tmp/ooonana-os/linuxpdf/linuxpdf/out/compiled.js 300000
 ```
 
-Native configuration includes legacy SBI console, PLIC, virtio/9p, and `no4lvl` for TinyEMU paging compatibility. Current candidate timed out before console output. Kernel/emulator compatibility remains unresolved; original working PDF is never replaced by unverified candidate.
+Native configuration includes legacy SBI console, PLIC, virtio/9p, 100 Hz tick and ISA fallback. Runtime uses `hvc1` when available for keyboard input. Slow RV64 JavaScript otherwise starves CPU progress with timer interrupts, so only the Emscripten RV64 emulator clock is scaled down 16x. Guest wall clock is therefore slower than real time; native host TinyEMU and RV32 are unchanged. Init injection unlinks the BusyBox init symlink before replacing it, preserving the BusyBox executable.
 
 Chrome smoke:
 

@@ -22,4 +22,5 @@ Status now:
 
 - Items 1, 2, 4, 10, 11, 12, and 15 are working first passes.
 - Items 5, 6, 7, 8, 9, and 14 are active improvement targets.
-- Item 15 uses linuxpdf TinyEMU RISC-V today; native RISC-V Ooonana is item 14.
+- Item 14 now builds native RISC-V64 Linux 6.18.37 / BusyBox 1.37.0; main PDF passed TinyEMU boot/input/version checks. Package-sync performance and Chromium PDF-viewer verification remain.
+- Core 0.9.6 adds Health/Updates apps, matching native icons, third-party titlebar controls, verified password-login handoff and hash-locked OpenVINO runtime inputs. Physical new-image Xorg/hardware validation remains separate.

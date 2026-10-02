@@ -74,8 +74,16 @@ let sentInput = false;
 let sentEnter = false;
 let sentUpdate = false;
 let sentVersion = false;
+let diagnosticAt = Date.now();
 const monitor = setInterval(() => {
   const output = terminalText();
+  if (process.env.OOONANA_PDF_DEBUG === "1" && Date.now() - diagnosticAt > 15000 && sandbox.Module && sandbox.Module.ccall) {
+    diagnosticAt = Date.now();
+    try {
+      const values = [0, 1, 2, 3].map(field => sandbox.Module.ccall("oo_vm_debug", "number", ["number"], [field]) >>> 0);
+      console.error("VM CPU snapshot:", values.map(value => value.toString(16)).join(" "));
+    } catch (_) {}
+  }
   if (output.includes("Kernel panic") || output.includes("Function not implemented") || output.includes("can't rename")) {
     console.error(output);
     process.exit(1);
@@ -92,7 +100,11 @@ const monitor = setInterval(() => {
     sandbox.queue_console_text("ooonana version\r");
     sentVersion = true;
   }
-  if (sentVersion && !sentUpdate && output.includes("ooonana 0.9.5")) {
+  if (sentVersion && !sentUpdate && output.includes("ooonana 0.9.6")) {
+    if (process.env.OOONANA_PDF_BOOT_ONLY === "1") {
+      console.log("ok ooonana-pdf-vm boot/input/version (package sync not tested)");
+      process.exit(0);
+    }
     sandbox.queue_console_text("ooonana update\r");
     sentUpdate = true;
   }

@@ -63,7 +63,7 @@ cat > "$TARGET_ROOT/etc/ooonana/pdf-release" <<EOF
 OOONANA_PDF_EDITION="minimal-riscv"
 OOONANA_PDF_VERSION="0.6"
 OOONANA_PDF_BUILD_REF="$BUILD_REF"
-OOONANA_PDF_PACKAGE_MANAGER="0.9.5"
+OOONANA_PDF_PACKAGE_MANAGER="0.9.6"
 EOF
 
 cat > "$TARGET_ROOT/etc/hostname" <<'EOF'
@@ -85,6 +85,8 @@ echo "  ooonana ai status"
 echo
 EOF
 
+# BusyBox installs init as a link to its executable. Break that link first.
+if [[ -L "$TARGET_ROOT/sbin/init" ]]; then rm -f "$TARGET_ROOT/sbin/init"; fi
 cat > "$TARGET_ROOT/sbin/init" <<'EOF'
 #!/bin/sh
 
@@ -98,7 +100,10 @@ mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
 mount -a 2>/dev/null || true
 mount -t proc proc /proc 2>/dev/null || true
 mount -t sysfs sysfs /sys 2>/dev/null || true
-if [ -c /dev/hvc0 ]; then
+if [ -c /dev/hvc1 ]; then
+  # Native kernel exposes legacy SBI console first; keyboard FIFO is virtio.
+  exec </dev/hvc1 >/dev/hvc1 2>&1
+elif [ -c /dev/hvc0 ]; then
   exec </dev/hvc0 >/dev/hvc0 2>&1
 fi
 hostname ooonana-pdf 2>/dev/null || true
@@ -114,7 +119,7 @@ while /bin/true; do
   else
     echo "Ooonana OS"
   fi
-  echo "PDF Minimal 0.6 | pkg 0.9.5"
+  echo "PDF Minimal 0.6 | pkg 0.9.6"
   echo "OOONANA_PDF_BOOT_OK"
   echo "Run: ooonana help"
   if command -v cttyhack >/dev/null 2>&1; then

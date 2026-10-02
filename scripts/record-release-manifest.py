@@ -20,7 +20,9 @@ for path in args.repo.glob("*.pkg"):
 inputs = hashlib.sha256()
 for directory in (root / "scripts", root / "configs", root / "packages/ooonana", root / "packages/openvino-chat"):
     for path in sorted(directory.rglob("*")):
-        if path.is_file() and "__pycache__" not in path.parts and path.suffix not in (".pyc", ".log"):
+        if (path.is_file() and "__pycache__" not in path.parts
+                and not any(part.endswith(".egg-info") for part in path.parts)
+                and path.suffix not in (".pyc", ".pyo", ".log")):
             inputs.update(path.relative_to(root).as_posix().encode())
             inputs.update(hashlib.sha256(path.read_bytes()).digest())
 revision = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, text=True, capture_output=True).stdout.strip()

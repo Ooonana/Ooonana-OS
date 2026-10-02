@@ -15,8 +15,8 @@ PINS = (
     ("files", "", ("ooonana-files",)),
     ("editor", "", ("ooonana-editor",)),
     ("music", "", ("ooonana-music",)),
-    ("openvino", "", ("ooonana-openvino-launch",)),
-    ("tasks", "", ("ooonana-processes",)),
+    ("openvino", "", ("ooonana-openvino-launch",)),
+    ("tasks", "", ("ooonana-processes",)),
 )
 
 PIN_COLORS = {

@@ -3,6 +3,6 @@ Type=Application
 Name=Ooonana Task Manager
 Comment=Processes and system performance
 Exec=ooonana-processes
-Icon=utilities-system-monitor
+Icon=ooonana-task-manager
 Terminal=false
 Categories=System;Utility;

@@ -190,7 +190,7 @@ main() {
   full_version="$BRANDING_VERSION"
   if [[ "$INCLUDE_OPENVINO" == 1 ]]; then
     bash "${OOONANA_OPENVINO_CHAT_PACKAGE_SCRIPT:-$ROOT/scripts/build-openvino-chat-package.sh}" \
-      --out-dir "$OUT_DIR" --version "${OOONANA_OPENVINO_CHAT_VERSION:-0.2.0}"
+      --out-dir "$OUT_DIR" --version "${OOONANA_OPENVINO_CHAT_VERSION:-0.2.1}"
     full_deps="$full_deps openvino-chat"
     full_version=0.1.3
   fi

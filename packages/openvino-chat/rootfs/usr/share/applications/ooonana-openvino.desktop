@@ -3,6 +3,6 @@ Type=Application
 Name=Ooonana Offline AI
 Comment=Local OpenVINO chat for Intel GPU and CPU
 Exec=ooonana-openvino-launch
-Icon=/usr/share/ooonana/logo.png
+Icon=ooonana-openvino
 Terminal=false
 Categories=Utility;Development;

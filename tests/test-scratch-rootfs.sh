@@ -50,6 +50,7 @@ bash "$SCRIPT" --work-dir "$tmp/build" --busybox "$fake_busybox" --no-image --fo
 
 rootfs="$tmp/build/scratch-rootfs"
 [[ -x "$rootfs/bin/busybox" ]] || fail "missing busybox"
+[[ -L "$rootfs/bin/find" ]] || fail "missing BusyBox find applet link"
 [[ -L "$rootfs/bin/basename" ]] || fail "missing basename applet"
 [[ -L "$rootfs/bin/dirname" ]] || fail "missing dirname applet"
 [[ -L "$rootfs/bin/mv" ]] || fail "missing mv applet"

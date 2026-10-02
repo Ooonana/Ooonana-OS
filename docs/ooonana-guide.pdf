@@ -4,7 +4,7 @@
 << /Type /Catalog /Pages 2 0 R >>
 endobj
 2 0 obj
-<< /Type /Pages /Kids [5 0 R 7 0 R] /Count 2 >>
+<< /Type /Pages /Kids [5 0 R 7 0 R 9 0 R] /Count 3 >>
 endobj
 3 0 obj
 << /Type /Font /Subtype /Type1 /BaseFont /Courier >>
@@ -34,7 +34,7 @@ T*
 T*
 () Tj
 T*
-(Ooonana OS 0.9.5 field guide) Tj
+(Ooonana OS 0.9.6 field guide) Tj
 T*
 () Tj
 T*
@@ -119,7 +119,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>
 endobj
 6 0 obj
-<< /Length 2941 >>
+<< /Length 3218 >>
 stream
 BT
 /F1 10 Tf
@@ -157,9 +157,7 @@ T*
 T*
 (/var/tmp/ooonana-os/release/ooonana-full-i3-wsl-rootfs.tar.gz --force) Tj
 T*
-(Launch nested full desktop with: wsl.exe -d Ooonana -- /usr/bin/start-ooonana-i3) Tj
-T*
-(--nested) Tj
+(Launch desktop with: wsl.exe -d Ooonana -u ooonana --exec start-ooonana-i3) Tj
 T*
 (WSL GUI needs WSLg and Xephyr, or an X server with DISPLAY set. Nested mode keeps i3) Tj
 T*
@@ -189,6 +187,10 @@ T*
 T*
 (and right-click window actions.) Tj
 T*
+(Core 0.9.6 adds matching native app icons, event-driven third-party titlebar controls) Tj
+T*
+(and 10% larger cursor defaults \(public 19px, personal 21px\).) Tj
+T*
 (Ctrl+Shift+Esc opens native Task Manager with processes, performance, and available) Tj
 T*
 (temperature and fan sensors. Unavailable hardware counters are labeled, not guessed.) Tj
@@ -197,7 +199,7 @@ T*
 T*
 (or an installed system; RAM-only live storage cannot hold its runtime and models.) Tj
 T*
-(Ooonana OpenVINO Chat 0.2.0 has a browser GUI through an authenticated loopback) Tj
+(Ooonana OpenVINO Chat 0.2.1 has a browser GUI through an authenticated loopback) Tj
 T*
 (bridge. Windows-only computer-control tools are unavailable on Linux.) Tj
 T*
@@ -206,6 +208,41 @@ T*
 (Wi-Fi/Bluetooth firmware, Chromium, Python 3, sudo, su, and doas are included in) Tj
 T*
 (full-i3.) Tj
+T*
+(Installed password-login handoff passed diskless VM tests as UID 1000. Physical Xorg,) Tj
+T*
+(wireless, audio, sensors and inference remain hardware checks; no sound was played.) Tj
+T*
+(OpenVINO Linux dependencies use exact wheel hashes and a pinned Ubuntu image/APT) Tj
+T*
+(snapshot. Signing private key stays local; public CI signing is deferred.) Tj
+T*
+() Tj
+T*
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 6 0 R >>
+endobj
+8 0 obj
+<< /Length 656 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+54 744 Td
+(Bootable PDF) Tj
+T*
+(docs/ooonana.pdf now uses native RISC-V64 Linux 6.18.37 and BusyBox 1.37.0. TinyEMU) Tj
+T*
+(boot, input and version checks passed; package-sync performance and Chromium viewer) Tj
+T*
+(checks remain.) Tj
+T*
+(RV64 JavaScript emulator clock is scaled down 16x for CPU progress. Guest time is) Tj
+T*
+(slower than real time. This terminal PDF is not the x86 i3 desktop.) Tj
 T*
 () Tj
 T*
@@ -224,21 +261,23 @@ T*
 ET
 endstream
 endobj
-7 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 6 0 R >>
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 8 0 R >>
 endobj
 xref
-0 8
+0 10
 0000000000 65535 f 
 0000000015 00000 n 
 0000000064 00000 n 
-0000000127 00000 n 
-0000000195 00000 n 
-0000002167 00000 n 
-0000002293 00000 n 
-0000005286 00000 n 
+0000000133 00000 n 
+0000000201 00000 n 
+0000002173 00000 n 
+0000002299 00000 n 
+0000005569 00000 n 
+0000005695 00000 n 
+0000006402 00000 n 
 trailer
-<< /Size 8 /Root 1 0 R >>
+<< /Size 10 /Root 1 0 R >>
 startxref
-5412
+6528
 %%EOF

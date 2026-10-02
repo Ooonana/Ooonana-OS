@@ -187,6 +187,11 @@ def i3_window_action(window, action):
 def header(window, title, subtitle="", icon_name="preferences-system-symbolic"):
     window.set_resizable(True)
     window.set_wmclass("ooonana-app", "OoonanaApp")
+    app_icons = {"Ooonana AI": "ai", "Ooonana Spotlight": "apps", "Ooonana Settings": "settings", "Ooonana Control Center": "settings", "Ooonana Wi-Fi": "wifi", "Ooonana Bluetooth": "bluetooth", "Ooonana Task Manager": "task-manager", "Ooonana Health": "health", "Ooonana Updates": "updates", "Ooonana Setup": "setup", "Ooonana Notifications": "notifications", "Ooonana Packages": "packages", "Ooonana Music": "music", "Ooonana Controls": "controls"}
+    app_icons.update({"Ooonana Sound": "controls", "Ooonana Brightness": "controls", "Ooonana Power": "controls"})
+    app_title = title if title in app_icons else window.get_title()
+    if app_title in app_icons:
+        window.set_icon_name("ooonana-" + app_icons[app_title])
     display = Gdk.Display.get_default()
     monitor = (display.get_primary_monitor() or display.get_monitor(0)) if display else None
     if monitor:

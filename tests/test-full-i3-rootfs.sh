@@ -148,7 +148,7 @@ EOF
 chmod +x "$scratch/bin/busybox"
 cat > "$scratch/usr/bin/ooonana" <<'EOF'
 #!/bin/sh
-echo ooonana 0.9.5
+echo ooonana 0.9.6
 EOF
 chmod +x "$scratch/usr/bin/ooonana"
 cat > "$scratch/usr/bin/ooonana-setup" <<'EOF'
@@ -373,7 +373,7 @@ assert_contains "$(<"$rootfs/etc/doas.conf")" "permit nopass :wheel"
 assert_contains "$(<"$rootfs/etc/sudoers.d/ooonana")" '%wheel ALL=(ALL:ALL) NOPASSWD: ALL'
 assert_contains "$(<"$rootfs/etc/wsl.conf")" "default=ooonana"
 assert_contains "$(<"$rootfs/etc/wsl.conf")" "mountFsTab=false"
-assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS 0.9.5"'
+assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS 0.9.6"'
 [[ "$(head -c 4 "$rootfs/usr/share/icons/OoonanaTailless/cursors/left_ptr")" == Xcur ]] || fail "tailless cursor missing or invalid"
 python3 - "$rootfs/usr/share/icons/OoonanaTailless/cursors/left_ptr" <<'PY'
 import struct
@@ -388,7 +388,7 @@ assert 17 in sizes, sizes
 PY
 assert_contains "$(<"$rootfs/usr/share/icons/default/index.theme")" 'Inherits=OoonanaTailless'
 assert_contains "$(<"$rootfs/etc/gtk-3.0/settings.ini")" 'gtk-cursor-theme-name=OoonanaTailless'
-assert_contains "$(<"$rootfs/etc/gtk-3.0/settings.ini")" 'gtk-cursor-theme-size=17'
+assert_contains "$(<"$rootfs/etc/gtk-3.0/settings.ini")" 'gtk-cursor-theme-size=19'
 [[ ! -d "$rootfs/usr/lib/ooonana/ui/__pycache__" ]] || fail "full rootfs copied native UI bytecode cache"
 assert_contains "$(<"$rootfs/etc/ooonana/xsettingsd.conf")" 'Gtk/CursorThemeName "OoonanaTailless"'
 [[ "$(<"$rootfs/etc/ooonana/default-user")" == "ooonana" ]] || fail "wrong default desktop user"
@@ -404,7 +404,7 @@ for desktop_entry in \
   ooonana-apps.desktop ooonana-packages.desktop ooonana-ai.desktop \
   ooonana-music.desktop oonana.desktop; do
   assert_contains "$(<"$rootfs/usr/share/applications/$desktop_entry")" \
-    "Icon=/usr/share/ooonana/logo.png"
+    "Icon=ooonana-"
 done
 [[ -f "$rootfs/var/lib/ooonana/packages/installed/branding.pkg" ]] || fail "missing branding installed marker"
 [[ -f "$rootfs/var/lib/ooonana/packages/installed/i3.pkg" ]] || fail "missing i3 installed marker"

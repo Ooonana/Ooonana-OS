@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR=""
-VERSION="0.9.5"
+VERSION="0.9.6"
 DRY_RUN=0
 
 usage() {
@@ -14,7 +14,7 @@ Usage:
   scripts/build-ooonana-core-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER  Package version (default: 0.9.5)
+  --version VER  Package version (default: 0.9.6)
   --dry-run      Print resolved package details
   -h, --help     Show help
 USAGE
@@ -52,11 +52,12 @@ command -v sha256sum >/dev/null 2>&1 || { printf 'missing command: sha256sum\n' 
 extract_helper() {
   local marker="$1"
   local output="$2"
+  local source_file="${3:-$ROOT/scripts/build-full-i3-rootfs.sh}"
   awk -v marker="$marker" '
     index($0, marker) { capture=1; next }
     capture && $0 == "EOF" { exit }
     capture { print }
-  ' "$ROOT/scripts/build-full-i3-rootfs.sh" >"$output"
+  ' "$source_file" >"$output"
   [[ -s "$output" ]] || { printf 'missing generated helper: %s\n' "$marker" >&2; exit 1; }
   chmod 0755 "$output"
 }
@@ -108,6 +109,8 @@ for helper in \
 done
 mkdir -p "$staging/etc/init.d"
 extract_helper 'ROOTFS/etc/init.d/rcS' "$staging/etc/init.d/rcS"
+mkdir -p "$staging/sbin"
+extract_helper 'write_file "$ROOTFS/sbin/init"' "$staging/sbin/init" "$ROOT/scripts/build-scratch-rootfs.sh"
 cat > "$staging/etc/os-release" <<EOF
 NAME="Ooonana OS"
 ID=ooonana
@@ -154,7 +157,7 @@ OOONANA_PKG_VERSION="$VERSION"
 OOONANA_PKG_KIND="archive"
 OOONANA_PKG_REBOOT=1
 OOONANA_PKG_SUMMARY="Ooonana OS native CLI, desktop apps, services, game, and defaults"
-OOONANA_PKG_DEPS="dbus-daemon-launch-helper"
+OOONANA_PKG_DEPS="dbus-daemon-launch-helper openssl"
 OOONANA_PKG_ARCHIVE="$archive_rel"
 OOONANA_PKG_SHA256="$archive_sha"
 OOONANA_PKG_NOTES="Native Ooonana system payload; archives download only during install or upgrade"

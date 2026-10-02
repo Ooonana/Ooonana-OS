@@ -90,7 +90,7 @@ create_base_dirs() {
 
 create_busybox_links() {
   local applet
-  for applet in adduser awk basename cat chmod clear cp cut date dd df dirname dmesg echo env free grep hostname ifconfig ip killall ls mkdir mount mv passwd ps pwd readlink rm rmdir route sed sh sha256sum sleep sort sync tar touch tr udhcpc umount uname wc wget; do
+  for applet in adduser awk basename cat chmod clear cp cut date dd df dirname dmesg echo env find free grep hostname ifconfig ip killall login ls mkdir mount mv passwd ps pwd readlink rm rmdir route sed sh sha256sum sleep sort sync tar touch tr udhcpc umount uname wc wget; do
     ln -sf busybox "$ROOTFS/bin/$applet"
   done
   for applet in mdev reboot; do
@@ -143,6 +143,9 @@ EOF
 
   write_file "$ROOTFS/sbin/init" 0755 <<'EOF'
 #!/bin/sh
+if [ "$(cat /etc/ooonana/system-mode 2>/dev/null)" = installed ]; then
+  exec /bin/busybox init
+fi
 mount -t proc proc /proc 2>/dev/null || true
 mount -t sysfs sysfs /sys 2>/dev/null || true
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
@@ -323,7 +326,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   list_output="$(/usr/bin/ooonana list 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.5' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.6' &&
     printf '%s\n' "$me_output" | grep -q 'Ooonana OS' &&
     printf '%s\n' "$list_output" | grep -q 'gui' &&
     printf '%s\n' "$installed_output" | grep -q 'base'; then

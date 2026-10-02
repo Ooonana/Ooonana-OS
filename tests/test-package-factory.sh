@@ -222,7 +222,7 @@ assert_contains "$gitlab_ci" "OOONANA_REPO_SIGN_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_REPO_PUBLIC_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_CORE_VERSION"
-assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.9.5"'
+assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.9.6"'
 assert_contains "$gitlab_ci" "OOONANA_OPENVINO_CHAT_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_URL"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_SHA256"
@@ -251,7 +251,7 @@ assert_contains "$builder_help" "--devicechat-version VER"
 assert_contains "$builder_help" "--bunanachat-version VER"
 assert_contains "$builder_help" "--wine-version VER"
 builder_dry="$(OOONANA_BUNANACHAT_LINUX_SOURCE=/nonexistent/ooonana-bunanachat-test bash "$BUILDER" --dry-run --package-profile "$CLOUD_PROFILE" --repo-url file:///apk --cloud-url https://example.test/ooonana nano vim)"
-assert_contains "$builder_dry" "packages: nano bash curl wget ca-certificates ca-certificates-bundle python3 bubblewrap xz nodejs flatpak vim"
+assert_contains "$builder_dry" "packages: nano bash curl wget ca-certificates ca-certificates-bundle openssl python3 bubblewrap xz nodejs flatpak vim"
 assert_contains "$builder_dry" "cloud: cloud https://example.test/ooonana"
 assert_contains "$builder_dry" "scripts/import-apk-package.sh"
 assert_contains "$builder_dry" "scripts/build-ooonana-core-package.sh"
@@ -286,7 +286,7 @@ assert_contains "$devicechat_builder_dry" "id: devicechat"
 wine_builder_dry="$(bash "$WINE_PACKAGER" --dry-run --out-dir /tmp/repo)"
 assert_contains "$wine_builder_dry" "id: wine"
 cli_dry="$(OOONANA_SOURCE_ROOT="$ROOT" "$ROOT/packages/ooonana/usr/bin/ooonana" repo build --dry-run --package-profile "$CLOUD_PROFILE" nano)"
-assert_contains "$cli_dry" "packages: nano bash curl wget ca-certificates ca-certificates-bundle python3 bubblewrap xz nodejs flatpak"
+assert_contains "$cli_dry" "packages: nano bash curl wget ca-certificates ca-certificates-bundle openssl python3 bubblewrap xz nodejs flatpak"
 
 tmp="$(mktemp -d)"
 trap 'if [[ "${OOONANA_TEST_KEEP_TMP:-0}" = 1 ]]; then printf "Fixture retained: %s\n" "$tmp"; else rm -rf "$tmp"; fi' EXIT
@@ -332,7 +332,7 @@ OOONANA_PKG_DEPS=""
 OOONANA_PKG_ARCHIVE=""
 OOONANA_PKG_SHA256=""
 PKG
-for package in bubblewrap xz curl ca-certificates coreutils nodejs flatpak; do
+for package in bubblewrap xz curl ca-certificates coreutils nodejs flatpak openssl; do
   cat > "$out/$package.pkg" <<PKG
 OOONANA_PKG_ID="$package"
 OOONANA_PKG_VERSION="1.0"
@@ -360,11 +360,11 @@ OOONANA_TEST_ROOT="$ROOT" OOONANA_IMPORT_APK_SCRIPT="$stub" \
 [[ -f "$tmp/repo/ooonana-core.pkg" ]] || fail "builder missing core meta package"
 [[ -f "$tmp/repo/ooonana-core-runtime.pkg" ]] || fail "builder missing core runtime package"
 [[ -f "$tmp/repo/openvino-chat.pkg" ]] || fail "builder missing OpenVINO Chat package"
-[[ -f "$tmp/repo/archives/openvino-chat-0.2.0.tar.gz" ]] || fail "builder missing OpenVINO Chat archive"
+[[ -f "$tmp/repo/archives/openvino-chat-0.2.1.tar.gz" ]] || fail "builder missing OpenVINO Chat archive"
 [[ -f "$tmp/repo/devicechat.pkg" ]] || fail "builder missing DeviceChat package"
 [[ -f "$tmp/repo/wine.pkg" ]] || fail "builder missing Wine package"
 assert_contains "$(<"$tmp/repo/ooonana-core.pkg")" 'OOONANA_PKG_DEPS="ooonana-core-runtime"'
-assert_contains "$(<"$tmp/repo/ooonana-core-runtime.pkg")" 'OOONANA_PKG_DEPS="dbus-daemon-launch-helper"'
+assert_contains "$(<"$tmp/repo/ooonana-core-runtime.pkg")" 'OOONANA_PKG_DEPS="dbus-daemon-launch-helper openssl"'
 assert_contains "$(<"$tmp/repo/ooonana-core.pkg")" 'OOONANA_PKG_ARCHIVE=""'
 core_runtime_archive="$(find "$tmp/repo/archives" -maxdepth 1 -name 'ooonana-core-runtime-*.tar.gz' -print -quit)"
 [[ -f "$core_runtime_archive" ]] || fail "builder missing core runtime archive"
@@ -379,13 +379,13 @@ tar -tzf "$core_runtime_archive" | grep './etc/init.d/rcS' >/dev/null || fail "c
 tar -tzf "$core_runtime_archive" | grep './usr/bin/start-ooonana-i3' >/dev/null || fail "core runtime missing WSL nested launcher"
 tar -xOzf "$core_runtime_archive" ./usr/bin/start-ooonana-i3 | grep -q 'Xephyr' || fail "core runtime missing nested display support"
 tar -xOzf "$core_runtime_archive" ./usr/share/icons/OoonanaTailless/cursors/left_ptr | python3 -c 'import sys; raise SystemExit(not sys.stdin.buffer.read().startswith(b"Xcur"))' || fail "core runtime missing tailless cursor"
-tar -xOzf "$core_runtime_archive" ./etc/os-release | grep -q 'PRETTY_NAME="Ooonana OS 0.9.5"' || fail "core runtime OS release stale"
+tar -xOzf "$core_runtime_archive" ./etc/os-release | grep -q 'PRETTY_NAME="Ooonana OS 0.9.6"' || fail "core runtime OS release stale"
 tar -tzf "$core_runtime_archive" | grep './usr/lib/ooonana/ui/task_manager_app.py' >/dev/null || fail "core runtime missing task manager"
 for native_file in usr/bin/ooonana-panel-start usr/bin/ooonana-notifications usr/bin/ooonana-notification-status usr/bin/ooonana-wallpaper-fit usr/lib/ooonana/ui/notifications_app.py; do
   [[ "$core_archive_files" == *"./$native_file"* ]] || fail "core runtime missing $native_file"
 done
 [[ "$core_archive_files" != *'WindowsCursorConceptPersonal'* ]] || fail "public core includes private cursor theme"
-tar -xOzf "$core_runtime_archive" ./etc/gtk-3.0/settings.ini | grep -q 'gtk-cursor-theme-size=17' || fail "core cursor size stale"
+tar -xOzf "$core_runtime_archive" ./etc/gtk-3.0/settings.ini | grep -q 'gtk-cursor-theme-size=19' || fail "core cursor size stale"
 tar -xOzf "$core_runtime_archive" ./etc/ooonana/polybar.ini | grep -q 'modules-center = ai' || fail "core panel center stale"
 tar -tzf "$core_runtime_archive" | grep './usr/share/ooonana/wallpapers/ooonana-notes.jpg' >/dev/null || fail "core runtime missing Notes wallpaper"
 tar -tzf "$core_runtime_archive" | grep './usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png' >/dev/null || fail "core runtime missing 0.9 wallpaper"
@@ -425,7 +425,7 @@ core_upgrade="$(OOONANA_REPO_DIR="$tmp/repo" \
 assert_contains "$core_upgrade" "installed ooonana-core-runtime"
 assert_contains "$core_upgrade" "upgraded ooonana-core 0.8.1"
 [[ -x "$core_upgrade_root/usr/bin/ooonana" ]] || fail "core migration removed upgraded CLI"
-assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.9.5"
+assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.9.6"
 assert_contains "$(<"$tmp/repo/cloud.repo")" 'OOONANA_REPO_URI="https://example.test/repo"'
 assert_contains "$(<"$tmp/repo/README.txt")" "ooonana update"
 

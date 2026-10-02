@@ -129,7 +129,7 @@ if "OOONANA_NATIVE_PDF_RUNTIME" not in text:
 if [ -n "${OOONANA_NATIVE_PDF_RUNTIME:-}" ]; then
   sudo cp "$OOONANA_NATIVE_PDF_RUNTIME/kernel-riscv64.bin" build/files/kernel-riscv64.bin
   sudo cp "$OOONANA_NATIVE_PDF_RUNTIME/RUNTIME-MANIFEST.json" build/files/RUNTIME-MANIFEST.json
-  sudo sed -i 's/console=tty0/console=hvc0 no4lvl/' build/files/vm_64.cfg
+  sudo sed -i 's/console=tty0/console=hvc1 no4lvl/' build/files/vm_64.cfg
 fi''')
 if "OOONANA_PDF_LITE_GENERATOR" not in text:
     needle = "python3 gen_pdf.py out/compiled.js out/linux.pdf"
@@ -143,6 +143,7 @@ fi'''
         raise SystemExit("linuxpdf PDF generator patch point missing")
     text = text.replace(needle, replacement)
 text = text.replace("s/console=tty0/console=hvc0/", "s/console=tty0/console=hvc0 no4lvl/")
+text = text.replace("s/console=tty0/console=hvc0 no4lvl/", "s/console=tty0/console=hvc1 no4lvl/")
 build.write_text(text)
 
 gen = Path(sys.argv[2])
@@ -744,6 +745,26 @@ lib = lib.replace(
     'terminal_write(str, true); // OOONANA_SERIAL_CONSOLE_WRITE',
 )
 tinyemu.write_text(lib)
+
+# RV64's interpreter cannot sustain a wall-clock 100Hz timer in PDF sandbox.
+# Scale only RV64 JS virtual time, keeping RV32 and native emulator unchanged.
+clock = tinyemu.parent.parent / "riscv_machine.c"
+clock_text = clock.read_text()
+if "OOONANA_RV64_TIMER_SCALE" not in clock_text:
+    needle = '''    return (uint64_t)ts.tv_sec * RTC_FREQ +
+        (ts.tv_nsec / (1000000000 / RTC_FREQ));'''
+    replacement = '''    uint64_t ticks = (uint64_t)ts.tv_sec * RTC_FREQ +
+        (ts.tv_nsec / (1000000000 / RTC_FREQ));
+#ifdef EMSCRIPTEN
+    /* OOONANA_RV64_TIMER_SCALE: avoid interrupt starvation in slow PDF VM. */
+    if (s->max_xlen >= 64) ticks /= 16;
+#endif
+    return ticks;'''
+    if needle not in clock_text:
+        raise SystemExit("TinyEMU clock patch point missing")
+    clock.write_text(clock_text.replace(needle, replacement, 1))
+else:
+    clock.write_text(clock_text.replace("riscv_cpu_get_max_xlen() >= 64", "s->max_xlen >= 64"))
 
 # Apply release labels after all idempotent patches, including cached 0.5 trees.
 for release_file in (gen, lite_gen, display):

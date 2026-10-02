@@ -4,7 +4,10 @@ set -eu
 STATE_DIR="${OOONANA_OPENVINO_STATE_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/ooonana-openvino}"
 ROOTFS="$STATE_DIR/rootfs"
 PROJECT="${OOONANA_OPENVINO_PROJECT:-/usr/lib/ooonana/openvino-chat}"
-BASE_URL="${OOONANA_OPENVINO_ROOTFS_URL:-https://cloud-images.ubuntu.com/minimal/releases/noble/release}"
+if [ -f "$PROJECT/runtime-linux.env" ]; then . "$PROJECT/runtime-linux.env"; fi
+BASE_URL="${OOONANA_OPENVINO_ROOTFS_URL:-${OOONANA_RUNTIME_BASE_URL:-https://cloud-images.ubuntu.com/minimal/releases/noble/release-20261001}}"
+PINNED_ROOTFS_SHA256="${OOONANA_OPENVINO_ROOTFS_SHA256:-${OOONANA_RUNTIME_ROOTFS_SHA256:-}}"
+APT_SNAPSHOT="${OOONANA_OPENVINO_APT_SNAPSHOT:-${OOONANA_RUNTIME_APT_SNAPSHOT:-20261002T000000Z}}"
 ROOTFS_NAME="ubuntu-24.04-minimal-cloudimg-amd64-root.tar.xz"
 FORCE=0
 DRY_RUN=0
@@ -92,20 +95,21 @@ run_inside() {
     --setenv HOME /root \
     --setenv DEBIAN_FRONTEND noninteractive \
     --setenv OOONANA_OPENVINO_REFRESH_DEPENDENCIES "${OOONANA_OPENVINO_REFRESH_DEPENDENCIES:-0}" \
+    --setenv OOONANA_RUNTIME_APT_SNAPSHOT "$APT_SNAPSHOT" \
     --setenv PATH /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     --chdir / \
     /bin/bash -lc '
       set -e
       printf "APT::Sandbox::User \"root\";\n" >/etc/apt/apt.conf.d/99ooonana-root
-      apt-get update
-      apt-get install -y --no-install-recommends \
+      apt-get update --snapshot "$OOONANA_RUNTIME_APT_SNAPSHOT"
+      apt-get install --snapshot "$OOONANA_RUNTIME_APT_SNAPSHOT" -y --no-install-recommends \
         ca-certificates python3 python3-venv python3-pip \
         libgl1 libnuma1 libtbb12 ocl-icd-libopencl1 intel-opencl-icd clinfo pciutils procps
+      dpkg-query -W > /opt/ooonana-system-dependencies.lock
       rm -rf /var/lib/apt/lists/*
       if [ ! -x /opt/openvino-venv/bin/python ]; then
         python3 -m venv /opt/openvino-venv
       fi
-      /opt/openvino-venv/bin/python -m pip install --no-cache-dir --upgrade pip
       rm -rf /tmp/ooonana-openvino-src
       mkdir -p /tmp/ooonana-openvino-src
       cp -R --no-preserve=mode,ownership,timestamps,xattr \
@@ -113,10 +117,11 @@ run_inside() {
       chmod -R u+rwX /tmp/ooonana-openvino-src
       find /tmp/ooonana-openvino-src -type d -name "*.egg-info" -prune -exec rm -rf {} +
       if [ -f /opt/openvino-dependencies.lock ] && [ "$OOONANA_OPENVINO_REFRESH_DEPENDENCIES" != 1 ]; then
-        /opt/openvino-venv/bin/python -m pip install --no-cache-dir --upgrade -c /opt/openvino-dependencies.lock -c /tmp/ooonana-openvino-src/requirements-linux-runtime.lock /tmp/ooonana-openvino-src
+        /opt/openvino-venv/bin/python -m pip install --no-cache-dir --require-hashes -c /opt/openvino-dependencies.lock -r /tmp/ooonana-openvino-src/requirements-linux-full.lock
       else
-        /opt/openvino-venv/bin/python -m pip install --no-cache-dir --upgrade -c /tmp/ooonana-openvino-src/requirements-linux-runtime.lock /tmp/ooonana-openvino-src
+        /opt/openvino-venv/bin/python -m pip install --no-cache-dir --require-hashes -r /tmp/ooonana-openvino-src/requirements-linux-full.lock
       fi
+      /opt/openvino-venv/bin/python -m pip install --no-cache-dir --no-build-isolation --no-deps /tmp/ooonana-openvino-src
       /opt/openvino-venv/bin/python -c "import openvino, openvino_genai, openvino_chat; print(\"OpenVINO runtime ready\")"
       /opt/openvino-venv/bin/python -m pip freeze --all | grep -vi "^openvino-chat" > /opt/openvino-dependencies.lock
       fingerprint=/opt/openvino-chat/pyproject.toml
@@ -153,6 +158,10 @@ expected="$(awk -v file="$ROOTFS_NAME" '{name=$2; sub(/^\*/, "", name); if (name
 actual="$(sha256sum "$archive" | awk '{print $1}')"
 [ "$actual" = "$expected" ] || {
   printf 'openvino setup: Ubuntu rootfs checksum mismatch\n' >&2
+  exit 1
+}
+[ -n "$PINNED_ROOTFS_SHA256" ] && [ "$actual" = "$PINNED_ROOTFS_SHA256" ] || {
+  printf 'openvino setup: rootfs differs from pinned release; verify explicit SHA override for custom base URL\n' >&2
   exit 1
 }
 
