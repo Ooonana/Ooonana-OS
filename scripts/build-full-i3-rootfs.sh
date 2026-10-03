@@ -4270,7 +4270,7 @@ stage_full_i3_repo_metadata() {
   repo_abs="$(CDPATH='' cd -- "$REPO" && pwd)"
   rm -rf "$STAGED_REPO"
   mkdir -p "$STAGED_REPO"
-  for file in "$REPO"/*.pkg "$REPO/index.tsv" "$REPO/SHA256SUMS" \
+  for file in "$REPO"/*.pkg "$REPO/index.tsv" "$REPO/SHA256SUMS" "$REPO/BUILD-MANIFEST.json" \
     "$REPO/SHA256SUMS.sig" "$REPO/repo.pub"; do
     [[ -f "$file" ]] || continue
     cp -a "$file" "$STAGED_REPO/"

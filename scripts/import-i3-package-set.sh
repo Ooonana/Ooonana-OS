@@ -130,6 +130,10 @@ main() {
   [[ -f "$ROOT/branding/desktop-0.9.svg" ]] || ooonana_die "missing branding/desktop-0.9.svg"
   [[ -f "$ROOT/branding/desktop-0.9.png" ]] || ooonana_die "missing branding/desktop-0.9.png"
   [[ -f "$ROOT/branding/i3/config" ]] || ooonana_die "missing branding/i3/config"
+  [[ ! -f "$OUT_DIR/CURRENT" ]] || ooonana_die "published generations are immutable; use a separate staging repository"
+  if [[ "$OUT_DIR" == */generations/* && -f "$(dirname "$(dirname "$OUT_DIR")")/CURRENT" ]]; then
+    ooonana_die "published generations are immutable; use a separate staging repository"
+  fi
   mkdir -p "$OUT_DIR"
   if [[ -z "$I3_PACKAGES" ]]; then
     I3_PACKAGES="$(load_default_packages)"

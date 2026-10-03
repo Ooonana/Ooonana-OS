@@ -2,6 +2,13 @@
 
 Backend first. ISO building stays with user. Audio backend stays enabled; no playback tests.
 
+## ISO cache repair - 2026-10-03
+
+- User build stopped before full rootfs: cached i3 bundle omitted OpenSSL, although archive existed. Refresh only mutable staging metadata, then re-index/re-sign and atomically publish a new generation; old published generations remain untouched.
+- Release preflight now checks complete profile, dependency closure, package/index/checksum consistency, core version and detached signature before rootfs writes.
+- Import helper refuses published roots/generation directories. Staged full-rootfs metadata now includes BUILD-MANIFEST.json, matching checksum manifest.
+- Junk/PDF work stays paused. Cleanup attempt was policy-blocked; nothing removed.
+
 ## Core 0.9.7 pass
 
 - Native dock: bounded RAM-only hover previews, tooltips, running indicators, restore and right-click actions. Isolated i3 hover focus checks passed.

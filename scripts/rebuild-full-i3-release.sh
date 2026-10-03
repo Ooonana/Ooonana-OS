@@ -259,6 +259,10 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
     *' dbus-daemon-launch-helper '*) ;;
     *) die "stale i3.pkg dependency bundle; run import-i3-package-set.sh --metadata-only" ;;
   esac
+  source_core_version="$("$ROOT/packages/ooonana/usr/bin/ooonana" version | awk '{print $2}')"
+  python3 "$ROOT/scripts/check-release-repo.py" --repo "$REPO" \
+    --profile "$ROOT/configs/packages/full-i3.list" --core-version "$source_core_version" \
+    --public-key "$ROOT/packages/ooonana/etc/ooonana/trusted-keys/repository-20261002.pub"
 
   FIRMWARE_SCRIPT="$ROOT/scripts/install-intel-wireless-firmware.sh"
   FIRMWARE_VERSION="$(awk -F'"' '/^VERSION=/{ print $2; exit }' "$FIRMWARE_SCRIPT")"
