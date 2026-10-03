@@ -1,4 +1,4 @@
-# Backend update policy - core 0.9.6
+# Backend update policy - core 0.9.7
 
 ## Verified behavior
 
@@ -42,6 +42,14 @@ OpenVINO preflight estimates weight, KV-cache and overhead against available RAM
 CLI, Task Manager and Health show zram's real resident/compressed consumption. Logical compressed-swap capacity is never added to physical RAM. Fields follow [kernel zram documentation](https://docs.kernel.org/admin-guide/blockdev/zram.html); inference estimates follow [OpenVINO memory guidance](https://docs.openvino.ai/nightly/openvino-workflow/running-inference/optimize-inference/managing-igpu-memory-usage.html).
 
 Dock subscribes to i3 events; music subscribes to MPD idle events. Reconnects remain bounded. Health checks run on demand, not in a permanent polling loop.
+
+Native dock keeps bounded hover images in RAM; hidden/unavailable windows fall back to text without focus or restore. Responsive panel selects compact layouts at smaller widths. AI elapsed phase ticks only during activity; available RAM includes cgroup limits, never swap capacity.
+
+Health probes bounded service replies: system D-Bus, NetworkManager/BlueZ/supplicant ownership and explicit audio-server reply. No repair, playback or auto-spawn is requested. Readiness does not prove hardware functionality.
+
+Native index merge uses stable natural-version sort plus one pass; identical versions retain source order. Signed/declared indexes verify before merge. Legacy unsigned indexes without index checksum remain compatible. Builtin-only sources avoid a redundant pipeline.
+
+Manifest format 2 hashes Git-selected source inputs, including branding/CI, excluding generated caches and unrelated output. Public artifact creation no longer alone marks source dirty; actual edited/new source does. [Hardware checklist](hardware-regression-checklist.md) remains a physical release gate.
 
 Core/branding/app archives normalize ordering, ownership and timestamps. Repository manifest records source revision/digest and package versions. Linux x86_64/Python 3.12 runtime uses a complete 36-wheel version/hash lock, including import-tested OpenVINO 2026.4.1 / GenAI 2026.4.1.0. Fresh offline hash-checked installation and full app imports passed. Ubuntu runtime image is pinned by release URL and SHA-256; APT dependencies resolve against the dated `20261002T000000Z` snapshot using Ubuntu's [snapshot service](https://ubuntu.com/server/docs/how-to/software/snapshot-service/). Setup records the installed system/Python dependency lists after validation. `OOONANA_OPENVINO_REFRESH_DEPENDENCIES=1` permits refreshing local resolved constraints within the release's hash lock, not arbitrary latest packages. This pins runtime inputs; it is not a claim of bit-identical rootfs output or successful model inference.
 

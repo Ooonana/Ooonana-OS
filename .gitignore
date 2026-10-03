@@ -8,6 +8,7 @@ docs/ooonana-pdf-chrome-*.png
 __pycache__/
 *.pyc
 *.egg-info/
+node_modules/
 /tmp/
 packages/ooonana-chat-windows/source/*.exe
 packages/bunanachat-linux/source/dist/

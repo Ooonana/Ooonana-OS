@@ -2,6 +2,7 @@
 import os
 import sys
 import json
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -28,6 +29,7 @@ from common import (  # noqa: E402
 from chat_store import ChatStore  # noqa: E402
 from chat_widgets import ChatRequest, apply_ai_theme, message_widget, sidebar_button  # noqa: E402
 from ui_preferences import transition_ms  # noqa: E402
+from memory_status import available_ram, memory_caption
 
 
 def status_field(output, field, default=""):
@@ -67,6 +69,9 @@ class AiWindow(Gtk.Window):
         self.store = ChatStore(self.transcript_path.with_name("ai-chats.json"))
         self.current = self.store.threads[0] if self.store.threads else self.store.new()
         self.request = None
+        self.phase_timer = 0
+        self.phase_started = None
+        self.phase_title = ""
         self.user_tag, self.ai_tag, self.meta_tag = "user", "assistant", "system"
         self.headerbar = header(self, "Ooonana AI", "", None)
         apply_ai_theme(self)
@@ -124,6 +129,18 @@ class AiWindow(Gtk.Window):
         provider_row.pack_start(provider_box, False, False, 0)
         self.activity = Gtk.Spinner()
         provider_row.pack_end(self.activity, False, False, 0)
+        indicators = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+        self.phase_label = label("Ready", "muted", wrap=False)
+        self.phase_label.set_max_width_chars(24)
+        self.phase_label.set_ellipsize(Pango.EllipsizeMode.END)
+        indicators.pack_start(self.phase_label, False, False, 0)
+        self.memory_label = label("RAM unavailable", "muted", wrap=False)
+        self.memory_label.set_max_width_chars(24)
+        self.memory_label.set_ellipsize(Pango.EllipsizeMode.END)
+        self.memory_label.set_tooltip_text("Available RAM includes cgroup limits. Swap is excluded. Availability is not a model-load guarantee.")
+        self.memory_label.set_no_show_all(True)
+        indicators.pack_start(self.memory_label, False, False, 0)
+        provider_row.pack_end(indicators, False, False, 0)
         remove = button("", "user-trash-symbolic", self.delete_chat)
         remove.set_valign(Gtk.Align.CENTER)
         remove.set_tooltip_text("Delete current chat")
@@ -284,9 +301,41 @@ class AiWindow(Gtk.Window):
         return False
 
     def closed(self, *_args):
+        if self.phase_timer:
+            GLib.source_remove(self.phase_timer)
+            self.phase_timer = 0
         if self.request:
             self.request.cancel()
-        Gtk.main_quit()
+        if Gtk.main_level():
+            Gtk.main_quit()
+
+    def update_memory(self):
+        self.memory_label.set_text(memory_caption(available_ram()))
+        self.memory_label.set_visible(self.provider_combo.get_active_id() == "openvino")
+
+    def set_phase(self, title=None):
+        if self.phase_timer:
+            GLib.source_remove(self.phase_timer)
+            self.phase_timer = 0
+        self.phase_title = title or ""
+        self.phase_started = time.monotonic() if title else None
+        self.phase_label.set_text(title or "Ready")
+        self.phase_label.set_tooltip_text("Elapsed request time, not estimated progress. Stop cancels only this request.")
+        self.update_memory()
+        if title:
+            self.activity.start()
+            self.phase_timer = GLib.timeout_add_seconds(1, self.phase_tick)
+        else:
+            self.activity.stop()
+
+    def phase_tick(self):
+        if self.phase_started is None:
+            return False
+        elapsed = int(time.monotonic() - self.phase_started)
+        self.phase_label.set_text(f"{self.phase_title} · {elapsed}s")
+        if elapsed % 5 == 0:
+            self.update_memory()
+        return True
 
     def resized(self, _widget, allocation):
         wide = allocation.width >= 1300
@@ -358,6 +407,7 @@ class AiWindow(Gtk.Window):
             self.provider_combo.handler_block_by_func(self.change_provider)
             self.provider_combo.set_active_id(active)
             self.provider_combo.handler_unblock_by_func(self.change_provider)
+            self.update_memory()
 
         run_async_task(task, done)
 
@@ -399,7 +449,7 @@ class AiWindow(Gtk.Window):
         self.send_button.set_image(icon("media-playback-stop-symbolic"))
         self.send_button.set_tooltip_text("Stop request; shared API stays running")
         self.send_button.get_accessible().set_name("Stop request")
-        self.activity.start()
+        self.set_phase("Waiting for backend")
 
         def done(rc, output):
             self.request = None
@@ -408,7 +458,7 @@ class AiWindow(Gtk.Window):
             self.send_button.set_image(icon("media-playback-start-symbolic"))
             self.send_button.set_tooltip_text("Send message")
             self.send_button.get_accessible().set_name("Send message")
-            self.activity.stop()
+            self.set_phase()
             text = output.strip() or ("No response returned." if rc == 0 else f"Request failed ({rc}). Open Settings to check provider.")
             self.store.append(thread, "assistant" if rc == 0 else "system", text, "Ooonana" if rc == 0 else "Request")
             if self.current is thread:
@@ -419,10 +469,10 @@ class AiWindow(Gtk.Window):
         self.request = ChatRequest(["ooonana-ai", "ask", "--no-agent", "--no-env", "--no-history", "--no-stream", "--context-stdin", "--", prompt], context, done)
 
     def run_action(self, title, args):
-        self.activity.start()
+        self.set_phase(title)
 
         def done(rc, output):
-            self.activity.stop()
+            self.set_phase()
             self.append(
                 title,
                 output or ("Done." if rc == 0 else f"Failed with exit status {rc}"),
@@ -462,16 +512,16 @@ class AiWindow(Gtk.Window):
     def start_offline_api(self, device):
         model_name = "qwen3.5-9b-int4-ov"
         model = f"/root/.openvino/models/{model_name}"
-        self.activity.start()
+        self.set_phase("Loading model")
 
         def started(rc, output):
             if rc != 0:
-                self.activity.stop()
+                self.set_phase()
                 self.append("Offline Intel", output or "OpenVINO API failed.", self.meta_tag)
                 return
 
             def selected(select_rc, select_output):
-                self.activity.stop()
+                self.set_phase()
                 self.append(
                     "Offline Intel",
                     (output + "\n" + select_output).strip(),
@@ -512,6 +562,7 @@ class AiWindow(Gtk.Window):
             stages.attach(widget, index % 2, index // 2, 1, 1)
         content.pack_start(stages, False, False, 0)
         content.pack_start(label("App package does not include runtime or model weights. A running API is not proof that model loading succeeded. Check available RAM before downloading.", "muted"), False, False, 0)
+        content.pack_start(label(memory_caption(available_ram()) + " · swap excluded; load estimate checked by backend.", "muted"), False, False, 0)
         content.pack_start(flow_row([
             button(name, callback=lambda _widget, response=response: dialog.response(response))
             for name, response in (("Install package", 1), ("Setup runtime", 2), ("Download Qwen model", 3), ("Start GPU", 4), ("Stop API", 5), ("Refresh runtime", 6))

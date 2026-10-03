@@ -3,7 +3,7 @@
 # shellcheck disable=SC1090,SC3043
 set -eu
 
-VERSION="0.9.6"
+VERSION="0.9.7"
 case "${1:-}" in
   version|--version|-v) printf 'ooonana %s\n' "$VERSION"; exit 0 ;;
 esac
@@ -826,6 +826,18 @@ load_repo_source_file() {
 }
 
 repo_sources() {
+  local source_file external
+  external=0
+  for source_file in "$SOURCES_DIR"/*.repo; do
+    [ -f "$source_file" ] || continue
+    external=1
+    break
+  done
+  # Builtin-only edition needs neither a subshell pipeline nor de-duplication.
+  if [ "$external" -eq 0 ]; then
+    printf 'builtin\t%s\t%s\n' "$REPO_DIR" "${OOONANA_BUILTIN_REPO_KEY:-}"
+    return 0
+  fi
   {
     printf 'builtin\t%s\t%s\n' "$REPO_DIR" "${OOONANA_BUILTIN_REPO_KEY:-}"
     if [ -d "$SOURCES_DIR" ]; then
@@ -1751,21 +1763,17 @@ cmd_wine() {
 }
 
 select_best_index_entries() {
+  local input output ordered
   input="$1"
   output="$2"
-  cut -f2 "$input" | sort -u | while IFS= read -r wanted_id; do
-    [ -n "$wanted_id" ] || continue
-    best_line=""
-    best_version=""
-    while IFS='	' read -r repo_name pkg_id pkg_version pkg_kind pkg_summary; do
-      [ "$pkg_id" = "$wanted_id" ] || continue
-      if [ -z "$best_version" ] || version_is_newer "$best_version" "$pkg_version"; then
-        best_version="$pkg_version"
-        best_line="$(printf '%s\t%s\t%s\t%s\t%s' "$repo_name" "$pkg_id" "$pkg_version" "$pkg_kind" "$pkg_summary")"
-      fi
-    done < "$input"
-    [ -z "$best_line" ] || printf '%s\n' "$best_line"
-  done > "$output"
+  ordered="$output.ordered.$$"
+  # One natural-version sort and one pass; stable ties retain source order.
+  if ! LC_ALL=C sort -s -t "$(printf '\t')" -k2,2 -k3,3Vr "$input" >"$ordered"; then
+    rm -f "$ordered"
+    return 1
+  fi
+  awk -F '\t' 'NF >= 5 && $2 != "" && !seen[$2]++' "$ordered" >"$output"
+  rm -f "$ordered"
 }
 
 cmd_update() {
@@ -1812,6 +1820,11 @@ cmd_update() {
     [ -d "$repo_path" ] || die "missing repo source: $repo_name $repo_path"
     verify_repo_signature "$repo_path" "${repo_key:-}"
     if [ -f "$repo_path/index.tsv" ]; then
+      # Old unsigned repos may not list index checksum. Signed/declared indexes
+      # must verify; preserve legacy unsigned metadata compatibility only.
+      if [ -f "$repo_path/SHA256SUMS.sig" ] || ! repo_checksum_entry_missing "$repo_path" index.tsv; then
+        verify_repo_checksum "$repo_path" index.tsv "${repo_key:-}"
+      fi
       while IFS='	' read -r pkg_id pkg_version pkg_kind pkg_summary pkg_deps pkg_archive pkg_sha; do
         [ -n "$pkg_id" ] || continue
         [ -n "$pkg_version" ] || die "repo index missing version: $repo_path"

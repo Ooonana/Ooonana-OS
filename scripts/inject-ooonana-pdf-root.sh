@@ -63,7 +63,7 @@ cat > "$TARGET_ROOT/etc/ooonana/pdf-release" <<EOF
 OOONANA_PDF_EDITION="minimal-riscv"
 OOONANA_PDF_VERSION="0.6"
 OOONANA_PDF_BUILD_REF="$BUILD_REF"
-OOONANA_PDF_PACKAGE_MANAGER="0.9.6"
+OOONANA_PDF_PACKAGE_MANAGER="0.9.7"
 EOF
 
 cat > "$TARGET_ROOT/etc/hostname" <<'EOF'
@@ -100,6 +100,10 @@ mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
 mount -a 2>/dev/null || true
 mount -t proc proc /proc 2>/dev/null || true
 mount -t sysfs sysfs /sys 2>/dev/null || true
+mkdir -p /tmp /run /dev/shm
+mount -t tmpfs -o size=16m,mode=1777 tmpfs /tmp 2>/dev/null || true
+mount -t tmpfs -o size=4m,mode=0755 tmpfs /run 2>/dev/null || true
+mount -t tmpfs -o size=8m,mode=1777 tmpfs /dev/shm 2>/dev/null || true
 if [ -c /dev/hvc1 ]; then
   # Native kernel exposes legacy SBI console first; keyboard FIFO is virtio.
   exec </dev/hvc1 >/dev/hvc1 2>&1
@@ -119,7 +123,7 @@ while /bin/true; do
   else
     echo "Ooonana OS"
   fi
-  echo "PDF Minimal 0.6 | pkg 0.9.6"
+  echo "PDF Minimal 0.6 | pkg 0.9.7"
   echo "OOONANA_PDF_BOOT_OK"
   echo "Run: ooonana help"
   if command -v cttyhack >/dev/null 2>&1; then

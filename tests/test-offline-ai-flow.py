@@ -26,6 +26,7 @@ namespace = dict(run_async=run_async, run=run,
                  run_async_task=lambda task, done: done(*task()))
 exec(compile(ast.Module(body=[method], type_ignores=[]), "ai-flow", "exec"), namespace)
 target = SimpleNamespace(activity=SimpleNamespace(start=lambda: None, stop=lambda: None),
+                         set_phase=lambda *_args: None,
                          append=lambda *args: messages.append(args), ai_tag="ai", meta_tag="meta",
                          refresh_model=lambda: None)
 namespace["start_offline_api"](target, "CPU")

@@ -148,7 +148,7 @@ EOF
 chmod +x "$scratch/bin/busybox"
 cat > "$scratch/usr/bin/ooonana" <<'EOF'
 #!/bin/sh
-echo ooonana 0.9.6
+echo ooonana 0.9.7
 EOF
 chmod +x "$scratch/usr/bin/ooonana"
 cat > "$scratch/usr/bin/ooonana-setup" <<'EOF'
@@ -373,7 +373,7 @@ assert_contains "$(<"$rootfs/etc/doas.conf")" "permit nopass :wheel"
 assert_contains "$(<"$rootfs/etc/sudoers.d/ooonana")" '%wheel ALL=(ALL:ALL) NOPASSWD: ALL'
 assert_contains "$(<"$rootfs/etc/wsl.conf")" "default=ooonana"
 assert_contains "$(<"$rootfs/etc/wsl.conf")" "mountFsTab=false"
-assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS 0.9.6"'
+assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS 0.9.7"'
 [[ "$(head -c 4 "$rootfs/usr/share/icons/OoonanaTailless/cursors/left_ptr")" == Xcur ]] || fail "tailless cursor missing or invalid"
 python3 - "$rootfs/usr/share/icons/OoonanaTailless/cursors/left_ptr" <<'PY'
 import struct
@@ -883,7 +883,7 @@ assert_contains "$polybar_cfg" "#ffb21a"
 assert_contains "$polybar_cfg" "background = #1b1f26"
 assert_contains "$polybar_cfg" "width = 98%"
 assert_contains "$polybar_cfg" "radius = 14"
-assert_contains "$polybar_cfg" "modules-left = brand workspaces"
+assert_contains "$polybar_cfg" "OOONANA_PANEL_LEFT:brand workspaces"
 assert_contains "$polybar_cfg" "font-1 = \"Font Awesome"
 assert_contains "$polybar_cfg" "Font Awesome 6 Brands"
 assert_contains "$polybar_cfg" "[module/brand]"
@@ -906,7 +906,7 @@ assert_contains "$polybar_cfg" "click-left = i3-msg move scratchpad"
 assert_contains "$polybar_cfg" "click-right = i3-msg scratchpad show"
 assert_contains "$polybar_cfg" "[module/win-full]"
 assert_contains "$polybar_cfg" "click-left = i3-msg fullscreen toggle"
-assert_contains "$polybar_cfg" "modules-left = brand workspaces win-close win-min win-full media"
+assert_contains "$polybar_cfg" "OOONANA_PANEL_LEFT:brand workspaces win-close win-min win-full media"
 assert_contains "$polybar_cfg" "modules-center = ai"
 assert_contains "$polybar_cfg" "click-left = ooonana-notifications"
 assert_contains "$polybar_cfg" "click-left = ooonana-ai-launch"
@@ -923,7 +923,7 @@ assert_contains "$polybar_cfg" "[module/memory]"
 assert_contains "$polybar_cfg" "[module/windows]"
 assert_contains "$polybar_cfg" "exec = ooonana-window-list"
 assert_contains "$polybar_cfg" "click-right = ooonana-window-list --actions"
-assert_contains "$polybar_cfg" "modules-right = memory audio battery wifi notifications controls date power"
+assert_contains "$polybar_cfg" "OOONANA_PANEL_RIGHT:memory audio battery wifi notifications controls date power"
 assert_contains "$polybar_cfg" "click-left = ooonana-settings-launch --page hardware"
 assert_contains "$polybar_cfg" "exec = ooonana-audio-status"
 assert_contains "$polybar_cfg" "exec = ooonana-wifi-status"

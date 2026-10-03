@@ -1,8 +1,18 @@
-# Current work - 2026-10-02
+# Current work - 2026-10-03
 
 Backend first. ISO building stays with user. Audio backend stays enabled; no playback tests.
 
-## Completed in core 0.9.6
+## Core 0.9.7 pass
+
+- Native dock: bounded RAM-only hover previews, tooltips, running indicators, restore and right-click actions. Isolated i3 hover focus checks passed.
+- Responsive wide/compact/small panel layouts and bounded music title length. Hidden top-bar shortcuts remain accessible in native windows, dock menus and Control Center.
+- AI elapsed request/model-start phase and physical/cgroup-aware RAM badge; timer only during activity. GTK low-RAM fixture checks passed; no inference claimed.
+- Backend: bounded endpoint readiness, one-sort index merge (10,004 fixture rows in about 35 ms), signed index checks and source-only manifests. Generated public/bytecode/egg-info outputs no longer alone mark source dirty.
+- Native PDF SHMEM/tmpfs/sysctl resolved; standalone/nofork BusyBox and RAM-backed temporary mounts added. Boot/input/version/actual tmpfs mount passed; 140-field PDF structure reopened and static layout inspected. Package-sync timeout remains; interactive viewer check blocked by browser file-URL policy.
+- GitLab dependency fix 61ab87e deployed successfully through pipeline 2905886251. This new pass needs final push/deployment verification.
+- Hardware regression checklist added. Private signing key stays local; enrollment/CI signing deferred.
+
+## Completed foundation in core 0.9.6
 
 - Cursor increased to **110% of previous size**, preserving original shape and hotspot proportions: personal 19 -> 21 px; public 17 -> 19 px. Actual Xcursor frames regenerated; WSL personal theme updated. Preserved native Windows frames were used, not a stretched enlargement of the previous small frame.
 - Nineteen matching native SVG icons added to application entries and window headers; WSL icon cache refreshed.
@@ -18,7 +28,7 @@ Backend first. ISO building stays with user. Audio backend stays enabled; no pla
 - New ISO build and real installed nonroot Xorg login. User performs ISO build.
 - CI signing and trusted client enrollment deferred by user's choice: private key stays local; no CI secret uploaded. Public CI/Pages deployment is distinct from Git pushes and local signed publication.
 - Native PDF package-sync performance and Chromium PDF-viewer interaction verification for this native build.
-- Temporary build/QA cleanup: automatic recursive removal was blocked by tool policy. Preserve verified generations and user files; no deletion workaround.
+- Junk scan only: about 331 MiB aborted generation, 1.2 MiB Python caches/metadata and 0.3 MiB previews. WSL QA environments are optional review candidates. Nothing deleted; latest request asked for scan. Preserve models, keys, releases and build caches.
 
 ## Verified foundation
 

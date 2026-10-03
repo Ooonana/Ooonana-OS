@@ -6,6 +6,9 @@ import os
 from pathlib import Path
 import platform
 import shutil
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib/ooonana"))
+from service_status import check_services
 
 
 def report():
@@ -29,7 +32,7 @@ def report():
         except (OSError, ValueError, IndexError):
             continue
     mode = Path("/etc/ooonana/system-mode")
-    return dict(kernel=platform.release(), architecture=platform.machine(), mode=mode.read_text().strip() if mode.is_file() else "live / developer", wsl="microsoft" in platform.release().lower(), memory_bytes=memory, zram=zram, compressed_swap_is_extra_ram=False, devices=devices, helpers={name: bool(shutil.which(name)) for name in ("i3", "NetworkManager", "bluetoothd", "pipewire", "wireplumber", "openvino", "sudo", "ooonana")}, reboot_required=Path("/run/ooonana/reboot-required").is_file(), audio_playback_tested=False, hardware_functionality_tested=False)
+    return dict(kernel=platform.release(), architecture=platform.machine(), mode=mode.read_text().strip() if mode.is_file() else "live / developer", wsl="microsoft" in platform.release().lower(), memory_bytes=memory, zram=zram, compressed_swap_is_extra_ram=False, devices=devices, services=check_services(), helpers={name: bool(shutil.which(name)) for name in ("i3", "NetworkManager", "bluetoothd", "pipewire", "wireplumber", "openvino", "sudo", "ooonana")}, reboot_required=Path("/run/ooonana/reboot-required").is_file(), audio_playback_tested=False, hardware_functionality_tested=False)
 
 
 if __name__ == "__main__":

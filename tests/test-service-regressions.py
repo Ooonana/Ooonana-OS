@@ -49,6 +49,13 @@ for password_rc in [0, 1]:
     def thread(target, **kwargs):
         return SimpleNamespace(start=target)
     namespace = dict(run=run, command_exists=lambda _: True, admin_command=lambda x: x,
+                     Gtk=SimpleNamespace(
+                         MessageDialog=lambda **_kwargs: SimpleNamespace(
+                             format_secondary_text=lambda *_args: None, add_button=lambda *_args: None,
+                             run=lambda: 1, destroy=lambda: None),
+                         MessageType=SimpleNamespace(QUESTION=0),
+                         ButtonsType=SimpleNamespace(NONE=0),
+                         ResponseType=SimpleNamespace(OK=1, CANCEL=0)),
                      subprocess=SimpleNamespace(run=lambda *a, **k: SimpleNamespace(returncode=password_rc, stdout=''),
                                                 PIPE=-1, STDOUT=-2, TimeoutExpired=subprocess.TimeoutExpired),
                      threading=SimpleNamespace(Thread=thread),

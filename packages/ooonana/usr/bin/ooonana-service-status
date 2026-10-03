@@ -1,0 +1,7 @@
+#!/usr/bin/python3
+import json
+from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib/ooonana"))
+from service_status import check_services
+print(json.dumps({"services": check_services(), "hardware_functionality_tested": False}, indent=2))

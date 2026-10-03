@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Record build inputs and package versions without credentials or host paths."""
+"""Source-only release inputs; no generated caches, secrets or host paths."""
 import argparse
 import hashlib
 import json
@@ -8,26 +8,62 @@ from pathlib import Path
 import re
 import subprocess
 
-parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--repo", required=True, type=Path)
-args = parser.parse_args()
-root = Path(__file__).resolve().parents[1]
-packages = {}
-for path in args.repo.glob("*.pkg"):
-    version = re.search(r'^OOONANA_PKG_VERSION="([^"]+)"', path.read_text(), re.MULTILINE)
-    if version:
-        packages[path.stem] = version.group(1)
-inputs = hashlib.sha256()
-for directory in (root / "scripts", root / "configs", root / "packages/ooonana", root / "packages/openvino-chat"):
-    for path in sorted(directory.rglob("*")):
-        if (path.is_file() and "__pycache__" not in path.parts
-                and not any(part.endswith(".egg-info") for part in path.parts)
-                and path.suffix not in (".pyc", ".pyo", ".log")):
-            inputs.update(path.relative_to(root).as_posix().encode())
-            inputs.update(hashlib.sha256(path.read_bytes()).digest())
-revision = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, text=True, capture_output=True).stdout.strip()
-dirty = bool(subprocess.run(["git", "status", "--porcelain"], cwd=root, text=True, capture_output=True).stdout.strip())
-manifest = {"format": 1, "revision": revision, "dirty": dirty, "source_digest": inputs.hexdigest(),
-            "source_date_epoch": int(os.environ.get("SOURCE_DATE_EPOCH", "0")), "packages": dict(sorted(packages.items())),
-            "architecture": "x86_64", "models_bundled": False}
-(args.repo / "BUILD-MANIFEST.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+SOURCE_PATHS = ("scripts", "configs", "branding", "packages", ".gitlab-ci.yml",
+                ".github/workflows", ".gitattributes", ".gitignore")
+
+
+def git(root, *args):
+    return subprocess.check_output(["git", *args], cwd=root)
+
+
+def generated(path):
+    return (any(part in {"__pycache__", "node_modules", ".venv"}
+                or part.endswith(".egg-info") for part in path.parts)
+            or path.suffix in {".pyc", ".pyo", ".log"})
+
+
+def source_state(root):
+    tracked = set(git(root, "ls-files", "-z", "--", *SOURCE_PATHS).split(b"\0"))
+    new = set(git(root, "ls-files", "--others", "--exclude-standard", "-z", "--", *SOURCE_PATHS).split(b"\0"))
+    digest = hashlib.sha256()
+    count = 0
+    for name in sorted(tracked | new):
+        if not name:
+            continue
+        relative = Path(os.fsdecode(name))
+        if generated(relative):
+            continue
+        path = root / relative
+        if not path.is_file() and not path.is_symlink():
+            continue
+        # Never follow source links into unrelated user data.
+        data = os.readlink(path).encode() if path.is_symlink() else path.read_bytes()
+        digest.update(relative.as_posix().encode())
+        digest.update(hashlib.sha256(data).digest())
+        count += 1
+    changed = bool(git(root, "diff", "HEAD", "--name-only", "--", *SOURCE_PATHS).strip())
+    dirty = changed or any(name and not generated(Path(os.fsdecode(name))) for name in new)
+    return digest.hexdigest(), count, dirty
+
+
+def build_manifest(root, repo):
+    packages = {}
+    for path in repo.glob("*.pkg"):
+        version = re.search(r'^OOONANA_PKG_VERSION="([^"]+)"', path.read_text(), re.MULTILINE)
+        if version:
+            packages[path.stem] = version.group(1)
+    digest, count, dirty = source_state(root)
+    return {"format": 2, "revision": git(root, "rev-parse", "HEAD").decode().strip(),
+            "dirty": dirty, "source_digest": digest, "source_files": count,
+            "source_inputs": "git-tracked plus nonignored source files; generated caches excluded",
+            "source_date_epoch": int(os.environ.get("SOURCE_DATE_EPOCH", "0")),
+            "packages": dict(sorted(packages.items())), "architecture": "x86_64",
+            "models_bundled": False}
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--repo", required=True, type=Path)
+    args = parser.parse_args()
+    manifest = build_manifest(Path(__file__).resolve().parents[1], args.repo)
+    (args.repo / "BUILD-MANIFEST.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")

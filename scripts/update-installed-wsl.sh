@@ -89,6 +89,7 @@ for applet in find killall; do
 done
 install -m 0755 "$ROOT/packages/ooonana/usr/lib/ooonana/oonana_game.py" /usr/lib/ooonana/oonana_game.py
 install -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/i3_events.py" /usr/lib/ooonana/i3_events.py
+install -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/service_status.py" /usr/lib/ooonana/service_status.py
 install -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ai/ooonana_ai.py" /usr/lib/ooonana/ai/ooonana_ai.py
 for source in "$ROOT"/packages/ooonana/usr/lib/ooonana/ui/*.py; do
   install -m 0644 "$source" "/usr/lib/ooonana/ui/${source##*/}"

@@ -15,15 +15,21 @@ Ooonana OS is a custom Linux distribution built from scratch around its own boot
 
 Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Linux, BusyBox, GRUB, i3, and other open-source components. Ooonana package factory currently imports selected Alpine package payloads into Ooonana `.pkg` repositories while native packages replace them over time.
 
-![Ooonana OS core 0.9.6 preview with left music, centered AI, notification bell, and app dock](docs/assets/ooonana-full-i3-desktop.png)
+![Ooonana OS core 0.9.7 preview with left music, centered AI, notification bell, and native app dock](docs/assets/ooonana-full-i3-desktop.png)
 
-Core 0.9.6 working desktop capture from nested WSL i3, refreshed after cursor/icon updates and GTK/XDG startup repairs. Music sits left, AI stays centered, status controls align right, and dock tracks running windows. Cursor is excluded. Audio playback was not tested. Physical USB visuals still require a newly built image.
+Core 0.9.7 working desktop captured from updated nested WSL i3. Music stays left, AI centered, status controls right, and native dock tracks windows. Cursor excluded. Audio playback not tested; physical USB visuals require a newly built image.
 
-Core 0.9.6 adds matching opaque native app icons and focus-neutral third-party titlebar controls. These previews use isolated rendering/test windows, not physical USB boot:
+Core 0.9.7 keeps matching opaque app icons and adds focus-neutral hover previews, compact panel layouts and AI request/RAM indicators. Previews use isolated test windows, not physical USB boot:
 
 ![Core 0.9.6 native app icon family](docs/assets/ooonana-native-icons.png)
 
 ![Third-party terminal with close, minimize and fullscreen buttons](docs/assets/ooonana-third-party-controls.png)
+
+![Native dock tooltip and bounded window preview](docs/assets/ooonana-dock-preview.png)
+
+![AI loading phase and low-RAM indicator using fixture data](docs/assets/ooonana-ai-memory.png)
+
+Dock previews stay in RAM and never restore or focus hidden windows. Compact panel controls remain accessible through windows, dock menus and Control Center. AI shows elapsed time, not invented progress percentages; available RAM respects cgroup limits and excludes swap.
 
 Latest GUI polish previews, rendered from real GTK widgets in an isolated virtual display with sample data:
 
@@ -184,7 +190,7 @@ Core pieces:
 
 ## Current Status
 
-Source core 0.9.6 includes nested WSL i3, centered dock, native and third-party window controls, tailless pointer enlarged 10% from previous defaults, matching native app icons, left-aligned music, centered AI access, and a notification center. Existing ISO was built September 25 and does not contain these changes. Source/package preparation is not proof of new-image boot or successful public package deployment. Physical USB RAM/OpenVINO and fan-sensor checks remain pending.
+Source core 0.9.7 includes nested WSL i3, native hover-preview dock, responsive panel, AI phase/RAM indicators, native and third-party window controls, tailless pointer enlarged 10% from previous defaults, matching app icons, left music, centered AI access and notification center. Existing ISO predates these changes. Source checks are not new-image boot proof. Physical USB RAM/OpenVINO and fan-sensor checks remain pending.
 
 Backend pass adds verified repository generations, signed metadata, preserved custom `/etc` files, post-upgrade health checks with automatic payload rollback, retained core/kernel checkpoints, explicit major-update approval, security-update markings, and reboot status. Native **Health** and **Updates** apps provide on-demand diagnostics and upgrade review. Diskless login VM passed password rejection/authentication and UID-1000 desktop handoff; physical Xorg/hardware and model inference remain separate gates. OpenVINO Chat 0.2.1 uses complete hash-locked Linux wheels plus a pinned Ubuntu image/APT snapshot. Private signing key stays local by choice. This pass does not build an ISO.
 

@@ -744,7 +744,8 @@ lib = lib.replace(
     'terminal_write(str); // OOONANA_SERIAL_CONSOLE_WRITE',
     'terminal_write(str, true); // OOONANA_SERIAL_CONSOLE_WRITE',
 )
-tinyemu.write_text(lib)
+if tinyemu.read_text() != lib:
+    tinyemu.write_text(lib)
 
 # RV64's interpreter cannot sustain a wall-clock 100Hz timer in PDF sandbox.
 # Scale only RV64 JS virtual time, keeping RV32 and native emulator unchanged.
@@ -764,7 +765,9 @@ if "OOONANA_RV64_TIMER_SCALE" not in clock_text:
         raise SystemExit("TinyEMU clock patch point missing")
     clock.write_text(clock_text.replace(needle, replacement, 1))
 else:
-    clock.write_text(clock_text.replace("riscv_cpu_get_max_xlen() >= 64", "s->max_xlen >= 64"))
+    fixed_clock = clock_text.replace("riscv_cpu_get_max_xlen() >= 64", "s->max_xlen >= 64")
+    if fixed_clock != clock_text:
+        clock.write_text(fixed_clock)
 
 # Apply release labels after all idempotent patches, including cached 0.5 trees.
 for release_file in (gen, lite_gen, display):

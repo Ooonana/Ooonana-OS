@@ -12,7 +12,7 @@ TARBALL="$WORK_DIR/ooonana-full-i3-rootfs.tar.gz"
 REPO="$WORK_DIR/full-i3-repo"
 STAGED_REPO=""
 PACKAGE_PROFILE="$ROOT/configs/packages/full-i3.list"
-OS_VERSION="${OOONANA_OS_VERSION:-0.9.6}"
+OS_VERSION="${OOONANA_OS_VERSION:-0.9.7}"
 FORCE=0
 
 usage() {
@@ -2536,7 +2536,7 @@ border-size = 1
 border-color = ${colors.border}
 padding-left = 1
 padding-right = 1
-module-margin = 1
+module-margin = ${env:OOONANA_PANEL_GAP:1}
 separator = ""
 separator-foreground = ${colors.muted}
 line-size = 0
@@ -2544,9 +2544,9 @@ line-color = ${colors.accent}
 font-0 = "DejaVu Sans:size=10;2"
 font-1 = "Font Awesome 6 Free Solid:size=10;2"
 font-2 = "Font Awesome 6 Brands:size=10;2"
-modules-left = brand workspaces win-close win-min win-full media
+modules-left = ${env:OOONANA_PANEL_LEFT:brand workspaces win-close win-min win-full media}
 modules-center = ai
-modules-right = memory audio battery wifi notifications controls date power
+modules-right = ${env:OOONANA_PANEL_RIGHT:memory audio battery wifi notifications controls date power}
 tray-position = none
 wm-restack = i3
 override-redirect = true
@@ -4097,7 +4097,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   version_output="$(/usr/bin/ooonana version 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.6' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.7' &&
     printf '%s\n' "$installed_output" | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else
