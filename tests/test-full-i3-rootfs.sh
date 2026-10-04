@@ -148,7 +148,7 @@ EOF
 chmod +x "$scratch/bin/busybox"
 cat > "$scratch/usr/bin/ooonana" <<'EOF'
 #!/bin/sh
-echo ooonana 0.9.7
+echo ooonana 0.9.8
 EOF
 chmod +x "$scratch/usr/bin/ooonana"
 cat > "$scratch/usr/bin/ooonana-setup" <<'EOF'
@@ -373,7 +373,7 @@ assert_contains "$(<"$rootfs/etc/doas.conf")" "permit nopass :wheel"
 assert_contains "$(<"$rootfs/etc/sudoers.d/ooonana")" '%wheel ALL=(ALL:ALL) NOPASSWD: ALL'
 assert_contains "$(<"$rootfs/etc/wsl.conf")" "default=ooonana"
 assert_contains "$(<"$rootfs/etc/wsl.conf")" "mountFsTab=false"
-assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS 0.9.7"'
+assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS 0.9.8"'
 [[ "$(head -c 4 "$rootfs/usr/share/icons/OoonanaTailless/cursors/left_ptr")" == Xcur ]] || fail "tailless cursor missing or invalid"
 python3 - "$rootfs/usr/share/icons/OoonanaTailless/cursors/left_ptr" <<'PY'
 import struct

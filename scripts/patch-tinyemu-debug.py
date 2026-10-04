@@ -24,6 +24,16 @@ uint32_t oo_vm_pc_low, oo_vm_pc_high, oo_vm_priv, oo_vm_cause;
 #endif
 ''' + needle, 1)
     cpu.write_text(text)
+text = cpu.read_text()
+if "OOONANA_VM_RETURN_ADDRESS" not in text:
+    text = text.replace("uint32_t oo_vm_pc_low, oo_vm_pc_high, oo_vm_priv, oo_vm_cause;",
+                        "uint32_t oo_vm_pc_low, oo_vm_pc_high, oo_vm_priv, oo_vm_cause;\n"
+                        "uint32_t oo_vm_ra_low, oo_vm_ra_high; /* OOONANA_VM_RETURN_ADDRESS */")
+    text = text.replace("    oo_vm_cause = s->mcause;",
+                        "    oo_vm_cause = s->mcause;\n"
+                        "    oo_vm_ra_low = (uint32_t)s->reg[1];\n"
+                        "    oo_vm_ra_high = (uint32_t)((uint64_t)s->reg[1] >> 32);")
+    cpu.write_text(text)
 js = root / "jsemu.c"
 text = js.read_text()
 if "OOONANA_VM_DEBUG" not in text:
@@ -39,6 +49,17 @@ int oo_vm_debug(int field) {
     }
 }
 '''
+    js.write_text(text)
+text = js.read_text()
+if "OOONANA_VM_RETURN_ADDRESS" not in text:
+    text = text.replace("int oo_vm_debug(int field) {",
+                        "extern uint32_t oo_vm_ra_low, oo_vm_ra_high; /* OOONANA_VM_RETURN_ADDRESS */\n"
+                        "int oo_vm_debug(int field) {")
+    text = text.replace("    default: return oo_vm_cause;",
+                        "    case 3: return oo_vm_cause;\n"
+                        "    case 4: return oo_vm_ra_low;\n"
+                        "    case 5: return oo_vm_ra_high;\n"
+                        "    default: return 0;")
     js.write_text(text)
 makefile = root / "Makefile.pdfjs"
 text = makefile.read_text()

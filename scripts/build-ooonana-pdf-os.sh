@@ -775,6 +775,8 @@ for release_file in (gen, lite_gen, display):
     content = re.sub(r"Ooonana OS PDF( Lite)? 0\.[0-9]+", r"Ooonana OS PDF\1 0.6", content)
     release_file.write_text(content)
 PY
+  # Stable first-party layout replaces upstream keyboard coordinates.
+  install -m 0644 "$ROOT/scripts/generate-ooonana-pdf-shell.py" "$SRC/gen_pdf.py"
 }
 
 if [[ "$DRY_RUN" -eq 1 ]]; then

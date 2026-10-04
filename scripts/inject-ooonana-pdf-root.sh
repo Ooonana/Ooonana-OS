@@ -48,6 +48,18 @@ install -m 0644 "$ROOT/docs/logo.txt" "$TARGET_ROOT/usr/share/ooonana/logo.txt"
 cp "$TARGET_ROOT/usr/share/ooonana/logo.txt" "$TARGET_ROOT/etc/motd"
 cp "$TARGET_ROOT/usr/share/ooonana/logo.txt" "$TARGET_ROOT/etc/issue"
 
+# List source files at build time: modern 9p directory enumeration can stall
+# in TinyEMU. Boot copies named files individually, preserving custom sources.
+: > "$TARGET_ROOT/etc/ooonana/pdf-source-seeds"
+for source_file in "$TARGET_ROOT/etc/ooonana/sources.d"/*.repo; do
+  [[ -f "$source_file" ]] || continue
+  source_name="$(basename "$source_file")"
+  [[ "$source_name" =~ ^[A-Za-z0-9_.-]+\.repo$ ]] || {
+    printf 'Unsupported PDF source filename: %s\n' "$source_name" >&2; exit 1;
+  }
+  printf '%s\n' "$source_name" >> "$TARGET_ROOT/etc/ooonana/pdf-source-seeds"
+done
+
 if [[ -f "$TARGET_ROOT/usr/lib/ooonana/repo/base.pkg" ]]; then
   cp "$TARGET_ROOT/usr/lib/ooonana/repo/base.pkg" "$TARGET_ROOT/var/lib/ooonana/packages/installed/base.pkg"
 fi
@@ -63,7 +75,7 @@ cat > "$TARGET_ROOT/etc/ooonana/pdf-release" <<EOF
 OOONANA_PDF_EDITION="minimal-riscv"
 OOONANA_PDF_VERSION="0.6"
 OOONANA_PDF_BUILD_REF="$BUILD_REF"
-OOONANA_PDF_PACKAGE_MANAGER="0.9.7"
+OOONANA_PDF_PACKAGE_MANAGER="0.9.8"
 EOF
 
 cat > "$TARGET_ROOT/etc/hostname" <<'EOF'
@@ -104,6 +116,19 @@ mkdir -p /tmp /run /dev/shm
 mount -t tmpfs -o size=16m,mode=1777 tmpfs /tmp 2>/dev/null || true
 mount -t tmpfs -o size=4m,mode=0755 tmpfs /run 2>/dev/null || true
 mount -t tmpfs -o size=8m,mode=1777 tmpfs /dev/shm 2>/dev/null || true
+# Package scratch/state/source enumeration stays on real RAM-backed tmpfs.
+# Repository metadata and checksum/signature verification remain unchanged.
+export OOONANA_SOURCES_DIR=/run/ooonana/sources.d
+export OOONANA_CACHE_DIR=/run/ooonana/cache
+export OOONANA_STATE_DIR=/run/ooonana/state
+mkdir -p "$OOONANA_SOURCES_DIR" "$OOONANA_CACHE_DIR" "$OOONANA_STATE_DIR/installed"
+while IFS= read -r source_name; do
+  [ -n "$source_name" ] || continue
+  cp "/etc/ooonana/sources.d/$source_name" "$OOONANA_SOURCES_DIR/$source_name" || exit 1
+done < /etc/ooonana/pdf-source-seeds
+if [ -f /var/lib/ooonana/packages/installed/base.pkg ]; then
+  cp /var/lib/ooonana/packages/installed/base.pkg "$OOONANA_STATE_DIR/installed/base.pkg"
+fi
 if [ -c /dev/hvc1 ]; then
   # Native kernel exposes legacy SBI console first; keyboard FIFO is virtio.
   exec </dev/hvc1 >/dev/hvc1 2>&1
@@ -123,7 +148,7 @@ while /bin/true; do
   else
     echo "Ooonana OS"
   fi
-  echo "PDF Minimal 0.6 | pkg 0.9.7"
+  echo "PDF Minimal 0.6 | pkg 0.9.8"
   echo "OOONANA_PDF_BOOT_OK"
   echo "Run: ooonana help"
   if command -v cttyhack >/dev/null 2>&1; then

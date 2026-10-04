@@ -130,3 +130,4 @@ fingerprint_before="$(release_input_fingerprint)"
 OOONANA_PERSONAL_CURSOR_SIZE=20
 [[ "$(release_input_fingerprint)" != "$fingerprint_before" ]] || fail "Personal cursor size missing from release inputs"
 printf 'ok rebuild-full-i3-release\n'
+PYTHONDONTWRITEBYTECODE=1 python3 "$(dirname "$SCRIPT")/../tests/test-release-repo.py"

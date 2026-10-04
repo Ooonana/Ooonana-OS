@@ -3,7 +3,7 @@
 # shellcheck disable=SC1090,SC3043
 set -eu
 
-VERSION="0.9.7"
+VERSION="0.9.8"
 case "${1:-}" in
   version|--version|-v) printf 'ooonana %s\n' "$VERSION"; exit 0 ;;
 esac
@@ -992,6 +992,14 @@ installed_pkg_version() {
   printf '%s\n' "$OOONANA_PKG_VERSION"
 }
 
+version_order_script() {
+  local script
+  script="$SCRIPT_DIR/../lib/ooonana/version-order.awk"
+  [ -f "$script" ] || script="$(root_join /usr/lib/ooonana/version-order.awk)"
+  [ -f "$script" ] || die "portable version comparator missing"
+  printf '%s\n' "$script"
+}
+
 version_compare() {
   left="$1"
   right="$2"
@@ -1002,12 +1010,7 @@ version_compare() {
       '<'|'>'|'=') printf '%s\n' "$result"; return 0 ;;
     esac
   fi
-  first="$(printf '%s\n%s\n' "$left" "$right" | sort -V 2>/dev/null | sed -n '1p')"
-  if [ "$first" = "$left" ]; then
-    printf '<\n'
-  else
-    printf '>\n'
-  fi
+  LC_ALL=C awk -v mode=compare -v left="$left" -v right="$right" -f "$(version_order_script)"
 }
 
 version_is_newer() {
@@ -1768,11 +1771,17 @@ select_best_index_entries() {
   output="$2"
   ordered="$output.ordered.$$"
   # One natural-version sort and one pass; stable ties retain source order.
-  if ! LC_ALL=C sort -s -t "$(printf '\t')" -k2,2 -k3,3Vr "$input" >"$ordered"; then
-    rm -f "$ordered"
-    return 1
+  if LC_ALL=C sort -s -t "$(printf '\t')" -k2,2 -k3,3Vr "$input" >"$ordered" 2>/dev/null; then
+    awk -F '\t' 'NF >= 5 && $2 != "" && !seen[$2]++' "$ordered" >"$output"
+  else
+    # Some BusyBox builds advertise -V but lack libc strverscmp support.
+    # Keep best candidates in one portable AWK pass, then sort unique IDs.
+    if ! LC_ALL=C awk -f "$(version_order_script)" "$input" >"$ordered" ||
+       ! LC_ALL=C sort -t "$(printf '\t')" -k2,2 "$ordered" >"$output"; then
+      rm -f "$ordered"
+      return 1
+    fi
   fi
-  awk -F '\t' 'NF >= 5 && $2 != "" && !seen[$2]++' "$ordered" >"$output"
   rm -f "$ordered"
 }
 

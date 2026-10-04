@@ -69,7 +69,7 @@ const monitor = setInterval(() => {
   if (process.env.OOONANA_PDF_DEBUG === "1" && Date.now() - diagnosticAt > 15000 && sandbox.Module && sandbox.Module.ccall) {
     diagnosticAt = Date.now();
     try {
-      const values = [0, 1, 2, 3].map(field => sandbox.Module.ccall("oo_vm_debug", "number", ["number"], [field]) >>> 0);
+      const values = [0, 1, 2, 3, 4, 5].map(field => sandbox.Module.ccall("oo_vm_debug", "number", ["number"], [field]) >>> 0);
       console.error("VM CPU snapshot:", values.map(value => value.toString(16)).join(" "));
     } catch (_) {}
   }
@@ -91,7 +91,7 @@ const monitor = setInterval(() => {
     sandbox.queue_console_text("ooonana version\r");
     sentVersion = true;
   }
-  if (sentVersion && !sentUpdate && output.includes("ooonana 0.9.7")) {
+  if (sentVersion && !sentUpdate && output.includes("ooonana 0.9.8")) {
     if (process.env.OOONANA_PDF_TMPFS_ONLY === "1") {
       phase = "tmpfs";
       sandbox.queue_console_text("grep -q 'tmpfs /tmp tmpfs' /proc/mounts && echo OOONANA_PDF_TMPFS_OK\r");
@@ -103,7 +103,10 @@ const monitor = setInterval(() => {
       process.exit(0);
     }
     phase = "package-sync";
-    sandbox.queue_console_text(process.env.OOONANA_PDF_TRACE === "1" ? "sh -x /usr/bin/ooonana update\r" : "ooonana update\r");
+    const update = process.env.OOONANA_PDF_TRACE === "1" ? "sh -x /usr/bin/ooonana update" : "ooonana update";
+    const prefix = process.env.OOONANA_PDF_RAM_SOURCES === "1"
+      ? "mkdir -p /tmp/pdf-sources; OOONANA_SOURCES_DIR=/tmp/pdf-sources " : "";
+    sandbox.queue_console_text(prefix + update + "\r");
     sentUpdate = true;
   }
   if (sentUpdate && phase === "tmpfs" && output.includes("OOONANA_PDF_TMPFS_OK\n")) {

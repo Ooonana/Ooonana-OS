@@ -190,7 +190,11 @@ Core pieces:
 
 ## Current Status
 
-Source core 0.9.7 includes nested WSL i3, native hover-preview dock, responsive panel, AI phase/RAM indicators, native and third-party window controls, tailless pointer enlarged 10% from previous defaults, matching app icons, left music, centered AI access and notification center. Existing ISO predates these changes. Source checks are not new-image boot proof. Physical USB RAM/OpenVINO and fan-sensor checks remain pending.
+Source core 0.9.8 includes nested WSL i3, native hover-preview dock, responsive panel, AI phase/RAM indicators, native and third-party window controls, tailless pointer enlarged 10% from previous defaults, matching app icons, left music, centered AI access and notification center. Existing ISO predates these changes. Source checks are not new-image boot proof. Physical USB RAM/OpenVINO and fan-sensor checks remain pending.
+
+Core 0.9.8 fixes BusyBox builds that advertise version sorting but cannot perform it. Package-index selection and upgrades now have portable natural-version comparison, preserving first-source ties. ISO preflight rejects a missing signature when a trust key is supplied and checks that required desktop packages are actually reachable from the install profile.
+
+The bootable `docs/ooonana.pdf` has an opaque graphite shell, rounded terminal/keyboard cards, clearer status, and a command input with Run / Enter control. PDF package cache/state/source directories use bounded tmpfs; custom source files are seeded individually to avoid TinyEMU 9p directory-enumeration stalls. Native boot, input, core 0.9.8 version and actual package sync passed in 101 seconds. Its 141 canonical widgets/actions were reopened and checked; Chromium viewer interaction remains a manual gate. The docs-only guide is separate and unchanged.
 
 Backend pass adds verified repository generations, signed metadata, preserved custom `/etc` files, post-upgrade health checks with automatic payload rollback, retained core/kernel checkpoints, explicit major-update approval, security-update markings, and reboot status. Native **Health** and **Updates** apps provide on-demand diagnostics and upgrade review. Diskless login VM passed password rejection/authentication and UID-1000 desktop handoff; physical Xorg/hardware and model inference remain separate gates. OpenVINO Chat 0.2.1 uses complete hash-locked Linux wheels plus a pinned Ubuntu image/APT snapshot. Private signing key stays local by choice. This pass does not build an ISO.
 
@@ -234,7 +238,7 @@ Next work:
 - Full ISO export/install polish for VMware and other hypervisors
 - More first-party packages
 - Newly built installed-image Xorg/login and service hardening checks
-- Native RISC-V PDF package-sync performance and Chromium viewer verification (native boot/input/version checks passed)
+- Native RISC-V PDF Chromium viewer verification (native boot/input/version/package-sync checks passed)
 
 Detailed numbered roadmap:
 
@@ -1212,6 +1216,7 @@ scripts/build-full-i3-disk.sh
 scripts/build-full-i3-iso.sh
 scripts/verify-rufus-iso.sh
 scripts/generate-ooonana-pdf.py
+scripts/generate-ooonana-pdf-shell.py
 scripts/build-ooonana-pdf-os.sh
 scripts/inject-ooonana-pdf-root.sh
 scripts/test-ooonana-pdf-chrome.ps1

@@ -24,18 +24,28 @@ with tempfile.TemporaryDirectory() as temporary:
     package("i3", "openssl")
     package("full-i3", "base branding i3 openvino-chat")
     package("ooonana-core", "ooonana-core-runtime")
-    package("ooonana-core-runtime", "openssl", "0.9.7")
+    package("ooonana-core-runtime", "openssl", "0.9.8")
     def index():
         subprocess.run([sys.executable, str(root / "scripts/index-repo-fast.py"), "--repo", str(repo)], check=True, capture_output=True)
-    def reject(needle):
+    def reject(needle, key=None):
         try:
-            gate.validate(repo, profile, expected_core="0.9.7")
+            gate.validate(repo, profile, key=key, expected_core="0.9.8")
         except ValueError as error:
             assert needle in str(error), str(error)
         else:
             raise AssertionError("Invalid repository accepted")
     index()
-    assert gate.validate(repo, profile, expected_core="0.9.7")[1] == 8
+    assert gate.validate(repo, profile, expected_core="0.9.8")[1] == 8
+    reject("Trusted-key validation requires signed manifest",
+           key=root / "packages/ooonana/etc/ooonana/trusted-keys/repository-20261002.pub")
+    package("full-i3", "base branding")
+    index()
+    reject("Full-i3 install closure missing: i3")
+    package("full-i3", "base i3 openvino-chat")
+    index()
+    reject("Full-i3 install closure missing: branding")
+    package("full-i3", "base branding i3 openvino-chat")
+    index()
     package("i3")
     index()
     reject("stale i3.pkg dependency bundle: openssl")
@@ -53,4 +63,4 @@ with tempfile.TemporaryDirectory() as temporary:
     reject("Invalid/duplicate package index row")
     (repo / "CURRENT").write_text("../escape\n")
     reject("Invalid generation pointer")
-print("ok release-repo: bundle, closure, metadata/index, generation guards")
+print("ok release-repo: bundle/install closure, metadata/index, generation/signature guards")

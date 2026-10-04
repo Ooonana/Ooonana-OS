@@ -56,6 +56,8 @@ def validate(repo, profile, key=None, expected_core=None):
         safe_file(repo, relative)
         sums[relative] = digest
     signature = repo / "SHA256SUMS.sig"
+    if key is not None and not signature.is_file():
+        raise ValueError("Trusted-key validation requires signed manifest")
     if signature.is_file():
         if key is None or not key.is_file():
             raise ValueError("Signed repository needs explicit trusted public key")
@@ -110,7 +112,11 @@ def validate(repo, profile, key=None, expected_core=None):
             if not IDENTIFIER.fullmatch(dependency):
                 raise ValueError(f"Invalid dependency: {name}")
             closure(dependency)
-    for target in ("full-i3", "ooonana-core", "openvino-chat"):
+    closure("full-i3")
+    for name in ("base", "branding", "i3", *required):
+        if name not in visited:
+            raise ValueError(f"Full-i3 install closure missing: {name}")
+    for target in ("ooonana-core", "openvino-chat"):
         closure(target)
     return repo, len(packages), len(visited)
 

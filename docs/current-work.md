@@ -1,13 +1,22 @@
-# Current work - 2026-10-03
+# Current work - 2026-10-04
 
 Backend first. ISO building stays with user. Audio backend stays enabled; no playback tests.
+
+## Core 0.9.8 maintenance
+
+- Windows Controlled Folder Access write access restored. Explicit-key ISO checks now require a signature and verify that required desktop packages belong to the actual full-i3 install dependency closure.
+- BusyBox natural-version sorting failure reproduced. Portable AWK comparison/index fallback added; revision, stable-source tie, long-number and BusyBox regression checks passed. GNU index processing keeps its one-sort fast path.
+- Native PDF package sync passed for the first time in this native build: boot, input, arithmetic, core 0.9.8 and actual update completed in 101 seconds. PDF source/cache/state directories use bounded tmpfs; build-time source seed names preserve custom configs without 9p directory enumeration. No checksum/signature checks were removed.
+- Bootable PDF UI rebuilt with opaque graphite cards, rounded keyboard controls, readable status and command input/Run action. All 141 canonical widgets have appearances; names, actions, values and nonoverlapping geometry checked. Docs-only guide generator preserved separately.
+- GitLab pipeline 2910547618 and public Pages verified at core 0.9.7 / revision 695da59 before this pass. Core 0.9.8 local publication/WSL update and remote push still need final handoff verification.
+- Cleanup still blocked by previous deletion-policy rejection. Nothing material removed. Preserve models, keys, releases, kernel/firmware caches and valid generations.
 
 ## ISO cache repair - 2026-10-03
 
 - User build stopped before full rootfs: cached i3 bundle omitted OpenSSL, although archive existed. Refresh only mutable staging metadata, then re-index/re-sign and atomically publish a new generation; old published generations remain untouched.
 - Release preflight now checks complete profile, dependency closure, package/index/checksum consistency, core version and detached signature before rootfs writes.
 - Import helper refuses published roots/generation directories. Staged full-rootfs metadata now includes BUILD-MANIFEST.json, matching checksum manifest.
-- Junk/PDF work stays paused. Cleanup attempt was policy-blocked; nothing removed.
+- Cache repair completed in 695da59; signed generation and ISO preflight reverified October 4. PDF work subsequently resumed; cleanup remains policy-blocked.
 
 ## Core 0.9.7 pass
 
@@ -34,8 +43,8 @@ Backend first. ISO building stays with user. Audio backend stays enabled; no pla
 - Physical USB checks: Wi-Fi, Bluetooth, audio, available RAM, zram, fans and OpenVINO inference. WSL/import/UI tests do not prove these.
 - New ISO build and real installed nonroot Xorg login. User performs ISO build.
 - CI signing and trusted client enrollment deferred by user's choice: private key stays local; no CI secret uploaded. Public CI/Pages deployment is distinct from Git pushes and local signed publication.
-- Native PDF package-sync performance and Chromium PDF-viewer interaction verification for this native build.
-- Junk scan only: about 331 MiB aborted generation, 1.2 MiB Python caches/metadata and 0.3 MiB previews. WSL QA environments are optional review candidates. Nothing deleted; latest request asked for scan. Preserve models, keys, releases and build caches.
+- Chromium PDF-viewer interaction verification for this native build; native package sync now passed.
+- Junk cleanup: about 331 MiB aborted generation, 1.2 MiB Python caches/metadata and 0.3 MiB previews. WSL QA environments are optional review candidates. Nothing deleted; previous deletion-policy rejection remains. Preserve models, keys, releases and build caches.
 
 ## Verified foundation
 
