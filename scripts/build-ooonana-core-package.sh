@@ -151,6 +151,19 @@ done
 echo 'OOONANA_CORE_HEALTHCHECK_OK'
 CHECK
 chmod 0755 "$OUT_DIR/hooks/$runtime_id.healthcheck"
+# Runtime resets legacy core ownership before bundle migration. Bundle
+# replacement removes that empty manifest; recreate it for runtime checks.
+cat >"$OUT_DIR/hooks/ooonana-core.healthcheck" <<'CHECK'
+#!/bin/sh
+set -eu
+prefix="${OOONANA_ROOT:-/}"
+state="${OOONANA_STATE_DIR:-${prefix%/}/var/lib/ooonana/packages}"
+"${prefix%/}/usr/bin/ooonana" version | grep -q "ooonana ${OOONANA_PKG_VERSION}"
+mkdir -p "$state/files"
+: > "$state/files/ooonana-core.list"
+echo 'OOONANA_CORE_META_HEALTHCHECK_OK'
+CHECK
+chmod 0755 "$OUT_DIR/hooks/ooonana-core.healthcheck"
 cat > "$runtime_metadata" <<EOF
 OOONANA_PKG_ID="$runtime_id"
 OOONANA_PKG_VERSION="$VERSION"

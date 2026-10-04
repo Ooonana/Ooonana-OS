@@ -424,6 +424,9 @@ core_upgrade="$(OOONANA_REPO_DIR="$tmp/repo" \
   "$ROOT/packages/ooonana/usr/bin/ooonana" upgrade --allow-major ooonana-core)"
 assert_contains "$core_upgrade" "installed ooonana-core-runtime"
 assert_contains "$core_upgrade" "upgraded ooonana-core 0.8.1"
+assert_contains "$core_upgrade" "OOONANA_CORE_META_HEALTHCHECK_OK"
+[[ -f "$core_upgrade_state/files/ooonana-core.list" && ! -s "$core_upgrade_state/files/ooonana-core.list" ]] ||
+  fail "core migration removed empty legacy manifest guard"
 [[ -x "$core_upgrade_root/usr/bin/ooonana" ]] || fail "core migration removed upgraded CLI"
 assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.9.8"
 assert_contains "$(<"$tmp/repo/cloud.repo")" 'OOONANA_REPO_URI="https://example.test/repo"'
