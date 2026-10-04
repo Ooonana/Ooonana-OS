@@ -50,6 +50,9 @@ assert_contains "$(<"$BUILDER")" "OOONANA_PDF_LITE_GENERATOR"
 assert_contains "$(<"$BUILDER")" "gen_pdf_lite.py"
 assert_contains "$(<"$BUILDER")" "Type command, press Enter"
 assert_contains "$(<"$BUILDER")" 'scripts/generate-ooonana-pdf-shell.py'
+if command -v node >/dev/null 2>&1; then
+  PYTHONDONTWRITEBYTECODE=1 python3 "$ROOT/tests/test-pdf-runtime.py"
+fi
 if python3 -c 'import pdfrw' >/dev/null 2>&1; then
   PYTHONDONTWRITEBYTECODE=1 python3 "$ROOT/tests/test-pdf-shell-ui.py"
 else
@@ -84,6 +87,12 @@ assert_contains "$inject" "injected Ooonana PDF rootfs"
 [[ "$(<"$rootfs/bin/busybox")" == "riscv-busybox" ]] || fail "package overlay replaced target busybox"
 [[ ! -L "$rootfs/usr/bin/clear" ]] || fail "clear shim remained a busybox symlink"
 [[ -x "$rootfs/usr/bin/ooonana" ]] || fail "missing injected ooonana CLI"
+[[ -x "$rootfs/usr/bin/ooonana-pkg" ]] || fail "missing real package backend"
+[[ ! -d "$rootfs/usr/lib/ooonana/ui" ]] || fail "PDF contains GTK desktop payload"
+[[ ! -d "$rootfs/usr/lib/ooonana/ai" ]] || fail "PDF contains unused Python AI payload"
+[[ ! -d "$rootfs/usr/share/icons" ]] || fail "PDF contains unused desktop icons"
+[[ -s "$rootfs/etc/ooonana/pdf-runtime-seeds" ]] || fail "missing RAM runtime seed list"
+[[ -s "$rootfs/usr/share/ooonana/pdf-help/packages" ]] || fail "missing extracted package help"
 [[ -x "$rootfs/sbin/init" ]] || fail "missing injected init"
 [[ -f "$rootfs/usr/share/ooonana/logo.txt" ]] || fail "missing injected logo"
 [[ -f "$rootfs/etc/os-release" ]] || fail "missing injected os-release"

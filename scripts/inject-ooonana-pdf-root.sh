@@ -34,19 +34,50 @@ install -d \
   "$TARGET_ROOT/root" \
   "$TARGET_ROOT/sbin" \
   "$TARGET_ROOT/usr/bin" \
+  "$TARGET_ROOT/usr/lib/ooonana/repo" \
+  "$TARGET_ROOT/usr/share/ooonana/pdf-help" \
+  "$TARGET_ROOT/etc/ooonana/trusted-keys" \
   "$TARGET_ROOT/usr/share/ooonana" \
   "$TARGET_ROOT/var/cache/ooonana" \
   "$TARGET_ROOT/var/lib/ooonana/packages/installed"
 
 BUILD_REF="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || printf working-tree)"
 
-cp -a --remove-destination "$ROOT/packages/ooonana/." "$TARGET_ROOT/"
-find "$TARGET_ROOT/usr/lib/ooonana" -type d -name __pycache__ -prune -exec rm -rf -- {} +
-find "$TARGET_ROOT/usr/lib/ooonana" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
-chmod 0755 "$TARGET_ROOT/usr/bin/ooonana" "$TARGET_ROOT/usr/bin/ooonana-ai" "$TARGET_ROOT/usr/sbin/ooonana-install" 2>/dev/null || true
+# PDF has no GTK, wallpaper, icon, WSL, installer or Python/AI runtime.
+# Copy only portable CLI, comparator, repo/trust inputs and terminal helper.
+install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana" "$TARGET_ROOT/usr/bin/ooonana-pkg"
+CORE_VERSION="$("$ROOT/packages/ooonana/usr/bin/ooonana" version | awk '{print $2}')"
+sed "s/@CORE_VERSION@/$CORE_VERSION/" "$ROOT/scripts/pdf-shell-cli.sh" > "$TARGET_ROOT/usr/bin/ooonana"
+chmod 0755 "$TARGET_ROOT/usr/bin/ooonana"
+cp -a --remove-destination "$ROOT/packages/ooonana/usr/bin/clear" "$TARGET_ROOT/usr/bin/clear"
+install -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/version-order.awk" "$TARGET_ROOT/usr/lib/ooonana/version-order.awk"
+cp -a "$ROOT/packages/ooonana/usr/lib/ooonana/repo/." "$TARGET_ROOT/usr/lib/ooonana/repo/"
+cp -a "$ROOT/packages/ooonana/etc/ooonana/trusted-keys/." "$TARGET_ROOT/etc/ooonana/trusted-keys/"
+if [[ -d "$ROOT/packages/ooonana/etc/ooonana/sources.d" ]]; then
+  cp -a "$ROOT/packages/ooonana/etc/ooonana/sources.d/." "$TARGET_ROOT/etc/ooonana/sources.d/"
+fi
+# Extract genuine CLI topic help once at build time, not on each PDF request.
+for topic in packages get upgrade remove repo ai; do
+  help_function="usage_$topic"; [[ "$topic" != repo && "$topic" != ai ]] || help_function="${help_function}_help"
+  awk -v help_function="$help_function" '
+    $0 == help_function "() {" { found=1; next }
+    found && /^  cat <<./ { body=1; next }
+    body && /^USAGE$/ { exit }
+    body { print }
+  ' "$ROOT/packages/ooonana/usr/bin/ooonana" > "$TARGET_ROOT/usr/share/ooonana/pdf-help/$topic"
+done
 install -m 0644 "$ROOT/docs/logo.txt" "$TARGET_ROOT/usr/share/ooonana/logo.txt"
 cp "$TARGET_ROOT/usr/share/ooonana/logo.txt" "$TARGET_ROOT/etc/motd"
 cp "$TARGET_ROOT/usr/share/ooonana/logo.txt" "$TARGET_ROOT/etc/issue"
+
+# Seed named files into RAM: avoid runtime 9p directory enumeration and
+# repeated full CLI reads. Preserve identical checksum/signature inputs.
+printf '%s\n' usr/bin/ooonana-pkg usr/lib/ooonana/version-order.awk > "$TARGET_ROOT/etc/ooonana/pdf-runtime-seeds"
+for directory in usr/lib/ooonana/repo etc/ooonana/trusted-keys usr/share/ooonana/pdf-help; do
+  find "$TARGET_ROOT/$directory" -type f -printf '%P\n' | sort | while IFS= read -r relative; do
+    printf '%s/%s\n' "$directory" "$relative"
+  done >> "$TARGET_ROOT/etc/ooonana/pdf-runtime-seeds"
+done
 
 # List source files at build time: modern 9p directory enumeration can stall
 # in TinyEMU. Boot copies named files individually, preserving custom sources.
@@ -121,7 +152,17 @@ mount -t tmpfs -o size=8m,mode=1777 tmpfs /dev/shm 2>/dev/null || true
 export OOONANA_SOURCES_DIR=/run/ooonana/sources.d
 export OOONANA_CACHE_DIR=/run/ooonana/cache
 export OOONANA_STATE_DIR=/run/ooonana/state
+export OOONANA_REPO_DIR=/run/ooonana/usr/lib/ooonana/repo
 mkdir -p "$OOONANA_SOURCES_DIR" "$OOONANA_CACHE_DIR" "$OOONANA_STATE_DIR/installed"
+while IFS= read -r relative; do
+  directory="${relative%/*}"
+  mkdir -p "/run/ooonana/$directory"
+  cp "/$relative" "/run/ooonana/$relative" || exit 1
+done < /etc/ooonana/pdf-runtime-seeds
+mkdir -p /run/ooonana/help
+for topic in packages get upgrade remove repo ai; do
+  cp "/run/ooonana/usr/share/ooonana/pdf-help/$topic" "/run/ooonana/help/$topic" || exit 1
+done
 while IFS= read -r source_name; do
   [ -n "$source_name" ] || continue
   cp "/etc/ooonana/sources.d/$source_name" "$OOONANA_SOURCES_DIR/$source_name" || exit 1

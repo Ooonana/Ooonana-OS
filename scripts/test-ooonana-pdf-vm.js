@@ -11,8 +11,18 @@ if (!compiled || !fs.existsSync(compiled)) {
 }
 
 const fields = new Map();
+let fieldWrites = 0;
 function getField(name) {
-  if (!fields.has(name)) fields.set(name, { value: "" });
+  if (!fields.has(name)) {
+    let value = "";
+    fields.set(name, {
+      get value() { return value; },
+      set value(next) {
+        value = next;
+        if (name.startsWith("field_")) fieldWrites++;
+      },
+    });
+  }
   return fields.get(name);
 }
 
@@ -53,6 +63,27 @@ function terminalText() {
 
 vm.runInContext(fs.readFileSync(compiled, "utf8"), sandbox, { filename: compiled });
 
+const benchmark = process.env.OOONANA_PDF_BENCHMARK === "1";
+let serialLog = "";
+if (benchmark) {
+  const write = sandbox.terminal_write;
+  sandbox.terminal_write = function (text, serial = false) {
+    if (serial) serialLog = (serialLog + text).slice(-65536);
+    return write(text, serial);
+  };
+}
+const commands = [
+  ["bare", "ooonana", "Usage: ooonana"],
+  ["help", "ooonana help packages", "Package flow:"],
+  ["version", "ooonana version", "ooonana 0.9.8"],
+  ["list", "ooonana list", "base"],
+  ["sync", "ooonana update", "ooonana repo: synced"],
+];
+let commandIndex = -1;
+let commandStarted = 0;
+let commandWrites = 0;
+const timings = [];
+
 let sentInput = false;
 let sentEnter = false;
 let sentUpdate = false;
@@ -62,6 +93,35 @@ const startedAt = Date.now();
 let diagnosticAt = Date.now();
 const monitor = setInterval(() => {
   const output = terminalText();
+  if (benchmark) {
+    const completed = commandIndex >= 0 &&
+      serialLog.includes(`\nPDF_BENCH_${commandIndex}_DONE\r\n`);
+    if (completed) {
+      const [name, command, expected] = commands[commandIndex];
+      if (!serialLog.includes(expected)) {
+        console.error(`FAIL: ${command}: expected output missing`);
+        process.exit(1);
+      }
+      timings.push({ command: name, ms: Date.now() - commandStarted,
+        field_writes: fieldWrites - commandWrites });
+      console.log(JSON.stringify(timings[timings.length - 1]));
+    }
+    if ((commandIndex < 0 && serialLog.includes("ooonana# ")) || completed) {
+      commandIndex++;
+      if (commandIndex === commands.length) {
+        console.log(JSON.stringify({ benchmark: "Node VM, not browser", timings }));
+        process.exit(0);
+      }
+      phase = commands[commandIndex][0];
+      serialLog = "";
+      commandStarted = Date.now();
+      commandWrites = fieldWrites;
+      const command = commandIndex === 0 && process.env.OOONANA_PDF_TRACE === "1"
+        ? "sh -x /usr/bin/ooonana" : commands[commandIndex][1];
+      sandbox.queue_console_text(command + `; printf '\\nPDF_BENCH_${commandIndex}_DONE\\n'\r`);
+    }
+    return;
+  }
   if (process.env.OOONANA_PDF_DEBUG === "1" && Date.now() - diagnosticAt > 15000) {
     console.error(`PDF phase: ${phase}; elapsed: ${Math.round((Date.now() - startedAt) / 1000)}s; ${getField("speed_indicator").value}`);
     console.error(output.slice(-1600));

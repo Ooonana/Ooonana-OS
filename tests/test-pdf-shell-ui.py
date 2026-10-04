@@ -21,7 +21,9 @@ with tempfile.TemporaryDirectory() as temporary:
     assert str(document.Root.AcroForm.NeedAppearances) == "false"
     widgets = page.Annots
     names = [field.T.to_unicode() for field in canonical]
-    assert len(names) == len(set(names)) == 141
+    assert len(names) == len(set(names)) == 116
+    assert not any(name.startswith("console_") for name in names)
+    assert "Type command" not in page.Contents.stream
     assert {field.indirect for field in canonical} == {field.indirect for field in widgets}
     assert {f"field_{index}" for index in range(30)} <= set(names)
     assert {"key_input", "key_status", "speed_indicator", "command_enter", "button_Enter"} <= set(names)
@@ -42,8 +44,9 @@ with tempfile.TemporaryDirectory() as temporary:
             height = min(rectangle[3], second[3]) - max(rectangle[1], second[1])
             assert overlap <= 0.001 or height <= 0.001, (name, other)
     by_name = {field.T.to_unicode(): field for field in widgets}
+    assert by_name["key_input"].V.to_unicode() == ""
     assert "queue_console_text" in by_name["command_enter"].AA.U.JS.to_unicode()
     assert "button_toggle" in by_name["button_Ctrl"].AA.D.JS.to_unicode()
     assert "button_up" in by_name["button_Enter"].AA.U.JS.to_unicode()
     assert "vm_fixture" in page.AA.O.JS.to_unicode()
-print("ok pdf-shell-ui: 141 canonical widgets, appearances, actions, nonoverlapping layout")
+print("ok pdf-shell-ui: 116 canonical widgets, empty input, appearances, actions, layout")

@@ -109,9 +109,6 @@ def build(compiled, output):
         initial = "Ooonana OS PDF 0.6" if index == 29 else "Starting JavaScript..." if index == 28 else ""
         fields.append(create_field(f"field_{index}", 28, 350 + index * 12.3,
                                    704, 12.3, initial, display=True))
-    # Loader diagnostics remain writable, but never clutter terminal/controls.
-    for index in range(25):
-        fields.append(create_field(f"console_{index}", -24, -24, 1, 1))
     speed = create_field("speed_indicator", 555, 774, 177, 22, "Loading kernel...")
     speed.Ff = 1
     fields.append(speed)
@@ -172,7 +169,6 @@ def build(compiled, output):
         text(535, 737, 9, "80 columns  /  30 rows", MUTED),
         f"{rgb(KEY)} RG 1 w 28 725 m 732 725 l S\n",
         text(28, 319, 9, "COMMAND INPUT", MUTED),
-        text(28, 271, 8, "Type command above, then click Run / Enter. On-screen Enter works too.", MUTED),
         rounded(20, 44, 720, 204, 14, CARD),
         text(32, 232, 9, "VIRTUAL KEYBOARD", MUTED),
         text(461, 232, 9, "Click modifier once to toggle; again to release.", MUTED),
