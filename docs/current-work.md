@@ -6,10 +6,13 @@ Backend first. ISO building stays with user. Audio backend stays enabled; no pla
 
 - Windows Controlled Folder Access write access restored. Explicit-key ISO checks now require a signature and verify that required desktop packages belong to the actual full-i3 install dependency closure.
 - BusyBox natural-version sorting failure reproduced. Portable AWK comparison/index fallback added; revision, stable-source tie, long-number and BusyBox regression checks passed. GNU index processing keeps its one-sort fast path.
-- WSL upgrade revealed a missing empty core manifest after bundle migration. Signed core meta-package health hook now recreates the legacy ownership guard; regression coverage added. Custom desktop/network configs remained unchanged.
+- WSL upgrade revealed a missing empty core manifest after bundle migration. Signed core meta-package health hook now recreates the legacy ownership guard; legacy migration regression passed. Custom desktop/network configs remained unchanged.
 - Native PDF package sync passed for the first time in this native build: boot, input, arithmetic, core 0.9.8 and actual update completed in 101 seconds. PDF source/cache/state directories use bounded tmpfs; build-time source seed names preserve custom configs without 9p directory enumeration. No checksum/signature checks were removed.
 - Bootable PDF UI rebuilt with opaque graphite cards, rounded keyboard controls, readable status and command input/Run action. All 141 canonical widgets have appearances; names, actions, values and nonoverlapping geometry checked. Docs-only guide generator preserved separately.
-- GitLab pipeline 2910547618 and public Pages verified at core 0.9.7 / revision 695da59 before this pass. Core 0.9.8 local publication/WSL update and remote push still need final handoff verification.
+- Code/PDF committed as a4f1405; migration guard follow-up committed as 09f417f. Both pushed to GitHub and GitLab.
+- Signed local generation eeb1363167c6dbf7dc2b7805644b91303576eafce5654572e52e93b87cf37d11 published atomically with clean source manifest at 09f417f. All 678 packages / 552 dependency nodes and detached signature passed; final ISO preflight passed on this generation. Existing ISO untouched.
+- Ooonana WSL upgraded to core 0.9.8. Runtime/meta health hooks, file checks and runtime verification passed. i3, Polybar, NetworkManager and Bluetooth config hashes unchanged; desktop/OpenVINO launchers present. WSL engine 3.0.1 / kernel 6.18.40.1 unchanged; no audio playback.
+- GitLab pipeline 2910852238 succeeded; public Pages verified at core 0.9.8 / revision a4f1405. Migration follow-up pipeline 2910863317 still running at last check; its Pages activation not yet claimed. CI/private signing enrollment stays deferred.
 - Cleanup still blocked by previous deletion-policy rejection. Nothing material removed. Preserve models, keys, releases, kernel/firmware caches and valid generations.
 
 ## ISO cache repair - 2026-10-03
@@ -41,11 +44,27 @@ Backend first. ISO building stays with user. Audio backend stays enabled; no pla
 
 ## Remaining gates
 
-- Physical USB checks: Wi-Fi, Bluetooth, audio, available RAM, zram, fans and OpenVINO inference. WSL/import/UI tests do not prove these.
-- New ISO build and real installed nonroot Xorg login. User performs ISO build.
+- Physical USB boot: BIOS/UEFI/GRUB, persistence, unrelated-drive protection and installer swap. New ISO build and real installed nonroot Xorg login. User performs ISO build.
+- Physical hardware checks: Wi-Fi, Bluetooth, audio routing (without playback), available RAM/zram, CPU/GPU/fans and disk/network counters. WSL/import/UI tests do not prove these.
+- Real OpenVINO model loading/inference and CPU/GPU memory guards on hardware; fresh ISO dock/window/cursor/panel interaction check.
+- Final migration follow-up GitLab pipeline and Pages activation verification.
 - CI signing and trusted client enrollment deferred by user's choice: private key stays local; no CI secret uploaded. Public CI/Pages deployment is distinct from Git pushes and local signed publication.
 - Chromium PDF-viewer interaction verification for this native build; native package sync now passed.
 - Junk cleanup: about 331 MiB aborted generation, 1.2 MiB Python caches/metadata and 0.3 MiB previews. WSL QA environments are optional review candidates. Nothing deleted; previous deletion-policy rejection remains. Preserve models, keys, releases and build caches.
+
+## Commands
+
+User-owned ISO build, from PowerShell:
+
+```powershell
+& 'F:\Ooonana\ooonana-os\Build-ISO.ps1'
+```
+
+Ooonana WSL desktop, from PowerShell:
+
+```powershell
+wsl -d Ooonana -u ooonana --exec start-ooonana-i3
+```
 
 ## Verified foundation
 
