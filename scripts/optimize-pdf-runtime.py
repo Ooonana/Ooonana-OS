@@ -34,9 +34,16 @@ def optimize(path):
     input_handler = '''function pdf_key_input(event) {
   // Commit/blur events must not resend text or accidentally execute commands.
   if (event.willCommit) return;
-  let removed = Math.max(0, Number(event.selEnd) - Number(event.selStart));
+  let value = String(event.value || "");
+  let start = Math.max(0, Math.min(value.length, Number(event.selStart) || 0));
+  let end = Math.max(start, Math.min(value.length, Number(event.selEnd) || 0));
+  let left = value.length - end;
+  // Guest stays at end after native edits; move to selected range if needed.
+  if (left) queue_console_text("\\x1b[F" + "\\x1b[D".repeat(left));
+  let removed = end - start;
   if (removed) queue_console_text("\\x7f".repeat(removed));
   if (event.change) key_pressed(event.change);
+  if (left) queue_console_text("\\x1b[F");
 }'''
     if "function pdf_key_input(" in source:
         source = replace_function(source, "pdf_key_input", input_handler)

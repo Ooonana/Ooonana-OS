@@ -98,6 +98,7 @@ let sentInput = false;
 let sentEnter = false;
 let sentVirtualBackspace = false;
 let sentNativeBackspace = false;
+let sentMiddleEdit = false;
 let sentUpdate = false;
 let sentVersion = false;
 let phase = "boot";
@@ -177,14 +178,25 @@ const monitor = setInterval(() => {
     phase = "native-backspace";
     const command = "echo PDF_NATIVE_BACKSPACE_OKX";
     sandbox.pdf_key_input({willCommit: false, change: command, selStart: 0, selEnd: 0});
-    sandbox.pdf_key_input({willCommit: false, change: "", selStart: command.length - 1, selEnd: command.length});
+    sandbox.pdf_key_input({willCommit: false, value: command, change: "", selStart: command.length - 1, selEnd: command.length});
     // Model the viewer's accepted deletion; handler forwards only the key byte.
     getField("key_input").value = command.slice(0, -1);
     sandbox.button_down("Enter");
     sandbox.button_up("Enter");
     sentNativeBackspace = true;
   }
-  if (sentNativeBackspace && !sentVersion && output.includes("\nPDF_NATIVE_BACKSPACE_OK\n")) {
+  if (sentNativeBackspace && !sentMiddleEdit && output.includes("\nPDF_NATIVE_BACKSPACE_OK\n")) {
+    phase = "middle-edit";
+    const command = "echo PDF_MIDDLE_XBACKSPACE_OK";
+    const index = command.indexOf("X");
+    sandbox.pdf_key_input({willCommit: false, change: command, selStart: 0, selEnd: 0});
+    sandbox.pdf_key_input({willCommit: false, value: command, change: "", selStart: index, selEnd: index + 1});
+    getField("key_input").value = command.slice(0, index) + command.slice(index + 1);
+    sandbox.button_down("Enter");
+    sandbox.button_up("Enter");
+    sentMiddleEdit = true;
+  }
+  if (sentMiddleEdit && !sentVersion && output.includes("\nPDF_MIDDLE_BACKSPACE_OK\n")) {
     phase = "version";
     sandbox.queue_console_text("ooonana version\r");
     sentVersion = true;
