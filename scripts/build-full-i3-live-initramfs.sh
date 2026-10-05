@@ -139,7 +139,7 @@ main() {
     )
   }
   copy_early_firmware
-  for applet in sh mount mkdir mknod sleep cat echo switch_root ls grep umount losetup mdev modprobe stty wc readlink dirname basename blkid rm tr df awk mktemp mv sync; do
+  for applet in sh mount mkdir mknod sleep cat echo switch_root ls grep umount losetup mdev modprobe stty wc readlink dirname basename blkid rm tr df awk mktemp mv sync dd od; do
     ln -sf busybox "$LIVE_INIT_TREE/bin/$applet"
   done
   ln -sf ../bin/busybox "$LIVE_INIT_TREE/sbin/mdev"

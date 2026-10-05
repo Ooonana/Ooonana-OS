@@ -30,9 +30,33 @@ live_normalize_uuid() {
   printf '%s\n' "$1" | tr 'A-Z' 'a-z'
 }
 
+# BusyBox identifies ISO9660 labels/types but omits the UUID used by GRUB.
+# Read only bounded descriptors; match GRUB's modification-date UUID, never label.
+live_iso_uuid() (
+  [ "$(blkid_value TYPE "$1" 2>/dev/null || true)" = iso9660 ] || return 1
+  live_sector=16
+  while [ "$live_sector" -lt 32 ]; do
+    live_offset=$((live_sector * 2048))
+    live_header="$(od -An -tx1 -j "$live_offset" -N 7 "$1" 2>/dev/null | tr -d '[:space:]')"
+    case "$live_header" in
+      01434430303101)
+        live_date="$(dd if="$1" bs=1 skip="$((live_offset + 813))" count=16 2>/dev/null)" || return 1
+        [ "${#live_date}" = 16 ] || return 1
+        case "$live_date" in *[!0-9]*|0000000000000000) return 1 ;; esac
+        printf '%s\n' "$live_date" | awk '{ printf "%s-%s-%s-%s-%s-%s-%s\n", substr($0,1,4), substr($0,5,2), substr($0,7,2), substr($0,9,2), substr($0,11,2), substr($0,13,2), substr($0,15,2) }'
+        return 0
+        ;;
+      00434430303101|02434430303101|03434430303101) ;;
+      *) return 1 ;;
+    esac
+    live_sector=$((live_sector + 1))
+  done
+  return 1
+)
+
 live_uuid_matches() (
   live_expected="$(live_normalize_uuid "$1")" || return 1
-  live_actual="$(blkid_value UUID "$2")" || return 1
+  live_actual="$(blkid_value UUID "$2")" || live_actual="$(live_iso_uuid "$2")" || return 1
   live_actual="$(live_normalize_uuid "$live_actual")" || return 1
   [ "$live_actual" = "$live_expected" ]
 )

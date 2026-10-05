@@ -147,6 +147,7 @@ assert_contains "$script_src" 'live_overlay_paths_safe /persist temporary-overla
 assert_contains "$script_src" 'live_persistence_writable /persist'
 assert_contains "$script_src" '/lib/ooonana-live-storage.sh'
 assert_contains "$script_src" 'rm tr df awk mktemp'
+assert_contains "$script_src" 'mv sync dd od'
 assert_contains "$script_src" 'cannot retain persistence mount'
 assert_not_contains "$script_src" "grep -q 'ooonana.persistence=1'"
 assert_contains "$script_src" '/persist/overlay/upper'
@@ -213,4 +214,5 @@ assert_contains "$kernel_fragment" "CONFIG_INPUT_UINPUT=y"
 assert_contains "$kernel_fragment" "CONFIG_INTEL_MEI_ME=y"
 
 sh "$ROOT/tests/test-live-boot-storage.sh"
+PYTHONDONTWRITEBYTECODE=1 python3 "$ROOT/tests/test-iso-boot-uuid.py"
 printf 'ok full-i3-live-initramfs\n'

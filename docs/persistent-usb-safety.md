@@ -8,6 +8,10 @@ fsck repair, or deletion of saved overlays.
 - GRUB probes its root filesystem UUID and passes `ooonana.live.boot_uuid`.
   Writable storage requires matching removable/USB boot media. Cloned UUIDs
   visible on different parent disks are ambiguous and stop boot before writing.
+  ISO9660 UUIDs need a read-only fallback because release BusyBox reports only
+  ISO label/type. At most 16 descriptors are inspected; valid primary descriptor
+  modification digits form GRUB's UUID. Invalid/truncated descriptors refuse.
+  Native FAT/ext4 UUIDs take precedence; label-only matching is never allowed.
 - Exactly one ext4 `OOONANA_PERSIST` partition must exist on that boot parent.
   Same-label internal disks and unrelated USB/SD devices cannot satisfy selection.
 - `ooonana.persistence=1` is an exact kernel argument. Missing storage gets a
@@ -42,6 +46,7 @@ UUID checks protect against accidental selection, not malicious removable media.
 The installer is separate and still requires confirmation of its target.
 Reference: [GRUB probe command](https://www.gnu.org/software/grub/manual/grub/html_node/probe.html)
 and [kernel OverlayFS requirements](https://docs.kernel.org/filesystems/overlayfs.html).
+ISO UUID format follows [GRUB's ISO9660 implementation](https://github.com/rhboot/grub2/blob/master/grub-core/fs/iso9660.c).
 
 ## Verification
 
@@ -49,6 +54,14 @@ and [kernel OverlayFS requirements](https://docs.kernel.org/filesystems/overlayf
 It covers exact arguments, duplicate/cloned identities, wrong-parent selection,
 filesystem checks, path rejection, low space, unwritable probes and rcS markers.
 Release preflight and GitLab smoke include it.
+
+`tests/test-iso-boot-uuid.py` checks bounded ISO UUID probing, malformed input,
+native UUID precedence, mismatched identity and byte-identical source media.
+It runs inside the full-i3 live-initramfs suite. `tests/qemu-live-iso-uuid.sh`
+boots current live-init source/release BusyBox through BIOS and UEFI GRUB against
+an existing ISO attached as read-only USB. Its disposable bootstrap CD contains
+no production rootfs; original ISO is not rebuilt, patched or promoted. This
+checks the corrected identity handoff, not the final user-rebuilt release ISO.
 
 `tests/qemu-live-persistence.sh` builds a tiny fixture initramfs using release
 BusyBox plus the current live-init source. It attaches only newly created regular
@@ -61,6 +74,16 @@ No production ISO is built. Example, with already available kernel/seed files:
 bash tests/qemu-live-persistence.sh \
   --kernel /path/to/vmlinuz-ooonana \
   --seed-initramfs /path/to/live-initramfs.cpio.gz
+```
+
+For hardware-accelerated fixtures, set `OOONANA_QEMU_ACCEL=kvm`; default is TCG.
+Persistence guest deadline defaults to 180 seconds (positive override:
+`OOONANA_QEMU_PERSIST_TIMEOUT`) to avoid false failures during emulated discovery.
+Example ISO identity test with an existing artifact:
+
+```bash
+OOONANA_QEMU_ACCEL=kvm bash tests/qemu-live-iso-uuid.sh \
+  /path/to/ooonana-full-i3.iso /path/to/vmlinuz /path/to/live-initramfs.cpio.gz
 ```
 
 ## Remaining gates

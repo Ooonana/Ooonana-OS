@@ -18,12 +18,15 @@ from notification_utils import read_history  # noqa: E402
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--output", type=Path)
+parser.add_argument("--config", type=Path, default=Path("/etc/ooonana/dunstrc"))
 args = parser.parse_args()
 if not os.environ.get("OOONANA_NOTIFICATION_TEST_SESSION"):
     raise SystemExit("Run through a dedicated dbus-run-session with OOONANA_NOTIFICATION_TEST_SESSION=1.")
+if not args.config.is_file():
+    raise SystemExit(f"Notification configuration missing: {args.config}")
 
 with tempfile.TemporaryFile() as log:
-    daemon = subprocess.Popen(["dunst", "-config", "/etc/ooonana/dunstrc"], stdout=log, stderr=log)
+    daemon = subprocess.Popen(["dunst", "-config", str(args.config)], stdout=log, stderr=log)
     window = None
     passed = False
     try:

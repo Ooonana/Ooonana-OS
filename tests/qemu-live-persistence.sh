@@ -5,6 +5,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 KERNEL=""
 SEED_INITRAMFS=""
 BOOT_FS=ext4
+QEMU_ACCEL="${OOONANA_QEMU_ACCEL:-tcg}"
+QEMU_TIMEOUT="${OOONANA_QEMU_PERSIST_TIMEOUT:-180}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --kernel) KERNEL="$2"; shift 2 ;;
@@ -15,6 +17,8 @@ while [[ $# -gt 0 ]]; do
 done
 [[ -f "$KERNEL" && -f "$SEED_INITRAMFS" ]] || { printf 'kernel and seed initramfs files required\n' >&2; exit 2; }
 case "$BOOT_FS" in ext4|vfat) ;; *) echo 'boot filesystem must be ext4 or vfat' >&2; exit 2 ;; esac
+case "$QEMU_ACCEL" in tcg|kvm) ;; *) echo 'QEMU acceleration must be tcg or kvm' >&2; exit 2 ;; esac
+[[ "$QEMU_TIMEOUT" =~ ^[1-9][0-9]*$ ]] || { echo 'QEMU timeout must be positive seconds' >&2; exit 2; }
 for tool in qemu-system-x86_64 sfdisk mke2fs cpio gzip dd sha256sum; do
   command -v "$tool" >/dev/null || { printf 'missing %s\n' "$tool" >&2; exit 2; }
 done
@@ -110,7 +114,7 @@ unrelated_before="$(sha256sum "$tmp/unrelated.ext4")"
 run_guest() {
   local name="$1" expected="$2" args="$3" disk="$4"
   shift 4
-  qemu-system-x86_64 -m 384 -smp 1 -display none -serial "file:$tmp/$name.log" \
+  qemu-system-x86_64 -accel "$QEMU_ACCEL" -m 384 -smp 1 -display none -serial "file:$tmp/$name.log" \
     -monitor none -no-reboot -kernel "$KERNEL" -initrd "$tmp/live.cpio.gz" \
     -append "console=ttyS0 panic=1 rdinit=/init ooonana.live=1 $args" \
     -device qemu-xhci,id=usb \
@@ -124,7 +128,7 @@ run_guest() {
       kill "$qemu_pid" 2>/dev/null || true
       break
     fi
-    if (( elapsed >= 45 )); then
+    if (( elapsed >= QEMU_TIMEOUT )); then
       tail -30 "$tmp/$name.log" >&2
       fail "$name timed out"
     fi
