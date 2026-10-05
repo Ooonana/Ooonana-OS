@@ -2,6 +2,13 @@
 
 Backend first. ISO building stays with user. Audio backend stays enabled; no playback tests.
 
+## PDF input follow-up
+
+- User screenshot exposed an upstream timer restoring the keyboard hint every second. Prior static blank-widget checks did not catch runtime mutation. Timer is now removed from the embedded script; VM tests keep input populated beyond 2.2 seconds to detect recurrence.
+- Native input now forwards Backspace/deletion ranges instead of dropping empty-change events; bounds protect Delete past end. Middle edits position the guest cursor around the selected range. Virtual Backspace sends DEL once and updates input; virtual Enter clears it. Commit/blur events cannot resend typed text.
+- Final Node VM suite passed boot, stable input beyond the reset deadline, arithmetic, native/virtual Backspace, middle deletion, core version and actual package sync in 90 seconds. UI actions and runtime bounds/idempotence checks passed. Actual Chromium clicks/keyboard interaction remain a manual gate; no browser-policy workaround used.
+- Existing native kernel hashes/config verified: 100 Hz, tmpfs/sysctl, no SMP/modules/debug symbols/sanitizers/ftrace. Linux EXPERT selects DEBUG_KERNEL as a menu flag; no new debug instrumentation or fresh kernel trim claimed. RAM-cached CLI/help/repo, bounded VM batches and 20 Hz rendering retained. Desktop/ISO/WSL unchanged.
+
 ## PDF-only latency pass
 
 - Bare `ooonana` now uses a small PDF shell front door; genuine topic help is extracted at build time. All other commands retain the byte-identical source package backend, including checksum/signature checks.

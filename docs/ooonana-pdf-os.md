@@ -12,6 +12,8 @@ Current 0.6 build is based on [ading2210/linuxpdf](https://github.com/ading2210/
 - Native RISC-V64 Linux 6.18.37 / static BusyBox 1.37.0 rootfs carries Ooonana package manager 0.9.8 and current logo/help.
 - Boot console prints `OOONANA_PDF_BOOT_OK` after Ooonana init starts.
 - Opaque graphite cards, orange monospaced terminal, rounded keyboard controls and a blank command input with Run / Enter; redundant input hints removed.
+- The upstream one-second input-reset interval is removed from embedded JavaScript, not merely the initial widget appearance. Input remains editable without periodic replacement.
+- Native deletion/tail replacement and middle-selection edits are forwarded to guest Linux; commit/blur does not duplicate input. Virtual Backspace sends one DEL byte and updates capture text; virtual Enter clears it. Chromium's deletion ranges are modeled from [PDFium's native edit handling](https://pdfium.googlesource.com/pdfium/+/refs/heads/main/fpdfsdk/pwl/cpwl_edit.cpp); actual viewer interaction still needs manual confirmation.
 - Kernel log stays visible during boot, then hands off to Ooonana shell.
 - Full boot logs and fixed 80x30 terminal geometry keep status readable.
 
@@ -62,6 +64,7 @@ That writes `docs/ooonana-guide.pdf`.
 - PDF payload carries only portable CLI/comparator/help/logo, base metadata, source configs and public trust keys. Desktop GTK/Python/icons/wallpapers/installer/WSL extras and unsupported AI/dev/GUI bundles are excluded. Base indexes/checksums are rebuilt consistently; real package checksum/signature verification is unchanged.
 - Real CLI backend, help and repository inputs are copied by explicit names into bounded tmpfs, avoiding repeated 9p reads/enumeration. Dirty terminal rows paint at most 20 Hz with cached widget references; VM batches have a 12 ms deadline and 32-call cap. Loader diagnostics no longer update invisible form fields.
 - All 116 canonical widgets were reopened with matching values/appearances/actions; the final static layout was inspected. PDF size fell about 7%; payload root about 35%.
+- Regression checks now run the embedded script beyond its old one-second reset deadline and exercise both native and virtual Backspace through guest shell commands. Fixture checks cover tail replacement, middle selection positioning and Delete past end.
 - Add release artifact upload for `ooonana.pdf`.
 
 Runtime checks:
@@ -82,7 +85,7 @@ October 5 host Node VM measurements (not browser timings):
 | `ooonana list` | exceeded 240 s | 63.4 s |
 | `ooonana update` | prior native boot/input/sync suite passed | 51.1 s command |
 
-Final rebuilt boot/input/arithmetic/version/package-sync suite passed in 98 seconds.
+Latest rebuilt boot/stable-input/native-and-virtual-Backspace/middle-edit/arithmetic/version/package-sync suite passed in 90 seconds.
 Actual package sync passes, but package operations still cost much more than simple
 help/version. Browser field IPC and machine speed can change latency; measure the
 user's Chromium viewer separately before claiming the two-minute issue resolved.
@@ -90,6 +93,13 @@ user's Chromium viewer separately before claiming the two-minute issue resolved.
 Native configuration includes legacy SBI console, PLIC, virtio/9p, 100 Hz tick and ISA fallback. Runtime uses `hvc1` when available for keyboard input. Slow RV64 JavaScript otherwise starves CPU progress with timer interrupts, so only the Emscripten RV64 emulator clock is scaled down 16x. Guest wall clock is therefore slower than real time; native host TinyEMU and RV32 are unchanged. Init injection unlinks the BusyBox init symlink before replacing it, preserving the BusyBox executable.
 
 Native runtime resolves SHMEM/tmpfs and sysctl dependencies. Temporary mounts use bounded RAM-backed tmpfs; BusyBox standalone/nofork avoids repeated applet ELF loading. `--reuse-runtime` verifies the existing binary manifest rather than rebuilding kernels for PDF-only changes; `--reuse-kernel` retains its separate fragment/config guard and can reject a cache when Kconfig selected an option differently. Matching emulator sources are not rewritten merely to trigger rebuilds. Static PDF form/render checks are separate from runtime execution. Local PDF browser navigation was blocked by browser security policy; no alternate browser/proxy workaround was used. Chromium interactive verification remains manual/pending.
+
+Kernel verification for the input follow-up: original Linux 6.18.37 binary/config
+hashes still match the manifest; resolved configuration retains 100 Hz, tmpfs/sysctl,
+no SMP/modules, and no debug symbols/sanitizers/ftrace. `EXPERT` selects the
+`DEBUG_KERNEL` menu flag in the local Linux source; that flag alone is not a debug
+instrumentation build. No new kernel compile or additional kernel trimming is
+claimed for this UI fix. Existing RAM caching, CPU batching and redraw limits remain.
 
 Chrome smoke:
 
