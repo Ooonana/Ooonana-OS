@@ -2,6 +2,18 @@
 
 Backend first. ISO building stays with user. Audio backend stays enabled; no playback tests.
 
+## ISO verifier repair
+
+- User build completed the 2,504,116,224-byte ISO but stopped before promotion. Old service-smoke harness replaced BusyBox init with its test shell and treated a successful asynchronous `bunana --shutdown` return as failure. Cleanup did not cause this failure.
+- Harness now keeps packaged BusyBox init as PID1, validates its shutdown hook and runs the test as a once-action. Host requires service success, shutdown request, completed init cleanup, actual kernel power-down and QEMU exit status zero. Serial CRLF is accepted; timeouts, failure markers, missing markers and prefixed false-success strings are rejected. Production shutdown implementation is unchanged.
+- Predicate regression checks passed two valid LF/CRLF logs and eight rejection cases. Actual staged-ISO service smoke passed with KVM/1536 MiB: Wi-Fi profile variants, daemon/watchdog recovery, audio routing/control, Chromium, desktop runtime, privilege checks and orderly shutdown. Guest powered down at about 46 seconds. QEMU audio output remained disabled; no playback.
+- Runtime packages/kernel and existing released ISO remain unchanged. Staged ISO remains available for user-owned `--resume-after-iso` verification, BIOS/UEFI matrix and promotion; no ISO rebuild or automatic promotion performed here.
+
+## Disposable cleanup completed
+
+- Explicit user request recycled 447 disposable files, 333.13 MiB logical: bytecode caches, generated OpenVINO build copies/metadata, abandoned `.stage-v2w1_1fn` and two stale index/checksum temporary files. Recoverable from Windows Recycle Bin; not a claim of freed disk space.
+- Git history, all valid repository generations/current pointer, releases, historical PDFs/previews, models, keys, firmware/kernel caches and WSL QA environments were preserved. No source changes resulted from cleanup.
+
 ## Core 0.9.9 completion pass
 
 - Fixed stale boot-parser regression fixture. Shared helper and current parsing order are exercised without host mounts.
@@ -20,7 +32,7 @@ Backend first. ISO building stays with user. Audio backend stays enabled; no pla
 - GitHub [run 37278143738](https://github.com/Ooonana/Ooonana-OS/actions/runs/37278143738) and GitLab [pipeline 2912436524](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2912436524) succeeded at `a0c6dfc`. Public Pages serves core 0.9.9, generation `90ed2498d89396d2e222089a7ad0975c3a01ccb284a9038e32480a49e014cd71`. CI publication remains unsigned under the deferred enrollment policy.
 - Local signed generation `ee9cbdfa3c6de9518ca2fcbb2d31fe12ce458de021b6515cbc36da20e28ffb4d` pins clean source `a0c6dfc`. All 678 packages / 552 dependency nodes, detached signature and final ISO preflight passed. Published generations and existing production ISO were not overwritten.
 - Ooonana WSL upgraded to core 0.9.9; package verification and runtime/meta health hooks passed. Default i3 config refreshed; custom environment/keycode/inittab/neofetch configs were preserved with update candidates. Polybar, NetworkManager and Bluetooth config hashes stayed unchanged. Nonroot GTK 3 X11 display/keyboard readiness and AI/Settings/window-control imports passed; Mesa acceleration warnings remain, so GPU acceleration is not claimed. WSL engine/kernel were not changed or restarted; no audio playback or model files changed.
-- Final PDF payload remains current: later desktop/persistence fixes are excluded from its explicit minimal portable CLI/repository input set. No unnecessary kernel/PDF rebuild claimed. Material junk remains retained under the earlier cleanup-policy block.
+- Final PDF payload remains current: later desktop/persistence fixes are excluded from its explicit minimal portable CLI/repository input set. No unnecessary kernel/PDF rebuild claimed. Later explicit disposable cleanup is recorded above.
 - Physical BIOS/UEFI, disconnect/power-loss, radio/audio/sensor and OpenVINO model-load checks remain manual. Private signing key stays local; trust enrollment/CI signing stays deferred. ISO remains user-built.
 
 ## Persistent USB safety pass
@@ -98,7 +110,7 @@ Backend first. ISO building stays with user. Audio backend stays enabled; no pla
 - CI signing and trusted client enrollment deferred by user's choice: private key stays local; no CI secret uploaded. Public CI/Pages deployment is distinct from Git pushes and local signed publication.
 - Chromium PDF-viewer interaction verification for this native build; native package sync now passed.
 - Actual WSLg accelerated rendering: GTK 3 X11/keyboard readiness passed, but Mesa reported acceleration warnings; no forced graphics backend or global software-rendering override applied.
-- Junk cleanup: about 331 MiB aborted generation, 1.2 MiB Python caches/metadata and 0.3 MiB previews. WSL QA environments are optional review candidates. Nothing deleted; previous deletion-policy rejection remains. Preserve models, keys, releases and build caches.
+- Optional storage review: WSL QA environments remain review-only. Disposable cleanup completed above; historical PDFs/previews, models, keys, releases and useful build caches remain intentionally preserved.
 
 ## Commands
 
@@ -106,6 +118,12 @@ User-owned ISO build, from PowerShell:
 
 ```powershell
 & 'F:\Ooonana\ooonana-os\Build-ISO.ps1'
+```
+
+Resume the completed October 5 staged ISO after the verifier fix, without rebuilding:
+
+```powershell
+& 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --resume-after-iso
 ```
 
 Ooonana WSL desktop, from PowerShell:

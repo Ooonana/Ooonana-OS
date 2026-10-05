@@ -28,6 +28,16 @@ fail() {
   exit 1
 }
 
+assert_service_smoke_result() {
+  ! grep -q 'OOONANA_SERVICE_SMOKE_FAIL' "$1" || fail "QEMU service assertion failed"
+  [ "$2" -eq 0 ] || fail "QEMU service guest did not exit cleanly (rc=$2)"
+  # Serial tty output uses CRLF; match complete markers with trailing whitespace.
+  grep -q '^OOONANA_SERVICE_SMOKE_OK[[:space:]]*$' "$1" || fail "QEMU service smoke did not finish"
+  grep -q '^OOONANA_BUNANA_SHUTDOWN_BEGIN[[:space:]]*$' "$1" || fail "bunana shutdown not reached"
+  grep -q '^OOONANA_SHUTDOWN_CLEANUP_DONE[[:space:]]*$' "$1" || fail "init shutdown cleanup did not finish"
+  grep -q 'reboot: Power down[[:space:]]*$' "$1" || fail "guest did not power off"
+}
+
 cleanup() {
   if [ -n "$QEMU_PID" ] && kill -0 "$QEMU_PID" 2>/dev/null; then
     kill "$QEMU_PID" 2>/dev/null || true
@@ -126,7 +136,14 @@ awk '
     print "/bin/busybox cp -a /smoke-root/. /newroot/"
     print "/bin/busybox cp /ooonana-service-smoke /newroot/usr/bin/ooonana-service-smoke"
     print "/bin/busybox chmod 0755 /newroot/usr/bin/ooonana-service-smoke"
-    print "exec switch_root /newroot /usr/bin/ooonana-service-smoke"
+    # Preserve packaged PID1 and verified shutdown hook; replace startup only.
+    print "if ! /bin/busybox grep -qx '\''::shutdown:/usr/bin/ooonana-shutdown-cleanup --from-init'\'' /newroot/etc/inittab; then"
+    print "  echo OOONANA_SERVICE_SMOKE_FAIL: packaged init shutdown hook missing"
+    print "  /bin/busybox poweroff -f"
+    print "  exit 1"
+    print "fi"
+    print "printf '\''%s\\n'\'' '\''::once:/usr/bin/ooonana-service-smoke'\'' '\''::shutdown:/usr/bin/ooonana-shutdown-cleanup --from-init'\'' >/newroot/etc/inittab"
+    print "exec switch_root /newroot /sbin/init"
     next
   }
   { print }
@@ -161,6 +178,11 @@ step() {
 
 echo OOONANA_SERVICE_SMOKE_BEGIN
 step command-audit
+[ "$(readlink /proc/1/exe)" = /bin/busybox ] || fail "PID1 is not BusyBox init"
+case "$(tr '\000' ' ' </proc/1/cmdline)" in
+  '/bin/busybox init '|'/sbin/init '|'init ') ;;
+  *) fail "PID1 is not an init command" ;;
+esac
 for command in \
   dbus-daemon dbus-run-session NetworkManager nmcli bluetoothctl ooonana-service-watchdog \
   doas sudo su aplay pulseaudio pactl ooonana-audio-start mpd mpc \
@@ -396,8 +418,15 @@ admin_result="$(/bin/su -s /bin/sh -c '/usr/bin/ooonana-run-admin /usr/bin/id -u
 /usr/bin/bunana --help | grep -q -- '--shutdown' || fail "bunana help"
 echo OOONANA_SERVICE_SMOKE_OK
 echo OOONANA_BUNANA_SHUTDOWN_BEGIN
-/usr/bin/bunana --shutdown
-fail "bunana shutdown returned"
+/usr/bin/bunana --shutdown || fail "bunana shutdown request failed"
+# Poweroff requests return before init finishes. Init terminates this once-action;
+# host checks cleanup completion and actual power-down, not process nonreturn.
+shutdown_wait=0
+while [ "$shutdown_wait" -lt 30 ]; do
+  sleep 1
+  shutdown_wait=$((shutdown_wait + 1))
+done
+fail "bunana shutdown timed out"
 SMOKE
 chmod 0755 "$WORK/patch/ooonana-service-smoke"
 
@@ -435,7 +464,5 @@ QEMU_PID=""
 set -e
 
 cat "$WORK/qemu.log"
-! grep -q 'OOONANA_SERVICE_SMOKE_FAIL' "$WORK/qemu.log" || fail "QEMU service assertion failed"
-grep -q 'OOONANA_SERVICE_SMOKE_OK' "$WORK/qemu.log" || fail "QEMU service smoke did not finish (rc=$qemu_rc)"
-grep -q 'OOONANA_BUNANA_SHUTDOWN_BEGIN' "$WORK/qemu.log" || fail "bunana shutdown not reached"
+assert_service_smoke_result "$WORK/qemu.log" "$qemu_rc"
 echo "ok qemu-service-smoke"

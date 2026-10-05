@@ -52,5 +52,49 @@ source_text="$(<"$SCRIPT")"
   fail "service smoke leaves failed live init waiting for timeout"
 [[ "$source_text" == *'! grep -q '\''OOONANA_SERVICE_SMOKE_FAIL'\'''* ]] ||
   fail "service smoke does not report init failure before missing success"
+[[ "$source_text" != *'exec switch_root /newroot /usr/bin/ooonana-service-smoke'* ]] ||
+  fail "service smoke replaces real PID1 with a shell"
+[[ "$source_text" == *'exec switch_root /newroot /sbin/init'* &&
+   "$source_text" == *'::once:/usr/bin/ooonana-service-smoke'* &&
+   "$source_text" == *'packaged init shutdown hook missing'* ]] ||
+  fail "service smoke does not retain verified init shutdown handling"
+[[ "$source_text" != *'bunana shutdown returned'* &&
+   "$source_text" == *'bunana shutdown timed out'* ]] ||
+  fail "service smoke rejects asynchronous shutdown or waits without a bound"
+
+# Exercise actual host predicate without QEMU, power actions or host services.
+fixture="$(mktemp -d)"
+trap 'rm -rf -- "$fixture"' EXIT
+predicate="$(awk '/^assert_service_smoke_result\(\) \{/ { capture=1 }
+  capture { print } capture && /^\}/ { exit }' "$SCRIPT")"
+[[ -n "$predicate" ]] || fail "missing service smoke result predicate"
+printf '%s\n' OOONANA_SERVICE_SMOKE_OK OOONANA_BUNANA_SHUTDOWN_BEGIN \
+  OOONANA_SHUTDOWN_CLEANUP_DONE '[60.0] reboot: Power down' >"$fixture/good.log"
+printf '%s\n' OOONANA_SERVICE_SMOKE_OK OOONANA_BUNANA_SHUTDOWN_BEGIN \
+  '[60.0] reboot: Power down' >"$fixture/no-cleanup.log"
+printf '%s\n' OOONANA_SERVICE_SMOKE_OK OOONANA_BUNANA_SHUTDOWN_BEGIN \
+  OOONANA_SHUTDOWN_CLEANUP_DONE >"$fixture/no-powerdown.log"
+cp "$fixture/good.log" "$fixture/failure.log"
+printf '%s\n' 'OOONANA_SERVICE_SMOKE_FAIL: forced poweroff' >>"$fixture/failure.log"
+awk '{ printf "%s\r\n", $0 }' "$fixture/good.log" >"$fixture/crlf.log"
+grep -v '^OOONANA_SERVICE_SMOKE_OK$' "$fixture/good.log" >"$fixture/no-success.log"
+grep -v '^OOONANA_BUNANA_SHUTDOWN_BEGIN$' "$fixture/good.log" >"$fixture/no-request.log"
+sed 's/^OOONANA_SERVICE_SMOKE_OK$/PREFIX_OOONANA_SERVICE_SMOKE_OK/' \
+  "$fixture/good.log" >"$fixture/prefixed.log"
+check_result() {
+  sh -c 'fail() { echo "FAIL: $*" >&2; exit 1; }
+    eval "$1"
+    assert_service_smoke_result "$2" "$3"' probe "$predicate" "$fixture/$1.log" "$2" \
+    >"$fixture/result.log" 2>&1
+}
+check_result good 0 || fail "valid orderly shutdown rejected"
+check_result crlf 0 || fail "serial CRLF orderly shutdown rejected"
+for rejected in 'good 124' 'good 1' 'no-cleanup 0' 'no-powerdown 0' 'failure 0' \
+  'no-success 0' 'no-request 0' 'prefixed 0'; do
+  read -r name status <<<"$rejected"
+  if check_result "$name" "$status"; then
+    fail "invalid shutdown accepted: $rejected"
+  fi
+done
 
 printf 'ok qemu-service-smoke-source\n'
