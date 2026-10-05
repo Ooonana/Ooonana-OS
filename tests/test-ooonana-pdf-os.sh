@@ -48,7 +48,8 @@ assert_contains "$(<"$BUILDER")" "terminal_write(str, true)"
 assert_contains "$(<"$BUILDER")" "loglevel=7 ignore_loglevel"
 assert_contains "$(<"$BUILDER")" "OOONANA_PDF_LITE_GENERATOR"
 assert_contains "$(<"$BUILDER")" "gen_pdf_lite.py"
-assert_contains "$(<"$BUILDER")" "Type command, press Enter"
+assert_contains "$(<"$BUILDER")" '"key_input"'
+[[ "$(<"$BUILDER")" != *'Type command, press Enter'* ]] || fail "redundant input hint returned"
 assert_contains "$(<"$BUILDER")" 'scripts/generate-ooonana-pdf-shell.py'
 if command -v node >/dev/null 2>&1; then
   PYTHONDONTWRITEBYTECODE=1 python3 "$ROOT/tests/test-pdf-runtime.py"
