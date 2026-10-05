@@ -4,6 +4,7 @@ import ast
 import importlib.util
 import os
 from pathlib import Path
+import shutil
 import stat
 import subprocess
 import sys
@@ -43,6 +44,17 @@ with tempfile.TemporaryDirectory(dir="/dev/shm", prefix="ooonana-source-") as te
     backup = storage.export_backup(mount, "abcd-1234", output)
     assert storage.tree_entries(backup / "upper") == snapshot
     assert (backup / "upper/home/user/notes").stat().st_ino == (backup / "upper/home/user/linked").stat().st_ino
+    # Identical bytes/metadata do not prove a hardlink relationship survived.
+    linked = backup / "upper/home/user/linked"
+    parent_entry = next(item for item in snapshot if item["path"] == "home/user")
+    linked.unlink()
+    shutil.copy2(backup / "upper/home/user/notes", linked)
+    os.utime(linked.parent, ns=(parent_entry["mtime_ns"], parent_entry["mtime_ns"]))
+    reject(storage.migrate, mount, "abcd-1234", "new-base", backup)
+    linked.unlink()
+    os.link(backup / "upper/home/user/notes", linked)
+    os.utime(linked.parent, ns=(parent_entry["mtime_ns"], parent_entry["mtime_ns"]))
+    assert storage.tree_entries(backup / "upper") == snapshot
     reject(storage.export_backup, mount, "abcd-1234", output)
     reject(storage.offline_mount, mount, "abcd-1234")  # Not mounted ext4; never accepts arbitrary dirs.
     reject(storage.real_directory, Path("/"))
@@ -54,6 +66,14 @@ with tempfile.TemporaryDirectory(dir="/dev/shm", prefix="ooonana-source-") as te
     # Restore exact saved metadata to model offline, unchanged backup source.
     entry = next(item for item in snapshot if item["path"] == "home/user/notes")
     os.utime(upper / entry["path"], ns=(entry["mtime_ns"], entry["mtime_ns"]))
+    actual_copy = storage.copy_tree
+    def damaged_copy(source, target, entries, data_only=False):
+        actual_copy(source, target, entries, data_only)
+        (target / "user/notes").write_text("corrupt fixture copy")
+    with patch.object(storage, "check_space", lambda *_: None), patch.object(storage, "copy_tree", damaged_copy):
+        reject(storage.migrate, mount, "abcd-1234", "new-base", backup)
+    assert (mount / "overlay/base-id").read_text() == "old-base\n"
+    assert storage.tree_entries(upper) == snapshot
     with patch.object(storage, "check_space", lambda *_: None):
         previous = storage.migrate(mount, "abcd-1234", "new-base", backup)
     assert previous.is_dir() and storage.tree_entries(previous / "upper") == snapshot
@@ -62,6 +82,22 @@ with tempfile.TemporaryDirectory(dir="/dev/shm", prefix="ooonana-source-") as te
     assert (mount / "overlay/base-id").read_text() == "new-base\n"
     assert os.readlink(upper / "home/user/link") == "/outside/not-read"
     assert os.getxattr(upper / "home/user/notes", "user.fixture") == b"preserve xattrs"
+    # Exercise musl's syscall-only API on glibc hosts too.
+    actual_libc = storage.ctypes.CDLL(None, use_errno=True)
+    with patch.object(storage.ctypes, "CDLL", lambda *_args, **_kwargs: SimpleNamespace(syscall=actual_libc.syscall)):
+        old = mount / "syscall-old"
+        new = mount / "syscall-new"
+        old.mkdir()
+        (old / "identity").write_text("old")
+        storage.atomic_rename(old, new, 1)
+        assert not old.exists() and (new / "identity").read_text() == "old"
+        old.mkdir()
+        (old / "identity").write_text("new")
+        storage.atomic_rename(old, new, 2)
+        assert (old / "identity").read_text() == "old" and (new / "identity").read_text() == "new"
+        reject(storage.atomic_rename, old, new, 1)
+        with patch.object(storage.platform, "machine", lambda: "unknown-abi"):
+            reject(storage.atomic_rename, old, new, 2)
     occupied = mount / "occupied"
     occupied.mkdir()
     reject(storage.atomic_rename, previous, occupied, 1)

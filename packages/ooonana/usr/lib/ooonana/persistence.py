@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import platform
 import re
 import shutil
 import stat
@@ -92,6 +93,7 @@ def tree_entries(root):
     root = real_directory(root)
     device = root.stat().st_dev
     entries = []
+    links = {}
     for folder, directories, files in os.walk(root, followlinks=False):
         for name in sorted(directories + files):
             path = Path(folder) / name
@@ -107,9 +109,15 @@ def tree_entries(root):
                      "gid": info.st_gid, "mtime_ns": info.st_mtime_ns, "rdev": info.st_rdev, "xattrs": attrs}
             if stat.S_ISREG(mode):
                 entry.update(size=info.st_size, sha256=digest(path))
+                links.setdefault((info.st_dev, info.st_ino), []).append(entry)
             elif stat.S_ISLNK(mode):
                 entry["link"] = os.readlink(path)
             entries.append(entry)
+    for group in links.values():
+        if len(group) > 1:
+            identity = min(entry["path"] for entry in group)
+            for entry in group:
+                entry["hardlink"] = identity
     return sorted(entries, key=lambda entry: entry["path"])
 
 
@@ -169,11 +177,23 @@ def check_space(parent, entries):
 def atomic_rename(source, target, flags):
     libc = ctypes.CDLL(None, use_errno=True)
     operation = getattr(libc, "renameat2", None)
-    if operation is None:
-        raise ValueError("Atomic directory rename unavailable; originals unchanged")
-    operation.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
-    operation.restype = ctypes.c_int
-    if operation(-100, os.fsencode(source), -100, os.fsencode(target), flags):
+    arguments = (-100, os.fsencode(source), -100, os.fsencode(target), flags)
+    types = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+    if operation is not None:
+        operation.argtypes = types
+        operation.restype = ctypes.c_int
+        result = operation(*arguments)
+    else:
+        # musl does not export renameat2. Use the identical Linux atomic syscall,
+        # never a two-rename approximation. Unknown ABIs refuse before mutation.
+        number = {"x86_64": 316, "aarch64": 276, "riscv64": 276}.get(platform.machine())
+        operation = getattr(libc, "syscall", None)
+        if sys.platform != "linux" or number is None or ctypes.sizeof(ctypes.c_void_p) != 8 or operation is None:
+            raise ValueError("Atomic directory rename unavailable; originals unchanged")
+        operation.argtypes = [ctypes.c_long, *types]
+        operation.restype = ctypes.c_long
+        result = operation(number, *arguments)
+    if result:
         raise OSError(ctypes.get_errno(), f"Atomic operation refused; originals unchanged; staging at {source}")
 
 
@@ -218,6 +238,12 @@ def migrate(mount, uuid, base_id, backup):
     (previous / "work").mkdir(mode=0o755)
     if home.exists():
         copy_tree(home, previous / "upper/home", home_entries, data_only=True)
+        expected = [{**entry, "xattrs": {key: value for key, value in entry["xattrs"].items()
+                                        if not key.startswith(("trusted.overlay.", "user.overlay."))}}
+                    for entry in home_entries
+                    if stat.S_ISREG(entry["mode"]) or stat.S_ISDIR(entry["mode"]) or stat.S_ISLNK(entry["mode"])]
+        if tree_entries(previous / "upper/home") != expected:
+            raise ValueError(f"Migration copy failed verification; originals unchanged; staging at {previous}")
     (previous / "base-id").write_text(base_id.lower() + "\n")
     os.chmod(previous, 0o755)
     os.sync()
