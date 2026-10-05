@@ -1,6 +1,16 @@
-# Current work - 2026-10-04
+# Current work - 2026-10-05
 
 Backend first. ISO building stays with user. Audio backend stays enabled; no playback tests.
+
+## PDF-only latency pass
+
+- Bare `ooonana` now uses a small PDF shell front door; genuine topic help is extracted at build time. All other commands retain the byte-identical source package backend, including checksum/signature checks.
+- Removed unsupported GTK/Python/AI/desktop payload and non-RISC-V bundles from the PDF root; base metadata is reindexed with matching checksums. Named CLI/help/repository/trust files are seeded into bounded tmpfs. No desktop package bundle, WSL installation or ISO changed.
+- Serial output no longer repaints on every character. Dirty-row widget references are cached, painting is capped at 20 Hz, CPU slices are bounded, and loader diagnostics stay in a bounded memory buffer rather than 25 hidden widgets.
+- Removed redundant keyboard-input hints; canonical input remains blank. Final form has 116 interactive canonical widgets with matching appearances/actions; opaque layout rendered and inspected.
+- Node VM benchmark: bare command 35,905 -> 2,395 ms; package help 51,795 -> 3,046 ms; version 2,269 ms; base-only list 63,399 ms; actual package sync 51,067 ms. Bare-command terminal writes fell from 968 to 11. Earlier full list exceeded 240 seconds. Final rebuilt boot/input/arithmetic/version/package-sync suite passed in 98 seconds. Browser timing is unverified; package-operation latency remains a follow-up.
+- Fresh minimal runtime reuses manifest-checked Linux/BusyBox binaries and applet links only; original runtimes/data remain untouched. Payload root shrank about 35%; PDF shrank about 7% (5,967,364 -> 5,546,677 bytes). Runtime reuse, tamper refusal, rendering bounds/idempotence, payload and form tests passed.
+- Chromium interaction remains manual because local browser navigation was policy-blocked; no alternate browser/proxy workaround used. Signing enrollment stays deferred; private key remains local. Existing junk-cleanup policy block remains; no material junk deleted.
 
 ## Core 0.9.8 maintenance
 
