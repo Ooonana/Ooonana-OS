@@ -51,7 +51,10 @@ sed "s/@CORE_VERSION@/$CORE_VERSION/" "$ROOT/scripts/pdf-shell-cli.sh" > "$TARGE
 chmod 0755 "$TARGET_ROOT/usr/bin/ooonana"
 cp -a --remove-destination "$ROOT/packages/ooonana/usr/bin/clear" "$TARGET_ROOT/usr/bin/clear"
 install -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/version-order.awk" "$TARGET_ROOT/usr/lib/ooonana/version-order.awk"
-cp -a "$ROOT/packages/ooonana/usr/lib/ooonana/repo/." "$TARGET_ROOT/usr/lib/ooonana/repo/"
+# Desktop/dev/Intel-AI bundles have no RISC-V PDF payload. Keep real base
+# metadata, rebuild its index/checksums, and retain full external-repo support.
+install -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/repo/base.pkg" "$TARGET_ROOT/usr/lib/ooonana/repo/base.pkg"
+python3 "$ROOT/scripts/index-repo-fast.py" --repo "$TARGET_ROOT/usr/lib/ooonana/repo" >/dev/null
 cp -a "$ROOT/packages/ooonana/etc/ooonana/trusted-keys/." "$TARGET_ROOT/etc/ooonana/trusted-keys/"
 if [[ -d "$ROOT/packages/ooonana/etc/ooonana/sources.d" ]]; then
   cp -a "$ROOT/packages/ooonana/etc/ooonana/sources.d/." "$TARGET_ROOT/etc/ooonana/sources.d/"

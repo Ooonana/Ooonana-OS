@@ -37,13 +37,14 @@ def optimize(path):
         raise ValueError("Missing PDF serial parser")
     body, count = re.subn(
         r"  if \(saw_newline[^\n]*\n    render_terminal\(\);[^\n]*\n    terminal_dirty = 0;\n  \}",
-        "  // OOONANA_PDF_DEFERRED_RENDER: never repaint for every character.",
+        "  // OOONANA_PDF_DEFERRED_RENDER / OOONANA_TERMINAL_RENDER_BATCH: paint on tick.",
         write.group(), count=1,
     )
     if count != 1 and "OOONANA_PDF_DEFERRED_RENDER" not in body:
         raise ValueError("PDF per-character render patch point missing")
     source = source[:write.start()] + body + source[write.end():]
     source = replace_function(source, "machine_tick", '''function machine_tick(m_ptr) {
+  // OOONANA_VM_BATCH / OOONANA_BOOT_HEARTBEAT: retain upstream patch sentinels.
   // OOONANA_PDF_BOUNDED_SLICE: reduce timer round trips without long UI stalls.
   let deadline = Date.now() + 12;
   for (let batch = 0; batch < 32; batch++) {

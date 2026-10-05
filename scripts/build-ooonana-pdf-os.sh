@@ -278,7 +278,7 @@ fields.append(create_field("speed_indicator", -20, -20, 1, 1, ""))
 
 command_input = create_field(
   "key_input", 8, 8, page_width - 16, 24,
-  "Type command, press Enter",
+  "",
 )
 command_input.Ff = 0
 command_input.DA = PdfString.encode("/FMono 11 Tf 1 0.62 0 rg")
