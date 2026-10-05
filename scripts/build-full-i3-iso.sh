@@ -75,9 +75,10 @@ write_grub_config() {
   if [[ "$SMOKE" -eq 0 ]]; then
     console_args="$console_args loglevel=6"
   fi
-  local live_append="$console_args panic=1 rdinit=/init ooonana.live=1 ooonana.edition=full-i3"
+  local boot_identity='ooonana.live.boot_uuid=$ooonana_boot_uuid'
+  local live_append="$console_args panic=1 rdinit=/init ooonana.live=1 ooonana.edition=full-i3 $boot_identity"
   local persistent_append="$live_append ooonana.persistence=1"
-  local install_append="$console_args panic=1 rdinit=/init ooonana.live=1 ooonana.install=1 ooonana.edition=full-i3 ooonana.install.target=$INSTALL_TARGET"
+  local install_append="$console_args panic=1 rdinit=/init ooonana.live=1 ooonana.install=1 ooonana.edition=full-i3 ooonana.install.target=$INSTALL_TARGET $boot_identity"
   local install_initrd="/boot/live-initramfs.cpio.gz"
   local safe_install_append="$install_append nomodeset"
   local default_entry=0
@@ -93,6 +94,10 @@ write_grub_config() {
   cat > "$ISO_TREE/boot/grub/grub.cfg" <<EOF
 insmod all_video
 insmod png
+insmod probe
+set ooonana_boot_uuid=
+probe --set=ooonana_boot_uuid --fs-uuid (\$root)
+export ooonana_boot_uuid
 if loadfont /boot/grub/fonts/unicode.pf2; then
   insmod gfxterm
 fi
@@ -207,7 +212,10 @@ Use `Ooonana OS Full i3 Live (persistent USB)`.
 Create an extra ext4 partition labeled `OOONANA_PERSIST`.
 Ooonana uses it as the writable live-root overlay, including user files, settings, and packages.
 The persistence partition must be on the same physical USB as Ooonana boot media.
-Normal live mode uses a cleared temporary overlay on that same USB partition when available, then resets it on next boot. It falls back to RAM when no matching USB partition exists.
+GRUB passes the boot filesystem UUID. Persistent boot requires this identity plus exactly one eligible partition; duplicate/cloned boot UUIDs across drives stop boot before any writable mount.
+Missing/unmountable persistence, unsafe overlay paths, failed handoff mounts, or less than 16 MiB available stop persistent boot in recovery instead of silently falling back to RAM. No automatic format, fsck repair, or saved-overlay reset occurs.
+Normal live mode uses a cleared temporary overlay on that verified same USB partition when available, then resets it on next boot. It falls back to RAM when no matching USB partition exists; direct-kernel boots without a GRUB UUID always use RAM and never open persistence writable.
+Back up saved files before reflashing USB media. Existing saved overlays may hide files from a newer ISO; automatic overlay migration/reset is not implemented.
 Compressed zram swap starts at boot, but it is not extra physical RAM. OpenVINO setup requires persistent live mode and OOONANA_PERSIST; RAM-only live storage cannot hold its runtime and models.
 Installer writes disks only after confirmation.
 EOF

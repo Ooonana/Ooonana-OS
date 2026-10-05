@@ -105,7 +105,8 @@ assert_contains "$script_src" "-m 0 -O '^has_journal'"
 assert_contains "$script_src" "mount -t iso9660"
 assert_contains "$script_src" 'mount -t iso9660 -o ro "$candidate" /mnt/iso'
 assert_contains "$script_src" 'mount -t vfat -o ro "$candidate" /mnt/iso'
-assert_contains "$script_src" "losetup /dev/loop0"
+assert_contains "$script_src" "losetup -r /dev/loop0"
+assert_contains "$script_src" 'mount -t ext4 -o ro,noload /dev/loop0'
 assert_contains "$script_src" "mount -t overlay overlay"
 assert_contains "$script_src" "switch_root /newroot /sbin/init"
 assert_contains "$script_src" "splash \"starting live boot\" 1"
@@ -133,14 +134,21 @@ assert_contains "$script_src" '/newroot/mnt/ooonana-live/persistence-mode'
 assert_contains "$script_src" '/newroot/mnt/ooonana-live/persistence-device'
 [[ "$script_src" != *'/newroot/run/ooonana-live'* ]] || fail "live mounts must survive /run tmpfs"
 assert_contains "$script_src" "parent_disk_name()"
-assert_contains "$script_src" '[ "$(parent_disk_name "$candidate")" = "$boot_parent" ] || continue'
+assert_contains "$script_src" 'live_boot_parent_for_uuid "$BOOT_UUID"'
+assert_contains "$script_src" 'live_persistence_device "$boot_media_device"'
 assert_contains "$script_src" 'blkid_value()'
 assert_contains "$script_src" 'fs_label="$(blkid_value LABEL "$candidate"'
-assert_contains "$script_src" '"OOONANA_PERSIST"'
+assert_contains "$script_src" 'OOONANA_PERSIST missing on boot USB; no RAM fallback'
 assert_contains "$script_src" 'fs_type="$(blkid_value TYPE "$candidate"'
 assert_not_contains "$script_src" 'blkid -s'
-assert_contains "$script_src" '"ext4"'
-assert_contains "$script_src" 'mount -t ext4 -o rw "$candidate" /persist'
+assert_contains "$script_src" 'mount -t ext4 -o rw "$persistence_device" /persist'
+assert_contains "$script_src" 'live_overlay_paths_safe /persist overlay'
+assert_contains "$script_src" 'live_overlay_paths_safe /persist temporary-overlay'
+assert_contains "$script_src" 'live_persistence_writable /persist'
+assert_contains "$script_src" '/lib/ooonana-live-storage.sh'
+assert_contains "$script_src" 'rm tr df awk mktemp'
+assert_contains "$script_src" 'cannot retain persistence mount'
+assert_not_contains "$script_src" "grep -q 'ooonana.persistence=1'"
 assert_contains "$script_src" '/persist/overlay/upper'
 assert_contains "$script_src" '/persist/temporary-overlay/upper'
 assert_contains "$script_src" 'rm -rf /persist/temporary-overlay'
@@ -204,4 +212,5 @@ assert_contains "$kernel_fragment" "CONFIG_UHID=y"
 assert_contains "$kernel_fragment" "CONFIG_INPUT_UINPUT=y"
 assert_contains "$kernel_fragment" "CONFIG_INTEL_MEI_ME=y"
 
+sh "$ROOT/tests/test-live-boot-storage.sh"
 printf 'ok full-i3-live-initramfs\n'

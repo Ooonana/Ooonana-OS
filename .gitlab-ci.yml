@@ -28,6 +28,7 @@ ci-smoke:
     - echo "Ooonana GitLab CI active"
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-release-repo.py
     - bash tests/test-version-order.sh
+    - sh tests/test-live-boot-storage.sh
 
 deploy-package-repo:
   image: alpine:3.20

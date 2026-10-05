@@ -120,6 +120,9 @@ assert_contains "$normal_cfg" "terminal_input console serial"
 assert_contains "$normal_cfg" "terminal_output gfxterm serial"
 assert_contains "$normal_cfg" "terminal_output console serial"
 assert_contains "$normal_cfg" "insmod png"
+assert_contains "$normal_cfg" 'probe --set=ooonana_boot_uuid --fs-uuid ($root)'
+assert_contains "$normal_cfg" 'export ooonana_boot_uuid'
+assert_contains "$normal_cfg" 'ooonana.live.boot_uuid=$ooonana_boot_uuid'
 assert_contains "$normal_cfg" "ooonana_boot_hint"
 assert_contains "$normal_cfg" "ooonana_show_logo"
 assert_contains "$normal_cfg" "cat /boot/grub/ooonana-logo.txt"

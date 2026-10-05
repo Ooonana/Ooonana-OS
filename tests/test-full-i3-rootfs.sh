@@ -1138,7 +1138,8 @@ assert_contains "$rcs" "ooonana.persistence=1"
 assert_contains "$rcs" "OOONANA_PERSISTENCE_OK"
 assert_contains "$rcs" "/mnt/ooonana-live/persistence-mode"
 assert_contains "$rcs" "/mnt/ooonana-live/persistence-device"
-assert_contains "$rcs" "OOONANA_PERSISTENCE_SAFE_SKIP"
+assert_contains "$rcs" "OOONANA_PERSISTENCE_FAILED:missing verified overlay"
+assert_contains "$rcs" "OOONANA_PERSISTENCE_FAILED:bind"
 assert_contains "$rcs" 'mount --bind /mnt/ooonana-live/persist /mnt/persist'
 assert_contains "$rcs" 'mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /tmp'
 assert_contains "$rcs" "ensure_glib_schemas()"

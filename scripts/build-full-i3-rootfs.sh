@@ -3868,15 +3868,21 @@ if [ ! -L /var/run ]; then
 fi
 
 start_persistence() {
-  grep -q 'ooonana.persistence=1' /proc/cmdline 2>/dev/null || return 0
+  persistence_requested=0
+  for persistence_arg in $(cat /proc/cmdline 2>/dev/null || true); do
+    [ "$persistence_arg" != 'ooonana.persistence=1' ] || persistence_requested=1
+  done
+  [ "$persistence_requested" = 1 ] || return 0
   persistence_mode="$(cat /mnt/ooonana-live/persistence-mode 2>/dev/null || true)"
   persistence_device="$(cat /mnt/ooonana-live/persistence-device 2>/dev/null || true)"
   if [ "$persistence_mode" != "usb" ] || [ -z "$persistence_device" ]; then
-    echo "OOONANA_PERSISTENCE_SAFE_SKIP"
-    return 0
+    echo "OOONANA_PERSISTENCE_FAILED:missing verified overlay"
+    return 1
   fi
-  mkdir -p /mnt/persist
-  mount --bind /mnt/ooonana-live/persist /mnt/persist 2>/dev/null || true
+  if ! mkdir -p /mnt/persist || ! mount --bind /mnt/ooonana-live/persist /mnt/persist 2>/dev/null; then
+    echo "OOONANA_PERSISTENCE_FAILED:bind"
+    return 1
+  fi
   echo "OOONANA_PERSISTENCE_OK:$persistence_device"
 }
 

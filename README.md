@@ -212,7 +212,7 @@ Working now:
 - Kernel config is tuned for desktop responsiveness: performance compiler mode, full preemption, dynamic preemption, high-resolution timers, 1000 Hz scheduler tick, scheduler autogroup, zram, and CPU/NVMe temperature sensors.
 - Rufus support has an ISO-mode note inside the ISO, USB-friendly volume labels, and `scripts/verify-rufus-iso.sh`
 - Full-i3 live starts eudev before Xorg and ships libinput config for PS/2 keyboard, mouse, and touchpad discovery
-- Full-i3 live mode does not format or write internal disks. Normal live uses a cleared temporary overlay on `OOONANA_PERSIST` when that partition exists on the same boot USB, with RAM fallback. Persistent live keeps its separate saved overlay there. Only the confirmed installer target can be partitioned or formatted.
+- Full-i3 live boot never formats internal disks. GRUB boot UUID and same-parent checks restrict writable overlays to the boot USB. Normal live uses a cleared temporary overlay there, with RAM fallback when no matching partition exists. Persistent live keeps its separate saved overlay; failed/missing storage stops in recovery instead of silently discarding changes. Only the confirmed installer target can be partitioned or formatted.
 - Full-i3 runs the desktop as the unprivileged `ooonana` user (UID 1000). Administrative commands use a validated wheel-only `doas` policy.
 - Full-i3 mounts `/run` and `/dev/shm` before desktop services, maps `/var/run` to `/run`, starts system D-Bus first, then starts NetworkManager and BlueZ. This runtime order supports Chromium, Wi-Fi, Bluetooth, and desktop applets from live USB and installed systems.
 - Full-i3 ships an Ooonana i3 desktop: solid rounded top panel with music status, RAM gauge, workspaces, and minimize/fullscreen/close controls; centered opaque app dock with pinned icons, running dots, restore-on-click, and right-click window actions; Spotlight-style launcher; opaque rounded GTK windows; dunst notifications; Chromium, Nemo, and editor/media shortcuts. Focus changes on click, not cursor hover. Notes is the default wallpaper again; the graphite wallpaper remains selectable. Fit mode preserves aspect ratio rather than stretching.
@@ -786,6 +786,10 @@ Persistence label: OOONANA_PERSIST
 ```
 
 For Rufus/native USB, flash the ISO normally, then add an ext4 persistence partition labeled `OOONANA_PERSIST`. Ooonana uses it as the full writable live-root overlay. User files, settings, Wi-Fi, Bluetooth pairings, installed packages, and system changes survive reboot. An internal disk carrying the same label is ignored.
+
+GRUB also passes `ooonana.live.boot_uuid` automatically. Persistent boot requires that verified identity and exactly one eligible `OOONANA_PERSIST` partition on its parent disk. Duplicate boot UUIDs across attached drives, duplicate persistence partitions, missing/unmountable storage, unsafe symlink paths, less than 16 MiB free, or failed mount handoff stop boot in recovery. Saved overlays are never automatically cleared or repaired; there is no silent RAM fallback. Direct-kernel boots without the UUID use RAM only, and cannot enable persistence. See [persistent USB safety and verification](docs/persistent-usb-safety.md).
+
+Back up persistent files before reflashing. A saved overlay can override files from a new ISO; automatic base-version migration is still pending. Physical boot/power-loss behavior remains a manual hardware gate.
 
 `ooonana-memory status` reports available RAM, swap, and live storage mode. Ooonana starts compressed zram swap at boot (half physical RAM, capped at 8 GiB); it does not silently create a USB swapfile. Zram helps memory pressure but cannot replace physical RAM for a large model. OpenVINO setup on live USB needs the persistent GRUB entry plus `OOONANA_PERSIST`; RAM-only and temporary overlays cannot safely hold its runtime and model files.
 

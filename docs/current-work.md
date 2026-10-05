@@ -2,6 +2,15 @@
 
 Backend first. ISO building stays with user. Audio backend stays enabled; no playback tests.
 
+## Persistent USB safety pass
+
+- GRUB passes boot-filesystem UUID; writable overlays require matching removable/USB media and exactly one eligible same-parent ext4 persistence partition. Duplicate/cloned boot UUIDs across drives and duplicate persistence partitions stop boot before writable mounting.
+- Persistent mode now fails clearly instead of silently using RAM when identity/storage is missing, unmountable, unwritable or below 16 MiB free. Saved/temporary overlay paths and mount-handoff paths reject symlinks/non-directories. Saved overlays are never auto-cleared or fsck-repaired.
+- Base image loop is read-only with `ro,noload`; image paths cannot escape boot media. Required BusyBox applets are linked explicitly. Critical bind/move failures are no longer ignored, and rcS cannot print persistence success after a failed bind.
+- Storage helper belongs to release resume fingerprint. Fixture suite covers exact flags, identity/parent selection, wrong filesystem, duplicates, unsafe paths, low space, failed probes and rcS status; wired into release preflight and GitLab smoke.
+- Eight isolated QEMU USB-image checks passed: save, reboot restore, temporary first boot/reset, saved data surviving temporary boots, missing UUID, missing partition and cloned UUID rejection. Unrelated same-label USB image stayed byte-identical. Tests use current live-init source/current x86 kernel and release BusyBox, not a production ISO rebuild.
+- Production ISO, physical disks, WSL installation, swap policy and private signing key remain untouched. See [persistent USB safety](persistent-usb-safety.md). Physical Rufus/BIOS/UEFI, crash recovery, orderly shutdown, ongoing space warnings and explicit overlay migration remain gates.
+
 ## PDF input follow-up
 
 - User screenshot exposed an upstream timer restoring the keyboard hint every second. Prior static blank-widget checks did not catch runtime mutation. Timer is now removed from the embedded script; VM tests keep input populated beyond 2.2 seconds to detect recurrence.
