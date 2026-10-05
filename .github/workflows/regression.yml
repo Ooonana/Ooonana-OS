@@ -1,0 +1,29 @@
+name: Backend regression checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Backend, boot policy, kernel configuration, package safety
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -eu
+          bash tests/test-backend-regressions.sh
+          bash tests/test-backend-policy.sh
+          sh tests/test-live-boot-storage.sh
+          sh tests/test-persistence-maintenance.sh
+          bash tests/test-kernel-build.sh
+          bash tests/test-kernel-source.sh
+          bash tests/test-version-order.sh
+          bash tests/smoke-cli.sh
+          python3 tests/test-release-repo.py
+          python3 tests/test-update-safety.py

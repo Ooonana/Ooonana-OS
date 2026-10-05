@@ -51,7 +51,14 @@ command mkdir -p "$tmp/persist" "$tmp/unrelated"
 printf 'preserve\n' >"$tmp/unrelated/important"
 live_overlay_paths_safe "$tmp/persist" overlay || fail 'new saved overlay'
 command mkdir -p "$tmp/persist/overlay/upper" "$tmp/persist/overlay/work"
+live_saved_base_matches "$tmp/persist" ABCD-1234 || fail 'new base identity'
+live_saved_base_matches "$tmp/persist" abcd-1234 || fail 'same base identity'
+reject live_saved_base_matches "$tmp/persist" different-base
+rm "$tmp/persist/overlay/base-id"
 printf 'saved\n' >"$tmp/persist/overlay/upper/user-file"
+reject live_saved_base_matches "$tmp/persist" abcd-1234
+printf 'abcd-1234\n' >"$tmp/persist/overlay/base-id"
+live_saved_base_matches "$tmp/persist" abcd-1234 || fail 'saved data with matching base'
 live_overlay_paths_safe "$tmp/persist" overlay || fail 'existing saved overlay'
 reject live_overlay_paths_safe "$tmp/persist" ../unrelated
 ln -s "$tmp/unrelated" "$tmp/persist/temporary-overlay"

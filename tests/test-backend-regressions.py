@@ -178,11 +178,16 @@ print('SSID', 'input=', repr(' Cafe '), 'parsed=', repr(networks[0]['ssid']))
 
 source = (ROOT/'scripts/build-full-i3-live-initramfs.sh').read_text()
 startup = source.split('cat > "$LIVE_INIT_TREE/init" <<\'EOF\'\n', 1)[1].split('\nEOF', 1)[0]
-startup = startup[:startup.index('mount -t sysfs')]
+prefix = startup[:startup.index('mount -t sysfs')]
+# Exercise current helper and parsing order; never source host /lib or mount devices.
+prefix = prefix.replace('. /lib/ooonana-live-storage.sh',
+                        (ROOT/'scripts/lib/live-boot-storage.sh').read_text())
+parsing = startup[startup.index('persistence_requested=0'):startup.index('splash "starting live boot"')]
 mock = '''proc_ready=0
 mount() { proc_ready=1; }
 cat() { [ "$proc_ready" = 1 ] || return 1; echo ooonana.live.rootfs=/images/custom.ext4; }
 '''
-result = command(['sh'], input=mock + startup + '\nprintf "%s\\n" "$LIVE_IMAGE"\n')
+result = command(['sh'], input=mock + prefix + parsing + '\nprintf "%s\\n" "$LIVE_IMAGE"\n')
+assert result.returncode == 0, result.stdout
 assert result.stdout.strip() == '/images/custom.ext4'
 print('LIVE_ROOTFS_OVERRIDE', repr(result.stdout.strip()))

@@ -28,9 +28,8 @@ case "${1:-}" in
       exit 126
     fi
     sync 2>/dev/null || true
-    /sbin/poweroff -f && exit 0
-    /bin/busybox poweroff -f && exit 0
-    /sbin/halt -f && exit 0
+    /sbin/poweroff && exit 0
+    /bin/busybox poweroff && exit 0
     echo "bunana: shutdown failed" >&2
     exit 1
     ;;
@@ -47,8 +46,8 @@ case "${1:-}" in
       exit 126
     fi
     sync 2>/dev/null || true
-    /sbin/reboot -f && exit 0
-    /bin/busybox reboot -f && exit 0
+    /sbin/reboot && exit 0
+    /bin/busybox reboot && exit 0
     echo "bunana: restart failed" >&2
     exit 1
     ;;

@@ -139,7 +139,7 @@ main() {
     )
   }
   copy_early_firmware
-  for applet in sh mount mkdir mknod sleep cat echo switch_root ls grep umount losetup mdev modprobe stty wc readlink dirname basename blkid rm tr df awk mktemp; do
+  for applet in sh mount mkdir mknod sleep cat echo switch_root ls grep umount losetup mdev modprobe stty wc readlink dirname basename blkid rm tr df awk mktemp mv sync; do
     ln -sf busybox "$LIVE_INIT_TREE/bin/$applet"
   done
   ln -sf ../bin/busybox "$LIVE_INIT_TREE/sbin/mdev"
@@ -371,6 +371,8 @@ case "$live_image_path" in /mnt/iso/*) ;; *) fail "live rootfs escapes boot medi
 splash "attaching live rootfs" 4
 losetup -r /dev/loop0 "$live_image_path" || fail "cannot attach live rootfs image"
 mount -t ext4 -o ro,noload /dev/loop0 /mnt/root-ro || fail "cannot mount live rootfs image"
+live_base_id="$(blkid_value UUID /dev/loop0)" || fail "root image identity missing"
+live_base_id="$(live_normalize_uuid "$live_base_id")" || fail "invalid root image identity"
 splash "creating writable overlay" 6
 overlay_upper="/cow/upper"
 overlay_work="/cow/work"
@@ -403,6 +405,7 @@ if [ -n "$BOOT_UUID" ]; then
       live_overlay_paths_safe /persist overlay || fail "unsafe saved overlay paths; saved data untouched"
       live_persistence_writable /persist || fail "persistence unwritable or below 16 MiB free; no RAM fallback"
       mkdir -p /persist/overlay/upper /persist/overlay/work || fail "cannot prepare saved overlay"
+      live_saved_base_matches /persist "$live_base_id" || fail "saved overlay belongs to another/legacy ISO; boot normal live, then offline backup/migrate; saved data untouched"
       overlay_upper="/persist/overlay/upper"
       overlay_work="/persist/overlay/work"
       persistence_mode="usb"
@@ -432,6 +435,7 @@ mkdir -p /newroot/proc /newroot/sys /newroot/dev /newroot/mnt/ooonana-live/iso /
 printf '%s\n' "$boot_media_device" >/newroot/mnt/ooonana-live/boot-device
 printf '%s\n' "$persistence_mode" >/newroot/mnt/ooonana-live/persistence-mode
 printf '%s\n' "$persistence_device" >/newroot/mnt/ooonana-live/persistence-device
+printf '%s\n' "$live_base_id" >/newroot/mnt/ooonana-live/base-id
 mount --bind /mnt/iso /newroot/mnt/ooonana-live/iso 2>/dev/null || fail "cannot retain boot media mount"
 mount --bind /mnt/root-ro /newroot/mnt/ooonana-live/root-ro 2>/dev/null || fail "cannot retain live rootfs mount"
 mount --bind /cow /newroot/mnt/ooonana-live/cow 2>/dev/null || fail "cannot retain RAM overlay mount"

@@ -9,7 +9,7 @@ Current 0.6 build is based on [ading2210/linuxpdf](https://github.com/ading2210/
 - The PDF exposes a real 80x30 serial terminal plus on-page keyboard controls.
 - Boot uses accelerated VM batches and shows live elapsed time before kernel logs.
 - Chromium PDF viewer is the main target.
-- Native RISC-V64 Linux 6.18.37 / static BusyBox 1.37.0 rootfs carries Ooonana package manager 0.9.8 and current logo/help.
+- Native RISC-V64 Linux 6.18.37 / static BusyBox 1.37.0 rootfs carries Ooonana package manager 0.9.9 and current logo/help.
 - Boot console prints `OOONANA_PDF_BOOT_OK` after Ooonana init starts.
 - Opaque graphite cards, orange monospaced terminal, rounded keyboard controls and a blank command input with Run / Enter; redundant input hints removed.
 - The upstream one-second input-reset interval is removed from embedded JavaScript, not merely the initial widget appearance. Input remains editable without periodic replacement.

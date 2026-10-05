@@ -19,7 +19,7 @@ Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Li
 
 Core 0.9.7 working desktop captured from updated nested WSL i3. Music stays left, AI centered, status controls right, and native dock tracks windows. Cursor excluded. Audio playback not tested; physical USB visuals require a newly built image.
 
-Core 0.9.7 keeps matching opaque app icons and adds focus-neutral hover previews, compact panel layouts and AI request/RAM indicators. Previews use isolated test windows, not physical USB boot:
+Core 0.9.9 keeps matching opaque app icons, focus-neutral hover previews, compact panel layouts and AI request/RAM/storage indicators. Component previews below use isolated test windows, not physical USB boot. Main desktop image above remains the earlier WSL capture:
 
 ![Core 0.9.6 native app icon family](docs/assets/ooonana-native-icons.png)
 
@@ -27,7 +27,7 @@ Core 0.9.7 keeps matching opaque app icons and adds focus-neutral hover previews
 
 ![Native dock tooltip and bounded window preview](docs/assets/ooonana-dock-preview.png)
 
-![AI loading phase and low-RAM indicator using fixture data](docs/assets/ooonana-ai-memory.png)
+![AI loading phase, low-RAM and low-storage indicators using fixture data](docs/assets/ooonana-ai-memory.png)
 
 Dock previews stay in RAM and never restore or focus hidden windows. Compact panel controls remain accessible through windows, dock menus and Control Center. AI shows elapsed time, not invented progress percentages; available RAM respects cgroup limits and excludes swap.
 
@@ -190,7 +190,7 @@ Core pieces:
 
 ## Current Status
 
-Source core 0.9.8 includes nested WSL i3, native hover-preview dock, responsive panel, AI phase/RAM indicators, native and third-party window controls, tailless pointer enlarged 10% from previous defaults, matching app icons, left music, centered AI access and notification center. Existing ISO predates these changes. Source checks are not new-image boot proof. Physical USB RAM/OpenVINO and fan-sensor checks remain pending.
+Source core 0.9.9 includes nested WSL i3, native hover-preview dock, responsive panel, AI phase/RAM/storage indicators, native and third-party window controls, tailless pointer enlarged 10% from previous defaults, matching app icons, left music, centered AI access and notification center. Third-party buttons have larger targets and exclude hidden tabs, fullscreen-covered and overlapping windows. Alt+F4 closes; Alt+F10 toggles fullscreen. Existing ISO predates these changes. Source checks are not new-image boot proof. Physical USB RAM/OpenVINO and fan-sensor checks remain pending.
 
 Core 0.9.8 fixes BusyBox builds that advertise version sorting but cannot perform it. Package-index selection and upgrades now have portable natural-version comparison, preserving first-source ties. ISO preflight rejects a missing signature when a trust key is supplied and checks that required desktop packages are actually reachable from the install profile. The core meta-package health hook preserves the empty legacy ownership manifest after migration, so runtime file checks remain valid.
 
@@ -789,7 +789,9 @@ For Rufus/native USB, flash the ISO normally, then add an ext4 persistence parti
 
 GRUB also passes `ooonana.live.boot_uuid` automatically. Persistent boot requires that verified identity and exactly one eligible `OOONANA_PERSIST` partition on its parent disk. Duplicate boot UUIDs across attached drives, duplicate persistence partitions, missing/unmountable storage, unsafe symlink paths, less than 16 MiB free, or failed mount handoff stop boot in recovery. Saved overlays are never automatically cleared or repaired; there is no silent RAM fallback. Direct-kernel boots without the UUID use RAM only, and cannot enable persistence. See [persistent USB safety and verification](docs/persistent-usb-safety.md).
 
-Back up persistent files before reflashing. A saved overlay can override files from a new ISO; automatic base-version migration is still pending. Physical boot/power-loss behavior remains a manual hardware gate.
+Back up persistent files before reflashing. Saved overlays record the root-image filesystem UUID. A different/legacy base stops persistent startup before overlay activation; no automatic reset. Explicit offline `ooonana-persistence backup` and data-only `migrate` verify metadata and preserve the old overlay through atomic directory exchange. Migration keeps home files, not old accounts/packages/system configuration; recreate accounts with matching UIDs and reinstall packages. See [maintenance commands and limits](docs/persistent-usb-safety.md). Physical boot/power-loss behavior remains a manual hardware gate.
+
+`bunana --shutdown`/`--restart` request normal BusyBox init shutdown, not forced power-off. Fresh images stop writers before sync, swapoff and unmount/remount read-only. Upgrade migrates only the single known legacy shutdown action, preserving installed getty/login entries; custom shutdown actions stay untouched and need manual review of `.ooonana-new`. Silent session warnings and Settings/AI storage indicators report low space, exhausted inodes and read-only storage; no automatic cleanup occurs.
 
 `ooonana-memory status` reports available RAM, swap, and live storage mode. Ooonana starts compressed zram swap at boot (half physical RAM, capped at 8 GiB); it does not silently create a USB swapfile. Zram helps memory pressure but cannot replace physical RAM for a large model. OpenVINO setup on live USB needs the persistent GRUB entry plus `OOONANA_PERSIST`; RAM-only and temporary overlays cannot safely hold its runtime and model files.
 
@@ -852,7 +854,7 @@ sudo parted /dev/sdX unit MiB print free
 sudo parted /dev/sdX mkpart OOONANA_PERSIST ext4 4500MiB 100%
 ```
 
-Use the first free-space start shown by `print free`; `4500MiB` is only an example for the current 4.2 GiB ISO. If the command above has no free-space range, use `gparted` and create an ext4 partition in the unused USB space. Then label it:
+Use the actual free-space start shown by `print free`; `4500MiB` is only an example, not the current ISO size or a safe universal offset. ISO sizes/layouts change. If no free-space range exists, do not create a partition. With a verified range, use `gparted` to create an ext4 partition in unused USB space. Then label only that explicitly confirmed new partition:
 
 ```bash
 sudo mkfs.ext4 -L OOONANA_PERSIST /dev/sdX3

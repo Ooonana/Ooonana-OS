@@ -99,13 +99,10 @@ rcs="$(<"$rootfs/etc/init.d/rcS")"
 init_script="$(<"$rootfs/sbin/init")"
 wsl_conf="$(<"$rootfs/etc/wsl.conf")"
 passwd="$(<"$rootfs/etc/passwd")"
-assert_contains "$init_script" 'console_device="/dev/tty1"'
-assert_contains "$init_script" "mount -t proc proc /proc"
-assert_contains "$init_script" "ooonana.smoke=1"
-assert_contains "$init_script" 'console_device="/dev/ttyS0"'
-assert_contains "$init_script" 'exec <"$console_device" >"$console_device" 2>&1'
-assert_contains "$init_script" 'exec /bin/sh -l'
-assert_contains "$init_script" "/etc/init.d/rcS"
+assert_contains "$init_script" 'exec /bin/busybox init'
+assert_contains "$(<"$rootfs/etc/inittab")" '::sysinit:/etc/init.d/rcS'
+assert_contains "$(<"$rootfs/etc/inittab")" 'tty1::respawn:/bin/sh -l'
+assert_contains "$(<"$rootfs/etc/inittab")" '::shutdown:/usr/bin/ooonana-shutdown-cleanup --from-init'
 assert_contains "$wsl_conf" "[boot]"
 assert_contains "$wsl_conf" "systemd=false"
 assert_contains "$wsl_conf" "[user]"
@@ -114,7 +111,7 @@ assert_contains "$wsl_conf" "[automount]"
 assert_contains "$wsl_conf" "mountFsTab=false"
 assert_contains "$(<"$rootfs/etc/profile")" "/etc/profile.d"
 assert_contains "$(<"$rootfs/etc/profile.d/ooonana-shell.sh")" "bunana()"
-assert_contains "$(<"$rootfs/etc/profile.d/ooonana-shell.sh")" "sync 2>/dev/null || true"
+assert_contains "$(<"$rootfs/etc/profile.d/ooonana-shell.sh")" '/usr/bin/bunana --shutdown'
 assert_contains "$(<"$rootfs/etc/neofetch/config.conf")" 'ascii_distro="Ooonana"'
 assert_contains "$passwd" "root:x:0:0:root:/root:/bin/sh"
 assert_contains "$rcs" "OOONANA_BOOT_OK"

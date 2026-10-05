@@ -11,6 +11,7 @@ uname -a
 ooonana-health --json
 ooonana-service-status
 ooonana-memory status
+ooonana-persistence status
 free -h
 lsblk -o NAME,FSTYPE,MOUNTPOINTS,RO
 ```
@@ -19,9 +20,15 @@ lsblk -o NAME,FSTYPE,MOUNTPOINTS,RO
 - [ ] BIOS/UEFI live boot and safe-graphics entry reach desktop.
 - [ ] Internal SSD and unrelated USB/SD untouched during live boot.
 - [ ] Persistence uses only matching boot USB partition.
+- [ ] New/legacy ISO base mismatch refuses saved overlay without clearing data.
+- [ ] Clean shutdown logs persistence read-only/cleanup markers; saved data returns.
+- [ ] Silent low-space/read-only warning appears; unrelated files never deleted.
+- [ ] Offline verified backup and data-only migration preserve previous overlay.
 - [ ] Installer dry-run lists chosen target; password login enters UID 1000.
 - [ ] Hover never focuses; dock click restores correct app session.
 - [ ] Preview/right-click controls work; hidden windows stay minimized until clicked.
+- [ ] Overlapping/hidden-tab windows show no controls targeting covered clients.
+- [ ] Alt+F4 closes correct window; Alt+F10 enters/exits fullscreen.
 - [ ] Panel fits 1280, 1024 and 768 widths; AI and essential controls remain reachable.
 - [ ] Wi-Fi reconnect after suspend; enterprise profiles validate expected certificates.
 - [ ] Bluetooth controller, pairing, reconnect and suspend tested with real device.

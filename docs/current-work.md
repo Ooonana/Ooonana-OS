@@ -2,6 +2,18 @@
 
 Backend first. ISO building stays with user. Audio backend stays enabled; no playback tests.
 
+## Core 0.9.9 completion pass
+
+- Fixed stale boot-parser regression fixture. Shared helper and current parsing order are exercised without host mounts.
+- Larger third-party titlebar targets; hidden tabs, fullscreen-covered clients and floating-window occlusion no longer expose incorrect controls. Destroyed popup XIDs are released. Alt+F4/Alt+F10 support close/fullscreen without dock access.
+- AI low-memory warning styling and live-space badge; Settings storage card; silent, rate-limited once-per-minute free-space/inode/read-only monitoring. No automatic cleanup or audio playback.
+- BusyBox init owns shutdown in fresh minimal/full images. Standard bunana actions no longer force shutdown; guarded init cleanup stops writers, syncs, disables swap, remounts live persistence read-only and unmounts. Known legacy shutdown action migration preserves installed getty/custom actions.
+- Root-image UUID locks saved overlays to matching bases. Verified offline metadata/hardlink/xattr backups and atomic data-only home migration preserve complete previous overlays. No disks mounted/formatted/repaired/selected by maintenance tools.
+- Core version advances to 0.9.9 for update delivery. Guide and bootable PDF refreshed; legacy lite PDF remains explicitly labeled. Hardware checklist and per-push GitHub regression gate added.
+- Final shell sweep passed 48/48 suites. Package-sort fixture now rejects only version-sort options, not uppercase `V` in temporary filenames; 30 repeated runs passed. Additional radio/audio, readiness, index/memory, update-safety and 116-field PDF checks passed.
+- Isolated GTK/i3 native and third-party close/minimize/restore/fullscreen controls, hover previews, low-RAM/storage indicators and Settings checks passed. Component screenshots refreshed; the main desktop image remains the explicitly labeled earlier WSL capture. Both final PDFs were rendered and visually checked; the actual embedded native PDF boot/input/Backspace/version/package-sync suite passed in 113 seconds.
+- Physical BIOS/UEFI, disconnect/power-loss, radio/audio/sensor and OpenVINO model-load checks remain manual. Private signing key stays local; trust enrollment/CI signing stays deferred. ISO remains user-built.
+
 ## Persistent USB safety pass
 
 - GRUB passes boot-filesystem UUID; writable overlays require matching removable/USB media and exactly one eligible same-parent ext4 persistence partition. Duplicate/cloned boot UUIDs across drives and duplicate persistence partitions stop boot before writable mounting.

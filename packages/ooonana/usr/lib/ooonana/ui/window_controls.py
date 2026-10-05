@@ -3,7 +3,6 @@ import ctypes
 import fcntl
 import os
 from pathlib import Path
-import socket
 import threading
 import time
 import sys
@@ -11,33 +10,64 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import i3_events
 from common import Gdk, GLib, Gtk, icon, run_async
 
-WIDTH = 76
+WIDTH = 88
 
 
 def decoration_targets(tree, visible):
     result = {}
 
-    def visit(node, workspace=None):
+    def fullscreen(node, global_only=False):
+        # i3 workspaces themselves report fullscreen_mode=1 even in normal layout.
+        if node.get("fullscreen_mode") and node.get("type") != "workspace" and (not global_only or node["fullscreen_mode"] == 2):
+            return node
+        for child in node.get("nodes", []) + node.get("floating_nodes", []):
+            found = fullscreen(child, global_only)
+            if found:
+                return found
+        return None
+
+    global_exclusive = fullscreen(tree, global_only=True)
+
+    def overlaps(rectangle, x, y, height):
+        return (rectangle.get("x", 0) < x + WIDTH and x < rectangle.get("x", 0) + rectangle.get("width", 0)
+                and rectangle.get("y", 0) < y + height and y < rectangle.get("y", 0) + rectangle.get("height", 0))
+
+    def visit(node, workspace=None, exclusive=None, occluders=()):
         if node.get("type") == "workspace":
             workspace = node.get("name")
+            exclusive = global_exclusive or fullscreen(node)
         properties = node.get("window_properties") or {}
         klass = str(properties.get("class", "")).lower()
         deco, rect = node.get("deco_rect") or {}, node.get("rect") or {}
-        if node.get("window") and workspace in visible and not node.get("fullscreen_mode") and not klass.startswith(("ooonana", "oonana", "polybar")):
+        if node.get("window") and workspace in visible and not node.get("fullscreen_mode") and exclusive is None and not klass.startswith(("ooonana", "oonana", "polybar")):
             height, width = deco.get("height", 0), deco.get("width", 0)
             if 16 <= height <= 64 and width >= WIDTH:
-                result[node["id"]] = (rect.get("x", 0) + deco.get("x", 0) + width - WIDTH,
-                                       rect.get("y", 0) + deco.get("y", 0), height)
-        for key in ("nodes", "floating_nodes"):
-            for child in node.get(key, []):
-                visit(child, workspace)
+                x = rect.get("x", 0) + deco.get("x", 0) + width - WIDTH
+                y = rect.get("y", 0) + deco.get("y", 0)
+                if not any(overlaps(front, x, y, height) for front in occluders):
+                    result[node["id"]] = (x, y, height)
+        children = node.get("nodes", [])
+        if node.get("layout") in ("tabbed", "stacked") and children:
+            order = node.get("focus", [])
+            selected = next((child for identifier in order for child in children if child.get("id") == identifier), children[0])
+            # Hidden tabs must never expose controls targeting invisible clients.
+            children = [selected]
+        floating = node.get("floating_nodes", [])
+        order = node.get("focus", [])
+        floating = sorted(floating, key=lambda child: order.index(child["id"]) if child.get("id") in order else len(order))
+        fronts = list(occluders)
+        for child in floating:
+            visit(child, workspace, exclusive, fronts)
+            fronts.append(child.get("rect", {}))
+        for child in children:
+            visit(child, workspace, exclusive, fronts)
     visit(tree)
     return result
 
 
 CSS = b"""
 .third-party-controls { background: #1b1f26; border: none; box-shadow: none; }
-.third-party-controls button { min-width: 16px; min-height: 16px; padding: 0; border-radius: 99px; border: 1px solid #242830; color: #101317; box-shadow: none; }
+.third-party-controls button { min-width: 20px; min-height: 18px; padding: 0; border-radius: 99px; border: 1px solid #242830; color: #101317; box-shadow: none; }
 .third-party-controls .close { background: #ff736b; }
 .third-party-controls .minimize { background: #ffd16c; }
 .third-party-controls .fullscreen { background: #7fd6a0; }
@@ -51,6 +81,8 @@ class Controls(Gtk.Window):
         self.identifier = identifier
         self.last_position = None
         self.connect("realize", self.register, owner)
+        self.connect("destroy", self.unregister, owner)
+        self.xid = None
         self.set_decorated(False)
         self.set_accept_focus(False)
         self.set_focus_on_map(False)
@@ -76,6 +108,10 @@ class Controls(Gtk.Window):
     def register(self, _widget, owner):
         from gi.repository import GdkX11
         owner.own_windows.add(GdkX11.X11Window.get_xid(self.get_window()))
+        self.xid = GdkX11.X11Window.get_xid(self.get_window())
+
+    def unregister(self, _widget, owner):
+        owner.own_windows.discard(self.xid)
 
     def activate(self, action):
         run_async(["ooonana-window-list", "--window-action", action, str(self.identifier)], lambda *_: None)

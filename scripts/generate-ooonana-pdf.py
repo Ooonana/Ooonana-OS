@@ -25,9 +25,18 @@ def pdf_escape(text: str) -> str:
     return text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
 
 
-def page_stream(lines: list[str]) -> str:
-    body = ["BT", "/F1 10 Tf", "13 TL", "54 744 Td"]
+HEADINGS = {"What it is", "Editions", "Package install", "Cloud repo", "Installer",
+            "USB live modes", "First boot", "WSL", "AI", "Desktop and hardware",
+            "Bootable PDF", "Build proof markers", "Persistence maintenance"}
+
+
+def page_stream(lines: list[str], page: int = 1, count: int = 1) -> str:
+    body = ["0.065 0.075 0.09 rg 0 754 612 38 re f",
+            "BT /F2 12 Tf 1 0.70 0.10 rg 54 769 Td (OOONANA / FIELD GUIDE) Tj ET",
+            f"BT /F1 9 Tf 0.36 0.39 0.44 rg 54 36 Td (Core 0.9.9 - {page} / {count}) Tj ET",
+            "BT", "/F1 9.5 Tf", "13 TL", "54 728 Td"]
     for line in lines:
+        body.append("/F2 11 Tf 0.62 0.34 0.01 rg" if line.removesuffix(" (continued)") in HEADINGS else "/F1 9.5 Tf 0.13 0.15 0.18 rg")
         body.append(f"({pdf_escape(line)}) Tj")
         body.append("T*")
     body.append("ET")
@@ -37,18 +46,19 @@ def page_stream(lines: list[str]) -> str:
 def paginate(lines: list[str], per_page: int = 48) -> list[list[str]]:
     pages: list[list[str]] = []
     current: list[str] = []
-    headings = {"What it is", "Editions", "Package install", "Cloud repo", "Installer",
-                "USB live modes", "First boot", "WSL", "AI", "Desktop and hardware",
-                "Bootable PDF", "Build proof markers"}
+    section = ""
+    headings = HEADINGS
     for line in lines:
         if line in headings and len(current) > per_page - 4:
             pages.append(current)
             current = []
-        for wrapped in wrap_line(line):
-            current.append(wrapped)
-            if len(current) >= per_page:
-                pages.append(current)
-                current = []
+        block = wrap_line(line)
+        if len(current) + len(block) > per_page:
+            pages.append(current)
+            current = [section + " (continued)", ""] if section and line not in headings else []
+        if line in headings:
+            section = line
+        current.extend(block)
     if current:
         pages.append(current)
     return pages
@@ -59,7 +69,7 @@ def build_lines() -> list[str]:
     return [
         *logo,
         "",
-        "Ooonana OS 0.9.6 field guide",
+        "Ooonana OS 0.9.9 field guide",
         "",
         "What it is",
         "Ooonana OS is a scratch-built Linux project with its own rootfs, boot flow, installer experiments, WSL export, and custom ooonana package manager.",
@@ -94,6 +104,7 @@ def build_lines() -> list[str]:
         "USB live modes",
         "Normal live mode mounts ISO and rootfs read-only. It uses a cleared temporary overlay on OOONANA_PERSIST when available on the same boot USB, with RAM fallback.",
         "Persistent live mode accepts only an ext4 OOONANA_PERSIST partition on the same physical boot USB. Its full writable overlay saves files, settings, Wi-Fi, Bluetooth pairings, packages, and system changes.",
+        "GRUB boot UUID and same-parent checks protect unrelated media. Cloned UUIDs, unsafe paths, missing/unwritable persistence, and mismatched ISO base identity stop in recovery; no silent RAM fallback or automatic repair.",
         "Other disks may be probed read-only. Live mode writes only to matching boot USB persistence. Only the confirmed installer target can be partitioned or formatted.",
         "",
         "First boot",
@@ -111,7 +122,7 @@ def build_lines() -> list[str]:
         "",
         "Desktop and hardware",
         "The i3 desktop uses solid graphite and orange styling, rounded controls, a top music/window bar, and a centered opaque dock with running dots, click-to-restore apps, and right-click window actions.",
-        "Core 0.9.6 adds matching native app icons, event-driven third-party titlebar controls and 10% larger cursor defaults (public 19px, personal 21px).",
+        "Core 0.9.9 includes matching native icons, focus-neutral dock previews, responsive panel spacing, AI loading/RAM/storage indicators, and larger third-party controls that exclude hidden tabs and fullscreen-covered windows. Alt+F4 closes; Alt+F10 toggles fullscreen.",
         "Ctrl+Shift+Esc opens native Task Manager with processes, performance, and available temperature and fan sensors. Unavailable hardware counters are labeled, not guessed.",
         "Live USB starts compressed zram swap. OpenVINO setup requires persistent USB storage or an installed system; RAM-only live storage cannot hold its runtime and models.",
         "Ooonana OpenVINO Chat 0.2.1 has a browser GUI through an authenticated loopback bridge. Windows-only computer-control tools are unavailable on Linux.",
@@ -120,8 +131,14 @@ def build_lines() -> list[str]:
         "OpenVINO Linux dependencies use exact wheel hashes and a pinned Ubuntu image/APT snapshot. Signing private key stays local; public CI signing is deferred.",
         "",
         "Bootable PDF",
-        "docs/ooonana.pdf now uses native RISC-V64 Linux 6.18.37 and BusyBox 1.37.0. TinyEMU boot, input and version checks passed; package-sync performance and Chromium viewer checks remain.",
+        "docs/ooonana.pdf uses native RISC-V64 Linux 6.18.37 and BusyBox 1.37.0. Embedded VM boot, stable input, native/virtual Backspace, version and package sync passed. Actual Chromium PDF interaction remains a manual gate.",
         "RV64 JavaScript emulator clock is scaled down 16x for CPU progress. Guest time is slower than real time. This terminal PDF is not the x86 i3 desktop.",
+        "docs/ooonana-lite.pdf is a legacy artifact, not the current optimized runtime.",
+        "",
+        "Persistence maintenance",
+        "bunana --shutdown and --restart request orderly init shutdown, stopping writers before sync, swapoff and unmount/remount read-only. No forced fallback. Live storage warnings are silent; no files are deleted automatically.",
+        "ooonana-persistence backup requires explicit read-only ext4 mount, matching UUID and a new destination on another filesystem. Ownership, hardlinks and xattrs are verified. Active live overlay operations are refused.",
+        "ooonana-persistence migrate requires matching verified backup and explicit data-only confirmation. It atomically switches to a fresh base, keeps home data, and preserves the complete old overlay. Accounts, packages and system configuration must be recreated; see docs/persistent-usb-safety.md.",
         "",
         "Build proof markers",
         "OOONANA_CLI_OK",
@@ -133,16 +150,17 @@ def build_lines() -> list[str]:
 
 
 def write_pdf(pages: list[list[str]], out: Path) -> None:
-    objects: list[str] = ["", "", "<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>"]
+    objects: list[str] = ["", "", "<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>",
+                          "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"]
     page_ids: list[int] = []
-    for lines in pages:
-        stream = page_stream(lines)
+    for number, lines in enumerate(pages, 1):
+        stream = page_stream(lines, number, len(pages))
         content_id = len(objects) + 1
         objects.append(f"<< /Length {len(stream.encode('latin-1', 'replace'))} >>\nstream\n{stream}\nendstream")
         page_id = len(objects) + 1
         objects.append(
             f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
-            f"/Resources << /Font << /F1 3 0 R >> >> /Contents {content_id} 0 R >>"
+            f"/Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents {content_id} 0 R >>"
         )
         page_ids.append(page_id)
 

@@ -143,30 +143,15 @@ EOF
 
   write_file "$ROOTFS/sbin/init" 0755 <<'EOF'
 #!/bin/sh
-if [ "$(cat /etc/ooonana/system-mode 2>/dev/null)" = installed ]; then
-  exec /bin/busybox init
-fi
-mount -t proc proc /proc 2>/dev/null || true
-mount -t sysfs sysfs /sys 2>/dev/null || true
-mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
-mkdir -p /dev/pts
-mount -t devpts devpts /dev/pts 2>/dev/null || true
-console_device="/dev/tty1"
-if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
-  console_device="/dev/ttyS0"
-fi
-[ -e "$console_device" ] || console_device="/dev/console"
-exec <"$console_device" >"$console_device" 2>&1
-/etc/init.d/rcS
-echo "Ooonana shell on console"
-exec /bin/sh -l <"$console_device" >"$console_device" 2>&1
+exec /bin/busybox init
 EOF
 
   write_file "$ROOTFS/etc/inittab" 0644 <<'EOF'
 ::sysinit:/etc/init.d/rcS
+tty1::respawn:/bin/sh -l
 ttyS0::respawn:/bin/sh
 ::ctrlaltdel:/sbin/reboot
-::shutdown:/bin/umount -a -r
+::shutdown:/usr/bin/ooonana-shutdown-cleanup --from-init
 EOF
 
   write_file "$ROOTFS/etc/init.d/rcS" 0755 <<'EOF'
@@ -326,7 +311,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   list_output="$(/usr/bin/ooonana list 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.8' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.9' &&
     printf '%s\n' "$me_output" | grep -q 'Ooonana OS' &&
     printf '%s\n' "$list_output" | grep -q 'gui' &&
     printf '%s\n' "$installed_output" | grep -q 'base'; then

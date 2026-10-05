@@ -659,7 +659,7 @@ apply_install_config() {
 tty1::respawn:/bin/busybox getty 38400 tty1
 tty2::respawn:/bin/busybox getty 38400 tty2
 ::ctrlaltdel:/sbin/reboot
-::shutdown:/bin/umount -a -r
+::shutdown:/usr/bin/ooonana-shutdown-cleanup --from-init
 LOGIN
   cat >"$root/etc/profile.d/ooonana-session.sh" <<'SESSION'
 if [ "$(id -u)" != 0 ] && [ -z "${DISPLAY:-}" ] &&

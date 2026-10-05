@@ -6,7 +6,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from ui_preferences import load_preferences, save_preferences, transition_ms
+from storage_health import storage_health
 from common import (  # noqa: E402
     Gtk,
     apply_theme,
@@ -374,6 +376,11 @@ class SettingsWindow(Gtk.Window):
         )
         page.pack_start(source, False, False, 0)
 
+        storage = card("Live storage", "Persistent USB saves changes; temporary sessions do not. Backup/migration requires offline maintenance.", "drive-removable-media-symbolic")
+        self.status_widgets["storage"] = label("")
+        storage.pack_start(self.status_widgets["storage"], False, False, 0)
+        page.pack_start(storage, False, False, 0)
+
         install = card("Install and power", "Disk writes happen only after installer confirmation.", "drive-harddisk-symbolic")
         install.pack_start(
             self.actions(
@@ -426,6 +433,8 @@ class SettingsWindow(Gtk.Window):
         self.set_status("bluetooth_detail", "Checking Bluetooth service...", "warn")
 
         repo = self.repo_uri()
+        health = storage_health()
+        self.set_status("storage", health["caption"], "bad" if health["level"] == "critical" else "warn" if health["level"] == "low" else "neutral")
         self.set_status("repo", repo, "good" if repo.startswith("http") else "warn")
         self.set_status("repo_detail", repo, "good" if repo.startswith("http") else "warn")
         if "wallpaper" in self.status_widgets:

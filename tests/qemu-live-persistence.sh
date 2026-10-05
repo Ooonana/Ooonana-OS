@@ -4,22 +4,30 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 KERNEL=""
 SEED_INITRAMFS=""
+BOOT_FS=ext4
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --kernel) KERNEL="$2"; shift 2 ;;
     --seed-initramfs) SEED_INITRAMFS="$2"; shift 2 ;;
+    --boot-fs) BOOT_FS="$2"; shift 2 ;;
     *) printf 'usage: %s --kernel FILE --seed-initramfs FILE\n' "$0" >&2; exit 2 ;;
   esac
 done
 [[ -f "$KERNEL" && -f "$SEED_INITRAMFS" ]] || { printf 'kernel and seed initramfs files required\n' >&2; exit 2; }
+case "$BOOT_FS" in ext4|vfat) ;; *) echo 'boot filesystem must be ext4 or vfat' >&2; exit 2 ;; esac
 for tool in qemu-system-x86_64 sfdisk mke2fs cpio gzip dd sha256sum; do
   command -v "$tool" >/dev/null || { printf 'missing %s\n' "$tool" >&2; exit 2; }
 done
 tmp="$(mktemp -d /var/tmp/ooonana-persist-smoke.XXXXXXXX)"
 qemu_pid=""
 cleanup() {
+  local result=$?
   if [[ -n "$qemu_pid" ]]; then kill "$qemu_pid" 2>/dev/null || true; wait "$qemu_pid" 2>/dev/null || true; fi
-  case "$tmp" in /var/tmp/ooonana-persist-smoke.????????) rm -rf -- "$tmp" ;; esac
+  if [[ "$result" -eq 0 ]]; then
+    case "$tmp" in /var/tmp/ooonana-persist-smoke.????????) rm -rf -- "$tmp" ;; esac
+  else
+    printf 'Failed fixture/logs retained: %s\n' "$tmp" >&2
+  fi
 }
 trap cleanup EXIT
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
@@ -31,11 +39,14 @@ gzip -dc "$SEED_INITRAMFS" | (
     './lib/libc.musl-x86_64.so.1' 'lib/libc.musl-x86_64.so.1'
 )
 [[ -x "$tmp/rootfs/bin/busybox" ]] || fail 'seed BusyBox missing'
-mkdir -p "$tmp/rootfs/etc/ooonana" "$tmp/rootfs/usr/bin" "$tmp/rootfs/sbin" "$tmp/rootfs/root"
-for applet in sh cat grep mkdir sync poweroff; do ln -s busybox "$tmp/rootfs/bin/$applet"; done
+mkdir -p "$tmp/rootfs/etc/ooonana" "$tmp/rootfs/etc/init.d" "$tmp/rootfs/usr/bin" "$tmp/rootfs/sbin" "$tmp/rootfs/root"
+for applet in sh cat grep mkdir sync poweroff sleep readlink mount umount swapoff; do ln -s busybox "$tmp/rootfs/bin/$applet"; done
+ln -s ../bin/busybox "$tmp/rootfs/sbin/init"
+install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana-shutdown-cleanup" "$tmp/rootfs/usr/bin/ooonana-shutdown-cleanup"
+printf '::sysinit:/etc/init.d/rcS\n::shutdown:/usr/bin/ooonana-shutdown-cleanup --from-init\n' >"$tmp/rootfs/etc/inittab"
 printf 'full-i3\n' >"$tmp/rootfs/etc/ooonana/edition"
 printf '#!/bin/sh\nexit 0\n' >"$tmp/rootfs/usr/bin/start-ooonana-i3"
-cat >"$tmp/rootfs/sbin/init" <<'EOF'
+cat >"$tmp/rootfs/etc/init.d/rcS" <<'EOF'
 #!/bin/sh
 set -eu
 PATH=/bin:/sbin
@@ -59,9 +70,9 @@ case " $(cat /proc/cmdline) " in
 esac
 echo "FIXTURE_MODE:$(cat /mnt/ooonana-live/persistence-mode)"
 sync
-poweroff -f
+poweroff
 EOF
-chmod +x "$tmp/rootfs/sbin/init" "$tmp/rootfs/usr/bin/start-ooonana-i3"
+chmod +x "$tmp/rootfs/etc/init.d/rcS" "$tmp/rootfs/usr/bin/start-ooonana-i3"
 bash "$ROOT/scripts/build-full-i3-live-initramfs.sh" --rootfs "$tmp/rootfs" \
   --kernel "$KERNEL" --initramfs "$tmp/live.cpio.gz" \
   --rootfs-image "$tmp/boot/images/ooonana-full-i3-live-rootfs.ext4" --force >"$tmp/build.log" 2>&1
@@ -69,7 +80,15 @@ bash "$ROOT/scripts/build-full-i3-live-initramfs.sh" --rootfs "$tmp/rootfs" \
 # All format/partition/copy targets below are regular files under this new fixture.
 boot_uuid=11111111-2222-3333-4444-555555555555
 truncate -s 192M "$tmp/boot.ext4"
-mke2fs -q -t ext4 -m 0 -U "$boot_uuid" -L OOONANAUSB -d "$tmp/boot" "$tmp/boot.ext4"
+if [[ "$BOOT_FS" == vfat ]]; then
+  boot_uuid=A1B2-C3D4
+  for tool in mkfs.vfat mcopy mmd; do command -v "$tool" >/dev/null || fail "missing $tool"; done
+  mkfs.vfat -F 32 -i A1B2C3D4 -n OOONANAUSB "$tmp/boot.ext4" >/dev/null
+  mmd -i "$tmp/boot.ext4" ::/images
+  mcopy -i "$tmp/boot.ext4" "$tmp/boot/images/ooonana-full-i3-live-rootfs.ext4" ::/images/
+else
+  mke2fs -q -t ext4 -m 0 -U "$boot_uuid" -L OOONANAUSB -d "$tmp/boot" "$tmp/boot.ext4"
+fi
 truncate -s 64M "$tmp/persist.ext4"
 mke2fs -q -t ext4 -m 0 -L OOONANA_PERSIST "$tmp/persist.ext4"
 truncate -s 258M "$tmp/usb.raw"
@@ -113,6 +132,10 @@ run_guest() {
     fail "$name missing $expected"
   fi
   [[ "$(sha256sum "$tmp/unrelated.ext4")" = "$unrelated_before" ]] || fail "$name changed unrelated USB"
+  if [[ "$expected" == FIXTURE_* ]]; then
+    grep -q OOONANA_SHUTDOWN_CLEANUP_DONE "$tmp/$name.log" || fail "$name skipped orderly shutdown"
+    grep -q OOONANA_PERSISTENCE_READ_ONLY "$tmp/$name.log" || { tail -25 "$tmp/$name.log" >&2; fail "$name persistence not remounted read-only"; }
+  fi
   printf 'ok persistence-qemu-%s\n' "$name"
 }
 persistent_args="ooonana.live.boot_uuid=$boot_uuid ooonana.persistence=1"

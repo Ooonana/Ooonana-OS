@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from common import (  # noqa: E402
     Gtk,
     Pango,
@@ -30,6 +31,7 @@ from chat_store import ChatStore  # noqa: E402
 from chat_widgets import ChatRequest, apply_ai_theme, message_widget, sidebar_button  # noqa: E402
 from ui_preferences import transition_ms  # noqa: E402
 from memory_status import available_ram, memory_caption
+from storage_health import storage_health
 
 
 def status_field(output, field, default=""):
@@ -140,6 +142,11 @@ class AiWindow(Gtk.Window):
         self.memory_label.set_tooltip_text("Available RAM includes cgroup limits. Swap is excluded. Availability is not a model-load guarantee.")
         self.memory_label.set_no_show_all(True)
         indicators.pack_start(self.memory_label, False, False, 0)
+        self.storage_label = label("", "muted", wrap=False)
+        self.storage_label.set_max_width_chars(28)
+        self.storage_label.set_ellipsize(Pango.EllipsizeMode.END)
+        self.storage_label.set_no_show_all(True)
+        indicators.pack_start(self.storage_label, False, False, 0)
         provider_row.pack_end(indicators, False, False, 0)
         remove = button("", "user-trash-symbolic", self.delete_chat)
         remove.set_valign(Gtk.Align.CENTER)
@@ -310,8 +317,22 @@ class AiWindow(Gtk.Window):
             Gtk.main_quit()
 
     def update_memory(self):
-        self.memory_label.set_text(memory_caption(available_ram()))
+        memory = available_ram()
+        self.memory_label.set_text(memory_caption(memory))
+        style = self.memory_label.get_style_context()
+        (style.add_class if memory and memory["low"] else style.remove_class)("status-warn")
         self.memory_label.set_visible(self.provider_combo.get_active_id() == "openvino")
+        health = storage_health()
+        caption = "Storage read-only · save work" if health.get("readonly") else (
+            f"USB {'critical' if health['level'] == 'critical' else 'low space'} · {health['free'] / 1024**3:.1f} GiB"
+            if "free" in health and health["level"] in ("low", "critical") else health["caption"])
+        self.storage_label.set_text(caption)
+        self.storage_label.set_tooltip_text(health["caption"] + ". Offline runtime/models need saved storage; no automatic cleanup.")
+        self.storage_label.set_visible(health["level"] in ("low", "critical"))
+        style = self.storage_label.get_style_context()
+        style.remove_class("status-warn")
+        style.remove_class("status-bad")
+        style.add_class("status-bad" if health["level"] == "critical" else "status-warn")
 
     def set_phase(self, title=None):
         if self.phase_timer:

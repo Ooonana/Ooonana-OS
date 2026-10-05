@@ -85,7 +85,7 @@ if (benchmark) {
 const commands = [
   ["bare", "ooonana", "Usage: ooonana"],
   ["help", "ooonana help packages", "Package flow:"],
-  ["version", "ooonana version", "ooonana 0.9.8"],
+  ["version", "ooonana version", "ooonana 0.9.9"],
   ["list", "ooonana list", "base"],
   ["sync", "ooonana update", "ooonana repo: synced"],
 ];
@@ -201,7 +201,7 @@ const monitor = setInterval(() => {
     sandbox.queue_console_text("ooonana version\r");
     sentVersion = true;
   }
-  if (sentVersion && !sentUpdate && output.includes("ooonana 0.9.8")) {
+  if (sentVersion && !sentUpdate && output.includes("ooonana 0.9.9")) {
     if (process.env.OOONANA_PDF_TMPFS_ONLY === "1") {
       phase = "tmpfs";
       sandbox.queue_console_text("grep -q 'tmpfs /tmp tmpfs' /proc/mounts && echo OOONANA_PDF_TMPFS_OK\r");

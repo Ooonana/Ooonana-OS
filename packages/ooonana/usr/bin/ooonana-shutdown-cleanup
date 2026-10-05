@@ -1,0 +1,41 @@
+#!/bin/sh
+# BusyBox init shutdown action only. Never run this against host/WSL services.
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+export PATH
+
+shutdown_cleanup() {
+  # Shell builtin excludes caller and PID 1. Stop writers before sync/unmount.
+  kill -TERM -1 2>/dev/null || true
+  sleep 2
+  kill -KILL -1 2>/dev/null || true
+  sync || echo 'OOONANA_SHUTDOWN_SYNC_FAILED' >&2
+  swapoff -a 2>/dev/null || true
+  mount -o remount,ro / 2>/dev/null || echo 'OOONANA_SHUTDOWN_ROOT_RO_WARNING' >&2
+  mode="$(cat /mnt/ooonana-live/persistence-mode 2>/dev/null || true)"
+  target=""
+  case "$mode" in
+    usb) target=/mnt/ooonana-live/persist ;;
+    usb-temporary) target=/mnt/ooonana-live/temporary ;;
+  esac
+  if [ -n "$target" ]; then
+    if [ -d "$target" ] && [ ! -L "$target" ] && mount -o remount,ro "$target" 2>/dev/null; then
+      echo 'OOONANA_PERSISTENCE_READ_ONLY'
+    else
+      echo 'OOONANA_SHUTDOWN_PERSIST_RO_WARNING' >&2
+    fi
+  fi
+  umount -a -r 2>/dev/null || echo 'OOONANA_SHUTDOWN_UNMOUNT_WARNING' >&2
+  sync || echo 'OOONANA_SHUTDOWN_SYNC_FAILED' >&2
+  echo 'OOONANA_SHUTDOWN_CLEANUP_DONE'
+}
+
+case "${1:-}" in
+  --dry-run) printf 'TERM writers; wait 2s; KILL remaining writers; sync; swapoff; unmount/remount read-only; sync\n'; exit 0 ;;
+  --from-init) ;;
+  *) echo 'usage: ooonana-shutdown-cleanup --dry-run (init owns real shutdown)' >&2; exit 2 ;;
+esac
+[ "${PPID:-0}" = 1 ] && [ "$(readlink /proc/1/exe 2>/dev/null)" = /bin/busybox ] || {
+  echo 'ooonana-shutdown-cleanup: refusing outside BusyBox init shutdown action' >&2
+  exit 1
+}
+shutdown_cleanup

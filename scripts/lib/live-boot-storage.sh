@@ -94,6 +94,27 @@ live_persistence_writable() (
   printf 'writable\n' >"$live_probe" || return 1
 )
 
+# Root-image filesystem UUID changes on rebuild; stale upper files must not hide
+# new boot services. Legacy/nonmatching overlays require explicit offline backup.
+live_saved_base_matches() (
+  live_root="$1"
+  live_base="$(live_normalize_uuid "$2")" || return 1
+  live_overlay_paths_safe "$live_root" overlay || return 1
+  live_marker="$live_root/overlay/base-id"
+  [ ! -L "$live_marker" ] || return 1
+  if [ -e "$live_marker" ]; then
+    [ -f "$live_marker" ] || return 1
+    [ "$(cat "$live_marker")" = "$live_base" ]
+    return $?
+  fi
+  [ -z "$(ls -A "$live_root/overlay/upper")" ] || return 1
+  live_pending="$(mktemp "$live_root/overlay/.base-id.XXXXXX")" || return 1
+  trap 'rm -f "$live_pending"' 0
+  printf '%s\n' "$live_base" >"$live_pending" || return 1
+  mv "$live_pending" "$live_marker" || return 1
+  sync
+)
+
 live_handoff_paths_safe() (
   live_root="$1"
   [ -d "$live_root" ] && [ ! -L "$live_root" ] || return 1
@@ -102,7 +123,7 @@ live_handoff_paths_safe() (
     [ ! -L "$live_path" ] || return 1
     [ ! -e "$live_path" ] || [ -d "$live_path" ] || return 1
   done
-  for live_suffix in boot-device persistence-mode persistence-device; do
+  for live_suffix in boot-device persistence-mode persistence-device base-id; do
     live_path="$live_root/mnt/ooonana-live/$live_suffix"
     [ ! -L "$live_path" ] || return 1
     [ ! -e "$live_path" ] || [ -f "$live_path" ] || return 1

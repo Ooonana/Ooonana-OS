@@ -26,7 +26,8 @@ def wait(predicate, timeout=8):
 
 with tempfile.TemporaryDirectory() as temporary:
     config = Path(temporary) / "i3.conf"
-    config.write_text('font pango:Sans 10\nfocus_follows_mouse no\ndefault_border normal 1\nfor_window [class="ThirdPartyTest"] floating enable, resize set 520 330, move position 80 80\n')
+    config.write_text("\n".join(line for line in (root / "branding/i3/config").read_text().splitlines()
+                                if not line.startswith("exec")) + '\nfor_window [class="ThirdPartyTest"] floating enable, resize set 520 330, move position 80 80\n')
     env = {**os.environ, "PATH": str(root / "packages/ooonana/usr/bin") + ":" + os.environ["PATH"]}
     os.environ["PATH"] = env["PATH"]
     wm = subprocess.Popen(["i3", "-c", str(config)], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -39,7 +40,7 @@ with tempfile.TemporaryDirectory() as temporary:
             except (OSError, subprocess.SubprocessError):
                 return False
         wait(ready)
-        terminal = subprocess.Popen(["xterm", "-class", "ThirdPartyTest", "-title", "Controls test"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        terminal = subprocess.Popen(["xterm", "-class", "ThirdPartyTest", "-title", "Controls fixture", "-bg", "#101317", "-fg", "#f5f5f7", "-e", "sh", "-c", "printf 'Third-party controls fixture'; sleep 120"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         manager = Manager()
         wait(lambda: bool(manager.controls))
         path = i3_events.socket_path()

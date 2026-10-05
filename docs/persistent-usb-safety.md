@@ -18,9 +18,15 @@ fsck repair, or deletion of saved overlays.
 - Saved `overlay/upper` and `overlay/work` must be real directories, not
   symlinks/files. Directory creation and mount failures are explicit errors.
   Existing saved upper data is never reset.
+- Saved overlays record root-image filesystem UUID in `overlay/base-id`.
+  Different ISO bases and legacy nonempty overlays without that marker stop
+  before mounting the overlay. Empty first-use overlays receive the marker
+  atomically. No old system files silently hide new boot services.
 - A disposable write probe checks storage readiness. At least 16 MiB must be
-  available before persistent startup. This startup check is not ongoing disk-full
-  protection. Normal ext4 journal replay can write the selected persistence
+  available before persistent startup. Session monitor checks free space,
+  inodes and read-only state once per minute, with silent, rate-limited warnings;
+  it never deletes files or guarantees protection from disk-full writes.
+  Normal ext4 journal replay can write the selected persistence
   partition during its read-write mount; no automatic fsck repair is run.
 - Normal live clears only guarded `temporary-overlay` on verified boot media;
   saved `overlay` remains separate. With no matching partition it uses RAM.
@@ -65,10 +71,66 @@ bash tests/qemu-live-persistence.sh \
 - Confirm saved files, network settings and package changes across clean reboots;
   confirm unrelated SSD/USB/SD disks stay unchanged. Avoid power-cut tests with
   valuable data; controlled crash recovery needs disposable media.
-- Replace forced shutdown with tested orderly service stop/unmount sequencing.
-- Add disk-space warnings during sessions, backup/export and explicit migration
-  for saved overlays when the base ISO changes. Old upper files can hide newer
-  lower files; no migration/reset is claimed by this patch.
 - Physical RAM/swap, USB disconnect and filesystem-error handling still need
-  hardware regression checks. No kernel rebuild, swap-policy change, WSL upgrade,
-  audio playback or signing enrollment occurs in this pass.
+  hardware regression checks. No audio playback or signing enrollment occurs.
+
+## Orderly shutdown
+
+Fresh full-i3 and minimal images run BusyBox init. `bunana --shutdown` and
+`--restart` signal init normally; no forced fallback. Its guarded shutdown action
+terminates writers, waits two seconds, kills remaining processes, syncs,
+disables swap and unmounts/remounts filesystems read-only before final sync.
+Direct host/WSL invocation of cleanup is refused. QEMU persistence fixtures
+require the cleanup marker before successful save/reboot verification.
+Unmount warnings remain visible; hardware write-cache/power-loss behavior needs
+physical testing. Applications may lose unsaved in-memory work at shutdown.
+
+Upgrade changes only the single exact known legacy shutdown action; other lines,
+including installed getty/login entries, remain unchanged. Custom shutdown actions
+are not rewritten. Review `.ooonana-new` without importing live root-shell lines.
+Keep installed getty/login lines and replace only legacy
+`::shutdown:/bin/umount -a -r` with:
+
+```text
+::shutdown:/usr/bin/ooonana-shutdown-cleanup --from-init
+```
+
+## Offline backup and data-only migration
+
+Run from another Linux system, never the active persistent/temporary USB session.
+Select and mount the intended ext4 partition yourself; tools never mount, format,
+repair, enumerate/select writable disks, or delete saved data. Verify UUID first.
+Backup needs a read-only `ro,noload` whole-filesystem mount and a new destination
+directory on a different Linux filesystem supporting ownership, links and xattrs.
+Use sanitized placeholders below, not guessed device paths:
+
+```sh
+sudo ooonana-persistence backup --mount /mnt/confirmed-persistence \
+  --expect-uuid CONFIRMED-PERSISTENCE-UUID --output /safe/other-filesystem/usb-backup
+```
+
+Export verifies file hashes, modes, ownership, timestamps, symlinks, hardlinks,
+special nodes and extended attributes. Incomplete exports remain private staging
+directories, never promoted as verified backups. Sockets/unsupported metadata
+fail clearly. Filesystem contents must remain offline; this is not a live snapshot.
+
+For a new ISO, read its root-image UUID from normal live mode's
+`/mnt/ooonana-live/base-id`, then shut down. Remount the confirmed persistence
+filesystem read-write from another Linux system and run:
+
+```sh
+sudo ooonana-persistence migrate --mount /mnt/confirmed-persistence \
+  --expect-uuid CONFIRMED-PERSISTENCE-UUID --base-id NEW-ROOT-IMAGE-UUID \
+  --backup /safe/other-filesystem/usb-backup \
+  --confirm-data-only CONFIRMED-PERSISTENCE-UUID
+```
+
+Migration requires an unchanged, metadata-verified backup and sufficient free
+space. It copies only saved `home` data into a fresh upper layer, strips overlay
+xattrs/whiteouts there, and atomically exchanges directories. Complete original
+overlay/work/base identity remains at the printed `overlay.previous-*` path;
+nothing is deleted, and failed exchange leaves the original active overlay.
+Accounts, packages, network/system configuration are not imported automatically;
+recreate previous account UIDs and selectively reapply configuration from backup.
+This avoids stale system binaries masking the new ISO. Keep backups/previous
+overlay until verified. Atomic rename does not replace physical crash testing.

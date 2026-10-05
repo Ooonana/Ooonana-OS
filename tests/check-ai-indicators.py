@@ -15,6 +15,7 @@ with tempfile.TemporaryDirectory() as temporary:
     os.environ["XDG_STATE_HOME"] = temporary
     ai_app.run_async_task = lambda _task, done: done(0, ("active: openvino\nlabel: Offline Intel\nkey: not needed", "active: qwen3.5-9b-int4-ov"))
     ai_app.available_ram = lambda: {"available": 512 * 1024**2, "total": 8 * 1024**3, "low": True}
+    ai_app.storage_health = lambda: {"mode": "usb", "level": "low", "free": 100 * 1024**2, "caption": "Persistent USB · 0.1 GiB free · low space"}
     apply_theme()
     window = ai_app.AiWindow()
     window.show_all()
@@ -24,6 +25,8 @@ with tempfile.TemporaryDirectory() as temporary:
     assert "7s" in window.phase_label.get_text()
     assert "0.5 GiB RAM available" in window.memory_label.get_text()
     assert "low" in window.memory_label.get_text() and window.memory_label.get_visible()
+    assert window.memory_label.get_style_context().has_class("status-warn")
+    assert window.storage_label.get_visible() and "low space" in window.storage_label.get_text()
     assert window.phase_timer
     for _ in range(50):
         while Gtk.events_pending():

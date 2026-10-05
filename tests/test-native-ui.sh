@@ -266,7 +266,8 @@ assert_contains "$boot_logo" '  /  |     \______/     | \'
 bunana="$(<"$ROOT/packages/ooonana/usr/bin/bunana")"
 assert_contains "$bunana" 'echo "bunana: shutdown failed"'
 assert_contains "$bunana" 'echo "bunana: restart failed"'
-assert_contains "$bunana" '/sbin/poweroff -f'
+assert_contains "$bunana" '/sbin/poweroff && exit 0'
+[[ "$bunana" != *'poweroff -f'* && "$bunana" != *'reboot -f'* ]] || fail "power actions bypass orderly shutdown"
 [[ "$bunana" != *'|| exit 0'* ]] || fail "bunana must report failed power actions"
 
 printf 'ok native-ui\n'

@@ -3,7 +3,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLI="$ROOT/packages/ooonana/usr/bin/ooonana"
 ORDER="$ROOT/packages/ooonana/usr/lib/ooonana/version-order.awk"
-work="$(mktemp -d)"
+# Keep uppercase V in filenames: the fallback mock must reject version-sort
+# options, not an incidental character in a randomly generated input path.
+work="$(mktemp -d "${TMPDIR:-/tmp}/ooonana-version-V.XXXXXXXXXX")"
 trap 'rm -rf "$work"' EXIT
 compare() {
   LC_ALL=C awk -v mode=compare -v left="$1" -v right="$2" -f "$ORDER"
@@ -24,7 +26,7 @@ printf 'first\tdemo\t1.9\tarchive\tOld\nsecond\tdemo\t1.10\tarchive\tNew\nfirst\
 select_best_index_entries "$work/input" "$work/gnu"
 mkdir "$work/bin"
 real_sort="$(command -v sort)"
-printf '#!/bin/sh\nfor option in "$@"; do case "$option" in *V*) exit 2;; esac; done\nexec "%s" "$@"\n' "$real_sort" >"$work/bin/sort"
+printf '#!/bin/sh\nfor option in "$@"; do case "$option" in -*V*) exit 2;; esac; done\nexec "%s" "$@"\n' "$real_sort" >"$work/bin/sort"
 chmod +x "$work/bin/sort"
 PATH="$work/bin:$PATH" select_best_index_entries "$work/input" "$work/portable"
 cmp "$work/gnu" "$work/portable"

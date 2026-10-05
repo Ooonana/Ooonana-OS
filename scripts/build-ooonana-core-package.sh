@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR=""
-VERSION="0.9.8"
+VERSION="0.9.9"
 DRY_RUN=0
 
 usage() {
@@ -14,7 +14,7 @@ Usage:
   scripts/build-ooonana-core-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER  Package version (default: 0.9.8)
+  --version VER  Package version (default: 0.9.9)
   --dry-run      Print resolved package details
   -h, --help     Show help
 USAGE
@@ -111,6 +111,8 @@ mkdir -p "$staging/etc/init.d"
 extract_helper 'ROOTFS/etc/init.d/rcS' "$staging/etc/init.d/rcS"
 mkdir -p "$staging/sbin"
 extract_helper 'write_file "$ROOTFS/sbin/init"' "$staging/sbin/init" "$ROOT/scripts/build-scratch-rootfs.sh"
+extract_helper 'write_file "$ROOTFS/etc/inittab"' "$staging/etc/inittab" "$ROOT/scripts/build-scratch-rootfs.sh"
+chmod 0644 "$staging/etc/inittab"
 cat > "$staging/etc/os-release" <<EOF
 NAME="Ooonana OS"
 ID=ooonana
@@ -145,9 +147,16 @@ prefix="${OOONANA_ROOT:-/}"
 cli="${prefix%/}/usr/bin/ooonana"
 [ -x "$cli" ] || { echo 'core healthcheck: CLI missing' >&2; exit 1; }
 "$cli" version | grep -q "ooonana ${OOONANA_PKG_VERSION}"
-for helper in ooonana-memory ooonana-panel-start ooonana-window-list gzip; do
+for helper in ooonana-memory ooonana-panel-start ooonana-window-list ooonana-shutdown-cleanup ooonana-storage-watch ooonana-persistence gzip; do
   [ -x "${prefix%/}/usr/bin/$helper" ] || { echo "core healthcheck: missing $helper" >&2; exit 1; }
 done
+# Only single known legacy action changes; installed getty/custom actions stay.
+inittab="${prefix%/}/etc/inittab"
+if [ -f "$inittab" ] && [ ! -L "$inittab" ] &&
+   [ "$(grep -c '^::shutdown:' "$inittab" || true)" = 1 ] &&
+   grep -qx '::shutdown:/bin/umount -a -r' "$inittab"; then
+  sed -i 's|^::shutdown:/bin/umount -a -r$|::shutdown:/usr/bin/ooonana-shutdown-cleanup --from-init|' "$inittab"
+fi
 echo 'OOONANA_CORE_HEALTHCHECK_OK'
 CHECK
 chmod 0755 "$OUT_DIR/hooks/$runtime_id.healthcheck"
