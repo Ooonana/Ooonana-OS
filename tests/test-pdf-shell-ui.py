@@ -45,6 +45,9 @@ with tempfile.TemporaryDirectory() as temporary:
             assert overlap <= 0.001 or height <= 0.001, (name, other)
     by_name = {field.T.to_unicode(): field for field in widgets}
     assert by_name["key_input"].V.to_unicode() == ""
+    assert "pdf_key_input(event)" in by_name["key_input"].AA.K.JS.to_unicode()
+    assert 'button_down("Backspace")' in by_name["button_Backspace"].AA.D.JS.to_unicode()
+    assert 'button_up("Backspace")' in by_name["button_Backspace"].AA.U.JS.to_unicode()
     assert "queue_console_text" in by_name["command_enter"].AA.U.JS.to_unicode()
     assert "button_toggle" in by_name["button_Ctrl"].AA.D.JS.to_unicode()
     assert "button_up" in by_name["button_Enter"].AA.U.JS.to_unicode()

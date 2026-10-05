@@ -62,6 +62,16 @@ function terminalText() {
 }
 
 vm.runInContext(fs.readFileSync(compiled, "utf8"), sandbox, { filename: compiled });
+let inputStable = false;
+getField("key_input").value = "PDF_INPUT_STABILITY_TEST";
+setTimeout(() => {
+  if (getField("key_input").value !== "PDF_INPUT_STABILITY_TEST") {
+    console.error("FAIL: runtime overwrote editable input");
+    process.exit(1);
+  }
+  getField("key_input").value = "";
+  inputStable = true;
+}, 2200);
 
 const benchmark = process.env.OOONANA_PDF_BENCHMARK === "1";
 let serialLog = "";
@@ -86,6 +96,8 @@ const timings = [];
 
 let sentInput = false;
 let sentEnter = false;
+let sentVirtualBackspace = false;
+let sentNativeBackspace = false;
 let sentUpdate = false;
 let sentVersion = false;
 let phase = "boot";
@@ -137,7 +149,7 @@ const monitor = setInterval(() => {
     console.error(output);
     process.exit(1);
   }
-  if (!sentInput && output.includes("OOONANA_PDF_BOOT_OK")) {
+  if (!sentInput && inputStable && output.includes("OOONANA_PDF_BOOT_OK")) {
     phase = "keyboard-input";
     sandbox.queue_console_text("echo $((12345+54321))");
     sentInput = true;
@@ -146,7 +158,33 @@ const monitor = setInterval(() => {
     sandbox.queue_console_text("\r");
     sentEnter = true;
   }
-  if (sentEnter && !sentVersion && output.includes("66666")) {
+  if (sentEnter && !sentVirtualBackspace && output.includes("66666")) {
+    phase = "virtual-backspace";
+    const command = "echo PDF_VIRTUAL_BACKSPACE_OKX";
+    getField("key_input").value = command;
+    sandbox.pdf_key_input({willCommit: false, change: command, selStart: 0, selEnd: 0});
+    sandbox.button_down("Backspace");
+    sandbox.button_up("Backspace");
+    if (getField("key_input").value !== command.slice(0, -1)) {
+      console.error("FAIL: virtual Backspace did not update input");
+      process.exit(1);
+    }
+    sandbox.button_down("Enter");
+    sandbox.button_up("Enter");
+    sentVirtualBackspace = true;
+  }
+  if (sentVirtualBackspace && !sentNativeBackspace && output.includes("\nPDF_VIRTUAL_BACKSPACE_OK\n")) {
+    phase = "native-backspace";
+    const command = "echo PDF_NATIVE_BACKSPACE_OKX";
+    sandbox.pdf_key_input({willCommit: false, change: command, selStart: 0, selEnd: 0});
+    sandbox.pdf_key_input({willCommit: false, change: "", selStart: command.length - 1, selEnd: command.length});
+    // Model the viewer's accepted deletion; handler forwards only the key byte.
+    getField("key_input").value = command.slice(0, -1);
+    sandbox.button_down("Enter");
+    sandbox.button_up("Enter");
+    sentNativeBackspace = true;
+  }
+  if (sentNativeBackspace && !sentVersion && output.includes("\nPDF_NATIVE_BACKSPACE_OK\n")) {
     phase = "version";
     sandbox.queue_console_text("ooonana version\r");
     sentVersion = true;
@@ -159,7 +197,7 @@ const monitor = setInterval(() => {
       return;
     }
     if (process.env.OOONANA_PDF_BOOT_ONLY === "1") {
-      console.log("ok ooonana-pdf-vm boot/input/version (package sync not tested)");
+      console.log("ok ooonana-pdf-vm boot/stable-input/backspace/version (package sync not tested)");
       process.exit(0);
     }
     phase = "package-sync";
@@ -175,7 +213,7 @@ const monitor = setInterval(() => {
   }
   if (sentUpdate && output.includes("ooonana repo: synced")) {
     clearInterval(monitor);
-    console.log(`ok ooonana-pdf-vm boot/input/version/package-sync (${Math.round((Date.now() - startedAt) / 1000)}s)`);
+    console.log(`ok ooonana-pdf-vm boot/stable-input/native-and-virtual-backspace/version/package-sync (${Math.round((Date.now() - startedAt) / 1000)}s)`);
     process.exit(0);
   }
 }, 250);

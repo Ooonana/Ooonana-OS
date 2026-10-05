@@ -284,7 +284,7 @@ command_input.Ff = 0
 command_input.DA = PdfString.encode("/FMono 11 Tf 1 0.62 0 rg")
 command_input.MK = PdfDict(BG=PdfArray([0.015, 0.015, 0.015]))
 command_input.AA = PdfDict()
-command_input.AA.K = create_script("if (event.change) key_pressed(event.change)")
+command_input.AA.K = create_script("pdf_key_input(event)")
 command_input.AA.V = create_script("queue_console_text('\\r'); event.target.value = ''")
 fields.append(command_input)
 

@@ -15,6 +15,33 @@ def replace_function(source, name, replacement):
 
 def optimize(path):
     source = Path(path).read_text()
+    source, count = re.subn(
+        r'set_interval\(\(\) => \{\s*globalThis\.getField\("key_input"\)\.value = "Type here for keyboard inputs\.";\s*\}, 1000\);?',
+        "// OOONANA_PDF_STABLE_INPUT: never overwrite editable input on a timer.",
+        source, count=1,
+    )
+    if count != 1 and "OOONANA_PDF_STABLE_INPUT" not in source:
+        raise ValueError("Missing PDF input-reset timer patch point")
+    source = replace_function(source, "button_down", '''function button_down(key_str) {
+  serial_button(key_str);
+  if (key_str === "Backspace" || key_str === "Enter") {
+    let field = globalThis.getField("key_input");
+    let value = String(field.value || "");
+    let next = key_str === "Backspace" ? value.slice(0, -1) : "";
+    if (next !== value) field.value = next;
+  }
+}''')
+    input_handler = '''function pdf_key_input(event) {
+  // Commit/blur events must not resend text or accidentally execute commands.
+  if (event.willCommit) return;
+  let removed = Math.max(0, Number(event.selEnd) - Number(event.selStart));
+  if (removed) queue_console_text("\\x7f".repeat(removed));
+  if (event.change) key_pressed(event.change);
+}'''
+    if "function pdf_key_input(" in source:
+        source = replace_function(source, "pdf_key_input", input_handler)
+    else:
+        source += "\n" + input_handler + "\n"
     source = replace_function(source, "print_msg", '''function print_msg(msg) {
   // Diagnostics stay bounded in memory; no invisible AcroForm repaint IPC.
   lines.push("" + msg);

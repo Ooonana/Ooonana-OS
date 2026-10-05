@@ -12,6 +12,19 @@ spec.loader.exec_module(optimizer)
 fixture = '''var lines = [], terminal_height = 2, terminal_lines = ["", ""];
 var terminal_rendered = [null, null], terminal_dirty = 0;
 var vm_serial_seen = true, vm_started_at = 0, total_instrs = 0, last_updated = 0;
+var input_bytes = "", input_timers = [];
+function set_interval(callback, interval) { input_timers.push(callback); }
+function queue_console_text(text) { input_bytes += text; }
+function key_pressed(text) { queue_console_text(text); }
+function serial_button(key) {
+  queue_console_text(key === "Backspace" ? "\\x7f" : key === "Enter" ? "\\r" : key);
+}
+function button_down(key_str) {
+  serial_button(key_str);
+}
+set_interval(() => {
+  globalThis.getField("key_input").value = "Type here for keyboard inputs.";
+}, 1000)
 function print_msg(msg) {
   globalThis.getField("console_0").value = msg;
 }
@@ -36,6 +49,7 @@ with tempfile.TemporaryDirectory() as temporary:
     path.write_text(fixture)
     optimizer.optimize(path)
     first = path.read_text()
+    assert "Type here for keyboard inputs." not in first
     optimizer.optimize(path)
     assert first == path.read_text(), "Optimization not idempotent"
     checks = '''
@@ -62,6 +76,21 @@ calls = 0;
 globalThis._virt_machine_run = () => { calls++; clock += 5; return 1; };
 machine_tick(0);
 if (calls !== 3) throw Error("CPU wall-time bound failed");
-console.log("ok pdf-runtime: batched fields, 20Hz paint, widget cache, CPU bounds, idempotence");
+let input = {value: "echo abcX"};
+globalThis.getField = name => input;
+if (input_timers.length) throw Error("Input-reset timer remains");
+pdf_key_input({willCommit: false, change: "", selStart: 8, selEnd: 9});
+if (input_bytes !== "\\x7f") throw Error("Native Backspace ignored");
+input_bytes = "";
+pdf_key_input({willCommit: true, change: "duplicate", selStart: 0, selEnd: 9});
+if (input_bytes) throw Error("Commit duplicated input");
+pdf_key_input({willCommit: false, change: "Z", selStart: 7, selEnd: 9});
+if (input_bytes !== "\\x7f\\x7fZ") throw Error("Selection replacement failed");
+input_bytes = "";
+button_down("Backspace");
+if (input_bytes !== "\\x7f" || input.value !== "echo abc") throw Error("Virtual Backspace failed");
+button_down("Enter");
+if (input_bytes !== "\\x7f\\r" || input.value !== "") throw Error("Virtual Enter failed");
+console.log("ok pdf-runtime: stable input, native/virtual Backspace, batched fields, 20Hz paint, CPU bounds, idempotence");
 '''
     subprocess.run(["node", "-e", first + checks], check=True)

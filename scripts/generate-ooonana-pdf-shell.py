@@ -117,7 +117,7 @@ def build(compiled, output):
     fields.append(status)
     command = create_field("key_input", 28, 282, 608, 26)
     command.DA = literal(f"/FMono 11 Tf {rgb(INK)} rg")
-    command.AA = PdfDict(K=create_script("if (event.change) key_pressed(event.change)"))
+    command.AA = PdfDict(K=create_script("pdf_key_input(event)"))
     fields.append(command)
     enter = create_button("command_enter", 646, 282, 86, 26, "Run / Enter", accent=True)
     enter.AA = PdfDict(U=create_script("queue_console_text('\\r'); globalThis.getField('key_input').value = ''"))
