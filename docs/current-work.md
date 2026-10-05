@@ -16,6 +16,11 @@ Backend first. ISO building stays with user. Audio backend stays enabled; no pla
 - Clean-checkout CI exposed missing executable modes on existing launchers and musl's missing `renameat2` wrapper. Launcher modes are corrected; verified Linux atomic syscall fallback keeps no-overwrite/exchange semantics without unsafe two-step renames. Unknown ABIs refuse.
 - Backup manifests now verify hardlink relationships; data-only migration verifies the copied home tree before exchange. Source game wrapper prefers its own adjacent payload, preventing stale installed games from masking regressions. Shutdown validates actual init command and registered hook, rejecting BusyBox PID1 shell/container contexts. CI declares comparison-tool dependency; native BusyBox fallback is exercised.
 - Isolated GTK/i3 native and third-party close/minimize/restore/fullscreen controls, hover previews, low-RAM/storage indicators and Settings checks passed. Component screenshots refreshed; the main desktop image remains the explicitly labeled earlier WSL capture. Both final PDFs were rendered and visually checked; the actual embedded native PDF boot/input/Backspace/version/package-sync suite passed in 113 seconds.
+- Final clean Linux checkout at `a0c6dfc` passed all 48 suites. Persistence backup/migration also passed on native musl; supported xattrs and hardlink relationships were verified. CI tmpfs probes skip only unsupported xattr assertions, not other persistence checks.
+- GitHub [run 37278143738](https://github.com/Ooonana/Ooonana-OS/actions/runs/37278143738) and GitLab [pipeline 2912436524](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2912436524) succeeded at `a0c6dfc`. Public Pages serves core 0.9.9, generation `90ed2498d89396d2e222089a7ad0975c3a01ccb284a9038e32480a49e014cd71`. CI publication remains unsigned under the deferred enrollment policy.
+- Local signed generation `ee9cbdfa3c6de9518ca2fcbb2d31fe12ce458de021b6515cbc36da20e28ffb4d` pins clean source `a0c6dfc`. All 678 packages / 552 dependency nodes, detached signature and final ISO preflight passed. Published generations and existing production ISO were not overwritten.
+- Ooonana WSL upgraded to core 0.9.9; package verification and runtime/meta health hooks passed. Default i3 config refreshed; custom environment/keycode/inittab/neofetch configs were preserved with update candidates. Polybar, NetworkManager and Bluetooth config hashes stayed unchanged. Nonroot GTK 3 X11 display/keyboard readiness and AI/Settings/window-control imports passed; Mesa acceleration warnings remain, so GPU acceleration is not claimed. WSL engine/kernel were not changed or restarted; no audio playback or model files changed.
+- Final PDF payload remains current: later desktop/persistence fixes are excluded from its explicit minimal portable CLI/repository input set. No unnecessary kernel/PDF rebuild claimed. Material junk remains retained under the earlier cleanup-policy block.
 - Physical BIOS/UEFI, disconnect/power-loss, radio/audio/sensor and OpenVINO model-load checks remain manual. Private signing key stays local; trust enrollment/CI signing stays deferred. ISO remains user-built.
 
 ## Persistent USB safety pass
@@ -25,7 +30,7 @@ Backend first. ISO building stays with user. Audio backend stays enabled; no pla
 - Base image loop is read-only with `ro,noload`; image paths cannot escape boot media. Required BusyBox applets are linked explicitly. Critical bind/move failures are no longer ignored, and rcS cannot print persistence success after a failed bind.
 - Storage helper belongs to release resume fingerprint. Fixture suite covers exact flags, identity/parent selection, wrong filesystem, duplicates, unsafe paths, low space, failed probes and rcS status; wired into release preflight and GitLab smoke.
 - Eight isolated QEMU USB-image checks passed: save, reboot restore, temporary first boot/reset, saved data surviving temporary boots, missing UUID, missing partition and cloned UUID rejection. Unrelated same-label USB image stayed byte-identical. Tests use current live-init source/current x86 kernel and release BusyBox, not a production ISO rebuild.
-- Production ISO, physical disks, WSL installation, swap policy and private signing key remain untouched. See [persistent USB safety](persistent-usb-safety.md). Physical Rufus/BIOS/UEFI, crash recovery, orderly shutdown, ongoing space warnings and explicit overlay migration remain gates.
+- Initial boot-identity pass left production ISO, physical disks, WSL installation, swap policy and private signing key untouched. Later core 0.9.9 work updates WSL and verifies orderly shutdown, storage warnings and offline migration in fixtures/VMs, not physical hardware. See [persistent USB safety](persistent-usb-safety.md).
 
 ## PDF input follow-up
 
@@ -87,10 +92,12 @@ Backend first. ISO building stays with user. Audio backend stays enabled; no pla
 ## Remaining gates
 
 - Physical USB boot: BIOS/UEFI/GRUB, persistence, unrelated-drive protection and installer swap. New ISO build and real installed nonroot Xorg login. User performs ISO build.
+- Existing saved USB overlays require verified offline backup and explicit data-only migration before using a rebuilt ISO; backup before flashing, because imaging can erase the persistence partition. No automatic legacy-overlay conversion or power-loss durability guarantee.
 - Physical hardware checks: Wi-Fi, Bluetooth, audio routing (without playback), available RAM/zram, CPU/GPU/fans and disk/network counters. WSL/import/UI tests do not prove these.
 - Real OpenVINO model loading/inference and CPU/GPU memory guards on hardware; fresh ISO dock/window/cursor/panel interaction check.
 - CI signing and trusted client enrollment deferred by user's choice: private key stays local; no CI secret uploaded. Public CI/Pages deployment is distinct from Git pushes and local signed publication.
 - Chromium PDF-viewer interaction verification for this native build; native package sync now passed.
+- Actual WSLg accelerated rendering: GTK 3 X11/keyboard readiness passed, but Mesa reported acceleration warnings; no forced graphics backend or global software-rendering override applied.
 - Junk cleanup: about 331 MiB aborted generation, 1.2 MiB Python caches/metadata and 0.3 MiB previews. WSL QA environments are optional review candidates. Nothing deleted; previous deletion-policy rejection remains. Preserve models, keys, releases and build caches.
 
 ## Commands
