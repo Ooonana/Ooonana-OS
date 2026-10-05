@@ -40,8 +40,14 @@ gzip -dc "$SEED_INITRAMFS" | (
 )
 [[ -x "$tmp/rootfs/bin/busybox" ]] || fail 'seed BusyBox missing'
 mkdir -p "$tmp/rootfs/etc/ooonana" "$tmp/rootfs/etc/init.d" "$tmp/rootfs/usr/bin" "$tmp/rootfs/sbin" "$tmp/rootfs/root"
-for applet in sh cat grep mkdir sync poweroff sleep readlink mount umount swapoff; do ln -s busybox "$tmp/rootfs/bin/$applet"; done
-ln -s ../bin/busybox "$tmp/rootfs/sbin/init"
+for applet in sh cat grep mkdir sync poweroff sleep readlink tr mount umount swapoff; do ln -s busybox "$tmp/rootfs/bin/$applet"; done
+awk -v marker='write_file "$ROOTFS/sbin/init"' '
+  index($0, marker) { capture=1; next }
+  capture && $0 == "EOF" { exit }
+  capture { print }
+' "$ROOT/scripts/build-scratch-rootfs.sh" >"$tmp/rootfs/sbin/init"
+[[ -s "$tmp/rootfs/sbin/init" ]] || fail 'source init wrapper missing'
+chmod 0755 "$tmp/rootfs/sbin/init"
 install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana-shutdown-cleanup" "$tmp/rootfs/usr/bin/ooonana-shutdown-cleanup"
 printf '::sysinit:/etc/init.d/rcS\n::shutdown:/usr/bin/ooonana-shutdown-cleanup --from-init\n' >"$tmp/rootfs/etc/inittab"
 printf 'full-i3\n' >"$tmp/rootfs/etc/ooonana/edition"
@@ -50,6 +56,7 @@ cat >"$tmp/rootfs/etc/init.d/rcS" <<'EOF'
 #!/bin/sh
 set -eu
 PATH=/bin:/sbin
+echo "FIXTURE_PID1_CMD:$(tr '\000' ' ' </proc/1/cmdline)"
 case " $(cat /proc/cmdline) " in
   *' fixture.temporary=1 '*)
     [ ! -e /root/temporary-fixture ] || { echo FIXTURE_TEMP_NOT_RESET; poweroff -f; }

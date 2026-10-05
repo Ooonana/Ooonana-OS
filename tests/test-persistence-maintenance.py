@@ -178,4 +178,17 @@ with tempfile.TemporaryDirectory() as temporary:
 assert "poweroff -f" not in (root / "packages/ooonana/usr/bin/bunana").read_text()
 assert "reboot -f" not in (root / "packages/ooonana/etc/profile.d/ooonana-shell.sh").read_text()
 assert "--from-init" in (root / "scripts/build-scratch-rootfs.sh").read_text()
+cleanup = (root / "packages/ooonana/usr/bin/ooonana-shutdown-cleanup").read_text()
+context = cleanup.split("shutdown_context_allowed() {\n", 1)[1].split("\n}", 1)[0]
+predicate = "shutdown_context_allowed() {\n" + context + '\n}\nshutdown_context_allowed "$@"'
+for parent, executable, command, hook, allowed in (
+        ("1", "/bin/busybox", "/bin/busybox init ", "yes", True),
+        ("1", "/bin/busybox", "/sbin/init ", "yes", True),
+        ("1", "/bin/busybox", "init ", "yes", True),
+        ("1", "/bin/busybox", "/bin/sh ", "yes", False),
+        ("1", "/bin/busybox", "/bin/busybox sh ", "yes", False),
+        ("1", "/bin/busybox", "init ", "no", False),
+        ("2", "/bin/busybox", "init ", "yes", False)):
+    result = subprocess.run(["sh", "-c", predicate, "fixture", parent, executable, command, hook])
+    assert (result.returncode == 0) == allowed
 print("PERSISTENCE_MAINTENANCE_OK backup/xattrs/hardlinks/tamper/atomic-migration/space/geometry/shutdown-policy")

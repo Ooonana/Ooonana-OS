@@ -10,6 +10,9 @@ trap 'rm -rf "$work"' EXIT
 compare() {
   LC_ALL=C awk -v mode=compare -v left="$1" -v right="$2" -f "$ORDER"
 }
+compare_files() {
+  if command -v cmp >/dev/null 2>&1; then cmp "$@"; else busybox cmp "$@"; fi
+}
 [[ "$(compare 1.9 1.10)" == '<' ]]
 [[ "$(compare 2.0-r9 2.0-r10)" == '<' ]]
 [[ "$(compare '1.0~rc1' 1.0)" == '<' ]]
@@ -29,12 +32,12 @@ real_sort="$(command -v sort)"
 printf '#!/bin/sh\nfor option in "$@"; do case "$option" in -*V*) exit 2;; esac; done\nexec "%s" "$@"\n' "$real_sort" >"$work/bin/sort"
 chmod +x "$work/bin/sort"
 PATH="$work/bin:$PATH" select_best_index_entries "$work/input" "$work/portable"
-cmp "$work/gnu" "$work/portable"
+compare_files "$work/gnu" "$work/portable"
 grep -q $'^second\tdemo\t1.10\t' "$work/portable"
 grep -q $'^first\ttie\t2\t' "$work/portable"
 if command -v busybox >/dev/null; then
   printf '#!/bin/sh\nexec "%s" sort "$@"\n' "$(command -v busybox)" >"$work/bin/sort"
   PATH="$work/bin:$PATH" select_best_index_entries "$work/input" "$work/busybox"
-  cmp "$work/gnu" "$work/busybox"
+  compare_files "$work/gnu" "$work/busybox"
 fi
 printf 'ok version-order: natural versions, revisions, stable ties, long integers, BusyBox fallback\n'

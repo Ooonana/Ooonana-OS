@@ -3,6 +3,13 @@
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 export PATH
 
+shutdown_context_allowed() {
+  [ "$1" = 1 ] && [ "$2" = /bin/busybox ] && [ "$4" = yes ] || return 1
+  # A BusyBox shell as PID1 (containers/tests) is not BusyBox init.
+  case "$3" in '/bin/busybox init '|'/sbin/init '|'init ') return 0 ;; esac
+  return 1
+}
+
 shutdown_cleanup() {
   # Shell builtin excludes caller and PID 1. Stop writers before sync/unmount.
   kill -TERM -1 2>/dev/null || true
@@ -34,7 +41,13 @@ case "${1:-}" in
   --from-init) ;;
   *) echo 'usage: ooonana-shutdown-cleanup --dry-run (init owns real shutdown)' >&2; exit 2 ;;
 esac
-[ "${PPID:-0}" = 1 ] && [ "$(readlink /proc/1/exe 2>/dev/null)" = /bin/busybox ] || {
+hook=no
+if [ -f /etc/inittab ] && [ ! -L /etc/inittab ] &&
+   grep -qx '::shutdown:/usr/bin/ooonana-shutdown-cleanup --from-init' /etc/inittab; then
+  hook=yes
+fi
+shutdown_context_allowed "${PPID:-0}" "$(readlink /proc/1/exe 2>/dev/null)" \
+  "$(tr '\000' ' ' </proc/1/cmdline 2>/dev/null)" "$hook" || {
   echo 'ooonana-shutdown-cleanup: refusing outside BusyBox init shutdown action' >&2
   exit 1
 }

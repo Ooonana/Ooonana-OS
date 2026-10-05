@@ -320,6 +320,7 @@ Installer game engine.
 Bricks spell OOONANA OS.
 Ball sprite: full Ooonana logo ball.
 real-time Python terminal game with responsive bricks and fixed frame pacing.
+Consecutive brick hits increase combo scoring up to 5x.
 
 Keys:
   a/d or arrow keys   move
