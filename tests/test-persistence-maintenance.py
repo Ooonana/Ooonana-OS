@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Fresh directory fixtures only; never mount, signal services or open host disks."""
 import ast
+import errno
 import importlib.util
 import os
 from pathlib import Path
@@ -37,7 +38,14 @@ with tempfile.TemporaryDirectory(dir="/dev/shm", prefix="ooonana-source-") as te
     (upper / "etc/old-service").write_text("must not mask new base")
     os.link(upper / "home/user/notes", upper / "home/user/linked")
     os.symlink("/outside/not-read", upper / "home/user/link")
-    os.setxattr(upper / "home/user/notes", "user.fixture", b"preserve xattrs")
+    supports_xattrs = True
+    try:
+        os.setxattr(upper / "home/user/notes", "user.fixture", b"preserve xattrs")
+    except OSError as error:
+        if error.errno not in (errno.ENOTSUP, errno.EOPNOTSUPP):
+            raise
+        supports_xattrs = False
+        print("SKIP user-xattr assertion: runner tmpfs lacks user extended attributes; all other checks remain active")
     os.mkfifo(upper / "offline-fifo")
     snapshot = storage.tree_entries(upper)
     output = Path(backup_temp) / "verified"
@@ -81,7 +89,8 @@ with tempfile.TemporaryDirectory(dir="/dev/shm", prefix="ooonana-source-") as te
     assert not (upper / "etc").exists()
     assert (mount / "overlay/base-id").read_text() == "new-base\n"
     assert os.readlink(upper / "home/user/link") == "/outside/not-read"
-    assert os.getxattr(upper / "home/user/notes", "user.fixture") == b"preserve xattrs"
+    if supports_xattrs:
+        assert os.getxattr(upper / "home/user/notes", "user.fixture") == b"preserve xattrs"
     # Exercise musl's syscall-only API on glibc hosts too.
     actual_libc = storage.ctypes.CDLL(None, use_errno=True)
     with patch.object(storage.ctypes, "CDLL", lambda *_args, **_kwargs: SimpleNamespace(syscall=actual_libc.syscall)):
