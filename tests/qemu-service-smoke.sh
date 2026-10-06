@@ -93,6 +93,8 @@ if [ "$USE_ISO_RUNTIME" -eq 0 ]; then
     "$WORK/patch/smoke-root/etc/sudoers.d"
   cp -a "$ROOT/packages/ooonana/usr/lib/ooonana/ui" \
     "$WORK/patch/smoke-root/usr/lib/ooonana/ui"
+  install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/service_status.py" \
+    "$WORK/patch/smoke-root/usr/lib/ooonana/service_status.py"
   install -D -m 0644 "$ROOT/branding/i3/config" "$WORK/patch/smoke-root/etc/i3/config"
   extract_block 'ROOTFS/usr/bin/ooonana-service-repair' "$WORK/patch/smoke-root/usr/bin/ooonana-service-repair"
   extract_block 'ROOTFS/usr/bin/ooonana-service-watchdog' "$WORK/patch/smoke-root/usr/bin/ooonana-service-watchdog"
@@ -303,9 +305,16 @@ nmcli connection modify Ooonana-Advanced-Smoke \
 nmcli connection delete Ooonana-Advanced-Smoke >/dev/null || fail "advanced Wi-Fi profile cleanup"
 
 step watchdog-recovery
+# A live PID belonging to this test shell must not suppress watchdog startup.
+printf '%s\n' "$$" >/run/ooonana/service-watchdog.pid
 OOONANA_SERVICE_WATCHDOG_INTERVAL=10 ooonana-service-watchdog &
 watchdog_pid="$!"
 sleep 1
+[ "$(cat /run/ooonana/service-watchdog.pid)" = "$watchdog_pid" ] ||
+  fail "stale unrelated PID suppressed watchdog startup"
+/bin/busybox timeout 3 ooonana-service-watchdog || fail "duplicate watchdog did not exit"
+[ "$(cat /run/ooonana/service-watchdog.pid)" = "$watchdog_pid" ] ||
+  fail "duplicate watchdog replaced owner metadata"
 /bin/busybox killall dbus-daemon NetworkManager bluetoothd >/dev/null 2>&1 || true
 i=0
 while [ "$i" -lt 45 ]; do
@@ -337,7 +346,46 @@ if [ "$i" -ge 45 ]; then
     string:org.bluez 2>&1 || true
   fail "service watchdog did not recover D-Bus, NetworkManager, and BlueZ"
 fi
-kill "$watchdog_pid" >/dev/null 2>&1 || true
+stop_watchdog() {
+kill "$watchdog_pid" || fail "watchdog stop signal"
+i=0
+while kill -0 "$watchdog_pid" 2>/dev/null; do
+  [ "$(awk '/^State:/ {print $2}' "/proc/$watchdog_pid/status" 2>/dev/null)" != Z ] || break
+  [ "$i" -lt 5 ] || fail "watchdog did not exit after TERM"
+  sleep 1
+  i=$((i + 1))
+done
+wait "$watchdog_pid" || fail "watchdog stop exit status"
+[ ! -e /run/ooonana/service-watchdog.pid ] || fail "watchdog own PID file left after stop"
+}
+stop_watchdog
+
+step frozen-bluetooth
+dbus-send --system --print-reply --reply-timeout=1500 --dest=org.bluez / \
+  org.freedesktop.DBus.Peer.Ping >/dev/null || fail "BlueZ endpoint before freeze"
+frozen_bt_pid="$(/bin/busybox pidof bluetoothd)"
+kill -STOP "$frozen_bt_pid" || fail "freeze guest BlueZ"
+/usr/bin/ooonana-service-repair status | grep -qx 'bluetoothd=stopped' ||
+  fail "frozen BlueZ incorrectly reported ready"
+/usr/bin/ooonana-service-status >/tmp/ooonana-frozen-services.json
+python3 -c 'import json; assert json.load(open("/tmp/ooonana-frozen-services.json"))["services"]["bluetooth"]["state"] == "unresponsive"' ||
+  fail "health snapshot missed frozen BlueZ"
+OOONANA_SERVICE_WATCHDOG_INTERVAL=10 ooonana-service-watchdog &
+watchdog_pid="$!"
+i=0
+while [ "$i" -lt 45 ]; do
+  recovered_bt_pid="$(/bin/busybox pidof bluetoothd 2>/dev/null || true)"
+  if [ -n "$recovered_bt_pid" ] && [ "$recovered_bt_pid" != "$frozen_bt_pid" ] &&
+     dbus-send --system --print-reply --reply-timeout=1500 --dest=org.bluez / \
+       org.freedesktop.DBus.Peer.Ping >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+  i=$((i + 1))
+done
+[ "$i" -lt 45 ] || fail "watchdog did not recover frozen BlueZ endpoint"
+stop_watchdog
+echo OOONANA_FROZEN_BLUEZ_RECOVERY_OK
 
 step audio
 [ -r /proc/asound/cards ] || fail "ALSA cards file missing"

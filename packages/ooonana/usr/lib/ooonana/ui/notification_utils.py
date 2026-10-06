@@ -37,7 +37,7 @@ def parse_history(text):
         return []
     try:
         payload = json.loads(text)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, RecursionError):
         return []
 
     def unwrap(value, depth=0):

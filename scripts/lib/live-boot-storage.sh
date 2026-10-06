@@ -142,12 +142,12 @@ live_saved_base_matches() (
 live_handoff_paths_safe() (
   live_root="$1"
   [ -d "$live_root" ] && [ ! -L "$live_root" ] || return 1
-  for live_suffix in proc sys dev mnt mnt/ooonana-live mnt/ooonana-live/iso mnt/ooonana-live/root-ro mnt/ooonana-live/cow mnt/ooonana-live/persist mnt/ooonana-live/temporary; do
+  for live_suffix in proc sys dev mnt mnt/ooonana-shutdown mnt/ooonana-live mnt/ooonana-live/iso mnt/ooonana-live/root-ro mnt/ooonana-live/cow mnt/ooonana-live/persist mnt/ooonana-live/temporary; do
     live_path="$live_root/$live_suffix"
     [ ! -L "$live_path" ] || return 1
     [ ! -e "$live_path" ] || [ -d "$live_path" ] || return 1
   done
-  for live_suffix in boot-device persistence-mode persistence-device base-id; do
+  for live_suffix in boot-device persistence-mode persistence-device persistence-file base-id; do
     live_path="$live_root/mnt/ooonana-live/$live_suffix"
     [ ! -L "$live_path" ] || return 1
     [ ! -e "$live_path" ] || [ -f "$live_path" ] || return 1

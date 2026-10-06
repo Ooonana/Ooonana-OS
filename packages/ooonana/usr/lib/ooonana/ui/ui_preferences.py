@@ -14,10 +14,12 @@ def config_path():
 
 def read_json(path, fallback, limit=1_000_000):
     try:
-        if path.stat().st_size > limit:
+        with path.open("r", encoding="utf-8") as stream:
+            text = stream.read(limit + 1)
+        if len(text) > limit:
             return fallback
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError, TypeError):
+        return json.loads(text)
+    except (OSError, ValueError, TypeError, RecursionError):
         return fallback
 
 

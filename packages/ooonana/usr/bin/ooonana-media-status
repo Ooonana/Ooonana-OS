@@ -27,7 +27,7 @@ title="$(mpc --format '%title%' current 2>/dev/null | sed -n '1p')"
 max_chars="${OOONANA_MEDIA_MAX_CHARS:-18}"
 case "$max_chars" in ''|*[!0-9]*) max_chars=18 ;; esac
 [ "$max_chars" -ge 4 ] && [ "$max_chars" -le 40 ] || max_chars=18
-title="$(printf '%s' "$title" | tr -d '%' | cut -c1-"$max_chars")"
+title="$(printf '%s' "$title" | python3 -c 'import sys; text = sys.stdin.read(); print("".join(ch for ch in text if ch.isprintable() and ch != "%")[:int(sys.argv[1])], end="")' "$max_chars")"
 
 if printf '%s\n' "$status" | grep -q '\[playing\]'; then
   icon='\357\201\213'

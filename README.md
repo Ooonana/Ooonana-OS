@@ -31,6 +31,8 @@ Core 0.9.9 keeps matching opaque app icons, focus-neutral hover previews, compac
 
 Dock previews stay in RAM and never restore or focus hidden windows. Compact panel controls remain accessible through windows, dock menus and Control Center. AI shows elapsed time, not invented progress percentages; available RAM respects cgroup limits and excludes swap.
 
+Latest source recheck hardens Music session matching and fixes panel reload isolation, display-scoped window-control locks, duplicate native dialog titlebars, bounded/sanitized Wi-Fi names and Unicode-safe music titles. Isolated GTK/i3 and bundled Polybar checks passed. User's October 6 ISO build passed service/desktop smoke and BIOS/UEFI VM gates; physical USB validation remains manual. Details: [current work](docs/current-work.md#user-build-cleanup-and-installed-wsl-sync).
+
 Latest GUI polish previews, rendered from real GTK widgets in an isolated virtual display with sample data:
 
 ![Native window controls and motion preferences](docs/assets/ooonana-gui-polish-appearance.png)
@@ -39,7 +41,7 @@ Latest GUI polish previews, rendered from real GTK widgets in an isolated virtua
 
 ![Ooonana AI native chat interface, isolated sample conversation](docs/assets/ooonana-ai-chat.png)
 
-AI preview uses fixture messages, not an inference result. Native chat adds searchable private conversations, message bubbles, code copying, text attachments, Enter/Shift+Enter controls, and cancellable requests. Stopping a request does not stop the shared local API. History retains at most 60 chats / 120 messages per chat / 8 MiB total using private atomic writes; unreadable old history stays untouched.
+AI preview uses fixture messages, not an inference result. Native chat adds searchable private conversations, message bubbles, code copying, text attachments, Enter/Shift+Enter controls, and cancellable requests. Stopping a request does not stop the shared local API. History retains at most 60 chats / 120 messages per chat using private atomic writes, targeting 8 MiB by dropping the oldest whole chats; a single chat can exceed that target. Unreadable old history stays untouched. Failed saves preserve the last committed record and can retry on a later save.
 
 ## Quick Links
 
@@ -123,7 +125,7 @@ ooonana-scratch.iso    minimal shell plus installer menu
 full-i3 live desktop   i3, rounded top panel and app dock, rofi, Notes wallpaper
 full-i3 install menu   live GUI installer session, VGA-first fallback, safe graphics fallback
 rufus usb              ISO mode, BIOS/UEFI, Secure Boot off
-rufus persistence      second GRUB entry plus ext4 partition labeled OOONANA_PERSIST
+rufus persistence      second GRUB entry; first-boot storage-file setup, or OOONANA_PERSIST partition
 full-i3 VM RAM         2048 MB boot smoke only; local AI needs more physical RAM
 live kernel            Linux 6.18.37 with Ooonana responsiveness and Galaxy Book support
 ```
@@ -190,7 +192,7 @@ Core pieces:
 
 ## Current Status
 
-Source core 0.9.9 includes nested WSL i3, native hover-preview dock, responsive panel, AI phase/RAM/storage indicators, native and third-party window controls, tailless pointer enlarged 10% from previous defaults, matching app icons, left music, centered AI access and notification center. Third-party buttons have larger targets and exclude hidden tabs, fullscreen-covered and overlapping windows. Alt+F4 closes; Alt+F10 toggles fullscreen. Existing ISO predates these changes. Source checks are not new-image boot proof. Physical USB RAM/OpenVINO and fan-sensor checks remain pending.
+Source core 0.9.9 includes nested WSL i3, native hover-preview dock, responsive panel, AI phase/RAM/storage indicators, native and third-party window controls, tailless pointer enlarged 10% from previous defaults, matching app icons, left music, centered AI access and notification center. Third-party buttons have larger targets and exclude hidden tabs, fullscreen-covered and overlapping windows. Alt+F4 closes; Alt+F10 toggles fullscreen. User's October 6 ISO build includes current repairs, passed service/desktop smoke and BIOS/UEFI VM gates, and has a verified local checksum. Installed Ooonana WSL core/runtime and OpenVINO app payloads are synchronized; a CRLF login-environment failure is fixed. Physical USB RAM/OpenVINO and fan-sensor checks remain pending.
 
 Core 0.9.8 fixes BusyBox builds that advertise version sorting but cannot perform it. Package-index selection and upgrades now have portable natural-version comparison, preserving first-source ties. ISO preflight rejects a missing signature when a trust key is supplied and checks that required desktop packages are actually reachable from the install profile. The core meta-package health hook preserves the empty legacy ownership manifest after migration, so runtime file checks remain valid.
 
@@ -199,6 +201,10 @@ The bootable `docs/ooonana.pdf` has opaque graphite terminal/keyboard cards and 
 Node VM benchmarks: bare `ooonana` 35.9 -> 2.4 seconds; package help 51.8 -> 3.0 seconds; list 63.4 seconds; actual sync 51.1 seconds. These are host Node timings, not browser promises; package operations remain comparatively slow. Latest boot/stable-input/native-and-virtual-Backspace/middle-edit/arithmetic/core-version/package-sync suite passed in 90 seconds. All 116 canonical widgets/actions were reopened and checked; Chromium interaction remains manual. Desktop/ISO payloads and the docs-only guide are unchanged.
 
 Backend pass adds verified repository generations, signed metadata, preserved custom `/etc` files, post-upgrade health checks with automatic payload rollback, retained core/kernel checkpoints, explicit major-update approval, security-update markings, and reboot status. Native **Health** and **Updates** apps provide on-demand diagnostics and upgrade review. Diskless login VM passed password rejection/authentication and UID-1000 desktop handoff; physical Xorg/hardware and model inference remain separate gates. OpenVINO Chat 0.2.1 uses complete hash-locked Linux wheels plus a pinned Ubuntu image/APT snapshot. Private signing key stays local by choice. This pass does not build an ISO.
+
+Latest source repair handles corrupt/bounded recovery and session records, cleans failed-save temporary files, retries pending drafts without reviving superseded input, and keeps combined major/security update labels. AI preflight and status share validated cache estimates; malformed dimensions cannot produce negative cache use, and a context is not suggested unless it fits the estimate. Current-source regression and packaging checks passed; these repairs are in the user-built October 6 image. See [current work](docs/current-work.md) for test scope and remaining hardware gates.
+
+Final backend review also protects corrupt AI knowledge/benchmark records from silent replacement, validates chunk/metric fields, refuses unknown or unreadable checkpoints, and keeps the prior index/cache when saving or refreshing documents fails. Live-storage Health now treats unreadable mode metadata as critical instead of reporting installed storage. Disposable fault tests, broad regressions and fresh ISO VM gates passed; physical hardware verification remains separate.
 
 Working now:
 
@@ -212,7 +218,7 @@ Working now:
 - Kernel config is tuned for desktop responsiveness: performance compiler mode, full preemption, dynamic preemption, high-resolution timers, 1000 Hz scheduler tick, scheduler autogroup, zram, and CPU/NVMe temperature sensors.
 - Rufus support has an ISO-mode note inside the ISO, USB-friendly volume labels, and `scripts/verify-rufus-iso.sh`
 - Full-i3 live starts eudev before Xorg and ships libinput config for PS/2 keyboard, mouse, and touchpad discovery
-- Full-i3 live boot never formats internal disks. GRUB boot UUID and same-parent checks restrict writable overlays to the boot USB. Normal live uses a cleared temporary overlay there, with RAM fallback when no matching partition exists. Persistent live keeps its separate saved overlay; failed/missing storage stops in recovery instead of silently discarding changes. Only the confirmed installer target can be partitioned or formatted.
+- Full-i3 live boot never formats internal disks. GRUB boot UUID and same-parent checks restrict writable overlays to the boot USB. Normal live uses a cleared temporary overlay there, with RAM fallback when no matching storage exists. Persistent live keeps its separate saved overlay; failed/missing storage stops in recovery instead of silently discarding changes. Only the confirmed installer target can be partitioned or formatted.
 - Full-i3 runs the desktop as the unprivileged `ooonana` user (UID 1000). Administrative commands use a validated wheel-only `doas` policy.
 - Full-i3 mounts `/run` and `/dev/shm` before desktop services, maps `/var/run` to `/run`, starts system D-Bus first, then starts NetworkManager and BlueZ. This runtime order supports Chromium, Wi-Fi, Bluetooth, and desktop applets from live USB and installed systems.
 - Full-i3 ships an Ooonana i3 desktop: solid rounded top panel with music status, RAM gauge, workspaces, and minimize/fullscreen/close controls; centered opaque app dock with pinned icons, running dots, restore-on-click, and right-click window actions; Spotlight-style launcher; opaque rounded GTK windows; dunst notifications; Chromium, Nemo, and editor/media shortcuts. Focus changes on click, not cursor hover. Notes is the default wallpaper again; the graphite wallpaper remains selectable. Fit mode preserves aspect ratio rather than stretching.
@@ -719,7 +725,7 @@ The terminal wizard still exists as fallback. It opens in a themed xterm under i
 
 New installations require a nonempty account password before formatting. Installed boot uses console login, then starts desktop; live media keeps automatic desktop startup. Passwordless live sudo/doas rules do not carry into installation. This new installed-login path still requires boot testing on a newly built image.
 
-Normal live boot may probe removable media read-only to find the Ooonana ISO. It writes no unrelated SSD/USB/SD disk automatically. Persistent mode writes only the `OOONANA_PERSIST` partition on the boot-media parent disk. Installation writes the explicitly confirmed target disk; verify its path before confirmation.
+Normal live boot may probe removable media read-only to find the Ooonana ISO. It writes no unrelated SSD/USB/SD disk automatically. Persistent mode writes only verified boot-USB storage: `OOONANA_PERSIST` partition or `ooonana-persistence.ext4` file. First-use file creation needs size and exact confirmation; no automatic device partitioning/formatting. Installation writes the explicitly confirmed target disk; verify its path before confirmation.
 
 Custom partition backend example:
 
@@ -742,7 +748,7 @@ sudo ooonana-install \
 
 Default full-i3 UI uses solid dark graphite, light text, and orange accents. Music sits on the left beside window controls; AI access sits in the center. Left-click AI opens Ooonana AI; right-click opens OpenVINO Chat. Right-side indicators cover RAM, audio, battery, Wi-Fi, unread notifications, compact hardware controls, clock, and power. Unavailable audio/battery placeholders are hidden; Bluetooth and brightness remain accessible through hardware controls. The notification center groups messages by app, supports individual removal, Clear all, and Do Not Disturb; right-click the bell toggles Do Not Disturb. Dunst retains up to 80 notifications during its session. Optional private local history saves messages collected by the center across sessions; default is off, and disabling it deletes saved history. Messages received while the center is closed are collected on reopening. Centered bottom dock shows running counts and hollow indicators for minimized apps; left-click restores an app session, right-click offers a native GTK action menu with rofi fallback. Unpinned windows get bounded chips and an overflow session picker. OpenVINO gets its own icon when installed. Hover alone does not change focus. Notes wallpaper is default; graphite wallpaper remains available in Settings. `Mod+d` opens native Ooonana Spotlight; `Mod+Shift+d` opens rofi. Light mode remains available:
 
-Native GTK window controls now sit on the left as red/yellow/green circles with visible symbols and accessible names. Appearance offers reduced motion; default page slides last 180ms without window transparency. The offline AI dialog separates app, runtime, model files, and API status without claiming that an active API proves successful model loading. Setup presents a review before applying settings; installer text clarifies erase/custom modes, target partitions, and disk swap. Formatter logic is unchanged. Universal titlebar buttons for third-party apps still require separate window-manager work; the dock/titlebar action menu provides current controls.
+Native GTK window controls now sit on the left as red/yellow/green circles with visible symbols and accessible names. Appearance offers reduced motion; default page slides last 180ms without window transparency. The offline AI dialog separates app, runtime, model files, and API status without claiming that an active API proves successful model loading. Setup presents a review before applying settings; installer text clarifies erase/custom modes, target partitions, and disk swap. Formatter logic is unchanged. Third-party controls attach to visible i3 decorations and target their own window; hidden tabs, occluded and fullscreen-covered controls are excluded. Native dialog headers do not receive a second i3 titlebar. Dock/titlebar action menus provide restore/minimize/fullscreen/close.
 
 This machine's private Windows cursor conversion uses a real 21px frame (+10% from 19px, rounded), retaining original proportions and scaled hotspot. The separately drawn public tailless theme defaults to a real 19px frame (+10% from 17px, rounded). The private theme stays outside tracked sources and must not be redistributed. ISO and WSL overlay builders read preferred size from the private theme's `cursor-size` file.
 
@@ -785,9 +791,11 @@ Kernel arg: ooonana.persistence=1
 Persistence label: OOONANA_PERSIST
 ```
 
-For Rufus/native USB, flash the ISO normally, then add an ext4 persistence partition labeled `OOONANA_PERSIST`. Ooonana uses it as the full writable live-root overlay. User files, settings, Wi-Fi, Bluetooth pairings, installed packages, and system changes survive reboot. An internal disk carrying the same label is ignored.
+For a writable Rufus ISO-mode USB (FAT32 or ext4, label `OOONANAUSB`), select persistent mode after flashing. If storage is missing, first boot asks for size in MiB and exact `CREATE` confirmation, then creates `ooonana-persistence.ext4` on that verified boot USB. Later persistent boots reuse it without prompting. This is static file-backed persistence: user files, settings, Wi-Fi, Bluetooth pairings, installed packages and system changes write directly to USB, not a RAM snapshot saved only at shutdown. No partitioning or existing-file formatting occurs.
 
-GRUB also passes `ooonana.live.boot_uuid` automatically. Persistent boot requires that verified identity and exactly one eligible `OOONANA_PERSIST` partition on its parent disk. Duplicate boot UUIDs across attached drives, duplicate persistence partitions, missing/unmountable storage, unsafe symlink paths, less than 16 MiB free, or failed mount handoff stop boot in recovery. Saved overlays are never automatically cleared or repaired; there is no silent RAM fallback. Direct-kernel boots without the UUID use RAM only, and cannot enable persistence. See [persistent USB safety and verification](docs/persistent-usb-safety.md).
+FAT32 limits this file to 4095 MiB; setup reserves 256 MiB outside it and fully allocates the file. Larger AI runtimes/models need an ext4 boot filesystem with a larger requested file, an extra ext4 partition labeled `OOONANA_PERSIST`, or disk installation. DD-flashed ISO9660 media cannot hold a writable file: create the separate ext4 persistence partition in verified unused space. Setup never silently repartitions a DD USB.
+
+GRUB also passes `ooonana.live.boot_uuid` automatically. Persistent boot requires that verified identity and exactly one eligible storage backend: same-parent `OOONANA_PERSIST` partition or boot-filesystem storage file. Having both stops boot rather than guessing which saved session to use. Duplicate boot UUIDs across attached drives, duplicate persistence partitions, missing/unmountable storage, rejected/cancelled setup, unsafe symlink/hardlink paths, less than 16 MiB free, or failed mount handoff stop boot in recovery. Saved overlays are never automatically cleared or repaired; there is no silent RAM fallback. Direct-kernel boots without the UUID use RAM only, and cannot enable persistence. See [persistent USB safety and verification](docs/persistent-usb-safety.md).
 
 ISO9660 boot identity includes a bounded, read-only GRUB-compatible timestamp probe because BusyBox `blkid` reports ISO labels/types without UUIDs. FAT/ext4 continue using native UUIDs; malformed/missing ISO identity still refuses. October 5 ISO builds made before this fix need a fresh normal build, not `--resume-after-iso`; the old staged initramfs cannot discover its ISO by GRUB UUID.
 
@@ -795,7 +803,7 @@ Back up persistent files before reflashing. Saved overlays record the root-image
 
 `bunana --shutdown`/`--restart` request normal BusyBox init shutdown, not forced power-off. Fresh images stop writers before sync, swapoff and unmount/remount read-only. Upgrade migrates only the single known legacy shutdown action, preserving installed getty/login entries; custom shutdown actions stay untouched and need manual review of `.ooonana-new`. Silent session warnings and Settings/AI storage indicators report low space, exhausted inodes and read-only storage; no automatic cleanup occurs.
 
-`ooonana-memory status` reports available RAM, swap, and live storage mode. Ooonana starts compressed zram swap at boot (half physical RAM, capped at 8 GiB); it does not silently create a USB swapfile. Zram helps memory pressure but cannot replace physical RAM for a large model. OpenVINO setup on live USB needs the persistent GRUB entry plus `OOONANA_PERSIST`; RAM-only and temporary overlays cannot safely hold its runtime and model files.
+`ooonana-memory status` reports available RAM, swap, and live storage mode. Ooonana starts compressed zram swap at boot (half physical RAM, capped at 8 GiB); it does not silently create a USB swapfile. Zram helps memory pressure but cannot replace physical RAM for a large model. OpenVINO setup on live USB needs the persistent GRUB entry plus sufficiently large persistent storage; RAM-only and temporary overlays cannot safely hold its runtime and model files.
 
 Memory reporting now separates zram logical capacity, compressed bytes and physical consumption; Task Manager shows swap usage rather than capacity alone. OpenVINO preflight estimates weights/cache against available memory, including cgroup limits, and offers context/cache/model reductions. Linux core runtime pins were import-tested, not inference-tested. Use **Refresh runtime** in Offline setup when moving between tested dependency sets. See [backend update policy](docs/backend-update-policy.md) and [AI UI verification](docs/ai-ui-verification.md) for signing, enrollment, update/rollback boundaries and remaining checks.
 
@@ -842,12 +850,14 @@ Persistent live mode:
 ```text
 GRUB entry: Ooonana OS Full i3 Live (persistent USB)
 Kernel arg: ooonana.persistence=1
-Required partition label: OOONANA_PERSIST
-Filesystem: ext4
+Storage: ooonana-persistence.ext4 on writable boot USB, OR OOONANA_PERSIST partition
+Inner filesystem: ext4
 Persisted data: full writable live-root overlay; temporary /run, /tmp, and /dev/shm stay in RAM
 ```
 
-Rufus writes the bootable ISO. Persistence needs one extra Linux ext4 partition after the ISO area. Rufus may not create this correctly for Ooonana automatically.
+Rufus ISO mode creates writable boot media. Select persistent mode, choose storage size and type `CREATE` on first boot; Ooonana creates the ext4 storage file itself. No manual ext4 partition is needed for this path. Keep USB label `OOONANAUSB`. FAT32 storage-file limit is 4095 MiB, not extra RAM.
+
+For DD mode or larger partition-backed storage, use one extra Linux ext4 partition in verified unused USB space. Rufus does not create Ooonana's separately labeled ext4 partition automatically. Do not keep both a persistence file and partition on one boot USB.
 
 Create persistence from Linux after flashing, replacing `/dev/sdX` with the USB device:
 

@@ -28,6 +28,7 @@ trap cleanup EXIT
 mkdir -p "$work/tree" "$work/cd/boot/grub"
 (cd "$work/tree"; gzip -dc "$SEED" | cpio -id --quiet --no-absolute-filenames)
 install -m 0644 "$ROOT/scripts/lib/live-boot-storage.sh" "$work/tree/lib/ooonana-live-storage.sh"
+install -m 0644 "$ROOT/scripts/lib/live-persistence-file.sh" "$work/tree/lib/ooonana-live-persistence-file.sh"
 awk -v marker='cat > "$LIVE_INIT_TREE/init"' '
   index($0, marker) { capture=1; next }
   capture && $0 == "EOF" { exit }
@@ -35,7 +36,7 @@ awk -v marker='cat > "$LIVE_INIT_TREE/init"' '
 ' "$ROOT/scripts/build-full-i3-live-initramfs.sh" > "$work/tree/init"
 [[ -s "$work/tree/init" ]] || exit 1
 chmod 0755 "$work/tree/init"
-for applet in dd od; do ln -sf busybox "$work/tree/bin/$applet"; done
+for applet in dd od stat ln chroot; do ln -sf busybox "$work/tree/bin/$applet"; done
 (cd "$work/tree"; find . -print0 | cpio --null -o --format=newc --quiet | gzip -1 > "$work/cd/boot/live.cpio.gz")
 cp "$KERNEL" "$work/cd/boot/vmlinuz"
 # GRUB discovers/probes the real runtime USB, not the disposable bootstrap CD.

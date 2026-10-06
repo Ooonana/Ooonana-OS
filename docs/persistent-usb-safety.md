@@ -1,7 +1,8 @@
 # Persistent live USB safety
 
-Priority: reliability and data safety. No automatic partitioning, formatting,
-fsck repair, or deletion of saved overlays.
+Priority: reliability and data safety. No automatic partitioning, device
+formatting, fsck repair, or deletion of saved overlays. First persistent boot
+may create/format a new storage file after explicit size + `CREATE` confirmation.
 
 ## Boot policy
 
@@ -12,10 +13,27 @@ fsck repair, or deletion of saved overlays.
   ISO label/type. At most 16 descriptors are inspected; valid primary descriptor
   modification digits form GRUB's UUID. Invalid/truncated descriptors refuse.
   Native FAT/ext4 UUIDs take precedence; label-only matching is never allowed.
-- Exactly one ext4 `OOONANA_PERSIST` partition must exist on that boot parent.
-  Same-label internal disks and unrelated USB/SD devices cannot satisfy selection.
+- Exactly one storage backend: ext4 `OOONANA_PERSIST` partition on that boot
+  parent, or `ooonana-persistence.ext4` directly on its writable boot filesystem.
+  Both present refuses to guess. Same-label internal disks and unrelated USB/SD
+  devices cannot satisfy selection. File path rejects symlinks, nonregular files,
+  hardlinks, unexpected ext4 label/type and undersized images; no recursive search.
+- MX-style static file setup runs only in requested persistent mode on verified
+  FAT32/ext4 boot media without existing storage. Size range starts at 256 MiB,
+  reserves 256 MiB outer space, caps FAT32 at 4095 MiB. Prompts use physical tty1
+  or serial-only console, require exact `CREATE`, and time out after 120 seconds.
+  Identity and free space rechecked after confirmation, before writable remount.
+  DD/ISO9660 cannot create files; separate prepared persistence partition needed.
+- Setup fully allocates a newly owned temporary file, formats it using bundled
+  e2fsprogs, verifies ext4 identity, syncs, then publishes by no-clobber rename.
+  Existing storage files never overwritten. Cancellation/invalid size never
+  remounts boot storage writable. Interrupted power loss may leave an unpromoted
+  temporary file; it is never auto-adopted/deleted. FAT32 is not journaled; ext4
+  inner journaling does not guarantee outer filesystem power-loss protection.
+  File-backed storage uses loop1, records `persistence-file` in live metadata,
+  retains outer filesystem mount, and uses existing shutdown/storage monitoring.
 - `ooonana.persistence=1` is an exact kernel argument. Missing storage gets a
-  bounded discovery wait, then recovery; it never becomes an apparently saved
+  bounded discovery wait, then eligible file setup or recovery; it never becomes an apparently saved
   RAM session. Duplicate arguments for boot identity/root image are rejected.
 - The base image is attached read-only; ext4 lower layers use `ro,noload`.
   Its resolved path must remain inside the mounted boot filesystem.
@@ -31,9 +49,9 @@ fsck repair, or deletion of saved overlays.
   inodes and read-only state once per minute, with silent, rate-limited warnings;
   it never deletes files or guarantees protection from disk-full writes.
   Normal ext4 journal replay can write the selected persistence
-  partition during its read-write mount; no automatic fsck repair is run.
-- Normal live clears only guarded `temporary-overlay` on verified boot media;
-  saved `overlay` remains separate. With no matching partition it uses RAM.
+  filesystem during its read-write mount; no automatic fsck repair is run.
+- Normal live clears only guarded `temporary-overlay` inside verified storage;
+  saved `overlay` remains separate. With no matching storage it uses RAM.
   Unsafe/unmountable matching storage stops boot. Without a GRUB UUID, normal
   direct-kernel boots use RAM without mounting persistence writable.
 - Critical bind/move failures stop live handoff. Saved symlinks cannot redirect
@@ -53,7 +71,9 @@ ISO UUID format follows [GRUB's ISO9660 implementation](https://github.com/rhboo
 `tests/test-live-boot-storage.sh` uses fake device metadata and temporary files.
 It covers exact arguments, duplicate/cloned identities, wrong-parent selection,
 filesystem checks, path rejection, low space, unwritable probes and rcS markers.
-Release preflight and GitLab smoke include it.
+Release preflight and GitLab smoke include it. `tests/test-live-persistence-file.sh`
+covers size limits, reserved space, unsafe/hardlinked files, exact confirmation,
+cancellation and integration; both CI providers run these file-policy checks.
 
 `tests/test-iso-boot-uuid.py` checks bounded ISO UUID probing, malformed input,
 native UUID precedence, mismatched identity and byte-identical source media.
@@ -75,6 +95,20 @@ bash tests/qemu-live-persistence.sh \
   --kernel /path/to/vmlinuz-ooonana \
   --seed-initramfs /path/to/live-initramfs.cpio.gz
 ```
+
+Add `--format-rootfs /path/to/full-i3-rootfs` to include ten extra file-storage
+cases using bundled musl e2fsprogs and its dependency closure: cancellation and
+oversized input leave the boot image byte-identical, confirmed create/reboot,
+temporary reset, saved data surviving temporary boots, and a real ext4 mount
+failure with unsupported feature bits. That failure must leave the outer USB
+read-only, loop detached and saved image byte-identical. Successful boots require
+QEMU exit status zero, actual power-down, no cleanup/dirty-volume warnings, and
+read-only inner/outer markers; offline filesystem checks inspect both layers.
+Additional fault cases abort after all handoff mounts move, and inject an
+ordinary shutdown-unmount failure. Three rescue-shell exits must keep PID1's
+shutdown action alive with no power-down or false cleanup-success marker.
+Run with both
+`--boot-fs ext4` and `--boot-fs vfat`; only disposable file-backed USBs attach.
 
 For hardware-accelerated fixtures, set `OOONANA_QEMU_ACCEL=kvm`; default is TCG.
 Persistence guest deadline defaults to 180 seconds (positive override:
@@ -105,6 +139,16 @@ terminates writers, waits two seconds, kills remaining processes, syncs,
 disables swap and unmounts/remounts filesystems read-only before final sync.
 Direct host/WSL invocation of cleanup is refused. QEMU persistence fixtures
 require the cleanup marker before successful save/reboot verification.
+File-backed live boots retain a small private RAM shutdown root and run PID1
+from its BusyBox/musl copy. Cleanup pivots there, releases the overlay, unmounts
+inner ext4, detaches its writable loop, then remounts/unmounts the outer USB.
+Original storage mounts are moved into the desktop instead of leaving hidden
+writable mounts behind. Ordinary unmounts only: no forced/lazy unmount or global
+emergency-remount workaround. An incomplete RAM cleanup stops for diagnosis;
+the parent shutdown action stays alive while launching rescue children. Closing
+or exiting a rescue shell returns to that hold, never to PID1's poweroff path.
+It does not silently report a clean shutdown. Failed boot likewise releases its
+own loop and restores read-only boot storage before entering recovery.
 Unmount warnings remain visible; hardware write-cache/power-loss behavior needs
 physical testing. Applications may lose unsaved in-memory work at shutdown.
 

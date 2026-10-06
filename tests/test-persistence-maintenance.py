@@ -194,10 +194,43 @@ for parent, executable, command, hook, allowed in (
         ("1", "/bin/busybox", "/bin/busybox init ", "yes", True),
         ("1", "/bin/busybox", "/sbin/init ", "yes", True),
         ("1", "/bin/busybox", "init ", "yes", True),
+        ("1", "/mnt/ooonana-shutdown/bin/busybox", "init ", "yes", True),
+        ("1", "/mnt/ooonana-shutdown/lib/ld-musl-x86_64.so.1", "init ", "yes", True),
+        ("1", "/mnt/ooonana-shutdown/lib/ld-musl-x86_64.so.1", "/bin/sh ", "yes", False),
+        ("1", "/usr/lib/ld-musl-x86_64.so.1", "init ", "yes", False),
         ("1", "/bin/busybox", "/bin/sh ", "yes", False),
         ("1", "/bin/busybox", "/bin/busybox sh ", "yes", False),
         ("1", "/bin/busybox", "init ", "no", False),
         ("2", "/bin/busybox", "init ", "yes", False)):
     result = subprocess.run(["sh", "-c", predicate, "fixture", parent, executable, command, hook])
     assert (result.returncode == 0) == allowed
+ram_cleanup = (root / "scripts/lib/live-shutdown.sh").read_text()
+steps = ("pivot_root . oldroot", "umount /oldroot", "umount /persist",
+         "losetup -d /dev/loop1", "mount -o remount,ro /iso", "umount /iso")
+assert [ram_cleanup.index(step) for step in steps] == sorted(ram_cleanup.index(step) for step in steps)
+assert "umount -l" not in ram_cleanup and "umount -f" not in ram_cleanup
+assert "OOONANA_SHUTDOWN_CLEANUP_FAILED" in ram_cleanup
+# Two closed rescue children must leave PID1's shutdown action running.
+hold = ram_cleanup.split("shutdown_failed() {\n", 1)[1].split("\n}\n", 1)[0]
+assert "exec " not in "\n".join(line for line in hold.splitlines() if not line.lstrip().startswith("#"))
+with tempfile.TemporaryDirectory() as temporary:
+    fixture = Path(temporary)
+    script = fixture / "hold.sh"
+    script.write_text("""#!/bin/sh
+set -eu
+rescue_count=0
+sleep() { :; }
+ooonana_rescue_child() {
+  rescue_count=$((rescue_count + 1))
+  echo "RESCUE_CHILD:$rescue_count"
+  [ "$rescue_count" -lt 3 ] || exit 73
+  return 1
+}
+shutdown_failed() {
+""" + hold.replace("[ -x /mnt/ooonana-shutdown/lib/ld-musl-x86_64.so.1 ]", "true").replace(
+    "/mnt/ooonana-shutdown/lib/ld-musl-x86_64.so.1 /mnt/ooonana-shutdown/bin/busybox sh", "ooonana_rescue_child") + "\n}\nshutdown_failed 1\necho UNSAFE_SHUTDOWN_RETURN\n")
+    result = subprocess.run(["sh", str(script)], capture_output=True, text=True, timeout=5)
+    assert result.returncode == 73 and "RESCUE_CHILD:3" in result.stdout
+    assert "UNSAFE_SHUTDOWN_RETURN" not in result.stdout
+    assert result.stderr.count("OOONANA_SHUTDOWN_HELD") == 2
 print("PERSISTENCE_MAINTENANCE_OK backup/xattrs/hardlinks/tamper/atomic-migration/space/geometry/shutdown-policy")

@@ -109,6 +109,10 @@ assert_contains "$script_src" "losetup -r /dev/loop0"
 assert_contains "$script_src" 'mount -t ext4 -o ro,noload /dev/loop0'
 assert_contains "$script_src" "mount -t overlay overlay"
 assert_contains "$script_src" "switch_root /newroot /sbin/init"
+assert_contains "$script_src" 'mount --move /mnt/iso'
+assert_contains "$script_src" 'mount --move /persist'
+assert_contains "$script_src" 'mode=0700,nosuid,nodev,size=8m'
+assert_contains "$script_src" '/mnt/ooonana-shutdown/bin/busybox init'
 assert_contains "$script_src" "splash \"starting live boot\" 1"
 assert_contains "$script_src" "splash \"finding boot media\" 2"
 assert_contains "$script_src" "splash \"starting desktop\" 9"
@@ -214,5 +218,6 @@ assert_contains "$kernel_fragment" "CONFIG_INPUT_UINPUT=y"
 assert_contains "$kernel_fragment" "CONFIG_INTEL_MEI_ME=y"
 
 sh "$ROOT/tests/test-live-boot-storage.sh"
+sh "$ROOT/tests/test-live-persistence-file.sh"
 PYTHONDONTWRITEBYTECODE=1 python3 "$ROOT/tests/test-iso-boot-uuid.py"
 printf 'ok full-i3-live-initramfs\n'

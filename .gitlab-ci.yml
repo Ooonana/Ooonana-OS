@@ -28,7 +28,17 @@ ci-smoke:
     - echo "Ooonana GitLab CI active"
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-release-repo.py
     - bash tests/test-version-order.sh
+    - bash tests/test-qemu-live-kernel-smoke.sh
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-service-watchdog.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-service-readiness.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-cgroup-memory.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-backend-metrics-api.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-state-io-recovery.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-ai-store-safety.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-panel-session.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-window-list.py
     - sh tests/test-live-boot-storage.sh
+    - sh tests/test-live-persistence-file.sh
     - sh tests/test-persistence-maintenance.sh
 
 deploy-package-repo:

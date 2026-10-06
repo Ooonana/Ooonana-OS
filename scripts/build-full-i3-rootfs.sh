@@ -1149,13 +1149,16 @@ start_network_manager() {
 
 bluez_ready() {
   process_running bluetoothd || return 1
-  if command -v dbus-send >/dev/null 2>&1; then
-    run_limited 3 dbus-send --system --print-reply \
-      --dest=org.freedesktop.DBus / org.freedesktop.DBus.GetNameOwner \
-      string:org.bluez >/dev/null 2>&1
-    return $?
-  fi
-  return 0
+  command -v dbus-send >/dev/null 2>&1 || return 1
+  owner_reply="$(run_limited 3 dbus-send --system --print-reply --reply-timeout=1500 \
+    --dest=org.freedesktop.DBus / org.freedesktop.DBus.GetNameOwner \
+    string:org.bluez 2>/dev/null)" || return 1
+  owner="$(printf '%s\n' "$owner_reply" |
+    awk '$1 == "string" { gsub(/"/, "", $2); if ($2 ~ /^:/) print $2 }')"
+  case "$owner" in :*.*) ;; *) return 1 ;; esac
+  # Probe the unique owner, not a well-known name that could auto-activate.
+  run_limited 3 dbus-send --system --print-reply --reply-timeout=1500 \
+    --dest="$owner" / org.freedesktop.DBus.Peer.Ping >/dev/null 2>&1
 }
 
 start_bluetooth() {
@@ -1275,12 +1278,36 @@ esac
 [ "$interval" -ge 10 ] 2>/dev/null || interval=10
 mkdir -p /run/ooonana /var/log
 pidfile=/run/ooonana/service-watchdog.pid
-if [ -s "$pidfile" ]; then
-  old_pid="$(cat "$pidfile" 2>/dev/null || true)"
-  [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null && exit 0
-fi
+# PID files are diagnostic metadata, not proof of process identity. A kernel
+# lock rejects concurrent starts and disappears automatically after a crash.
+# Never unlink the lock file: replacing its inode would allow two lock owners.
+exec 9>/run/ooonana/service-watchdog.lock
+/bin/busybox flock -n 9 || exit 0
 echo "$$" >"$pidfile"
-trap 'rm -f "$pidfile"' EXIT INT TERM
+worker_pid=""
+cleanup_watchdog() {
+  trap '' INT TERM
+  if [ -n "$worker_pid" ]; then
+    kill "$worker_pid" 2>/dev/null || true
+    wait "$worker_pid" 2>/dev/null || true
+  fi
+  if [ "$(cat "$pidfile" 2>/dev/null || true)" = "$$" ]; then
+    rm -f "$pidfile"
+  fi
+}
+trap cleanup_watchdog EXIT
+trap 'exit 0' INT TERM
+
+run_owned() {
+  # Wait is interruptible even during a readiness probe or repair. Jobs never
+  # inherit the lock, and stopping supervision does not kill healthy daemons.
+  "$@" 9>&- &
+  worker_pid="$!"
+  worker_status=0
+  wait "$worker_pid" || worker_status=$?
+  worker_pid=""
+  return "$worker_status"
+}
 
 running() {
   /bin/busybox pidof "$1" >/dev/null 2>&1
@@ -1314,17 +1341,24 @@ network_manager_ready() {
 bluez_ready() {
   running bluetoothd || return 1
   dbus_ready || return 1
-  run_limited 5 dbus-send --system --print-reply \
+  command -v dbus-send >/dev/null 2>&1 || return 1
+  owner_reply="$(run_limited 3 dbus-send --system --print-reply --reply-timeout=1500 \
     --dest=org.freedesktop.DBus / org.freedesktop.DBus.GetNameOwner \
-    string:org.bluez >/dev/null 2>&1
+    string:org.bluez 2>/dev/null)" || return 1
+  owner="$(printf '%s\n' "$owner_reply" |
+    awk '$1 == "string" { gsub(/"/, "", $2); if ($2 ~ /^:/) print $2 }')"
+  case "$owner" in :*.*) ;; *) return 1 ;; esac
+  run_limited 3 dbus-send --system --print-reply --reply-timeout=1500 \
+    --dest="$owner" / org.freedesktop.DBus.Peer.Ping >/dev/null 2>&1
 }
 
-while sleep "$interval"; do
-  if ! dbus_ready || ! network_manager_ready; then
-    ooonana-service-repair force-wifi >>/var/log/ooonana-service-watchdog.log 2>&1 || true
+while :; do
+  run_owned sleep "$interval" || exit 1
+  if ! run_owned dbus_ready || ! run_owned network_manager_ready; then
+    run_owned ooonana-service-repair force-wifi >>/var/log/ooonana-service-watchdog.log 2>&1 || true
   fi
-  if ! bluez_ready; then
-    ooonana-service-repair force-bluetooth >>/var/log/ooonana-service-watchdog.log 2>&1 || true
+  if ! run_owned bluez_ready; then
+    run_owned ooonana-service-repair force-bluetooth >>/var/log/ooonana-service-watchdog.log 2>&1 || true
   fi
 done
 EOF
@@ -1571,6 +1605,8 @@ radio="$(nmcli -t -f WIFI radio 2>/dev/null | head -n 1 || true)"
 case "$radio" in
   enabled)
     name="$(nmcli -t -f TYPE,NAME connection show --active 2>/dev/null | awk -F: '$1 == "802-11-wireless" { print $2; exit }')"
+    # Connection names are data, never Polybar formatting/action tags.
+    name="$(printf '%s' "$name" | tr -d '[:cntrl:]%')"
     if [ -n "$name" ]; then
       printf '\357\207\253 %s\n' "$name"
     else
@@ -2778,6 +2814,8 @@ type = custom/script
 exec = ooonana-wifi-status
 interval = 5
 label = %output%
+label-maxlen = 14
+label-ellipsis = true
 label-foreground = ${colors.accent}
 label-background = ${colors.background-alt}
 label-padding = 2
@@ -4201,6 +4239,36 @@ EOF
   fi
 }
 
+install_current_backend_checks() {
+  # Cached first-party archives must not mask current backend/desktop fixes.
+  local app="$ROOTFS/usr/lib/ooonana/openvino-chat" file
+  install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/cgroup_memory.py" \
+    "$ROOTFS/usr/lib/ooonana/cgroup_memory.py"
+  install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/storage_health.py" \
+    "$ROOTFS/usr/lib/ooonana/storage_health.py"
+  install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/panel_session.py" \
+    "$ROOTFS/usr/lib/ooonana/panel_session.py"
+  for file in chat_store.py common.py memory_status.py notification_utils.py task_manager_app.py ui_preferences.py window_controls.py; do
+    install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ui/$file" \
+      "$ROOTFS/usr/lib/ooonana/ui/$file"
+  done
+  install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana" "$ROOTFS/usr/bin/ooonana"
+  for file in ooonana-window-list ooonana-panel-start ooonana-media-status; do
+    install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/$file" "$ROOTFS/usr/bin/$file"
+  done
+  [[ -f "$app/APP-MANIFEST.sha256" ]] || return 0
+  for file in api.py benchmarks.py cgroup_memory.py knowledge.py memory_guard.py perf.py sessions.py state_io.py; do
+    install -m 0644 "$ROOT/packages/openvino-chat/source/src/openvino_chat/$file" \
+      "$app/src/openvino_chat/$file"
+  done
+  (
+    cd "$app" || exit 1
+    find src scripts -type f ! -name '*.pyc' ! -name '*.pyo' -print0 | sort -z | xargs -0 sha256sum
+    sha256sum pyproject.toml requirements-linux-runtime.lock requirements-linux-full.lock runtime-linux.env
+  ) >"$app/APP-MANIFEST.sha256.new"
+  mv "$app/APP-MANIFEST.sha256.new" "$app/APP-MANIFEST.sha256"
+}
+
 fix_blueman_activation() {
   local service="$ROOTFS/usr/share/dbus-1/system-services/org.blueman.Mechanism.service"
   [[ -f "$service" ]] || return 0
@@ -4543,7 +4611,7 @@ normalize_rootfs_permissions() {
 
 main() {
   ooonana_require_linux
-  ooonana_require_commands awk chmod cp find gzip install ln mkdir mktemp rm sed sha256sum stat tar
+  ooonana_require_commands awk chmod cp find gzip install ln mkdir mktemp mv rm sed sha256sum sort stat tar xargs
   [[ -d "$SCRATCH_ROOTFS" ]] || ooonana_die "missing scratch rootfs: $SCRATCH_ROOTFS"
   [[ -x "$SCRATCH_ROOTFS/bin/sh" ]] || ooonana_die "invalid scratch rootfs: missing /bin/sh"
   [[ -f "$ROOT/branding/logo.svg" ]] || ooonana_die "missing branding/logo.svg"
@@ -4604,6 +4672,7 @@ main() {
   printf '127.0.0.1 localhost ooonana\n' > "$ROOTFS/etc/hosts"
   printf 'full-i3\n' > "$ROOTFS/etc/ooonana/edition"
   install_full_i3_packages
+  install_current_backend_checks
   case "${OOONANA_SKIP_INTEL_FIRMWARE:-0}" in
     0)
       bash "$ROOT/scripts/install-intel-wireless-firmware.sh" \

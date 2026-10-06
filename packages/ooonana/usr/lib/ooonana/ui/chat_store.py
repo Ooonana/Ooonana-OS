@@ -16,11 +16,14 @@ class ChatStore:
         self.path = Path(path)
         self.threads = []
         self.load_error = ""
+        self._load_failed = False
         try:
-            if self.path.stat().st_size > 16 * 1024 * 1024:
+            with self.path.open("r", encoding="utf-8") as stream:
+                text = stream.read(16 * 1024 * 1024 + 1)
+            if len(text) > 16 * 1024 * 1024:
                 raise ValueError("saved history exceeds size limit")
             else:
-                data = json.loads(self.path.read_text())
+                data = json.loads(text)
                 for item in data.get("threads", [])[:MAX_THREADS]:
                     if not isinstance(item, dict) or not isinstance(item.get("id"), str):
                         continue
@@ -31,9 +34,10 @@ class ChatStore:
                     self.threads.append(dict(id=item["id"][:64], title=str(item.get("title", "New chat"))[:80], updated=float(item.get("updated", 0)), messages=messages))
         except FileNotFoundError:
             pass
-        except (OSError, ValueError, TypeError, AttributeError) as error:
+        except (OSError, ValueError, TypeError, AttributeError, RecursionError) as error:
             self.threads = []
             self.load_error = str(error)
+            self._load_failed = True
 
     def new(self):
         self.threads = [thread for thread in self.threads if thread["messages"]]
@@ -52,13 +56,16 @@ class ChatStore:
         self.save()
 
     def save(self):
+        if self._load_failed:
+            return
         try:
             self._save()
-        except OSError as error:
+            self.load_error = ""
+        except (OSError, ValueError, TypeError, RecursionError) as error:
             self.load_error = str(error)
 
     def _save(self):
-        if self.load_error:
+        if self._load_failed:
             return  # Preserve unreadable existing file; never silently overwrite.
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.threads.sort(key=lambda item: item["updated"], reverse=True)

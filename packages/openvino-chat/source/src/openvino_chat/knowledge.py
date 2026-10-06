@@ -5,6 +5,7 @@ import json
 import math
 import os
 import re
+import stat
 import zlib
 from collections import Counter
 from dataclasses import asdict, dataclass
@@ -16,10 +17,12 @@ from openvino_chat.settings import (
     RAG_EMBED_REPO,
     RAG_RERANK_REPO,
 )
+from openvino_chat.state_io import read_bytes, read_json, write_bytes
 
 
 INDEX_VERSION = 1
 MAX_FILE_BYTES = 2 * 1024 * 1024
+MAX_INDEX_BYTES = 64 * 1024 * 1024
 DEFAULT_CHUNK_CHARS = 1200
 DEFAULT_OVERLAP_CHARS = 160
 SUPPORTED_EXTENSIONS = {
@@ -118,6 +121,7 @@ class KnowledgeStore:
         self._checkpoints: dict[str, bytes | None] = {}
         self._checkpoint_signature: tuple[int, int] | None = None
         self._checkpoint_key: str | None = None
+        self.load_error: str | None = None
 
     @property
     def chunk_count(self) -> int:
@@ -155,8 +159,13 @@ class KnowledgeStore:
             raise FileNotFoundError(f"knowledge path missing: {root}")
         files = list(_document_files(root))
         old = self._load()
+        self._require_writable()
         replaced = {str(file.resolve()) for file in files}
         if root.is_dir():
+            # Removed sources may be pruned; inaccessible/oversized sources may not.
+            for chunk in old:
+                if _is_below(chunk.source, root):
+                    _supported_file(Path(chunk.source))
             retained = [
                 chunk for chunk in old
                 if chunk.source not in replaced
@@ -166,20 +175,19 @@ class KnowledgeStore:
             retained = [chunk for chunk in old if chunk.source not in replaced]
         pending = self._chunks_from_files(files)
         pending, semantic = self._with_embeddings(pending)
-        self._chunks = retained + pending
-        self._save()
+        self._save(retained + pending)
         indexed_files = len({chunk.source for chunk in pending})
         return IndexResult(indexed_files, len(pending), semantic)
 
     def reindex(self) -> IndexResult:
         files = [Path(source) for source in self.list_sources() if _supported_file(Path(source))]
+        self._require_writable()
         if not files:
             self.clear()
             return IndexResult(0, 0, False)
         pending = self._chunks_from_files(files)
         pending, semantic = self._with_embeddings(pending)
-        self._chunks = pending
-        self._save()
+        self._save(pending)
         return IndexResult(len({chunk.source for chunk in pending}), len(pending), semantic)
 
     @staticmethod
@@ -188,7 +196,7 @@ class KnowledgeStore:
         for file in files:
             text = _read_document(file)
             if text is None:
-                continue
+                raise ValueError(f"cannot index unreadable document: {file}")
             source = str(file.resolve())
             for index, part in enumerate(chunk_text(text)):
                 digest = hashlib.sha256(
@@ -215,8 +223,9 @@ class KnowledgeStore:
         )
 
     def clear(self) -> None:
-        self._chunks = []
         self.index_path.unlink(missing_ok=True)
+        self._chunks = []
+        self.load_error = None
         self._checkpoint_signature = (-1, -1)
         self._checkpoint_key = "missing"
         self._checkpoints.setdefault("missing", None)
@@ -227,8 +236,8 @@ class KnowledgeStore:
             signature = (stat.st_mtime_ns, stat.st_size)
             if signature == self._checkpoint_signature and self._checkpoint_key is not None:
                 return self._checkpoint_key
-            data = self.index_path.read_bytes()
-        except OSError:
+            data = read_bytes(self.index_path, MAX_INDEX_BYTES)
+        except FileNotFoundError:
             key = "missing"
             self._checkpoints.setdefault(key, None)
             self._checkpoint_signature = (-1, -1)
@@ -242,15 +251,15 @@ class KnowledgeStore:
         return key
 
     def restore_checkpoint(self, checkpoint: str) -> None:
-        compressed = self._checkpoints.get(checkpoint)
+        if checkpoint not in self._checkpoints:
+            raise ValueError("unknown knowledge checkpoint")
+        compressed = self._checkpoints[checkpoint]
         if compressed is None:
             self.index_path.unlink(missing_ok=True)
         else:
-            self.index_path.parent.mkdir(parents=True, exist_ok=True)
-            temporary = self.index_path.with_suffix(self.index_path.suffix + ".restore")
-            temporary.write_bytes(zlib.decompress(compressed))
-            temporary.replace(self.index_path)
+            write_bytes(self.index_path, zlib.decompress(compressed), MAX_INDEX_BYTES)
         self._chunks = None
+        self.load_error = None
         self._checkpoint_signature = None
         self._checkpoint_key = None
 
@@ -297,28 +306,54 @@ class KnowledgeStore:
         )
 
     def _load(self) -> list[KnowledgeChunk]:
-        if self._chunks is not None:
+        if self._chunks is not None and not self.load_error:
             return self._chunks
         try:
-            payload = json.loads(self.index_path.read_text(encoding="utf-8"))
+            payload = read_json(self.index_path, MAX_INDEX_BYTES)
             if not isinstance(payload, dict):
                 raise ValueError("invalid knowledge index")
-            if int(payload.get("version", 0)) != INDEX_VERSION:
+            if type(payload.get("version")) is not int or payload["version"] != INDEX_VERSION:
                 raise ValueError("unsupported knowledge index")
-            self._chunks = [KnowledgeChunk(**item) for item in payload.get("chunks", [])]
-        except (OSError, TypeError, ValueError, json.JSONDecodeError):
+            chunks = payload.get("chunks", [])
+            if not isinstance(chunks, list):
+                raise ValueError("invalid knowledge chunks")
+            validated = []
+            for item in chunks:
+                if not isinstance(item, dict) or not all(isinstance(item.get(field), str) for field in ("chunk_id", "source", "text")):
+                    raise ValueError("invalid knowledge chunk")
+                if not item["chunk_id"] or not item["source"]:
+                    raise ValueError("missing knowledge chunk identity/source")
+                embedding = item.get("embedding")
+                if embedding is not None and (not isinstance(embedding, list) or not all(
+                    type(value) in (int, float) and math.isfinite(value) for value in embedding
+                )):
+                    raise ValueError("invalid knowledge embedding")
+                validated.append(KnowledgeChunk(**item))
+            self._chunks = validated
+            self.load_error = None
+        except FileNotFoundError:
             self._chunks = []
+            self.load_error = None
+        except (OSError, TypeError, ValueError, OverflowError):
+            self._chunks = []
+            self.load_error = "knowledge index unreadable; original preserved"
         return self._chunks
 
-    def _save(self) -> None:
-        self.index_path.parent.mkdir(parents=True, exist_ok=True)
+    def _require_writable(self) -> None:
+        if self.load_error:
+            raise ValueError(self.load_error)
+
+    def _save(self, chunks: list[KnowledgeChunk] | None = None) -> None:
+        if chunks is None:
+            chunks = self._load()
+        self._require_writable()
         payload = {
             "version": INDEX_VERSION,
-            "chunks": [asdict(chunk) for chunk in (self._chunks or [])],
+            "chunks": [asdict(chunk) for chunk in chunks],
         }
-        temporary = self.index_path.with_suffix(self.index_path.suffix + ".tmp")
-        temporary.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-        temporary.replace(self.index_path)
+        encoded = json.dumps(payload, ensure_ascii=False, allow_nan=False).encode("utf-8")
+        write_bytes(self.index_path, encoded, MAX_INDEX_BYTES)
+        self._chunks = chunks
         self._checkpoint_signature = None
         self._checkpoint_key = None
 
@@ -365,24 +400,38 @@ def _document_files(root: Path) -> Iterable[Path]:
         if _supported_file(root):
             yield root
         return
-    for path in root.rglob("*"):
-        if any(part.lower() in IGNORED_DIRS for part in path.relative_to(root).parts[:-1]):
-            continue
-        if path.is_file() and _supported_file(path):
-            yield path
+    def failed_walk(error):
+        raise error
+    for directory, folders, names in os.walk(root, onerror=failed_walk):
+        folders[:] = sorted(folder for folder in folders if folder.lower() not in IGNORED_DIRS)
+        for name in sorted(names):
+            path = Path(directory) / name
+            if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
+                continue
+            try:
+                info = path.stat()
+            except FileNotFoundError:
+                continue
+            if stat.S_ISREG(info.st_mode) and info.st_size <= MAX_FILE_BYTES:
+                yield path
 
 
 def _supported_file(path: Path) -> bool:
-    try:
-        return path.suffix.lower() in SUPPORTED_EXTENSIONS and path.stat().st_size <= MAX_FILE_BYTES
-    except OSError:
+    if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
         return False
+    try:
+        size = path.stat().st_size
+    except FileNotFoundError:
+        return False
+    if size > MAX_FILE_BYTES:
+        raise ValueError(f"knowledge source exceeds size limit: {path}")
+    return True
 
 
 def _read_document(path: Path) -> str | None:
     try:
-        data = path.read_bytes()
-    except OSError:
+        data = read_bytes(path, MAX_FILE_BYTES)
+    except (OSError, ValueError):
         return None
     if b"\x00" in data[:4096]:
         return None

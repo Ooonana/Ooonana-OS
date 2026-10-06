@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-import json
 import logging
 import os
 from pathlib import Path
+
+from .cgroup_memory import constrain_memory
+from .perf import _estimate_kv_cache_bytes
 
 MIB = 1024 * 1024
 
@@ -38,7 +40,8 @@ class MemoryEstimate:
                 "or use supported u8/u4 KV cache settings. Estimates do not guarantee allocation succeeds.")
 
 
-def memory_snapshot() -> tuple[int, int, int]:
+def memory_snapshot(*, membership=Path("/proc/self/cgroup"),
+                    mountinfo=Path("/proc/self/mountinfo"), cgroup_root=None) -> tuple[int, int, int]:
     try:
         import psutil
         memory, swap = psutil.virtual_memory(), psutil.swap_memory()
@@ -52,16 +55,8 @@ def memory_snapshot() -> tuple[int, int, int]:
         except (OSError, ValueError):
             return 0, 0, 0
         total, available, swap_free = data.get("MemTotal", 0), data.get("MemAvailable", data.get("MemFree", 0)), data.get("SwapFree", 0)
-    try:
-        maximum = Path("/sys/fs/cgroup/memory.max").read_text().strip()
-        if maximum != "max":
-            limit = int(maximum)
-            current = int(Path("/sys/fs/cgroup/memory.current").read_text())
-            if limit > 0:
-                total, available = min(total, limit), min(available, max(0, limit - current))
-    except (OSError, ValueError):
-        pass
-    return total, max(0, available), max(0, swap_free)
+    total, available = constrain_memory(total, available, membership, mountinfo, cgroup_root)
+    return total, available, max(0, swap_free)
 
 
 def estimate_memory(model_dir: Path, context: int = 4096, kv_precision: str = "auto", snapshot=None) -> MemoryEstimate:
@@ -75,22 +70,13 @@ def estimate_memory(model_dir: Path, context: int = 4096, kv_precision: str = "a
         if key not in seen:
             weights += info.st_size
             seen.add(key)
-    try:
-        config = json.loads((Path(model_dir) / "config.json").read_text())
-        config = config.get("text_config", config)
-        layers = int(config.get("num_hidden_layers", 0))
-        heads = int(config.get("num_attention_heads", 0))
-        kv_heads = int(config.get("num_key_value_heads", heads))
-        dimension = int(config.get("head_dim", int(config.get("hidden_size", 0)) // max(1, heads)))
-        per_token = max(0, layers * kv_heads * dimension * 2)
-        bytes_per_value = {"u4": 0.5, "u8": 1}.get(kv_precision, 2)
-        per_token = int(per_token * bytes_per_value)
-    except (OSError, ValueError, TypeError, AttributeError):
-        per_token = 0
+    per_token = _estimate_kv_cache_bytes(Path(model_dir), 1, kv_precision)
     total, available, swap_free = snapshot or memory_snapshot()
     overhead = max(256 * MIB, weights // 5) if weights else 0
     room = max(0, available - weights - overhead)
-    recommended = (min(context, max(2, room // per_token)) if per_token else context) if room else 0
+    recommended = min(context, room // per_token) if per_token else context
+    if recommended < 2:
+        recommended = 0  # No supported context fits this allowance.
     return MemoryEstimate(total, available, swap_free, weights, per_token * context, overhead, context, recommended)
 
 

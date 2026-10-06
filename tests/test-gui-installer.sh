@@ -50,7 +50,7 @@ assert_contains "$i3_config" 'bindsym $mod+Shift+a exec ooonana-ai-launch'
 assert_contains "$i3_config" 'bindsym $mod+Shift+t exec ooonana-theme-env toggle'
 assert_contains "$i3_config" "client.focused"
 assert_contains "$i3_config" "exec_always --no-startup-id ooonana-panel-start"
-assert_contains "$(<"$ROOT/packages/ooonana/usr/bin/ooonana-panel-start")" "polybar -c /etc/ooonana/polybar.ini ooonana-dock"
+assert_contains "$(<"$ROOT/packages/ooonana/usr/bin/ooonana-panel-start")" "exec python3 /usr/lib/ooonana/panel_session.py"
 assert_contains "$full_test" "ooonana-gui-installer"
 assert_contains "$full_test" "ooonana-installer-gui"
 assert_contains "$full_test" "ooonana-ai.desktop"

@@ -29,14 +29,24 @@ def check_services(run=execute, available=shutil.which, socket_exists=None):
         code, text = run(base + ["string:org.freedesktop.DBus"])
         bus = code == 0 and bool(re.search(r"boolean\s+true\b", text))
     result["dbus"] = {"state": "ready" if bus else "unreachable", "probe": "system bus reply"}
-    for key, name in (("network", "org.freedesktop.NetworkManager"),
-                      ("bluetooth", "org.bluez"), ("wifi-auth", "fi.w1.wpa_supplicant1")):
+    owner_query = base[:-1] + ["org.freedesktop.DBus.GetNameOwner"]
+    for key, name, path in (("network", "org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager"),
+                            ("bluetooth", "org.bluez", "/"),
+                            ("wifi-auth", "fi.w1.wpa_supplicant1", "/fi/w1/wpa_supplicant1")):
         if not bus:
             state = "waiting-for-dbus"
         else:
-            code, text = run(base + ["string:" + name])
-            state = "ready" if code == 0 and re.search(r"boolean\s+true\b", text) else "not-ready"
-        result[key] = {"state": state, "probe": "D-Bus name owner"}
+            code, text = run(owner_query + ["string:" + name])
+            owner = re.search(r'\bstring\s+"(:[A-Za-z0-9_.-]+\.[A-Za-z0-9_.-]+)"', text)
+            state = "not-ready"
+            if code == 0 and owner:
+                # Unique names cannot activate a stopped service, even if its
+                # well-known ownership disappears between lookup and ping.
+                code, _text = run(["dbus-send", "--system", "--print-reply",
+                                  "--reply-timeout=1500", "--dest=" + owner[1], path,
+                                  "org.freedesktop.DBus.Peer.Ping"])
+                state = "ready" if code == 0 else "unresponsive"
+        result[key] = {"state": state, "probe": "D-Bus unique-owner endpoint reply"}
     if available("pactl"):
         code, text = run(["pactl", "info"])
         state = "ready" if code == 0 and text.strip() else "not-ready"

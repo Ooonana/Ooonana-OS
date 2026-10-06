@@ -730,9 +730,11 @@ def _api_path_key(value: object) -> str:
 def stop_api_process() -> bool:
     status = api_status()
     if not status.get("running"):
-        API_STATE_PATH.unlink(missing_ok=True)
+        _remove_owned_state(status.get("instance_id"))
         return False
-    pid = int(status["pid"])
+    pid = _state_integer(status.get("pid"), 2**31 - 1)
+    if pid is None:
+        raise RuntimeError("API state has invalid PID; refusing to signal")
     kill_error = ""
     if os.name == "nt":
         completed = subprocess.run(
@@ -756,19 +758,16 @@ def stop_api_process() -> bool:
     if _health_matches(status):
         detail = f": {kill_error}" if kill_error else ""
         raise RuntimeError("API server did not stop" + detail)
-    API_STATE_PATH.unlink(missing_ok=True)
+    _remove_owned_state(status.get("instance_id"))
     return True
 
 
 def api_status() -> dict[str, Any]:
-    if not API_STATE_PATH.exists():
+    state = _read_api_state()
+    if state is None:
         return {"running": False}
-    try:
-        state = json.loads(API_STATE_PATH.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {"running": False}
-    if not isinstance(state, dict):
-        return {"running": False}
+    if _state_integer(state.get("pid"), 2**31 - 1) is None:
+        return {**state, "running": False}
     health = _health_payload(state)
     if health is None:
         return {**state, "running": False}
@@ -1528,23 +1527,52 @@ def _health_matches(state: dict[str, Any]) -> bool:
     return _health_payload(state) is not None
 
 
+def _state_integer(value: object, maximum: int) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        return None
+    if isinstance(value, str) and (not value.isascii() or not value.isdigit()):
+        return None
+    try:
+        number = int(value)
+    except ValueError:
+        return None
+    return number if 1 <= number <= maximum else None
+
+
+def _read_api_state() -> dict[str, Any] | None:
+    try:
+        with API_STATE_PATH.open("r", encoding="utf-8") as stream:
+            text = stream.read(65537)
+        if len(text) > 65536:
+            return None
+        state = json.loads(text)
+        return state if isinstance(state, dict) else None
+    except (OSError, UnicodeError, ValueError, RecursionError):
+        return None
+
+
 def _health_payload(state: dict[str, Any]) -> dict[str, Any] | None:
-    host = str(state.get("host") or DEFAULT_API_HOST)
+    host = state.get("host", DEFAULT_API_HOST)
+    if not isinstance(host, str):
+        return None
     if host == "0.0.0.0":
         host = DEFAULT_API_HOST
     elif host == "::":
         host = "::1"
-    port = state.get("port")
+    port = _state_integer(state.get("port"), 65535)
     instance_id = state.get("instance_id")
-    if not port or not instance_id:
+    if port is None or not isinstance(instance_id, str) or not instance_id:
         return None
     try:
-        with urllib.request.urlopen(_api_url(host, int(port), "/health"), timeout=0.35) as response:
-            payload = json.loads(response.read().decode("utf-8"))
+        with urllib.request.urlopen(_api_url(host, port, "/health"), timeout=0.35) as response:
+            body = response.read(65537)
+        if len(body) > 65536:
+            return None
+        payload = json.loads(body.decode("utf-8"))
         if isinstance(payload, dict) and payload.get("instance_id") == instance_id:
             return payload
         return None
-    except (OSError, ValueError, urllib.error.URLError, json.JSONDecodeError):
+    except (OSError, ValueError, TypeError, RecursionError, urllib.error.URLError):
         return None
 
 
@@ -1556,12 +1584,11 @@ def _api_url(host: str, port: int, path: str = "") -> str:
     return f"http://{address}:{int(port)}{suffix}"
 
 
-def _remove_owned_state(instance_id: str) -> None:
-    try:
-        state = json.loads(API_STATE_PATH.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+def _remove_owned_state(instance_id: str | None) -> None:
+    if not isinstance(instance_id, str) or not instance_id:
         return
-    if state.get("instance_id") == instance_id:
+    state = _read_api_state()
+    if state is not None and state.get("instance_id") == instance_id:
         API_STATE_PATH.unlink(missing_ok=True)
 
 

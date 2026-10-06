@@ -209,14 +209,15 @@ Boot support:
 Persistence:
 
 Use `Ooonana OS Full i3 Live (persistent USB)`.
-Create an extra ext4 partition labeled `OOONANA_PERSIST`.
-Ooonana uses it as the writable live-root overlay, including user files, settings, and packages.
-The persistence partition must be on the same physical USB as Ooonana boot media.
-GRUB passes the boot filesystem UUID. Persistent boot requires this identity plus exactly one eligible partition; duplicate/cloned boot UUIDs across drives stop boot before any writable mount.
-Missing/unmountable persistence, unsafe overlay paths, failed handoff mounts, or less than 16 MiB available stop persistent boot in recovery instead of silently falling back to RAM. No automatic format, fsck repair, or saved-overlay reset occurs.
-Normal live mode uses a cleared temporary overlay on that verified same USB partition when available, then resets it on next boot. It falls back to RAM when no matching USB partition exists; direct-kernel boots without a GRUB UUID always use RAM and never open persistence writable.
+On writable FAT32/ext4 ISO-mode USB labeled `OOONANAUSB`, first persistent boot asks for size in MiB and exact CREATE confirmation, then creates `ooonana-persistence.ext4`. Later boots reuse it. No manual ext4 partition needed.
+Storage writes directly to USB, including user files, settings and packages; no shutdown-only RAM snapshot.
+FAT32 caps the storage file at 4095 MiB. Setup fully allocates it and reserves 256 MiB outside it. For larger models, use larger ext4-backed storage or install to disk.
+DD-mode ISO9660 is read-only; create an extra ext4 partition labeled `OOONANA_PERSIST` in verified unused space on the SAME boot USB. No automatic repartitioning.
+GRUB passes boot filesystem UUID. Exactly one backend is accepted; both file and partition, duplicate/cloned identities or unrelated disks refuse before writable mounting.
+Missing/unmountable persistence, cancelled/failed setup, unsafe paths, failed handoff or less than 16 MiB available stop in recovery, never silent RAM fallback. No existing-file/device format, fsck repair or saved-overlay reset.
+Normal live uses a separate cleared temporary overlay inside existing verified storage, otherwise RAM. Normal mode never creates storage; no GRUB identity always means RAM without writable disk mounts.
 Back up saved files before reflashing USB media. Existing saved overlays may hide files from a newer ISO; automatic overlay migration/reset is not implemented.
-Compressed zram swap starts at boot, but it is not extra physical RAM. OpenVINO setup requires persistent live mode and OOONANA_PERSIST; RAM-only live storage cannot hold its runtime and models.
+Compressed zram swap starts at boot, but it is not extra physical RAM. OpenVINO setup requires persistent live mode with sufficient disk space; RAM-only live storage cannot hold its runtime and models.
 Installer writes disks only after confirmation.
 EOF
 }

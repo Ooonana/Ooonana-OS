@@ -1,6 +1,7 @@
 """Opaque, focus-neutral titlebar buttons for i3-decorated third-party windows."""
 import ctypes
 import fcntl
+import hashlib
 import os
 from pathlib import Path
 import threading
@@ -206,7 +207,8 @@ class Manager:
 def main():
     runtime = Path(os.environ.get("XDG_RUNTIME_DIR", os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state")))) / "ooonana"
     runtime.mkdir(parents=True, exist_ok=True)
-    with (runtime / "window-controls.lock").open("a") as lock:
+    display = hashlib.sha256(os.environ.get("DISPLAY", "default").encode()).hexdigest()[:16]
+    with (runtime / f"window-controls-{display}.lock").open("a") as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:

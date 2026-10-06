@@ -1,17 +1,4 @@
 #!/bin/sh
 set -eu
 command -v polybar >/dev/null 2>&1 || exit 0
-/bin/busybox killall polybar >/dev/null 2>&1 || true
-eval "$(ooonana-window-list --dock-geometry)"
-eval "$(ooonana-window-list --panel-geometry)"
-export OOONANA_DOCK_WIDTH OOONANA_DOCK_OFFSET
-export OOONANA_PANEL_LEFT OOONANA_PANEL_RIGHT OOONANA_PANEL_GAP OOONANA_MEDIA_MAX_CHARS
-polybar -c /etc/ooonana/polybar.ini ooonana &
-if [ "${1:-}" != --panel-only ]; then
-  if command -v ooonana-dock >/dev/null 2>&1 && python3 -c 'import gi, cairo' >/dev/null 2>&1; then
-    ooonana-dock &
-  else
-    polybar -c /etc/ooonana/polybar.ini ooonana-dock &
-  fi
-fi
-wait
+exec python3 /usr/lib/ooonana/panel_session.py "$@"

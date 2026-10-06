@@ -65,7 +65,10 @@ def cpu_totals(text: str) -> tuple[int, int] | None:
         counters = [int(value) for value in fields[1:]]
     except ValueError:
         return None
-    return sum(counters), counters[3] + counters[4]
+    if any(counter < 0 for counter in counters):
+        return None
+    # Guest/guest-nice already contribute to user/nice; count them once.
+    return sum(counters[:8]), counters[3] + counters[4]
 
 
 def parse_process_stat(text: str) -> tuple[str, int, int] | None:
@@ -105,13 +108,21 @@ def disk_bytes() -> tuple[int, int]:
     return reads, writes
 
 
-def network_bytes() -> tuple[str, int, int] | None:
-    devices = [device for device in Path("/sys/class/net").glob("*") if device.name != "lo"]
-    devices.sort(key=lambda device: (not (device / "wireless").exists(), device.name))
-    for device in devices:
+def network_bytes(base: Path = Path("/sys/class/net")) -> tuple[str, int, int] | None:
+    devices = []
+    for device in base.glob("*"):
+        if device.name == "lo":
+            continue
+        state = read_text(device / "operstate").strip()
+        carrier = read_number(device / "carrier")
+        if state in {"down", "lowerlayerdown", "notpresent", "dormant", "testing"} or carrier == 0:
+            continue
+        devices.append((state == "up" or carrier == 1, device))
+    devices.sort(key=lambda item: (not item[0], not (item[1] / "wireless").exists(), item[1].name))
+    for _active, device in devices:
         rx = read_number(device / "statistics/rx_bytes")
         tx = read_number(device / "statistics/tx_bytes")
-        if rx is not None and tx is not None:
+        if rx is not None and tx is not None and rx >= 0 and tx >= 0:
             return device.name, rx, tx
     return None
 
@@ -492,7 +503,8 @@ class TaskManagerWindow(Gtk.Window):
                 self.metrics["network"].update(f"{interface}: sampling...", 0.0)
             self.previous_network = interface, rx, tx, now
         else:
-            self.metrics["network"].update("No interface counter", None)
+            self.metrics["network"].update("No active interface counter", None)
+            self.previous_network = None
 
         storage = root_storage()
         if storage and storage[0] > 0:

@@ -148,7 +148,7 @@ def pin_for(item):
         return "apps"
     if "task manager" in name or "processes" in name:
         return "tasks"
-    if name == "music" or wm_class in ("ncmpcpp", "mpd"):
+    if name == "music" or (wm_class == "ooonanaapp" and name == "ooonana music") or wm_class in ("ncmpcpp", "mpd"):
         return "music"
     if "openvino chat" in name or "ooonana offline ai" in name:
         return "openvino"

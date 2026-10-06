@@ -223,20 +223,27 @@ def _estimate_kv_cache_bytes(
     kv_cache_precision: str = "auto",
 ) -> int:
     config = _read_model_config(model_dir)
-    if not config:
+    try:
+        if not config:
+            raise ValueError("missing model dimensions")
+        text_config = config.get("text_config") if isinstance(config.get("text_config"), dict) else config
+        layers = _full_attention_layers(text_config)
+        attn_heads = _positive_model_integer(text_config.get("num_attention_heads"), 1)
+        kv_heads = _positive_model_integer(text_config.get("num_key_value_heads"), attn_heads)
+        head_dim = text_config.get("head_dim")
+        if head_dim is None or head_dim == 0:
+            hidden_size = _positive_model_integer(text_config.get("hidden_size"), 4096)
+            head_dim = max(hidden_size // attn_heads, 1)
+        else:
+            head_dim = _positive_model_integer(head_dim)
+        bytes_per_value = _dtype_bytes(str(text_config.get("dtype") or config.get("dtype") or "float16"))
+        bytes_per_value = _kv_precision_bytes(kv_cache_precision, bytes_per_value)
+        return int(max(context_length, 0) * layers * kv_heads * head_dim * 2 * bytes_per_value)
+    except (ValueError, TypeError, OverflowError):
+        # Unknown/corrupt dimensions use the existing conservative fallback,
+        # never a negative cache estimate or an unchecked status exception.
         bytes_per_value = _kv_precision_bytes(kv_cache_precision, 2)
         return int(max(context_length, 0) * 40 * 4096 * 2 * bytes_per_value)
-    text_config = config.get("text_config") if isinstance(config.get("text_config"), dict) else config
-    layers = _full_attention_layers(text_config)
-    kv_heads = int(text_config.get("num_key_value_heads") or text_config.get("num_attention_heads") or 1)
-    head_dim = int(text_config.get("head_dim") or 0)
-    if head_dim <= 0:
-        hidden_size = int(text_config.get("hidden_size") or 4096)
-        attn_heads = max(int(text_config.get("num_attention_heads") or 1), 1)
-        head_dim = max(hidden_size // attn_heads, 1)
-    bytes_per_value = _dtype_bytes(str(text_config.get("dtype") or config.get("dtype") or "float16"))
-    bytes_per_value = _kv_precision_bytes(kv_cache_precision, bytes_per_value)
-    return int(max(context_length, 0) * layers * kv_heads * head_dim * 2 * bytes_per_value)
 
 
 def _kv_precision_bytes(precision: str, default: int) -> float:
@@ -249,16 +256,33 @@ def _kv_precision_bytes(precision: str, default: int) -> float:
 
 def _read_model_config(model_dir: Path) -> dict:
     try:
-        return json.loads((model_dir / "config.json").read_text(encoding="utf-8"))
-    except Exception:
-        return {}
+        with (model_dir / "config.json").open("r", encoding="utf-8") as stream:
+            text = stream.read(1024 * 1024 + 1)
+        if len(text) <= 1024 * 1024:
+            data = json.loads(text)
+            if isinstance(data, dict):
+                return data
+    except (OSError, ValueError, RecursionError):
+        pass
+    return {}
+
+
+def _positive_model_integer(value, default=1) -> int:
+    if value is None:
+        return default
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        raise ValueError("invalid model dimension")
+    result = int(value)
+    if result <= 0:
+        raise ValueError("invalid model dimension")
+    return result
 
 
 def _full_attention_layers(config: dict) -> int:
     layer_types = config.get("layer_types")
     if isinstance(layer_types, list) and layer_types:
         return max(sum(1 for layer in layer_types if str(layer).lower() == "full_attention"), 1)
-    return max(int(config.get("num_hidden_layers") or 40), 1)
+    return _positive_model_integer(config.get("num_hidden_layers"), 40)
 
 
 def _dtype_bytes(dtype: str) -> int:
@@ -318,12 +342,15 @@ def _parse_linux_meminfo(text: str) -> tuple[int, int] | None:
 def _get_linux_cpu_usage() -> str:
     try:
         first = Path("/proc/stat").read_text(encoding="ascii").splitlines()[0]
-        fields = [int(value) for value in first.split()[1:]]
+        columns = first.split()
+        if not columns or columns[0] != "cpu":
+            return "cpu=unknown"
+        fields = [int(value) for value in columns[1:]]
     except (OSError, UnicodeError, ValueError, IndexError):
         return "cpu=unknown"
-    if len(fields) < 4:
+    if len(fields) < 4 or any(value < 0 for value in fields):
         return "cpu=unknown"
-    sample = (sum(fields), fields[3] + (fields[4] if len(fields) > 4 else 0))
+    sample = (sum(fields[:8]), fields[3] + (fields[4] if len(fields) > 4 else 0))
     return _format_cpu_sample(sample)
 
 

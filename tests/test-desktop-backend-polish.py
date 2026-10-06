@@ -8,6 +8,8 @@ import tempfile
 import time
 
 root = Path(__file__).resolve().parents[1]
+assert "packages/ooonana/etc/environment text eol=lf" in (root / ".gitattributes").read_text()
+assert b"\r" not in (root / "packages/ooonana/etc/environment").read_bytes(), "PAM retains CR in Python UTF8 setting"
 sys.path.insert(0, str(root / "packages/ooonana/usr/lib/ooonana"))
 sys.path.insert(0, str(root / "packages/ooonana/usr/lib/ooonana/ui"))
 from service_status import check_services
@@ -16,7 +18,13 @@ from memory_status import available_ram, memory_caption
 calls = []
 def probe(command):
     calls.append(command)
-    return (0, "Server Name: PipeWire") if command[0] == "pactl" else (0, "boolean true" if "org.bluez" not in command[-1] else "boolean false")
+    if command[0] == "pactl":
+        return 0, "Server Name: PipeWire"
+    if command[-1] == "org.freedesktop.DBus.Peer.Ping":
+        return 0, "method return"
+    if "org.bluez" in command[-1]:
+        return 1, ""
+    return (0, 'string ":1.42"') if command[-2] == "org.freedesktop.DBus.GetNameOwner" else (0, "boolean true")
 state = check_services(probe, lambda _: True, lambda: True)
 assert state["dbus"]["state"] == state["network"]["state"] == state["audio"]["state"] == "ready"
 assert state["bluetooth"]["state"] == "not-ready"

@@ -48,6 +48,13 @@ source_text="$(<"$SCRIPT")"
   fail "service smoke does not verify D-Bus machine ID"
 [[ "$source_text" == *'service watchdog did not recover D-Bus, NetworkManager, and BlueZ'* ]] ||
   fail "service smoke does not verify daemon supervision"
+[[ "$source_text" == *'stale unrelated PID suppressed watchdog startup'* &&
+   "$source_text" == *'duplicate watchdog replaced owner metadata'* &&
+   "$source_text" == *'watchdog did not exit after TERM'* ]] ||
+  fail "service smoke missing watchdog lifecycle regressions"
+[[ "$source_text" == *'health snapshot missed frozen BlueZ'* &&
+   "$source_text" == *'watchdog did not recover frozen BlueZ endpoint'* ]] ||
+  fail "service smoke missing frozen BlueZ regression"
 [[ "$source_text" == *'OOONANA_SERVICE_SMOKE_FAIL: live init failure'* ]] ||
   fail "service smoke leaves failed live init waiting for timeout"
 [[ "$source_text" == *'! grep -q '\''OOONANA_SERVICE_SMOKE_FAIL'\'''* ]] ||

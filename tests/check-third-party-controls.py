@@ -10,7 +10,7 @@ import time
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / "packages/ooonana/usr/lib/ooonana/ui"))
-from common import Gdk, Gtk
+from common import Gdk, GLib, Gtk
 from window_controls import Manager, decoration_targets
 import i3_events
 
@@ -31,7 +31,7 @@ with tempfile.TemporaryDirectory() as temporary:
     env = {**os.environ, "PATH": str(root / "packages/ooonana/usr/bin") + ":" + os.environ["PATH"]}
     os.environ["PATH"] = env["PATH"]
     wm = subprocess.Popen(["i3", "-c", str(config)], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    terminal = None
+    terminal = peer = None
     manager = None
     try:
         def ready():
@@ -62,21 +62,73 @@ with tempfile.TemporaryDirectory() as temporary:
             screen = Gdk.get_default_root_window()
             image = Gdk.pixbuf_get_from_window(screen, 0, 0, screen.get_width(), screen.get_height())
             image.savev(sys.argv[1], "png", [], [])
-        control.activate("minimize")
+        # Pointer crossing and controls on an unfocused client must not focus it.
+        peer = subprocess.Popen(["xterm", "-class", "ThirdPartyTest", "-title", "Second fixture", "-e", "sleep", "120"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        def peer_present():
+            tree = i3_events.request(path, 4)
+            def find(node):
+                if node.get("window") and node.get("name") == "Second fixture":
+                    return node
+                return next((found for child in node.get("nodes", []) + node.get("floating_nodes", []) if (found := find(child))), None)
+            return find(tree)
+        wait(peer_present)
+        peer_id = peer_present()["id"]
+        subprocess.run(["i3-msg", f"[con_id={peer_id}] move position 720 100; [con_id={peer_id}] focus"], check=True, capture_output=True)
+        wait(lambda: identifier in manager.controls and peer_id in manager.controls)
+        pointer = Gdk.Display.get_default().get_default_seat().get_pointer()
+        pointer.warp(Gdk.Screen.get_default(), 180, 180)
+        for _ in range(20):
+            while Gtk.events_pending():
+                Gtk.main_iteration_do(False)
+            time.sleep(0.02)
+        assert peer_present()["focused"], "Hover changed client focus"
+        manager.controls[identifier].get_child().get_children()[1].emit("clicked")
         wait(lambda: identifier not in manager.controls)
+        assert peer_present()["focused"], "Minimize targeted/focused the wrong client"
         subprocess.run([str(root / "packages/ooonana/usr/bin/ooonana-window-list"), "--window-action", "show", str(identifier)], env=env, check=True, capture_output=True)
         wait(lambda: identifier in manager.controls)
-        manager.controls[identifier].activate("fullscreen")
+        manager.controls[identifier].get_child().get_children()[2].emit("clicked")
         wait(lambda: identifier not in manager.controls)
         subprocess.run([str(root / "packages/ooonana/usr/bin/ooonana-window-list"), "--window-action", "fullscreen", str(identifier)], env=env, check=True, capture_output=True)
         wait(lambda: identifier in manager.controls)
-        manager.controls[identifier].activate("close")
+        manager.controls[identifier].get_child().get_children()[0].emit("clicked")
         wait(lambda: terminal.poll() is not None)
+        # Real native right-click menu dispatches an action to this fixture only.
+        import window_menu
+        arguments = sys.argv
+        menu_errors = []
+        def select_minimize():
+            menu = Gtk.grab_get_current()
+            try:
+                assert isinstance(menu, Gtk.Menu) and menu.get_mapped(), "Native action menu did not map/grab"
+                rows = menu.get_children()
+                assert len(rows) == 6
+                rows[3].emit("activate")
+            except Exception as error:
+                menu_errors.append(error)
+            finally:
+                if isinstance(menu, Gtk.Menu):
+                    menu.popdown()
+                if Gtk.main_level():
+                    Gtk.main_quit()
+            return False
+        try:
+            sys.argv = ["window-menu", "--window", str(peer_id), "--title", "Second fixture"]
+            GLib.timeout_add(250, select_minimize)
+            assert window_menu.main() == 0
+        finally:
+            sys.argv = arguments
+        assert not menu_errors, menu_errors
+        wait(lambda: peer_id not in manager.controls)
         print("THIRD_PARTY_CONTROLS_OK")
     finally:
         if manager:
             manager.clear()
         if terminal and terminal.poll() is None:
             terminal.terminate()
+            terminal.wait(timeout=5)
+        if peer and peer.poll() is None:
+            peer.terminate()
+            peer.wait(timeout=5)
         wm.terminate()
         wm.wait(timeout=5)

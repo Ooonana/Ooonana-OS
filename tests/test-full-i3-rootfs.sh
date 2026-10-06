@@ -46,6 +46,8 @@ assert_contains "$script_src" 'chmod 4755 "$setuid_path"'
 assert_contains "$script_src" "refresh_font_caches()"
 assert_contains "$script_src" 'ln -s python3 "$ROOTFS/usr/bin/python"'
 assert_contains "$script_src" "fix_blueman_activation()"
+assert_contains "$script_src" "install_current_backend_checks()"
+assert_contains "$script_src" '  install_current_backend_checks'
 assert_contains "$script_src" "sed -i '/^SystemdService=/d'"
 assert_not_contains "$script_src" "start_blueman_mechanism()"
 assert_contains "$script_src" 'PRETTY_NAME="Ooonana OS $OS_VERSION"'
@@ -291,6 +293,8 @@ fi
 [[ -x "$rootfs/usr/bin/ooonana-wallpaper" ]] || fail "missing wallpaper helper"
 [[ -x "$rootfs/usr/bin/hsetroot" ]] || fail "missing hsetroot fallback"
 [[ -x "$rootfs/usr/bin/ooonana-panel-start" ]] || fail "missing panel launcher"
+cmp "$ROOT/packages/ooonana/usr/lib/ooonana/panel_session.py" "$rootfs/usr/lib/ooonana/panel_session.py" || fail "stale panel supervisor"
+cmp "$ROOT/packages/ooonana/usr/bin/ooonana-window-list" "$rootfs/usr/bin/ooonana-window-list" || fail "stale dock session mapper"
 [[ -x "$rootfs/usr/bin/ooonana-wallpaper-fit" ]] || fail "missing desktop wallpaper fit"
 [[ -x "$rootfs/usr/bin/ooonana-screenshot" ]] || fail "missing screenshot helper"
 [[ -x "$rootfs/usr/bin/ooonana-editor" ]] || fail "missing editor helper"
@@ -696,6 +700,7 @@ assert_contains "$service_repair" '"$bt_daemon" -n'
 assert_contains "$service_repair" "bluez_ready()"
 assert_contains "$service_repair" "org.freedesktop.DBus.GetNameOwner"
 assert_contains "$service_repair" "string:org.bluez"
+assert_contains "$service_repair" "org.freedesktop.DBus.Peer.Ping"
 assert_not_contains "$service_repair" "wait_for bluetoothd bluetoothctl show"
 assert_contains "$service_repair" "nmcli radio wifi on"
 assert_contains "$service_repair" "GENERAL.NM-MANAGED"
@@ -721,6 +726,7 @@ assert_contains "$service_watchdog" "ooonana-service-repair force-wifi"
 assert_contains "$service_watchdog" "ooonana-service-repair force-bluetooth"
 assert_contains "$service_watchdog" "org.freedesktop.DBus.ListNames"
 assert_contains "$service_watchdog" "org.freedesktop.DBus.GetNameOwner"
+assert_contains "$service_watchdog" "org.freedesktop.DBus.Peer.Ping"
 rofi_power="$(<"$rootfs/usr/bin/ooonana-rofi-power")"
 assert_contains "$rofi_power" "Lock"
 assert_contains "$rofi_power" "Log out"

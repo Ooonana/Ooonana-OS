@@ -69,7 +69,7 @@ main() {
     ooonana_die "live rootfs image exists: $ROOTFS_IMAGE (use --force)"
   fi
 
-  mkdir -p "$(dirname "$INITRAMFS")" "$(dirname "$ROOTFS_IMAGE")" "$ROOTFS/boot" "$ROOTFS/dev" "$ROOTFS/proc" "$ROOTFS/sys" "$ROOTFS/run" "$ROOTFS/tmp"
+  mkdir -p "$(dirname "$INITRAMFS")" "$(dirname "$ROOTFS_IMAGE")" "$ROOTFS/boot" "$ROOTFS/dev" "$ROOTFS/proc" "$ROOTFS/sys" "$ROOTFS/run" "$ROOTFS/tmp" "$ROOTFS/mnt"
   install -m 0644 "$KERNEL" "$ROOTFS/boot/vmlinuz"
   rm -rf "${ROOTFS:?}/dev/"* "${ROOTFS:?}/proc/"* "${ROOTFS:?}/sys/"* "${ROOTFS:?}/run/"* "${ROOTFS:?}/tmp/"* 2>/dev/null || true
   rm -f "$INITRAMFS" "$ROOTFS_IMAGE"
@@ -85,6 +85,8 @@ main() {
   mkdir -p "$LIVE_INIT_TREE/bin" "$LIVE_INIT_TREE/sbin" "$LIVE_INIT_TREE/lib" "$LIVE_INIT_TREE/dev" "$LIVE_INIT_TREE/proc" "$LIVE_INIT_TREE/sys" "$LIVE_INIT_TREE/mnt/iso" "$LIVE_INIT_TREE/mnt/root-ro" "$LIVE_INIT_TREE/cow" "$LIVE_INIT_TREE/newroot" "$LIVE_INIT_TREE/usr/share/ooonana"
   install -m 0755 "$ROOTFS/bin/busybox" "$LIVE_INIT_TREE/bin/busybox"
   install -m 0644 "$ROOT/scripts/lib/live-boot-storage.sh" "$LIVE_INIT_TREE/lib/ooonana-live-storage.sh"
+  install -m 0644 "$ROOT/scripts/lib/live-persistence-file.sh" "$LIVE_INIT_TREE/lib/ooonana-live-persistence-file.sh"
+  install -m 0755 "$ROOT/scripts/lib/live-shutdown.sh" "$LIVE_INIT_TREE/lib/ooonana-live-shutdown.sh"
   if [[ -f "$ROOTFS/usr/share/ooonana/logo.txt" ]]; then
     install -m 0644 "$ROOTFS/usr/share/ooonana/logo.txt" "$LIVE_INIT_TREE/usr/share/ooonana/logo.txt"
   fi
@@ -139,7 +141,7 @@ main() {
     )
   }
   copy_early_firmware
-  for applet in sh mount mkdir mknod sleep cat echo switch_root ls grep umount losetup mdev modprobe stty wc readlink dirname basename blkid rm tr df awk mktemp mv sync dd od; do
+  for applet in sh mount mkdir mknod sleep cat echo switch_root ls grep umount losetup mdev modprobe stty wc readlink dirname basename blkid rm tr df awk mktemp mv sync dd od stat ln chroot cp chmod pivot_root; do
     ln -sf busybox "$LIVE_INIT_TREE/bin/$applet"
   done
   ln -sf ../bin/busybox "$LIVE_INIT_TREE/sbin/mdev"
@@ -152,11 +154,13 @@ set -eu
 PATH=/bin:/sbin
 LIVE_IMAGE="/images/ooonana-full-i3-live-rootfs.ext4"
 . /lib/ooonana-live-storage.sh
+. /lib/ooonana-live-persistence-file.sh
 
 mount -t proc proc /proc 2>/dev/null || true
 cmdline="$(cat /proc/cmdline 2>/dev/null || true)"
 
 fail() {
+  live_persistence_file_abort || echo OOONANA_BOOT_STORAGE_CLEANUP_FAILED >/dev/console
   splash "boot failed" 10
   echo "Ooonana live init failed: $*" >/dev/console
   exec sh
@@ -378,6 +382,18 @@ overlay_upper="/cow/upper"
 overlay_work="/cow/work"
 persistence_mode="ram"
 persistence_device=""
+persistence_file=""
+
+live_storage_identity_safe() {
+  live_current_candidates=""
+  for live_sys_device in /sys/class/block/*; do
+    live_candidate="/dev/${live_sys_device##*/}"
+    [ -b "$live_candidate" ] || continue
+    live_current_candidates="$live_current_candidates $live_candidate"
+  done
+  live_current_parent="$(live_boot_parent_for_uuid "$BOOT_UUID" $live_current_candidates)" || return 1
+  [ -n "$live_current_parent" ] && [ "$live_current_parent" = "$(parent_disk_name "$boot_media_device")" ]
+}
 
 # Legacy direct-kernel boots without GRUB identity are read-only + RAM only.
 if [ -n "$BOOT_UUID" ]; then
@@ -399,6 +415,15 @@ if [ -n "$BOOT_UUID" ]; then
     persistence_tries=$((persistence_tries + 1))
     sleep 1
   done
+  persistence_image=/mnt/iso/ooonana-persistence.ext4
+  if [ -n "$persistence_device" ] && { [ -e "$persistence_image" ] || [ -L "$persistence_image" ]; }; then
+    fail "both partition and file persistence present; choose one offline; saved data untouched"
+  fi
+  if [ -z "$persistence_device" ]; then
+    if [ -e "$persistence_image" ] || [ -L "$persistence_image" ] || [ "$persistence_requested" = 1 ]; then
+      live_persistence_file_attach || fail "OOONANA_PERSIST missing on boot USB; no RAM fallback; file setup unavailable/cancelled/failed; ISO/DD needs separate ext4 partition"
+    fi
+  fi
   if [ -n "$persistence_device" ]; then
     mount -t ext4 -o rw "$persistence_device" /persist 2>/dev/null || fail "cannot mount persistence; no RAM fallback; no automatic repair"
     if [ "$persistence_requested" = 1 ]; then
@@ -435,21 +460,45 @@ mkdir -p /newroot/proc /newroot/sys /newroot/dev /newroot/mnt/ooonana-live/iso /
 printf '%s\n' "$boot_media_device" >/newroot/mnt/ooonana-live/boot-device
 printf '%s\n' "$persistence_mode" >/newroot/mnt/ooonana-live/persistence-mode
 printf '%s\n' "$persistence_device" >/newroot/mnt/ooonana-live/persistence-device
+printf '%s\n' "$persistence_file" >/newroot/mnt/ooonana-live/persistence-file
 printf '%s\n' "$live_base_id" >/newroot/mnt/ooonana-live/base-id
-mount --bind /mnt/iso /newroot/mnt/ooonana-live/iso 2>/dev/null || fail "cannot retain boot media mount"
-mount --bind /mnt/root-ro /newroot/mnt/ooonana-live/root-ro 2>/dev/null || fail "cannot retain live rootfs mount"
+mount --move /mnt/iso /newroot/mnt/ooonana-live/iso 2>/dev/null || fail "cannot retain boot media mount"
+mount --move /mnt/root-ro /newroot/mnt/ooonana-live/root-ro 2>/dev/null || fail "cannot retain live rootfs mount"
 mount --bind /cow /newroot/mnt/ooonana-live/cow 2>/dev/null || fail "cannot retain RAM overlay mount"
 if [ "$persistence_mode" = "usb" ]; then
-  mkdir -p /newroot/mnt/ooonana-live/persist
-  mount --bind /persist /newroot/mnt/ooonana-live/persist 2>/dev/null || fail "cannot retain persistence mount"
+  mkdir -p /newroot/mnt/ooonana-live/persist || fail "cannot prepare persistence handoff"
+  mount --move /persist /newroot/mnt/ooonana-live/persist 2>/dev/null || fail "cannot retain persistence mount"
 elif [ "$persistence_mode" = "usb-temporary" ]; then
   mkdir -p /newroot/mnt/ooonana-live/temporary
   mount --bind /persist/temporary-overlay /newroot/mnt/ooonana-live/temporary 2>/dev/null || fail "cannot retain temporary overlay mount"
+  mkdir -p /newroot/mnt/ooonana-live/persist || fail "cannot prepare persistence handoff"
+  mount --move /persist /newroot/mnt/ooonana-live/persist 2>/dev/null || fail "cannot retain persistence filesystem"
+fi
+if [ -n "$persistence_file" ]; then
+  # PID1 and final cleanup must not pin overlay or its writable backing loop.
+  shutdown_root=/newroot/mnt/ooonana-shutdown
+  mkdir -p "$shutdown_root" || fail "cannot prepare RAM shutdown mountpoint"
+  mount -t tmpfs -o mode=0700,nosuid,nodev,size=8m tmpfs "$shutdown_root" || fail "cannot prepare RAM shutdown root"
+  mkdir -p "$shutdown_root/bin" "$shutdown_root/lib" "$shutdown_root/dev" "$shutdown_root/proc" "$shutdown_root/sys" "$shutdown_root/oldroot" "$shutdown_root/iso" "$shutdown_root/persist" "$shutdown_root/root-ro" || fail "cannot prepare RAM shutdown directories"
+  cp /bin/busybox "$shutdown_root/bin/busybox" || fail "cannot copy RAM init"
+  for library in /lib/ld-musl-x86_64.so.1 /lib/libc.musl-x86_64.so.1; do
+    [ ! -f "$library" ] || cp "$library" "$shutdown_root/lib/" || fail "cannot copy RAM init library"
+  done
+  cp /lib/ooonana-live-shutdown.sh "$shutdown_root/shutdown" || fail "cannot copy RAM shutdown"
+  for applet in sh mount umount pivot_root losetup sync sleep cat grep awk sort readlink; do
+    ln -s busybox "$shutdown_root/bin/$applet" || fail "cannot prepare RAM shutdown applets"
+  done
 fi
 mount --move /proc /newroot/proc 2>/dev/null || fail "cannot move proc mount"
 mount --move /sys /newroot/sys 2>/dev/null || fail "cannot move sys mount"
 mount --move /dev /newroot/dev 2>/dev/null || fail "cannot move dev mount"
 
+if [ -n "$persistence_file" ]; then
+  if [ -x /newroot/mnt/ooonana-shutdown/lib/ld-musl-x86_64.so.1 ]; then
+    exec switch_root /newroot /mnt/ooonana-shutdown/lib/ld-musl-x86_64.so.1 /mnt/ooonana-shutdown/bin/busybox init
+  fi
+  exec switch_root /newroot /mnt/ooonana-shutdown/bin/busybox init
+fi
 exec switch_root /newroot /sbin/init
 fail "switch_root failed"
 EOF

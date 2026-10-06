@@ -7,9 +7,15 @@ MIB = 1024 ** 2
 
 def storage_health(metadata=Path("/mnt/ooonana-live"), filesystem=Path("/"), statvfs=os.statvfs):
     try:
-        mode = (metadata / "persistence-mode").read_text().strip()
-    except OSError:
+        with (metadata / "persistence-mode").open("r", encoding="utf-8") as stream:
+            text = stream.read(65)
+        if len(text) > 64:
+            raise ValueError("live storage mode exceeds limit")
+        mode = text.strip()
+    except FileNotFoundError:
         return {"mode": "installed", "level": "none", "caption": "Installed storage"}
+    except (OSError, ValueError):
+        return {"mode": "unknown", "level": "critical", "caption": "Live storage state unreadable; save work elsewhere"}
     if mode not in ("ram", "usb", "usb-temporary"):
         return {"mode": mode, "level": "critical", "caption": "Live storage state invalid"}
     try:

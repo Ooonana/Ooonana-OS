@@ -12,6 +12,8 @@ from typing import Any
 from openvino_chat.settings import CONFIG_PATH, SESSION_DIR
 
 DEFAULT_SESSION_DIR = SESSION_DIR
+MAX_RECOVERY_CHARS = 1024 * 1024
+MAX_SESSION_CHARS = 16 * 1024 * 1024
 
 
 class CrashRecoveryStore:
@@ -30,13 +32,22 @@ class CrashRecoveryStore:
         self._pending: dict[str, Any] | None = None
 
     def load(self) -> dict[str, Any]:
-        if not self.path.exists():
-            return {}
         try:
-            data = json.loads(self.path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+            with self.path.open("r", encoding="utf-8") as stream:
+                text = stream.read(MAX_RECOVERY_CHARS + 1)
+            if len(text) > MAX_RECOVERY_CHARS:
+                raise ValueError("recovery record exceeds size limit")
+            data = json.loads(text)
+            if not isinstance(data, dict):
+                raise ValueError("invalid recovery record")
+        except FileNotFoundError:
+            self.last_error = None
             return {}
-        return data if isinstance(data, dict) else {}
+        except (OSError, ValueError, RecursionError) as error:
+            self.last_error = str(error)
+            return {}
+        self.last_error = None
+        return data
 
     def schedule(self, session: str, draft: str, *, pending: bool = False) -> None:
         payload = self._payload(session, draft, pending)
@@ -95,8 +106,12 @@ class CrashRecoveryStore:
                 else:
                     self._write(payload)
                 self.last_error = None
-            except OSError as exc:
+            except (OSError, ValueError) as exc:
                 self.last_error = str(exc)
+                if payload is not None:
+                    with self._lock:
+                        if revision == self._revision:
+                            self._pending = payload
 
     @staticmethod
     def _payload(session: str, draft: str, pending: bool) -> dict[str, Any]:
@@ -110,6 +125,9 @@ class CrashRecoveryStore:
         }
 
     def _write(self, payload: dict[str, Any]) -> None:
+        encoded = json.dumps(payload, ensure_ascii=False, indent=2)
+        if len(encoded) > MAX_RECOVERY_CHARS:
+            raise ValueError("recovery record exceeds size limit")
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temporary: Path | None = None
         try:
@@ -122,7 +140,7 @@ class CrashRecoveryStore:
                 delete=False,
             ) as handle:
                 temporary = Path(handle.name)
-                json.dump(payload, handle, ensure_ascii=False, indent=2)
+                handle.write(encoded)
                 handle.flush()
                 os.fsync(handle.fileno())
             temporary.replace(self.path)
@@ -164,6 +182,8 @@ class ChatSessionStore:
         if state is not None:
             payload["state"] = state
         encoded = json.dumps(payload, ensure_ascii=False, indent=2)
+        if len(encoded) > MAX_SESSION_CHARS:
+            raise ValueError("session exceeds size limit")
         temporary: Path | None = None
         try:
             with tempfile.NamedTemporaryFile(
@@ -174,10 +194,10 @@ class ChatSessionStore:
                 suffix=".tmp",
                 delete=False,
             ) as handle:
+                temporary = Path(handle.name)
                 handle.write(encoded)
                 handle.flush()
                 os.fsync(handle.fileno())
-                temporary = Path(handle.name)
             temporary.replace(path)
         finally:
             if temporary is not None:
@@ -185,7 +205,7 @@ class ChatSessionStore:
         return path
 
     def load(self, name: str) -> list[tuple[str, str]]:
-        data = json.loads(self._path(name).read_text(encoding="utf-8"))
+        data = self._read(name)
         if isinstance(data, dict):
             data = data.get("history")
         if not isinstance(data, list):
@@ -199,7 +219,7 @@ class ChatSessionStore:
         return history
 
     def metadata(self, name: str) -> dict[str, Any]:
-        data = json.loads(self._path(name).read_text(encoding="utf-8"))
+        data = self._read(name)
         if isinstance(data, dict) and isinstance(data.get("metadata"), dict):
             return data["metadata"]
         history = self.load(name)
@@ -209,13 +229,23 @@ class ChatSessionStore:
         }
 
     def load_state(self, name: str) -> dict[str, Any]:
-        data = json.loads(self._path(name).read_text(encoding="utf-8"))
+        data = self._read(name)
         if isinstance(data, dict) and isinstance(data.get("state"), dict):
             return data["state"]
         return {}
 
     def delete(self, name: str) -> None:
         self._path(name).unlink(missing_ok=True)
+
+    def _read(self, name: str) -> Any:
+        with self._path(name).open("r", encoding="utf-8") as stream:
+            text = stream.read(MAX_SESSION_CHARS + 1)
+        if len(text) > MAX_SESSION_CHARS:
+            raise ValueError("session exceeds size limit")
+        try:
+            return json.loads(text)
+        except RecursionError as error:
+            raise ValueError("session nesting exceeds limit") from error
 
     def _path(self, name: str) -> Path:
         safe = re.sub(r"[^A-Za-z0-9_.-]+", "-", name.strip()).strip("-")

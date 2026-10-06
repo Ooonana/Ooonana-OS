@@ -228,6 +228,8 @@ release_input_fingerprint() {
       "$ROOT/scripts/build-full-i3-rootfs.sh" \
       "$ROOT/scripts/build-full-i3-live-initramfs.sh" \
       "$ROOT/scripts/lib/live-boot-storage.sh" \
+      "$ROOT/scripts/lib/live-persistence-file.sh" \
+      "$ROOT/scripts/lib/live-shutdown.sh" \
       "$ROOT/scripts/build-full-i3-disk.sh" \
       "$ROOT/scripts/build-full-i3-iso.sh" \
       "$ROOT/scripts/install-intel-wireless-firmware.sh" \

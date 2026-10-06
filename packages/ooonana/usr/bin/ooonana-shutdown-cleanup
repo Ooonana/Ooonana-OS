@@ -4,9 +4,10 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin
 export PATH
 
 shutdown_context_allowed() {
-  [ "$1" = 1 ] && [ "$2" = /bin/busybox ] && [ "$4" = yes ] || return 1
+  [ "$1" = 1 ] && [ "$4" = yes ] || return 1
+  case "$2" in /bin/busybox|/mnt/ooonana-shutdown/bin/busybox|/mnt/ooonana-shutdown/lib/ld-musl-x86_64.so.1) ;; *) return 1 ;; esac
   # A BusyBox shell as PID1 (containers/tests) is not BusyBox init.
-  case "$3" in '/bin/busybox init '|'/sbin/init '|'init ') return 0 ;; esac
+  case "$3" in '/bin/busybox init '|'/sbin/init '|'init '*|'/mnt/ooonana-shutdown/bin/busybox init '|'/mnt/ooonana-shutdown/lib/ld-musl-x86_64.so.1 /mnt/ooonana-shutdown/bin/busybox init ') return 0 ;; esac
   return 1
 }
 
@@ -51,4 +52,15 @@ shutdown_context_allowed "${PPID:-0}" "$(readlink /proc/1/exe 2>/dev/null)" \
   echo 'ooonana-shutdown-cleanup: refusing outside BusyBox init shutdown action' >&2
   exit 1
 }
+storage_file="$(cat /mnt/ooonana-live/persistence-file 2>/dev/null || true)"
+if [ "$storage_file" = /mnt/ooonana-live/iso/ooonana-persistence.ext4 ]; then
+  awk '$2 == "/mnt/ooonana-shutdown" && $3 == "tmpfs" { found=1 } END { exit !found }' /proc/mounts || {
+    echo OOONANA_SHUTDOWN_RAM_MISSING >&2
+    exit 1
+  }
+  if [ -x /mnt/ooonana-shutdown/lib/ld-musl-x86_64.so.1 ]; then
+    exec /mnt/ooonana-shutdown/lib/ld-musl-x86_64.so.1 /mnt/ooonana-shutdown/bin/busybox sh /mnt/ooonana-shutdown/shutdown --from-init
+  fi
+  exec /mnt/ooonana-shutdown/bin/busybox sh /mnt/ooonana-shutdown/shutdown --from-init
+fi
 shutdown_cleanup

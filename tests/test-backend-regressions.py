@@ -182,6 +182,8 @@ prefix = startup[:startup.index('mount -t sysfs')]
 # Exercise current helper and parsing order; never source host /lib or mount devices.
 prefix = prefix.replace('. /lib/ooonana-live-storage.sh',
                         (ROOT/'scripts/lib/live-boot-storage.sh').read_text())
+prefix = prefix.replace('. /lib/ooonana-live-persistence-file.sh',
+                        (ROOT/'scripts/lib/live-persistence-file.sh').read_text())
 parsing = startup[startup.index('persistence_requested=0'):startup.index('splash "starting live boot"')]
 mock = '''proc_ready=0
 mount() { proc_ready=1; }

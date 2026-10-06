@@ -421,7 +421,7 @@ def message_dialog(parent, title, text, kind=Gtk.MessageType.INFO):
         return dialog
 
     dialog = Gtk.Dialog(title=title, transient_for=parent, modal=True)
-    dialog.set_wmclass("ooonana-app", "OoonanaApp")
+    header(dialog, title, "", "dialog-information-symbolic")
     dialog.set_resizable(True)
     dialog.add_button("Close", Gtk.ResponseType.CLOSE)
     dialog.set_default_response(Gtk.ResponseType.CLOSE)

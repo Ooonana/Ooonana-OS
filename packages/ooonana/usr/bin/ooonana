@@ -2378,7 +2378,9 @@ cmd_update_status() {
     load_pkg "$id"
     category=minor
     major_os_update "$id" "$old" "$new" && category=major
-    [ "$OOONANA_PKG_SECURITY" != 1 ] || category=security
+    if [ "$OOONANA_PKG_SECURITY" = 1 ]; then
+      if [ "$category" = major ]; then category=major,security; else category=security; fi
+    fi
     printf '%s %s -> %s [%s]\n' "$id" "$old" "$new" "$category"
   done
 }

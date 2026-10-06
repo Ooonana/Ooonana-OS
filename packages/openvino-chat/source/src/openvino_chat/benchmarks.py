@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import threading
 from pathlib import Path
@@ -9,9 +10,13 @@ from typing import Any
 from openvino_chat.engine import GenerationMetrics
 from openvino_chat.perf import get_process_working_set_bytes, human_bytes
 from openvino_chat.settings import BENCHMARK_PATH
+from openvino_chat.state_io import read_json, write_bytes
 
 
 _STORE_LOCK = threading.Lock()
+MAX_BENCHMARK_BYTES = 16 * 1024 * 1024
+_COUNT_FIELDS = ("context_length", "samples", "input_tokens", "output_tokens", "ttft_samples", "peak_process_ram_bytes")
+_TIME_FIELDS = ("elapsed_seconds", "ttft_seconds", "best_tokens_per_second")
 
 
 def benchmark_path() -> Path:
@@ -27,6 +32,7 @@ def benchmark_path() -> Path:
 class BenchmarkStore:
     def __init__(self, path: Path | None = None) -> None:
         self.path = Path(path) if path is not None else benchmark_path()
+        self.last_error: str | None = None
 
     def record(
         self,
@@ -38,7 +44,7 @@ class BenchmarkStore:
     ) -> dict[str, Any]:
         key = _profile_key(model_dir, device, kv_cache_precision, context_length)
         with _STORE_LOCK:
-            payload = self._read()
+            payload = self._read(strict=True)
             profiles = payload.setdefault("profiles", {})
             profile = profiles.setdefault(
                 key,
@@ -57,6 +63,10 @@ class BenchmarkStore:
                     "best_tokens_per_second": 0.0,
                 },
             )
+            for field in _COUNT_FIELDS:
+                profile.setdefault(field, int(context_length) if field == "context_length" else 0)
+            for field in _TIME_FIELDS:
+                profile.setdefault(field, 0.0)
             profile["samples"] += 1
             profile["input_tokens"] += int(metrics.input_tokens)
             profile["output_tokens"] += int(metrics.output_tokens)
@@ -119,23 +129,36 @@ class BenchmarkStore:
         lines.append(f"profile_saved={self.path}")
         return "\n".join(lines)
 
-    def _read(self) -> dict[str, Any]:
+    def _read(self, *, strict: bool = False) -> dict[str, Any]:
         try:
-            payload = json.loads(self.path.read_text(encoding="utf-8"))
-            if isinstance(payload, dict) and isinstance(payload.get("profiles", {}), dict):
-                return payload
-        except (OSError, ValueError, TypeError):
-            pass
+            payload = read_json(self.path, MAX_BENCHMARK_BYTES)
+            if not isinstance(payload, dict) or type(payload.get("version", 1)) is not int or payload.get("version", 1) != 1:
+                raise ValueError("invalid benchmark record")
+            profiles = payload.get("profiles", {})
+            if not isinstance(profiles, dict):
+                raise ValueError("invalid benchmark profiles")
+            for profile in profiles.values():
+                if not isinstance(profile, dict):
+                    raise ValueError("invalid benchmark profile")
+                for field in _COUNT_FIELDS + _TIME_FIELDS:
+                    value = profile.get(field, 0)
+                    if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0 or not math.isfinite(value):
+                        raise ValueError("invalid benchmark metric")
+                    if field in _COUNT_FIELDS and type(value) is not int:
+                        raise ValueError("invalid benchmark counter")
+            self.last_error = None
+            return payload
+        except FileNotFoundError:
+            self.last_error = None
+        except (OSError, ValueError, TypeError, OverflowError) as error:
+            self.last_error = str(error)
+            if strict:
+                raise ValueError("benchmark record unreadable; original preserved") from error
         return {"version": 1, "profiles": {}}
 
     def _write(self, payload: dict[str, Any]) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = self.path.with_suffix(self.path.suffix + ".tmp")
-        temporary.write_text(
-            json.dumps(payload, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        temporary.replace(self.path)
+        encoded = (json.dumps(payload, indent=2, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
+        write_bytes(self.path, encoded, MAX_BENCHMARK_BYTES)
 
 
 def _profile_key(

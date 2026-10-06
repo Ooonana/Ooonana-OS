@@ -60,4 +60,9 @@ with tempfile.TemporaryDirectory() as temporary:
     assert "major update needs" in command("upgrade", "--dry-run")
     command("upgrade", "--allow-major")
     assert (root / "usr/share/fixture/version").read_text() == "0.10.0"
+    package("0.11.0", security=True)
+    assert '[major,security]' in command("update-status")
+    assert 'explicit --allow-major' in command('upgrade', '--security-only', success=False)
+    assert 'major update needs' in command('upgrade', '--security-only', '--dry-run')
+    assert (root / 'usr/share/fixture/version').read_text() == '0.10.0'
 print("ok update-safety")

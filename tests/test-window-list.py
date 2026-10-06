@@ -38,6 +38,8 @@ assert "•" in dock
 assert module.pin_for(items[0]) == "terminal"
 assert module.pin_for(items[1]) == "browser"
 assert module.pin_for((8, "Music", False, False, "ooonanaapp")) == "music"
+assert module.pin_for((8, "Ooonana Music", False, False, "ooonanaapp")) == "music"
+assert module.pin_for((8, "Ooonana Music", False, False, "chromium")) == "browser"
 assert module.pin_for((9, "Task Manager", False, False, "ooonanaapp")) == "tasks"
 openvino_window = (6, "OpenVINO Chat", False, False, "chromium")
 assert module.pin_for(openvino_window) == "openvino"
@@ -97,6 +99,10 @@ module.dock_open(items, "browser")
 assert commands[-1] == ["i3-msg", "[con_id=4] scratchpad show; [con_id=4] focus"]
 module.dock_open(items, "music")
 assert launches[-1] == ("ooonana-music",)
+before_launch = len(launches)
+module.dock_open(items + [(8, "Ooonana Music", False, True, "ooonanaapp")], "music")
+assert len(launches) == before_launch
+assert commands[-1] == ["i3-msg", "[con_id=8] scratchpad show; [con_id=8] focus"]
 selection = "1"
 module.dock_actions(items, "terminal")
 assert commands[-1] == ["i3-msg", "[con_id=3] move scratchpad"]

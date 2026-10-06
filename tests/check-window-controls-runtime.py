@@ -9,7 +9,7 @@ import time
 import traceback
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages/ooonana/usr/lib/ooonana/ui"))
-from common import Gdk, GLib, Gtk, apply_theme, header, i3_window_action  # noqa: E402
+from common import Gdk, GLib, Gtk, apply_theme, header, i3_window_action, message_dialog  # noqa: E402
 from gi.repository import GdkX11  # noqa: E402
 
 
@@ -59,6 +59,7 @@ for window in (a, b):
     window.add(Gtk.Label(label="Window control regression check"))
     window.show_all()
 passed = False
+dialogs = []
 
 
 def verify():
@@ -77,11 +78,28 @@ def verify():
         wait_for(lambda state: not state[bid][0].get("fullscreen_mode"))
         control(b, "ooonana-window-close").emit("clicked")
         wait_for(lambda state: bid not in state and aid in state)
+        native_dialog = message_dialog(a, "Diagnostic fixture", "Fixture detail\n" * 50)
+        third_party_dialog = Gtk.Dialog(title="Third-party dialog fixture", transient_for=a)
+        third_party_dialog.set_wmclass("fixture-dialog", "ThirdPartyDialog")
+        third_party_dialog.get_content_area().add(Gtk.Label(label="Default third-party titlebar retained"))
+        dialogs.extend((native_dialog, third_party_dialog))
+        for dialog in dialogs:
+            dialog.show_all()
+        native_id = GdkX11.X11Window.get_xid(native_dialog.get_window())
+        third_id = GdkX11.X11Window.get_xid(third_party_dialog.get_window())
+        wait_for(lambda state: native_id in state and third_id in state)
+        state = windows()
+        assert state[native_id][0]["deco_rect"]["height"] == 0, "Duplicate native dialog titlebar"
+        assert state[third_id][0]["deco_rect"]["height"] > 0, "Third-party dialog lost controls"
+        control(native_dialog, "ooonana-window-close").emit("clicked")
+        wait_for(lambda state: native_id not in state)
         passed = True
         print("NATIVE_WINDOW_CONTROLS_OK", flush=True)
     except Exception:
         traceback.print_exc()
     finally:
+        for dialog in dialogs:
+            dialog.destroy()
         a.destroy()
         b.destroy()
         Gtk.main_quit()
