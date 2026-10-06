@@ -1,0 +1,27 @@
+# Ooonana Android/AArch64 cloud package repo seed.
+#
+# The APK already ships the Ooonana i3 desktop and its core runtime. Keep this
+# catalog focused on useful add-on CLI/developer tools. The output remains an
+# Ooonana repository consumed only through the Ooonana package manager. Some
+# binary payloads are sourced from Alpine 3.23 AArch64 packages during repo
+# construction, then indexed and distributed in Ooonana's own repository format.
+git
+openssh-client-default
+openssh-server
+tmux
+nano
+jq
+ripgrep
+fd
+tree
+zip
+unzip
+make
+gcc
+g++
+musl-dev
+cmake
+ninja-build
+nodejs
+npm
+sqlite

@@ -132,10 +132,22 @@ deploy-package-repo:
         $kernel_args \
         $repo_args
 
+      android_repo_url="${repo_url%/}/aarch64"
+      # The Android catalog is a separate ARM64 Ooonana repository. Reuse the
+      # same Ooonana trust material, but never reuse x86_64 desktop payloads.
+      bash scripts/build-android-package-repo.sh \
+        --out-dir android-repo-staging \
+        --package-profile configs/packages/android-aarch64.list \
+        --arch aarch64 \
+        --alpine-version 3.23 \
+        --clean \
+        $sign_args
+
       # Pages receives complete immutable generation, never individual
       # archives and metadata promoted at different times.
       mv public repo-staging
       python3 scripts/publish-repo-generation.py --source repo-staging --target public
+      python3 scripts/publish-repo-generation.py --source android-repo-staging --target public/aarch64
 
       cat > public/index.html <<HTML
       <!doctype html>
@@ -144,10 +156,14 @@ deploy-package-repo:
       <title>Ooonana Package Repo</title>
       <body>
       <h1>Ooonana Package Repo</h1>
-      <p>Repo: $repo_url</p>
+      <p>Desktop/x86_64 repo: $repo_url</p>
+      <p>Android/AArch64 repo: $android_repo_url</p>
       <pre>ooonana repo add $OOONANA_REPO_NAME $repo_url
       ooonana update
       ooonana upgrade</pre>
+      <pre>ooonana repo add android-aarch64 $android_repo_url
+      ooonana update
+      ooonana list</pre>
       </body>
       </html>
       HTML
@@ -160,7 +176,7 @@ deploy-package-repo:
         exit 1
       fi
       printf 'Ooonana Pages repo size: %s bytes\n' "$bytes"
-      find public -maxdepth 2 -type f -print | sort
+      find public -maxdepth 4 -type f -print | sort
       BASH
   pages: true
   artifacts:
