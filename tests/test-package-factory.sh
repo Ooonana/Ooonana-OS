@@ -377,16 +377,18 @@ tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-game-launch' >/dev/nu
 tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-memory' >/dev/null || fail "core runtime missing memory helper"
 tar -tzf "$core_runtime_archive" | grep './etc/init.d/rcS' >/dev/null || fail "core runtime missing boot memory policy"
 tar -tzf "$core_runtime_archive" | grep './usr/bin/start-ooonana-i3' >/dev/null || fail "core runtime missing WSL nested launcher"
-tar -xOzf "$core_runtime_archive" ./usr/bin/start-ooonana-i3 | grep -q 'Xephyr' || fail "core runtime missing nested display support"
+# Drain tar output: grep -q can close early and make pipefail report SIGPIPE
+# even when the required runtime content exists.
+tar -xOzf "$core_runtime_archive" ./usr/bin/start-ooonana-i3 | grep -F 'Xephyr' >/dev/null || fail "core runtime missing nested display support"
 tar -xOzf "$core_runtime_archive" ./usr/share/icons/OoonanaTailless/cursors/left_ptr | python3 -c 'import sys; raise SystemExit(not sys.stdin.buffer.read().startswith(b"Xcur"))' || fail "core runtime missing tailless cursor"
-tar -xOzf "$core_runtime_archive" ./etc/os-release | grep -q 'PRETTY_NAME="Ooonana OS 0.9.9"' || fail "core runtime OS release stale"
+tar -xOzf "$core_runtime_archive" ./etc/os-release | grep -F 'PRETTY_NAME="Ooonana OS 0.9.9"' >/dev/null || fail "core runtime OS release stale"
 tar -tzf "$core_runtime_archive" | grep './usr/lib/ooonana/ui/task_manager_app.py' >/dev/null || fail "core runtime missing task manager"
 for native_file in usr/bin/ooonana-panel-start usr/bin/ooonana-notifications usr/bin/ooonana-notification-status usr/bin/ooonana-wallpaper-fit usr/lib/ooonana/ui/notifications_app.py; do
   [[ "$core_archive_files" == *"./$native_file"* ]] || fail "core runtime missing $native_file"
 done
 [[ "$core_archive_files" != *'WindowsCursorConceptPersonal'* ]] || fail "public core includes private cursor theme"
-tar -xOzf "$core_runtime_archive" ./etc/gtk-3.0/settings.ini | grep -q 'gtk-cursor-theme-size=19' || fail "core cursor size stale"
-tar -xOzf "$core_runtime_archive" ./etc/ooonana/polybar.ini | grep -q 'modules-center = ai' || fail "core panel center stale"
+tar -xOzf "$core_runtime_archive" ./etc/gtk-3.0/settings.ini | grep -F 'gtk-cursor-theme-size=19' >/dev/null || fail "core cursor size stale"
+tar -xOzf "$core_runtime_archive" ./etc/ooonana/polybar.ini | grep -F 'modules-center = ai' >/dev/null || fail "core panel center stale"
 tar -tzf "$core_runtime_archive" | grep './usr/share/ooonana/wallpapers/ooonana-notes.jpg' >/dev/null || fail "core runtime missing Notes wallpaper"
 tar -tzf "$core_runtime_archive" | grep './usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png' >/dev/null || fail "core runtime missing 0.9 wallpaper"
 tar -tzf "$core_runtime_archive" | grep './etc/gtk-3.0/settings.ini' >/dev/null || fail "core runtime missing GTK window controls"
@@ -491,7 +493,7 @@ bash "$KERNEL_PACKAGER" \
 [[ -f "$tmp/kernel-repo/ooonana-kernel.pkg" ]] || fail "kernel package missing"
 [[ -f "$tmp/kernel-repo/archives/ooonana-kernel-9.9.9.tar.gz" ]] || fail "kernel archive missing"
 assert_contains "$(<"$tmp/kernel-repo/index.tsv")" $'ooonana-kernel\t9.9.9\tkernel'
-tar -tzf "$tmp/kernel-repo/archives/ooonana-kernel-9.9.9.tar.gz" | grep -q 'boot/vmlinuz' || fail "kernel archive missing /boot/vmlinuz"
+tar -tzf "$tmp/kernel-repo/archives/ooonana-kernel-9.9.9.tar.gz" | grep -F 'boot/vmlinuz' >/dev/null || fail "kernel archive missing /boot/vmlinuz"
 if bash "$KERNEL_PACKAGER" --out-dir "$tmp/bad-kernel-repo" --kernel "$tmp/vmlinuz" \
   --sha256 0000000000000000000000000000000000000000000000000000000000000000 >/dev/null 2>&1; then
   fail "kernel package accepted mismatched SHA-256"

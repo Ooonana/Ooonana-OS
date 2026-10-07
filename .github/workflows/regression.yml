@@ -26,6 +26,7 @@ jobs:
           python3 -B tests/test-ai-store-safety.py
           python3 -B tests/test-panel-session.py
           python3 -B tests/test-installed-wsl-update.py
+          python3 -B tests/test-pdf-runtime-reuse.py
           python3 -B tests/test-window-list.py
           bash tests/test-backend-policy.sh
           sh tests/test-live-boot-storage.sh
@@ -40,3 +41,4 @@ jobs:
           python3 tests/test-release-repo.py
           python3 tests/test-update-safety.py
           python3 -B tests/test-update-interruption.py
+          bash tests/test-package-factory.sh

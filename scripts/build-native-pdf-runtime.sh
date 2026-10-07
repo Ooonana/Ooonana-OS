@@ -6,6 +6,30 @@ SOURCE=""
 JOBS="${OOONANA_KERNEL_JOBS:-4}"
 REUSE_KERNEL=0
 REUSE_RUNTIME=""
+verify_kernel_config() {
+  python3 - "$1" "$ROOT/configs/kernel/ooonana-pdf-riscv64.fragment" <<'VERIFY_CONFIG'
+from pathlib import Path
+import re
+import sys
+
+def settings(path):
+    values = {}
+    for line in Path(path).read_text().splitlines():
+        active = re.fullmatch(r"(CONFIG_[A-Z0-9_]+)=(.*)", line)
+        disabled = re.fullmatch(r"# (CONFIG_[A-Z0-9_]+) is not set", line)
+        if active or disabled:
+            name, value = (active[1], active[2]) if active else (disabled[1], "n")
+            if name in values:
+                raise SystemExit(f"Duplicate native kernel option: {name}")
+            values[name] = value
+    return values
+
+actual, required = map(settings, sys.argv[1:])
+for name, value in required.items():
+    if actual.get(name, "n") != value:
+        raise SystemExit(f"Native kernel config mismatch: {name}={value}")
+VERIFY_CONFIG
+}
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --source) SOURCE="$2"; shift 2 ;;
@@ -50,6 +74,7 @@ manifest["reused_runtime_manifest_sha256"] = hashlib.sha256((source / "RUNTIME-M
 manifest["verification"] = "native binaries verified; refreshed payload needs VM verification"
 (target / "RUNTIME-MANIFEST.json").write_text(json.dumps(manifest, indent=2) + "\n")
 REUSE
+  verify_kernel_config "$runtime/kernel.config"
   bash "$ROOT/scripts/inject-ooonana-pdf-root.sh" "$runtime/rootfs"
   printf 'Native PDF runtime built: %s\n' "$runtime"
   exit 0
@@ -62,17 +87,11 @@ export ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- SOURCE_DATE_EPOCH=0
 export KBUILD_BUILD_TIMESTAMP='Thu Jan 1 00:00:00 UTC 1970' KBUILD_BUILD_USER=ooonana KBUILD_BUILD_HOST=builder
 if [[ "$REUSE_KERNEL" -eq 1 ]]; then
   [[ -s "$WORK/kernel/arch/riscv/boot/Image" && -s "$WORK/kernel/.config" ]] || { printf 'Cached native kernel missing\n' >&2; exit 1; }
-  while IFS= read -r option; do
-    if [[ "$option" == *=n ]]; then
-      # Kconfig writes disabled values as comments or omits unavailable ones.
-      ! grep -Eq "^${option%=n}=[ym]$" "$WORK/kernel/.config" || { printf 'Native kernel config mismatch: %s\n' "$option" >&2; exit 1; }
-    else
-      grep -Fqx "$option" "$WORK/kernel/.config" || { printf 'Native kernel config mismatch: %s\n' "$option" >&2; exit 1; }
-    fi
-  done < <(grep -E '^(CONFIG_[A-Z0-9_]+=.*|# CONFIG_[A-Z0-9_]+ is not set)$' "$ROOT/configs/kernel/ooonana-pdf-riscv64.fragment")
+  verify_kernel_config "$WORK/kernel/.config"
 else
   make -C "$SOURCE" O="$WORK/kernel" allnoconfig
   KCONFIG_ALLCONFIG="$ROOT/configs/kernel/ooonana-pdf-riscv64.fragment" make -C "$SOURCE" O="$WORK/kernel" allnoconfig
+  verify_kernel_config "$WORK/kernel/.config"
   make -C "$SOURCE" O="$WORK/kernel" -j"$JOBS" Image
 fi
 archive="$WORK/downloads/busybox-1.37.0.tar.bz2"

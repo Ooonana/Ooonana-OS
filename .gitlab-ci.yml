@@ -37,6 +37,7 @@ ci-smoke:
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-ai-store-safety.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-panel-session.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-installed-wsl-update.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-pdf-runtime-reuse.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-window-list.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-update-interruption.py
     - sh tests/test-live-boot-storage.sh
