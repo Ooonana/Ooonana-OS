@@ -996,6 +996,8 @@ assert_contains "$picom_cfg" "inactive-opacity = 1.0"
 assert_contains "$picom_cfg" "active-opacity = 1.0"
 assert_contains "$picom_cfg" "corner-radius = 14"
 assert_contains "$picom_cfg" "rounded-corners-exclude"
+assert_contains "$picom_cfg" "class_g = 'OoonanaWindowControls'"
+assert_contains "$i3_config" "client.focused #1b1f26 #1b1f26 #ffb21a #ffb21a #1b1f26"
 gtk_css="$(<"$rootfs/root/.config/gtk-3.0/gtk.css")"
 assert_contains "$gtk_css" "window.background, dialog.background, messagedialog.background { border-radius: 14px; }"
 assert_not_contains "$picom_cfg" 'backend = "xrender"'

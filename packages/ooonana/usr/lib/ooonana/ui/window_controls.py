@@ -1,7 +1,9 @@
 """Opaque, focus-neutral titlebar buttons for i3-decorated third-party windows."""
 import ctypes
+import cairo
 import fcntl
 import hashlib
+import math
 import os
 from pathlib import Path
 import threading
@@ -9,9 +11,9 @@ import time
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import i3_events
-from common import Gdk, GLib, Gtk, icon, run_async
+from common import Gdk, GLib, Gtk, window_control_icon, run_async
 
-WIDTH = 88
+WIDTH = 66
 
 
 def decoration_targets(tree, visible):
@@ -68,7 +70,8 @@ def decoration_targets(tree, visible):
 
 CSS = b"""
 .third-party-controls { background: #1b1f26; border: none; box-shadow: none; }
-.third-party-controls button { min-width: 20px; min-height: 18px; padding: 0; border-radius: 99px; border: 1px solid #242830; color: #101317; box-shadow: none; }
+.third-party-controls.inactive { background: #101317; }
+.third-party-controls button { min-width: 14px; min-height: 14px; padding: 0; margin: 0; border-radius: 99px; border: 1px solid #242830; color: #101317; box-shadow: none; }
 .third-party-controls .close { background: #ff736b; }
 .third-party-controls .minimize { background: #ffd16c; }
 .third-party-controls .fullscreen { background: #7fd6a0; }
@@ -79,11 +82,16 @@ CSS = b"""
 class Controls(Gtk.Window):
     def __init__(self, identifier, owner):
         super().__init__(type=Gtk.WindowType.POPUP)
+        # Compositor must not round/clip this tiny titlebar overlay again.
+        self.set_wmclass("ooonana-window-controls", "OoonanaWindowControls")
         self.identifier = identifier
         self.last_position = None
         self.connect("realize", self.register, owner)
         self.connect("destroy", self.unregister, owner)
         self.xid = None
+        self.control_region = cairo.Region()
+        self.connect_after("size-allocate", self.clip_controls)
+        self.connect("map", self.clip_controls)
         self.set_decorated(False)
         self.set_accept_focus(False)
         self.set_focus_on_map(False)
@@ -95,9 +103,12 @@ class Controls(Gtk.Window):
         row.set_margin_left(4)
         row.set_margin_right(4)
         row.set_valign(Gtk.Align.CENTER)
+        row.connect_after("size-allocate", self.clip_controls)
         for action, title, glyph in (("close", "Close window", "window-close-symbolic"), ("minimize", "Minimize window", "window-minimize-symbolic"), ("fullscreen", "Toggle fullscreen", "view-fullscreen-symbolic")):
             control = Gtk.Button()
-            control.set_image(icon(glyph))
+            image = window_control_icon(glyph)
+            image.set_pixel_size(10)
+            control.set_image(image)
             control.set_can_focus(False)
             control.get_style_context().add_class(action)
             control.set_tooltip_text(title)
@@ -105,6 +116,31 @@ class Controls(Gtk.Window):
             control.connect("clicked", lambda _widget, operation=action: self.activate(operation))
             row.pack_start(control, False, False, 0)
         self.add(row)
+
+    def clip_controls(self, *_args):
+        if not self.get_realized():
+            return
+        # Cut out the popup's background/gaps, not translucent button surfaces.
+        # Both paint and input regions follow circles; exposed titlebar stays
+        # draggable even without a compositor.
+        shape = cairo.Region()
+        for button in self.get_child().get_children():
+            origin = button.translate_coordinates(self, 0, 0)
+            if origin is None:
+                continue
+            size = button.get_allocation()
+            rx, ry = size.width / 2, size.height / 2
+            if not rx or not ry:
+                continue
+            for y in range(size.height):
+                half = rx * math.sqrt(max(0, 1 - ((y + 0.5 - ry) / ry) ** 2))
+                inset = math.ceil(rx - half)
+                width = size.width - 2 * inset
+                if width > 0:
+                    shape.union(cairo.RectangleInt(origin[0] + inset, origin[1] + y, width, 1))
+        self.control_region = shape
+        self.get_window().shape_combine_region(shape, 0, 0)
+        self.get_window().input_shape_combine_region(shape, 0, 0)
 
     def register(self, _widget, owner):
         from gi.repository import GdkX11
@@ -142,12 +178,17 @@ class Manager:
         self.xlib.XConnectionNumber.argtypes = [ctypes.c_void_p]
         self.xlib.XConnectionNumber.restype = ctypes.c_int
         self.xlib.XSelectInput.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_long]
+        self.xlib.XFlush.argtypes = [ctypes.c_void_p]
+        self.xlib.XFlush.restype = ctypes.c_int
         self.xlib.XPending.argtypes = [ctypes.c_void_p]
         self.xlib.XNextEvent.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
         self.display = self.xlib.XOpenDisplay(None)
         if not self.display:
             raise RuntimeError("X11 display unavailable")
         self.xlib.XSelectInput(self.display, self.xlib.XDefaultRootWindow(self.display), (1 << 19))
+        # Xlib buffers this request. No i3 event is emitted for every drag step;
+        # without flushing, root ConfigureNotify never reaches our idle socket.
+        self.xlib.XFlush(self.display)
         GLib.io_add_watch(self.xlib.XConnectionNumber(self.display), GLib.IO_IN, self.configured)
         threading.Thread(target=self.watch, daemon=True).start()
 
@@ -167,7 +208,8 @@ class Manager:
     def schedule(self):
         if not self.pending:
             self.pending = True
-            GLib.timeout_add(60, self.refresh)
+            # Coalesce configure events within one frame, not a visible 60ms lag.
+            GLib.timeout_add(16, self.refresh)
         return False
 
     def watch(self):
@@ -192,6 +234,13 @@ class Manager:
             tree = i3_events.request(path, 4)
             visible = {workspace["name"] for workspace in i3_events.request(path, 1) if workspace.get("visible")}
             targets = decoration_targets(tree, visible)
+            focused = set()
+            def visit(node):
+                if node.get("window") and node.get("focused"):
+                    focused.add(node["id"])
+                for child in node.get("nodes", []) + node.get("floating_nodes", []):
+                    visit(child)
+            visit(tree)
         except (OSError, ValueError, EOFError):
             return self.clear()
         for identifier in set(self.controls) - set(targets):
@@ -199,6 +248,8 @@ class Manager:
         for identifier, target in targets.items():
             if identifier not in self.controls:
                 self.controls[identifier] = Controls(identifier, self)
+            style = self.controls[identifier].get_style_context()
+            (style.remove_class if identifier in focused else style.add_class)("inactive")
             self.controls[identifier].position(target)
             self.controls[identifier].get_window().raise_()
         return False

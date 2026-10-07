@@ -23,7 +23,9 @@ Core 0.9.9 keeps matching opaque app icons, focus-neutral hover previews, compac
 
 ![Core 0.9.6 native app icon family](docs/assets/ooonana-native-icons.png)
 
-![Third-party terminal with close, minimize and fullscreen buttons](docs/assets/ooonana-third-party-controls.png)
+![Current Chromium rounded frame with opaque circular window controls](docs/assets/ooonana-third-party-rounded.png)
+
+October 7 frame repair removes rectangular control-popup backing and clipped orange perimeter outlines. Orange focused title text remains; controls stay opaque. Current screenshot uses private Chromium profile, nested i3 and packaged xrender rounding policy with software browser rendering, not physical GPU validation. Geany/Nemo/Chromium window actions passed; remaining desktop checks are listed in [frontend coverage](docs/frontend-recheck-20261007.md).
 
 ![Native dock tooltip and bounded window preview](docs/assets/ooonana-dock-preview.png)
 

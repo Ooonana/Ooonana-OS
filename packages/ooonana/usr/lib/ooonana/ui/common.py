@@ -28,7 +28,7 @@ menuitem:hover { background: #303640; color: #ffb21a; }
 headerbar { background: #1b1f26; color: #ffb21a; border-bottom: 1px solid #343b46; border-radius: 14px 14px 0 0; padding: 5px 10px; }
 headerbar .title { font-weight: 700; }
 headerbar .subtitle { color: #b4bdc8; }
-.window-control { min-width: 18px; min-height: 18px; padding: 6px; border-radius: 9px; }
+.window-control { min-width: 16px; min-height: 16px; padding: 3px; margin: 0; border-radius: 99px; }
 .close-control:hover { background: #b83832; color: #ffffff; border-color: #e85b52; }
 .hero { background: #1b1f26; border-bottom: 1px solid #343b46; }
 .hero-title { font-size: 24pt; font-weight: 800; color: #ffb21a; }
@@ -85,7 +85,7 @@ separator { background: #343b46; }
 """
 
 WINDOW_CONTROL_CSS = b"""
-button.window-control { min-width: 18px; min-height: 18px; padding: 4px; border-radius: 99px; border: 1px solid #242830; color: #101317; box-shadow: none; }
+button.window-control { min-width: 16px; min-height: 16px; padding: 3px; margin: 0; border-radius: 99px; border: 1px solid #242830; color: #101317; box-shadow: none; }
 button.close-control { background: #ff736b; }
 button.minimize-control { background: #ffd16c; }
 button.fullscreen-control { background: #7fd6a0; }
@@ -138,6 +138,12 @@ def icon(name, size=Gtk.IconSize.BUTTON):
     if theme and not theme.has_icon(name):
         name = fallbacks.get(name, "application-x-executable-symbolic")
     return Gtk.Image.new_from_icon_name(name, size)
+
+
+def window_control_icon(name):
+    image = icon(name)
+    image.set_pixel_size(12)
+    return image
 
 
 def button(label_text, icon_name=None, callback=None, style=None):
@@ -196,6 +202,11 @@ def header(window, title, subtitle="", icon_name="preferences-system-symbolic"):
     monitor = (display.get_primary_monitor() or display.get_monitor(0)) if display else None
     if monitor:
         geometry = monitor.get_geometry()
+        minimum_width, minimum_height = window.get_size_request()
+        window.set_size_request(
+            min(minimum_width, max(320, geometry.width - 64)) if minimum_width > 0 else minimum_width,
+            min(minimum_height, max(240, geometry.height - 144)) if minimum_height > 0 else minimum_height,
+        )
         width, height = window.get_default_size()
         window.set_default_size(
             min(width, max(480, geometry.width - 64)) if width > 0 else width,
@@ -220,7 +231,7 @@ def header(window, title, subtitle="", icon_name="preferences-system-symbolic"):
             window.maximize()
 
     maximize_button = Gtk.Button()
-    maximize_button.set_image(icon("view-fullscreen-symbolic"))
+    maximize_button.set_image(window_control_icon("view-fullscreen-symbolic"))
     maximize_button.set_valign(Gtk.Align.CENTER)
     maximize_button.set_tooltip_text("Toggle fullscreen")
     maximize_button.set_name("ooonana-window-fullscreen")
@@ -230,7 +241,7 @@ def header(window, title, subtitle="", icon_name="preferences-system-symbolic"):
     maximize_button.get_style_context().add_class("fullscreen-control")
 
     minimize_button = Gtk.Button()
-    minimize_button.set_image(icon("window-minimize-symbolic"))
+    minimize_button.set_image(window_control_icon("window-minimize-symbolic"))
     minimize_button.set_valign(Gtk.Align.CENTER)
     minimize_button.set_tooltip_text("Minimize window")
     minimize_button.set_name("ooonana-window-minimize")
@@ -240,7 +251,7 @@ def header(window, title, subtitle="", icon_name="preferences-system-symbolic"):
     minimize_button.get_style_context().add_class("minimize-control")
 
     close_button = Gtk.Button()
-    close_button.set_image(icon("window-close-symbolic"))
+    close_button.set_image(window_control_icon("window-close-symbolic"))
     close_button.set_valign(Gtk.Align.CENTER)
     close_button.set_tooltip_text("Close")
     close_button.set_name("ooonana-window-close")

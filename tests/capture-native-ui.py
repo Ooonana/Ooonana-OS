@@ -30,6 +30,7 @@ def main():
     parser.add_argument("app", choices=APPS)
     parser.add_argument("output", type=Path)
     parser.add_argument("--delay-ms", type=int, default=2500)
+    parser.add_argument("--require-fit", action="store_true", help="Reject windows extending outside isolated display")
     args = parser.parse_args()
     module_name, class_name = APPS[args.app]
     module = importlib.import_module(module_name)
@@ -46,6 +47,8 @@ def main():
     if args.app == "music":
         window.state_label.set_text("UI preview - playback untested")
 
+    failures = []
+
     def capture():
         root = Gdk.get_default_root_window()
         pixels = Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height())
@@ -54,12 +57,19 @@ def main():
         args.output.parent.mkdir(parents=True, exist_ok=True)
         pixels.savev(str(args.output), "png", [], [])
         bounds = window.get_window().get_frame_extents()
+        if args.require_fit and (bounds.x < 0 or bounds.y < 0 or
+                                 bounds.x + bounds.width > root.get_width() or
+                                 bounds.y + bounds.height > root.get_height()):
+            failures.append((args.app, bounds.x, bounds.y, bounds.width, bounds.height,
+                             root.get_width(), root.get_height()))
         print(f"{args.app}: {bounds.x},{bounds.y} {bounds.width}x{bounds.height} -> {args.output}", flush=True)
         window.destroy()
         return False
 
     GLib.timeout_add(max(500, args.delay_ms), capture)
     Gtk.main()
+    if failures:
+        raise SystemExit(f"Window exceeds display: {failures}")
 
 
 if __name__ == "__main__":

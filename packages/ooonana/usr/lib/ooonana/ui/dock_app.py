@@ -25,7 +25,7 @@ loader.exec_module(windows)
 NAMES = {"apps": "Applications", "terminal": "Terminal", "browser": "Browser",
          "files": "Files", "editor": "Editor", "music": "Music",
          "openvino": "Offline AI", "tasks": "Task Manager"}
-ICONS = {"apps": "ooonana-apps", "terminal": "ooonana-terminal", "browser": "web-browser",
+ICONS = {"apps": "ooonana-apps", "terminal": "ooonana-terminal", "browser": "ooonana-browser",
          "files": "ooonana-files", "editor": "ooonana-editor", "music": "ooonana-music",
          "openvino": "ooonana-openvino", "tasks": "ooonana-task-manager", "other": "application-x-executable"}
 CSS = b"""
@@ -208,13 +208,11 @@ class Dock(Gtk.Window):
         return True
 
     def open(self, key):
-        args = ["--menu"] if key == "other" else ["--dock-open", key]
-        run_async(["ooonana-window-list", *args], lambda *_: None)
+        run_async(["ooonana-window-list", "--dock-open", key], lambda *_: None)
 
     def press(self, _button, event, key):
         if event.button == 3:
-            args = ["--actions"] if key == "other" else ["--dock-actions", key]
-            run_async(["ooonana-window-list", *args], lambda *_: None)
+            run_async(["ooonana-window-list", "--dock-actions", key], lambda *_: None)
             return True
         return False
 

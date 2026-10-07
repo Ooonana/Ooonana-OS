@@ -18,6 +18,13 @@ PREFERRED_COMMANDS = {
     "nm-connection-editor.desktop": ["ooonana-wifi-panel"],
 }
 
+ICON_OVERRIDES = {
+    "chromium.desktop": "ooonana-browser",
+    "chromium-browser.desktop": "ooonana-browser",
+    "google-chrome.desktop": "ooonana-browser",
+    "ooonana-browser.desktop": "ooonana-browser",
+}
+
 
 class LauncherWindow(Gtk.Window):
     def __init__(self):
@@ -91,7 +98,11 @@ class LauncherWindow(Gtk.Window):
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
         gicon = app.get_icon()
         image = None
-        if isinstance(gicon, Gio.ThemedIcon):
+        custom = ICON_OVERRIDES.get((app.get_id() or "").lower())
+        theme = Gtk.IconTheme.get_default()
+        if custom and theme and theme.has_icon(custom):
+            image = Gtk.Image.new_from_icon_name(custom, Gtk.IconSize.DIALOG)
+        elif isinstance(gicon, Gio.ThemedIcon):
             theme = Gtk.IconTheme.get_default()
             selected = next((name for name in gicon.get_names() if theme and theme.has_icon(name)), None)
             if selected:

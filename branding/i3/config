@@ -16,8 +16,11 @@ gaps left 12
 gaps right 12
 for_window [class="Yad"] floating enable
 for_window [class="^(Pavucontrol|Blueman-manager|Arandr|Nm-connection-editor)$"] floating enable, border normal 2, move position center
-for_window [class="^(Chromium|chromium|Chromium-browser|chromium-browser|Google-chrome|Nemo|Geany|Alacritty|XTerm)$"] floating enable, border normal 2, move position center
-for_window [window_type="dialog"] floating enable, border normal 2
+for_window [class="^(Nemo|Geany|Alacritty|XTerm)$"] floating enable, move position center
+# Browser's first-run default can exceed output height and hide its titlebar.
+# Set initial bounds only; later user resize/fullscreen remains unrestricted.
+for_window [class="^(Chromium|chromium|Chromium-browser|chromium-browser|Google-chrome)$"] floating enable, resize set 80 ppt 70 ppt, move position center
+for_window [window_type="dialog"] floating enable
 for_window [window_role="pop-up"] floating enable
 # Native client-side headers override generic dialog decorations.
 for_window [class="^OoonanaApp$"] floating enable, border none, move position center
@@ -106,7 +109,9 @@ mode "resize" {
 }
 bindsym $mod+r mode "resize"
 
-client.focused #ffb21a #1b1f26 #f5f5f7 #ffb21a #ffb21a
-client.unfocused #414957 #101317 #b4bdc8 #414957 #414957
-client.focused_inactive #414957 #171b21 #b4bdc8 #414957 #414957
-client.urgent #ff675c #3b2324 #f5f5f7 #ff675c #ff675c
+# Blend frame edges into titlebar; rectangular accent outlines are clipped by
+# rounded corners. Keep focus/urgency accents in text and tiling indicators.
+client.focused #1b1f26 #1b1f26 #ffb21a #ffb21a #1b1f26
+client.unfocused #101317 #101317 #b4bdc8 #414957 #101317
+client.focused_inactive #171b21 #171b21 #b4bdc8 #414957 #171b21
+client.urgent #3b2324 #3b2324 #ff675c #ff675c #3b2324

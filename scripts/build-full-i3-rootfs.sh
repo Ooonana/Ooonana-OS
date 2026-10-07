@@ -3044,7 +3044,8 @@ active-opacity = 1.0;
 corner-radius = 14;
 rounded-corners-exclude = [
   "window_type = 'dock'",
-  "window_type = 'desktop'"
+  "window_type = 'desktop'",
+  "class_g = 'OoonanaWindowControls'"
 ];
 EOF
 

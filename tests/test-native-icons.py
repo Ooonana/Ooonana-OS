@@ -12,7 +12,12 @@ for path in icons.glob("ooonana-*.svg"):
     text = path.read_text()
     assert "gradient" not in text and "filter=" not in text
     digests.add(hashlib.sha256(path.read_bytes()).hexdigest())
-assert len(digests) == 19
+assert len(digests) == 20
+assert (icons / "ooonana-browser.svg").is_file()
+dock = (root / "packages/ooonana/usr/lib/ooonana/ui/dock_app.py").read_text()
+assert '"browser": "ooonana-browser"' in dock
+launcher = (root / "packages/ooonana/usr/lib/ooonana/ui/launcher_app.py").read_text()
+assert '"chromium.desktop": "ooonana-browser"' in launcher
 for directory in (root / "packages/ooonana/usr/share/applications", root / "packages/openvino-chat/rootfs/usr/share/applications"):
     for desktop in directory.glob("*.desktop"):
         icon = next(line.split("=", 1)[1] for line in desktop.read_text().splitlines() if line.startswith("Icon="))

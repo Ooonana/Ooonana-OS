@@ -89,6 +89,12 @@ def verify():
     try:
         aid = GdkX11.X11Window.get_xid(a.get_window())
         bid = GdkX11.X11Window.get_xid(b.get_window())
+        for name in ("ooonana-window-minimize", "ooonana-window-fullscreen", "ooonana-window-close"):
+            widget = control(a, name)
+            size = widget.get_allocation()
+            assert size.width == 24 and size.height == 24, (name, size.width, size.height)
+            assert widget.get_image().get_pixel_size() == 12
+            assert widget.get_tooltip_text() and widget.get_accessible().get_name()
         assert i3_window_action(b, "focus")
         control(a, "ooonana-window-minimize").emit("clicked")
         wait_for(lambda state: state[aid][1] and not state[bid][1])

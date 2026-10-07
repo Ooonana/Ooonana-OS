@@ -45,6 +45,16 @@ with tempfile.TemporaryDirectory() as temporary:
     window = ai_app.AiWindow()
     window.show_all()
     spin(lambda: "Fixture" in window.model_label.get_text())
+    # Small-window chat remains usable, with explicit access to hidden tools.
+    from types import SimpleNamespace
+    window.resized(window, SimpleNamespace(width=640))
+    assert window.layout_mode == "compact" and window.sidebar_toggle.get_visible()
+    assert not window.sidebar_revealer.get_reveal_child()
+    window.sidebar_toggle.set_active(True)
+    assert window.sidebar_revealer.get_reveal_child()
+    window.resized(window, SimpleNamespace(width=1000))
+    assert window.layout_mode == "normal" and not window.sidebar_toggle.get_visible()
+    assert window.sidebar_revealer.get_reveal_child()
     window.composer.get_buffer().set_text("First fixture question")
     event = Gdk.EventKey()
     event.keyval = Gdk.KEY_Return

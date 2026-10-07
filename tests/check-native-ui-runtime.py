@@ -3,6 +3,7 @@
 
 import sys
 import tempfile
+from types import SimpleNamespace
 from pathlib import Path
 
 
@@ -60,6 +61,17 @@ settings = SettingsWindow()
 assert settings.stack.get_transition_type() == Gtk.StackTransitionType.SLIDE_LEFT_RIGHT
 for page_id, _title, _icon in SettingsWindow.PAGES:
     assert settings.stack.get_child_by_name(page_id) is not None, page_id
+settings.resized(settings, SimpleNamespace(width=640))
+assert settings.compact_layout
+for grid in settings.card_grids:
+    for child in grid.get_children():
+        assert grid.child_get_property(child, "left-attach") == 0
+settings.resized(settings, SimpleNamespace(width=1100))
+assert not settings.compact_layout
+for grid in settings.card_grids:
+    for child in grid.get_children():
+        assert tuple(grid.child_get_property(child, name) for name in
+                     ("left-attach", "top-attach", "width", "height")) == child.wide_cell
 
 assert meminfo_values("MemTotal: 1024 kB\nMemAvailable: 512 kB\n")["MemAvailable"] == 512
 assert cpu_totals("cpu  1 2 3 4 5 6\n") == (21, 9)

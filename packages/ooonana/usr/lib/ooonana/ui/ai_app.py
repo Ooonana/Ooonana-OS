@@ -76,6 +76,14 @@ class AiWindow(Gtk.Window):
         self.phase_title = ""
         self.user_tag, self.ai_tag, self.meta_tag = "user", "assistant", "system"
         self.headerbar = header(self, "Ooonana AI", "", None)
+        self.sidebar_toggle = Gtk.ToggleButton()
+        self.sidebar_toggle.set_image(icon("view-sidebar-symbolic"))
+        self.sidebar_toggle.set_tooltip_text("Show chats and tools")
+        self.sidebar_toggle.get_accessible().set_name("Show chats and tools")
+        self.sidebar_toggle.get_style_context().add_class("window-control")
+        self.sidebar_toggle.set_valign(Gtk.Align.CENTER)
+        self.sidebar_toggle.set_no_show_all(True)
+        self.headerbar.pack_end(self.sidebar_toggle)
         apply_ai_theme(self)
         root = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         self.add(root)
@@ -101,7 +109,13 @@ class AiWindow(Gtk.Window):
         sidebar.pack_start(sidebar_button("Offline setup", "folder-download-symbolic", lambda *_: self.offline_dialog()), False, False, 0)
         sidebar.pack_start(sidebar_button("Tools", "applications-engineering-symbolic", self.tools_menu), False, False, 0)
         sidebar.pack_start(sidebar_button("Settings", "preferences-system-symbolic", lambda *_: self.sidebar_action("setup")), False, False, 0)
-        root.pack_start(sidebar, False, False, 0)
+        self.sidebar_revealer = Gtk.Revealer()
+        self.sidebar_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_RIGHT)
+        self.sidebar_revealer.set_transition_duration(transition_ms())
+        self.sidebar_revealer.add(sidebar)
+        self.sidebar_revealer.set_reveal_child(True)
+        root.pack_start(self.sidebar_revealer, False, False, 0)
+        self.sidebar_toggle.connect("toggled", lambda widget: self.sidebar_revealer.set_reveal_child(widget.get_active()))
         main = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
         self.main_box = main
         main.set_border_width(22)
@@ -204,7 +218,9 @@ class AiWindow(Gtk.Window):
         main.pack_start(hint, False, False, 0)
         self.connect("destroy", self.closed)
         self.wide = None
+        self.layout_mode = None
         self.connect("size-allocate", self.resized)
+        self.resized(self, self.get_default_size())
         self.load_transcript()
         self.refresh_model()
         self.set_focus(self.composer)
@@ -360,9 +376,15 @@ class AiWindow(Gtk.Window):
 
     def resized(self, _widget, allocation):
         wide = allocation.width >= 1300
-        if wide == self.wide:
+        compact = allocation.width < 760
+        mode = "wide" if wide else "compact" if compact else "normal"
+        if mode == self.layout_mode:
             return
+        self.layout_mode = mode
         self.wide = wide
+        self.sidebar_toggle.set_visible(compact)
+        self.sidebar_toggle.set_active(not compact)
+        self.sidebar_revealer.set_reveal_child(not compact)
         style = self.get_style_context()
         (style.add_class if wide else style.remove_class)("ai-wide")
         self.sidebar_box.set_size_request(336 if wide else 228, -1)

@@ -212,6 +212,12 @@ def dock(items):
 
 
 def dock_open(items, key):
+    if key == "other":
+        matches = other_windows(items)
+        item = matches[0] if len(matches) == 1 else choose(matches, "Other windows")
+        if item is not None:
+            focus(item)
+        return
     command = next((command for pin, _icon, command in PINS if pin == key), None)
     if command is None:
         return
@@ -228,6 +234,12 @@ def dock_open(items, key):
 
 
 def dock_actions(items, key):
+    if key == "other":
+        matches = other_windows(items)
+        item = matches[0] if len(matches) == 1 else choose(matches, "Other windows")
+        if item is not None:
+            actions_menu(items, item[0])
+        return
     if not any(pin == key for pin, _icon, _command in PINS):
         return
     matches = [item for item in items if pin_for(item) == key]
@@ -238,6 +250,11 @@ def dock_actions(items, key):
     item = matches[0] if len(matches) == 1 else choose(matches, "App sessions")
     if item is not None:
         actions_menu(items, item[0])
+
+
+def other_windows(items):
+    pinned = {pin[0] for pin in available_pins()}
+    return [item for item in items if pin_for(item) not in pinned]
 
 
 def focus(item):
@@ -257,8 +274,12 @@ def choose(items, prompt):
         for item in items
     ]
     try:
+        command = ["rofi", "-dmenu", "-i", "-p", prompt, "-format", "i"]
+        theme = Path("/etc/ooonana/rofi.rasi")
+        if theme.is_file():
+            command.extend(["-theme", str(theme)])
         result = subprocess.run(
-            ["rofi", "-dmenu", "-i", "-p", prompt, "-format", "i"],
+            command,
             input="\n".join(choices) + "\n",
             text=True,
             stdout=subprocess.PIPE,

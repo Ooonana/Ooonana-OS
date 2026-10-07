@@ -57,8 +57,13 @@ launches = []
 selection = "0"
 
 
+menu_inputs = []
+
+
 def run(command, **kwargs):
     commands.append(command)
+    if command[0] == "rofi":
+        menu_inputs.append(kwargs["input"])
     return SimpleNamespace(stdout=selection)
 
 
@@ -104,6 +109,22 @@ module.dock_open(items, "browser")
 assert commands[-1] == ["i3-msg", "[con_id=4] scratchpad show; [con_id=4] focus"]
 module.dock_open(items, "music")
 assert launches[-1] == ("ooonana-music",)
+other = (10, "Ooonana Settings", False, True, "ooonanaapp")
+assert module.other_windows(items + [other]) == [other]
+module.dock_open(items + [other], "other")
+assert commands[-1] == ["i3-msg", "[con_id=10] scratchpad show; [con_id=10] focus"]
+selection = "0"
+module.dock_actions(items + [other], "other")
+assert commands[-1] == ["i3-msg", "[con_id=10] scratchpad show; [con_id=10] focus"]
+selection = "1"
+module.dock_open(items + [other, (11, "Unpinned app", False, False, "thirdparty")], "other")
+assert commands[-1] == ["i3-msg", "[con_id=11] focus"]
+assert "Terminal" not in menu_inputs[-1] and "Browser" not in menu_inputs[-1], menu_inputs[-1]
+assert "Ooonana Settings" in menu_inputs[-1] and "Unpinned app" in menu_inputs[-1]
+before_other = len(commands)
+module.dock_open(items, "other")
+module.dock_actions(items, "other")
+assert len(commands) == before_other
 before_launch = len(launches)
 module.dock_open(items + [(8, "Ooonana Music", False, True, "ooonanaapp")], "music")
 assert len(launches) == before_launch

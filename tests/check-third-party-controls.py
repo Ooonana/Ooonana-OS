@@ -11,7 +11,7 @@ import time
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / "packages/ooonana/usr/lib/ooonana/ui"))
 from common import Gdk, GLib, Gtk
-from window_controls import Manager, decoration_targets
+from window_controls import Manager, WIDTH, decoration_targets
 import i3_events
 
 
@@ -58,6 +58,22 @@ with tempfile.TemporaryDirectory() as temporary:
             time.sleep(0.02)
         print("CONTROL_GEOMETRY", targets[identifier], tuple(control.get_position()), tuple(control.get_size()), flush=True)
         assert [widget.get_accessible().get_name() for widget in control.get_child().get_children()] == ["Close window", "Minimize window", "Toggle fullscreen"]
+        assert control.get_size().width == WIDTH
+        assert control.get_size().height == targets[identifier][2], "Controls overlap client contents"
+        assert not control.control_region.contains_point(0, 0), "Rectangular popup corner visible"
+        assert control.get_window().is_shaped(), "X11 popup shape not applied"
+        for widget in control.get_child().get_children():
+            size = widget.get_allocation()
+            assert size.width == size.height == 16, (size.width, size.height)
+            assert size.height <= targets[identifier][2]
+            assert widget.get_image().get_pixel_size() == 10
+            assert widget.get_tooltip_text() == widget.get_accessible().get_name()
+            x, y = widget.translate_coordinates(control, 0, 0)
+            assert control.control_region.contains_point(x + size.width // 2, y + size.height // 2)
+            assert not control.control_region.contains_point(x, y), "Square button corner visible"
+        first = control.get_child().get_children()[0]
+        x, y = first.translate_coordinates(control, 0, 0)
+        assert not control.control_region.contains_point(x + first.get_allocated_width() + 2, y + 8), "Popup gap blocks titlebar"
         if len(sys.argv) > 1:
             screen = Gdk.get_default_root_window()
             image = Gdk.pixbuf_get_from_window(screen, 0, 0, screen.get_width(), screen.get_height())
@@ -82,6 +98,17 @@ with tempfile.TemporaryDirectory() as temporary:
                 Gtk.main_iteration_do(False)
             time.sleep(0.02)
         assert peer_present()["focused"], "Hover changed client focus"
+        assert manager.controls[identifier].get_style_context().has_class("inactive")
+        assert not manager.controls[peer_id].get_style_context().has_class("inactive")
+        # Movement need not emit an i3 window event. Root X11 notifications must
+        # update controls while idle, without forcing Manager.refresh in test.
+        subprocess.run(["i3-msg", f"[con_id={identifier}] move position 140 120"],
+                       check=True, capture_output=True)
+        wait(lambda: manager.controls[identifier].last_position != targets[identifier])
+        tree = i3_events.request(path, 4)
+        moved_target = decoration_targets(tree, visible)[identifier]
+        wait(lambda: manager.controls[identifier].last_position == moved_target)
+        wait(lambda: tuple(manager.controls[identifier].get_position()) == moved_target[:2])
         manager.controls[identifier].get_child().get_children()[1].emit("clicked")
         wait(lambda: identifier not in manager.controls)
         assert peer_present()["focused"], "Minimize targeted/focused the wrong client"
@@ -93,6 +120,25 @@ with tempfile.TemporaryDirectory() as temporary:
         wait(lambda: identifier in manager.controls)
         manager.controls[identifier].get_child().get_children()[0].emit("clicked")
         wait(lambda: terminal.poll() is not None)
+        # Foreign GTK client-side dialog must not gain a second i3 titlebar.
+        native_dialog = Gtk.Window(title="Foreign native header")
+        native_dialog.set_wmclass("foreign-csd-test", "ForeignCsdTest")
+        native_dialog.set_type_hint(Gdk.WindowTypeHint.DIALOG)
+        bar = Gtk.HeaderBar(title="Foreign native header", show_close_button=True)
+        native_dialog.set_titlebar(bar)
+        native_dialog.add(Gtk.Label(label="Own private CSD dialog"))
+        native_dialog.show_all()
+        def foreign_node():
+            def find(node):
+                if (node.get("window_properties") or {}).get("class") == "ForeignCsdTest":
+                    return node
+                return next((found for child in node.get("nodes", []) + node.get("floating_nodes", [])
+                             if (found := find(child))), None)
+            return find(i3_events.request(path, 4))
+        wait(foreign_node)
+        assert foreign_node()["deco_rect"]["height"] == 0, "Duplicated foreign CSD titlebar"
+        assert foreign_node()["id"] not in manager.controls
+        native_dialog.destroy()
         # Real native right-click menu dispatches an action to this fixture only.
         import window_menu
         arguments = sys.argv

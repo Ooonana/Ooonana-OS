@@ -15,6 +15,7 @@ from common import (  # noqa: E402
     button,
     card,
     command_exists,
+    flow_row,
     header,
     icon,
     label,
@@ -44,6 +45,7 @@ class SettingsWindow(Gtk.Window):
         self.set_size_request(820, 540)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.status_widgets = {}
+        self.card_grids = []
         self.headerbar = header(
             self,
             "Ooonana Settings",
@@ -65,6 +67,7 @@ class SettingsWindow(Gtk.Window):
         root.pack_start(self.sidebar, False, False, 0)
 
         self.stack = Gtk.Stack()
+        self.stack.set_hhomogeneous(False)
         self.stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
         self.stack.set_transition_duration(transition_ms())
         root.pack_start(self.stack, True, True, 0)
@@ -88,6 +91,9 @@ class SettingsWindow(Gtk.Window):
             self.stack.add_named(self.scrolled_page(builders[page_id]()), page_id)
 
         self.sidebar.select_row(self.sidebar.get_row_at_index(0))
+        self.compact_layout = None
+        self.connect("size-allocate", self.resized)
+        self.resized(self, self.get_default_size())
         self.connect("destroy", Gtk.main_quit)
         self.refresh_status()
 
@@ -97,7 +103,7 @@ class SettingsWindow(Gtk.Window):
         viewport.set_shadow_type(Gtk.ShadowType.NONE)
         viewport.add(content)
         scroll = Gtk.ScrolledWindow()
-        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scroll.set_overlay_scrolling(False)
         scroll.add(viewport)
         return scroll
@@ -111,10 +117,7 @@ class SettingsWindow(Gtk.Window):
 
     @staticmethod
     def actions(*widgets):
-        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        for widget in widgets:
-            row.pack_start(widget, False, False, 0)
-        return row
+        return flow_row(widgets, max_children=max(1, len(widgets)))
 
     def status_card(self, key, title, description, icon_name, *actions):
         widget = card(title, description, icon_name)
@@ -128,7 +131,24 @@ class SettingsWindow(Gtk.Window):
     def two_column_grid(self):
         grid = Gtk.Grid(column_spacing=14, row_spacing=14)
         grid.set_column_homogeneous(True)
+        self.card_grids.append(grid)
         return grid
+
+    def resized(self, _window, allocation):
+        compact = allocation.width < 900
+        if compact == self.compact_layout:
+            return
+        self.compact_layout = compact
+        self.sidebar.set_size_request(175 if compact else 210, -1)
+        for grid in self.card_grids:
+            for child in grid.get_children():
+                if not hasattr(child, "wide_cell"):
+                    child.wide_cell = tuple(grid.child_get_property(child, name) for name in
+                                            ("left-attach", "top-attach", "width", "height"))
+                left, top, width, height = child.wide_cell
+                grid.child_set_property(child, "left-attach", 0 if compact else left)
+                grid.child_set_property(child, "top-attach", top * 2 + left if compact else top)
+                grid.child_set_property(child, "width", 1 if compact else width)
 
     def build_overview(self):
         page = self.page("Overview", "Desktop, services, account, and Ooonana health.")
