@@ -1,264 +1,113 @@
 #!/bin/sh
+# Same-version source sync through native package transactions, never raw overlays.
 set -eu
 
-ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
-ALPINE="https://dl-cdn.alpinelinux.org/alpine/v3.20"
-APK_DIR="${OOONANA_RUNTIME_APK_DIR:-}"
+usage() {
+  printf '%s\n' 'Usage: update-installed-wsl.sh --repo DIR [--dry-run]' \
+    'Build current core/runtime packages in a Linux build host first.' \
+    'Include current OpenVINO package when already installed.' \
+    'Versions must match installed packages; use ooonana upgrade for version changes.' \
+    'Custom configs and rollback checkpoints stay under native package management.'
+}
+case "${1:-}" in -h|--help) usage; exit 0 ;; esac
 
-if [ "$(id -u)" -ne 0 ]; then
+target_root="${OOONANA_ROOT:-/}"
+case "$target_root" in /*) ;; *) echo 'update-installed-wsl: target root must be absolute' >&2; exit 2 ;; esac
+target_root="$(readlink -f "$target_root")"
+[ -d "$target_root" ] || { echo 'update-installed-wsl: target root missing' >&2; exit 2; }
+prefix="${target_root%/}"
+case "${WSL_DISTRO_NAME:-}" in
+  Ooonana|ooonana|"") ;;
+  *) echo "update-installed-wsl: refusing non-Ooonana distro: $WSL_DISTRO_NAME" >&2; exit 2 ;;
+esac
+os_id="$(sed -n 's/^ID=//p' "$prefix/etc/os-release" 2>/dev/null | head -n 1 | tr -d '"')"
+[ "$os_id" = ooonana ] || {
+  echo "update-installed-wsl: refusing target OS: ${os_id:-unknown}" >&2; exit 2;
+}
+if [ "$target_root" = / ] && [ "$(id -u)" -ne 0 ]; then
   if command -v doas >/dev/null 2>&1; then
-    exec doas sh "$0"
+    exec doas sh "$0" "$@"
   elif command -v sudo >/dev/null 2>&1; then
-    exec sudo sh "$0"
+    exec sudo sh "$0" "$@"
   fi
-  echo "update-installed-wsl: run as root" >&2
+  echo 'update-installed-wsl: run as root' >&2
   exit 126
 fi
 
-case "${WSL_DISTRO_NAME:-}" in
-  Ooonana|ooonana) ;;
-  "") ;;
-  *)
-    echo "update-installed-wsl: refusing non-Ooonana distro: $WSL_DISTRO_NAME" >&2
-    exit 2
-    ;;
-esac
-
-os_id="$(sed -n 's/^ID=//p' /etc/os-release 2>/dev/null | head -n 1 | tr -d '"')"
-if [ "$os_id" != "ooonana" ]; then
-  echo "update-installed-wsl: refusing target OS: ${os_id:-unknown}" >&2
+repo=""
+dry_run=0
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --repo)
+      [ "$#" -ge 2 ] || { usage >&2; exit 2; }
+      repo="$2"; shift 2 ;;
+    --dry-run) dry_run=1; shift ;;
+    *) usage >&2; exit 2 ;;
+  esac
+done
+[ -n "$repo" ] && [ -d "$repo" ] || {
+  echo 'update-installed-wsl: --repo with built packages required; raw source overlay retired' >&2
   exit 2
+}
+[ -z "${OOONANA_PERSONAL_CURSOR_DIR:-}" ] || {
+  echo 'update-installed-wsl: personal cursor overlay retired; existing cursor settings are preserved' >&2
+  exit 2
+}
+repo="$(readlink -f "$repo")"
+resolved_repo="$repo"
+if [ -f "$repo/current" ]; then
+  IFS= read -r generation <"$repo/current"
+  case "$generation" in ""|*[!A-Za-z0-9._-]*|.|..) echo 'update-installed-wsl: invalid generation' >&2; exit 2 ;; esac
+  resolved_repo="$repo/generations/$generation"
 fi
+[ -d "$resolved_repo" ] || { echo 'update-installed-wsl: generation missing' >&2; exit 2; }
+cli="$prefix/usr/bin/ooonana"
+[ -x "$cli" ] || { echo 'update-installed-wsl: native CLI missing' >&2; exit 2; }
+state="${OOONANA_STATE_DIR:-$prefix/var/lib/ooonana/packages}"
+packages="ooonana-core-runtime ooonana-core"
+if [ -f "$state/installed/openvino-chat.pkg" ]; then packages="$packages openvino-chat"; fi
 
-overlay_tree() {
-  source_root="$1"
-  for source in "$source_root"/*; do
-    [ -e "$source" ] || [ -L "$source" ] || continue
-    target="/${source##*/}"
-    if [ -d "$source" ] && [ ! -L "$source" ]; then
-      mkdir -p "$target"
-      cp -a "$source/." "$target/"
-    else
-      cp -a "$source" "$target"
-    fi
-  done
-}
+# Inspect declarations without executing metadata. Native CLI verifies repository
+# signatures/checksums again before loading metadata or changing package files.
+for package in $packages; do
+  candidate="$resolved_repo/$package.pkg"
+  installed="$state/installed/$package.pkg"
+  [ -s "$candidate" ] && [ -s "$installed" ] || {
+    echo "update-installed-wsl: package missing: $package" >&2; exit 2;
+  }
+  candidate_version="$(sed -n 's/^OOONANA_PKG_VERSION="\([^"]*\)"$/\1/p' "$candidate")"
+  installed_version="$(sed -n 's/^OOONANA_PKG_VERSION="\([^"]*\)"$/\1/p' "$installed")"
+  [ -n "$candidate_version" ] && [ "$candidate_version" = "$installed_version" ] || {
+    echo "update-installed-wsl: version differs: $package; use ooonana upgrade" >&2; exit 2;
+  }
+  archive="$(sed -n 's/^OOONANA_PKG_ARCHIVE="\([^"]*\)"$/\1/p' "$candidate")"
+  if [ -n "$archive" ]; then
+    case "$archive" in /*|..|../*|*/../*|*/..) echo 'update-installed-wsl: unsafe archive path' >&2; exit 2 ;; esac
+    expected="$(sed -n 's/^OOONANA_PKG_SHA256="\([^"]*\)"$/\1/p' "$candidate")"
+    [ "${#expected}" -eq 64 ] || { echo 'update-installed-wsl: archive checksum missing' >&2; exit 2; }
+    case "$expected" in *[!0-9a-fA-F]*) echo 'update-installed-wsl: invalid checksum' >&2; exit 2 ;; esac
+    [ -s "$resolved_repo/$archive" ] || { echo "update-installed-wsl: archive missing: $package" >&2; exit 2; }
+    actual="$(sha256sum "$resolved_repo/$archive" | awk '{print $1}')"
+    [ "$actual" = "$expected" ] || { echo "update-installed-wsl: checksum mismatch: $package" >&2; exit 2; }
+  elif [ "$package" != ooonana-core ]; then
+    echo "update-installed-wsl: payload archive missing: $package" >&2; exit 2
+  fi
+done
 
-extract_block() {
-  marker="$1"
-  output="$2"
-  awk -v marker="$marker" '
-    index($0, marker) { capture=1; next }
-    capture && $0 == "EOF" { exit }
-    capture { print }
-  ' "$ROOT/scripts/build-full-i3-rootfs.sh" >"$output"
-  [ -s "$output" ] || { echo "cannot extract $marker" >&2; exit 1; }
-  chmod 0755 "$output"
-}
-
-extract_config() {
-  marker="$1"
-  output="$2"
-  awk -v marker="$marker" '
-    index($0, marker) { capture=1; next }
-    capture && $0 == "EOF" { exit }
-    capture { print }
-  ' "$ROOT/scripts/build-full-i3-rootfs.sh" >"$output"
-  [ -s "$output" ] || { echo "cannot extract $marker" >&2; exit 1; }
-  chmod 0644 "$output"
-}
-
-work="$(mktemp -d)"
+work="$(mktemp -d "${TMPDIR:-/tmp}/ooonana-wsl-sync.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
-
-install -d -m 0755 \
-  /usr/lib/ooonana/ai \
-  /usr/lib/ooonana/ui \
-  /usr/share/applications \
-  /usr/share/ooonana \
-  /usr/share/ooonana/wallpapers \
-  /var/lib/ooonana/packages/installed
-for source in "$ROOT"/packages/ooonana/usr/bin/*; do
-  [ -f "$source" ] || continue
-  install -m 0755 "$source" "/usr/bin/${source##*/}"
-done
-for applet in find killall; do
-  if ! command -v "$applet" >/dev/null 2>&1; then
-    ln -s busybox "/bin/$applet"
-  fi
-done
-install -m 0755 "$ROOT/packages/ooonana/usr/lib/ooonana/oonana_game.py" /usr/lib/ooonana/oonana_game.py
-install -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/i3_events.py" /usr/lib/ooonana/i3_events.py
-install -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/service_status.py" /usr/lib/ooonana/service_status.py
-install -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ai/ooonana_ai.py" /usr/lib/ooonana/ai/ooonana_ai.py
-for source in "$ROOT"/packages/ooonana/usr/lib/ooonana/ui/*.py; do
-  install -m 0644 "$source" "/usr/lib/ooonana/ui/${source##*/}"
-done
-for source in "$ROOT"/packages/ooonana/usr/share/applications/*.desktop; do
-  install -m 0644 "$source" "/usr/share/applications/${source##*/}"
-done
-install -d -m 0755 /usr/share/icons/hicolor/scalable/apps
-for source in "$ROOT"/packages/ooonana/usr/share/icons/hicolor/scalable/apps/*.svg; do
-  [ -f "$source" ] || continue
-  install -m 0644 "$source" "/usr/share/icons/hicolor/scalable/apps/${source##*/}"
-done
-if command -v gtk-update-icon-cache >/dev/null 2>&1; then
-  gtk-update-icon-cache -f -t /usr/share/icons/hicolor >/dev/null 2>&1 || true
-fi
-install -d -m 0755 /etc/ooonana/trusted-keys
-for source in "$ROOT"/packages/ooonana/etc/ooonana/trusted-keys/*.pub; do
-  [ -f "$source" ] || continue
-  install -m 0644 "$source" "/etc/ooonana/trusted-keys/${source##*/}"
-done
-for source in "$ROOT"/packages/ooonana/usr/share/ooonana/*.txt; do
-  install -m 0644 "$source" "/usr/share/ooonana/${source##*/}"
-done
-for source in "$ROOT"/packages/ooonana/usr/share/ooonana/wallpapers/*; do
-  [ -f "$source" ] || continue
-  install -m 0644 "$source" "/usr/share/ooonana/wallpapers/${source##*/}"
-done
-install -D -m 0644 "$ROOT/packages/ooonana/usr/share/icons/OoonanaTailless/index.theme" \
-  /usr/share/icons/OoonanaTailless/index.theme
-install -D -m 0644 "$ROOT/packages/ooonana/usr/share/icons/default/index.theme" \
-  /usr/share/icons/default/index.theme
-for source in "$ROOT"/packages/ooonana/usr/share/icons/OoonanaTailless/cursors/*; do
-  [ -f "$source" ] || continue
-  install -D -m 0644 "$source" "/usr/share/icons/OoonanaTailless/cursors/${source##*/}"
-done
-if [ -n "${OOONANA_PERSONAL_CURSOR_DIR:-}" ]; then
-  cursor_dir="$OOONANA_PERSONAL_CURSOR_DIR"
-  [ -f "$cursor_dir/index.theme" ] && [ -f "$cursor_dir/cursors/left_ptr" ] || {
-    echo "update-installed-wsl: invalid personal cursor directory" >&2; exit 2;
-  }
-  cursor_name="${cursor_dir##*/}"
-  case "$cursor_name" in ""|*[!A-Za-z0-9._-]*) echo "invalid cursor name" >&2; exit 2 ;; esac
-  cursor_size="${OOONANA_PERSONAL_CURSOR_SIZE:-}"
-  if [ -z "$cursor_size" ] && [ -f "$cursor_dir/cursor-size" ]; then
-    IFS= read -r cursor_size <"$cursor_dir/cursor-size" || true
-  fi
-  cursor_size="${cursor_size:-32}"
-  case "$cursor_size" in ""|*[!0-9]*) echo "invalid cursor size" >&2; exit 2 ;; esac
-  [ "$cursor_size" -ge 16 ] && [ "$cursor_size" -le 96 ] || { echo "invalid cursor size" >&2; exit 2; }
-  mkdir -p "/usr/share/icons/$cursor_name" /etc/ooonana
-  cp -a "$cursor_dir/." "/usr/share/icons/$cursor_name/"
-  printf '%s\n' "$cursor_name" >/etc/ooonana/cursor-theme
-  printf '%s\n' "$cursor_size" >/etc/ooonana/cursor-size
-fi
-if [ -f /usr/bin/xsettingsd ] &&
-  [ "$(head -c 2 /usr/bin/xsettingsd)" = '#!' ] &&
-  grep -q 'Ooonana xsettingsd compatibility daemon' /usr/bin/xsettingsd; then
-  rm -f /usr/bin/xsettingsd
-  echo "Removed obsolete xsettingsd placeholder"
-fi
-install -m 0644 "$ROOT/branding/desktop-0.9.svg" /usr/share/ooonana/wallpapers/ooonana-desktop-0.9.svg
-install -m 0644 "$ROOT/branding/desktop-0.9.png" /usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png
-install -m 0644 \
-  "$ROOT/packages/ooonana/var/lib/ooonana/packages/installed/ooonana-core.pkg" \
-  /var/lib/ooonana/packages/installed/ooonana-core.pkg
-install -D -m 0644 "$ROOT/branding/i3/config" /etc/i3/config
-install -D -m 0644 "$ROOT/packages/ooonana/etc/gtk-3.0/settings.ini" /etc/gtk-3.0/settings.ini
-
-if ! python3 -c 'import cairo' >/dev/null 2>&1; then
-  url="$ALPINE/main/x86_64/py3-cairo-1.26.0-r1.apk"
-  apk="$work/${url##*/}"
-  unpack="$work/unpack-${url##*/}"
-  mkdir -p "$unpack"
-  if [ -n "$APK_DIR" ] && [ -f "$APK_DIR/${url##*/}" ]; then
-    cp "$APK_DIR/${url##*/}" "$apk"
-  else
-    wget -q -O "$apk" "$url"
-  fi
-  tar -xzf "$apk" -C "$unpack"
-  rm -f "$unpack/.PKGINFO" "$unpack"/.SIGN.*
-  overlay_tree "$unpack"
-fi
-
-for helper in \
-  ooonana-theme-env \
-  ooonana-open ooonana-apps ooonana-run-admin ooonana-browser ooonana-files \
-  ooonana-hardware-reprobe ooonana-wireless-diagnose ooonana-service-repair \
-  ooonana-service-watchdog ooonana-wifi ooonana-bluetooth ooonana-touchpad \
-  ooonana-rofi-wifi ooonana-rofi-bluetooth ooonana-wifi-panel \
-  ooonana-wifi-status ooonana-bluetooth-panel ooonana-bluetooth-status \
-  ooonana-rofi-brightness ooonana-brightness-panel ooonana-audio-panel \
-  ooonana-audio-status ooonana-battery-status ooonana-volume \
-  ooonana-rofi-power ooonana-power-menu ooonana-screenshot ooonana-editor \
-  ooonana-processes ooonana-process-kill ooonana-ranger ooonana-brightness \
-  ooonana-brightness-status ooonana-packages-app ooonana-packages \
-  ooonana-settings ooonana-settings-launch ooonana-installer-gui \
-  ooonana-gui-installer ooonana-install-wizard ooonana-i3-smoke-session \
-  start-ooonana-i3 ooonana-i3-session ooonana-i3-installer-session; do
-  extract_block "ROOTFS/usr/bin/$helper" "$work/$helper"
-  install -m 0755 "$work/$helper" "/usr/bin/$helper"
-done
-extract_block 'ROOTFS/etc/init.d/rcS' "$work/rcS"
-install -D -m 0755 "$work/rcS" /etc/init.d/rcS
-os_version="$(/usr/bin/ooonana version | awk '{print $2}')"
-cat > /etc/os-release <<EOF
-NAME="Ooonana OS"
-ID=ooonana
-PRETTY_NAME="Ooonana OS $os_version"
-VERSION="$os_version"
-VERSION_ID="$os_version"
-HOME_URL="https://github.com/Ooonana/Ooonana-OS"
-SUPPORT_URL="https://github.com/Ooonana/Ooonana-OS/issues"
-EOF
-
-for config in \
-  etc/NetworkManager/NetworkManager.conf \
-  etc/bluetooth/main.conf \
-  etc/ooonana/xsettingsd.conf \
-  etc/ooonana/polybar.ini \
-  etc/ooonana/rofi.rasi \
-  etc/ooonana/picom.conf \
-  etc/ooonana/dunstrc; do
-  extract_config "ROOTFS/$config" "$work/config"
-  install -D -m 0644 "$work/config" "/$config"
-done
-
-if ! command -v doas >/dev/null 2>&1 ||
-  ! command -v sudo >/dev/null 2>&1 ||
-  ! command -v su >/dev/null 2>&1; then
-  for url in \
-    "$ALPINE/main/x86_64/doas-6.8.2-r7.apk" \
-    "$ALPINE/community/x86_64/sudo-1.9.15_p5-r0.apk" \
-    "$ALPINE/main/x86_64/util-linux-login-2.40.1-r1.apk"; do
-    apk="$work/${url##*/}"
-    unpack="$work/unpack-${url##*/}"
-    mkdir -p "$unpack"
-    if [ -n "$APK_DIR" ] && [ -f "$APK_DIR/${url##*/}" ]; then
-      cp "$APK_DIR/${url##*/}" "$apk"
-    else
-      wget -q -O "$apk" "$url"
-    fi
-    tar -xzf "$apk" -C "$unpack"
-    rm -f "$unpack/.PKGINFO" "$unpack"/.SIGN.*
-    overlay_tree "$unpack"
-  done
-fi
-
-install -d -m 0755 /etc/sudoers.d
-if [ "$(cat /etc/ooonana/system-mode 2>/dev/null)" = installed ]; then
-  printf '%%wheel ALL=(ALL:ALL) ALL\n' >/etc/sudoers.d/ooonana
-else
-  printf '%%wheel ALL=(ALL:ALL) NOPASSWD: ALL\n' >/etc/sudoers.d/ooonana
-fi
-chmod 0440 /etc/sudoers.d/ooonana
-chmod 4755 /usr/bin/doas /usr/bin/sudo /bin/su
-
-# Imported APK files may retain root group when an older WSL rootfs was updated
-# outside the full-rootfs builder. D-Bus activation requires messagebus group.
-if [ -f /usr/libexec/dbus-daemon-launch-helper ]; then
-  grep -q '^messagebus:x:81:' /etc/group || {
-    echo 'update-installed-wsl: messagebus group must have gid 81' >&2
-    exit 1
-  }
-  chown 0:81 /usr/libexec/dbus-daemon-launch-helper
-  chmod 4750 /usr/libexec/dbus-daemon-launch-helper
-fi
-
-command -v sudo >/dev/null
-command -v su >/dev/null
-command -v doas >/dev/null
-OOONANA_POWER_ACTION=Cancel /usr/bin/ooonana-power-menu --dry-run | grep -q OOONANA_POWER_MENU_OK
-echo "Ooonana WSL runtime updated"
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+mkdir -p "$work/cache" "$work/sources"
+export OOONANA_ROOT="$target_root" OOONANA_STATE_DIR="$state"
+export OOONANA_REPO_DIR="$repo" OOONANA_SOURCES_DIR="$work/sources" OOONANA_CACHE_DIR="$work/cache"
+export OOONANA_KEEP_UPDATE_BACKUPS="${OOONANA_KEEP_UPDATE_BACKUPS:-all}"
+# IDs come only from the fixed list above. Preserve CLI's trust/signature policy.
+# shellcheck disable=SC2086
+"$cli" reinstall $packages --dry-run
+if [ "$dry_run" -eq 1 ]; then exit 0; fi
+# shellcheck disable=SC2086
+"$cli" reinstall $packages
+for package in $packages; do "$cli" verify "$package"; done
+echo 'Ooonana WSL packages synchronized; custom configuration retained'

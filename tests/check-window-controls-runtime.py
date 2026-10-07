@@ -2,15 +2,37 @@
 """Exercise shared native controls against nested i3, including unfocused windows."""
 
 import json
+import atexit
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import time
 import traceback
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages/ooonana/usr/lib/ooonana/ui"))
 from common import Gdk, GLib, Gtk, apply_theme, header, i3_window_action, message_dialog  # noqa: E402
 from gi.repository import GdkX11  # noqa: E402
+
+if "--own-i3" in sys.argv:
+    fixture = tempfile.TemporaryDirectory(prefix="ooonana-native-controls-")
+    config = Path(fixture.name) / "i3.conf"
+    source = Path(__file__).resolve().parents[1]
+    config.write_text("\n".join(line for line in (source / "branding/i3/config").read_text().splitlines()
+                                if not line.startswith("exec")) + "\n")
+    wm = subprocess.Popen(["i3", "-c", str(config)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    def cleanup_fixture():
+        if wm.poll() is None:
+            wm.terminate()
+            wm.wait(timeout=5)
+        fixture.cleanup()
+
+    atexit.register(cleanup_fixture)
+    deadline = time.monotonic() + 8
+    while subprocess.run(["i3-msg", "-t", "get_tree"], capture_output=True).returncode:
+        assert time.monotonic() < deadline, "Isolated i3 unavailable"
+        time.sleep(0.05)
 
 
 def windows():

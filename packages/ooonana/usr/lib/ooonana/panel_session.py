@@ -1,5 +1,6 @@
 """Display-scoped panel supervisor; restart only subprocesses owned here."""
 import fcntl
+from collections import deque
 import hashlib
 import os
 from pathlib import Path
@@ -78,6 +79,22 @@ def main():
                         time.sleep(0.05)
         panel = dock = None
         running = True
+        failures = {"panel": deque(), "dock": deque()}
+        cooling = set()
+
+        def allow_recovery(name):
+            now = time.monotonic()
+            recent = failures[name]
+            while recent and now - recent[0] >= 30:
+                recent.popleft()
+            if len(recent) >= 3:
+                if name not in cooling:
+                    print(f"ooonana panel: {name} keeps exiting; cooling retries, keeping healthy sibling", file=sys.stderr)
+                    cooling.add(name)
+                return False
+            cooling.discard(name)
+            recent.append(now)
+            return True
 
         def stopped(_signal, _frame):
             nonlocal running
@@ -109,8 +126,21 @@ def main():
                         request = server.recv(16)
                         if request in (b"panel", b"all"):
                             restart(request == b"all" or dock is not None)
+                    if not running:
+                        break
                     if panel.poll() is not None:
-                        return panel.returncode or 1
+                        if allow_recovery("panel"):
+                            try:
+                                panel = subprocess.Popen(PANEL_COMMAND, env=geometry_environment())
+                            except OSError as error:
+                                print(f"ooonana panel: panel recovery failed: {error}", file=sys.stderr)
+                    if dock is not None and dock.poll() is not None:
+                        if allow_recovery("dock"):
+                            try:
+                                dock = subprocess.Popen(["ooonana-dock"] if native else DOCK_COMMAND,
+                                                        env=geometry_environment())
+                            except OSError as error:
+                                print(f"ooonana panel: dock recovery failed: {error}", file=sys.stderr)
             finally:
                 stop_child(dock)
                 stop_child(panel)

@@ -229,6 +229,7 @@ Meaning:
 Repair:
   ooonana fix
   ooonana fix nano --reinstall
+  Major OS replacements through fix/reinstall also require --allow-major.
 USAGE
 }
 
@@ -2473,7 +2474,7 @@ cmd_purge() {
 }
 
 fix_one_pkg() {
-  local id dry_run reinstall broken deps dep
+  local id dry_run reinstall broken deps dep old_version
   id="$1"
   dry_run="$2"
   reinstall="$3"
@@ -2500,12 +2501,20 @@ fix_one_pkg() {
     return 0
   fi
 
+  old_version="$(installed_pkg_version "$id")"
+  load_pkg "$id"
+  if major_os_update "$id" "$old_version" "$OOONANA_PKG_VERSION" && [ "${OOONANA_ALLOW_MAJOR:-0}" != 1 ]; then
+    if [ "$dry_run" -eq 1 ]; then
+      printf 'major update needs --allow-major: %s %s -> %s\n' "$id" "$old_version" "$OOONANA_PKG_VERSION"
+      return 0
+    fi
+    die "major OS update requires explicit --allow-major: $id $old_version -> $OOONANA_PKG_VERSION"
+  fi
   if [ "$dry_run" -eq 1 ]; then
     printf 'would reinstall %s\n' "$id"
     return 0
   fi
 
-  load_pkg "$id"
   check_pkg_conflicts "$id"
   validate_replacement "$id"
   deps="$OOONANA_PKG_DEPS"
@@ -2668,10 +2677,13 @@ cmd_fix() {
   dry_run=0
   reinstall=0
   packages=""
+  OOONANA_ALLOW_MAJOR=0
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --dry-run) dry_run=1 ;;
       --reinstall) reinstall=1 ;;
+      --allow-major) OOONANA_ALLOW_MAJOR=1 ;;
+      -*) die "usage: ooonana fix [--dry-run] [--reinstall] [--allow-major] [PACKAGE...]" ;;
       *) packages="$packages ${1}" ;;
     esac
     shift

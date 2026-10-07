@@ -25,6 +25,7 @@ jobs:
           python3 -B tests/test-state-io-recovery.py
           python3 -B tests/test-ai-store-safety.py
           python3 -B tests/test-panel-session.py
+          python3 -B tests/test-installed-wsl-update.py
           python3 -B tests/test-window-list.py
           bash tests/test-backend-policy.sh
           sh tests/test-live-boot-storage.sh

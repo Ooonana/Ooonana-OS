@@ -65,4 +65,13 @@ with tempfile.TemporaryDirectory() as temporary:
     assert 'explicit --allow-major' in command('upgrade', '--security-only', success=False)
     assert 'major update needs' in command('upgrade', '--security-only', '--dry-run')
     assert (root / 'usr/share/fixture/version').read_text() == '0.10.0'
+    assert 'explicit --allow-major' in command('reinstall', 'ooonana-core-runtime', success=False)
+    assert (root / 'usr/share/fixture/version').read_text() == '0.10.0'
+    assert 'major update needs' in command('fix', 'ooonana-core-runtime', '--reinstall', '--dry-run')
+    assert (root / 'usr/share/fixture/version').read_text() == '0.10.0'
+    (root / 'usr/share/fixture/version').unlink()  # Broken-package repair must obey the same policy.
+    assert 'explicit --allow-major' in command('fix', 'ooonana-core-runtime', success=False)
+    assert '0.10.0' in (work / 'state/installed/ooonana-core-runtime.pkg').read_text()
+    command('reinstall', 'ooonana-core-runtime', '--allow-major')
+    assert (root / 'usr/share/fixture/version').read_text() == '0.11.0'
 print("ok update-safety")

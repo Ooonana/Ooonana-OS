@@ -41,6 +41,11 @@ assert module.pin_for((8, "Music", False, False, "ooonanaapp")) == "music"
 assert module.pin_for((8, "Ooonana Music", False, False, "ooonanaapp")) == "music"
 assert module.pin_for((8, "Ooonana Music", False, False, "chromium")) == "browser"
 assert module.pin_for((9, "Task Manager", False, False, "ooonanaapp")) == "tasks"
+for title in ("Music", "Task Manager - Chromium", "Spotlight documentation", "Processes"):
+    assert module.pin_for((9, title, False, False, "chromium")) == "browser", title
+assert module.pin_for((9, "Task Manager notes", False, False, "geany")) == "editor"
+assert module.pin_for((9, "OpenVINO / Quack", False, False, "pywebview")) == "openvino"
+assert module.pin_for((9, "OpenVINO / Quack - Approval needed", False, False, "pywebview")) == "openvino"
 openvino_window = (6, "OpenVINO Chat", False, False, "chromium")
 assert module.pin_for(openvino_window) == "openvino"
 original_which = module.shutil.which

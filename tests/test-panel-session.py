@@ -134,11 +134,20 @@ raise SystemExit(namespace["main"]())
     native_stub.chmod(0o755)
     native_env = {**environment, "DISPLAY": ":qa-native"}
     native_runner = '''
-import importlib.util, sys
+import importlib.util, os, sys
 spec = importlib.util.spec_from_file_location("panel_fixture", sys.argv[1])
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 module.native_dock_available = lambda: True
+real_popen = module.subprocess.Popen
+launches = [0]
+def launch(command, *args, **kwargs):
+    if command == ["ooonana-dock"]:
+        launches[0] += 1
+        if os.environ.get("FIXTURE_SPAWN_FAIL") and launches[0] == 2:
+            raise OSError("disposable spawn failure")
+    return real_popen(command, *args, **kwargs)
+module.subprocess.Popen = launch
 sys.argv = [sys.argv[1]]
 raise SystemExit(module.main())
 '''
@@ -150,9 +159,37 @@ raise SystemExit(module.main())
             subprocess.run([sys.executable, "-B", str(SUPERVISOR), *arguments], env=native_env, check=True, timeout=5)
             wait(lambda: len(started(":qa-native", "ooonana")) == index, "Native panel reload failed")
         assert len(started(":qa-native", "native-dock")) == 1
-        stop(first)
         native_pid = started(":qa-native", "native-dock")[0]["pid"]
-        assert any(row["event"] == "stop" and row["pid"] == native_pid for row in records())
+        os.kill(native_pid, 9)  # Only the disposable supervisor's owned child.
+        wait(lambda: len(started(":qa-native", "native-dock")) == 2, "Crashed dock never recovered")
+        assert len(started(":qa-native", "ooonana")) == 3, "Dock recovery restarted healthy panel"
+        panel_pid = started(":qa-native", "ooonana")[-1]["pid"]
+        os.kill(panel_pid, 9)
+        wait(lambda: len(started(":qa-native", "ooonana")) == 4, "Crashed panel never recovered")
+        assert len(started(":qa-native", "native-dock")) == 2, "Panel recovery restarted healthy dock"
+        for count in (3, 4):
+            os.kill(started(":qa-native", "native-dock")[-1]["pid"], 9)
+            wait(lambda: len(started(":qa-native", "native-dock")) == count, "Dock retry failed")
+        os.kill(started(":qa-native", "native-dock")[-1]["pid"], 9)
+        time.sleep(1.2)
+        assert first.poll() is None, "Persistent dock failure killed healthy panel session"
+        assert len(started(":qa-native", "native-dock")) == 4, "Persistent crash caused unbounded restart loop"
+        assert len(started(":qa-native", "ooonana")) == 4
+        panel_pid = started(":qa-native", "ooonana")[-1]["pid"]
+        stop(first)
+        assert any(row["event"] == "stop" and row["pid"] == panel_pid for row in records())
+    finally:
+        stop(first)
+
+    # Transient exec failure must not terminate a healthy sibling either.
+    first = None
+    retry_env = {**native_env, "DISPLAY": ":qa-spawn-error", "FIXTURE_SPAWN_FAIL": "1"}
+    try:
+        first = subprocess.Popen([sys.executable, "-B", "-c", native_runner, str(SUPERVISOR)], env=retry_env)
+        wait(lambda: len(started(":qa-spawn-error", "native-dock")) == 1, "Spawn fixture missing")
+        os.kill(started(":qa-spawn-error", "native-dock")[0]["pid"], 9)
+        wait(lambda: len(started(":qa-spawn-error", "native-dock")) == 2, "Transient spawn failure was fatal")
+        assert first.poll() is None and len(started(":qa-spawn-error", "ooonana")) == 1
     finally:
         stop(first)
 

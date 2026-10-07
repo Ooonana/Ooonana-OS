@@ -33,6 +33,8 @@ Dock previews stay in RAM and never restore or focus hidden windows. Compact pan
 
 Latest source recheck hardens Music session matching and fixes panel reload isolation, display-scoped window-control locks, duplicate native dialog titlebars, bounded/sanitized Wi-Fi names and Unicode-safe music titles. Isolated GTK/i3 and bundled Polybar checks passed. User's October 6 ISO build passed service/desktop smoke and BIOS/UEFI VM gates; physical USB validation remains manual. Details: [current work](docs/current-work.md#user-build-cleanup-and-installed-wsl-sync).
 
+October 7 follow-up fixes misleading page titles stealing dock groups, recognizes current OpenVINO desktop titles, and adds bounded panel/dock crash recovery. WSL source sync now uses guarded same-version package transactions; fix/reinstall cannot bypass major-upgrade approval. Current WSL is synchronized and focused GUI/backend regressions passed. October 6 ISO does not contain these later functional repairs; build a fresh image. Details: [follow-up checks](docs/current-work.md#guibackend-follow-up).
+
 Latest GUI polish previews, rendered from real GTK widgets in an isolated virtual display with sample data:
 
 ![Native window controls and motion preferences](docs/assets/ooonana-gui-polish-appearance.png)

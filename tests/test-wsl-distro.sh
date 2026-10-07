@@ -20,14 +20,11 @@ assert_contains() {
 [[ -x "$BUILD_SCRIPT" ]] || fail "missing executable WSL rootfs builder"
 [[ -x "$INSTALL_SCRIPT" ]] || fail "missing executable WSL distro installer"
 [[ -x "$UPDATE_SCRIPT" ]] || fail "missing executable WSL updater"
-assert_contains "$(<"$UPDATE_SCRIPT")" 'packages/ooonana/usr/bin/*'
-assert_contains "$(<"$UPDATE_SCRIPT")" 'packages/ooonana/usr/lib/ooonana/ui/*.py'
-assert_contains "$(<"$UPDATE_SCRIPT")" 'packages/ooonana/usr/share/ooonana/wallpapers/*'
-assert_contains "$(<"$UPDATE_SCRIPT")" 'branding/desktop-0.9.png'
-assert_contains "$(<"$UPDATE_SCRIPT")" 'packages/ooonana/etc/gtk-3.0/settings.ini'
-assert_contains "$(<"$UPDATE_SCRIPT")" 'doas-6.8.2-r7.apk'
+assert_contains "$(<"$UPDATE_SCRIPT")" '--repo'
+assert_contains "$(<"$UPDATE_SCRIPT")" 'raw source overlay retired'
+assert_contains "$(<"$UPDATE_SCRIPT")" '"$cli" reinstall'
+assert_contains "$(<"$UPDATE_SCRIPT")" 'OOONANA_KEEP_UPDATE_BACKUPS'
 assert_contains "$(<"$UPDATE_SCRIPT")" 'refusing non-Ooonana distro'
-assert_contains "$(<"$UPDATE_SCRIPT")" "overlay_tree \"\$unpack\""
 if guard_output="$(WSL_DISTRO_NAME=Ubuntu sh "$UPDATE_SCRIPT" 2>&1)"; then
   fail "WSL updater accepted non-Ooonana distro"
 fi

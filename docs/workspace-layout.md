@@ -28,5 +28,18 @@ remains selectable. WSL uses the host kernel, so its swap status does not test
 the new ISO zram kernel. A BusyBox
 empty-archive incompatibility found during deployment was corrected;
 metadata-only package upgrades now have regression
-coverage. The stale D-Bus launch-helper group was repaired to `0:81:4750`, and
-`update-installed-wsl.sh` now performs the same validation/repair.
+coverage. The stale D-Bus launch-helper group was repaired to `0:81:4750`.
+
+Installed WSL core/runtime and OpenVINO application payloads were synchronized
+from current source on 2026-10-07. Current core is `0.9.9`; OpenVINO package is
+`0.2.1`. Custom configuration, user/model stores and native package rollback
+checkpoints remain. WSL still uses its host kernel, not the ISO kernel.
+
+The legacy raw-overlay updater is retired: it missed current helpers and
+overwrote custom configuration. Use
+`sh scripts/update-installed-wsl.sh --repo /path/to/built/repo --dry-run`, then
+the same command without `--dry-run`, inside Ooonana WSL as root. Supply complete
+same-version core/runtime packages and OpenVINO when installed. This delegates
+to native package transactions; it does not unregister the distro or copy raw
+configs. Version changes go through `ooonana upgrade`, with `--allow-major`
+only when intentionally approving a major jump.

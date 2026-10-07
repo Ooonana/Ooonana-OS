@@ -144,14 +144,23 @@ def bar(items):
 def pin_for(item):
     name = item[1].casefold()
     wm_class = item[4] if len(item) > 4 else ""
-    if wm_class == "ooonanaspotlight" or "spotlight" in name:
+    if wm_class == "ooonanaspotlight":
         return "apps"
-    if "task manager" in name or "processes" in name:
-        return "tasks"
-    if name == "music" or (wm_class == "ooonanaapp" and name == "ooonana music") or wm_class in ("ncmpcpp", "mpd"):
-        return "music"
-    if "openvino chat" in name or "ooonana offline ai" in name:
+    # Explicit titles cover the browser bridge and pywebview desktop, not
+    # arbitrary documents/pages containing application names.
+    if name in ("openvino chat", "openvino / quack", "openvino / quack - approval needed"):
         return "openvino"
+    if name == "ooonana offline ai" and wm_class in ("", "ooonanaapp", "xterm"):
+        return "openvino"
+    if wm_class in ("", "ooonanaapp"):
+        if name in ("task manager", "ooonana task manager", "processes"):
+            return "tasks"
+        if name in ("music", "ooonana music"):
+            return "music"
+        if name in ("spotlight", "ooonana spotlight"):
+            return "apps"
+    if wm_class in ("ncmpcpp", "mpd"):
+        return "music"
     if wm_class in ("xterm", "alacritty") or name in ("xterm", "terminal"):
         return "terminal"
     if "chromium" in wm_class or "chrome" in wm_class or "firefox" in wm_class:
