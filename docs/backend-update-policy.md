@@ -1,4 +1,4 @@
-# Backend update policy - core 0.9.7
+# Backend update policy - core 0.9.9
 
 ## Verified behavior
 
@@ -8,6 +8,9 @@
 - Changed or previously untracked package-owned `/etc` files survive upgrades. New defaults are written beside them as `.ooonana-new`. `/etc/os-release` intentionally follows the new release.
 - Install and health-check hooks run before transaction completion. Failed upgrade checks restore old package files, metadata, config baselines and custom configuration. Hooks changing files outside package ownership cannot be automatically undone.
 - Successful core/kernel updates keep private recovery checkpoints under `/var/lib/ooonana/packages/backups`; `OOONANA_KEEP_UPDATE_BACKUPS=all` retains other package checkpoints too. Checkpoints are recovery files, not an automatic disk-image restore system.
+- Package writers hold a kernel-released lock; concurrent install/upgrade/remove/repair is refused. Hooks do not pass this lock into background services. Before replacement, old payload/config/metadata and checksum-verified recovery records are synced. An interrupted replacement blocks further mutations and file verification until explicitly recovered; normal inspection remains available.
+- Run `ooonana recover` after an interrupted replacement. Prepared journals restore old package-owned files, metadata and custom config; completed journals are retained without undoing a committed update. Recovery records remain under `backups/recovered-*`. Corrupt, incomplete/legacy or wrong-installation checkpoints are retained and refused, not guessed or deleted. Recovery is retryable after a restore failure. If the installed CLI/loader cannot run, recovery requires external rescue media with the correct mounted target/state paths. This does not guarantee whole-OS bootability after a power cut or undo arbitrary hook effects.
+- Remote metadata/archive downloads stage privately and check declared checksums before cache promotion. Interrupted/truncated transfers cannot poison the final cache; damaged older cached archives can be fetched again without changing the installed payload. GNU wget respects the configured retry budget instead of its default twenty attempts.
 - `ooonana upgrade --dry-run` reviews changes; `--allow-major` explicitly permits a core version jump. Pre-1.0 minor changes such as 0.9 to 0.10 count as major. `--security-only` requires `OOONANA_PKG_SECURITY=1`; unmarked changes are never guessed to be security fixes.
 - `ooonana update-status` reports pending update category and reboot requirements. Boot/kernel/core changes use `OOONANA_PKG_REBOOT=1`.
 
@@ -60,3 +63,5 @@ Installer requires username and nonempty password before any formatting. Install
 Existing systems without an installed-mode marker are not silently converted to password login during package upgrades. Systems already marked installed now use BusyBox init/getty rather than the old root-shell loop. Diskless QEMU authentication test rejected a wrong fixture password and started the desktop launcher as UID 1000 after correct login. Actual nonroot Xorg still requires a newly built image/hardware check. Third-party titlebar buttons passed isolated i3 close/minimize/fullscreen/restore checks; native and dock/window controls remain available.
 
 USB live memory policy still avoids creating swapfiles or modifying unrelated disks. Disk swap operates only on explicitly configured installer/setup targets. Physical Wi-Fi, Bluetooth, audio, fan sensors, memory pressure and OpenVINO inference require hardware checks. No audio playback occurred during this pass.
+
+`tests/test-update-interruption.py` exercises actual CLI transactions in private installation roots: concurrent-writer refusal, TERM rollback, KILL recovery, wrong-root/corrupt-snapshot refusal, failed recovery retry, truncated localhost transfer and successful retry. The QEMU persistence fixture also abruptly stops a real guest upgrade during its health hook, reboots that disposable installation, and restores old payload/custom configuration with the shipped CLI. Host disks and installed WSL packages are not update targets for these fault tests.

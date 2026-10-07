@@ -20,6 +20,28 @@ done
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' 0
 image="$tmp/ooonana-persistence.ext4"
+# FAT state byte tests use ordinary files only, never real devices.
+python3 - "$tmp" <<'PY'
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+for bits, offset in ((16, 37), (32, 65)):
+    for dirty in (0, 1):
+        sector = bytearray(512)
+        sector[510:] = b'\x55\xaa'
+        if bits == 16:
+            sector[22:24] = b'\x10\x00'
+        sector[offset] = dirty
+        (root / f'fat{bits}-{dirty}').write_bytes(sector)
+(root / 'truncated-fat').write_bytes(b'bad')
+PY
+for bits in 16 32; do
+  live_persistence_outer_clean "$tmp/fat$bits-0" vfat || fail "clean FAT$bits rejected"
+  reject live_persistence_outer_clean "$tmp/fat$bits-1" vfat
+done
+reject live_persistence_outer_clean "$tmp/truncated-fat" vfat
+reject live_persistence_outer_clean "$tmp/missing-fat" vfat
+reject live_persistence_outer_clean "$tmp/fat32-0" unknown
 live_persistence_file_safe "$image" || fail 'absent image'
 mkdir "$image"
 reject live_persistence_file_safe "$image"

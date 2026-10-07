@@ -208,6 +208,8 @@ Latest source repair handles corrupt/bounded recovery and session records, clean
 
 Final backend review also protects corrupt AI knowledge/benchmark records from silent replacement, validates chunk/metric fields, refuses unknown or unreadable checkpoints, and keeps the prior index/cache when saving or refreshing documents fails. Live-storage Health now treats unreadable mode metadata as critical instead of reporting installed storage. Disposable fault tests, broad regressions and fresh ISO VM gates passed; physical hardware verification remains separate.
 
+October 7 crash-safety follow-up adds package writer locking, synced/checksummed interrupted-update journals and explicit `ooonana recover`, with old custom configs retained. Truncated remote downloads cannot poison final caches; retries remain bounded. File-backed FAT persistence refuses dirty outer storage before writable mounting and requires backed-up offline recovery. See [update boundaries](docs/backend-update-policy.md), [persistent USB safety](docs/persistent-usb-safety.md) and [physical hardware checklist](docs/hardware-regression-checklist.md). These source changes require a fresh user-built ISO; VM faults do not certify physical USB power loss or radios/audio/GPU/fans.
+
 Working now:
 
 - Scratch rootfs boots in QEMU

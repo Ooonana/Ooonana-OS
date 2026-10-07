@@ -32,6 +32,14 @@ may create/format a new storage file after explicit size + `CREATE` confirmation
   inner journaling does not guarantee outer filesystem power-loss protection.
   File-backed storage uses loop1, records `persistence-file` in live metadata,
   retains outer filesystem mount, and uses existing shutdown/storage monitoring.
+- Before file-backed FAT gains a writable mount, its Linux extended-BPB dirty
+  state is checked read-only. Dirty/unreadable state refuses both saved-file
+  attachment and new-file creation, keeping the boot filesystem read-only.
+  Back up the USB, then check/repair the unmounted filesystem offline with an
+  explicitly selected target. Boot never clears the flag or repairs FAT itself.
+  The flag is a limited safety gate, not a complete fsck or a guarantee against
+  controller/cache power-loss faults. Implementation follows the kernel's
+  [FAT mount-state handling](https://github.com/torvalds/linux/blob/v6.18/fs/fat/inode.c).
 - `ooonana.persistence=1` is an exact kernel argument. Missing storage gets a
   bounded discovery wait, then eligible file setup or recovery; it never becomes an apparently saved
   RAM session. Duplicate arguments for boot identity/root image are rejected.
@@ -88,6 +96,16 @@ BusyBox plus the current live-init source. It attaches only newly created regula
 file USB images, never host disks. It checks save/reboot, temporary reset, saved
 data surviving normal boots, missing identity/storage and cloned boot UUIDs.
 An unrelated same-label USB image must remain byte-identical across tests.
+Additional cases cut power to the disposable QEMU process after a committed
+sentinel while another file is being written, then verify the sentinel returns.
+ENOSPC fixtures fill only their disposable overlay, require low-space boot
+refusal without RAM fallback, reclaim one known filler offline and reboot with
+saved data intact. Partition and file backends are covered; file recovery checks
+both inner ext4 and outer ext4/FAT before restoring the fixture. Use
+`--file-space-only --format-rootfs DIR` for the file-backed ENOSPC subset.
+Real guest package upgrade interruption/recovery is included;
+`--upgrade-only` runs just that pair. These are VM crash simulations, not physical
+USB/controller power-loss certification.
 No production ISO is built. Example, with already available kernel/seed files:
 
 ```bash
@@ -109,6 +127,10 @@ ordinary shutdown-unmount failure. Three rescue-shell exits must keep PID1's
 shutdown action alive with no power-down or false cleanup-success marker.
 Run with both
 `--boot-fs ext4` and `--boot-fs vfat`; only disposable file-backed USBs attach.
+The file-backed crash case on FAT must refuse the dirty outer filesystem without
+changing any USB bytes. Explicit offline fsck runs only on a copied regular-file
+test image; subsequent boot must restore the committed sentinel. Ext4-backed
+files exercise journal replay directly. No unsynced draft is promised to survive.
 
 For hardware-accelerated fixtures, set `OOONANA_QEMU_ACCEL=kvm`; default is TCG.
 Persistence guest deadline defaults to 180 seconds (positive override:

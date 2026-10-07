@@ -105,6 +105,7 @@ Most used commands:
   update - update list of available packages
   upgrade - upgrade installed packages
   fix - repair missing or damaged package files
+  recover - restore interrupted package replacement checkpoints
   verify - verify installed package files
   repo - manage Ooonana package sources and indexes
   setup - run first-boot setup
@@ -452,6 +453,127 @@ ensure_pkg_dirs() {
   mkdir -p "$INSTALLED_DIR" "$CACHE_DIR"
 }
 
+lock_pkg_state() {
+  ensure_pkg_dirs
+  [ ! -L "$STATE_DIR/.package-lock" ] || die "unsafe package lock"
+  exec 9>>"$STATE_DIR/.package-lock"
+  chmod 0600 "$STATE_DIR/.package-lock"
+  if have flock; then
+    flock -n 9 || die "package state busy: another writer is running"
+  elif have busybox; then
+    busybox flock -n 9 || die "package state busy or flock unavailable"
+  else
+    die "package mutations require flock"
+  fi
+}
+
+check_pending_replacements() {
+  local pending
+  for pending in "$STATE_DIR"/.replace-*; do
+    [ ! -e "$pending" ] && [ ! -L "$pending" ] && continue
+    die "interrupted package checkpoint: $pending; run ooonana recover before changing packages"
+  done
+}
+
+restore_pkg_transaction() (
+  # Idempotent restore: keep checkpoint until every owned path is restored.
+  set -eu
+  local transaction id manifest baseline entry target expected
+  transaction="$1"
+  id="$2"
+  manifest="$(pkg_files_manifest "$id")"
+  baseline="$(config_baseline_path "$id")"
+  for entry in affected new-dirs installed.pkg checksums; do
+    [ -f "$transaction/$entry" ] && [ ! -L "$transaction/$entry" ] || return 1
+  done
+  [ -s "$transaction/checksums" ] || return 1
+  # Corrupt snapshots must be refused before deleting any current payload.
+  while read -r expected entry; do
+    case "$entry" in
+      affected|new-dirs|installed.pkg|manifest|config-baseline|payload.tar|package-id|target-root) ;;
+      *) return 1 ;;
+    esac
+    [ -f "$transaction/$entry" ] && [ ! -L "$transaction/$entry" ] || return 1
+    [ "$(sha256_file "$transaction/$entry")" = "$expected" ] || return 1
+  done <"$transaction/checksums"
+  for entry in affected new-dirs installed.pkg manifest config-baseline payload.tar package-id target-root; do
+    expected="$(awk -v wanted="$entry" '$2==wanted { count++ } END { print count+0 }' "$transaction/checksums")"
+    if [ -e "$transaction/$entry" ] || [ -L "$transaction/$entry" ]; then
+      [ "$expected" = 1 ] || return 1
+    else
+      [ "$expected" = 0 ] || return 1
+    fi
+  done
+  while IFS= read -r entry; do
+    safe_manifest_entry "$entry" || return 1
+  done <"$transaction/affected"
+  while IFS= read -r entry; do
+    safe_manifest_entry "$entry" || return 1
+  done <"$transaction/new-dirs"
+  if [ -f "$transaction/payload.tar" ]; then
+    # Validate snapshot readability before removing replacement files.
+    tar -tf "$transaction/payload.tar" >"$transaction/restore-list" || return 1
+    while IFS= read -r entry; do
+      safe_manifest_entry "$entry" || return 1
+    done <"$transaction/restore-list"
+  fi
+  while IFS= read -r entry; do
+    target="$(root_join "/$entry")"
+    if [ ! -d "$target" ] || [ -L "$target" ]; then
+      rm -f "$target" || return 1
+    fi
+  done <"$transaction/affected"
+  sed '1!G;h;$!d' "$transaction/new-dirs" | while IFS= read -r entry; do
+    rmdir "$(root_join "/$entry")" 2>/dev/null || true
+  done
+  if [ -f "$transaction/payload.tar" ]; then
+    tar -xf "$transaction/payload.tar" -C "$OOONANA_ROOT" || return 1
+  fi
+  cp -p "$transaction/installed.pkg" "$INSTALLED_DIR/$id.pkg" || return 1
+  if [ -f "$transaction/manifest" ]; then
+    cp -p "$transaction/manifest" "$manifest" || return 1
+  else
+    rm -f "$manifest" || return 1
+  fi
+  if [ -f "$transaction/config-baseline" ]; then
+    cp -p "$transaction/config-baseline" "$baseline" || return 1
+  else
+    rm -f "$baseline" || return 1
+  fi
+  sync || return 1
+  printf 'restored previous package: %s\n' "$id" >&2
+)
+
+cmd_recover() (
+  set -eu
+  [ "$#" -eq 0 ] || die "usage: ooonana recover"
+  found=0
+  for transaction in "$STATE_DIR"/.replace-*; do
+    [ ! -e "$transaction" ] && [ ! -L "$transaction" ] && continue
+    found=1
+    [ -d "$transaction" ] && [ ! -L "$transaction" ] || die "unsafe checkpoint: $transaction"
+    for entry in package-id target-root phase; do
+      [ -f "$transaction/$entry" ] && [ ! -L "$transaction/$entry" ] ||
+        die "incomplete/legacy checkpoint retained for manual review: $transaction"
+    done
+    id="$(cat "$transaction/package-id")"
+    safe_pkg_id "$id" || die "invalid checkpoint package: $transaction"
+    [ "$(cat "$transaction/target-root")" = "$OOONANA_ROOT" ] || die "checkpoint belongs to another installation: $transaction"
+    case "$(cat "$transaction/phase")" in
+      prepared)
+        restore_pkg_transaction "$transaction" "$id" || die "rollback incomplete; checkpoint retained: $transaction"
+        ;;
+      committed) printf 'retaining completed update checkpoint: %s\n' "$id" ;;
+      *) die "unknown checkpoint phase retained: $transaction" ;;
+    esac
+    mkdir -p "$STATE_DIR/backups"
+    chmod 0700 "$STATE_DIR/backups"
+    mv "$transaction" "$STATE_DIR/backups/recovered-${transaction##*/}"
+    sync
+  done
+  [ "$found" -ne 0 ] || printf 'no interrupted package checkpoints\n'
+)
+
 reset_pkg_vars() {
   OOONANA_PKG_ID=""
   OOONANA_PKG_VERSION=""
@@ -636,7 +758,14 @@ download_file() {
     fi
   fi
   if have wget; then
-    if wget -q -T "$DOWNLOAD_MAX_TIME" -O "$out" "$url" 2>"$err"; then
+    # GNU wget otherwise retries interrupted transfers twenty times, ignoring
+    # this CLI's retry budget. BusyBox wget makes one attempt and lacks -t.
+    set --
+    if wget --help 2>&1 | grep -q -- '--tries'; then
+      case "$DOWNLOAD_RETRIES" in ''|*[!0-9]*) return 1 ;; esac
+      set -- -t "$((DOWNLOAD_RETRIES + 1))"
+    fi
+    if wget -q -T "$DOWNLOAD_MAX_TIME" "$@" -O "$out" "$url" 2>"$err"; then
       rm -f "$err"
       return 0
     fi
@@ -687,6 +816,7 @@ remote_repo_url() {
 }
 
 remote_repo_cache_file() {
+  local repo_name repo_uri rel cache_dir target staged expected
   repo_name="$1"
   repo_uri="$2"
   rel="$3"
@@ -694,7 +824,19 @@ remote_repo_cache_file() {
   [ -n "$cache_dir" ] || cache_dir="$(remote_repo_cached_dir "$repo_name" "$repo_uri")"
   if [ -f "$cache_dir/ORIGIN" ]; then repo_uri="$(cat "$cache_dir/ORIGIN")"; fi
   target="$cache_dir/$rel"
-  download_file "$(remote_repo_url "$repo_uri" "$rel")" "$target" || return 1
+  mkdir -p "$cache_dir" "$(dirname "$target")"
+  staged="$(mktemp "$cache_dir/.fetch.XXXXXX")" || return 1
+  if ! download_file "$(remote_repo_url "$repo_uri" "$rel")" "$staged"; then
+    rm -f "$staged"
+    return 1
+  fi
+  expected="$(repo_checksum_expected "$cache_dir/SHA256SUMS" "$rel" || true)"
+  if [ -n "$expected" ] && [ "$(sha256_file "$staged")" != "$expected" ]; then
+    printf 'ooonana: sha256 mismatch: %s\n' "$rel" >&2
+    rm -f "$staged"
+    return 1
+  fi
+  mv "$staged" "$target" || { rm -f "$staged"; return 1; }
   printf '%s\n' "$target"
 }
 
@@ -1476,7 +1618,8 @@ run_pkg_hook() {
   export OOONANA_STATE_DIR="$STATE_DIR"
   export OOONANA_CACHE_DIR="$CACHE_DIR"
   export OOONANA_PKG_ID OOONANA_PKG_VERSION OOONANA_PKG_KIND OOONANA_PKG_SUMMARY
-  "$hook"
+  # Background services started by hooks must not inherit the writer lock.
+  "$hook" 9>&-
 }
 
 config_baseline_path() {
@@ -1626,11 +1769,19 @@ install_pkg_archive() {
 }
 
 ensure_pkg_archive_available() {
+  local archive_path expected
   archive_path="$(pkg_archive_path "$OOONANA_PKG_ARCHIVE")"
-  if [ ! -f "$archive_path" ] && [ -n "${LOADED_REPO_URI:-}" ]; then
+  if [ -n "${LOADED_REPO_URI:-}" ]; then
     case "$OOONANA_PKG_ARCHIVE" in
       /*) ;;
-      *) remote_repo_cache_file "$LOADED_REPO_NAME" "$LOADED_REPO_URI" "$OOONANA_PKG_ARCHIVE" "$LOADED_REPO_DIR" >/dev/null ;;
+      *)
+        expected="${OOONANA_PKG_SHA256:-}"
+        if [ ! -f "$archive_path" ] || { [ -n "$expected" ] && [ "$(sha256_file "$archive_path")" != "$expected" ]; }; then
+          # Retry damaged older caches through verified staging, without
+          # deleting their bytes until a complete replacement is available.
+          remote_repo_cache_file "$LOADED_REPO_NAME" "$LOADED_REPO_URI" "$OOONANA_PKG_ARCHIVE" "$LOADED_REPO_DIR" >/dev/null
+        fi
+        ;;
     esac
   fi
 }
@@ -2556,37 +2707,10 @@ replace_pkg_transaction() (
     status=$?
     trap - EXIT HUP INT TERM
     if [ "$active" -eq 1 ] && [ "$committed" -eq 0 ]; then
-      set +e
-      rollback_ok=1
-      # Remove replacement files before restoring old symlinks and contents.
-      while IFS= read -r entry; do
-        target="$(root_join "/$entry")"
-        if [ ! -d "$target" ] || [ -L "$target" ]; then
-          rm -f "$target" || rollback_ok=0
-        fi
-      done < "$transaction/affected"
-      sed '1!G;h;$!d' "$transaction/new-dirs" | while IFS= read -r entry; do
-        rmdir "$(root_join "/$entry")" 2>/dev/null || true
-      done
-      if [ -f "$transaction/payload.tar" ]; then
-        tar -xf "$transaction/payload.tar" -C "$OOONANA_ROOT" || rollback_ok=0
-      fi
-      cp -p "$transaction/installed.pkg" "$INSTALLED_DIR/$id.pkg" || rollback_ok=0
-      if [ -f "$transaction/manifest" ]; then
-        cp -p "$transaction/manifest" "$manifest" || rollback_ok=0
-      else
-        rm -f "$manifest" || rollback_ok=0
-      fi
-      if [ -f "$transaction/config-baseline" ]; then
-        cp -p "$transaction/config-baseline" "$baseline" || rollback_ok=0
-      else
-        rm -f "$baseline" || rollback_ok=0
-      fi
-      if [ "$rollback_ok" -ne 1 ]; then
+      if ! restore_pkg_transaction "$transaction" "$id"; then
         printf 'rollback incomplete; recovery files: %s\n' "$transaction" >&2
         exit 1
       fi
-      printf 'restored previous package: %s\n' "$id" >&2
     fi
     if [ "$committed" -eq 1 ] && { [ "${OOONANA_KEEP_UPDATE_BACKUPS:-core}" = all ] || { [ "${OOONANA_KEEP_UPDATE_BACKUPS:-core}" = core ] && { [ "$id" = ooonana-core-runtime ] || [ "$id" = ooonana-kernel ]; }; }; }; then
       backup_root="$STATE_DIR/backups"
@@ -2646,6 +2770,20 @@ replace_pkg_transaction() (
   if [ -s "$transaction/backup-list" ]; then
     tar -cf "$transaction/payload.tar" -C "$OOONANA_ROOT" -T "$transaction/backup-list"
   fi
+  # Persist old payload/state before any destructive replacement. SIGKILL and
+  # power cuts cannot run traps; next writer must require explicit recovery.
+  printf '%s\n' "$id" >"$transaction/package-id"
+  printf '%s\n' "$OOONANA_ROOT" >"$transaction/target-root"
+  (
+    cd "$transaction"
+    for entry in affected new-dirs installed.pkg manifest config-baseline payload.tar package-id target-root; do
+      [ ! -f "$entry" ] || sha256sum "$entry"
+    done
+  ) >"$transaction/checksums"
+  sync
+  printf 'prepared\n' >"$transaction/phase.tmp"
+  mv "$transaction/phase.tmp" "$transaction/phase"
+  sync
   active=1
   remove_pkg_archive_files "$id"
   if [ -f "$transaction/replacement.tar.gz" ]; then
@@ -2670,6 +2808,10 @@ replace_pkg_transaction() (
   run_pkg_hook "$id" healthcheck
   cp "$LOADED_PKG_FILE" "$INSTALLED_DIR/$id.pkg"
   mark_reboot_required
+  sync
+  printf 'committed\n' >"$transaction/phase.tmp"
+  mv "$transaction/phase.tmp" "$transaction/phase"
+  sync
   committed=1
 )
 
@@ -3114,11 +3256,23 @@ main() {
       info|show|depends|files) readonly=1 ;;
     esac
     case "$cmd:$readonly" in
-      update:0|get:0|install:0|add:0|upgrade:0|remove:0|uninstall:0|purge:0|fix:0|reinstall:0|repo:0|clean:0)
+      update:0|get:0|install:0|add:0|upgrade:0|remove:0|uninstall:0|purge:0|fix:0|reinstall:0|recover:0|repo:0|clean:0)
         exec ooonana-run-admin "$0" "$cmd" "$@"
         ;;
     esac
   fi
+
+  case "$cmd" in
+    get|install|add|upgrade|remove|uninstall|purge|fix|reinstall|recover)
+      dry_run=0
+      for argument in "$@"; do [ "$argument" != --dry-run ] || dry_run=1; done
+      if [ "$dry_run" -eq 0 ]; then
+        lock_pkg_state
+        [ "$cmd" = recover ] || check_pending_replacements
+      fi
+      ;;
+    verify|check) check_pending_replacements ;;
+  esac
 
   case "$cmd" in
     version|--version|-v) cmd_version ;;
@@ -3143,6 +3297,7 @@ main() {
     purge) cmd_purge "$@" ;;
     fix) cmd_fix "$@" ;;
     reinstall) cmd_fix --reinstall "$@" ;;
+    recover) cmd_recover "$@" ;;
     repo) cmd_repo "$@" ;;
     clean) cmd_clean "$@" ;;
     ai)

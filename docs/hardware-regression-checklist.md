@@ -41,3 +41,25 @@ lsblk -o NAME,FSTYPE,MOUNTPOINTS,RO
 
 Readiness means endpoint responds, not successful wireless/audio/inference.
 No formatting, writable mounts, stress tests or fan-curve changes during diagnostics.
+
+## Current access boundary
+
+Windows device presence and WSL service replies do not validate Ooonana's physical
+drivers. WSL exposes virtual Ethernet/audio and its own host kernel; absent radio,
+DRM or fan counters must not be reported as hardware test passes.
+
+On the fresh USB desktop, run as the desktop user; these commands inspect only:
+
+```sh
+ooonana-health --json
+ooonana-service-status
+nmcli -t -f DEVICE,TYPE,STATE device status
+timeout 10 bluetoothctl show
+wpctl status
+```
+
+If a helper is absent, record that rather than installing/restarting services as
+part of diagnostics. Pairing/reconnecting, slider/device changes, suspend/resume,
+GPU rendering and actual thermal/fan readings still need direct observation.
+No playback, recording, radio enable/disable or PWM/fan-control writes are implied.
+Logs can contain personal device names; review before sharing publicly.

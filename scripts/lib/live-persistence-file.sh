@@ -67,6 +67,24 @@ live_persistence_file_safe() (
   [ "$live_size" -ge 268435456 ] || return 1
 )
 
+live_persistence_outer_clean() (
+  # Read-only check before FAT gains writable mounts. Linux fat_set_state uses
+  # the extended BPB state byte (FAT12/16:37, FAT32:65), dirty mask 0x01.
+  # A clean flag is not a full filesystem validation or durability guarantee.
+  case "$2" in ext4) return 0 ;; vfat) ;; *) return 1 ;; esac
+  live_fat_signature="$(od -An -tx1 -j 510 -N 2 "$1" 2>/dev/null | tr -d '[:space:]')"
+  [ "$live_fat_signature" = 55aa ] || return 1
+  live_fat_length="$(od -An -tx1 -j 22 -N 2 "$1" 2>/dev/null | tr -d '[:space:]')"
+  case "$live_fat_length" in
+    0000) live_fat_state_offset=65 ;;
+    ???? ) live_fat_state_offset=37 ;;
+    *) return 1 ;;
+  esac
+  live_fat_state="$(od -An -tu1 -j "$live_fat_state_offset" -N 1 "$1" 2>/dev/null | tr -d '[:space:]')"
+  case "$live_fat_state" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$((live_fat_state & 1))" = 0 ]
+)
+
 live_persistence_file_limit() (
   # Keep 256 MiB on the outer filesystem for metadata/other USB files.
   live_free_kb="$1"
@@ -156,6 +174,10 @@ live_persistence_file_attach() {
   live_image=/mnt/iso/ooonana-persistence.ext4
   live_boot_fs="$(blkid_value TYPE "$boot_media_device")" || return 1
   case "$live_boot_fs" in vfat|ext4) ;; *) return 1 ;; esac
+  live_persistence_outer_clean "$boot_media_device" "$live_boot_fs" || {
+    echo 'OOONANA_BOOT_STORAGE_NEEDS_OFFLINE_CHECK: dirty/unreadable FAT; back up USB, check filesystem offline; no writable mount' >&2
+    return 1
+  }
   live_persistence_file_safe "$live_image" || return 1
   if [ ! -e "$live_image" ]; then
     [ "$persistence_requested" = 1 ] || return 1
@@ -170,6 +192,7 @@ live_persistence_file_attach() {
     live_storage_identity_safe || { exec 3>&-; return 1; }
     live_max="$(live_persistence_file_limit "$(df -Pk /mnt/iso | awk 'NR == 2 { print $4 }')" "$live_boot_fs")" || { exec 3>&-; return 1; }
     live_persistence_size_valid "$live_size_mib" "$live_max" || { exec 3>&-; return 1; }
+    live_persistence_outer_clean "$boot_media_device" "$live_boot_fs" || { exec 3>&-; return 1; }
     mount -o remount,rw,nosuid,nodev,noexec /mnt/iso || { exec 3>&-; return 1; }
     live_file_outer_writable=1
     live_persistence_file_create "$live_size_mib" || {
@@ -184,6 +207,9 @@ live_persistence_file_attach() {
   [ "$(blkid_value TYPE "$live_image")" = ext4 ] || return 1
   [ "$(blkid_value LABEL "$live_image")" = OOONANA_PERSIST ] || return 1
   live_storage_identity_safe || return 1
+  if [ "${live_file_outer_writable:-0}" != 1 ]; then
+    live_persistence_outer_clean "$boot_media_device" "$live_boot_fs" || return 1
+  fi
   mount -o remount,rw,nosuid,nodev,noexec /mnt/iso || return 1
   live_file_outer_writable=1
   [ -b /dev/loop1 ] || mknod /dev/loop1 b 7 1 || return 1

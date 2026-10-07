@@ -6,6 +6,8 @@ KERNEL=""
 SEED_INITRAMFS=""
 BOOT_FS=ext4
 FORMAT_ROOTFS=""
+UPGRADE_ONLY=0
+FILE_SPACE_ONLY=0
 QEMU_ACCEL="${OOONANA_QEMU_ACCEL:-tcg}"
 QEMU_TIMEOUT="${OOONANA_QEMU_PERSIST_TIMEOUT:-180}"
 while [[ $# -gt 0 ]]; do
@@ -14,14 +16,17 @@ while [[ $# -gt 0 ]]; do
     --seed-initramfs) SEED_INITRAMFS="$2"; shift 2 ;;
     --boot-fs) BOOT_FS="$2"; shift 2 ;;
     --format-rootfs) FORMAT_ROOTFS="$2"; shift 2 ;;
+    --upgrade-only) UPGRADE_ONLY=1; shift ;;
+    --file-space-only) FILE_SPACE_ONLY=1; shift ;;
     *) printf 'usage: %s --kernel FILE --seed-initramfs FILE\n' "$0" >&2; exit 2 ;;
   esac
 done
 [[ -f "$KERNEL" && -f "$SEED_INITRAMFS" ]] || { printf 'kernel and seed initramfs files required\n' >&2; exit 2; }
+[[ "$FILE_SPACE_ONLY" != 1 || -n "$FORMAT_ROOTFS" ]] || { echo '--file-space-only requires --format-rootfs' >&2; exit 2; }
 case "$BOOT_FS" in ext4|vfat) ;; *) echo 'boot filesystem must be ext4 or vfat' >&2; exit 2 ;; esac
 case "$QEMU_ACCEL" in tcg|kvm) ;; *) echo 'QEMU acceleration must be tcg or kvm' >&2; exit 2 ;; esac
 [[ "$QEMU_TIMEOUT" =~ ^[1-9][0-9]*$ ]] || { echo 'QEMU timeout must be positive seconds' >&2; exit 2; }
-for tool in qemu-system-x86_64 sfdisk mke2fs cpio gzip dd sha256sum; do
+for tool in qemu-system-x86_64 sfdisk mke2fs cpio gzip dd sha256sum debugfs e2fsck python3; do
   command -v "$tool" >/dev/null || { printf 'missing %s\n' "$tool" >&2; exit 2; }
 done
 tmp="$(mktemp -d /var/tmp/ooonana-persist-smoke.XXXXXXXX)"
@@ -59,7 +64,38 @@ if [[ -n "$FORMAT_ROOTFS" ]]; then
        -o -name 'libuuid.so*' -o -name 'libe2p.so*' -o -name 'libeconf.so*' \) -print0)
   chroot "$tmp/rootfs" /sbin/mke2fs -V >"$tmp/formatter-check.log" 2>&1 || fail 'fixture formatter dependency closure incomplete'
 fi
-for applet in sh cat grep mkdir sync poweroff sleep readlink tr mount umount swapoff awk; do ln -s busybox "$tmp/rootfs/bin/$applet"; done
+for applet in sh cat grep mkdir sync poweroff sleep readlink tr mount umount swapoff awk basename chmod cp dirname flock id mktemp mv rm rmdir sed sha256sum sort stat tar touch wc; do ln -s busybox "$tmp/rootfs/bin/$applet"; done
+install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana" "$tmp/rootfs/usr/bin/ooonana"
+mkdir -p "$tmp/rootfs/usr/lib/ooonana"
+install -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/version-order.awk" "$tmp/rootfs/usr/lib/ooonana/version-order.awk"
+python3 - "$tmp/rootfs/usr/lib/ooonana" <<'PY'
+import hashlib
+import io
+from pathlib import Path
+import sys
+import tarfile
+base = Path(sys.argv[1])
+for version, name in (('1', 'fixture-old'), ('2', 'fixture-new')):
+    repo = base / name
+    repo.mkdir(parents=True)
+    archive = repo / 'fixture.tar.gz'
+    files = {'etc/fixture.conf': 'default=' + version, 'usr/share/fixture/version': version}
+    if version == '2':
+        files['usr/share/fixture/new-file'] = 'new'
+        (repo / 'hooks').mkdir()
+        hook = repo / 'hooks/fixture.healthcheck'
+        hook.write_text('#!/bin/sh\necho FIXTURE_UPGRADE_READY\nwhile :; do sleep 1; done\n')
+        hook.chmod(0o755)
+    with tarfile.open(archive, 'w:gz') as stream:
+        for path, content in files.items():
+            entry = tarfile.TarInfo(path)
+            data = content.encode()
+            entry.size, entry.mode = len(data), 0o644
+            stream.addfile(entry, io.BytesIO(data))
+    fields = dict(ID='fixture', VERSION=version, KIND='archive', SUMMARY='Disposable VM upgrade',
+                  DEPS='', ARCHIVE=archive.name, SHA256=hashlib.sha256(archive.read_bytes()).hexdigest())
+    (repo / 'fixture.pkg').write_text(''.join(f'OOONANA_PKG_{key}="{value}"\n' for key, value in fields.items()))
+PY
 awk -v marker='write_file "$ROOTFS/sbin/init"' '
   index($0, marker) { capture=1; next }
   capture && $0 == "EOF" { exit }
@@ -75,6 +111,7 @@ cat >"$tmp/rootfs/etc/init.d/rcS" <<'EOF'
 #!/bin/sh
 set -eu
 PATH=/bin:/sbin
+mount -t tmpfs -o mode=0755,size=4m tmpfs /run
 echo "FIXTURE_PID1_CMD:$(tr '\000' ' ' </proc/1/cmdline)"
 case " $(cat /proc/cmdline) " in
   *' fixture.temporary=1 '*)
@@ -96,6 +133,38 @@ case " $(cat /proc/cmdline) " in
 esac
 echo "FIXTURE_MODE:$(cat /mnt/ooonana-live/persistence-mode)"
 sync
+case " $(cat /proc/cmdline) " in
+  *' fixture.update-crash=1 '*)
+    OOONANA_REPO_DIR=/usr/lib/ooonana/fixture-old /usr/bin/ooonana get fixture
+    printf 'custom=yes' >/etc/fixture.conf
+    OOONANA_REPO_DIR=/usr/lib/ooonana/fixture-new /usr/bin/ooonana upgrade fixture
+    echo FIXTURE_UPGRADE_DID_NOT_WAIT
+    poweroff -f
+    ;;
+  *' fixture.update-recover=1 '*)
+    /usr/bin/ooonana recover
+    [ "$(cat /usr/share/fixture/version)" = 1 ] || { echo FIXTURE_UPGRADE_BAD_VERSION; poweroff -f; }
+    [ "$(cat /etc/fixture.conf)" = custom=yes ] || { echo FIXTURE_UPGRADE_BAD_CONFIG; poweroff -f; }
+    [ ! -e /usr/share/fixture/new-file ] || { echo FIXTURE_UPGRADE_EXTRA_FILE; poweroff -f; }
+    [ ! -e /etc/fixture.conf.ooonana-new ] || { echo FIXTURE_UPGRADE_EXTRA_CONFIG; poweroff -f; }
+    /usr/bin/ooonana verify fixture
+    echo FIXTURE_UPGRADE_RECOVERED
+    ;;
+  *' fixture.crash=1 '*)
+    # Only the committed sentinel is guaranteed after an abrupt power cut.
+    echo FIXTURE_CRASH_READY
+    while :; do printf 'uncommitted write\n' >/root/inflight-fixture; done
+    ;;
+  *' fixture.full=1 '*)
+    if /bin/busybox dd if=/dev/zero of=/root/full-fixture bs=1048576 count=1024 2>/run/full-error; then
+      echo FIXTURE_FULL_NOT_REACHED
+      poweroff -f
+    fi
+    grep -q 'No space left' /run/full-error || { cat /run/full-error; echo FIXTURE_FULL_WRONG_ERROR; poweroff -f; }
+    sync
+    echo FIXTURE_FULL_WRITTEN
+    ;;
+esac
 poweroff
 EOF
 chmod +x "$tmp/rootfs/etc/init.d/rcS" "$tmp/rootfs/usr/bin/start-ooonana-i3"
@@ -143,6 +212,11 @@ run_guest() {
   local elapsed=0
   local size_sent=0 confirm_sent=0 recovery_sent=0
   while kill -0 "$qemu_pid" 2>/dev/null; do
+    if [[ -n "${power_cut_marker:-}" ]] && grep -q "^${power_cut_marker}[[:space:]]*$" "$tmp/$name.log" 2>/dev/null; then
+      # SIGKILL only this newly spawned guest: no guest sync/shutdown trap.
+      kill -KILL "$qemu_pid"
+      break
+    fi
     if [[ -n "${setup_size:-}" && "$size_sent" = 0 ]] && grep -q 'Storage size MiB:' "$tmp/$name.log" 2>/dev/null; then
       printf '%s\n' "$setup_size" >&"$input_fd"
       size_sent=1
@@ -184,7 +258,10 @@ run_guest() {
     fail "$name missing $expected"
   fi
   [[ "$(sha256sum "$tmp/unrelated.ext4")" = "$unrelated_before" ]] || fail "$name changed unrelated USB"
-  if [[ "$expected" == FIXTURE_* ]]; then
+  if [[ -n "${power_cut_marker:-}" ]]; then
+    [[ "$qemu_status" = 137 ]] || fail "$name not stopped by simulated power cut"
+    ! grep -q '^OOONANA_SHUTDOWN_CLEANUP_DONE' "$tmp/$name.log" || fail "$name unexpectedly shut down cleanly"
+  elif [[ "$expected" == FIXTURE_* ]]; then
     [[ "$qemu_status" = 0 ]] || fail "$name QEMU failed with $qemu_status"
     grep -q '^OOONANA_SHUTDOWN_CLEANUP_DONE[[:space:]]*$' "$tmp/$name.log" || fail "$name skipped orderly shutdown"
     grep -q '^OOONANA_PERSISTENCE_READ_ONLY[[:space:]]*$' "$tmp/$name.log" || { tail -25 "$tmp/$name.log" >&2; fail "$name persistence not remounted read-only"; }
@@ -201,6 +278,16 @@ run_guest() {
   printf 'ok persistence-qemu-%s\n' "$name"
 }
 persistent_args="ooonana.live.boot_uuid=$boot_uuid ooonana.persistence=1"
+if [[ "$FILE_SPACE_ONLY" != 1 ]]; then
+cp --sparse=always "$tmp/usb.raw" "$tmp/upgrade-power-cut.raw"
+power_cut_marker=FIXTURE_UPGRADE_READY
+run_guest upgrade-power-cut FIXTURE_UPGRADE_READY "$persistent_args fixture.update-crash=1" "$tmp/upgrade-power-cut.raw"
+power_cut_marker=""
+run_guest upgrade-recovery FIXTURE_UPGRADE_RECOVERED "$persistent_args fixture.update-recover=1" "$tmp/upgrade-power-cut.raw"
+if [[ "$UPGRADE_ONLY" = 1 ]]; then
+  printf 'ok interrupted-upgrade-qemu (real guest CLI, old payload/config restored)\n'
+  exit 0
+fi
 run_guest save FIXTURE_DATA_SAVED "$persistent_args" "$tmp/usb.raw"
 grep -q FIXTURE_MODE:usb "$tmp/save.log" || fail 'saved mode not USB'
 run_guest restore FIXTURE_DATA_RESTORED "$persistent_args" "$tmp/usb.raw"
@@ -209,6 +296,22 @@ run_guest temporary-first FIXTURE_TEMP_RESET "$temporary_args" "$tmp/usb.raw"
 grep -q FIXTURE_MODE:usb-temporary "$tmp/temporary-first.log" || fail 'temporary mode not USB'
 run_guest temporary-reset FIXTURE_TEMP_RESET "$temporary_args" "$tmp/usb.raw"
 run_guest saved-survives-temporary FIXTURE_DATA_RESTORED "$persistent_args" "$tmp/usb.raw"
+# Abrupt loss and ENOSPC on copies only; original saved baseline remains intact.
+cp --sparse=always "$tmp/usb.raw" "$tmp/power-cut.raw"
+power_cut_marker=FIXTURE_CRASH_READY
+run_guest power-cut FIXTURE_CRASH_READY "$persistent_args fixture.crash=1" "$tmp/power-cut.raw"
+power_cut_marker=""
+run_guest power-cut-recovery FIXTURE_DATA_RESTORED "$persistent_args" "$tmp/power-cut.raw"
+cp --sparse=always "$tmp/usb.raw" "$tmp/full.raw"
+run_guest full-storage FIXTURE_FULL_WRITTEN "$persistent_args fixture.full=1" "$tmp/full.raw"
+run_guest full-storage-refused 'persistence unwritable or below 16 MiB free' "$persistent_args" "$tmp/full.raw"
+dd if="$tmp/full.raw" of="$tmp/full.partition" bs=512 skip=395264 count=131072 status=none
+e2fsck -fn "$tmp/full.partition" >"$tmp/full-before-fsck.log" 2>&1 || fail 'full partition not clean'
+# Offline recovery deletes one known disposable filler, never saved user data.
+debugfs -w -R 'rm /overlay/upper/root/full-fixture' "$tmp/full.partition" >"$tmp/full-recovery.log" 2>&1
+e2fsck -fn "$tmp/full.partition" >"$tmp/full-after-fsck.log" 2>&1 || fail 'recovered partition not clean'
+dd if="$tmp/full.partition" of="$tmp/full.raw" bs=512 seek=395264 conv=notrunc status=none
+run_guest full-storage-recovery FIXTURE_DATA_RESTORED "$persistent_args" "$tmp/full.raw"
 run_guest no-identity 'persistent boot needs GRUB boot UUID' 'ooonana.persistence=1' "$tmp/usb.raw"
 
 truncate -s 194M "$tmp/boot-only.raw"
@@ -217,6 +320,7 @@ dd if="$tmp/boot.ext4" of="$tmp/boot-only.raw" bs=512 seek=2048 conv=notrunc sta
 run_guest missing-partition 'OOONANA_PERSIST missing on boot USB; no RAM fallback' "$persistent_args" "$tmp/boot-only.raw"
 run_guest cloned-uuid 'boot UUID ambiguous across drives' "$persistent_args" "$tmp/usb.raw" \
   -drive "if=none,id=clone,format=raw,file=$tmp/boot-only.raw" -device usb-storage,bus=usb.0,drive=clone
+fi
 if [[ -n "$FORMAT_ROOTFS" ]]; then
   # Writable boot filesystem with space, no persistence partition. Setup may
   # create a file only inside this disposable guest USB, never a host device.
@@ -234,22 +338,71 @@ if [[ -n "$FORMAT_ROOTFS" ]]; then
   setup_before="$(sha256sum "$tmp/setup.raw")"
   setup_size=256
   setup_confirm=CANCEL
+  if [[ "$FILE_SPACE_ONLY" != 1 ]]; then
   run_guest file-cancel 'file setup unavailable/cancelled/failed' "$persistent_args" "$tmp/setup.raw"
   [[ "$(sha256sum "$tmp/setup.raw")" = "$setup_before" ]] || fail 'cancelled setup wrote boot USB'
   setup_size=999999
   run_guest file-too-large 'file setup unavailable/cancelled/failed' "$persistent_args" "$tmp/setup.raw"
   [[ "$(sha256sum "$tmp/setup.raw")" = "$setup_before" ]] || fail 'invalid size wrote boot USB'
+  fi
   setup_size=256
   setup_confirm=CREATE
   run_guest file-create FIXTURE_DATA_SAVED "$persistent_args" "$tmp/setup.raw"
   grep -q FIXTURE_MODE:usb "$tmp/file-create.log" || fail 'created file not persistent'
   setup_size=""
   setup_confirm=""
+
+  cp --sparse=always "$tmp/setup.raw" "$tmp/file-full.raw"
+  run_guest file-full-storage FIXTURE_FULL_WRITTEN "$persistent_args fixture.full=1" "$tmp/file-full.raw"
+  run_guest file-full-refused 'persistence unwritable or below 16 MiB free' "$persistent_args" "$tmp/file-full.raw"
+  dd if="$tmp/file-full.raw" of="$tmp/full.outer" bs=512 skip=2048 count=1572864 status=none
+  if [[ "$BOOT_FS" == vfat ]]; then
+    fsck.fat -n "$tmp/full.outer" >"$tmp/file-full-outer-fsck.log" 2>&1 || fail 'full outer FAT not clean'
+    mcopy -i "$tmp/full.outer" ::/ooonana-persistence.ext4 "$tmp/full.inner"
+  else
+    e2fsck -fn "$tmp/full.outer" >"$tmp/file-full-outer-fsck.log" 2>&1 || fail 'full outer ext4 not clean'
+    debugfs -R "dump /ooonana-persistence.ext4 $tmp/full.inner" "$tmp/full.outer" >"$tmp/file-full-dump.log" 2>&1
+  fi
+  e2fsck -fn "$tmp/full.inner" >"$tmp/file-full-inner-fsck.log" 2>&1 || fail 'full inner ext4 not clean'
+  debugfs -w -R 'rm /overlay/upper/root/full-fixture' "$tmp/full.inner" >"$tmp/file-full-reclaim.log" 2>&1
+  e2fsck -fn "$tmp/full.inner" >>"$tmp/file-full-inner-fsck.log" 2>&1 || fail 'recovered inner ext4 not clean'
+  if [[ "$BOOT_FS" == vfat ]]; then
+    mcopy -o -i "$tmp/full.outer" "$tmp/full.inner" ::/ooonana-persistence.ext4
+    fsck.fat -n "$tmp/full.outer" >>"$tmp/file-full-outer-fsck.log" 2>&1 || fail 'recovered outer FAT not clean'
+  else
+    debugfs -w -R 'rm /ooonana-persistence.ext4' "$tmp/full.outer" >"$tmp/file-full-replace.log" 2>&1
+    debugfs -w -R "write $tmp/full.inner /ooonana-persistence.ext4" "$tmp/full.outer" >>"$tmp/file-full-replace.log" 2>&1
+    e2fsck -fn "$tmp/full.outer" >>"$tmp/file-full-outer-fsck.log" 2>&1 || fail 'recovered outer ext4 not clean'
+  fi
+  dd if="$tmp/full.outer" of="$tmp/file-full.raw" bs=512 seek=2048 conv=notrunc status=none
+  run_guest file-full-recovery FIXTURE_DATA_RESTORED "$persistent_args" "$tmp/file-full.raw"
+  if [[ "$FILE_SPACE_ONLY" = 1 ]]; then
+    printf 'ok persistence-file-space-qemu (inner/outer clean; saved data and unrelated USB retained)\n'
+    exit 0
+  fi
   run_guest file-reboot FIXTURE_DATA_RESTORED "$persistent_args" "$tmp/setup.raw"
   ! grep -q 'Storage size MiB:' "$tmp/file-reboot.log" || fail 'existing storage prompted again'
   run_guest file-temporary FIXTURE_TEMP_RESET "$temporary_args" "$tmp/setup.raw"
   run_guest file-temporary-reset FIXTURE_TEMP_RESET "$temporary_args" "$tmp/setup.raw"
   run_guest file-survives-temporary FIXTURE_DATA_RESTORED "$persistent_args" "$tmp/setup.raw"
+
+  cp --sparse=always "$tmp/setup.raw" "$tmp/file-power-cut.raw"
+  power_cut_marker=FIXTURE_CRASH_READY
+  run_guest file-power-cut FIXTURE_CRASH_READY "$persistent_args fixture.crash=1" "$tmp/file-power-cut.raw"
+  power_cut_marker=""
+  if [[ "$BOOT_FS" == vfat ]]; then
+    # Dirty FAT must remain byte-identical and RO until explicit offline repair.
+    dirty_before="$(sha256sum "$tmp/file-power-cut.raw")"
+    run_guest file-power-cut-refused 'OOONANA_BOOT_STORAGE_NEEDS_OFFLINE_CHECK' "$persistent_args" "$tmp/file-power-cut.raw"
+    [[ "$(sha256sum "$tmp/file-power-cut.raw")" = "$dirty_before" ]] || fail 'dirty FAT refusal wrote USB'
+    dd if="$tmp/file-power-cut.raw" of="$tmp/recovery.bootfs" bs=512 skip=2048 count=1572864 status=none
+    cp --sparse=always "$tmp/recovery.bootfs" "$tmp/recovery-before-repair.bootfs"
+    # Repair only a copied regular-file fixture, never auto-repair during boot.
+    fsck.fat -a "$tmp/recovery.bootfs" >"$tmp/recovery-fat-fsck.log" 2>&1 || [[ "$?" = 1 ]] || fail 'offline FAT repair failed'
+    fsck.fat -n "$tmp/recovery.bootfs" >>"$tmp/recovery-fat-fsck.log" 2>&1 || fail 'FAT remains inconsistent'
+    dd if="$tmp/recovery.bootfs" of="$tmp/file-power-cut.raw" bs=512 seek=2048 conv=notrunc status=none
+  fi
+  run_guest file-power-cut-recovery FIXTURE_DATA_RESTORED "$persistent_args" "$tmp/file-power-cut.raw"
 
   # Corrupt only a disposable copy. Valid ext4 magic/label with unsupported
   # feature bits reaches real kernel mount failure, not just helper validation.
