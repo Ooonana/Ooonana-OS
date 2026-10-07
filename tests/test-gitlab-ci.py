@@ -12,4 +12,8 @@ assert {"git", "python3", "openssl", "bash"} <= installed
 assert "git rev-parse --verify HEAD" in bootstrap
 assert source.index("git rev-parse --verify HEAD") < source.index("bash scripts/build-package-repo.sh")
 assert "publish-repo-generation.py" in deploy
+smoke = source.split("\nci-smoke:\n", 1)[1].split("\ndeploy-package-repo:\n", 1)[0]
+if "test-pdf-runtime-reuse.py" in smoke:
+    smoke_packages = set(re.search(r"apk add --no-cache ([^\n]+)", smoke)[1].split())
+    assert "findutils" in smoke_packages, "PDF runtime injection needs GNU find -printf"
 print("ok gitlab-ci dependencies and atomic publication")

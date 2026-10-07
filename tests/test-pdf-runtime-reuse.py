@@ -25,7 +25,8 @@ with tempfile.TemporaryDirectory() as temporary:
     (source / "RUNTIME-MANIFEST.json").write_text(json.dumps(manifest))
     command = ["bash", str(root / "scripts/build-native-pdf-runtime.sh"),
                "--reuse-runtime", str(source), "--work-dir", str(work)]
-    subprocess.run(command, check=True, capture_output=True, text=True)
+    result = subprocess.run(command, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
     rebuilt = next(work.glob("runtime.*/rootfs"))
     assert (rebuilt / "bin/sh").is_symlink()
     assert (rebuilt / "bin/busybox").read_bytes() == files["rootfs/bin/busybox"]

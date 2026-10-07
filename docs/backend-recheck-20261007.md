@@ -54,6 +54,11 @@ absence of all bugs; the pending gates below are not software passes.
 - Baseline commit `7057da0`: GitHub run 37614583576 and GitLab pipeline 2922088046
   reported success before this recheck's fixes. New commit CI must be checked
   separately. Existing production ISO remains the October 6 artifact.
+- First follow-up GitHub run 37617630268 passed. GitLab smoke failed with the new
+  PDF reuse test and deployment was skipped. Alpine's BusyBox find lacks the
+  `-printf` used by the injector; this rejection was reproduced locally. Added
+  GNU findutils to smoke bootstrap and a dependency assertion. Follow-up pipeline
+  status is separate from the local software results above.
 
 Logs remain under `/var/tmp/ooonana-full-backend-20261007.K4f5J0JB` in Ubuntu WSL.
 Synthetic media never represent F:, which contains project/releases/models and is
