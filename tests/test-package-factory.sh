@@ -309,12 +309,14 @@ stub="$tmp/import-stub.sh"
 cat > "$stub" <<'EOF'
 #!/bin/sh
 out=""
+packages=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --out-dir) out="$2"; shift 2 ;;
     --repo-url) shift 2 ;;
-    --packages) shift 2 ;;
-    *) shift ;;
+    --packages) packages="$packages $2"; shift 2 ;;
+    --no-index) shift ;;
+    *) packages="$packages $1"; shift ;;
   esac
 done
 mkdir -p "$out"
@@ -332,7 +334,7 @@ OOONANA_PKG_DEPS=""
 OOONANA_PKG_ARCHIVE=""
 OOONANA_PKG_SHA256=""
 PKG
-for package in bubblewrap xz curl ca-certificates coreutils nodejs flatpak openssl; do
+for package in bubblewrap xz curl ca-certificates coreutils nodejs flatpak openssl $packages; do
   cat > "$out/$package.pkg" <<PKG
 OOONANA_PKG_ID="$package"
 OOONANA_PKG_VERSION="1.0"
@@ -363,6 +365,12 @@ OOONANA_TEST_ROOT="$ROOT" OOONANA_IMPORT_APK_SCRIPT="$stub" \
 [[ -f "$tmp/repo/archives/openvino-chat-0.2.1.tar.gz" ]] || fail "builder missing OpenVINO Chat archive"
 [[ -f "$tmp/repo/devicechat.pkg" ]] || fail "builder missing DeviceChat package"
 [[ -f "$tmp/repo/wine.pkg" ]] || fail "builder missing Wine package"
+[[ -f "$tmp/repo/firefox.pkg" ]] || fail "builder missing Firefox setup package"
+while IFS= read -r package; do
+  package="${package%%#*}"
+  [[ -n "$package" ]] || continue
+  [[ -f "$tmp/repo/$package.pkg" ]] || fail "builder missing optional package: $package"
+done < "$ROOT/configs/packages/common-tools.list"
 assert_contains "$(<"$tmp/repo/ooonana-core.pkg")" 'OOONANA_PKG_DEPS="ooonana-core-runtime"'
 assert_contains "$(<"$tmp/repo/ooonana-core-runtime.pkg")" 'OOONANA_PKG_DEPS="dbus-daemon-launch-helper openssl"'
 assert_contains "$(<"$tmp/repo/ooonana-core.pkg")" 'OOONANA_PKG_ARCHIVE=""'

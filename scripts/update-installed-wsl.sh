@@ -55,10 +55,17 @@ done
 }
 repo="$(readlink -f "$repo")"
 resolved_repo="$repo"
-if [ -f "$repo/current" ]; then
-  IFS= read -r generation <"$repo/current"
-  case "$generation" in ""|*[!A-Za-z0-9._-]*|.|..) echo 'update-installed-wsl: invalid generation' >&2; exit 2 ;; esac
+pointer=""
+if [ -f "$repo/CURRENT" ]; then pointer="$repo/CURRENT"
+elif [ -f "$repo/current" ]; then pointer="$repo/current"; fi
+if [ -n "$pointer" ]; then
+  generation="$(tr -d '\r' <"$pointer")"
+  case "$generation" in ""|*[!0-9a-f]*) echo 'update-installed-wsl: invalid generation' >&2; exit 2 ;; esac
+  [ "${#generation}" -eq 64 ] || { echo 'update-installed-wsl: invalid generation' >&2; exit 2; }
   resolved_repo="$repo/generations/$generation"
+  [ -s "$resolved_repo/index.tsv" ] && [ -s "$resolved_repo/SHA256SUMS" ] || {
+    echo 'update-installed-wsl: incomplete generation' >&2; exit 2;
+  }
 fi
 [ -d "$resolved_repo" ] || { echo 'update-installed-wsl: generation missing' >&2; exit 2; }
 cli="$prefix/usr/bin/ooonana"
@@ -70,6 +77,15 @@ if [ -f "$state/installed/openvino-chat.pkg" ]; then packages="$packages openvin
 # Inspect declarations without executing metadata. Native CLI verifies repository
 # signatures/checksums again before loading metadata or changing package files.
 for package in $packages; do
+  case "$package" in
+    ooonana-core|ooonana-core-runtime)
+      # Core migration and health validation require the factory hooks.
+      # Refuse incomplete staging before changing any installed payload.
+      hook="$resolved_repo/hooks/$package.healthcheck"
+      [ -s "$hook" ] && [ -x "$hook" ] || {
+        echo "update-installed-wsl: required health hook missing/not executable: $package" >&2; exit 2;
+      } ;;
+  esac
   candidate="$resolved_repo/$package.pkg"
   installed="$state/installed/$package.pkg"
   [ -s "$candidate" ] && [ -s "$installed" ] || {
@@ -101,7 +117,8 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 mkdir -p "$work/cache" "$work/sources"
 export OOONANA_ROOT="$target_root" OOONANA_STATE_DIR="$state"
-export OOONANA_REPO_DIR="$repo" OOONANA_SOURCES_DIR="$work/sources" OOONANA_CACHE_DIR="$work/cache"
+# Pin preflight's snapshot even if CURRENT advances during synchronization.
+export OOONANA_REPO_DIR="$resolved_repo" OOONANA_SOURCES_DIR="$work/sources" OOONANA_CACHE_DIR="$work/cache"
 export OOONANA_KEEP_UPDATE_BACKUPS="${OOONANA_KEEP_UPDATE_BACKUPS:-all}"
 # IDs come only from the fixed list above. Preserve CLI's trust/signature policy.
 # shellcheck disable=SC2086

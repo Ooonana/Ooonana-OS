@@ -29,6 +29,8 @@ Concept and latest native captures were inspected using `view_image`. Layout/cop
 - Dock hover preserves geometry/focus/bounded RAM-only preview. Appearance footer fits desktop; narrow controls stack and descriptions wrap. Panel 36px/radius 12px.
 - Fixture teardown terminates only owned children, escalating only those children. Ubuntu test-host `i3-msg` was a 100-byte no-op stub; preserved it under owned QA evidence and restored exact cached installed-package ELF. Stub origin not established. Controls fixture checks real IPC and waits for initial floating rules.
 - Passed scoped checks: Firefox command/remote/root/argv/missing-runtime/reproducibility, wallpaper success-only saving, icons/preferences, dock/reduced motion/focus/previews, GTK/CSS/reflow, third-party controls/actions/movement, native UI shell suite, package factory/full-i3 rootfs fixture, optional catalog dependency closure. New pure tests enter GitHub/GitLab CI.
+- Follow-up: incomplete WSL staging omitted core health hooks; repaired staging and all three installed package verifications passed with the existing local public key. Updater now refuses absent/nonexecutable core hooks before changes and pins `CURRENT` snapshot through synchronization. Custom configs and checkpoints retained.
+- Remote GitHub run exposed importer fixture ignoring new optional catalog arguments; fixture now models requested imports, leaving dependency checks enabled. Alpine CI also needs GNU tar for reproducible Firefox archives (BusyBox `--sort=name` failure reproduced locally); smoke-job dependencies corrected.
 
 ## Packages and safety
 

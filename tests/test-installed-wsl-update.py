@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -27,6 +28,7 @@ import json,os,sys
 from pathlib import Path
 record=dict(args=sys.argv[1:], signed=os.environ.get("OOONANA_REQUIRE_SIGNED_REPOS"),
             backups=os.environ.get("OOONANA_KEEP_UPDATE_BACKUPS"),
+            repo=os.environ["OOONANA_REPO_DIR"],
             sources=list(Path(os.environ["OOONANA_SOURCES_DIR"]).iterdir()))
 with open(os.environ["FIXTURE_LOG"],"a") as stream: stream.write(json.dumps(record)+"\\n")
 if os.environ.get("FIXTURE_FAIL") and "--dry-run" not in sys.argv: raise SystemExit(17)
@@ -51,6 +53,12 @@ if os.environ.get("FIXTURE_FAIL") and "--dry-run" not in sys.argv: raise SystemE
 
     package("ooonana-core-runtime")
     package("ooonana-core", archive=False)
+    hooks = repo / "hooks"
+    hooks.mkdir()
+    for name in ("ooonana-core-runtime", "ooonana-core"):
+        hook = hooks / f"{name}.healthcheck"
+        hook.write_text("#!/bin/sh\nexit 0\n")
+        hook.chmod(0o755)
 
     def run(*args, expected=0, **overrides):
         log.unlink(missing_ok=True)
@@ -66,6 +74,14 @@ if os.environ.get("FIXTURE_FAIL") and "--dry-run" not in sys.argv: raise SystemE
     (target / "etc/os-release").write_text('ID=ubuntu\n')
     assert not run("--repo", str(repo), expected=2)
     (target / "etc/os-release").write_text('ID=ooonana\n')
+    core_hook = hooks / "ooonana-core.healthcheck"
+    saved_hook = core_hook.read_bytes()
+    core_hook.unlink()
+    assert not run("--repo", str(repo), expected=2)
+    core_hook.write_bytes(saved_hook)
+    core_hook.chmod(0o644)
+    assert not run("--repo", str(repo), expected=2)
+    core_hook.chmod(0o755)
     rows = run("--repo", str(repo), "--dry-run")
     assert [row["args"] for row in rows] == [["reinstall", "ooonana-core-runtime", "ooonana-core", "--dry-run"]]
     rows = run("--repo", str(repo))
@@ -89,5 +105,17 @@ if os.environ.get("FIXTURE_FAIL") and "--dry-run" not in sys.argv: raise SystemE
     assert len(rows) == 2 and not any(row["args"][0] == "verify" for row in rows)
     (repo / "current").write_text("../escape\n")
     assert not run("--repo", str(repo), expected=2)
+    (repo / "current").unlink()
+    generation = repo / "generations" / ("a" * 64)
+    generation.mkdir(parents=True)
+    for item in list(repo.iterdir()):
+        if item.name != "generations":
+            shutil.move(str(item), generation / item.name)
+    (repo / "CURRENT").write_text("a" * 64 + "\n")
+    assert not run("--repo", str(repo), expected=2)
+    (generation / "index.tsv").write_text("fixture index\n")
+    (generation / "SHA256SUMS").write_text("fixture sums\n")
+    rows = run("--repo", str(repo))
+    assert len(rows) == 5 and all(row["repo"] == str(generation) for row in rows)
 
-print("ok installed-wsl-update: no raw overlays, version/archive guards, config/trust retention, native transactions")
+print("ok installed-wsl-update: no raw overlays, version/archive/hook guards, pinned generation, config/trust retention, native transactions")
