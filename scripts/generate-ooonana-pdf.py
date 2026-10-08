@@ -75,7 +75,7 @@ def build_lines() -> list[str]:
         "Ooonana OS is a scratch-built Linux project with its own rootfs, boot flow, installer experiments, WSL export, and custom ooonana package manager.",
         "Debian or Ubuntu are host build tools only. Alpine APKs are imported into Ooonana .pkg repos; the target OS installs Ooonana packages, not live Alpine APKs.",
         "Core 0.10.0 is a supported-base candidate, not a stable release. Imported payloads use one Alpine v3.24 branch. Stable 0.9.9 installations and public update channel remain separate during validation.",
-        "Candidate release remains held on Chromium sandbox and compositor visual checks. Installed WSL migration is deferred; no ISO was built in this pass.",
+        "Candidate release remains held on Chromium sandbox and new-base interactive/hardware checks. Installed WSL migration is deferred; no ISO was built in this pass.",
         "",
         "Editions",
         "minimal: BusyBox-style rootfs, kernel, GRUB disk, installer ISO, WSL rootfs, command line AI.",

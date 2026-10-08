@@ -13,7 +13,7 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
 endobj
 5 0 obj
-<< /Length 3644 >>
+<< /Length 3656 >>
 stream
 0.065 0.075 0.09 rg 0 754 612 38 re f
 BT /F2 12 Tf 1 0.70 0.10 rg 54 769 Td (OOONANA / FIELD GUIDE) Tj ET
@@ -80,10 +80,10 @@ T*
 (separate during validation.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Candidate release remains held on Chromium sandbox and compositor visual checks.) Tj
+(Candidate release remains held on Chromium sandbox and new-base interactive/hardware) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Installed WSL migration is deferred; no ISO was built in this pass.) Tj
+(checks. Installed WSL migration is deferred; no ISO was built in this pass.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 () Tj
@@ -491,13 +491,13 @@ xref
 0000000134 00000 n 
 0000000202 00000 n 
 0000000277 00000 n 
-0000003973 00000 n 
-0000004109 00000 n 
-0000008887 00000 n 
-0000009023 00000 n 
-0000013602 00000 n 
+0000003985 00000 n 
+0000004121 00000 n 
+0000008899 00000 n 
+0000009035 00000 n 
+0000013614 00000 n 
 trailer
 << /Size 11 /Root 1 0 R >>
 startxref
-13739
+13751
 %%EOF
