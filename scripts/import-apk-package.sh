@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/common.sh
 source "$ROOT/scripts/lib/common.sh"
 
-DEFAULT_REPO_URLS="https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64 https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64"
+DEFAULT_REPO_URLS="$(ooonana_alpine_repositories)"
 REPO_URLS=""
 OUT_DIR="$ROOT/packages/ooonana/usr/lib/ooonana/repo"
 ARCH="x86_64"
@@ -21,7 +21,7 @@ Usage:
 
 Options:
   --repo-url URL   Alpine package repo URL or path. Can be repeated.
-                   (default: Alpine v3.20 main and community x86_64)
+                   (default: Alpine v3.24 main and community x86_64)
   --out-dir PATH   Ooonana repo output directory
   --arch ARCH      Expected Alpine arch (default: x86_64)
   --no-index       Leave repo indexing to caller
@@ -161,6 +161,7 @@ write_pkg_metadata() {
   local archive_rel="$5"
   local archive_sha="$6"
   local origin="$7"
+  local base="${8:-}"
   local pkg_file="$OUT_DIR/$name.pkg"
   cat > "$pkg_file" <<EOF
 OOONANA_PKG_ID="$(shell_escape "$name")"
@@ -171,6 +172,7 @@ OOONANA_PKG_DEPS="$(shell_escape "$deps")"
 OOONANA_PKG_ARCHIVE="$(shell_escape "$archive_rel")"
 OOONANA_PKG_SHA256="$(shell_escape "$archive_sha")"
 OOONANA_PKG_COMPONENTS="apk-import alpine $(shell_escape "$ARCH")"
+OOONANA_PKG_BASE="$(shell_escape "$base")"
 OOONANA_PKG_NOTES="Imported from Alpine package $(shell_escape "$origin")"
 EOF
 }
@@ -201,11 +203,19 @@ reuse_cached_archive() {
 
 import_one() {
   local name="$1"
-  local version apk_arch origin summary raw_deps deps archive_name archive_rel archive_path apk_repo
+  local version apk_arch origin summary raw_deps deps archive_name archive_rel archive_path apk_repo base branch
   version="$(apk_field "$name" V)"
   [[ -n "$version" ]] || ooonana_die "package not found in APKINDEX: $name"
   apk_repo="$(apk_field "$name" X)"
   [[ -n "$apk_repo" ]] || ooonana_die "package repo missing in APKINDEX: $name"
+  base=""
+  case "$apk_repo" in
+    https://dl-cdn.alpinelinux.org/alpine/v*)
+      branch="${apk_repo#https://dl-cdn.alpinelinux.org/alpine/}"
+      branch="${branch%%/*}"
+      [[ ! "$branch" =~ ^v[0-9]+\.[0-9]+$ ]] || base="alpine-$branch"
+      ;;
+  esac
   apk_arch="$(apk_field "$name" A)"
   [[ -z "$apk_arch" || "$apk_arch" == "$ARCH" ]] || ooonana_die "wrong arch for $name: $apk_arch"
   origin="$(apk_field "$name" o)"
@@ -221,7 +231,7 @@ import_one() {
   mkdir -p "$OUT_DIR/archives" "$WORK/extract-$name"
   if reuse_cached_archive "$OUT_DIR/$name.pkg" "$archive_path" "$version" "$archive_rel"; then
     archive_sha="$(sha256sum "$archive_path" | awk '{print $1}')"
-    write_pkg_metadata "$name" "$version" "$summary" "$deps" "$archive_rel" "$archive_sha" "$origin"
+    write_pkg_metadata "$name" "$version" "$summary" "$deps" "$archive_rel" "$archive_sha" "$origin" "$base"
     for dep in $deps; do
       printf '%s\n' "$dep"
     done
@@ -251,7 +261,7 @@ import_one() {
     . | gzip -n > "$archive_path"
   chmod a+rw "$archive_path"
   archive_sha="$(sha256sum "$archive_path" | awk '{print $1}')"
-  write_pkg_metadata "$name" "$version" "$summary" "$deps" "$archive_rel" "$archive_sha" "$origin"
+  write_pkg_metadata "$name" "$version" "$summary" "$deps" "$archive_rel" "$archive_sha" "$origin" "$base"
   for dep in $deps; do
     printf '%s\n' "$dep"
   done

@@ -2,8 +2,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT/scripts/lib/common.sh"
 OUT_DIR=""
-VERSION="0.9.9"
+VERSION="0.10.0"
 DRY_RUN=0
 
 usage() {
@@ -14,7 +15,7 @@ Usage:
   scripts/build-ooonana-core-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER  Package version (default: 0.9.9)
+  --version VER  Package version (default: 0.10.0)
   --dry-run      Print resolved package details
   -h, --help     Show help
 USAGE
@@ -119,6 +120,7 @@ ID=ooonana
 PRETTY_NAME="Ooonana OS $VERSION"
 VERSION="$VERSION"
 VERSION_ID="$VERSION"
+OOONANA_USERLAND_BASE="alpine-$(ooonana_alpine_branch)"
 HOME_URL="https://github.com/Ooonana/Ooonana-OS"
 SUPPORT_URL="https://github.com/Ooonana/Ooonana-OS/issues"
 EOF

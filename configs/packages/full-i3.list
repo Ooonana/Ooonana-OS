@@ -36,6 +36,9 @@ yad
 shared-mime-info
 gdk-pixbuf
 gdk-pixbuf-loaders
+# New gdk-pixbuf uses Glycin; APK install_if is not dependency import.
+glycin-image-rs
+glycin-svg
 hicolor-icon-theme
 adwaita-icon-theme
 font-awesome-free

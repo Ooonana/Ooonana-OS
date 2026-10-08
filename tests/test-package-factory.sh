@@ -222,7 +222,7 @@ assert_contains "$gitlab_ci" "OOONANA_REPO_SIGN_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_REPO_PUBLIC_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_CORE_VERSION"
-assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.9.9"'
+assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.10.0"'
 assert_contains "$gitlab_ci" "OOONANA_OPENVINO_CHAT_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_URL"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_SHA256"
@@ -389,7 +389,7 @@ tar -tzf "$core_runtime_archive" | grep './usr/bin/start-ooonana-i3' >/dev/null 
 # even when the required runtime content exists.
 tar -xOzf "$core_runtime_archive" ./usr/bin/start-ooonana-i3 | grep -F 'Xephyr' >/dev/null || fail "core runtime missing nested display support"
 tar -xOzf "$core_runtime_archive" ./usr/share/icons/OoonanaTailless/cursors/left_ptr | python3 -c 'import sys; raise SystemExit(not sys.stdin.buffer.read().startswith(b"Xcur"))' || fail "core runtime missing tailless cursor"
-tar -xOzf "$core_runtime_archive" ./etc/os-release | grep -F 'PRETTY_NAME="Ooonana OS 0.9.9"' >/dev/null || fail "core runtime OS release stale"
+tar -xOzf "$core_runtime_archive" ./etc/os-release | grep -F 'PRETTY_NAME="Ooonana OS 0.10.0"' >/dev/null || fail "core runtime OS release stale"
 tar -tzf "$core_runtime_archive" | grep './usr/lib/ooonana/ui/task_manager_app.py' >/dev/null || fail "core runtime missing task manager"
 for native_file in usr/bin/ooonana-panel-start usr/bin/ooonana-notifications usr/bin/ooonana-notification-status usr/bin/ooonana-wallpaper-fit usr/lib/ooonana/ui/notifications_app.py; do
   [[ "$core_archive_files" == *"./$native_file"* ]] || fail "core runtime missing $native_file"
@@ -438,7 +438,7 @@ assert_contains "$core_upgrade" "OOONANA_CORE_META_HEALTHCHECK_OK"
 [[ -f "$core_upgrade_state/files/ooonana-core.list" && ! -s "$core_upgrade_state/files/ooonana-core.list" ]] ||
   fail "core migration removed empty legacy manifest guard"
 [[ -x "$core_upgrade_root/usr/bin/ooonana" ]] || fail "core migration removed upgraded CLI"
-assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.9.9"
+assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.10.0"
 assert_contains "$(<"$tmp/repo/cloud.repo")" 'OOONANA_REPO_URI="https://example.test/repo"'
 assert_contains "$(<"$tmp/repo/README.txt")" "ooonana update"
 
@@ -541,7 +541,7 @@ assert_contains "$(<"$tmp/r2.repo")" 'OOONANA_REPO_URI="https://packages.example
 
 i3_importer="$(<"$ROOT/scripts/import-i3-package-set.sh")"
 assert_contains "$i3_importer" "configs/packages/full-i3.list"
-assert_contains "$i3_importer" "alpine/edge/community/x86_64"
+assert_contains "$i3_importer" '$(ooonana_alpine_branch)/community/x86_64'
 assert_contains "$full_i3_profile" "xf86-video-vesa"
 assert_contains "$full_i3_profile" "libxcb"
 assert_contains "$full_i3_profile" "libxau"

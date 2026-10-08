@@ -40,6 +40,8 @@ yad
 shared-mime-info
 gdk-pixbuf
 gdk-pixbuf-loaders
+glycin-image-rs
+glycin-svg
 hicolor-icon-theme
 adwaita-icon-theme
 font-awesome-free

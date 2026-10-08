@@ -3,7 +3,7 @@
 # shellcheck disable=SC1090,SC3043
 set -eu
 
-VERSION="0.9.9"
+VERSION="0.10.0"
 case "${1:-}" in
   version|--version|-v) printf 'ooonana %s\n' "$VERSION"; exit 0 ;;
 esac
@@ -582,6 +582,7 @@ reset_pkg_vars() {
   OOONANA_PKG_CONFLICTS=""
   OOONANA_PKG_KIND=""
   OOONANA_PKG_COMPONENTS=""
+  OOONANA_PKG_BASE=""
   OOONANA_PKG_NOTES=""
   OOONANA_PKG_ARCHIVE=""
   OOONANA_PKG_SHA256=""
@@ -2330,6 +2331,7 @@ install_one_pkg() {
     esac
   fi
   load_pkg "$id"
+  check_pkg_userland
   check_pkg_conflicts "$id"
 
   if [ "$dry_run" -eq 1 ]; then
@@ -2388,7 +2390,7 @@ cmd_get() {
 }
 
 upgrade_one_pkg() {
-  local id dry_run old_version new_version deps dep archive_path old_upgrading old_security_only
+  local id dry_run old_version new_version deps dep archive_path old_upgrading old_security_only old_base force
   id="$1"
   dry_run="$2"
   safe_pkg_id "$id" || die "bad package id: $id"
@@ -2412,12 +2414,18 @@ upgrade_one_pkg() {
 
   old_version="$(installed_pkg_version "$id")"
   load_pkg "$id"
+  check_pkg_userland
   new_version="$OOONANA_PKG_VERSION"
-  if [ "$old_version" = "$new_version" ]; then
+  force=0
+  if [ -n "${OOONANA_MIGRATION_BASE:-}" ] && [ "$OOONANA_PKG_KIND" = apk ]; then
+    old_base="$(sed -n 's/^OOONANA_PKG_BASE="\([^"]*\)"$/\1/p' "$INSTALLED_DIR/$id.pkg")"
+    [ "$old_base" = "$OOONANA_MIGRATION_BASE" ] || force=1
+  fi
+  if [ "$force" -eq 0 ] && [ "$old_version" = "$new_version" ]; then
     printf 'already current %s %s\n' "$id" "$new_version"
     return 0
   fi
-  if ! version_is_newer "$old_version" "$new_version"; then
+  if [ "$force" -eq 0 ] && ! version_is_newer "$old_version" "$new_version"; then
     printf 'installed version newer %s %s > %s\n' "$id" "$old_version" "$new_version"
     return 0
   fi
@@ -2495,7 +2503,15 @@ cmd_upgrade() {
       [ -f "$file" ] || { printf 'no packages installed\n'; return 0; }
       id="$(basename "$file" .pkg)"
       old_version="$(installed_pkg_version "$id")"
-      if new_version="$(available_pkg_version "$id")" && version_is_newer "$old_version" "$new_version"; then
+      if [ -n "${OOONANA_MIGRATION_BASE:-}" ]; then
+        load_pkg "$id"
+        # Imported libraries first; native health hooks run after their ABI.
+        if [ "$OOONANA_PKG_KIND" = apk ]; then
+          packages="$id $packages"
+        else
+          packages="$packages $id"
+        fi
+      elif new_version="$(available_pkg_version "$id")" && version_is_newer "$old_version" "$new_version"; then
         packages="$packages $id"
       fi
     done
@@ -2506,10 +2522,24 @@ cmd_upgrade() {
     return 0
   fi
 
+  # Reject major OS plans before the first library changes, not halfway through
+  # an alphabetical world upgrade. Individual dependency guards stay in place.
+  if [ "$dry_run" -eq 0 ] && [ "$OOONANA_ALLOW_MAJOR" -ne 1 ]; then
+    for id in $packages; do
+      old_version="$(installed_pkg_version "$id")"
+      load_pkg "$id"
+      if major_os_update "$id" "$old_version" "$OOONANA_PKG_VERSION"; then
+        die "major OS update requires explicit --allow-major before any package changes: $id"
+      fi
+    done
+  fi
   for id in $packages; do
     safe_pkg_id "$id" || die "bad package id: $id"
     upgrade_one_pkg "$id" "$dry_run"
   done
+  if [ "$dry_run" -eq 0 ] && [ -n "${OOONANA_MIGRATION_BASE:-}" ]; then
+    finish_userland_transition
+  fi
 }
 
 cmd_update_status() {
@@ -2654,6 +2684,7 @@ fix_one_pkg() {
 
   old_version="$(installed_pkg_version "$id")"
   load_pkg "$id"
+  check_pkg_userland
   if major_os_update "$id" "$old_version" "$OOONANA_PKG_VERSION" && [ "${OOONANA_ALLOW_MAJOR:-0}" != 1 ]; then
     if [ "$dry_run" -eq 1 ]; then
       printf 'major update needs --allow-major: %s %s -> %s\n' "$id" "$old_version" "$OOONANA_PKG_VERSION"
@@ -3225,6 +3256,108 @@ cmd_ai() {
   esac
 }
 
+check_pkg_userland() {
+  local installed release
+  [ "$OOONANA_PKG_KIND" = apk ] && [ -n "$OOONANA_PKG_BASE" ] || return 0
+  [ -f "$INSTALLED_DIR/ooonana-core.pkg" ] || return 0
+  release="$(root_join /etc/os-release)"
+  installed="$(sed -n 's/^OOONANA_USERLAND_BASE="\([^"]*\)"$/\1/p' "$release" 2>/dev/null || true)"
+  [ -n "$installed" ] || installed=alpine-v3.20
+  [ "$OOONANA_PKG_BASE" = "$installed" ] || [ "$OOONANA_PKG_BASE" = "${OOONANA_MIGRATION_BASE:-}" ] ||
+    die "cross-base package refused: $OOONANA_PKG_ID; use verified offline whole-world migration"
+}
+
+check_userland_transition() {
+  local action candidate installed release manifest dry allow whole argument journal digest pending_base pending_digest file id old_kind staging
+  action="$1"; shift
+  [ "$action" != recover ] || return 0
+  journal="$STATE_DIR/.userland-migration"
+  if [ -e "$journal" ] || [ -L "$journal" ]; then
+    [ -f "$journal" ] && [ ! -L "$journal" ] || die 'unsafe userland migration journal'
+    # Per-package recovery never marks a whole userland migration complete.
+  fi
+  [ -f "$INSTALLED_DIR/ooonana-core.pkg" ] || return 0
+  manifest="$REPO_DIR/BUILD-MANIFEST.json"
+  if [ ! -f "$manifest" ]; then
+    [ ! -e "$journal" ] || die 'pending userland migration requires original repository manifest'
+    return 0
+  fi
+  verify_repo_checksum "$REPO_DIR" BUILD-MANIFEST.json "${OOONANA_REPO_KEY:-}"
+  candidate="$(sed -n 's/.*"userland_base" *: *"\([^"]*\)".*/\1/p' "$manifest")"
+  case "$candidate" in
+    none|unverified|'') [ ! -e "$journal" ] || die 'pending migration requires verified userland provenance'; return 0 ;;
+  esac
+  printf '%s\n' "$candidate" | grep -Eq '^alpine-v[0-9]+\.[0-9]+$' || die 'invalid userland provenance'
+  digest="$(sha256_file "$REPO_DIR/SHA256SUMS")"
+  if [ -f "$journal" ]; then
+    pending_base="$(sed -n '1p' "$journal")"
+    pending_digest="$(sed -n '2p' "$journal")"
+    [ "$(wc -l <"$journal" | tr -d ' ')" = 2 ] &&
+      [ "$pending_base" = "$candidate" ] && [ "$pending_digest" = "$digest" ] ||
+      die 'pending userland migration requires identical repository generation'
+  fi
+  release="$(root_join /etc/os-release)"
+  installed="$(sed -n 's/^OOONANA_USERLAND_BASE="\([^"]*\)"$/\1/p' "$release" 2>/dev/null || true)"
+  [ -n "$installed" ] || installed=alpine-v3.20
+  [ "$candidate" != "$installed" ] || [ -f "$journal" ] || return 0
+  dry=0; allow=0; whole=1
+  for argument in "$@"; do
+    case "$argument" in --dry-run) dry=1 ;; --allow-major) allow=1 ;; --security-only) whole=0 ;; --*) ;; *) whole=0 ;; esac
+  done
+  [ "$action" = upgrade ] && [ "$whole" -eq 1 ] ||
+    die "userland migration requires whole-world upgrade --allow-major: $installed -> $candidate"
+  OOONANA_MIGRATION_BASE="$candidate"
+  # Refuse retained/renamed legacy APKs instead of silently mixing ABI branches.
+  for file in "$INSTALLED_DIR"/*.pkg; do
+    [ -f "$file" ] || continue
+    id="$(basename "$file" .pkg)"
+    load_installed_pkg "$id"
+    old_kind="$OOONANA_PKG_KIND"
+    load_pkg "$id"
+    if [ "$old_kind" = apk ] || [ "$OOONANA_PKG_KIND" = apk ]; then
+      [ "$OOONANA_PKG_KIND" = apk ] && [ "$OOONANA_PKG_BASE" = "$candidate" ] ||
+        die "migration package needs explicit retirement/replacement plan: $id"
+    fi
+  done
+  if [ "$dry" -eq 1 ]; then
+    printf 'userland migration: %s -> %s; whole-world upgrade --allow-major required\n' "$installed" "$candidate"
+    return 0
+  fi
+  [ "$allow" -eq 1 ] || die 'userland migration requires explicit --allow-major'
+  # Removing musl/BusyBox from the running system can break the updater itself.
+  # Execute from an independent host against an offline, backed-up target root.
+  [ "$(readlink -f "$OOONANA_ROOT")" != / ] ||
+    die 'userland migration requires offline target root and verified backup; live replacement refused'
+  if [ ! -f "$journal" ]; then
+    umask 077
+    staging="$(mktemp "$STATE_DIR/.userland-prepared.XXXXXX")"
+    printf '%s\n%s\n' "$candidate" "$digest" >"$staging"
+    sync
+    mv "$staging" "$journal"
+    sync
+  fi
+}
+
+finish_userland_transition() {
+  local file id destination release
+  for file in "$INSTALLED_DIR"/*.pkg; do
+    [ -f "$file" ] || continue
+    load_installed_pkg "$(basename "$file" .pkg)"
+    [ "$OOONANA_PKG_KIND" != apk ] || [ "$OOONANA_PKG_BASE" = "$OOONANA_MIGRATION_BASE" ] ||
+      die 'incomplete userland migration; journal retained'
+  done
+  release="$(root_join /etc/os-release)"
+  [ "$(sha256_file "$REPO_DIR/SHA256SUMS")" = "$(sed -n '2p' "$STATE_DIR/.userland-migration")" ] ||
+    die 'repository changed during migration; journal retained'
+  grep -Fx "OOONANA_USERLAND_BASE=\"$OOONANA_MIGRATION_BASE\"" "$release" >/dev/null ||
+    die 'core release marker not migrated; journal retained'
+  mkdir -p "$STATE_DIR/backups"
+  destination="$(mktemp -d "$STATE_DIR/backups/userland-completed.XXXXXX")"
+  mv "$STATE_DIR/.userland-migration" "$destination/journal"
+  sync
+  printf 'userland migration complete: %s; record: %s\n' "$OOONANA_MIGRATION_BASE" "$destination"
+}
+
 main() {
   cmd="${1:-}"
   [ -n "$cmd" ] || { usage; exit 0; }
@@ -3270,8 +3403,13 @@ main() {
         lock_pkg_state
         [ "$cmd" = recover ] || check_pending_replacements
       fi
+      check_userland_transition "$cmd" "$@"
       ;;
-    verify|check) check_pending_replacements ;;
+    verify|check)
+      check_pending_replacements
+      [ ! -e "$STATE_DIR/.userland-migration" ] && [ ! -L "$STATE_DIR/.userland-migration" ] ||
+        die 'whole userland migration incomplete; recover package checkpoints then resume offline upgrade'
+      ;;
   esac
 
   case "$cmd" in

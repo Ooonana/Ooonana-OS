@@ -2,6 +2,7 @@
 """Read-only ISO repository gate. Never execute package metadata."""
 import argparse
 import hashlib
+import json
 import os
 from pathlib import Path, PurePosixPath
 import re
@@ -65,6 +66,19 @@ def validate(repo, profile, key=None, expected_core=None):
                         "-verify", str(key), "-signature", str(signature),
                         str(repo / "SHA256SUMS")], check=True, stdout=subprocess.DEVNULL)
     packages = {path.stem: metadata(path) for path in repo.glob("*.pkg")}
+    bases = {p.get("BASE") for p in packages.values() if p.get("KIND") == "apk" and p.get("BASE")}
+    if len(bases) > 1:
+        raise ValueError("Mixed userland branches cannot be released")
+    manifest = repo / "BUILD-MANIFEST.json"
+    if manifest.is_file():
+        if sums.get(manifest.name) != hashlib.sha256(manifest.read_bytes()).hexdigest():
+            raise ValueError("Build manifest checksum mismatch")
+        declared = json.loads(manifest.read_text()).get("userland_base")
+        if bases and declared not in (None, "unverified", next(iter(bases))):
+            raise ValueError("Userland provenance differs from build manifest")
+    if expected_core and expected_core.startswith("0.10."):
+        if any(p.get("KIND") == "apk" and p.get("BASE") != "alpine-v3.24" for p in packages.values()):
+            raise ValueError("Core 0.10 requires coherent supported alpine-v3.24 packages")
     index = {}
     for line in (repo / "index.tsv").read_text().splitlines():
         fields = line.split("\t")

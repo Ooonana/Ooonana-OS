@@ -92,8 +92,16 @@ with tempfile.TemporaryDirectory() as temporary:
             return find(tree)
         # Title can be visible before WM_CLASS and initial for_window rules.
         # Moving too soon gets overwritten by fixture's initial position.
-        wait(lambda: peer_present() and peer_present().get('floating') == 'user_on'
-             and peer_present()['rect']['height'] == 330)
+        try:
+            # Xterm cell-size hints can quantize requested 330px to 328px.
+            # Wait for the rule's position, then test controls against actual
+            # decoration geometry rather than a platform-dependent client size.
+            wait(lambda: peer_present() and peer_present().get('floating') == 'user_on'
+                 and peer_present()['rect']['x'] == 80 and peer_present()['rect']['y'] == 80)
+        except AssertionError:
+            node = peer_present()
+            print("PEER_STATE", {key: node.get(key) for key in ("name", "floating", "rect", "window_properties")} if node else None, flush=True)
+            raise
         peer_id = peer_present()["id"]
         moved = subprocess.run(["i3-msg", '-r', f"[con_id={peer_id}] move position 720 100; [con_id={peer_id}] focus"], check=True, capture_output=True)
         assert all(item.get('success') for item in json.loads(moved.stdout)), (moved.stdout, moved.stderr)

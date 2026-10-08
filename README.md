@@ -19,7 +19,9 @@ Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Li
 
 October 8 source desktop captured with real GTK/i3/Polybar on an isolated X11 display. Panel status uses sample data; wallpaper/dock are source assets. No audio played. Physical USB visuals require a fresh image. Earlier WSL screenshot remains in `docs/assets/ooonana-full-i3-desktop.png`.
 
-Core 0.9.9 source refresh adds unboxed dock hover feedback, slimmer panel, open Appearance groups, blue globe browser icon and canonical wallpaper fitting. Component previews use isolated test windows, not physical USB boot.
+Stable core 0.9.9 desktop refresh adds unboxed dock hover feedback, slimmer panel, open Appearance groups, blue globe browser icon and canonical wallpaper fitting. Component previews use isolated test windows, not physical USB boot.
+
+This branch stages **core 0.10.0**, a coherent Alpine v3.24 imported-userland candidate. Installed Ooonana WSL and stable package channel remain 0.9.9. Candidate GTK/UI and signed repository checks passed, but new Chromium sandbox crash blocks release; WSL migration is deferred. No ISO built. See [candidate status and remaining gates](docs/supported-base-20261008.md).
 
 ![Current native Appearance settings](docs/assets/ooonana-appearance-20261008.png)
 
@@ -40,7 +42,7 @@ firefox
 
 `firefox` package supplies launchers, not bundled Mozilla binaries. Browser/runtime download through the [Mozilla-documented Flatpak route](https://support.mozilla.org/en-US/kb/install-firefox-linux). Check persistent disk space first. `ooonana-firefox update` updates that user-owned browser; OS package updates do not update its Flatpak runtime automatically.
 
-Imported base still targets Alpine 3.20, whose normal support ended April 1, 2026 ([upstream lifecycle](https://alpinelinux.org/releases/)). Old Chromium and libraries need a coherent supported-base migration. Optional catalog is not that migration; do not mix newer ABI libraries into old rootfs.
+Stable 0.9.9 imported base targets Alpine 3.20, whose normal support ended April 1, 2026 ([upstream lifecycle](https://alpinelinux.org/releases/)). Candidate 0.10.0 uses one v3.24 branch and rejects mixed provenance. Never mix its libraries into live 0.9.9 systems. Candidate `neofetch` is a small native compatibility command, not the removed upstream APK; use `fastfetch` for richer reporting.
 
 ![Core 0.9.6 native app icon family](docs/assets/ooonana-native-icons.png)
 

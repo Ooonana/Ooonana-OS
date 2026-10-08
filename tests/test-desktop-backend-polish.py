@@ -51,6 +51,21 @@ with tempfile.TemporaryDirectory() as temporary:
     (source / "scripts/example.py").write_text("print(2)\n")
     changed = manifest.source_state(source)
     assert changed[0] != original[0] and changed[2]
+    repo = work / "repo"
+    repo.mkdir()
+    fixture = repo / "library.pkg"
+    fixture.write_text('OOONANA_PKG_VERSION="1"\nOOONANA_PKG_KIND="apk"\nOOONANA_PKG_BASE="alpine-v3.24"\n')
+    assert manifest.build_manifest(source, repo)["userland_base"] == "alpine-v3.24"
+    fixture.write_text('OOONANA_PKG_VERSION="1"\nOOONANA_PKG_KIND="apk"\n')
+    assert manifest.build_manifest(source, repo)["userland_base"] == "unverified"
+    fixture.write_text('OOONANA_PKG_VERSION="1"\nOOONANA_PKG_KIND="apk"\nOOONANA_PKG_BASE="alpine-v3.24"\n')
+    (repo / "old.pkg").write_text('OOONANA_PKG_VERSION="1"\nOOONANA_PKG_KIND="apk"\nOOONANA_PKG_BASE="alpine-v3.20"\n')
+    try:
+        manifest.build_manifest(source, repo)
+    except ValueError as error:
+        assert "Mixed userland" in str(error)
+    else:
+        raise AssertionError("mixed base manifest accepted")
     proc = work / "meminfo"
     proc.write_text("MemTotal: 8388608 kB\nMemAvailable: 4194304 kB\nSwapTotal: 67108864 kB\n")
     cgroup = work / "cgroup"

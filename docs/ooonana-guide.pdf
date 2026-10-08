@@ -13,11 +13,11 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
 endobj
 5 0 obj
-<< /Length 3480 >>
+<< /Length 3644 >>
 stream
 0.065 0.075 0.09 rg 0 754 612 38 re f
 BT /F2 12 Tf 1 0.70 0.10 rg 54 769 Td (OOONANA / FIELD GUIDE) Tj ET
-BT /F1 9 Tf 0.36 0.39 0.44 rg 54 36 Td (Core 0.9.9 - 1 / 3) Tj ET
+BT /F1 9 Tf 0.36 0.39 0.44 rg 54 36 Td (Core 0.10.0 - 1 / 3) Tj ET
 BT
 /F1 9.5 Tf
 13 TL
@@ -50,7 +50,7 @@ T*
 () Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Ooonana OS 0.9.9 field guide) Tj
+(Ooonana OS 0.10.0 field guide) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 () Tj
@@ -69,6 +69,21 @@ T*
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (repos; the target OS installs Ooonana packages, not live Alpine APKs.) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(Core 0.10.0 is a supported-base candidate, not a stable release. Imported payloads use) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(one Alpine v3.24 branch. Stable 0.9.9 installations and public update channel remain) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(separate during validation.) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(Candidate release remains held on Chromium sandbox and compositor visual checks.) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(Installed WSL migration is deferred; no ISO was built in this pass.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 () Tj
@@ -151,6 +166,22 @@ T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 () Tj
 T*
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Length 4726 >>
+stream
+0.065 0.075 0.09 rg 0 754 612 38 re f
+BT /F2 12 Tf 1 0.70 0.10 rg 54 769 Td (OOONANA / FIELD GUIDE) Tj ET
+BT /F1 9 Tf 0.36 0.39 0.44 rg 54 36 Td (Core 0.10.0 - 2 / 3) Tj ET
+BT
+/F1 9.5 Tf
+13 TL
+54 728 Td
 /F2 11 Tf 0.62 0.34 0.01 rg
 (Installer) Tj
 T*
@@ -166,22 +197,6 @@ T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 () Tj
 T*
-ET
-endstream
-endobj
-6 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 5 0 R >>
-endobj
-7 0 obj
-<< /Length 4757 >>
-stream
-0.065 0.075 0.09 rg 0 754 612 38 re f
-BT /F2 12 Tf 1 0.70 0.10 rg 54 769 Td (OOONANA / FIELD GUIDE) Tj ET
-BT /F1 9 Tf 0.36 0.39 0.44 rg 54 36 Td (Core 0.9.9 - 2 / 3) Tj ET
-BT
-/F1 9.5 Tf
-13 TL
-54 728 Td
 /F2 11 Tf 0.62 0.34 0.01 rg
 (USB live modes) Tj
 T*
@@ -192,13 +207,16 @@ T*
 (on OOONANA_PERSIST when available on the same boot USB, with RAM fallback.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Persistent live mode accepts only an ext4 OOONANA_PERSIST partition on the same) Tj
+(Persistent live mode uses an ext4 OOONANA_PERSIST partition or a configured ext4) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(physical boot USB. Its full writable overlay saves files, settings, Wi-Fi, Bluetooth) Tj
+(persistence file on the same boot USB. Setup previews and requires confirmation; GRUB) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(pairings, packages, and system changes.) Tj
+(selection never silently formats storage. Full writable overlay saves files, settings,) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(radio pairings, packages and system changes.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (GRUB boot UUID and same-parent checks protect unrelated media. Cloned UUIDs, unsafe) Tj
@@ -234,10 +252,13 @@ T*
 (WSL) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Import full-i3 with scripts/install-wsl-distro.sh --distro Ooonana --tarball) Tj
+(For a new test distro only: scripts/install-wsl-distro.sh --distro OoonanaCandidate) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(/var/tmp/ooonana-os/release/ooonana-full-i3-wsl-rootfs.tar.gz --force) Tj
+(--tarball /var/tmp/ooonana-os/release/ooonana-full-i3-wsl-rootfs.tar.gz. Never force-) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(reimport over an existing distro as a migration shortcut.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (Launch desktop with: wsl.exe -d Ooonana -u ooonana --exec start-ooonana-i3) Tj
@@ -249,7 +270,16 @@ T*
 (panel and dock together in one window.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Update an imported distro with: ooonana update && ooonana upgrade) Tj
+(Same-base maintenance: ooonana update && ooonana upgrade. Cross-base migration) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(requires verified backup and whole-world upgrade --allow-major from an independent) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(host against an offline target root. Live libc replacement is refused; old saved USB) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(overlays need separate explicit data migration.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 () Tj
@@ -285,16 +315,38 @@ T*
 (and right-click window actions.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Core 0.9.9 includes matching native icons, focus-neutral dock previews, responsive) Tj
+(Core 0.10.0 retains matching native icons, focus-neutral dock previews, responsive) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(panel spacing, AI loading/RAM/storage indicators, and larger third-party controls that) Tj
+(panel spacing, AI loading/RAM/storage indicators, and compact third-party controls) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(exclude hidden tabs and fullscreen-covered windows. Alt+F4 closes; Alt+F10 toggles) Tj
+(that exclude hidden tabs and fullscreen-covered windows. Alt+F4 closes; Alt+F10) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(fullscreen.) Tj
+(toggles fullscreen.) Tj
+T*
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 7 0 R >>
+endobj
+9 0 obj
+<< /Length 4170 >>
+stream
+0.065 0.075 0.09 rg 0 754 612 38 re f
+BT /F2 12 Tf 1 0.70 0.10 rg 54 769 Td (OOONANA / FIELD GUIDE) Tj ET
+BT /F1 9 Tf 0.36 0.39 0.44 rg 54 36 Td (Core 0.10.0 - 3 / 3) Tj ET
+BT
+/F1 9.5 Tf
+13 TL
+54 728 Td
+/F2 11 Tf 0.62 0.34 0.01 rg
+(Desktop and hardware \(continued\)) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+() Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (Ctrl+Shift+Esc opens native Task Manager with processes, performance, and available) Tj
@@ -322,28 +374,6 @@ T*
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (full-i3.) Tj
-T*
-ET
-endstream
-endobj
-8 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 7 0 R >>
-endobj
-9 0 obj
-<< /Length 3175 >>
-stream
-0.065 0.075 0.09 rg 0 754 612 38 re f
-BT /F2 12 Tf 1 0.70 0.10 rg 54 769 Td (OOONANA / FIELD GUIDE) Tj ET
-BT /F1 9 Tf 0.36 0.39 0.44 rg 54 36 Td (Core 0.9.9 - 3 / 3) Tj ET
-BT
-/F1 9.5 Tf
-13 TL
-54 728 Td
-/F2 11 Tf 0.62 0.34 0.01 rg
-(Desktop and hardware \(continued\)) Tj
-T*
-/F1 9.5 Tf 0.13 0.15 0.18 rg
-() Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (Installed password-login handoff passed diskless VM tests as UID 1000. Physical Xorg,) Tj
@@ -452,13 +482,13 @@ xref
 0000000134 00000 n 
 0000000202 00000 n 
 0000000277 00000 n 
-0000003809 00000 n 
-0000003945 00000 n 
-0000008754 00000 n 
-0000008890 00000 n 
-0000012117 00000 n 
+0000003973 00000 n 
+0000004109 00000 n 
+0000008887 00000 n 
+0000009023 00000 n 
+0000013245 00000 n 
 trailer
 << /Size 11 /Root 1 0 R >>
 startxref
-12254
+13382
 %%EOF

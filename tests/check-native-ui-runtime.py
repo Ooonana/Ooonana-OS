@@ -16,6 +16,7 @@ from bluetooth_app import BluetoothWindow  # noqa: E402
 from settings_app import SettingsWindow  # noqa: E402
 from setup_app import SetupWindow  # noqa: E402
 from task_manager_app import TaskManagerWindow, cpu_totals, meminfo_values, parse_process_stat, thermal_fan_snapshot  # noqa: E402
+from gi.repository import GdkPixbuf  # noqa: E402
 
 
 ready, _args = Gtk.init_check([])
@@ -34,6 +35,11 @@ for css_path in sys.argv[1:]:
     provider.load_from_path(css_path)
     assert not errors, (css_path, errors)
 apply_theme()
+for filename in ("logo.png", "logo.svg", "wallpaper.png"):
+    image = GdkPixbuf.Pixbuf.new_from_file(str(ui_dir.parents[5] / "branding" / filename))
+    assert image.get_width() > 0 and image.get_height() > 0, filename
+spinner = Gtk.IconTheme.get_default().lookup_icon("process-working-symbolic", 16, Gtk.IconLookupFlags.FORCE_SIZE)
+assert spinner is not None and spinner.load_icon().get_width() > 0, "Spinner image loader missing"
 for name in ("preferences-desktop-theme-symbolic", "preferences-desktop-peripherals-symbolic", "utilities-system-monitor-symbolic"):
     selected, _size = icon(name).get_icon_name()
     assert Gtk.IconTheme.get_default().has_icon(selected), (name, selected)

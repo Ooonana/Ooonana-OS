@@ -1,5 +1,14 @@
 # Current work - 2026-10-08
 
+## Supported-base candidate and cleanup
+
+- Work continues on `codex/supported-base-0-10`, core 0.10.0 with coherent Alpine v3.24 imported payloads. Installed Ooonana WSL, stable main/update endpoint and valid historical generations remain 0.9.9. No Ubuntu conversion, live libc replacement or ISO build.
+- Built scratch/full-i3 candidate rootfs; 639-package signed staging repository passed metadata/signature checks and 580-node desktop dependency closure. New base image loading needed explicit Glycin PNG/SVG providers because APK `install_if` is not an ordinary dependency. Native GTK/CSS/reflow, actual controls, AI fixture chat/indicators, launcher/input and Task Manager checks passed. Geany/Nemo actual window actions passed. Chromium 152 crashed in its syscall sandbox; Nemo compositor capture also needs follow-up. Release remains held, not certified by source tests.
+- Added offline whole-world migration preflight, per-APK base guards, equal/lower-version ABI replacement, major approval before writes, pinned-generation resumability and retained completion records. Interrupted/failing health hooks cannot clear whole-world journal through per-package recovery. Fixtures, update interruption, package factory and kernel policy/source tests passed; no fresh physical/kernel boot certification.
+- Refreshed both PDFs with candidate/stable separation and current backend; current-source embedded VM passed boot, input, native/virtual Backspace, version and package sync in 145 seconds under QA load. Blank input and all three guide pages rendered and inspected. Actual PDF viewer latency remains separate.
+- Failed compressed WSL export stopped before F: filled; deleted only new incomplete 7,671,521,280-byte export. Original distro unchanged. Empty owned GUI test home removed; history/models/keys/checkpoints/logs/verified caches kept. User requested WSL migration be skipped for now; full valid backup and independent offline method still required before resuming.
+- Private signing key remains local. CI candidate tags cannot replace stable Pages/R2; GitLab deployment requires explicit major-publish variable on main. [Detailed evidence and remaining gates](supported-base-20261008.md).
+
 ## October 8 UI and optional catalog
 
 - Open Appearance sections, slimmer panel, focus-neutral eased dock hover/Reduce motion. Browser icon now blue globe. Original wallpaper retained; startup uses canonical panel/dock-clear fitting. Failed changes preserve saved choice.

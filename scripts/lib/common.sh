@@ -1,5 +1,17 @@
 #!/usr/bin/env bash
 
+ooonana_alpine_branch() {
+  local branch="${OOONANA_ALPINE_BRANCH:-v3.24}"
+  [[ "$branch" =~ ^v[0-9]+\.[0-9]+$ ]] || { printf 'invalid Alpine branch\n' >&2; return 1; }
+  printf '%s\n' "$branch"
+}
+
+ooonana_alpine_repositories() {
+  local branch
+  branch="$(ooonana_alpine_branch)" || return 1
+  printf 'https://dl-cdn.alpinelinux.org/alpine/%s/main/x86_64 https://dl-cdn.alpinelinux.org/alpine/%s/community/x86_64\n' "$branch" "$branch"
+}
+
 ooonana_log() {
   printf '[ooonana] %s\n' "$*"
 }

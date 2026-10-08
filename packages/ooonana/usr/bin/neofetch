@@ -11,7 +11,8 @@ else
 fi
 
 printf '\n'
-printf 'os: %s\n' "$(sed -n 's/^PRETTY_NAME="//; s/"$//; 1p' /etc/os-release 2>/dev/null || printf 'Ooonana OS')"
+os_name="$(sed -n 's/^PRETTY_NAME="\([^"]*\)"$/\1/p' /etc/os-release 2>/dev/null || true)"
+printf 'os: %s\n' "${os_name:-Ooonana OS}"
 printf 'kernel: %s\n' "$(uname -r 2>/dev/null || printf unknown)"
 printf 'host: %s\n' "$(hostname 2>/dev/null || printf ooonana)"
 printf 'shell: %s\n' "${SHELL:-/bin/sh}"

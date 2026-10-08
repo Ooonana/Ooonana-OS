@@ -1,7 +1,7 @@
 name: Backend and desktop regression checks
 on:
   push:
-    branches: [main]
+    branches: [main, 'codex/**']
   pull_request:
   workflow_dispatch:
 permissions:
@@ -42,5 +42,7 @@ jobs:
           bash tests/smoke-cli.sh
           python3 tests/test-release-repo.py
           python3 tests/test-update-safety.py
+          python3 -B tests/test-userland-migration.py
+          python3 -B tests/test-desktop-backend-polish.py
           python3 -B tests/test-update-interruption.py
           bash tests/test-package-factory.sh

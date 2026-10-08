@@ -101,6 +101,25 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
         properties = subprocess.run(["xprop", "-id", str(node["window"]), "_GTK_FRAME_EXTENTS", "_MOTIF_WM_HINTS"],
                                     capture_output=True, text=True).stdout
         root = Gdk.get_default_root_window()
+        # IPC geometry/action success cannot certify black/unpainted surfaces.
+        # Wait for actual composited traffic-light fills before saving evidence.
+        def controls_painted():
+            expected = ((255, 115, 107), (255, 209, 108), (127, 214, 160))
+            for control in manager.controls.values():
+                for button, color in zip(control.get_child().get_children(), expected):
+                    origin = button.translate_coordinates(control, 0, 0)
+                    if origin is None:
+                        return False
+                    x, y = control.get_position()
+                    pixels = Gdk.pixbuf_get_from_window(root, x + origin[0] + 3,
+                                                       y + origin[1] + button.get_allocated_height() // 2,
+                                                       1, 1)
+                    if pixels is None or any(abs(actual - target) > 35
+                                             for actual, target in zip(pixels.get_pixels()[:3], color)):
+                        return False
+            return True
+        Gdk.Display.get_default().sync()
+        wait(controls_painted)
         Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(str(args.output), "png", [], [])
         record = {"app": args.app, "csd": args.csd, "compositor": args.compositor, "deco": node["deco_rect"], "rect": node["rect"],
                   "properties": properties, "controls": {str(k): list(v.get_size()) for k, v in manager.controls.items()}}

@@ -11,7 +11,7 @@ DEFAULT_I3_PROFILE="$ROOT/configs/packages/full-i3.list"
 I3_PACKAGES=""
 INCLUDE_OPENVINO=auto
 BRANDING_VERSION="0.1.3"
-SOF_REPO_URL="https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64"
+SOF_REPO_URL="${OOONANA_SOF_REPO_URL:-https://dl-cdn.alpinelinux.org/alpine/$(ooonana_alpine_branch)/community/x86_64}"
 METADATA_ONLY=0
 INDEX_REPO=1
 
@@ -146,8 +146,8 @@ main() {
     # shellcheck disable=SC2086
     bash "$ROOT/scripts/import-apk-package.sh" "${REPO_ARGS[@]}" --out-dir "$OUT_DIR" --no-index $I3_PACKAGES
 
-    # Alpine v3.20 SOF predates Meteor Lake DMIC fixes. This package contains
-    # only firmware data, so importing it from edge does not mix userland ABIs.
+    # Supported stable SOF stays on the same branch as default userspace.
+    # Explicit data-only firmware overrides remain available for hardware QA.
     bash "$ROOT/scripts/import-apk-package.sh" \
       --repo-url "$SOF_REPO_URL" \
       --out-dir "$OUT_DIR" \

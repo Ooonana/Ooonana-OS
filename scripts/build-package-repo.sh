@@ -7,7 +7,7 @@ source "$ROOT/scripts/lib/common.sh"
 
 OUT_DIR="$(ooonana_default_build_dir)/package-repo"
 PACKAGE_PROFILE="$ROOT/configs/packages/ooonana-cloud.list"
-ALPINE_REPOS="https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64 https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64"
+ALPINE_REPOS="$(ooonana_alpine_repositories)"
 CUSTOM_REPOS=0
 PACKAGES=""
 FULL_I3=0
@@ -36,7 +36,7 @@ BUNANACHAT_SOURCE_DIR="${OOONANA_BUNANACHAT_LINUX_SOURCE:-$ROOT/packages/bunanac
 WINDOWS_CHAT_SOURCE="${OOONANA_OONANA_CHAT_WINDOWS_SOURCE:-$ROOT/packages/ooonana-chat-windows/source/OoonanaChat Setup 1.0.0.exe}"
 NATIVE_APK_PACKAGES="openssl nodejs flatpak bluez dbus fontconfig freetype libx11 libice libsm mesa-gl icu-libs zlib libgcc libstdc++"
 COMMON_PROFILE="$ROOT/configs/packages/common-tools.list"
-CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.9.9}"
+CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.10.0}"
 KERNEL_PACKAGE_PATH="${OOONANA_KERNEL_PACKAGE_PATH:-}"
 KERNEL_PACKAGE_URL="${OOONANA_KERNEL_PACKAGE_URL:-}"
 KERNEL_PACKAGE_SHA256="${OOONANA_KERNEL_SHA256:-}"
@@ -63,7 +63,7 @@ Options:
   --kernel-url URL        Add Ooonana kernel package from remote kernel image
   --kernel-sha256 SHA256  Require this SHA-256 for the kernel image
   --kernel-version VER    Kernel package version (default: 6.18.37-3)
-  --core-version VER      Ooonana system update package version (default: 0.9.9)
+  --core-version VER      Ooonana system update package version (default: 0.10.0)
   --openvino-version VER  OpenVINO Chat package version (default: 0.2.1)
   --devicechat-version VER Native DeviceChat package version (default: 0.1.1)
   --bunanachat-version VER Native BunanaChat Linux package version (default: 0.1.1)
@@ -235,6 +235,8 @@ main() {
   profile_packages="$(load_profile_packages "$PACKAGE_PROFILE" | tr '\n' ' ')"
   package_list="$(normalize_package_list "$profile_packages" "$PACKAGES")"
   [[ -n "$package_list" ]] || ooonana_die "no packages requested"
+  common_packages="$(sed 's/#.*//' "$COMMON_PROFILE" | xargs)"
+  common_apks="$(printf '%s\n' "$common_packages" | tr ' ' '\n' | awk '$0!="neofetch"' | xargs)"
 
   repo_args=()
   for repo in $ALPINE_REPOS; do
@@ -275,7 +277,8 @@ main() {
       printf 'bunanachat: skipped (source missing: %s)\n' "$BUNANACHAT_SOURCE_DIR"
     fi
     ooonana_print_command bash "$WINE_COMPAT_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$WINE_COMPAT_PACKAGE_VERSION"
-    ooonana_print_command bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --no-index $(sed 's/#.*//' "$COMMON_PROFILE" | xargs)
+    ooonana_print_command bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --no-index $common_apks
+    printf 'neofetch: native core runtime compatibility bundle %s\n' "$CORE_PACKAGE_VERSION"
     ooonana_print_command bash "$ROOT/scripts/build-firefox-package.sh" --out-dir "$OUT_DIR"
     if [[ -f "$WINDOWS_CHAT_SOURCE" ]]; then
       ooonana_print_command bash "$WINDOWS_CHAT_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$WINDOWS_CHAT_PACKAGE_VERSION" --source "$WINDOWS_CHAT_SOURCE"
@@ -298,10 +301,19 @@ main() {
   # profile. Import their dependencies without adding them to the desktop bundle.
   # shellcheck disable=SC2086
   bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --no-index $NATIVE_APK_PACKAGES
-  common_packages="$(sed 's/#.*//' "$COMMON_PROFILE" | xargs)"
   # Optional catalog, deliberately outside desktop install profile.
   # shellcheck disable=SC2086
-  bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --no-index $common_packages
+  bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --no-index $common_apks
+  # Native lightweight neofetch already belongs to core runtime; upstream
+  # archived implementation is absent from the supported Alpine catalog.
+  cat > "$OUT_DIR/neofetch.pkg" <<EOF
+OOONANA_PKG_ID="neofetch"
+OOONANA_PKG_VERSION="$CORE_PACKAGE_VERSION"
+OOONANA_PKG_KIND="bundle"
+OOONANA_PKG_SUMMARY="Ooonana lightweight native system information command"
+OOONANA_PKG_DEPS="ooonana-core-runtime"
+OOONANA_PKG_NOTES="Native compatibility command, not archived upstream Neofetch; use fastfetch for richer reports"
+EOF
   bash "$ROOT/scripts/build-firefox-package.sh" --out-dir "$OUT_DIR"
   if [[ -n "$KERNEL_PACKAGE_PATH" || -n "$KERNEL_PACKAGE_URL" ]]; then
     kernel_source="$KERNEL_PACKAGE_PATH"

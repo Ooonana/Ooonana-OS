@@ -20,6 +20,13 @@ loader = importlib.util.spec_from_file_location("repo_publication", root / "scri
 publication = importlib.util.module_from_spec(loader)
 loader.loader.exec_module(publication)
 cli = root / "packages/ooonana/usr/bin/ooonana"
+workflow = (root / ".github/workflows/build-ooonana-packages.yml").read_text()
+assert 'default: "candidate-core-0.10.0"' in workflow
+assert 'case "$RELEASE_TAG" in candidate-*)' in workflow
+assert '[ "$PUBLISH_PAGES" = true ]' in workflow and '[ "$PUBLISH_R2" = true ]' in workflow
+assert '$OOONANA_ALLOW_MAJOR_PUBLISH == "1"' in (root / ".gitlab-ci.yml").read_text()
+profile = (root / "configs/packages/full-i3.list").read_text().splitlines()
+assert "glycin-image-rs" in profile and "glycin-svg" in profile
 
 with tempfile.TemporaryDirectory() as directory:
     work = Path(directory)

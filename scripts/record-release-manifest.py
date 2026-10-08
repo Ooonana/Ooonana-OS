@@ -48,17 +48,29 @@ def source_state(root):
 
 def build_manifest(root, repo):
     packages = {}
+    bases = set()
+    unknown_base = False
     for path in repo.glob("*.pkg"):
         version = re.search(r'^OOONANA_PKG_VERSION="([^"]+)"', path.read_text(), re.MULTILINE)
         if version:
             packages[path.stem] = version.group(1)
+        text = path.read_text()
+        if re.search(r'^OOONANA_PKG_KIND="apk"$', text, re.MULTILINE):
+            base = re.search(r'^OOONANA_PKG_BASE="(alpine-v[0-9]+\.[0-9]+)"$', text, re.MULTILINE)
+            if base:
+                bases.add(base.group(1))
+            else:
+                unknown_base = True
+    if len(bases) > 1:
+        raise ValueError("Mixed userland branches cannot be released")
+    userland_base = "unverified" if unknown_base else next(iter(bases), "none")
     digest, count, dirty = source_state(root)
     return {"format": 2, "revision": git(root, "rev-parse", "HEAD").decode().strip(),
             "dirty": dirty, "source_digest": digest, "source_files": count,
             "source_inputs": "git-tracked plus nonignored source files; generated caches excluded",
             "source_date_epoch": int(os.environ.get("SOURCE_DATE_EPOCH", "0")),
             "packages": dict(sorted(packages.items())), "architecture": "x86_64",
-            "models_bundled": False}
+            "models_bundled": False, "userland_base": userland_base}
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@ TARBALL="$WORK_DIR/ooonana-full-i3-rootfs.tar.gz"
 REPO="$WORK_DIR/full-i3-repo"
 STAGED_REPO=""
 PACKAGE_PROFILE="$ROOT/configs/packages/full-i3.list"
-OS_VERSION="${OOONANA_OS_VERSION:-0.9.9}"
+OS_VERSION="${OOONANA_OS_VERSION:-0.10.0}"
 FORCE=0
 
 usage() {
@@ -4145,7 +4145,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   version_output="$(/usr/bin/ooonana version 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.9' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.10.0' &&
     printf '%s\n' "$installed_output" | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else
@@ -4546,6 +4546,7 @@ ID=ooonana
 PRETTY_NAME="Ooonana OS $OS_VERSION"
 VERSION="$OS_VERSION"
 VERSION_ID="$OS_VERSION"
+OOONANA_USERLAND_BASE="alpine-$(ooonana_alpine_branch)"
 HOME_URL="https://github.com/Ooonana/Ooonana-OS"
 SUPPORT_URL="https://github.com/Ooonana/Ooonana-OS/issues"
 EOF

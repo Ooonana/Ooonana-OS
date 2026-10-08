@@ -39,7 +39,7 @@ EOF
 [[ -x "$SCRIPT" ]] || fail "missing executable i3 package-set importer"
 script_src="$(<"$SCRIPT")"
 assert_contains "$script_src" "configs/packages/full-i3.list"
-assert_contains "$script_src" "alpine/edge/community/x86_64"
+assert_contains "$script_src" '$(ooonana_alpine_branch)/community/x86_64'
 assert_contains "$script_src" "sof-firmware"
 assert_contains "$script_src" "--no-index"
 profile_src="$(<"$ROOT/configs/packages/full-i3.list")"

@@ -1,5 +1,5 @@
 # Optional catalog; not part of the full-i3 boot/install dependency closure.
-# Keep current musl ABI until a complete supported-base migration is tested.
+# Neofetch is native lightweight core command; Fastfetch is supported upstream.
 neofetch
 fastfetch
 nano
