@@ -8,6 +8,7 @@ import configparser
 from importlib.machinery import SourceFileLoader
 from importlib.util import module_from_spec, spec_from_loader
 import os
+import signal
 from pathlib import Path
 import shlex
 import subprocess
@@ -23,11 +24,15 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("output", type=Path)
 parser.add_argument("--rootfs", type=Path, required=True)
 parser.add_argument("--long-wifi", action="store_true")
+parser.add_argument("--desktop", action="store_true", help="Include source native Settings/dock and original wallpaper")
+parser.add_argument("--desktop-overview", action="store_true", help="Wallpaper/panel/dock without Settings window")
 args = parser.parse_args()
 loader = SourceFileLoader("panel_windows", str(ROOT / "packages/ooonana/usr/bin/ooonana-window-list"))
 windows = module_from_spec(spec_from_loader(loader.name, loader))
 loader.exec_module(windows)
 screen = Gdk.get_default_root_window()
+assert os.environ.get('OOONANA_GUI_TEST_DISPLAY') == '1', 'Isolated owned display required'
+assert subprocess.run(['i3-msg', '-t', 'get_tree'], capture_output=True).returncode != 0, 'Existing window manager: refuse'
 width = screen.get_width()
 left, right, gap, limit = windows.panel_layout(width)
 rootfs = args.rootfs.resolve()
@@ -68,13 +73,30 @@ with tempfile.TemporaryDirectory(prefix="ooonana-panel-ui-") as temporary:
     environment = {**os.environ, "FONTCONFIG_FILE": str(fonts), "OOONANA_PANEL_LEFT": left,
                    "OOONANA_PANEL_RIGHT": right, "OOONANA_PANEL_GAP": str(gap)}
     wm = subprocess.Popen(["i3", "-c", str(wm_config)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    panel = None
+    panel = dock = settings = wallpaper = None
     try:
         deadline = time.monotonic() + 8
         while subprocess.run(["i3-msg", "-t", "get_tree"], capture_output=True).returncode:
             assert time.monotonic() < deadline, "Isolated i3 unavailable"
             time.sleep(0.05)
         args.output.parent.mkdir(parents=True, exist_ok=True)
+        if args.desktop or args.desktop_overview:
+            from common import apply_theme
+            from settings_app import SettingsWindow
+            from dock_app import Dock
+            import i3_events
+            Gtk.IconTheme.get_default().append_search_path(str(ROOT / 'packages/ooonana/usr/share/icons/hicolor/scalable/apps'))
+            apply_theme()
+            if not args.desktop_overview:
+                settings = SettingsWindow()
+                settings.show_all()
+                settings.sidebar.select_row(settings.sidebar.get_row_at_index(3))
+            dock = Dock(subscribe=False)
+            dock.snapshot = i3_events.request(i3_events.socket_path(), 4)
+            dock.refresh()
+            wallpaper = subprocess.Popen(['python3', str(ROOT / 'packages/ooonana/usr/bin/ooonana-wallpaper-fit'),
+                                          str(ROOT / 'packages/ooonana/usr/share/ooonana/wallpapers/ooonana-notes.jpg')],
+                                         start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         with args.output.with_suffix(".log").open("w") as log:
             panel = subprocess.Popen([str(rootfs / "lib/ld-musl-x86_64.so.1"), "--library-path",
                                       f"{rootfs}/lib:{rootfs}/usr/lib:{rootfs}/usr/lib/pulseaudio",
@@ -91,7 +113,28 @@ with tempfile.TemporaryDirectory(prefix="ooonana-panel-ui-") as temporary:
             pixels.savev(str(args.output), "png", [], [])
         print(f"PANEL_UI_OK {width}px sample state: {args.output}")
     finally:
+        if dock:
+            dock.destroy()
+        if settings:
+            settings.disconnect_by_func(Gtk.main_quit)
+            settings.destroy()
+        wallpaper_error = None
+        if wallpaper:
+            try:
+                _out, err = wallpaper.communicate(timeout=5)
+                if wallpaper.returncode:
+                    wallpaper_error = err
+            except subprocess.TimeoutExpired:
+                os.killpg(wallpaper.pid, signal.SIGKILL)
+                wallpaper.wait(timeout=5)
+                wallpaper_error = b'Wallpaper fixture timeout'
         for process in (panel, wm):
             if process is not None and process.poll() is None:
                 process.terminate()
-                process.wait(timeout=5)
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    # Only fixture child, never unrelated user bars/WM.
+                    process.kill()
+                    process.wait(timeout=5)
+        assert wallpaper_error is None, wallpaper_error

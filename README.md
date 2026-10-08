@@ -15,11 +15,32 @@ Ooonana OS is a custom Linux distribution built from scratch around its own boot
 
 Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Linux, BusyBox, GRUB, i3, and other open-source components. Ooonana package factory currently imports selected Alpine package payloads into Ooonana `.pkg` repositories while native packages replace them over time.
 
-![Ooonana OS core 0.9.7 preview with left music, centered AI, notification bell, and native app dock](docs/assets/ooonana-full-i3-desktop.png)
+![Current Ooonana desktop with original wallpaper, left music, centered AI and blue browser icon](docs/assets/ooonana-desktop-20261008.png)
 
-Core 0.9.7 working desktop captured from updated nested WSL i3. Music stays left, AI centered, status controls right, and native dock tracks windows. Cursor excluded. Audio playback not tested; physical USB visuals require a newly built image.
+October 8 source desktop captured with real GTK/i3/Polybar on an isolated X11 display. Panel status uses sample data; wallpaper/dock are source assets. No audio played. Physical USB visuals require a fresh image. Earlier WSL screenshot remains in `docs/assets/ooonana-full-i3-desktop.png`.
 
-Core 0.9.9 keeps matching opaque app icons, focus-neutral hover previews, compact panel layouts and AI request/RAM/storage indicators. Component previews below use isolated test windows, not physical USB boot. Main desktop image above remains the earlier WSL capture:
+Core 0.9.9 source refresh adds unboxed dock hover feedback, slimmer panel, open Appearance groups, blue globe browser icon and canonical wallpaper fitting. Component previews use isolated test windows, not physical USB boot.
+
+![Current native Appearance settings](docs/assets/ooonana-appearance-20261008.png)
+
+See [October 8 verification and remaining gates](docs/ui-catalog-20261008.md).
+
+### Optional common packages
+
+Repository builds include `neofetch`, `fastfetch`, `nano`, `git`, `jq`, `zip`, `unzip`, `ripgrep`, `tmux`, `btop`, `tree`, `ncdu`, `less`, `lsof`, `strace`, and `openssh-client-default`. These are not added to default full-i3 install closure; availability does not mean installed in an existing ISO/WSL session.
+
+```bash
+ooonana update
+ooonana get neofetch fastfetch git jq ripgrep tmux
+ooonana get firefox
+# Desktop user, not root; explicit network/runtime download:
+ooonana-firefox setup
+firefox
+```
+
+`firefox` package supplies launchers, not bundled Mozilla binaries. Browser/runtime download through the [Mozilla-documented Flatpak route](https://support.mozilla.org/en-US/kb/install-firefox-linux). Check persistent disk space first. `ooonana-firefox update` updates that user-owned browser; OS package updates do not update its Flatpak runtime automatically.
+
+Imported base still targets Alpine 3.20, whose normal support ended April 1, 2026 ([upstream lifecycle](https://alpinelinux.org/releases/)). Old Chromium and libraries need a coherent supported-base migration. Optional catalog is not that migration; do not mix newer ABI libraries into old rootfs.
 
 ![Core 0.9.6 native app icon family](docs/assets/ooonana-native-icons.png)
 

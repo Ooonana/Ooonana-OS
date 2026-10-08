@@ -57,28 +57,45 @@ esac
 
 if [ ! -f "$wallpaper" ]; then
   printf 'missing wallpaper: %s\n' "$wallpaper" >&2
-  exit 1
+  if [ "$apply_saved" -eq 1 ] && [ -f /usr/share/ooonana/wallpapers/ooonana-notes.jpg ]; then
+    # Stale saved paths must not leave login blank or destroy user's preference.
+    wallpaper=/usr/share/ooonana/wallpapers/ooonana-notes.jpg
+  else
+    exit 1
+  fi
 fi
 
+apply_wallpaper() {
+  if [ "$mode" = fit ] && command -v ooonana-wallpaper-fit >/dev/null 2>&1 && command -v feh >/dev/null 2>&1; then
+    ooonana-wallpaper-fit "$wallpaper"
+  elif command -v hsetroot >/dev/null 2>&1; then
+    hsetroot "-$mode" "$wallpaper"
+  elif command -v feh >/dev/null 2>&1; then
+    case "$mode" in
+      fit) feh --bg-max "$wallpaper" ;;
+      fill) feh --bg-fill "$wallpaper" ;;
+      center) feh --bg-center "$wallpaper" ;;
+      stretch) feh --bg-scale "$wallpaper" ;;
+      tile) feh --bg-tile "$wallpaper" ;;
+    esac
+  else
+    printf 'no wallpaper setter installed\n' >&2
+    return 1
+  fi
+}
+
+# Save only after successful rendering. Failed image/setter leaves prior choice.
+apply_wallpaper
 if [ "$apply_saved" -eq 0 ]; then
   mkdir -p "$config_dir"
-  printf '%s\n' "$wallpaper" >"$config_dir/wallpaper"
-  printf '%s\n' "$mode" >"$config_dir/wallpaper-mode"
+  path_tmp=$(mktemp "$config_dir/wallpaper.XXXXXX")
+  mode_tmp=""
+  trap 'rm -f "$path_tmp" "$mode_tmp"' EXIT HUP INT TERM
+  mode_tmp=$(mktemp "$config_dir/wallpaper-mode.XXXXXX")
+  printf '%s\n' "$wallpaper" >"$path_tmp"
+  printf '%s\n' "$mode" >"$mode_tmp"
+  mv -f "$path_tmp" "$config_dir/wallpaper"
+  mv -f "$mode_tmp" "$config_dir/wallpaper-mode"
 fi
 
-if command -v hsetroot >/dev/null 2>&1; then
-  exec hsetroot "-$mode" "$wallpaper"
-fi
-if command -v feh >/dev/null 2>&1; then
-  command -v xsetroot >/dev/null 2>&1 && xsetroot -solid '#101317' 2>/dev/null || true
-  case "$mode" in
-    fit) exec feh --bg-max "$wallpaper" ;;
-    fill) exec feh --bg-fill "$wallpaper" ;;
-    center) exec feh --bg-center "$wallpaper" ;;
-    stretch) exec feh --bg-scale "$wallpaper" ;;
-    tile) exec feh --bg-tile "$wallpaper" ;;
-  esac
-fi
-
-printf 'no wallpaper setter installed\n' >&2
-exit 1
+exit 0

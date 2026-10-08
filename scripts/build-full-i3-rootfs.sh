@@ -405,6 +405,9 @@ scrollbar slider { background: @ooonana_border; border-radius: 6px; min-width: 7
 scrollbar slider:hover { background: @ooonana_accent; }
 tooltip { background: @ooonana_panel; color: @ooonana_fg; border: 1px solid @ooonana_accent; border-radius: 10px; }
 CSS
+    if command -v ooonana-wallpaper >/dev/null 2>&1 && ooonana-wallpaper --apply-saved; then
+      exit 0
+    fi
     xsetroot -solid "$OOONANA_BG" 2>/dev/null || true
     wallpaper="/usr/share/ooonana/wallpapers/ooonana-notes.jpg"
     wallpaper_mode="fit"
@@ -2561,10 +2564,10 @@ border = #414957
 
 [bar/ooonana]
 width = 98%
-height = 40
+height = 36
 offset-x = 1%
 offset-y = 8
-radius = 14
+radius = 12
 fixed-center = true
 background = ${colors.background}
 foreground = ${colors.foreground}

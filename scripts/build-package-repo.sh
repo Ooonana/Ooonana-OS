@@ -35,6 +35,7 @@ DEVICECHAT_SOURCE="${OOONANA_DEVICECHAT_SOURCE:-$ROOT/packages/devicechat/source
 BUNANACHAT_SOURCE_DIR="${OOONANA_BUNANACHAT_LINUX_SOURCE:-$ROOT/packages/bunanachat-linux/source/dist}"
 WINDOWS_CHAT_SOURCE="${OOONANA_OONANA_CHAT_WINDOWS_SOURCE:-$ROOT/packages/ooonana-chat-windows/source/OoonanaChat Setup 1.0.0.exe}"
 NATIVE_APK_PACKAGES="openssl nodejs flatpak bluez dbus fontconfig freetype libx11 libice libsm mesa-gl icu-libs zlib libgcc libstdc++"
+COMMON_PROFILE="$ROOT/configs/packages/common-tools.list"
 CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.9.9}"
 KERNEL_PACKAGE_PATH="${OOONANA_KERNEL_PACKAGE_PATH:-}"
 KERNEL_PACKAGE_URL="${OOONANA_KERNEL_PACKAGE_URL:-}"
@@ -274,6 +275,8 @@ main() {
       printf 'bunanachat: skipped (source missing: %s)\n' "$BUNANACHAT_SOURCE_DIR"
     fi
     ooonana_print_command bash "$WINE_COMPAT_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$WINE_COMPAT_PACKAGE_VERSION"
+    ooonana_print_command bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --no-index $(sed 's/#.*//' "$COMMON_PROFILE" | xargs)
+    ooonana_print_command bash "$ROOT/scripts/build-firefox-package.sh" --out-dir "$OUT_DIR"
     if [[ -f "$WINDOWS_CHAT_SOURCE" ]]; then
       ooonana_print_command bash "$WINDOWS_CHAT_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$WINDOWS_CHAT_PACKAGE_VERSION" --source "$WINDOWS_CHAT_SOURCE"
     else
@@ -295,6 +298,11 @@ main() {
   # profile. Import their dependencies without adding them to the desktop bundle.
   # shellcheck disable=SC2086
   bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --no-index $NATIVE_APK_PACKAGES
+  common_packages="$(sed 's/#.*//' "$COMMON_PROFILE" | xargs)"
+  # Optional catalog, deliberately outside desktop install profile.
+  # shellcheck disable=SC2086
+  bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --no-index $common_packages
+  bash "$ROOT/scripts/build-firefox-package.sh" --out-dir "$OUT_DIR"
   if [[ -n "$KERNEL_PACKAGE_PATH" || -n "$KERNEL_PACKAGE_URL" ]]; then
     kernel_source="$KERNEL_PACKAGE_PATH"
     [[ -n "$kernel_source" ]] || kernel_source="$KERNEL_PACKAGE_URL"
@@ -348,10 +356,10 @@ main() {
   fi
   python3 "$ROOT/scripts/record-release-manifest.py" --repo "$OUT_DIR"
   "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$OUT_DIR" >/dev/null
-  native_packages="ooonana-core openvino-chat devicechat wine"
+  native_packages="ooonana-core openvino-chat devicechat wine firefox"
   [[ "$bunanachat_built" -eq 1 ]] && native_packages="$native_packages bunanachat"
   [[ "$windows_chat_built" -eq 1 ]] && native_packages="$native_packages ooonana-chat-windows"
-  verify_repo_packages $native_packages
+  verify_repo_packages $native_packages $common_packages
   if [[ "$FULL_I3" -eq 1 ]]; then
     verify_repo_profile full-i3
   fi

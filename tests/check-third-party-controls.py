@@ -40,6 +40,9 @@ with tempfile.TemporaryDirectory() as temporary:
             except (OSError, subprocess.SubprocessError):
                 return False
         wait(ready)
+        tool = subprocess.run(['i3-msg', '-r', '-t', 'get_version'], capture_output=True, text=True, check=True)
+        assert tool.stdout.strip(), 'i3-msg is stubbed/broken; restore test-host tool before UI QA'
+        assert json.loads(tool.stdout).get('major'), tool.stdout
         terminal = subprocess.Popen(["xterm", "-class", "ThirdPartyTest", "-title", "Controls fixture", "-bg", "#101317", "-fg", "#f5f5f7", "-e", "sh", "-c", "printf 'Third-party controls fixture'; sleep 120"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         manager = Manager()
         wait(lambda: bool(manager.controls))
@@ -87,9 +90,14 @@ with tempfile.TemporaryDirectory() as temporary:
                     return node
                 return next((found for child in node.get("nodes", []) + node.get("floating_nodes", []) if (found := find(child))), None)
             return find(tree)
-        wait(peer_present)
+        # Title can be visible before WM_CLASS and initial for_window rules.
+        # Moving too soon gets overwritten by fixture's initial position.
+        wait(lambda: peer_present() and peer_present().get('floating') == 'user_on'
+             and peer_present()['rect']['height'] == 330)
         peer_id = peer_present()["id"]
-        subprocess.run(["i3-msg", f"[con_id={peer_id}] move position 720 100; [con_id={peer_id}] focus"], check=True, capture_output=True)
+        moved = subprocess.run(["i3-msg", '-r', f"[con_id={peer_id}] move position 720 100; [con_id={peer_id}] focus"], check=True, capture_output=True)
+        assert all(item.get('success') for item in json.loads(moved.stdout)), (moved.stdout, moved.stderr)
+        wait(lambda: peer_present()['rect']['x'] == 720)
         wait(lambda: identifier in manager.controls and peer_id in manager.controls)
         pointer = Gdk.Display.get_default().get_default_seat().get_pointer()
         pointer.warp(Gdk.Screen.get_default(), 180, 180)

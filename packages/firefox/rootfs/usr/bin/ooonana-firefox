@@ -1,0 +1,51 @@
+#!/bin/sh
+# Firefox uses isolated runtime, not obsolete host browser libraries.
+set -eu
+app=org.mozilla.firefox
+remote=flathub
+url=https://dl.flathub.org/repo/flathub.flatpakrepo
+usage() {
+  printf '%s\n' 'Usage: ooonana-firefox setup|status|update|run [ARG...]' \
+    'setup downloads Firefox/runtime for current user (network/storage required).'
+}
+case "${1:-run}" in help|-h|--help) usage; exit 0 ;; esac
+command -v flatpak >/dev/null 2>&1 || {
+  printf '%s\n' 'Flatpak missing. Run: ooonana get firefox' >&2; exit 1;
+}
+case "${1:-run}" in
+  setup)
+    shift
+    [ "$#" -eq 0 ] || { usage >&2; exit 2; }
+    [ "$(id -u)" -ne 0 ] || { printf '%s\n' 'Run setup as desktop user, not root.' >&2; exit 1; }
+    remotes=$(flatpak --user remotes --columns=name,url)
+    existing=$(printf '%s\n' "$remotes" | awk -v wanted="$remote" '$1 == wanted {print $2}')
+    case "$existing" in
+      ''|https://dl.flathub.org/repo/|https://dl.flathub.org/repo) ;;
+      *) printf '%s\n' 'Existing flathub URL differs; inspect before setup.' >&2; exit 1 ;;
+    esac
+    flatpak --user remote-add --if-not-exists "$remote" "$url"
+    exec flatpak --user install "$remote" "$app"
+    ;;
+  status)
+    shift; [ "$#" -eq 0 ] || { usage >&2; exit 2; }
+    exec flatpak --user info "$app"
+    ;;
+  update)
+    shift; [ "$#" -eq 0 ] || { usage >&2; exit 2; }
+    [ "$(id -u)" -ne 0 ] || { printf '%s\n' 'Run update as desktop user, not root.' >&2; exit 1; }
+    exec flatpak --user update "$app"
+    ;;
+  run)
+    [ "$#" -eq 0 ] || shift
+    [ "$(id -u)" -ne 0 ] || { printf '%s\n' 'Run Firefox as desktop user, not root.' >&2; exit 1; }
+    flatpak --user info "$app" >/dev/null 2>&1 || {
+      printf '%s\n' 'Firefox runtime missing. Run: ooonana-firefox setup' >&2
+      if command -v notify-send >/dev/null 2>&1; then
+        notify-send 'Firefox setup required' 'Run ooonana-firefox setup in Terminal.' || true
+      fi
+      exit 1
+    }
+    exec flatpak run --user "$app" "$@"
+    ;;
+  *) usage >&2; exit 2 ;;
+esac

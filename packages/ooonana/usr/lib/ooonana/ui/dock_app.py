@@ -14,6 +14,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import i3_events
 from common import Gdk, GLib, Gtk, Pango, apply_theme, run_async
+from ui_preferences import transition_ms
 import gi
 gi.require_version("GdkX11", "3.0")
 gi.require_version("GdkPixbuf", "2.0")
@@ -29,10 +30,12 @@ ICONS = {"apps": "ooonana-apps", "terminal": "ooonana-terminal", "browser": "ooo
          "files": "ooonana-files", "editor": "ooonana-editor", "music": "ooonana-music",
          "openvino": "ooonana-openvino", "tasks": "ooonana-task-manager", "other": "application-x-executable"}
 CSS = b"""
-.ooonana-dock { background: #1b1f26; border: 1px solid #414957; border-radius: 20px; }
-.ooonana-dock button { padding: 5px 8px; border: 1px solid transparent; border-radius: 13px; background: #1b1f26; box-shadow: none; min-width: 0; min-height: 0; }
-.ooonana-dock button:hover { background: #303640; border-color: #596574; }
-.ooonana-dock button.active { background: #303640; border-color: #ffb21a; }
+.ooonana-dock { background: #1b1f26; border: 1px solid #343b46; border-radius: 20px; }
+.ooonana-dock button { padding: 2px 8px; border: none; border-radius: 13px; background: #1b1f26; box-shadow: none; min-width: 0; min-height: 0; transition: background-color 140ms ease-out; }
+.ooonana-dock button:hover { background: #303640; }
+.ooonana-dock button.active { background: #1b1f26; }
+.ooonana-dock button.active:hover { background: #303640; }
+.ooonana-dock button.active label { color: #ffb21a; }
 .ooonana-dock label { font-size: 9px; color: #b4bdc8; }
 tooltip { background: #1b1f26; color: #f5f5f7; border: 1px solid #414957; }
 """
@@ -81,6 +84,7 @@ class Dock(Gtk.Window):
         self.add(self.row)
         self.snapshot, self.items, self.nodes, self.buttons = {}, [], {}, {}
         self.pending, self.stopped, self.geometry_state = 0, False, None
+        self.hover_states, self.motion_source = {}, 0
         self.connect("size-allocate", self.position)
         self.connect("destroy", self.closed)
         self.get_screen().connect("size-changed", lambda *_: self.queue())
@@ -90,8 +94,41 @@ class Dock(Gtk.Window):
 
     def closed(self, *_):
         self.stopped = True
+        for source in (self.pending, self.motion_source):
+            if source:
+                GLib.source_remove(source)
+        self.pending = self.motion_source = 0
         if Gtk.main_level():
             Gtk.main_quit()
+
+    def hover(self, _control, _event, key, entered):
+        image = self.buttons[key][2]
+        duration = transition_ms()
+        settings = Gtk.Settings.get_default()
+        if settings:
+            settings.set_property('gtk-enable-animations', bool(duration))
+        target = 0 if entered and duration else 4
+        self.hover_states[key] = (image, image.get_margin_top(), target,
+                                  GLib.get_monotonic_time(), duration * 1000)
+        if not self.motion_source:
+            self.motion_source = GLib.timeout_add(16, self.animate_hover)
+        return False
+
+    def animate_hover(self):
+        now = GLib.get_monotonic_time()
+        for key, (image, initial, target, start, duration) in list(self.hover_states.items()):
+            progress = min(1, (now - start) / duration) if duration else 1
+            eased = 1 - (1 - progress) ** 3
+            margin = round(initial + (target - initial) * eased)
+            # Constant total margins: no dock resize, focus stealing or jitter.
+            image.set_margin_top(margin)
+            image.set_margin_bottom(8 - margin)
+            if progress == 1:
+                del self.hover_states[key]
+        if not self.hover_states or self.stopped:
+            self.motion_source = 0
+            return False
+        return True
 
     def listen(self):
         while not self.stopped:
@@ -149,6 +186,7 @@ class Dock(Gtk.Window):
         if list(self.buttons) != keys:
             for widget in self.row.get_children():
                 widget.destroy()
+            self.hover_states.clear()
             self.buttons = {}
             for key in keys:
                 control = Gtk.Button()
@@ -157,6 +195,8 @@ class Dock(Gtk.Window):
                 content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
                 image = Gtk.Image.new_from_icon_name(ICONS[key], Gtk.IconSize.DIALOG)
                 image.set_pixel_size(24 if area.width < 520 else 32)
+                image.set_margin_top(4)
+                image.set_margin_bottom(4)
                 content.pack_start(image, False, False, 0)
                 dot = Gtk.Label(label=" ")
                 content.pack_start(dot, False, False, 0)
@@ -165,9 +205,11 @@ class Dock(Gtk.Window):
                 control.connect("button-press-event", self.press, key)
                 control.set_has_tooltip(True)
                 control.connect("query-tooltip", self.tooltip, key)
+                control.connect("enter-notify-event", self.hover, key, True)
+                control.connect("leave-notify-event", self.hover, key, False)
                 self.row.pack_start(control, False, False, 0)
-                self.buttons[key] = (control, dot)
-        for key, (control, dot) in self.buttons.items():
+                self.buttons[key] = (control, dot, image)
+        for key, (control, dot, _image) in self.buttons.items():
             matches = other if key == "other" else [item for item in self.items if windows.pin_for(item) == key]
             style = control.get_style_context()
             (style.add_class if any(item[2] for item in matches) else style.remove_class)("active")

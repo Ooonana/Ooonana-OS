@@ -63,11 +63,13 @@ for page_id, _title, _icon in SettingsWindow.PAGES:
     assert settings.stack.get_child_by_name(page_id) is not None, page_id
 settings.resized(settings, SimpleNamespace(width=640))
 assert settings.compact_layout
+assert all(row.get_orientation() == Gtk.Orientation.VERTICAL for row in settings.appearance_rows)
 for grid in settings.card_grids:
     for child in grid.get_children():
         assert grid.child_get_property(child, "left-attach") == 0
 settings.resized(settings, SimpleNamespace(width=1100))
 assert not settings.compact_layout
+assert all(row.get_orientation() == Gtk.Orientation.HORIZONTAL for row in settings.appearance_rows)
 for grid in settings.card_grids:
     for child in grid.get_children():
         assert tuple(grid.child_get_property(child, name) for name in

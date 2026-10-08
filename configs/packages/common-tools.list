@@ -1,0 +1,18 @@
+# Optional catalog; not part of the full-i3 boot/install dependency closure.
+# Keep current musl ABI until a complete supported-base migration is tested.
+neofetch
+fastfetch
+nano
+git
+jq
+zip
+unzip
+ripgrep
+tmux
+btop
+tree
+ncdu
+less
+lsof
+strace
+openssh-client-default

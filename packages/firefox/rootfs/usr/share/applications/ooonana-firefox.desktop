@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Firefox
+Comment=Firefox through isolated Flatpak runtime; setup required once
+Exec=ooonana-firefox run %u
+TryExec=ooonana-firefox
+Icon=ooonana-browser
+Terminal=false
+Categories=Network;WebBrowser;
+MimeType=text/html;x-scheme-handler/http;x-scheme-handler/https;
+StartupWMClass=firefox

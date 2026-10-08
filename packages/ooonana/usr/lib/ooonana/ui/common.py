@@ -26,7 +26,7 @@ menu { background: #1b1f26; color: #f5f5f7; border: 1px solid #343b46; border-ra
 menuitem { padding: 9px 12px; border-radius: 7px; }
 menuitem:hover { background: #303640; color: #ffb21a; }
 headerbar { background: #1b1f26; color: #ffb21a; border-bottom: 1px solid #343b46; border-radius: 14px 14px 0 0; padding: 5px 10px; }
-headerbar .title { font-weight: 700; }
+headerbar .title { font-weight: 700; color: #ffb21a; }
 headerbar .subtitle { color: #b4bdc8; }
 .window-control { min-width: 16px; min-height: 16px; padding: 3px; margin: 0; border-radius: 99px; }
 .close-control:hover { background: #b83832; color: #ffffff; border-color: #e85b52; }
@@ -39,13 +39,15 @@ headerbar .subtitle { color: #b4bdc8; }
 .page-title { font-size: 19pt; font-weight: 700; color: #f5f5f7; }
 .page-subtitle, .muted { color: #b4bdc8; }
 .card { background: #1b1f26; border: 1px solid #343b46; border-radius: 14px; padding: 16px; }
-.card-title { font-size: 12pt; font-weight: 700; color: #ffb21a; }
+.card-title { font-size: 12pt; font-weight: 700; color: #f5f5f7; }
+.settings-section { background: #101317; border-bottom: 1px solid #343b46; padding: 0 0 12px 0; }
+.settings-section:last-child { border-bottom: none; padding-bottom: 0; }
 .status-good { color: #70d69b; font-weight: 700; }
 .status-warn { color: #ffd37a; font-weight: 700; }
 .status-bad { color: #ff675c; font-weight: 700; }
 .status-neutral { color: #b4bdc8; }
 button { background: #272c34; color: #f5f5f7; border: 1px solid #46505c; border-radius: 10px; padding: 8px 14px; transition: background-color 180ms ease-out; }
-button:hover { background: #39414b; border-color: #ffb21a; }
+button:hover { background: #39414b; border-color: #596574; }
 button:focus, entry:focus, combobox button:focus { border-color: #ffb21a; box-shadow: 0 0 0 2px #73521e; }
 button:disabled { background: #1b1f26; color: #78828f; border-color: #313944; }
 button.suggested-action { background: #ffb21a; color: #101317; border-color: #ffb21a; font-weight: 700; }
@@ -276,6 +278,9 @@ def header(window, title, subtitle="", icon_name="preferences-system-symbolic"):
 def label(text="", css=None, xalign=0.0, wrap=True):
     widget = Gtk.Label(label=text, xalign=xalign)
     widget.set_line_wrap(wrap)
+    if wrap:
+        widget.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+        widget.set_max_width_chars(60)
     if css:
         widget.get_style_context().add_class(css)
     return widget
@@ -298,6 +303,15 @@ def card(title, description="", icon_name=None):
     outer.pack_start(heading, False, False, 0)
     if description:
         outer.pack_start(label(description, "muted"), False, False, 0)
+    return outer
+
+
+def section(title, description="", icon_name=None):
+    """Open settings group: divider instead of nested rounded card."""
+    outer = card(title, description, icon_name)
+    outer.get_style_context().remove_class("card")
+    outer.get_style_context().add_class("settings-section")
+    outer.set_spacing(8)
     return outer
 
 

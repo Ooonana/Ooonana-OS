@@ -28,6 +28,8 @@ jobs:
           python3 -B tests/test-installed-wsl-update.py
           python3 -B tests/test-pdf-runtime-reuse.py
           python3 -B tests/test-window-list.py
+          python3 -B tests/test-wallpaper-selection.py
+          python3 -B tests/test-firefox-package.py
           bash tests/test-backend-policy.sh
           sh tests/test-live-boot-storage.sh
           sh tests/test-live-persistence-file.sh

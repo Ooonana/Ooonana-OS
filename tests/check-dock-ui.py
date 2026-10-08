@@ -11,6 +11,7 @@ root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / "packages/ooonana/usr/lib/ooonana/ui"))
 from dock_app import Dock, Gdk, Gtk, preview_image, windows
 from common import apply_theme
+from ui_preferences import save_preferences
 import i3_events
 
 def drain():
@@ -58,6 +59,25 @@ with tempfile.TemporaryDirectory() as temporary:
         assert any(isinstance(child, Gtk.Image) for child in content.get_children())
         assert next(item[0] for item in windows.windows(i3_events.request(path, 4)) if item[2]) == before
         button = dock.buttons["terminal"][0]
+        image = dock.buttons['terminal'][2]
+        size = dock.get_size()
+        dock.hover(button, None, 'terminal', True)
+        wait(lambda: not dock.hover_states)
+        assert image.get_margin_top() == 0 and image.get_margin_bottom() == 8
+        assert dock.get_size() == size
+        with tempfile.TemporaryDirectory() as preference_home:
+            original = os.environ.get('XDG_CONFIG_HOME')
+            os.environ['XDG_CONFIG_HOME'] = preference_home
+            try:
+                save_preferences(reduce_motion=True)
+                dock.hover(button, None, 'terminal', True)
+                wait(lambda: not dock.hover_states)
+                assert image.get_margin_top() == image.get_margin_bottom() == 4
+            finally:
+                if original is None:
+                    os.environ.pop('XDG_CONFIG_HOME')
+                else:
+                    os.environ['XDG_CONFIG_HOME'] = original
         coordinates = button.translate_coordinates(dock, 0, 0)
         x, y = coordinates[-2:]
         origin = dock.get_position()

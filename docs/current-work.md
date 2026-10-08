@@ -1,4 +1,10 @@
-# Current work - 2026-10-07
+# Current work - 2026-10-08
+
+## October 8 UI and optional catalog
+
+- Open Appearance sections, slimmer panel, focus-neutral eased dock hover/Reduce motion. Browser icon now blue globe. Original wallpaper retained; startup uses canonical panel/dock-clear fitting. Failed changes preserve saved choice.
+- Added optional common CLI catalog and explicit nonroot Firefox Flatpak setup launcher, not bundled browser/runtime. No default desktop closure bloat or newer ABI library mixing. Supported-base migration remains urgent.
+- Native captures inspected; README refreshed. Scoped tests/remaining physical gates: [October 8 report](ui-catalog-20261008.md). Production ISO stays user-built; private key local, enrollment deferred, no sound.
 
 Current source includes the backend/desktop repairs below. ISO building stays with user. Audio backend stays enabled; no playback tests. Older entries record status at the time of each pass; their local/uncommitted and ISO-pending notes are superseded by this update.
 

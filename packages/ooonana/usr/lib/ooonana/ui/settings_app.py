@@ -11,9 +11,11 @@ from ui_preferences import load_preferences, save_preferences, transition_ms
 from storage_health import storage_health
 from common import (  # noqa: E402
     Gtk,
+    Pango,
     apply_theme,
     button,
     card,
+    section,
     command_exists,
     flow_row,
     header,
@@ -46,11 +48,12 @@ class SettingsWindow(Gtk.Window):
         self.set_position(Gtk.WindowPosition.CENTER)
         self.status_widgets = {}
         self.card_grids = []
+        self.appearance_rows = []
         self.headerbar = header(
             self,
             "Ooonana Settings",
-            f"{getpass.getuser()}@{socket.gethostname()}",
-            "preferences-system-symbolic",
+            "",
+            None,
         )
         self.headerbar.pack_end(
             button("Refresh", "view-refresh-symbolic", lambda *_: self.refresh_status())
@@ -139,6 +142,8 @@ class SettingsWindow(Gtk.Window):
         if compact == self.compact_layout:
             return
         self.compact_layout = compact
+        for row in self.appearance_rows:
+            row.set_orientation(Gtk.Orientation.VERTICAL if compact else Gtk.Orientation.HORIZONTAL)
         self.sidebar.set_size_request(175 if compact else 210, -1)
         for grid in self.card_grids:
             for child in grid.get_children():
@@ -301,9 +306,12 @@ class SettingsWindow(Gtk.Window):
 
     def build_appearance(self):
         page = self.page("Appearance", "Ooonana dark mode, light mode, wallpaper, and desktop refresh.")
-        theme = card("Color theme", "Dark uses black surfaces and sunset-orange focus.", "preferences-desktop-theme-symbolic")
+        page.set_spacing(16)
+        page.set_border_width(20)
+        theme = section("Color theme", "Dark uses black surfaces and sunset-orange focus.", "preferences-desktop-theme-symbolic")
         row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         self.theme_combo = Gtk.ComboBoxText()
+        self.appearance_rows.append(row)
         self.theme_combo.append("dark", "Dark")
         self.theme_combo.append("light", "Light")
         current = self.current_theme()
@@ -313,24 +321,30 @@ class SettingsWindow(Gtk.Window):
         theme.pack_start(row, False, False, 0)
         page.pack_start(theme, False, False, 0)
 
-        motion = card("Motion", "Short slide transitions; solid backgrounds throughout.", "preferences-desktop-theme-symbolic")
+        motion = section("Motion", "Short slide transitions; solid backgrounds throughout.", "media-playback-start-symbolic")
         self.reduce_motion = Gtk.CheckButton.new_with_label("Reduce motion")
         self.reduce_motion.set_active(load_preferences()["reduce_motion"])
         self.reduce_motion.connect("toggled", self.motion_changed)
         motion.pack_start(self.reduce_motion, False, False, 0)
         page.pack_start(motion, False, False, 0)
 
-        wallpaper = card("Wallpaper", "Choose image and control scaling without restarting i3.", "preferences-desktop-wallpaper-symbolic")
+        wallpaper = section("Wallpaper", "Choose image and control scaling without restarting i3.", "preferences-desktop-wallpaper-symbolic")
         self.status_widgets["wallpaper"] = label(self.wallpaper_status(), "muted")
+        self.status_widgets["wallpaper"].set_tooltip_text(self.current_wallpaper())
         wallpaper.pack_start(self.status_widgets["wallpaper"], False, False, 0)
         mode_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         self.wallpaper_mode_combo = Gtk.ComboBoxText()
+        self.appearance_rows.append(mode_row)
         self.wallpaper_mode_combo.append("fit", "Fit desktop / keep dock clear")
         self.wallpaper_mode_combo.append("fill", "Fill screen / crop")
         self.wallpaper_mode_combo.append("center", "Center at original size")
         self.wallpaper_mode_combo.append("stretch", "Stretch to screen")
         self.wallpaper_mode_combo.append("tile", "Tile")
         self.wallpaper_mode_combo.set_active_id(self.current_wallpaper_mode())
+        for renderer in self.wallpaper_mode_combo.get_cells():
+            if isinstance(renderer, Gtk.CellRendererText):
+                renderer.set_property('ellipsize', Pango.EllipsizeMode.END)
+                renderer.set_property('max-width-chars', 24)
         mode_row.pack_start(self.wallpaper_mode_combo, True, True, 0)
         mode_row.pack_start(
             button("Apply layout", "object-select-symbolic", self.apply_wallpaper_mode),
@@ -459,6 +473,7 @@ class SettingsWindow(Gtk.Window):
         self.set_status("repo_detail", repo, "good" if repo.startswith("http") else "warn")
         if "wallpaper" in self.status_widgets:
             self.status_widgets["wallpaper"].set_text(self.wallpaper_status())
+            self.status_widgets["wallpaper"].set_tooltip_text(self.current_wallpaper())
 
         wsl = bool(os.environ.get("WSL_DISTRO_NAME")) or "microsoft" in read_file("/proc/sys/kernel/osrelease", "").lower()
         if wsl and not Path("/run/dbus/system_bus_socket").exists():
@@ -527,7 +542,7 @@ class SettingsWindow(Gtk.Window):
         return mode if mode in ("fit", "fill", "center", "stretch", "tile") else "fit"
 
     def wallpaper_status(self):
-        return f"{self.current_wallpaper()}\nLayout: {self.current_wallpaper_mode()}"
+        return Path(self.current_wallpaper()).name
 
     def open_terminal(self, *_args):
         launch(["ooonana-theme-env", "xterm"])

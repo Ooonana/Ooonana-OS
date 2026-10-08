@@ -39,6 +39,8 @@ ci-smoke:
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-installed-wsl-update.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-pdf-runtime-reuse.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-window-list.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-wallpaper-selection.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-firefox-package.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-update-interruption.py
     - sh tests/test-live-boot-storage.sh
     - sh tests/test-live-persistence-file.sh
