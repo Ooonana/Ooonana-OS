@@ -8,6 +8,7 @@
 - Refreshed both PDFs with candidate/stable separation and current backend; current-source embedded VM passed boot, input, native/virtual Backspace, version and package sync in 145 seconds under QA load. Blank input and all three guide pages rendered and inspected. Actual PDF viewer latency remains separate.
 - Failed compressed WSL export stopped before F: filled; deleted only new incomplete 7,671,521,280-byte export. Original distro unchanged. Empty owned GUI test home removed; history/models/keys/checkpoints/logs/verified caches kept. User requested WSL migration be skipped for now; full valid backup and independent offline method still required before resuming.
 - Private signing key remains local. CI candidate tags cannot replace stable Pages/R2; GitLab deployment requires explicit major-publish variable on main. [Detailed evidence and remaining gates](supported-base-20261008.md).
+- Candidate checkpoint pushed to both remotes; GitHub regression and GitLab smoke passed. Stable main was not merged or deployed. Latest PDF command benchmark: bare command 3.2s, help 4.7s, version 3.1s; package list/sync still about 85s in Node VM and remain optimization work. Nemo paint check still failed with private session D-Bus; failed logs retained, speculative redraw edit reverted.
 
 ## October 8 UI and optional catalog
 
