@@ -40,6 +40,9 @@ ci-smoke:
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-pdf-runtime-reuse.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-native-pdf-probe.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-pdf-vm-harness.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-pdf-time-csr.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-cli-query-fast.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-browser-policy.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-window-list.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-wallpaper-selection.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-firefox-package.py

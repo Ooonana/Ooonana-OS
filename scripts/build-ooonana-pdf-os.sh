@@ -778,6 +778,7 @@ PY
   # Stable first-party layout replaces upstream keyboard coordinates.
   install -m 0644 "$ROOT/scripts/generate-ooonana-pdf-shell.py" "$SRC/gen_pdf.py"
   python3 "$ROOT/scripts/optimize-pdf-runtime.py" "$display_js"
+  python3 "$ROOT/scripts/patch-pdf-time-csr.py" "$SRC/tinyemu"
 }
 
 if [[ "$DRY_RUN" -eq 1 ]]; then

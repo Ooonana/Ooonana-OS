@@ -202,7 +202,8 @@ const monitor = setInterval(() => {
       console.error("VM CPU snapshot:", values.map(value => value.toString(16)).join(" "));
     } catch (_) {}
   }
-  if (output.includes("Kernel panic") || output.includes("Function not implemented") || output.includes("can't rename")) {
+  if (output.includes("Kernel panic") || output.includes("Function not implemented") || output.includes("can't rename") ||
+      output.includes("Illegal instruction") || output.includes("cannot create private query cache")) {
     console.error(output);
     process.exit(1);
   }

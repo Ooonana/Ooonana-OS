@@ -72,7 +72,16 @@ INSTALLED_DIR="$STATE_DIR/installed"
 DOWNLOAD_CONNECT_TIMEOUT="${OOONANA_DOWNLOAD_CONNECT_TIMEOUT:-10}"
 DOWNLOAD_MAX_TIME="${OOONANA_DOWNLOAD_MAX_TIME:-90}"
 DOWNLOAD_RETRIES="${OOONANA_DOWNLOAD_RETRIES:-1}"
-CHECKSUM_CACHE_DIR="${TMPDIR:-/tmp}/ooonana-checksums.$$"
+CHECKSUM_CACHE_DIR=""
+# Queries may run as root. Never follow a pre-created PID directory/symlink.
+# Help/version need no cache; package operations share one private allocation
+# inherited by subshells, so the parent can reliably remove it on exit.
+initialize_checksum_cache() {
+  CHECKSUM_CACHE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ooonana-checksums.XXXXXXXX")" || {
+    printf 'ooonana: cannot create private query cache\n' >&2
+    exit 1
+  }
+}
 
 cleanup_checksum_cache() {
   case "$CHECKSUM_CACHE_DIR" in
@@ -1007,7 +1016,10 @@ runtime_cache_path() {
   source_file="$1"
   cache_kind="$2"
   have cksum && have cp || return 1
-  cache_key="$(printf '%s\n' "$source_file" | cksum | awk '{ print $1 "-" $2 }')"
+  cache_key="$(printf '%s\n' "$source_file" | cksum)"
+  # cksum on stdin returns two numbers. Avoid an extra AWK process merely
+  # to join them: forks are expensive in the interpreted RISC-V PDF guest.
+  cache_key="${cache_key%% *}-${cache_key##* }"
   printf '%s/%s-%s\n' "$CHECKSUM_CACHE_DIR" "$cache_kind" "$cache_key"
 }
 
@@ -1164,7 +1176,9 @@ version_is_newer() {
 sha256_file() {
   path="$1"
   have sha256sum || die "missing command: sha256sum"
-  sha256sum "$path" | awk '{print $1}'
+  local digest
+  digest="$(sha256sum "$path")" || return 1
+  printf '%s\n' "${digest%% *}"
 }
 
 repo_checksum_expected() {
@@ -1172,7 +1186,8 @@ repo_checksum_expected() {
   rel_path="$2"
   lookup_file="$sums_file"
   if have cksum && have cp; then
-    checksum_key="$(printf '%s\n' "$sums_file" | cksum | awk '{ print $1 "-" $2 }')"
+    checksum_key="$(printf '%s\n' "$sums_file" | cksum)"
+    checksum_key="${checksum_key%% *}-${checksum_key##* }"
     mkdir -p "$CHECKSUM_CACHE_DIR"
     lookup_file="$CHECKSUM_CACHE_DIR/$checksum_key"
     if [ ! -f "$lookup_file" ]; then
@@ -2067,6 +2082,58 @@ cmd_clean() {
   fi
 }
 
+cmd_list_builtin() {
+  local file id metadata indexed_version state snapshot
+  # No external sources: inspect each builtin package once, rather than
+  # resolving its best version twice through nested subshells/index copies.
+  # Retain verified metadata copies and index/version consistency checks.
+  snapshot="$CHECKSUM_CACHE_DIR/builtin-list"
+  mkdir -p "$snapshot"
+  chmod 0700 "$CHECKSUM_CACHE_DIR" "$snapshot"
+  for file in "$REPO_DIR"/*.pkg "$REPO_DIR/index.tsv" "$REPO_DIR/SHA256SUMS" "$REPO_DIR/SHA256SUMS.sig" "$REPO_DIR/repo.pub"; do
+    [ -f "$file" ] || continue
+    cp "$file" "$snapshot/${file##*/}"
+  done
+  # Verify the exact snapshot which is read below, with the original trusted
+  # key. Hash metadata/index in one applet invocation, not archives/payloads.
+  # Missing checksums in legacy unsigned repos retain existing behavior.
+  verify_repo_signature "$snapshot" "${OOONANA_BUILTIN_REPO_KEY:-}"
+  if [ -f "$snapshot/SHA256SUMS" ]; then
+    awk '{ sub(/\r$/, "") } $2 ~ /^[A-Za-z0-9_.+-]+[.]pkg$/ || $2 == "index.tsv" { print }' \
+      "$snapshot/SHA256SUMS" >"$snapshot/list-checksums"
+    if [ -s "$snapshot/list-checksums" ]; then
+      (cd "$snapshot" && sha256sum -c list-checksums >/dev/null) || die "builtin metadata checksum mismatch"
+    fi
+    if [ -f "$snapshot/SHA256SUMS.sig" ] && [ -f "$snapshot/index.tsv" ]; then
+      awk '$2 == "index.tsv" { found=1; exit } END { exit !found }' "$snapshot/list-checksums" ||
+        die "missing checksum: index.tsv"
+    fi
+  fi
+  for file in "$snapshot"/*.pkg; do
+    [ -f "$file" ] || continue
+    id="${file##*/}"
+    id="${id%.pkg}"
+    if [ -f "$snapshot/SHA256SUMS" ]; then
+      awk -v rel="$id.pkg" '$2 == rel { found=1; exit } END { exit !found }' \
+        "$snapshot/list-checksums" || die "missing checksum: $id.pkg"
+    fi
+    metadata="$file"
+    reset_pkg_vars
+    . "$metadata"
+    [ "$OOONANA_PKG_ID" = "$id" ] || die "bad package metadata: $id"
+    [ -n "$OOONANA_PKG_VERSION" ] || die "package missing version: $id"
+    [ -n "$OOONANA_PKG_SUMMARY" ] || die "package missing summary: $id"
+    if [ -f "$snapshot/index.tsv" ]; then
+      indexed_version="$(awk -F '\t' -v id="$id" '$1 == id { print $2; exit }' "$snapshot/index.tsv")"
+      [ -z "$indexed_version" ] || [ "$indexed_version" = "$OOONANA_PKG_VERSION" ] ||
+        die "repo index version mismatch: $id $indexed_version != $OOONANA_PKG_VERSION"
+    fi
+    state=available
+    if pkg_installed "$id"; then state=installed; fi
+    print_pkg_line "$id" "$state"
+  done
+}
+
 cmd_list() {
   installed_only=0
   upgradeable_only=0
@@ -2108,6 +2175,19 @@ cmd_list() {
         [ -n "$id" ] || continue
         print_pkg_fields_line "$id" "$version" "$(pkg_state "$id")" "$summary"
       done | sort
+    return 0
+  fi
+
+  local external source_file
+  external=0
+  for source_file in "$SOURCES_DIR"/*.repo; do
+    [ -f "$source_file" ] || continue
+    external=1
+    break
+  done
+  if [ "$external" -eq 0 ]; then
+    [ -d "$REPO_DIR" ] || die "missing repo: $REPO_DIR"
+    cmd_list_builtin
     return 0
   fi
 
@@ -3394,6 +3474,11 @@ main() {
         ;;
     esac
   fi
+
+  case "$cmd" in
+    help|usage|--help|-h|me|ai|wine|wsl|setup) ;;
+    *) initialize_checksum_cache ;;
+  esac
 
   case "$cmd" in
     get|install|add|upgrade|remove|uninstall|purge|fix|reinstall|recover)

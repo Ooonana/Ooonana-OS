@@ -84,6 +84,9 @@ class Controls(Gtk.Window):
         super().__init__(type=Gtk.WindowType.POPUP)
         # Compositor must not round/clip this tiny titlebar overlay again.
         self.set_wmclass("ooonana-window-controls", "OoonanaWindowControls")
+        visual = self.get_screen().get_rgba_visual()
+        if visual is not None:
+            self.set_visual(visual)
         self.identifier = identifier
         self.last_position = None
         self.connect("realize", self.register, owner)
@@ -138,9 +141,17 @@ class Controls(Gtk.Window):
                 width = size.width - 2 * inset
                 if width > 0:
                     shape.union(cairo.RectangleInt(origin[0] + inset, origin[1] + y, width, 1))
+        changed = not self.control_region.equal(shape)
         self.control_region = shape
         self.get_window().shape_combine_region(shape, 0, 0)
         self.get_window().input_shape_combine_region(shape, 0, 0)
+        if changed:
+            # Initial/map allocation can change the X11 bounding shape after
+            # GTK has painted. Damage the newly visible pixels explicitly;
+            # otherwise a compositor can retain black, unpainted button fills.
+            self.queue_draw()
+            for button in self.get_child().get_children():
+                button.queue_draw()
 
     def register(self, _widget, owner):
         from gi.repository import GdkX11

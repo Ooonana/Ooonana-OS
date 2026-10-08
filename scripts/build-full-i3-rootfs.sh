@@ -604,15 +604,16 @@ fi
 if command -v chromium >/dev/null 2>&1; then
   log="${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/chromium.log"
   mkdir -p "${log%/*}"
-  chromium --no-first-run --disable-default-apps --disable-dev-shm-usage "$url" 2>"$log" && exit 0
+  chromium --no-first-run --disable-default-apps --disable-dev-shm-usage --disable-gpu-shader-disk-cache "$url" 2>"$log" && exit 0
   printf '\nNormal GPU launch failed; retrying software rendering.\n' >>"$log"
   chromium --no-first-run --disable-default-apps --disable-dev-shm-usage \
+    --disable-gpu-shader-disk-cache \
     --disable-gpu --disable-software-rasterizer --disable-features=Vulkan \
     "$url" 2>>"$log" && exit 0
   exec ooonana-theme-env xterm -e sh -lc 'echo "Chromium failed:"; tail -80 "${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/chromium.log"; echo; echo "Log saved. Press Enter."; read _'
 fi
 if command -v chromium-browser >/dev/null 2>&1; then
-  exec chromium-browser "$url"
+  exec chromium-browser --disable-gpu-shader-disk-cache "$url"
 fi
 exec ooonana-theme-env xterm -e sh -lc 'echo "chromium missing"; echo "run: ooonana get chromium"; exec sh'
 EOF
@@ -4246,6 +4247,8 @@ EOF
 install_current_backend_checks() {
   # Cached first-party archives must not mask current backend/desktop fixes.
   local app="$ROOTFS/usr/lib/ooonana/openvino-chat" file
+  install -D -m 0644 "$ROOT/packages/ooonana/etc/chromium/zz-ooonana.conf" \
+    "$ROOTFS/etc/chromium/zz-ooonana.conf"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/cgroup_memory.py" \
     "$ROOTFS/usr/lib/ooonana/cgroup_memory.py"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/storage_health.py" \

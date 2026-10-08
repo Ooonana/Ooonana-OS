@@ -33,6 +33,7 @@ with tempfile.TemporaryDirectory() as temporary:
     os.environ["PATH"] = environment["PATH"]
     wm = subprocess.Popen(["i3", "-c", str(config)], env=environment, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     terminal, dock = None, None
+    terminal_log = tempfile.TemporaryFile()
     try:
         def connected():
             try:
@@ -40,9 +41,14 @@ with tempfile.TemporaryDirectory() as temporary:
             except (OSError, subprocess.SubprocessError):
                 return False
         wait(connected)
-        terminal = subprocess.Popen(["xterm", "-title", "Preview fixture", "-bg", "#101317", "-fg", "#f5f5f7", "-e", "sh", "-c", "printf 'Preview fixture'; sleep 120"], env=environment, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        terminal = subprocess.Popen(["xterm", "-title", "Preview fixture", "-bg", "#101317", "-fg", "#f5f5f7", "-e", "sh", "-c", "printf 'Preview fixture'; sleep 120"], env=environment, stdout=terminal_log, stderr=terminal_log)
         path = i3_events.socket_path()
-        wait(lambda: any(item[1] == "Preview fixture" for item in windows.windows(i3_events.request(path, 4))))
+        def terminal_ready():
+            if terminal.poll() is not None:
+                terminal_log.seek(0)
+                raise AssertionError("Xterm fixture exited: " + terminal_log.read().decode(errors="replace"))
+            return any(item[1] == "Preview fixture" for item in windows.windows(i3_events.request(path, 4)))
+        wait(terminal_ready)
         Gtk.IconTheme.get_default().append_search_path(str(root / "packages/ooonana/usr/share/icons/hicolor/scalable/apps"))
         apply_theme()
         dock = Dock(subscribe=False)
@@ -102,5 +108,7 @@ with tempfile.TemporaryDirectory() as temporary:
             dock.destroy()
         if terminal and terminal.poll() is None:
             terminal.terminate()
+            terminal.wait(timeout=5)
+        terminal_log.close()
         wm.terminate()
         wm.wait(timeout=5)

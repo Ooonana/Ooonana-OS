@@ -1,5 +1,17 @@
 # Current work - 2026-10-08
 
+## Latest remaining-work closure
+
+- PDF cold list now verifies one metadata snapshot instead of resolving builtin packages repeatedly; extra hash-splitting AWK processes removed. Signature/checksum/index-version/missing-checksum/external-source regressions passed. Node measurements: list ~130 -> 45s, sync ~86 -> 57s; not viewer guarantees. Rebuilt actual PDF passed full boot/input/Backspace/edit/version/sync in 107s; 116 fields and final rendering checked. Guide stays earlier candidate snapshot.
+- Reproduced real black Nemo overlay fills; RGBA visual selection before realize plus shape-damage redraw repaired them. All eleven isolated GUI probes passed together, including Geany/Nemo/Chromium composited frames/actions. Fresh candidate desktop/window captures inspected and README updated.
+- Chromium optional shader disk cache caused sandbox syscall crash; global config/current generated helper disable only that cache. Renderer/GPU kernel state confirms seccomp filtering and privilege lock; normal GPU selection/sandbox remain. Software Xvfb/WSL kernel evidence, not image-kernel browser or physical GPU certification.
+- Actual 6.18.37 disposable VM proved interrupted package upgrade/config rollback, wrong-password refusal/nonroot login, partition and full ext4/FAT file persistence fault/recovery paths. Dirty FAT refused unchanged, late handoff/corrupt-image cleanup passed, failed shutdown held through three rescue exits. Wrong installer BusyBox test seed lacked `blkid`; fixture now refuses incompatible seeds before boot. Unrelated guest USB hash unchanged; no host disk attached.
+- Replaced predictable PID checksum cache with private random directory; allocation failure refuses and privilege exec cannot leak caller cache. Symlink/cleanup/handoff, scratch applet, package/migration/interruption and final real upgrade rollback checks passed; rebuilt PDF/core package include guard.
+- Final PDF guard exposed missing TinyEMU `rdtime`/counter enable support. Architectural `time/timeh` reads now use the actual CLINT clock with machine/supervisor privilege checks; compiled width/permission/idempotence/refusal tests passed. No RNG bypass/native kernel rebuild. Final shipped suite passed in 87s; 116 fields and last render checked. Earlier 107s/timing observations above are historical measurements.
+- Broad unit/backend/kernel/boot/package fixtures passed; small current core package inspected. Installed Ooonana/stable remain 0.9.9; candidate 0.10.0 not promoted. Disk space blocks large rebuild/backup. WSL migration remains user-deferred, signing key local, no ISO/sound. [Complete pending list](remaining-closure-20261008.md).
+
+Entries below are historical; latest closure supersedes earlier Chromium/Nemo blockers and PDF timing results.
+
 ## PDF boot follow-up and remaining candidate gates
 
 - Previous shipped PDF did not hard-hang in reproduction: quiet init reached its prompt after about 170 seconds while an obsolete elapsed row stayed frozen. Fixed serial handoff/status, early boot-stage output, deterministic sequential RAM seed and RAM shell/backend use. Rebuilt bootable PDF plus guide; native prompt readiness passed. Actual shipped Node VM passed boot/stable input/native/virtual Backspace/middle edit/version/sync in 207 seconds under QA load. Real 500k-instruction cap reached prompt in 83 seconds. All 116 fields/appearances/blank input and rendered pages checked; Chromium viewer interaction remains manual because local navigation was denied, with no workaround.

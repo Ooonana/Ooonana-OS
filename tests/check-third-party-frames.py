@@ -21,6 +21,9 @@ parser.add_argument("app", choices=("geany", "nemo", "chromium"))
 parser.add_argument("output", type=Path)
 parser.add_argument("--csd", action="store_true")
 parser.add_argument("--compositor", action="store_true", help="Capture packaged rounding policy through private xrender compositor")
+parser.add_argument("--disable-shader-cache", action="store_true", help="QA-only Chromium disk-cache isolation, sandbox remains enabled")
+parser.add_argument("--gpu", action="store_true", help="Leave normal GPU selection enabled (device availability remains environment-dependent)")
+parser.add_argument("--url", default="about:blank", help="Private browser probe page")
 args = parser.parse_args()
 if os.environ.get("OOONANA_GUI_TEST_DISPLAY") != "1":
     raise SystemExit("Explicit isolated display required")
@@ -35,7 +38,10 @@ def drain():
 
 def wait(predicate):
     deadline = time.monotonic() + 30
-    while not predicate():
+    while True:
+        result = predicate()
+        if result:
+            return result
         drain()
         assert time.monotonic() < deadline, "Client/frame timeout"
         time.sleep(0.03)
@@ -55,6 +61,49 @@ def find_client():
     return visit(i3_events.request(i3_events.socket_path(), 4))
 
 
+def browser_sandboxes():
+    """Kernel state, not a command-line flag or version-specific internal page."""
+    states = {}
+    for process in browser_process_diagnostics():
+        kind = next((argument.removeprefix("--type=") for argument in process["arguments"].split()
+                     if argument.startswith("--type=")), "")
+        if kind in ("renderer", "gpu-process"):
+            states.setdefault(kind, []).append({"pid": process["pid"],
+                "seccomp": int(process["seccomp"]), "no_new_privs": int(process["no_new_privs"])})
+    return states
+
+
+def browser_process_diagnostics():
+    states = []
+    for process in Path("/proc").glob("[0-9]*"):
+        try:
+            status = dict(line.split(":", 1) for line in process.joinpath("status").read_text().splitlines() if ":" in line)
+            if "chrom" not in status.get("Name", "").lower():
+                continue
+            try:
+                arguments = process.joinpath("cmdline").read_bytes().replace(b"\0", b" ").decode(errors="replace")
+            except OSError as error:
+                arguments = str(error)
+            states.append({"pid": int(process.name), "ppid": status.get("PPid", "").strip(),
+                           "seccomp": status.get("Seccomp", "").strip(),
+                           "no_new_privs": status.get("NoNewPrivs", "").strip(), "arguments": arguments})
+        except OSError:
+            continue
+    return states
+
+
+def ready_browser_sandboxes():
+    # Newly forked renderers briefly precede sandbox initialization. Wait for
+    # the same nonempty snapshot to show actual filtering and privilege lock.
+    states = browser_sandboxes()
+    if not all(states.get(kind) for kind in ("renderer", "gpu-process")):
+        return None
+    if not all(state["seccomp"] == 2 and state["no_new_privs"] == 1
+               for group in states.values() for state in group):
+        return None
+    return states
+
+
 args.output.parent.mkdir(parents=True, exist_ok=True)
 with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, args.output.with_suffix(".log").open("w") as log:
     fixture = Path(temporary)
@@ -72,8 +121,15 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
         "geany": ["geany", "--new-instance", "--config=" + str(fixture / "geany")],
         "nemo": ["nemo", "--no-desktop", str(fixture)],
         "chromium": ["chromium", "--user-data-dir=" + str(fixture / "chromium"), "--no-first-run",
-                     "--disable-background-networking", "--disable-component-update", "--disable-gpu", "about:blank"],
+                     "--disable-background-networking", "--disable-component-update", "--password-store=basic",
+                     "--disable-gpu", "about:blank"],
     }[args.app]
+    if args.app == "chromium" and args.disable_shader_cache:
+        command.insert(-1, "--disable-gpu-shader-disk-cache")
+    if args.app == "chromium":
+        command[-1] = args.url
+        if args.gpu:
+            command.remove("--disable-gpu")
     wm = subprocess.Popen(["i3", "-c", str(config)], stdout=log, stderr=log)
     client = None
     manager = None
@@ -90,6 +146,13 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
                                           stdout=log, stderr=log)
         client = subprocess.Popen(command, env=environment, stdout=log, stderr=log, start_new_session=True)
         wait(find_client)
+        if args.app == "chromium":
+            try:
+                sandboxes = wait(ready_browser_sandboxes)
+            except AssertionError:
+                print("BROWSER_PROCESS_DIAGNOSTICS", json.dumps(browser_process_diagnostics()), flush=True)
+                raise
+            print("BROWSER_SANDBOX_STATE", json.dumps(sandboxes), flush=True)
         manager = Manager()
         manager.refresh()
         for _ in range(50):
@@ -135,6 +198,9 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
             Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(str(failed), "png", [], [])
             details = []
             for control in manager.controls.values():
+                local_pixels = Gdk.pixbuf_get_from_window(control.get_window(), 0, 0, WIDTH, control.get_size().height)
+                if local_pixels is not None:
+                    local_pixels.savev(str(args.output.with_name(args.output.stem + "-LOCAL.png")), "png", [], [])
                 for button in control.get_child().get_children():
                     origin = button.translate_coordinates(control, 0, 0)
                     x, y = control.get_position()

@@ -29,6 +29,9 @@ jobs:
           python3 -B tests/test-pdf-runtime-reuse.py
           python3 -B tests/test-native-pdf-probe.py
           python3 -B tests/test-pdf-vm-harness.py
+          python3 -B tests/test-pdf-time-csr.py
+          python3 -B tests/test-cli-query-fast.py
+          python3 -B tests/test-browser-policy.py
           python3 -B tests/test-window-list.py
           python3 -B tests/test-wallpaper-selection.py
           python3 -B tests/test-firefox-package.py

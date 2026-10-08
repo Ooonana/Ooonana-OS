@@ -15,13 +15,13 @@ Ooonana OS is a custom Linux distribution built from scratch around its own boot
 
 Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Linux, BusyBox, GRUB, i3, and other open-source components. Ooonana package factory currently imports selected Alpine package payloads into Ooonana `.pkg` repositories while native packages replace them over time.
 
-![Current Ooonana desktop with original wallpaper, left music, centered AI and blue browser icon](docs/assets/ooonana-desktop-20261008.png)
+![Candidate Ooonana desktop with original wallpaper, left music, centered AI and blue browser icon](docs/assets/ooonana-candidate-desktop-20261008.png)
 
-October 8 source desktop captured with real GTK/i3/Polybar on an isolated X11 display. Panel status uses sample data; wallpaper/dock are source assets. No audio played. Physical USB visuals require a fresh image. Earlier WSL screenshot remains in `docs/assets/ooonana-full-i3-desktop.png`.
+October 8 core 0.10.0 candidate captured with real GTK/i3/Polybar on a private, network-isolated X11 display. Panel status uses sample data, including a deliberately long Wi-Fi label; wallpaper/dock are source assets. No audio played. Physical USB visuals require a fresh image. Earlier stable/WSL captures remain in `docs/assets/`.
 
 Stable core 0.9.9 desktop refresh adds unboxed dock hover feedback, slimmer panel, open Appearance groups, blue globe browser icon and canonical wallpaper fitting. Component previews use isolated test windows, not physical USB boot.
 
-This branch stages **core 0.10.0**, a coherent Alpine v3.24 imported-userland candidate. Installed Ooonana WSL and stable package channel remain 0.9.9. Candidate GTK/UI and signed repository checks passed, but new Chromium sandbox crash blocks release; WSL migration is deferred. No ISO built. See [candidate status and remaining gates](docs/supported-base-20261008.md).
+This branch stages **core 0.10.0**, a coherent Alpine v3.24 imported-userland candidate. Installed Ooonana WSL and stable package channel remain 0.9.9. Chromium's optional shader disk cache triggered a syscall-sandbox crash; disabling that cache fixes isolated window tests without disabling sandbox or normal GPU selection. Kernel-reported renderer/GPU seccomp and privilege-lock checks passed. Full release rebuild, real-device/new-base session checks and WSL migration remain pending. No ISO built. See [latest closure and remaining gates](docs/remaining-closure-20261008.md).
 
 ![Current native Appearance settings](docs/assets/ooonana-appearance-20261008.png)
 
@@ -49,6 +49,8 @@ Stable 0.9.9 imported base targets Alpine 3.20, whose normal support ended April
 ![Current Chromium rounded frame with opaque circular window controls](docs/assets/ooonana-third-party-rounded.png)
 
 October 7 frame repair removes rectangular control-popup backing and clipped orange perimeter outlines. Orange focused title text remains; controls stay opaque. Current screenshot uses private Chromium profile, nested i3 and packaged xrender rounding policy with software browser rendering, not physical GPU validation. Geany/Nemo/Chromium window actions passed; remaining desktop checks are listed in [frontend coverage](docs/frontend-recheck-20261007.md).
+
+Latest candidate captures: [Nemo](docs/assets/ooonana-candidate-nemo-20261008.png), [Chromium](docs/assets/ooonana-candidate-chromium-20261008.png). Reproduced black controls repaired through correct popup visual/redraw; compositor/window actions and browser child sandbox-state checks passed. These private Xvfb captures are not physical-session proof.
 
 ![Native dock tooltip and bounded window preview](docs/assets/ooonana-dock-preview.png)
 
@@ -227,7 +229,7 @@ The bootable `docs/ooonana.pdf` has opaque graphite terminal/keyboard cards and 
 
 Boot progress now continues after kernel warnings instead of freezing at the first serial byte. Early console messages identify mount/seed/session stages; one sequential archive loads metadata and the interactive BusyBox shell into RAM. Actual shipped JavaScript passed boot/input/Backspace/version/package sync; a 500k-instruction/second Node fixture reached the prompt in 83 seconds. These are not Chromium viewer timings. Keep the PDF tab visible and wait for `ooonana#`; package list/sync can still take minutes. [Current PDF evidence and limits](docs/ooonana-pdf-os.md).
 
-Node VM benchmarks: bare `ooonana` 35.9 -> 2.4 seconds; package help 51.8 -> 3.0 seconds; list 63.4 seconds; actual sync 51.1 seconds. These are host Node timings, not browser promises; package operations remain comparatively slow. Latest boot/stable-input/native-and-virtual-Backspace/middle-edit/arithmetic/core-version/package-sync suite passed in 90 seconds. All 116 canonical widgets/actions were reopened and checked; Chromium interaction remains manual. Desktop/ISO payloads and the docs-only guide are unchanged.
+Latest October 8 Node VM pass: package list about 130 -> 45 seconds, sync about 86 -> 57 seconds, bare command 2.4 seconds. Cold builtin listing verifies one metadata snapshot rather than repeatedly resolving package versions; checksum/signature/version refusal remains tested. Private cache hardening exposed missing emulator `time` CSR support; reads now use the same clock as CLINT, with privilege gates intact. Final shipped boot/stable-input/native-and-virtual-Backspace/middle-edit/version/package-sync suite passed in 87 seconds. Benchmarks are host Node timings, not browser promises; package operations remain comparatively slow. All 116 canonical widgets/actions and final rendering were checked; Chromium PDF interaction remains manual. Docs-only guide remains an earlier candidate snapshot.
 
 Backend pass adds verified repository generations, signed metadata, preserved custom `/etc` files, post-upgrade health checks with automatic payload rollback, retained core/kernel checkpoints, explicit major-update approval, security-update markings, and reboot status. Native **Health** and **Updates** apps provide on-demand diagnostics and upgrade review. Diskless login VM passed password rejection/authentication and UID-1000 desktop handoff; physical Xorg/hardware and model inference remain separate gates. OpenVINO Chat 0.2.1 uses complete hash-locked Linux wheels plus a pinned Ubuntu image/APT snapshot. Private signing key stays local by choice. This pass does not build an ISO.
 

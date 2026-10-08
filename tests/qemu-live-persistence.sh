@@ -50,6 +50,16 @@ gzip -dc "$SEED_INITRAMFS" | (
     './lib/libc.musl-x86_64.so.1' 'lib/libc.musl-x86_64.so.1'
 )
 [[ -x "$tmp/rootfs/bin/busybox" ]] || fail 'seed BusyBox missing'
+# An installer seed can carry a host BusyBox without storage applets. Reject
+# that fixture before QEMU rather than misreporting a production USB boot bug.
+if [[ -x "$tmp/rootfs/lib/ld-musl-x86_64.so.1" ]]; then
+  seed_applets="$("$tmp/rootfs/lib/ld-musl-x86_64.so.1" --library-path "$tmp/rootfs/lib" "$tmp/rootfs/bin/busybox" --list)" || fail 'seed BusyBox cannot execute'
+else
+  seed_applets="$("$tmp/rootfs/bin/busybox" --list)" || fail 'seed BusyBox cannot execute'
+fi
+for applet in blkid losetup mdev switch_root pivot_root flock; do
+  grep -qx "$applet" <<<"$seed_applets" || fail "seed BusyBox missing $applet; use full live/candidate seed"
+done
 mkdir -p "$tmp/rootfs/etc/ooonana" "$tmp/rootfs/etc/init.d" "$tmp/rootfs/usr/bin" "$tmp/rootfs/sbin" "$tmp/rootfs/root"
 if [[ -n "$FORMAT_ROOTFS" ]]; then
   [[ -x "$FORMAT_ROOTFS/sbin/mke2fs" ]] || fail 'format rootfs must contain bundled mke2fs'
