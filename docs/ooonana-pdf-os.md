@@ -7,9 +7,9 @@ Current 0.6 build is based on [ading2210/linuxpdf](https://github.com/ading2210/
 - PDF JavaScript runs TinyEMU.
 - TinyEMU boots a RISC-V Linux kernel.
 - The PDF exposes a real 80x30 serial terminal plus on-page keyboard controls.
-- Boot uses accelerated VM batches and shows live elapsed time before kernel logs.
+- Boot uses bounded VM batches; elapsed time stays live after kernel logs too.
 - Chromium PDF viewer is the main target.
-- Native RISC-V64 Linux 6.18.37 / static BusyBox 1.37.0 rootfs carries Ooonana package manager 0.9.9 and current logo/help.
+- Native RISC-V64 Linux 6.18.37 / static BusyBox 1.37.0 rootfs carries candidate package manager 0.10.0 and current logo/help.
 - Boot console prints `OOONANA_PDF_BOOT_OK` after Ooonana init starts.
 - Opaque graphite cards, orange monospaced terminal, rounded keyboard controls and a blank command input with Run / Enter; redundant input hints removed.
 - The upstream one-second input-reset interval is removed from embedded JavaScript, not merely the initial widget appearance. Input remains editable without periodic replacement.
@@ -62,7 +62,7 @@ That writes `docs/ooonana-guide.pdf`.
 
 - Native Linux/BusyBox build manifests, JavaScript VM boot/input/version/package-sync tests and static form/render checks are included. Chromium interaction remains manual/pending; automation availability is not proof of viewer behavior.
 - PDF payload carries only portable CLI/comparator/help/logo, base metadata, source configs and public trust keys. Desktop GTK/Python/icons/wallpapers/installer/WSL extras and unsupported AI/dev/GUI bundles are excluded. Base indexes/checksums are rebuilt consistently; real package checksum/signature verification is unchanged.
-- Real CLI backend, help and repository inputs are copied by explicit names into bounded tmpfs, avoiding repeated 9p reads/enumeration. Dirty terminal rows paint at most 20 Hz with cached widget references; VM batches have a 12 ms deadline and 32-call cap. Loader diagnostics no longer update invisible form fields.
+- Real CLI backend, help, trust/source inputs and BusyBox shell enter bounded tmpfs through one deterministic seed archive, avoiding per-file runtime 9p opens/copies. Early console handoff reports mount/seed/session stages. Package backend bytes and verification stay unchanged. Dirty terminal rows paint at most 20 Hz with cached widget references; VM batches have a 12 ms deadline and 32-call cap. Loader diagnostics no longer update invisible form fields.
 - All 116 canonical widgets were reopened with matching values/appearances/actions; the final static layout was inspected. PDF size fell about 7%; payload root about 35%.
 - Regression checks now run the embedded script beyond its old one-second reset deadline and exercise both native and virtual Backspace through guest shell commands. Fixture checks cover tail replacement, middle selection positioning and Delete past end.
 - Add release artifact upload for `ooonana.pdf`.
@@ -85,7 +85,12 @@ October 5 host Node VM measurements (not browser timings):
 | `ooonana list` | exceeded 240 s | 63.4 s |
 | `ooonana update` | prior native boot/input/sync suite passed | 51.1 s command |
 
-Latest rebuilt boot/stable-input/native-and-virtual-Backspace/middle-edit/arithmetic/version/package-sync suite passed in 90 seconds.
+October 8 follow-up: the previous shipped PDF reached a prompt after about 170 seconds on a slow host; first serial output froze its displayed boot row, so quiet init looked stalled. Rebuilt PDF removes that obsolete row and keeps elapsed/status updates alive until userspace readiness. Actual shipped page-open code (not only cached compiled JS) passed boot, stable input, native/virtual Backspace, middle editing, version and package sync in 207 seconds under concurrent QA load. A genuine 500,000 interpreted-instruction/second cap reached the prompt in 83 seconds. Timings are host Node VM measurements, not browser guarantees.
+
+Shipped-code benchmark under QA load: bare command 5.070s, topic help 6.457s, version 4.201s, list 129.932s, sync 86.228s. Package operations remain slow; RAM caching is not a complete solution. PDF grew to about 6.9 MiB because the seed archive duplicates shell/metadata bytes for faster sequential startup.
+
+The harness now reads page-open JavaScript and canonical fields from the actual PDF. Optional QA observation/rate hooks capture lexical bindings inside its try/catch wrapper, not merely Annex-B global aliases; a fixture verifies both paths. These hooks are injected only in the Node test context, never into the delivered PDF. `scripts/inspect-pdf-runtime.py` requires `pypdf`; select Python through `OOONANA_PDF_PYTHON`, or pipe its JSON output into the harness using `-`. Native probe requires both boot marker and prompt; panic/timeout fails and its owned child is always reaped.
+
 Actual package sync passes, but package operations still cost much more than simple
 help/version. Browser field IPC and machine speed can change latency; measure the
 user's Chromium viewer separately before claiming the two-minute issue resolved.
@@ -107,4 +112,4 @@ Chrome smoke:
 powershell -ExecutionPolicy Bypass -File scripts/test-ooonana-pdf-chrome.ps1
 ```
 
-The screenshot output is `docs/ooonana-pdf-chrome-smoke.png`.
+The screenshot output is `docs/ooonana-pdf-chrome-smoke.png`. Do not run this as a workaround when browser policy denies local PDF navigation. Current session's viewer check remains manual.

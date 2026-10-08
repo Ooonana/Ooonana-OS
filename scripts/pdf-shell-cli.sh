@@ -23,4 +23,7 @@ case "${1:-}" in
 esac
 backend=/run/ooonana/usr/bin/ooonana-pkg
 [ -f "$backend" ] || backend=/usr/bin/ooonana-pkg
+if [ -x /run/ooonana/bin/sh ]; then
+  exec /run/ooonana/bin/sh "$backend" "$@"
+fi
 exec /bin/sh "$backend" "$@"

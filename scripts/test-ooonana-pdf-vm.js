@@ -2,19 +2,31 @@
 
 const fs = require("fs");
 const vm = require("vm");
+const path = require("path");
+const { execFileSync } = require("child_process");
 
 const compiled = process.argv[2];
 const timeoutMs = Number(process.argv[3] || 90000);
-if (!compiled || !fs.existsSync(compiled)) {
-  console.error("usage: test-ooonana-pdf-vm.js COMPILED_JS [TIMEOUT_MS]");
+if (!compiled || (compiled !== "-" && !fs.existsSync(compiled))) {
+  console.error("usage: test-ooonana-pdf-vm.js COMPILED_JS|PDF|- [TIMEOUT_MS]");
   process.exit(2);
 }
 
 const fields = new Map();
+let shipped;
+if (compiled === "-") {
+  shipped = JSON.parse(fs.readFileSync(0, "utf8"));
+} else if (compiled.toLowerCase().endsWith(".pdf")) {
+  shipped = JSON.parse(execFileSync(process.env.OOONANA_PDF_PYTHON || "python3",
+    [path.join(__dirname, "inspect-pdf-runtime.py"), compiled],
+    { encoding: "utf8", maxBuffer: 32 * 1024 * 1024 }));
+}
 let fieldWrites = 0;
 function getField(name) {
+  if (shipped && !Object.hasOwn(shipped.fields, name))
+    throw new Error(`Missing shipped PDF field: ${name}`);
   if (!fields.has(name)) {
-    let value = "";
+    let value = shipped ? shipped.fields[name] : "";
     fields.set(name, {
       get value() { return value; },
       set value(next) {
@@ -61,7 +73,47 @@ function terminalText() {
   return rows.join("\n");
 }
 
-vm.runInContext(fs.readFileSync(compiled, "utf8"), sandbox, { filename: compiled });
+// PDF page-open code wraps functions in try/catch. Those block bindings are
+// distinct from Annex-B global aliases: assigning sandbox.terminal_write alone
+// cannot observe real serial writes. Capture lexical setters for QA hooks only.
+let bindWrite, bindTick;
+sandbox.__ooonana_pdf_bind = (write, tick) => { bindWrite = write; bindTick = tick; };
+let source = shipped ? shipped.script : fs.readFileSync(compiled, "utf8");
+if (shipped) {
+  const suffix = "} catch (e) {app.alert(e.stack || e)}";
+  if (!source.startsWith("try {") || !source.endsWith(suffix))
+    throw new Error("Unrecognized shipped PDF wrapper; refusing instrumentation");
+  source = source.slice(0, -suffix.length) + `
+__ooonana_pdf_bind(
+  function(wrap) { terminal_write = wrap(terminal_write); },
+  function(wrap) { machine_tick = wrap(machine_tick); }
+);
+` + suffix;
+}
+vm.runInContext(source, sandbox, { filename: compiled });
+bindWrite ||= wrap => { sandbox.terminal_write = wrap(sandbox.terminal_write); };
+bindTick ||= wrap => { sandbox.machine_tick = wrap(sandbox.machine_tick); };
+// Constrain interpreted instructions while retaining real wall-clock timers.
+// This exposes interrupt starvation that fast developer machines can hide.
+const maxIps = Number(process.env.OOONANA_PDF_MAX_IPS || 0);
+if (maxIps > 0) {
+  let run, tokens = 0, previous = Date.now();
+  bindTick(tick => function (pointer) {
+    if (!run) {
+      run = sandbox._virt_machine_run;
+      sandbox._virt_machine_run = function (machine) {
+        const now = Date.now();
+        tokens = Math.min(200000, tokens + (now - previous) * maxIps / 1000);
+        previous = now;
+        if (tokens < 100000) return 0;
+        const instructions = run(machine);
+        tokens -= instructions;
+        return instructions;
+      };
+    }
+    return tick(pointer);
+  });
+}
 let inputStable = false;
 getField("key_input").value = "PDF_INPUT_STABILITY_TEST";
 setTimeout(() => {
@@ -76,11 +128,10 @@ setTimeout(() => {
 const benchmark = process.env.OOONANA_PDF_BENCHMARK === "1";
 let serialLog = "";
 if (benchmark) {
-  const write = sandbox.terminal_write;
-  sandbox.terminal_write = function (text, serial = false) {
+  bindWrite(write => function (text, serial = false) {
     if (serial) serialLog = (serialLog + text).slice(-65536);
     return write(text, serial);
-  };
+  });
 }
 const commands = [
   ["bare", "ooonana", "Usage: ooonana"],
@@ -107,6 +158,11 @@ let diagnosticAt = Date.now();
 const monitor = setInterval(() => {
   const output = terminalText();
   if (benchmark) {
+    if (process.env.OOONANA_PDF_DEBUG === "1" && Date.now() - diagnosticAt > 15000) {
+      diagnosticAt = Date.now();
+      console.error(`PDF benchmark: ${phase}; ${Date.now() - startedAt}ms; ${getField("speed_indicator").value}`);
+      console.error(output.slice(-600));
+    }
     const completed = commandIndex >= 0 &&
       serialLog.includes(`\nPDF_BENCH_${commandIndex}_DONE\r\n`);
     if (completed) {
@@ -149,6 +205,11 @@ const monitor = setInterval(() => {
   if (output.includes("Kernel panic") || output.includes("Function not implemented") || output.includes("can't rename")) {
     console.error(output);
     process.exit(1);
+  }
+  if (process.env.OOONANA_PDF_START_ONLY === "1" &&
+      output.includes("OOONANA_PDF_BOOT_OK") && output.includes("ooonana# ")) {
+    console.log(`PASS shipped boot: ${Date.now() - startedAt}ms; max IPS=${maxIps || "unlimited"}`);
+    process.exit(0);
   }
   if (!sentInput && inputStable && output.includes("OOONANA_PDF_BOOT_OK")) {
     phase = "keyboard-input";

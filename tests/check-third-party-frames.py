@@ -112,14 +112,39 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
                         return False
                     x, y = control.get_position()
                     pixels = Gdk.pixbuf_get_from_window(root, x + origin[0] + 3,
-                                                       y + origin[1] + button.get_allocated_height() // 2,
-                                                       1, 1)
-                    if pixels is None or any(abs(actual - target) > 35
-                                             for actual, target in zip(pixels.get_pixels()[:3], color)):
+                                                       y + origin[1] + 3,
+                                                       button.get_allocated_width() - 6,
+                                                       button.get_allocated_height() - 6)
+                    if pixels is None:
+                        return False
+                    # Fullscreen glyph crosses the old single-pixel probe.
+                    # Require painted fill area, not a specific glyph pixel.
+                    data = pixels.get_pixels()
+                    stride, channels = pixels.get_rowstride(), pixels.get_n_channels()
+                    matches = sum(all(abs(data[row * stride + column * channels + channel] - target) <= 35
+                        for channel, target in enumerate(color))
+                        for row in range(pixels.get_height()) for column in range(pixels.get_width()))
+                    if matches < 12:
                         return False
             return True
         Gdk.Display.get_default().sync()
-        wait(controls_painted)
+        try:
+            wait(controls_painted)
+        except AssertionError:
+            failed = args.output.with_name(args.output.stem + "-FAILED.png")
+            Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(str(failed), "png", [], [])
+            details = []
+            for control in manager.controls.values():
+                for button in control.get_child().get_children():
+                    origin = button.translate_coordinates(control, 0, 0)
+                    x, y = control.get_position()
+                    pixels = Gdk.pixbuf_get_from_window(root, x + origin[0] + 3,
+                        y + origin[1] + button.get_allocated_height() // 2, 1, 1)
+                    details.append({"position": [x, y], "origin": list(origin),
+                        "size": [button.get_allocated_width(), button.get_allocated_height()],
+                        "pixel": list(pixels.get_pixels()[:3])})
+            print("FAILED frame pixels:", json.dumps(details), flush=True)
+            raise
         Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(str(args.output), "png", [], [])
         record = {"app": args.app, "csd": args.csd, "compositor": args.compositor, "deco": node["deco_rect"], "rect": node["rect"],
                   "properties": properties, "controls": {str(k): list(v.get_size()) for k, v in manager.controls.items()}}

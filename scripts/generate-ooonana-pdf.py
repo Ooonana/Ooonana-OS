@@ -135,6 +135,7 @@ def build_lines() -> list[str]:
         "Bootable PDF",
         "docs/ooonana.pdf uses native RISC-V64 Linux 6.18.37 and BusyBox 1.37.0. Embedded VM boot, stable input, native/virtual Backspace, version and package sync passed. Actual Chromium PDF interaction remains a manual gate.",
         "RV64 JavaScript emulator clock is scaled down 16x for CPU progress. Guest time is slower than real time. This terminal PDF is not the x86 i3 desktop.",
+        "Boot status updates after kernel warnings. A sequential RAM seed replaces per-file boot copying; the interactive shell and package backend use RAM. Keep the PDF tab visible. Slow viewers may need several minutes; wait for ooonana# before typing.",
         "docs/ooonana-lite.pdf is a legacy artifact, not the current optimized runtime.",
         "",
         "Persistence maintenance",

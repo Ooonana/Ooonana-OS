@@ -11,7 +11,7 @@ optimizer = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(optimizer)
 fixture = '''var lines = [], terminal_height = 2, terminal_lines = ["", ""];
 var terminal_rendered = [null, null], terminal_dirty = 0;
-var vm_serial_seen = true, vm_started_at = 0, total_instrs = 0, last_updated = 0;
+var vm_serial_seen = true, vm_boot_complete = false, vm_started_at = 0, total_instrs = 0, last_updated = 0;
 var input_bytes = "", input_timers = [];
 function set_interval(callback, interval) { input_timers.push(callback); }
 function queue_console_text(text) { input_bytes += text; }
@@ -31,7 +31,7 @@ function print_msg(msg) {
 function render_terminal() {
   globalThis.getField("field_0").value = terminal_lines[0];
 }
-function terminal_write(str, serial_output = false) {
+function terminal_write(str, serial_output = false) { // OOONANA_SERIAL_TERMINAL
   let saw_newline = str.includes("\\n");
   terminal_lines[0] += str;
   terminal_dirty += str.length;
@@ -96,6 +96,18 @@ button_down("Backspace");
 if (input_bytes !== "\\x7f" || input.value !== "echo abc") throw Error("Virtual Backspace failed");
 button_down("Enter");
 if (input_bytes !== "\\x7f\\r" || input.value !== "") throw Error("Virtual Enter failed");
+let ui = {speed_indicator: {value: ""}, key_status: {value: ""}};
+globalThis.getField = name => ui[name];
+clock = 5000; machine_tick(0);
+if (!ui.speed_indicator.value.startsWith("Boot: 5s") ||
+    !ui.key_status.value.startsWith("Booting Linux")) throw Error("Serial warning froze heartbeat");
+vm_boot_complete = true; clock = 7000; machine_tick(0);
+if (!ui.speed_indicator.value.startsWith("Speed:") ||
+    ui.key_status.value !== "Keyboard ready") throw Error("Ready status missing");
+vm_serial_seen = false;
+terminal_lines[1] = "Booting kernel... 13s";
+terminal_write("kernel warning", true);
+if (terminal_lines[1].includes("13s")) throw Error("Obsolete boot row remains");
 console.log("ok pdf-runtime: stable input, native/virtual Backspace, batched fields, 20Hz paint, CPU bounds, idempotence");
 '''
     subprocess.run(["node", "-e", first + checks], check=True)

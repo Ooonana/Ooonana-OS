@@ -1,5 +1,12 @@
 # Current work - 2026-10-08
 
+## PDF boot follow-up and remaining candidate gates
+
+- Previous shipped PDF did not hard-hang in reproduction: quiet init reached its prompt after about 170 seconds while an obsolete elapsed row stayed frozen. Fixed serial handoff/status, early boot-stage output, deterministic sequential RAM seed and RAM shell/backend use. Rebuilt bootable PDF plus guide; native prompt readiness passed. Actual shipped Node VM passed boot/stable input/native/virtual Backspace/middle edit/version/sync in 207 seconds under QA load. Real 500k-instruction cap reached prompt in 83 seconds. All 116 fields/appearances/blank input and rendered pages checked; Chromium viewer interaction remains manual because local navigation was denied, with no workaround.
+- Fixed QA observation hooks for lexical functions inside page-open try/catch; serial benchmarks and instruction caps now reach actual runtime bindings. Source fixture tests catch alias-only instrumentation. Native probe checks prompt, panic and bounded timeout, and reaps its owned guest. Package list remains slow (130s in loaded Node benchmark); sync took 86s. Larger PDF seed trades about 1.6 MiB for sequential startup.
+- Nemo capture now passes actual packaged compositor and minimize/restore/fullscreen/restore/move/close. Earlier single-pixel readiness sampled the fullscreen glyph rather than green fill; area-based validation keeps rejecting unpainted controls. Latest capture inspected without black controls/bottom strip. No speculative production redraw change or compositor/sandbox disable.
+- Service readiness, update/config safety, interrupted upgrade/retry, offline migration, native UI source and kernel policy/source checks passed again. Chromium sandbox crash remains release blocker; no newer v3.24 Chromium package found in current upstream index. Installed WSL migration stays user-deferred; no ISO, sound, key enrollment or stable promotion. [Full remaining list](supported-base-20261008.md#release-blockers--remaining-work).
+
 ## Supported-base candidate and cleanup
 
 - Work continues on `codex/supported-base-0-10`, core 0.10.0 with coherent Alpine v3.24 imported payloads. Installed Ooonana WSL, stable main/update endpoint and valid historical generations remain 0.9.9. No Ubuntu conversion, live libc replacement or ISO build.

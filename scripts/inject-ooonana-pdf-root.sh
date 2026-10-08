@@ -98,6 +98,17 @@ if [[ -f "$TARGET_ROOT/usr/lib/ooonana/repo/base.pkg" ]]; then
   cp "$TARGET_ROOT/usr/lib/ooonana/repo/base.pkg" "$TARGET_ROOT/var/lib/ooonana/packages/installed/base.pkg"
 fi
 
+# One sequential read replaces many 9p opens/forks during boot. Exact source,
+# trust and package bytes stay intact; no previous runtime/user data enters it.
+tar --format=ustar --sort=name --mtime=@0 --owner=0 --group=0 \
+  -cf "$TARGET_ROOT/usr/share/ooonana/pdf-seed.tar" -C "$TARGET_ROOT" \
+  --transform='s,^usr/share/ooonana/pdf-help/,help/,' \
+  --transform='s,^etc/ooonana/sources.d,sources.d,' \
+  --transform='s,^var/lib/ooonana/packages/,state/,' \
+  --files-from="$TARGET_ROOT/etc/ooonana/pdf-runtime-seeds" \
+  usr/bin/ooonana bin/busybox bin/sh etc/ooonana/sources.d \
+  var/lib/ooonana/packages/installed/base.pkg
+
 cat > "$TARGET_ROOT/etc/os-release" <<'EOF'
 NAME="Ooonana OS"
 ID=ooonana
@@ -143,7 +154,13 @@ export PS1='ooonana# '
 
 mkdir -p /dev /proc /sys
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
-mount -a 2>/dev/null || true
+# Show progress before any metadata seeding, not only after all slow 9p IO.
+if [ -c /dev/hvc1 ]; then
+  exec </dev/hvc1 >/dev/hvc1 2>&1
+elif [ -c /dev/hvc0 ]; then
+  exec </dev/hvc0 >/dev/hvc0 2>&1
+fi
+printf '\nPDF boot: mounting RAM filesystems\n'
 mount -t proc proc /proc 2>/dev/null || true
 mount -t sysfs sysfs /sys 2>/dev/null || true
 mkdir -p /tmp /run /dev/shm
@@ -157,28 +174,13 @@ export OOONANA_CACHE_DIR=/run/ooonana/cache
 export OOONANA_STATE_DIR=/run/ooonana/state
 export OOONANA_REPO_DIR=/run/ooonana/usr/lib/ooonana/repo
 mkdir -p "$OOONANA_SOURCES_DIR" "$OOONANA_CACHE_DIR" "$OOONANA_STATE_DIR/installed"
-while IFS= read -r relative; do
-  directory="${relative%/*}"
-  mkdir -p "/run/ooonana/$directory"
-  cp "/$relative" "/run/ooonana/$relative" || exit 1
-done < /etc/ooonana/pdf-runtime-seeds
-mkdir -p /run/ooonana/help
-for topic in packages get upgrade remove repo ai; do
-  cp "/run/ooonana/usr/share/ooonana/pdf-help/$topic" "/run/ooonana/help/$topic" || exit 1
-done
-while IFS= read -r source_name; do
-  [ -n "$source_name" ] || continue
-  cp "/etc/ooonana/sources.d/$source_name" "$OOONANA_SOURCES_DIR/$source_name" || exit 1
-done < /etc/ooonana/pdf-source-seeds
-if [ -f /var/lib/ooonana/packages/installed/base.pkg ]; then
-  cp /var/lib/ooonana/packages/installed/base.pkg "$OOONANA_STATE_DIR/installed/base.pkg"
+printf 'PDF boot: loading shell and package metadata into RAM\n'
+if ! tar -xf /usr/share/ooonana/pdf-seed.tar -C /run/ooonana; then
+  printf 'PDF boot failed: RAM seed extraction; restart PDF\n'
+  exit 1
 fi
-if [ -c /dev/hvc1 ]; then
-  # Native kernel exposes legacy SBI console first; keyboard FIFO is virtio.
-  exec </dev/hvc1 >/dev/hvc1 2>&1
-elif [ -c /dev/hvc0 ]; then
-  exec </dev/hvc0 >/dev/hvc0 2>&1
-fi
+export PATH=/run/ooonana/bin:/run/ooonana/usr/bin:$PATH
+printf 'PDF boot: starting interactive console\n'
 hostname ooonana-pdf 2>/dev/null || true
 ifconfig lo 127.0.0.1 2>/dev/null || true
 
@@ -196,9 +198,9 @@ while /bin/true; do
   echo "OOONANA_PDF_BOOT_OK"
   echo "Run: ooonana help"
   if command -v cttyhack >/dev/null 2>&1; then
-    setsid cttyhack sh
+    setsid cttyhack /run/ooonana/bin/sh
   else
-    setsid sh
+    setsid /run/ooonana/bin/sh
   fi
 done
 EOF

@@ -27,6 +27,8 @@ jobs:
           python3 -B tests/test-panel-session.py
           python3 -B tests/test-installed-wsl-update.py
           python3 -B tests/test-pdf-runtime-reuse.py
+          python3 -B tests/test-native-pdf-probe.py
+          python3 -B tests/test-pdf-vm-harness.py
           python3 -B tests/test-window-list.py
           python3 -B tests/test-wallpaper-selection.py
           python3 -B tests/test-firefox-package.py
