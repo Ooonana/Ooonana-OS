@@ -23,7 +23,7 @@ ci-smoke:
   image: alpine:3.24
   stage: check
   before_script:
-    - apk add --no-cache bash python3 diffutils findutils tar gzip coreutils git
+    - apk add --no-cache bash python3 diffutils findutils tar gzip coreutils git openssl
   script:
     - echo "Ooonana GitLab CI active"
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-release-repo.py

@@ -16,4 +16,7 @@ smoke = source.split("\nci-smoke:\n", 1)[1].split("\ndeploy-package-repo:\n", 1)
 if "test-pdf-runtime-reuse.py" in smoke:
     smoke_packages = set(re.search(r"apk add --no-cache ([^\n]+)", smoke)[1].split())
     assert "findutils" in smoke_packages, "PDF runtime injection needs GNU find -printf"
+if "test-cli-query-fast.py" in smoke:
+    smoke_packages = set(re.search(r"apk add --no-cache ([^\n]+)", smoke)[1].split())
+    assert "openssl" in smoke_packages, "Signed query fixtures require OpenSSL CLI"
 print("ok gitlab-ci dependencies and atomic publication")
