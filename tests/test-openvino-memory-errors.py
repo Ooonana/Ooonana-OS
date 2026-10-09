@@ -115,4 +115,49 @@ with patch.object(engine, "preflight_model", return_value=report):
         assert not isinstance(failure, MemoryError) and str(failure) == "unsupported layer"
     assert calls == ["GPU", "CPU"]
 
-print("ok openvino-memory-errors: JSON/SSE, healthy server, CPU fallback, no OOM retry")
+class GenerationPipeline:
+    def __init__(self, failures):
+        self.failures = iter(failures)
+        self.calls = 0
+
+    def generate(self, inputs, **kwargs):
+        self.calls += 1
+        failure = next(self.failures)
+        if failure is not None:
+            raise failure
+        return "recovered"
+
+
+for failure in (MemoryError("allocation failed"), RuntimeError("std::bad_alloc"),
+                RuntimeError("cl_out_of_resources"),
+                RuntimeError("grammar parser error: out of memory")):
+    pipeline = GenerationPipeline([failure, None])
+    chat_engine = engine.OpenVinoChatEngine(pipeline, "CPU")
+    try:
+        chat_engine._generate_input("hello", prompt_text="hello", max_new_tokens=4,
+                                    structured_output_config=object())
+        raise AssertionError("Generation OOM did not propagate")
+    except MemoryError as error:
+        assert error.__cause__ is failure
+        assert "Reduce context/output length" in str(error)
+    assert pipeline.calls == 1  # OOM must not trigger grammar retry.
+    assert chat_engine.generate("hello", max_new_tokens=4) == "recovered"
+
+pipeline = GenerationPipeline([RuntimeError("grammar parser error"), RuntimeError("std::bad_alloc")])
+chat_engine = engine.OpenVinoChatEngine(pipeline, "CPU")
+try:
+    chat_engine._generate_input("hello", prompt_text="hello", max_new_tokens=4,
+                                structured_output_config=object())
+    raise AssertionError("Retry OOM did not propagate")
+except MemoryError:
+    pass
+assert pipeline.calls == 2
+
+pipeline = GenerationPipeline([RuntimeError("unsupported layer")])
+try:
+    engine.OpenVinoChatEngine(pipeline, "CPU").generate("hello", max_new_tokens=4)
+    raise AssertionError("Unrelated generation error swallowed")
+except RuntimeError as error:
+    assert str(error) == "unsupported layer" and not isinstance(error, MemoryError)
+
+print("ok openvino-memory-errors: JSON/SSE, healthy server, CPU fallback, generation/fallback OOM, no OOM retry")

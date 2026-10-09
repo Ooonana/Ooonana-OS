@@ -26,7 +26,9 @@ if 'info' in sys.argv and os.environ.get('MISSING') == '1':
     (work / "id").chmod(0o755)
     (work / "notify-send").write_text('#!/bin/sh\nexit 0\n')
     (work / "notify-send").chmod(0o755)
-    env = {**os.environ, "PATH": str(work) + ":" + os.environ['PATH'], "CALLS": str(log)}
+    mode_file = work / 'persistence-mode'
+    env = {**os.environ, "PATH": str(work) + ":" + os.environ['PATH'], "CALLS": str(log),
+           "OOONANA_LIVE_MODE_FILE": str(mode_file), "OOONANA_FIREFOX_ALLOW_VOLATILE": '0'}
     def run(*args, **overrides):
         log.write_text('')
         result = subprocess.run(['sh', str(launcher), *args], env={**env, **overrides}, capture_output=True, text=True)
@@ -42,10 +44,36 @@ if 'info' in sys.argv and os.environ.get('MISSING') == '1':
     assert result.returncode and not any('run' in call for call in calls)
     assert run('status', 'unexpected')[0].returncode == 2
     assert run('update')[1][-1] == ['--user', 'update', 'org.mozilla.firefox']
+    for mode in ('ram', 'usb-temporary', '', 'invalid'):
+        mode_file.write_text(mode + '\n')
+        for operation in ('setup', 'update'):
+            result, calls = run(operation)
+            assert result.returncode and not calls, (mode, operation, calls)
+        # Queries and already installed browser launches do not download.
+        assert run('status')[0].returncode == 0
+        assert run('run')[0].returncode == 0
+    for mode in ('ram', 'usb-temporary'):
+        mode_file.write_text(mode + '\n')
+        for operation in ('setup', 'update'):
+            result, calls = run(operation, OOONANA_FIREFOX_ALLOW_VOLATILE='1')
+            assert result.returncode == 0 and 'WARNING' in result.stderr
+    mode_file.write_text('usb\n')
+    assert run('setup')[0].returncode == 0
+    assert run('update')[0].returncode == 0
+    mode_file.unlink()
+    mode_file.mkdir()  # Present but unreadable as a mode file: fail closed.
+    for operation in ('setup', 'update'):
+        result, calls = run(operation)
+        assert result.returncode and not calls
+    mode_file.rmdir()
+    mode_file.symlink_to(work / 'missing-mode')
+    for operation in ('setup', 'update'):
+        result, calls = run(operation)
+        assert result.returncode and not calls
     repo = work / 'repo'
     subprocess.run(['bash', str(ROOT / 'scripts/build-firefox-package.sh'), '--out-dir', str(repo)], check=True)
     archive = repo / 'archives/firefox-1.0.0.tar.gz'
     original = archive.read_bytes()
     subprocess.run(['bash', str(ROOT / 'scripts/build-firefox-package.sh'), '--out-dir', str(repo)], check=True)
     assert archive.read_bytes() == original
-print('ok firefox launcher: explicit user setup, remote guard, argv, missing runtime, reproducible package')
+print('ok firefox launcher: user setup, live-storage guard, remote guard, argv, reproducible package')

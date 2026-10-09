@@ -45,7 +45,17 @@ if [ "$DRY_RUN" -eq 1 ]; then
 fi
 
 live_mode_file="${OOONANA_LIVE_MODE_FILE:-/mnt/ooonana-live/persistence-mode}"
-live_mode="$(cat "$live_mode_file" 2>/dev/null || true)"
+live_mode=""
+if [ -e "$live_mode_file" ] || [ -L "$live_mode_file" ]; then
+  live_mode="$(cat "$live_mode_file")" || {
+    printf 'openvino setup: cannot read live storage mode; refusing download.\n' >&2
+    exit 1
+  }
+  case "$live_mode" in
+    usb|ram|usb-temporary) ;;
+    *) printf 'openvino setup: unknown live storage mode; refusing download.\n' >&2; exit 1 ;;
+  esac
+fi
 case "$live_mode" in
   ram|usb-temporary)
     if [ "${OOONANA_OPENVINO_ALLOW_VOLATILE:-0}" != 1 ]; then

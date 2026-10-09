@@ -146,6 +146,21 @@ if setup_rejection="$(OOONANA_LIVE_MODE_FILE="$tmp/live-mode" sh "$PAYLOAD/usr/b
   fail "OpenVINO setup accepted temporary live storage"
 fi
 assert_contains "$setup_rejection" 'vanish on reboot'
+for invalid_mode in '' invalid; do
+  printf '%s\n' "$invalid_mode" >"$tmp/live-mode-invalid"
+  if setup_rejection="$(OOONANA_LIVE_MODE_FILE="$tmp/live-mode-invalid" OOONANA_OPENVINO_ALLOW_VOLATILE=1 sh "$PAYLOAD/usr/bin/ooonana-openvino-setup" 2>&1)"; then
+    fail "OpenVINO setup accepted unknown live mode"
+  fi
+  assert_contains "$setup_rejection" 'unknown live storage mode'
+done
+mkdir "$tmp/live-mode-directory"
+ln -s "$tmp/missing-mode" "$tmp/live-mode-link"
+for mode_file in "$tmp/live-mode-directory" "$tmp/live-mode-link"; do
+  if setup_rejection="$(OOONANA_LIVE_MODE_FILE="$mode_file" sh "$PAYLOAD/usr/bin/ooonana-openvino-setup" 2>&1)"; then
+    fail "OpenVINO setup accepted unreadable live mode"
+  fi
+  assert_contains "$setup_rejection" 'cannot read live storage mode'
+done
 mkdir -p "$tmp/state/rootfs"
 touch "$tmp/state/rootfs/.ooonana-openvino-ready"
 if doctor="$(OOONANA_OPENVINO_STATE_DIR="$tmp/state" OOONANA_OPENVINO_PROJECT="$SOURCE" "$PAYLOAD/usr/bin/openvino" doctor)"; then

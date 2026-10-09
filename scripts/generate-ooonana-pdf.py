@@ -49,6 +49,8 @@ def paginate(lines: list[str], per_page: int = 48) -> list[list[str]]:
     section = ""
     headings = HEADINGS
     for line in lines:
+        if not line and (not current or len(current) >= per_page):
+            continue  # A separator alone must not create an empty continued section.
         if line in headings and len(current) > per_page - 4:
             pages.append(current)
             current = []
@@ -70,12 +72,13 @@ def build_lines() -> list[str]:
         *logo,
         "",
         "Ooonana OS 0.10.0 field guide",
+        "Evidence refreshed 2026-10-09; stable/installed WSL remains 0.9.9.",
         "",
         "What it is",
         "Ooonana OS is a scratch-built Linux project with its own rootfs, boot flow, installer experiments, WSL export, and custom ooonana package manager.",
         "Debian or Ubuntu are host build tools only. Alpine APKs are imported into Ooonana .pkg repos; the target OS installs Ooonana packages, not live Alpine APKs.",
         "Core 0.10.0 is a supported-base candidate, not a stable release. Imported payloads use one Alpine v3.24 branch. Stable 0.9.9 installations and public update channel remain separate during validation.",
-        "Candidate release remains held on Chromium sandbox and new-base interactive/hardware checks. Installed WSL migration is deferred; no ISO was built in this pass.",
+        "Chromium isolated software tests now pass with optional shader disk cache disabled; renderer/GPU sandbox remains enabled. Release is held on final rebuild and interactive/hardware checks. Installed WSL migration stays deferred; no ISO built.",
         "",
         "Editions",
         "minimal: BusyBox-style rootfs, kernel, GRUB disk, installer ISO, WSL rootfs, command line AI.",
@@ -114,19 +117,23 @@ def build_lines() -> list[str]:
         "",
         "WSL",
         "For a new test distro only: scripts/install-wsl-distro.sh --distro OoonanaCandidate --tarball /var/tmp/ooonana-os/release/ooonana-full-i3-wsl-rootfs.tar.gz. Never force-reimport over an existing distro as a migration shortcut.",
-        "Launch desktop with: wsl.exe -d Ooonana -u ooonana --exec start-ooonana-i3",
+        "Launch desktop with: wsl.exe -d Ooonana -u ooonana --exec /usr/bin/start-ooonana-i3 --nested",
         "WSL GUI needs WSLg and Xephyr, or an X server with DISPLAY set. Nested mode keeps i3 panel and dock together in one window.",
         "Same-base maintenance: ooonana update && ooonana upgrade. Cross-base migration requires verified backup and whole-world upgrade --allow-major from an independent host against an offline target root. Live libc replacement is refused; old saved USB overlays need separate explicit data migration.",
         "",
         "AI",
         "Ooonana AI runs as ooonana ai ... or ooonana-ai. It supports cloud providers, offline Intel OpenVINO, ask/chat, tools, tasks, audit, history, status, and a native GUI.",
         "The full-i3 desktop includes a ChatGPT-style AI workspace, Settings, Wi-Fi, Bluetooth, Packages, and Spotlight-style application launcher.",
+        "Pinned Linux runtime, real Korean/English tokenizer, strict RAM refusal and idle API crash/restart passed without compiling heavyweight weights. Full inference/streaming/cancel and product runtime transport remain pending.",
+        "Load and generation allocation failures return insufficient_memory (HTTP503, or typed SSE error after streaming headers). Reduce context/output length or choose a smaller model; swap is not extra physical RAM.",
         "",
         "Desktop and hardware",
         "The i3 desktop uses solid graphite and orange styling, rounded controls, a top music/window bar, and a centered opaque dock with running dots, click-to-restore apps, and right-click window actions.",
         "Core 0.10.0 retains matching native icons, focus-neutral dock previews, responsive panel spacing, AI loading/RAM/storage indicators, and compact third-party controls that exclude hidden tabs and fullscreen-covered windows. Alt+F4 closes; Alt+F10 toggles fullscreen.",
+        "All eleven isolated GUI probes passed. Geany file-picker focus, cancel and file opening passed at 1280x800 and 1024x768; initial dialogs are bounded and centered. Physical/mixed-DPI/session behavior is not certified by Xvfb.",
         "Ctrl+Shift+Esc opens native Task Manager with processes, performance, and available temperature and fan sensors. Unavailable hardware counters are labeled, not guessed.",
         "Live USB starts compressed zram swap. OpenVINO setup requires persistent USB storage or an installed system; RAM-only live storage cannot hold its runtime and models.",
+        "Optional Firefox: ooonana get firefox, then nonroot ooonana-firefox setup. Launcher downloads browser/runtime only after explicit setup; setup/update refuse volatile live storage by default. Real Flatpak launch/portal checks remain pending.",
         "Ooonana OpenVINO Chat 0.2.1 has a browser GUI through an authenticated loopback bridge. Windows-only computer-control tools are unavailable on Linux.",
         "Wi-Fi supports personal and enterprise profiles. NetworkManager, BlueZ, D-Bus, Intel Wi-Fi/Bluetooth firmware, Chromium, Python 3, sudo, su, and doas are included in full-i3.",
         "Installed password-login handoff passed diskless VM tests as UID 1000. Physical Xorg, wireless, audio, sensors and inference remain hardware checks; no sound was played.",
@@ -136,6 +143,7 @@ def build_lines() -> list[str]:
         "docs/ooonana.pdf uses native RISC-V64 Linux 6.18.37 and BusyBox 1.37.0. Embedded VM boot, stable input, native/virtual Backspace, version and package sync passed. Actual Chromium PDF interaction remains a manual gate.",
         "RV64 JavaScript emulator clock is scaled down 16x for CPU progress. Guest time is slower than real time. This terminal PDF is not the x86 i3 desktop.",
         "Boot status updates after kernel warnings. A sequential RAM seed replaces per-file boot copying; the interactive shell and package backend use RAM. Keep the PDF tab visible. Slow viewers may need several minutes; wait for ooonana# before typing.",
+        "Latest shipped-code Node suite passed in 87 seconds, not a viewer guarantee. Metadata snapshot reuse reduced measured package list from 130 to 45 seconds and sync from 86 to 57; signatures/checksums remain verified. Emulator time CSR now follows CLINT with privilege checks.",
         "docs/ooonana-lite.pdf is a legacy artifact, not the current optimized runtime.",
         "",
         "Persistence maintenance",

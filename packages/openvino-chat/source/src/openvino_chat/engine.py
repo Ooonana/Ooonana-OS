@@ -368,8 +368,21 @@ class OpenVinoChatEngine:
                 kwargs["audios"] = list(media_inputs.audios)
         if on_token is not None or should_stop is not None:
             kwargs["streamer"] = streamer
+
+        def generate_once() -> Any:
+            try:
+                return self._pipeline.generate(inputs, **kwargs)
+            except Exception as exc:
+                if is_memory_error(exc):
+                    raise MemoryError(
+                        "OpenVINO generation allocation failed. Reduce context/output length, "
+                        "close other applications, or choose a smaller INT4 model. "
+                        "Swap is not extra physical RAM."
+                    ) from exc
+                raise
+
         try:
-            result = self._pipeline.generate(inputs, **kwargs)
+            result = generate_once()
         except RuntimeError as exc:
             if (
                 structured_output_config is None
@@ -381,7 +394,7 @@ class OpenVinoChatEngine:
             kwargs.pop("structured_output_config", None)
             started = time.perf_counter()
             first_token_at = None
-            result = self._pipeline.generate(inputs, **kwargs)
+            result = generate_once()
         text = "".join(chunks) if chunks else _result_text(result)
         elapsed = max(time.perf_counter() - started, 0.000001)
         output_tokens = self.count_tokens(text)

@@ -1,5 +1,13 @@
 # Current work - 2026-10-09
 
+## October 9 continuation: storage guards, generation OOM and guide
+
+- Generation-time OpenVINO allocation failures now use typed insufficient-memory errors, including a failed grammar retry. OOM does not trigger a retry; unrelated errors keep their existing behavior. JSON/SSE, load/fallback/generation regressions, backend metrics and cgroup checks passed.
+- Firefox setup/update now refuse RAM-only/temporary USB storage before any Flatpak calls. Both Firefox and OpenVINO setup refuse unknown, blank, unreadable or dangling live-mode metadata. Explicit volatile opt-in only permits known temporary modes. Existing browser launch/status and setup dry-run stay nonmutating. Fixture and reproducible package checks passed; no browser/runtime downloads.
+- Docs-only guide refreshed with current Chromium/GTK/PDF/runtime evidence, candidate/stable separation and pending gates. Fixed blank page-boundary separators creating empty continuation headings; regression and all four rendered pages checked using PDF skill. Bootable PDF unchanged. Both CIs now run guide/OpenVINO package fixtures; GitLab smoke includes `strings` dependency.
+- Read-only cleanup recheck confirms previous policy-blocked synthetic images remain (~617 MiB allocated); stale F: temp files remain too. No deletion workaround, compaction, history/model/config/key/release removal. Current C: ~10.30 GiB, F: ~7.97 GiB; large release rebuild/verified WSL backup still lack safe space. Windows free RAM fluctuated ~7.5 to ~5.7 GiB; model compile requires extra host margin, so no heavyweight inference attempted.
+- Source/candidate stays 0.10.0, installed Ooonana WSL/stable stays 0.9.9. No ISO, WSL migration, sound or key enrollment. [Full remaining gates](remaining-closure-20261008.md).
+
 ## October 9 runtime and file-picker follow-up
 
 - Reproduced actual Geany Open dialog at y=-44, height 862 on 1280x800. Initial GTK file-picker role now receives output-relative bounds and centering; generic alerts remain unchanged. Real nonroot file-picker focus/cancel/open and minimize/fullscreen/restore/move/close passed at 1280x800 and 1024x768. All eleven isolated GUI probes passed again; fresh inspected file-picker capture added to README.

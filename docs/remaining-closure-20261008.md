@@ -6,6 +6,17 @@ builds/tests. No ISO, installed-distro migration, sound playback or key enrollme
 
 ## October 9 follow-up
 
+- Continuation fixed generation-time allocation failures and grammar-retry OOM:
+  typed insufficient-memory errors, no OOM retry, unrelated failures preserved.
+  Firefox setup/update now refuse volatile storage before Flatpak mutation;
+  Firefox/OpenVINO setup also refuse unreadable/unknown/blank/dangling live-mode
+  metadata. Known volatile modes alone allow explicit opt-in. No downloads.
+  JSON/SSE/generation/load, launcher/setup/package/cgroup/backend regressions
+  passed; both CIs now run OpenVINO package and guide fixtures.
+- Docs-only guide refreshed to current evidence and pending gates; all four
+  rendered pages inspected. Removed empty continuation headings caused by
+  page-boundary separators, with regression coverage. Bootable PDF unchanged.
+  Render evidence: `/var/tmp/ooonana-guide-20261009.PSweHJpz`.
 - Actual Geany file picker requested 1098x862 at y=-44 on a 1280x800 display.
   Initial `GtkFileChooserDialog` role now uses output-relative 80%/70% bounds
   and centering. Generic message alerts and subsequent user resize remain alone.
@@ -25,8 +36,10 @@ builds/tests. No ISO, installed-distro migration, sound playback or key enrollme
   CPU-fallback allocation errors now receive the same estimated RAM/context
   advice. New JSON/SSE/healthy-server/unrelated-error/fallback/no-OOM-retry unit
   tests and final real tokenizer/API probe passed. Both CIs run the unit test.
-- Last storage check: C: ~10.4 GiB free, F: ~7.97 GiB (still below 8 GiB minimum).
-  Host free RAM before probes ~4.2 GiB; smallest model weights ~4.63 GiB.
+- Latest storage check: C: ~10.30 GiB free, F: ~7.97 GiB (below 8 GiB minimum).
+  Host free RAM fluctuated ~7.5 to ~5.7 GiB during continuation; smallest model
+  weights ~4.63 GiB plus compilation/cache/host safety margin. Earlier probes
+  measured ~4.2 GiB. Heavyweight inference was not attempted.
   Guest memory allowance does not prove Windows host headroom. No unsafe full
   model attempt, new runtime/model download, ISO or deferred WSL migration.
 - October 9 cleanup deletion was tool-policy rejected before execution. Identified
@@ -95,7 +108,7 @@ Evidence: `/var/tmp/ooonana-openvino-live-20261009.xZBaRy8V`,
 
 ## Still required / not authorized or unavailable
 
-1. Storage: latest check C: about 10.4 GiB free, F: 7.97 GiB. F release builder needs
+1. Storage: latest check C: about 10.30 GiB free, F: 7.97 GiB. F release builder needs
    at least 8 GiB; Linux release scratch needs 20 GiB, and WSL backup needs extra
    independent capacity. Supply another drive or free space before large builds.
 2. Rebuild final signed candidate repository/rootfs/manifest from committed source;
@@ -113,8 +126,8 @@ Evidence: `/var/tmp/ooonana-openvino-live-20261009.xZBaRy8V`,
    Models/history must remain intact.
 5. Actual Chromium PDF viewer keyboard/Backspace/startup/command latency. Local
    viewer navigation was policy-denied; no alternate-path/browser workaround.
-   Docs-only guide remains prior candidate snapshot until release documentation
-   refresh; historical PDF artifacts retained.
+   Docs-only guide now reflects October 9 evidence; final release-specific
+   documentation still needs final image results. Historical PDFs retained.
 6. Interactive new-base Qt/dialog/file-picker and desktop session checks. Real
    Geany file-picker cancel/open now passed on two isolated resolutions; actual
    cursor shape/scale, wallpaper/theme consistency, multiple app sessions,

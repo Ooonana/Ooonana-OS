@@ -23,6 +23,8 @@ jobs:
           python3 -B tests/test-cgroup-memory.py
           python3 -B tests/test-backend-metrics-api.py
           python3 -B tests/test-openvino-memory-errors.py
+          bash tests/test-openvino-chat-package.sh
+          bash tests/test-ooonana-pdf.sh
           python3 -B tests/test-state-io-recovery.py
           python3 -B tests/test-ai-store-safety.py
           python3 -B tests/test-panel-session.py

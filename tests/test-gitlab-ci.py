@@ -19,4 +19,7 @@ if "test-pdf-runtime-reuse.py" in smoke:
 if "test-cli-query-fast.py" in smoke:
     smoke_packages = set(re.search(r"apk add --no-cache ([^\n]+)", smoke)[1].split())
     assert "openssl" in smoke_packages, "Signed query fixtures require OpenSSL CLI"
+if "test-ooonana-pdf.sh" in smoke:
+    smoke_packages = set(re.search(r"apk add --no-cache ([^\n]+)", smoke)[1].split())
+    assert "binutils" in smoke_packages, "Guide PDF checks require strings"
 print("ok gitlab-ci dependencies and atomic publication")

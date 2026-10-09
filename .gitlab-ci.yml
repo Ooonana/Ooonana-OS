@@ -23,7 +23,7 @@ ci-smoke:
   image: alpine:3.24
   stage: check
   before_script:
-    - apk add --no-cache bash python3 diffutils findutils tar gzip coreutils git openssl
+    - apk add --no-cache bash python3 diffutils findutils tar gzip coreutils binutils git openssl
   script:
     - echo "Ooonana GitLab CI active"
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-release-repo.py
@@ -34,6 +34,8 @@ ci-smoke:
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-cgroup-memory.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-backend-metrics-api.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-openvino-memory-errors.py
+    - PYTHONDONTWRITEBYTECODE=1 bash tests/test-openvino-chat-package.sh
+    - PYTHONDONTWRITEBYTECODE=1 bash tests/test-ooonana-pdf.sh
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-state-io-recovery.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-ai-store-safety.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-panel-session.py
