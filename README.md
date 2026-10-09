@@ -27,6 +27,12 @@ October 9 follow-up: GTK file pickers no longer open above the display. Actual G
 
 Packaged OpenVINO bubblewrap launcher also passed nonroot API lifecycle, strict memory JSON/SSE refusal, cross-invocation daemon survival, owned crash/restart and bridge FIFO cleanup. Models/runtime were read-only in private namespaces. Cached runtime used current-source QA override; complete setup and heavyweight inference are still pending, not implied by transport success.
 
+OpenVINO setup now stages replacement instead of modifying/deleting the working
+runtime. Validated generations stay for recovery; legacy-directory promotion has
+an interrupted-update journal and launch guard. Filesystem/lock/rename/SIGKILL
+fixtures and real generation-pointer transport passed; full APT/pip installation
+is still pending. [Runtime safety and limits](docs/openvino-runtime-safety.md).
+
 ![Candidate Geany file picker contained within 1024x768 display](docs/assets/ooonana-geany-file-picker-20261009.png)
 
 ![Current native Appearance settings](docs/assets/ooonana-appearance-20261008.png)

@@ -6,6 +6,15 @@ builds/tests. No ISO, installed-distro migration, sound playback or key enrollme
 
 ## October 9 follow-up
 
+- Setup reliability patch: never install into the working runtime; stage a copy
+  or fresh pinned userspace, validate readiness, retain generations and atomically
+  switch the pointer. Legacy directory conversion has journal/recovery; pending
+  promotion blocks launch. Actual flock/rename/sync fixtures with mocked installer
+  passed three SIGKILL points, failed prepare/checksum/readiness/rename, concurrency,
+  low-space and low-RAM-with-swap refusal/warning, history/config and symlink guards.
+  Real packaged bubblewrap transport passed the generation pointer too.
+  [Recovery and limits](openvino-runtime-safety.md); full APT/pip setup and model
+  inference remain pending. No actual runtime installation or old-data deletion.
 - Actual packaged bubblewrap transport now passed with real pinned runtime and
   current-source QA override, private network/PID/mount namespaces, UID1000,
   read-only models/venv. Daemon `/proc` confirms host UID1000 and its own model
@@ -136,6 +145,8 @@ Evidence: `/var/tmp/ooonana-openvino-live-20261009.xZBaRy8V`,
    load/inference/stream/cancel and loaded-engine recovery. Real pinned Linux
    runtime/tokenizer/strict memory/idle restart and packaged bubblewrap transport
    now passed, with explicit QA source override; no setup/full inference claim.
+   Setup replacement/rollback fault fixtures and real generation-pointer transport
+   now passed; mocked installer does not close complete installation validation.
    Models/history must remain intact.
 5. Actual Chromium PDF viewer keyboard/Backspace/startup/command latency. Local
    viewer navigation was policy-denied; no alternate-path/browser workaround.
@@ -170,6 +181,8 @@ it modified only disposable overlay, not cached userspace. Final runner guard
 retest: `/var/tmp/ooonana-transport-final-20261009.X4jCaJmc.log`;
 daemon host-UID/read-only-mount follow-up:
 `/var/tmp/ooonana-transport-mount-20261009.CrGabZD4.log`.
+New retained-generation pointer transport:
+`/var/tmp/ooonana-transport-generation-20261009.YDaIdXIq.log`.
 
 Cleanup removed only two newly created failed QEMU fixture image sets (about
 1.07 GiB allocated). Logs and deleted-image checksums retained. No guest/process

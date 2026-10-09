@@ -1,5 +1,12 @@
 # Current work - 2026-10-09
 
+## October 9 staged runtime setup and interrupted-promotion recovery
+
+- Found OpenVINO setup updating the working userspace in place and force setup deleting it before replacement. Setup now holds kernel writer lock, installs only in a staged copy/fresh pinned userspace, validates readiness and switches a retained generation pointer. No old-generation/model/history deletion. Space floor refuses before copying/downloading; low-RAM warning no longer counts swap as physical RAM.
+- Legacy directory conversion journals before moving its old tree. Launch blocks during pending promotion; failed rename rolls back and the next setup recovers after SIGKILL. Real filesystem/lock/rename/sync fixtures passed three interruption points, normal installer/readiness/checksum failures, concurrency, space/memory warnings and unsafe metadata refusal. Inner installer/downloads are mocked: full setup/inference not certified.
+- Actual nonroot bubblewrap/API transport also passed with the generation pointer and its own read-only model mount; cached userspace/venv unchanged. Proof: `/var/tmp/ooonana-transport-generation-20261009.YDaIdXIq.log`. Both CIs include setup regression. [Safety, recovery and limits](openvino-runtime-safety.md).
+- No real runtime installation, ISO, deferred WSL migration, sound, signing enrollment or cleanup workaround. Candidate remains 0.10.0; installed/stable 0.9.9. [Full remaining gates](remaining-closure-20261008.md).
+
 ## October 9 packaged OpenVINO transport follow-up
 
 - Real packaged bubblewrap launcher passed as UID1000 in private network/PID/mount namespaces on Ubuntu QA host: lazy API start, status from a second invocation, strict oversized-context JSON503/SSE error, daemon survival across launcher exits, owned SIGKILL/restart and stop/state cleanup. Daemon `/proc` confirms host UID1000 and its own model mount read-only. All per-command browser-bridge FIFO directories removed. Preserved models/venv mounted read-only; no weights compiled, browser opened or download performed. This is not installed Ooonana/new-image kernel validation.

@@ -224,6 +224,12 @@ openvino download tiny
 
 `openvino setup` downloads a verified Ubuntu 24.04 userspace because OpenVINO Linux wheels require glibc while Ooonana uses musl. Bubblewrap keeps that runtime under user home. Model files live in `~/.openvino`.
 
+Setup now stages updates in a copy, validates readiness, then switches a retained
+runtime generation. Failed install leaves the working tree unchanged. Interrupted
+legacy-directory conversion blocks launch until `openvino setup` recovers the old
+runtime. Old generations/models/history are not automatically removed; staging
+needs spare disk space. See [runtime replacement safety](openvino-runtime-safety.md).
+
 Start local API on Intel GPU:
 
 ```bash

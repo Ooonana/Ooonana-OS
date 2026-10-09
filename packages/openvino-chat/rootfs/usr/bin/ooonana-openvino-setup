@@ -69,8 +69,9 @@ esac
 
 available_kb="$(awk '$1 == "MemAvailable:" { print $2; exit }' /proc/meminfo 2>/dev/null || true)"
 swap_free_kb="$(awk '$1 == "SwapFree:" { print $2; exit }' /proc/meminfo 2>/dev/null || true)"
-if [ -n "$available_kb" ] && [ "$((available_kb + ${swap_free_kb:-0}))" -lt 4194304 ]; then
-  printf 'openvino setup: WARNING: less than 4 GiB RAM plus free swap available; large models may not load.\n' >&2
+if [ -n "$available_kb" ] && [ "$available_kb" -lt 4194304 ]; then
+  printf 'openvino setup: WARNING: less than 4 GiB available physical RAM; large models may not load.\n' >&2
+  printf 'Free swap: %s KiB (not extra physical RAM).\n' "${swap_free_kb:-0}" >&2
 fi
 
 [ "$(uname -m)" = x86_64 ] || {
@@ -87,6 +88,74 @@ fi
 }
 
 mkdir -p "$STATE_DIR"
+STATE_DIR="$(cd "$STATE_DIR" && pwd -P)"
+ROOTFS="$STATE_DIR/rootfs"
+GENERATIONS="$STATE_DIR/.runtime-generations"
+JOURNAL="$STATE_DIR/.runtime-promotion"
+umask 077
+[ ! -L "$STATE_DIR/.setup.lock" ] && \
+  { [ ! -e "$STATE_DIR/.setup.lock" ] || [ -f "$STATE_DIR/.setup.lock" ]; } || {
+    printf 'openvino setup: invalid setup lock; preserve state for inspection\n' >&2; exit 1;
+  }
+exec 9>>"$STATE_DIR/.setup.lock"
+if command -v flock >/dev/null 2>&1; then
+  flock -n 9 || { printf 'openvino setup: another setup is running\n' >&2; exit 1; }
+elif command -v busybox >/dev/null 2>&1; then
+  busybox flock -n 9 || { printf 'openvino setup: busy or flock unavailable\n' >&2; exit 1; }
+else
+  printf 'openvino setup: flock required for safe runtime replacement\n' >&2
+  exit 1
+fi
+[ ! -L "$GENERATIONS" ] || { printf 'openvino setup: generations directory must not be a symlink\n' >&2; exit 1; }
+mkdir -p "$GENERATIONS"
+
+recover_promotion() {
+  [ -e "$JOURNAL" ] || [ -L "$JOURNAL" ] || return 0
+  [ -f "$JOURNAL" ] && [ ! -L "$JOURNAL" ] || return 1
+  record="$(cat "$JOURNAL")" || return 1
+  case "$record" in runtime.*) suffix="${record#runtime.}" ;; *) return 1 ;; esac
+  case "$suffix" in ''|*[!A-Za-z0-9]*) return 1 ;; esac
+  [ "${#suffix}" -eq 8 ] || return 1
+  recovery="$GENERATIONS/$record"
+  [ -d "$recovery" ] && [ ! -L "$recovery" ] || return 1
+  if [ -e "$recovery/previous" ] || [ -L "$recovery/previous" ]; then
+    [ -d "$recovery/previous" ] && [ ! -L "$recovery/previous" ] || return 1
+    if [ -L "$ROOTFS" ]; then
+      [ "$(readlink "$ROOTFS")" = ".runtime-generations/$record/rootfs" ] || return 1
+      rm -f -- "$ROOTFS"  # Only the verified new pointer, never runtime contents.
+    elif [ -e "$ROOTFS" ]; then
+      return 1  # Ambiguous replacement: preserve both trees for inspection.
+    fi
+    mv "$recovery/previous" "$ROOTFS" || return 1
+    sync -f "$STATE_DIR" || return 1
+  else
+    # Journal persisted before the old directory moved, or rollback completed.
+    [ -d "$ROOTFS" ] && [ ! -L "$ROOTFS" ] || return 1
+  fi
+  rm -f -- "$JOURNAL" || return 1
+  sync -f "$STATE_DIR" || return 1
+  printf 'openvino setup: recovered previous runtime\n' >&2
+}
+recover_promotion || {
+  printf 'openvino setup: unresolved runtime promotion; preserve state for recovery\n' >&2
+  exit 1
+}
+if [ -e "$ROOTFS" ] || [ -L "$ROOTFS" ]; then
+  [ -d "$ROOTFS" ] || { printf 'openvino setup: invalid runtime path; preserve state for inspection\n' >&2; exit 1; }
+fi
+
+available_kb="$(df -Pk "$STATE_DIR" | awk 'NR == 2 {print $4}')"
+required_kb=4194304  # Fresh userspace + packages + download/staging allowance.
+if [ -f "$ROOTFS/.ooonana-openvino-ready" ] && [ "$FORCE" -eq 0 ]; then
+  runtime_kb="$(du -sk "$ROOTFS/." | awk '{print $1}')"
+  case "$runtime_kb" in ''|*[!0-9]*) printf 'openvino setup: cannot measure runtime storage\n' >&2; exit 1 ;; esac
+  required_kb=$((runtime_kb + 524288))  # Full working copy plus 512 MiB reserve.
+fi
+case "$available_kb" in ''|*[!0-9]*) printf 'openvino setup: cannot measure free storage\n' >&2; exit 1 ;; esac
+[ "$available_kb" -ge "$required_kb" ] || {
+  printf 'openvino setup: insufficient storage; staging needs at least %s KiB free; available %s KiB. Previous runtime untouched.\n' "$required_kb" "$available_kb" >&2
+  exit 1
+}
 
 run_inside() {
   target="$1"
@@ -138,25 +207,32 @@ run_inside() {
       [ ! -f /opt/openvino-chat/APP-MANIFEST.sha256 ] || fingerprint=/opt/openvino-chat/APP-MANIFEST.sha256
       sha256sum "$fingerprint" | awk "{print \$1}" > /.ooonana-openvino-ready
       /opt/openvino-venv/bin/python -c "import json,importlib.metadata as m; print(json.dumps({\"openvino\":m.version(\"openvino\"),\"genai\":m.version(\"openvino-genai\"),\"validation\":\"import-only\",\"inference_validated\":False},sort_keys=True))" > /opt/openvino-runtime-manifest.json
-    '
+    ' 9>&-
 }
-
-if [ -f "$ROOTFS/.ooonana-openvino-ready" ] && [ "$FORCE" -eq 0 ]; then
-  printf 'Updating OpenVINO runtime...\n'
-  run_inside "$ROOTFS"
-  printf 'ready: %s\n' "$ROOTFS"
-  exit 0
-fi
 
 work="$(mktemp -d "$STATE_DIR/.setup.XXXXXX")"
 candidate="$work/rootfs"
 archive="$work/$ROOTFS_NAME"
 checksums="$work/SHA256SUMS"
 cleanup() {
+  result=$?
+  if [ "$result" -ne 0 ]; then
+    recover_promotion || printf 'openvino setup: promotion recovery remains pending\n' >&2
+  fi
   rm -rf "$work"
+  trap - EXIT
+  exit "$result"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
+if [ -f "$ROOTFS/.ooonana-openvino-ready" ] && [ "$FORCE" -eq 0 ]; then
+  printf 'Staging OpenVINO runtime update...\n'
+  mkdir -p "$candidate"
+  cp -a "$ROOTFS/." "$candidate/"
+  rm -f "$candidate/.ooonana-openvino-ready"
+else
 printf 'Downloading verified Ubuntu userspace...\n'
 curl -fL --retry 5 --retry-delay 3 "$BASE_URL/SHA256SUMS" -o "$checksums"
 curl -fL --retry 5 --retry-delay 3 "$BASE_URL/$ROOTFS_NAME" -o "$archive"
@@ -183,10 +259,37 @@ tar --no-same-owner \
 mkdir -p "$candidate/dev"
 rm -f "$candidate/etc/resolv.conf"
 cp /etc/resolv.conf "$candidate/etc/resolv.conf"
+fi
 run_inside "$candidate"
 
-rm -rf "$ROOTFS"
-mv "$candidate" "$ROOTFS"
+fingerprint="$PROJECT/pyproject.toml"
+[ ! -f "$PROJECT/APP-MANIFEST.sha256" ] || fingerprint="$PROJECT/APP-MANIFEST.sha256"
+[ -f "$candidate/.ooonana-openvino-ready" ] && \
+  [ "$(cat "$candidate/.ooonana-openvino-ready")" = "$(sha256sum "$fingerprint" | awk '{print $1}')" ] || {
+    printf 'openvino setup: candidate readiness fingerprint missing or mismatched\n' >&2
+    exit 1
+  }
+generation="$(mktemp -d "$GENERATIONS/runtime.XXXXXXXX")"
+mv "$candidate" "$generation/rootfs"
+sync -f "$generation"
+ln -s ".runtime-generations/${generation##*/}/rootfs" "$work/rootfs.next"
+[ ! -e "$JOURNAL" ] && [ ! -L "$JOURNAL" ] || {
+  printf 'openvino setup: promotion state changed during staging; refusing replacement\n' >&2; exit 1;
+}
+if [ -d "$ROOTFS" ] && [ ! -L "$ROOTFS" ]; then
+  # Legacy directory conversion has a journal; ordinary generation switches
+  # thereafter replace one symlink atomically. Completed generations stay.
+  printf '%s\n' "${generation##*/}" >"$work/promotion"
+  mv -T "$work/promotion" "$JOURNAL"
+  sync -f "$STATE_DIR"
+  mv "$ROOTFS" "$generation/previous"
+  sync -f "$generation"
+fi
+mv -Tf "$work/rootfs.next" "$ROOTFS"
+sync -f "$STATE_DIR"
+rm -f -- "$JOURNAL"
+sync -f "$STATE_DIR"
 printf 'OpenVINO local AI ready.\n'
+printf 'Previous runtime generations retained; restart running AI sessions to use this snapshot.\n'
 printf 'Next: openvino download qwen3.5\n'
 printf 'Then: openvino chat --device GPU\n'

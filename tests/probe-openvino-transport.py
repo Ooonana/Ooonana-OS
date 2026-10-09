@@ -32,6 +32,7 @@ def main() -> None:
         raise SystemExit("Require disposable QA directory")
     models = qa / "workspace/models"
     assert os.statvfs(models).f_flag & os.ST_RDONLY
+    assert (qa / "state/rootfs").is_symlink()
     source = args.source.resolve(strict=True)
     sys.path.insert(0, str(source / "packages/openvino-chat/source/src"))
     from openvino_chat import api
@@ -116,6 +117,7 @@ def main() -> None:
                           "runtime_versions": {name: importlib.metadata.version(name) for name in
                                                ("openvino", "openvino-genai", "openvino-tokenizers")},
                           "app_source": "QA current-source override",
+                          "generation_pointer": "passed",
                           "setup_validated": False, "inference_validated": False}, sort_keys=True), flush=True)
     finally:
         if server_pid is not None:

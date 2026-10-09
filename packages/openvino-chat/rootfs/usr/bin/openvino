@@ -17,6 +17,9 @@ if [ -f "$ROOTFS/.ooonana-openvino-ready" ]; then
     runtime_state=ready
   fi
 fi
+if [ -e "$STATE_DIR/.runtime-promotion" ] || [ -L "$STATE_DIR/.runtime-promotion" ]; then
+  runtime_state=recovery
+fi
 
 usage() {
   cat <<'EOF'
@@ -60,6 +63,10 @@ case "${1:-}" in
     ;;
 esac
 
+[ "$runtime_state" != recovery ] || {
+  printf 'openvino: interrupted runtime promotion; run: openvino setup\n' >&2
+  exit 1
+}
 [ -x /usr/bin/bwrap ] || {
   printf 'openvino: bubblewrap missing; run: ooonana fix openvino-chat --reinstall\n' >&2
   exit 1

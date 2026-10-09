@@ -25,11 +25,12 @@ fi
 base=$2; venv=$3; qa=$4; models=$5
 mount --bind "$SOURCE" "$SOURCE"
 mount -o remount,bind,ro "$SOURCE"
-mkdir -p "$qa/base" "$qa/upper" "$qa/work" "$qa/state/rootfs" "$qa/home/.openvino" "$qa/workspace/models"
+rootfs=$qa/state/.runtime-generations/runtime.QAcheck1/rootfs
+mkdir -p "$qa/base" "$qa/upper" "$qa/work" "$rootfs" "$qa/home/.openvino" "$qa/workspace/models"
+ln -s .runtime-generations/runtime.QAcheck1/rootfs "$qa/state/rootfs"
 mount --bind "$base" "$qa/base"
 mount -o remount,bind,ro "$qa/base"
-mount -t overlay overlay -o "lowerdir=$qa/base,upperdir=$qa/upper,workdir=$qa/work" "$qa/state/rootfs"
-rootfs=$qa/state/rootfs
+mount -t overlay overlay -o "lowerdir=$qa/base,upperdir=$qa/upper,workdir=$qa/work" "$rootfs"
 mkdir -p "$rootfs/opt/openvino-venv" "$rootfs/opt/openvino-chat" "$rootfs$venv" \
   "$rootfs/workspace" "$rootfs/root/.openvino" "$rootfs/root/.cache"
 chown 1000:1000 "$rootfs/root"

@@ -24,6 +24,7 @@ jobs:
           python3 -B tests/test-backend-metrics-api.py
           python3 -B tests/test-openvino-memory-errors.py
           python3 -B tests/test-openvino-transport.py
+          python3 -B tests/test-openvino-setup.py
           bash tests/test-openvino-chat-package.sh
           bash tests/test-ooonana-pdf.sh
           python3 -B tests/test-state-io-recovery.py
