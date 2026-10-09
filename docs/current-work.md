@@ -1,4 +1,12 @@
-# Current work - 2026-10-08
+# Current work - 2026-10-09
+
+## October 9 runtime and file-picker follow-up
+
+- Reproduced actual Geany Open dialog at y=-44, height 862 on 1280x800. Initial GTK file-picker role now receives output-relative bounds and centering; generic alerts remain unchanged. Real nonroot file-picker focus/cancel/open and minimize/fullscreen/restore/move/close passed at 1280x800 and 1024x768. All eleven isolated GUI probes passed again; fresh inspected file-picker capture added to README.
+- Actual pinned Linux OpenVINO 2026.4.1 / GenAI 2026.4.1.0, real Granite tokenizer (including Korean text), five saved-model memory estimates, strict oversized-context refusal and API SIGKILL/restart passed. Models mounted read-only, private network/PID namespace and disposable state, UID1000. This uses existing Linux Python 3.12 test venv, not installed Ooonana's proot transport or full model inference.
+- Found low-memory failures exposed as generic HTTP500. API now returns HTTP503 `insufficient_memory` or typed SSE error plus DONE; GPU-to-CPU fallback allocation failures receive the same RAM guidance. Unit JSON/SSE/health/unrelated-error/no-OOM-retry regressions and final real API probe passed; both source CIs include the regression.
+- Physical inference remains pending: smallest saved weights ~4.63 GiB; host free RAM measured ~4.2 GiB before probes, while WSL reports its guest allowance. No heavyweight compile/download, ISO, WSL migration, sound or key upload. Last storage check C: ~10.4 GiB, F: ~7.97 GiB; F remains below release builder's 8 GiB minimum.
+- Cleanup request identified abandoned synthetic images/stale temp files, but deletion was policy-rejected before execution. No targets removed or alternate-path retry. Logs/history/models/releases/valid generations remain. [Complete remaining list](remaining-closure-20261008.md).
 
 ## Latest remaining-work closure
 

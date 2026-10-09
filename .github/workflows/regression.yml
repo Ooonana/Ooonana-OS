@@ -22,6 +22,7 @@ jobs:
           python3 -B tests/test-service-readiness.py
           python3 -B tests/test-cgroup-memory.py
           python3 -B tests/test-backend-metrics-api.py
+          python3 -B tests/test-openvino-memory-errors.py
           python3 -B tests/test-state-io-recovery.py
           python3 -B tests/test-ai-store-safety.py
           python3 -B tests/test-panel-session.py

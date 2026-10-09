@@ -377,6 +377,11 @@ class OpenVinoApiHandler(BaseHTTPRequestHandler):
                 self._stream_error("invalid_request_error", str(exc))
             else:
                 self._error(400, "invalid_request_error", str(exc))
+        except MemoryError as exc:
+            if getattr(self, "_sse_started", False):
+                self._stream_error("insufficient_memory", str(exc))
+            else:
+                self._error(503, "insufficient_memory", str(exc))
         except Exception as exc:
             if getattr(self, "_sse_started", False):
                 self._stream_error("server_error", str(exc))

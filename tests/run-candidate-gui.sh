@@ -3,6 +3,11 @@
 set -euo pipefail
 SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 only="${OOONANA_GUI_ONLY:-all}"
+geometry="${OOONANA_GUI_GEOMETRY:-1280x800}"
+case "$geometry" in
+  1024x768|1280x800|1600x900) ;;
+  *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
+esac
 case "$only" in
   all|native-ui-runtime|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|window-controls-runtime|dock-ui|panel-ui|geany-frame|nemo-frame|chromium-frame) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
@@ -55,7 +60,7 @@ chown 1000:1000 "$rootfs/home/ooonana" "$output"
 mount --bind "$rootfs/tmp" /tmp
 export rootfs output only
 # Keep namespace init as Bash. Xvfb will not send its readiness signal to PID 1.
-xvfb-run -a --server-args='-screen 0 1280x800x24 -nolisten tcp' bash -c '
+xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp" bash -c '
   set -eu
   mkdir -p "$rootfs/home/ooonana/runtime"
   chown 1000:1000 "$rootfs/home/ooonana/runtime"
@@ -88,7 +93,9 @@ xvfb-run -a --server-args='-screen 0 1280x800x24 -nolisten tcp' bash -c '
   probe dock-ui python3 /source/tests/check-dock-ui.py /qa/dock.png
   probe panel-ui python3 /source/tests/check-panel-ui.py /qa/panel.png --rootfs / --long-wifi --desktop-overview
   for app in geany nemo chromium; do
-    if [ "$app" = chromium ] && [ "${OOONANA_BROWSER_NO_SHADER_CACHE:-0}" = 1 ]; then
+    if [ "$app" = geany ]; then
+      probe "$app-frame" python3 /source/tests/check-third-party-frames.py "$app" "/qa/$app.png" --compositor --file-dialog
+    elif [ "$app" = chromium ] && [ "${OOONANA_BROWSER_NO_SHADER_CACHE:-0}" = 1 ]; then
       probe "$app-frame" python3 /source/tests/check-third-party-frames.py "$app" "/qa/$app.png" --compositor --disable-shader-cache
     else
       probe "$app-frame" python3 /source/tests/check-third-party-frames.py "$app" "/qa/$app.png" --compositor

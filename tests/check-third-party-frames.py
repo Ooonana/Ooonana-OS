@@ -24,7 +24,10 @@ parser.add_argument("--compositor", action="store_true", help="Capture packaged 
 parser.add_argument("--disable-shader-cache", action="store_true", help="QA-only Chromium disk-cache isolation, sandbox remains enabled")
 parser.add_argument("--gpu", action="store_true", help="Leave normal GPU selection enabled (device availability remains environment-dependent)")
 parser.add_argument("--url", default="about:blank", help="Private browser probe page")
+parser.add_argument("--file-dialog", action="store_true", help="Geany's real Open dialog: cancel and open an owned fixture")
 args = parser.parse_args()
+if args.file_dialog and args.app != "geany":
+    parser.error("--file-dialog requires geany")
 if os.environ.get("OOONANA_GUI_TEST_DISPLAY") != "1":
     raise SystemExit("Explicit isolated display required")
 if subprocess.run(["i3-msg", "-t", "get_tree"], capture_output=True).returncode == 0:
@@ -221,6 +224,66 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
         assert all(control.get_size().height == node["deco_rect"]["height"]
                    for control in manager.controls.values()), "Controls overlap client contents"
         identifier = node["id"]
+        if args.file_dialog:
+            def dialog_node():
+                def visit(item):
+                    if (item.get("window") and item.get("id") != identifier
+                            and str((item.get("window_properties") or {}).get("class", "")).lower() == "geany"
+                            and (item.get("window_properties") or {}).get("window_role") == "GtkFileChooserDialog"):
+                        return item
+                    for child in item.get("nodes", []) + item.get("floating_nodes", []):
+                        found = visit(child)
+                        if found:
+                            return found
+                    return None
+                return visit(i3_events.request(i3_events.socket_path(), 4))
+
+            def key(value):
+                subprocess.run(["xdotool", "key", "--clearmodifiers", value], env=environment, check=True)
+
+            subprocess.run(["i3-msg", f"[con_id={identifier}] focus"], check=True, capture_output=True)
+            key("ctrl+o")
+            dialog = wait(dialog_node)
+            assert dialog["floating"] in ("auto_on", "user_on"), "File picker not floating"
+            assert dialog["focused"], "File picker failed to receive keyboard focus"
+            rectangle = dialog["rect"]
+            print("FILE_DIALOG_GEOMETRY", json.dumps({"rect": rectangle,
+                "deco": dialog["deco_rect"], "name": dialog.get("name"),
+                "properties": dialog.get("window_properties")}), flush=True)
+            manager.refresh()
+            wait(controls_painted)
+            Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(
+                str(args.output.with_name(args.output.stem + "-file-dialog-initial.png")), "png", [], [])
+            assert rectangle["x"] >= 0 and rectangle["y"] >= 0
+            assert rectangle["x"] + rectangle["width"] <= root.get_width()
+            assert rectangle["y"] + rectangle["height"] <= root.get_height()
+            manager.refresh()
+            wait(controls_painted)
+            Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(
+                str(args.output.with_name(args.output.stem + "-file-dialog.png")), "png", [], [])
+            key("Escape")
+            wait(lambda: dialog_node() is None)
+            wait(lambda: find_client()["focused"])
+            owned_file = fixture / "file-dialog.txt"
+            owned_file.write_text("Ooonana private file-picker check\n", encoding="utf-8")
+            key("ctrl+o")
+            wait(lambda: (current := dialog_node()) and current.get("focused"))
+            key("ctrl+l")
+            key("ctrl+a")
+            subprocess.run(["xdotool", "type", "--clearmodifiers", "--", str(owned_file)],
+                           env=environment, check=True)
+            key("Return")
+            for _ in range(20):
+                drain()
+                time.sleep(0.03)
+            if dialog_node() is not None:
+                Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(
+                    str(args.output.with_name(args.output.stem + "-file-dialog-after-input.png")), "png", [], [])
+                key("alt+o")
+            wait(lambda: dialog_node() is None)
+            wait(lambda: "file-dialog.txt" in find_client().get("name", ""))
+            assert owned_file.read_text() == "Ooonana private file-picker check\n"
+            print("PASS real Geany file picker: floating, focused, bounded, cancel, open private file", flush=True)
         if identifier in manager.controls:
             # Exercise current actions against real clients, not fake GTK windows.
             manager.controls[identifier].get_child().get_children()[1].clicked()

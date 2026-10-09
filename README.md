@@ -23,6 +23,10 @@ Stable core 0.9.9 desktop refresh adds unboxed dock hover feedback, slimmer pane
 
 This branch stages **core 0.10.0**, a coherent Alpine v3.24 imported-userland candidate. Installed Ooonana WSL and stable package channel remain 0.9.9. Chromium's optional shader disk cache triggered a syscall-sandbox crash; disabling that cache fixes isolated window tests without disabling sandbox or normal GPU selection. Kernel-reported renderer/GPU seccomp and privilege-lock checks passed. Full release rebuild, real-device/new-base session checks and WSL migration remain pending. No ISO built. See [latest closure and remaining gates](docs/remaining-closure-20261008.md).
 
+October 9 follow-up: GTK file pickers no longer open above the display. Actual Geany cancel/open and window controls passed on isolated 1280x800 and 1024x768 displays; ordinary alerts retain their size. OpenVINO low-memory failures now return typed JSON/SSE errors, including CPU-fallback allocation failures. Real pinned Linux runtime/tokenizer, strict RAM refusal and API crash/restart passed without loading heavyweight model weights; inference remains pending. [Evidence and limits](docs/remaining-closure-20261008.md#october-9-follow-up).
+
+![Candidate Geany file picker contained within 1024x768 display](docs/assets/ooonana-geany-file-picker-20261009.png)
+
 ![Current native Appearance settings](docs/assets/ooonana-appearance-20261008.png)
 
 See [October 8 verification and remaining gates](docs/ui-catalog-20261008.md).

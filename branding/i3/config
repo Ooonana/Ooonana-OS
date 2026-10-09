@@ -21,6 +21,9 @@ for_window [class="^(Nemo|Geany|Alacritty|XTerm)$"] floating enable, move positi
 # Set initial bounds only; later user resize/fullscreen remains unrestricted.
 for_window [class="^(Chromium|chromium|Chromium-browser|chromium-browser|Google-chrome)$"] floating enable, resize set 80 ppt 70 ppt, move position center
 for_window [window_type="dialog"] floating enable
+# GTK file pickers can request more height than the output and hide both actions
+# and titlebar. Bound initial file-picker size only, not ordinary message dialogs.
+for_window [window_role="^GtkFileChooserDialog$"] floating enable, resize set 80 ppt 70 ppt, move position center
 for_window [window_role="pop-up"] floating enable
 # Native client-side headers override generic dialog decorations.
 for_window [class="^OoonanaApp$"] floating enable, border none, move position center

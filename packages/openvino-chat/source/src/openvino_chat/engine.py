@@ -424,7 +424,12 @@ def load_engine(
             raise MemoryError("OpenVINO allocation failed. " + memory.message()) from exc
         if first_device == second_device:
             raise
-        pipeline = pipeline_type(model_dir, second_device, **properties)
+        try:
+            pipeline = pipeline_type(model_dir, second_device, **properties)
+        except Exception as fallback_error:
+            if is_memory_error(fallback_error):
+                raise MemoryError("OpenVINO allocation failed. " + memory.message()) from fallback_error
+            raise
         return OpenVinoChatEngine(
             pipeline,
             second_device,

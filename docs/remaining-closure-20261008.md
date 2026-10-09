@@ -4,6 +4,39 @@ Source/candidate: core 0.10.0 on `codex/supported-base-0-10`. Installed Ooonana 
 stable main/update endpoints and October 6 ISO remain 0.9.9. Ubuntu only hosts
 builds/tests. No ISO, installed-distro migration, sound playback or key enrollment.
 
+## October 9 follow-up
+
+- Actual Geany file picker requested 1098x862 at y=-44 on a 1280x800 display.
+  Initial `GtkFileChooserDialog` role now uses output-relative 80%/70% bounds
+  and centering. Generic message alerts and subsequent user resize remain alone.
+  Real cancel/open of an owned file, focus, floating, painted controls and window
+  actions passed at 1280x800 and 1024x768. All eleven isolated GUI probes passed.
+  [Inspected small-display capture](assets/ooonana-geany-file-picker-20261009.png).
+  This remains Xvfb/software evidence, not physical/session certification.
+- Existing Linux Python 3.12 venv matches pinned OpenVINO 2026.4.1 / GenAI and
+  tokenizers 2026.4.1.0. Actual Granite tokenizer encoded Korean/English text;
+  five preserved model folders were read-only during real memory estimates.
+  Strict excessive-context rejection, idle API health/models and SIGKILL/restart
+  recovery passed without compiling weights. These use current vendored code
+  and real runtime, not fake inference; product proot bridge/full inference and
+  streaming/cancel on a loaded model remain pending. CPU only was available.
+- Reproduced generic HTTP500 for strict RAM refusal. API now returns HTTP503
+  `insufficient_memory`; already-started SSE sends the same type and DONE.
+  CPU-fallback allocation errors now receive the same estimated RAM/context
+  advice. New JSON/SSE/healthy-server/unrelated-error/fallback/no-OOM-retry unit
+  tests and final real tokenizer/API probe passed. Both CIs run the unit test.
+- Last storage check: C: ~10.4 GiB free, F: ~7.97 GiB (still below 8 GiB minimum).
+  Host free RAM before probes ~4.2 GiB; smallest model weights ~4.63 GiB.
+  Guest memory allowance does not prove Windows host headroom. No unsafe full
+  model attempt, new runtime/model download, ISO or deferred WSL migration.
+- October 9 cleanup deletion was tool-policy rejected before execution. Identified
+  ~617 MiB allocated synthetic WSL images and 254280 bytes of F: temp files remain.
+  No alternate-path retry, VHD compaction, or history/model/release removal.
+
+Evidence: `/var/tmp/ooonana-openvino-live-20261009.xZBaRy8V`,
+`/var/tmp/ooonana-gui-final-20261009.2RWdAWBW` and
+`/var/tmp/ooonana-geany-small-20261009.v4PKMGmE`. Failed diagnostic captures retained.
+
 ## Completed in this pass
 
 - PDF cold builtin queries read one private verified metadata/index snapshot.
@@ -62,7 +95,7 @@ builds/tests. No ISO, installed-distro migration, sound playback or key enrollme
 
 ## Still required / not authorized or unavailable
 
-1. Storage: latest check C: about 6.9 GiB free, F: 4.2 GiB. F release builder needs
+1. Storage: latest check C: about 10.4 GiB free, F: 7.97 GiB. F release builder needs
    at least 8 GiB; Linux release scratch needs 20 GiB, and WSL backup needs extra
    independent capacity. Supply another drive or free space before large builds.
 2. Rebuild final signed candidate repository/rootfs/manifest from committed source;
@@ -73,14 +106,17 @@ builds/tests. No ISO, installed-distro migration, sound playback or key enrollme
    independent offline target access, resolve retired APKs, migrate whole world,
    then verify installed Ooonana login/GUI/services. Do not overlay candidate core
    on live 0.9.9 libraries or force-reimport over existing data.
-4. Real nonroot Firefox Flatpak download/update/portal/file-picker checks; real
-   OpenVINO Linux runtime/model load/stream/cancel, low-memory and API recovery.
-   Fixtures are not inference; models/history must remain intact.
+4. Real nonroot Firefox Flatpak download/update/portal/file-picker checks;
+   product OpenVINO proot transport, heavyweight model load/inference/stream/cancel
+   and loaded-engine recovery. Real pinned Linux runtime/tokenizer/strict memory
+   rejection/idle API crash-restart now passed; no full inference claim.
+   Models/history must remain intact.
 5. Actual Chromium PDF viewer keyboard/Backspace/startup/command latency. Local
    viewer navigation was policy-denied; no alternate-path/browser workaround.
    Docs-only guide remains prior candidate snapshot until release documentation
    refresh; historical PDF artifacts retained.
-6. Interactive new-base Qt/dialog/file-picker and desktop session checks; actual
+6. Interactive new-base Qt/dialog/file-picker and desktop session checks. Real
+   Geany file-picker cancel/open now passed on two isolated resolutions; actual
    cursor shape/scale, wallpaper/theme consistency, multiple app sessions,
    mixed DPI, small screens, monitor hotplug, Korean IME, text scaling, clipboard,
    WSLg keyboard/mouse, lock/logout/suspend/resume. Fixture successes do not
