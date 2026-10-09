@@ -22,4 +22,7 @@ if "test-cli-query-fast.py" in smoke:
 if "test-ooonana-pdf.sh" in smoke:
     smoke_packages = set(re.search(r"apk add --no-cache ([^\n]+)", smoke)[1].split())
     assert "binutils" in smoke_packages, "Guide PDF checks require strings"
+if "test-openvino-setup.py" in smoke:
+    smoke_packages = set(re.search(r"apk add --no-cache ([^\n]+)", smoke)[1].split())
+    assert "xz" in smoke_packages, "Runtime setup fixtures use GNU tar -xJ"
 print("ok gitlab-ci dependencies and atomic publication")

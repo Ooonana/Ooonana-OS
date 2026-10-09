@@ -47,6 +47,9 @@ force checksum failure, retained generations/config/history, concurrent setup,
 low-space refusal, low RAM with abundant swap, rename rollback and SIGKILL before
 the legacy move, after the move and after pointer installation. Corrupt journals
 and unsafe lock/generation symlinks refuse. These fixtures do not install APT/pip.
+The full fixture passed on Ubuntu and isolated Alpine 3.24 candidate userspace,
+including GNU/BusyBox writer-lock rejection. It uses a private HOME. GitLab smoke
+provides `xz`, required by GNU tar for the fresh userspace archive fixture.
 
 Real pinned Linux runtime through the packaged bubblewrap launcher passed with
 the generation symlink, UID1000 daemon and read-only model mount: lazy API lifecycle,

@@ -109,10 +109,12 @@ if (phase == 'journal' and journal_moved) or (phase == 'directory' and old_moved
     launcher.write_text((source / 'openvino').read_text().replace('/usr/bin/bwrap', str(installer)))
     calls = work / "calls"
     calls.touch()
+    home = work / "home"
+    home.mkdir()
     history = work / "history/keep.json"
     history.parent.mkdir()
     history.write_text('user history remains')
-    environment = {**os.environ, 'PATH': str(tools) + ':' + os.environ['PATH'],
+    environment = {**os.environ, 'HOME': str(home), 'PATH': str(tools) + ':' + os.environ['PATH'],
                    'OOONANA_OPENVINO_PROJECT': str(project), 'OOONANA_LIVE_MODE_FILE': str(work / 'not-live'),
                    'OOONANA_OPENVINO_ROOTFS_SHA256': digest, 'SEED_SHA': digest,
                    'SEED_ARCHIVE': str(archive), 'CALLS': str(calls), 'REAL_MV': real_mv,
@@ -168,7 +170,8 @@ if (phase == 'journal' and journal_moved) or (phase == 'directory' and old_moved
         result = run(state, *arguments, **overrides)
         assert result.returncode and (state / 'rootfs').resolve() == second
         assert snapshot(first) == first_snapshot
-    assert run(state, '--force').returncode == 0
+    forced = run(state, '--force')
+    assert forced.returncode == 0, (forced.stdout, forced.stderr)
     assert second.exists() and (first.parent / 'previous').exists()
 
     def wait_held(process):
@@ -186,7 +189,12 @@ if (phase == 'journal' and journal_moved) or (phase == 'directory' and old_moved
                                text=True, start_new_session=True)
     try:
         wait_held(pending)
-        assert 'another setup' in run(state).stderr
+        current = (state / 'rootfs').resolve()
+        before = calls.read_text()
+        locked = run(state)
+        assert locked.returncode and any(message in locked.stderr for message in
+                                         ('another setup', 'busy or flock unavailable')), (locked.stdout, locked.stderr)
+        assert (state / 'rootfs').resolve() == current and calls.read_text() == before
         (work / 'release').touch()
         stdout, stderr = pending.communicate(timeout=10)
         assert pending.returncode == 0, (stdout, stderr)
@@ -213,7 +221,7 @@ if (phase == 'journal' and journal_moved) or (phase == 'directory' and old_moved
         assert (fault / '.runtime-promotion').exists()
         guard = subprocess.run(['sh', str(launcher), 'api', 'status'], env={**environment,
                                'OOONANA_OPENVINO_STATE_DIR': str(fault)}, capture_output=True, text=True, timeout=5)
-        assert guard.returncode and 'interrupted runtime promotion' in guard.stderr
+        assert guard.returncode and 'interrupted runtime promotion' in guard.stderr, (guard.stdout, guard.stderr)
         recovery = run(fault, FAIL_INSTALLER='1')
         assert recovery.returncode and 'recovered previous runtime' in recovery.stderr
         assert not (fault / '.runtime-promotion').exists()
