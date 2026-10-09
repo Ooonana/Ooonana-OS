@@ -17,7 +17,7 @@ from window_controls import Manager, WIDTH
 import i3_events
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("app", choices=("geany", "nemo", "chromium"))
+parser.add_argument("app", choices=("geany", "nemo", "chromium", "qterminal"))
 parser.add_argument("output", type=Path)
 parser.add_argument("--csd", action="store_true")
 parser.add_argument("--compositor", action="store_true", help="Capture packaged rounding policy through private xrender compositor")
@@ -123,6 +123,7 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
     command = {
         "geany": ["geany", "--new-instance", "--config=" + str(fixture / "geany")],
         "nemo": ["nemo", "--no-desktop", str(fixture)],
+        "qterminal": ["qterminal", "--workdir", str(fixture), "--execute", "/bin/sh"],
         "chromium": ["chromium", "--user-data-dir=" + str(fixture / "chromium"), "--no-first-run",
                      "--disable-background-networking", "--disable-component-update", "--password-store=basic",
                      "--disable-gpu", "about:blank"],
@@ -224,6 +225,8 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
         assert all(control.get_size().height == node["deco_rect"]["height"]
                    for control in manager.controls.values()), "Controls overlap client contents"
         identifier = node["id"]
+        if not args.csd:
+            wait(lambda: identifier in manager.controls)
         if args.file_dialog:
             def dialog_node():
                 def visit(item):
@@ -298,7 +301,7 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
                            env=environment, check=True, capture_output=True)
             wait(lambda: identifier in manager.controls)
             # Programmatic movement exercises real ConfigureNotify tracking.
-            moved = subprocess.check_output(["i3-msg", f"[con_id={identifier}] move position 160 100"], text=True)
+            moved = subprocess.check_output(["i3-msg", f"[con_id={identifier}] floating enable, move position 160 100"], text=True)
             assert all(result["success"] for result in json.loads(moved)), moved
             node = find_client()
             rect, deco = node["rect"], node["deco_rect"]

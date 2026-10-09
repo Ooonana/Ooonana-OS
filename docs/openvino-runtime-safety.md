@@ -55,6 +55,10 @@ Real pinned Linux runtime through the packaged bubblewrap launcher passed with
 the generation symlink, UID1000 daemon and read-only model mount: lazy API lifecycle,
 strict memory JSON/SSE refusal, cross-invocation daemon survival, owned crash/restart,
 stop/state cleanup and bridge FIFO cleanup. Existing cached app required an explicit
-current-source QA override. Full setup installing the current snapshot, heavyweight
+current-source QA override in the initial run. A later opt-in run built/installed
+current app 0.2.1 offline into a disposable copy-on-write venv, verified pinned dependency
+versions and bundled web assets, and passed the same transport gates without that
+override. Set `OOONANA_TRANSPORT_INSTALL_APP=1` for the opt-in runner; original
+venv stays unchanged. Complete Ubuntu/APT userspace setup, heavyweight
 inference/stream/cancel, new-image kernel and physical storage checks remain pending.
 Process-kill fault tests are not physical power-loss certification.

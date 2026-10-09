@@ -6,6 +6,25 @@ builds/tests. No ISO, installed-distro migration, sound playback or key enrollme
 
 ## October 9 follow-up
 
+- Offline current-app installation now passed in a disposable copy-on-write venv:
+  OpenVINO Chat 0.2.1 wheel installation, `pip check`, exact pinned dependency
+  versions and bundled GUI asset hashes. Real packaged bubblewrap API lifecycle,
+  strict memory JSON/SSE and crash/restart passed without source override.
+  Models remain read-only; preserved original venv remains 0.2.0. This is not
+  complete Ubuntu/APT runtime setup or loaded-model inference. Final proof:
+  `/var/tmp/ooonana-current-app-cow-20261009.lYrBbA8F/run.log` (~4.23 MiB fixture).
+- Real host QTerminal 1.4.0 passed current Ooonana config/control code: painted
+  buttons, minimize/restore/fullscreen/restore/floating move/close. Capture
+  inspected in private nonroot Ubuntu/Xvfb, without compositor. This does not
+  certify new-base Qt libraries/theme/dialogs/portals or physical sessions.
+  Proof: `/var/tmp/ooonana-qt-window-20261009.HZcsOdqY`. Probe no longer silently
+  skips absent expected controls. All eleven isolated candidate GUI probes
+  passed again: `/var/tmp/ooonana-gui-installed-app-20261009.pmEp5a9o/run.log`.
+- Removed only three redundant private cloned test venvs from this pass,
+  ~1.34 GiB allocated, after metadata/path/mount/open-file checks. Original
+  cached runtime, current thin COW proof, logs and user models/history retained.
+  Copies reproducible, deleted files not recoverable. No VHD compaction or
+  denied-target cleanup retry; Windows free space may not return immediately.
 - Setup reliability patch: never install into the working runtime; stage a copy
   or fresh pinned userspace, validate readiness, retain generations and atomically
   switch the pointer. Legacy directory conversion has journal/recovery; pending
@@ -129,7 +148,7 @@ Evidence: `/var/tmp/ooonana-openvino-live-20261009.xZBaRy8V`,
 
 ## Still required / not authorized or unavailable
 
-1. Storage: latest check C: about 10.30 GiB free, F: 7.97 GiB. F release builder needs
+1. Storage: latest check C: about 8.88 GiB free, F: 7.97 GiB. F release builder needs
    at least 8 GiB; Linux release scratch needs 20 GiB, and WSL backup needs extra
    independent capacity. Supply another drive or free space before large builds.
 2. Rebuild final signed candidate repository/rootfs/manifest from committed source;
@@ -144,7 +163,8 @@ Evidence: `/var/tmp/ooonana-openvino-live-20261009.xZBaRy8V`,
    complete OpenVINO setup installing current app/runtime, heavyweight model
    load/inference/stream/cancel and loaded-engine recovery. Real pinned Linux
    runtime/tokenizer/strict memory/idle restart and packaged bubblewrap transport
-   now passed, with explicit QA source override; no setup/full inference claim.
+   now passed. Offline current-app installation and transport without source
+   override passed too; complete Ubuntu/APT setup and full inference still pending.
    Setup replacement/rollback fault fixtures and real generation-pointer transport
    now passed; mocked installer does not close complete installation validation.
    Models/history must remain intact.

@@ -1,5 +1,13 @@
 # Current work - 2026-10-09
 
+## October 9 offline installed-app and Qt follow-up
+
+- Built/installed OpenVINO Chat 0.2.1 offline into a disposable copy-on-write overlay over cached Linux venv. `pip check`, every pinned dependency version and bundled web-asset hashes passed. Real packaged bubblewrap API now passes without PYTHONPATH/current-source override: UID1000, read-only models, strict memory JSON/SSE, cross-invocation status, crash/restart, stop/state and bridge cleanup. Preserved cache remains 0.2.0. Final fixture uses about 4.23 MiB: `/var/tmp/ooonana-current-app-cow-20261009.lYrBbA8F/run.log`. This closes current-app installation/transport gap, not full Ubuntu/APT setup or model inference.
+- Existing QTerminal 1.4.0 passed painted Ooonana controls, minimize/restore/fullscreen/restore/floating move/close using current config/control code in an isolated nonroot Ubuntu/Xvfb session. Capture inspected; no sound. Host Qt/i3, without compositor: not new-base Qt/theme/portal or physical session certification. Proof: `/var/tmp/ooonana-qt-window-20261009.HZcsOdqY`.
+- Third-party probe now refuses a missing expected control overlay instead of silently skipping actions; floating movement also works for initially tiled Qt clients. All eleven candidate GUI gates passed again, including composited Geany/Nemo/Chromium. Proof: `/var/tmp/ooonana-gui-installed-app-20261009.pmEp5a9o/run.log`.
+- No runtime/model download, production data mutation, ISO, installed WSL migration, signing enrollment or denied cleanup retry. Full remaining gates stay below/in the closure checklist.
+- Removed only three redundant cloned test venvs created during this pass (about 1.34 GiB allocated). Exact paths/metadata, no active mounts/open files and replacement COW proof checked first. Logs, original cached venv and models/history preserved; discarded clones reproducible, not recoverable as deleted files. No VHD compaction or guarantee that Windows backing-drive free space returns.
+
 ## October 9 staged runtime setup and interrupted-promotion recovery
 
 - Found OpenVINO setup updating the working userspace in place and force setup deleting it before replacement. Setup now holds kernel writer lock, installs only in a staged copy/fresh pinned userspace, validates readiness and switches a retained generation pointer. No old-generation/model/history deletion. Space floor refuses before copying/downloading; low-RAM warning no longer counts swap as physical RAM.

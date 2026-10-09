@@ -2,12 +2,14 @@
 """Real packaged bubblewrap/API transport, never compile model weights.
 
 Requires the disposable runner, cached Linux venv and read-only model mount.
-The old cached app is overridden by current source only for this QA probe.
+Default probe overrides old cached app with source. Opt-in runner installs current
+app offline into a disposable venv copy and tests without that override.
 """
 from __future__ import annotations
 
 import argparse
 import importlib.metadata
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -16,6 +18,7 @@ import socket
 import subprocess
 import sys
 import time
+import tomllib
 import urllib.error
 import urllib.request
 
@@ -34,7 +37,25 @@ def main() -> None:
     assert os.statvfs(models).f_flag & os.ST_RDONLY
     assert (qa / "state/rootfs").is_symlink()
     source = args.source.resolve(strict=True)
-    sys.path.insert(0, str(source / "packages/openvino-chat/source/src"))
+    installed_app = os.environ.get("OOONANA_TRANSPORT_INSTALL_APP") == "1"
+    if installed_app:
+        expected = tomllib.loads((source / "packages/openvino-chat/source/pyproject.toml").read_text())["project"]["version"]
+        assert importlib.metadata.version("openvino-chat") == expected
+        import openvino_chat
+        assert Path(openvino_chat.__file__).resolve().is_relative_to(qa / "venv")
+        for line in (source / "packages/openvino-chat/source/requirements-linux-full.lock").read_text().splitlines():
+            if line and not line.startswith("#"):
+                name, version = line.split(" --hash=", 1)[0].split("==", 1)
+                actual = importlib.metadata.version(name)
+                assert actual == version, (name, actual, version)
+        web = source / "packages/openvino-chat/source/src/openvino_chat/web"
+        installed_web = Path(openvino_chat.__file__).parent / "web"
+        for resource in web.iterdir():
+            if resource.is_file():
+                assert hashlib.sha256(resource.read_bytes()).digest() == hashlib.sha256(
+                    (installed_web / resource.name).read_bytes()).digest(), resource.name
+    else:
+        sys.path.insert(0, str(source / "packages/openvino-chat/source/src"))
     from openvino_chat import api
     from openvino_chat.memory_guard import estimate_memory
 
@@ -49,7 +70,10 @@ def main() -> None:
                    "OOONANA_OPENVINO_PROJECT": str(source / "packages/openvino-chat/source"),
                    "OOONANA_OPENVINO_HOME": str(state_home),
                    "OOONANA_OPENVINO_WORKSPACE": str(qa / "workspace"),
-                   "PYTHONPATH": "/opt/openvino-chat/src", "OPENVINO_MEMORY_POLICY": "strict"}
+                   "OPENVINO_MEMORY_POLICY": "strict"}
+    environment.pop("PYTHONPATH", None)
+    if not installed_app:
+        environment["PYTHONPATH"] = "/opt/openvino-chat/src"
     launcher = source / "packages/openvino-chat/rootfs/usr/bin/openvino"
 
     def run(*arguments: str) -> str:
@@ -116,7 +140,11 @@ def main() -> None:
                           "memory_json_sse": "passed", "bridge_cleanup": "passed",
                           "runtime_versions": {name: importlib.metadata.version(name) for name in
                                                ("openvino", "openvino-genai", "openvino-tokenizers")},
-                          "app_source": "QA current-source override",
+                          "app_source": "offline installed app" if installed_app else "QA current-source override",
+                          "app_version": importlib.metadata.version("openvino-chat"),
+                          "app_install_validated": installed_app,
+                          "pinned_dependencies_validated": installed_app,
+                          "installed_web_assets_validated": installed_app,
                           "generation_pointer": "passed",
                           "setup_validated": False, "inference_validated": False}, sort_keys=True), flush=True)
     finally:
