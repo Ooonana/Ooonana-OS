@@ -6,6 +6,17 @@ builds/tests. No ISO, installed-distro migration, sound playback or key enrollme
 
 ## October 9 follow-up
 
+- Actual packaged bubblewrap transport now passed with real pinned runtime and
+  current-source QA override, private network/PID/mount namespaces, UID1000,
+  read-only models/venv. Daemon `/proc` confirms host UID1000 and its own model
+  mount read-only. Ubuntu QA host, not installed Ooonana/new-image kernel proof.
+  Lazy API start/status across launcher invocations,
+  strict oversized-context JSON503/SSE failure, daemon survival, owned crash/
+  restart, stop/state and per-command FIFO cleanup passed. Ubuntu QA rootfs
+  used disposable overlay; no browser/download/weight compilation.
+  Cached app remains 0.2.0: source override and synthetic readiness marker are
+  QA fixtures, not proof that setup installs the current app snapshot.
+  Real transport is bubblewrap, not proot. Setup/inference remain pending.
 - Continuation fixed generation-time allocation failures and grammar-retry OOM:
   typed insufficient-memory errors, no OOM retry, unrelated failures preserved.
   Firefox setup/update now refuse volatile storage before Flatpak mutation;
@@ -29,8 +40,9 @@ builds/tests. No ISO, installed-distro migration, sound playback or key enrollme
   five preserved model folders were read-only during real memory estimates.
   Strict excessive-context rejection, idle API health/models and SIGKILL/restart
   recovery passed without compiling weights. These use current vendored code
-  and real runtime, not fake inference; product proot bridge/full inference and
-  streaming/cancel on a loaded model remain pending. CPU only was available.
+  and real runtime, not fake inference; the later packaged bubblewrap transport
+  pass above supersedes its transport limitation. Full inference/stream/cancel
+  on a loaded model remain pending. CPU only was available.
 - Reproduced generic HTTP500 for strict RAM refusal. API now returns HTTP503
   `insufficient_memory`; already-started SSE sends the same type and DONE.
   CPU-fallback allocation errors now receive the same estimated RAM/context
@@ -120,9 +132,10 @@ Evidence: `/var/tmp/ooonana-openvino-live-20261009.xZBaRy8V`,
    then verify installed Ooonana login/GUI/services. Do not overlay candidate core
    on live 0.9.9 libraries or force-reimport over existing data.
 4. Real nonroot Firefox Flatpak download/update/portal/file-picker checks;
-   product OpenVINO proot transport, heavyweight model load/inference/stream/cancel
-   and loaded-engine recovery. Real pinned Linux runtime/tokenizer/strict memory
-   rejection/idle API crash-restart now passed; no full inference claim.
+   complete OpenVINO setup installing current app/runtime, heavyweight model
+   load/inference/stream/cancel and loaded-engine recovery. Real pinned Linux
+   runtime/tokenizer/strict memory/idle restart and packaged bubblewrap transport
+   now passed, with explicit QA source override; no setup/full inference claim.
    Models/history must remain intact.
 5. Actual Chromium PDF viewer keyboard/Backspace/startup/command latency. Local
    viewer navigation was policy-denied; no alternate-path/browser workaround.
@@ -150,6 +163,13 @@ small core package and GUI captures. Failed seed/diagnostic logs retained.
 `docs/assets/ooonana-candidate-*-20261008.png` are inspected isolated captures,
 not physical boot proof. Valid repository generations, keys, models, history
 and prior release artifacts remain untouched.
+
+Packaged transport probe evidence: `/var/tmp/ooonana-transport-20261009.E20t3ZZC.log`.
+Initial fixture mountpoint failure retained under `ooonana-transport-20261009.3YTvJzOU`;
+it modified only disposable overlay, not cached userspace. Final runner guard
+retest: `/var/tmp/ooonana-transport-final-20261009.X4jCaJmc.log`;
+daemon host-UID/read-only-mount follow-up:
+`/var/tmp/ooonana-transport-mount-20261009.CrGabZD4.log`.
 
 Cleanup removed only two newly created failed QEMU fixture image sets (about
 1.07 GiB allocated). Logs and deleted-image checksums retained. No guest/process

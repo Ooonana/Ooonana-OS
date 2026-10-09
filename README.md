@@ -25,6 +25,8 @@ This branch stages **core 0.10.0**, a coherent Alpine v3.24 imported-userland ca
 
 October 9 follow-up: GTK file pickers no longer open above the display. Actual Geany cancel/open and window controls passed on isolated 1280x800 and 1024x768 displays; ordinary alerts retain their size. OpenVINO low-memory failures now return typed JSON/SSE errors, including CPU-fallback and generation allocation failures; OOM never triggers grammar retry. Real pinned Linux runtime/tokenizer, strict RAM refusal and API crash/restart passed without loading heavyweight model weights; inference remains pending. [Evidence and limits](docs/remaining-closure-20261008.md#october-9-follow-up).
 
+Packaged OpenVINO bubblewrap launcher also passed nonroot API lifecycle, strict memory JSON/SSE refusal, cross-invocation daemon survival, owned crash/restart and bridge FIFO cleanup. Models/runtime were read-only in private namespaces. Cached runtime used current-source QA override; complete setup and heavyweight inference are still pending, not implied by transport success.
+
 ![Candidate Geany file picker contained within 1024x768 display](docs/assets/ooonana-geany-file-picker-20261009.png)
 
 ![Current native Appearance settings](docs/assets/ooonana-appearance-20261008.png)

@@ -1,5 +1,11 @@
 # Current work - 2026-10-09
 
+## October 9 packaged OpenVINO transport follow-up
+
+- Real packaged bubblewrap launcher passed as UID1000 in private network/PID/mount namespaces on Ubuntu QA host: lazy API start, status from a second invocation, strict oversized-context JSON503/SSE error, daemon survival across launcher exits, owned SIGKILL/restart and stop/state cleanup. Daemon `/proc` confirms host UID1000 and its own model mount read-only. All per-command browser-bridge FIFO directories removed. Preserved models/venv mounted read-only; no weights compiled, browser opened or download performed. This is not installed Ooonana/new-image kernel validation.
+- Reused cached Ubuntu 24.04 QA userspace and pinned OpenVINO 2026.4.1/GenAI/tokenizers 2026.4.1.0. Writable overlay held only disposable mountpoints/readiness marker. Cached app is 0.2.0, so current vendored code was explicitly injected for QA; this does not validate setup installing the current app snapshot. Actual transport is bubblewrap, not proot. Full setup, inference/streaming/cancel and loaded-engine recovery remain pending.
+- Added opt-in real transport runner/probe and ordinary-run/worker-refusal regression to both CIs. Final real run and targeted regressions passed; logs retained outside repository. No ISO, installed WSL migration, cleanup workaround, sound or signing enrollment.
+
 ## October 9 continuation: storage guards, generation OOM and guide
 
 - Generation-time OpenVINO allocation failures now use typed insufficient-memory errors, including a failed grammar retry. OOM does not trigger a retry; unrelated errors keep their existing behavior. JSON/SSE, load/fallback/generation regressions, backend metrics and cgroup checks passed.
@@ -11,7 +17,7 @@
 ## October 9 runtime and file-picker follow-up
 
 - Reproduced actual Geany Open dialog at y=-44, height 862 on 1280x800. Initial GTK file-picker role now receives output-relative bounds and centering; generic alerts remain unchanged. Real nonroot file-picker focus/cancel/open and minimize/fullscreen/restore/move/close passed at 1280x800 and 1024x768. All eleven isolated GUI probes passed again; fresh inspected file-picker capture added to README.
-- Actual pinned Linux OpenVINO 2026.4.1 / GenAI 2026.4.1.0, real Granite tokenizer (including Korean text), five saved-model memory estimates, strict oversized-context refusal and API SIGKILL/restart passed. Models mounted read-only, private network/PID namespace and disposable state, UID1000. This uses existing Linux Python 3.12 test venv, not installed Ooonana's proot transport or full model inference.
+- Actual pinned Linux OpenVINO 2026.4.1 / GenAI 2026.4.1.0, real Granite tokenizer (including Korean text), five saved-model memory estimates, strict oversized-context refusal and API SIGKILL/restart passed. Models mounted read-only, private network/PID namespace and disposable state, UID1000. This early check used existing Linux Python 3.12 venv without packaged transport; later bubblewrap follow-up above supersedes that gap, not full model inference.
 - Found low-memory failures exposed as generic HTTP500. API now returns HTTP503 `insufficient_memory` or typed SSE error plus DONE; GPU-to-CPU fallback allocation failures receive the same RAM guidance. Unit JSON/SSE/health/unrelated-error/no-OOM-retry regressions and final real API probe passed; both source CIs include the regression.
 - Physical inference remains pending: smallest saved weights ~4.63 GiB; host free RAM measured ~4.2 GiB before probes, while WSL reports its guest allowance. No heavyweight compile/download, ISO, WSL migration, sound or key upload. Last storage check C: ~10.4 GiB, F: ~7.97 GiB; F remains below release builder's 8 GiB minimum.
 - Cleanup request identified abandoned synthetic images/stale temp files, but deletion was policy-rejected before execution. No targets removed or alternate-path retry. Logs/history/models/releases/valid generations remain. [Complete remaining list](remaining-closure-20261008.md).

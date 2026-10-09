@@ -34,6 +34,7 @@ ci-smoke:
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-cgroup-memory.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-backend-metrics-api.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-openvino-memory-errors.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-openvino-transport.py
     - PYTHONDONTWRITEBYTECODE=1 bash tests/test-openvino-chat-package.sh
     - PYTHONDONTWRITEBYTECODE=1 bash tests/test-ooonana-pdf.sh
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-state-io-recovery.py
