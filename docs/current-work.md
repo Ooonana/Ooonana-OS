@@ -12,6 +12,10 @@
   delegates selected-repo validation instead of requiring an unrelated default.
 - Fixed missing GTK portal entries in the combined factory profile as well as
   full-i3. Regression covers both profiles and CLI/environment precedence.
+- Actual signed-stage refresh exposed a factory ordering bug: unsigned reindex
+  retained an old signature, so the manager correctly rejected dependency checks.
+  Factory now signs before validation and refuses missing-key refresh before
+  touching signed staging. Reuse and no-write refusal regression added.
 - Candidate refresh/publication and final preflight are separate verification
   steps. No ISO, migration, sound or signing-key upload. F: now about 18 GiB free.
 

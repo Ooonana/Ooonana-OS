@@ -221,6 +221,18 @@ verify_repo_packages() {
   rm -rf "$work"
 }
 
+index_verified_repo() {
+  # Dependency checks read the repository through the real package manager.
+  # Refresh the signature with the index, before those checks see either file.
+  if [[ -n "$SIGN_KEY" ]]; then
+    "$ROOT/packages/ooonana/usr/bin/ooonana" repo index --sign-key "$SIGN_KEY" "$OUT_DIR" >/dev/null
+  elif [[ -e "$OUT_DIR/SHA256SUMS.sig" ]]; then
+    ooonana_die "signed staging refresh requires --sign-key; existing signature cannot be reused"
+  else
+    "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$OUT_DIR" >/dev/null
+  fi
+}
+
 main() {
   ooonana_require_linux
   ooonana_require_commands awk basename cat cp mkdir mktemp rm sed tr
@@ -289,6 +301,9 @@ main() {
   fi
 
   [[ ! -f "$OUT_DIR/CURRENT" ]] || ooonana_die "published generations are immutable; build in separate staging directory"
+  if [[ "$CLEAN" -eq 0 && -e "$OUT_DIR/SHA256SUMS.sig" && -z "$SIGN_KEY" ]]; then
+    ooonana_die "signed staging refresh requires --sign-key; existing signature cannot be reused"
+  fi
   [[ "$CLEAN" -eq 1 ]] && rm -rf "$OUT_DIR"
   mkdir -p "$OUT_DIR"
   if [[ "$FULL_I3" -eq 1 ]]; then
@@ -367,16 +382,13 @@ EOF
     chmod 0644 "$OUT_DIR/repo.pub"
   fi
   python3 "$ROOT/scripts/record-release-manifest.py" --repo "$OUT_DIR"
-  "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$OUT_DIR" >/dev/null
+  index_verified_repo
   native_packages="ooonana-core openvino-chat devicechat wine firefox"
   [[ "$bunanachat_built" -eq 1 ]] && native_packages="$native_packages bunanachat"
   [[ "$windows_chat_built" -eq 1 ]] && native_packages="$native_packages ooonana-chat-windows"
   verify_repo_packages $native_packages $common_packages
   if [[ "$FULL_I3" -eq 1 ]]; then
     verify_repo_profile full-i3
-  fi
-  if [[ -n "$SIGN_KEY" ]]; then
-    "$ROOT/packages/ooonana/usr/bin/ooonana" repo index --sign-key "$SIGN_KEY" "$OUT_DIR" >/dev/null
   fi
   write_cloud_hints
   ooonana_log "package repo ready: $OUT_DIR"

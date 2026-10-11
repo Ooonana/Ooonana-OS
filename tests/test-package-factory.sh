@@ -495,6 +495,34 @@ OOONANA_REPO_DIR="$tmp/full-repo" \
   "$ROOT/packages/ooonana/usr/bin/ooonana" install full-i3 --dry-run >/dev/null ||
   fail "full repo dependency closure is broken"
 
+# Reusing a signed mutable stage must refresh its signature BEFORE the manager
+# checks closure. Previously the unsigned reindex retained a stale signature.
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:1024 -out "$tmp/fixture-sign.key" >/dev/null 2>&1
+openssl pkey -in "$tmp/fixture-sign.key" -pubout -out "$tmp/full-repo/repo.pub" >/dev/null 2>&1
+OUT_DIR="$tmp/full-repo"
+SIGN_KEY="$tmp/fixture-sign.key"
+source "$ROOT/scripts/lib/common.sh"
+eval "$(sed -n '/^index_verified_repo() {$/,/^}$/p' "$BUILDER")"
+index_verified_repo
+printf '# refreshed package metadata\n' >> "$OUT_DIR/base.pkg"
+index_verified_repo
+OOONANA_REPO_DIR="$OUT_DIR" OOONANA_SOURCES_DIR="$tmp/empty-sources" \
+  OOONANA_STATE_DIR="$tmp/signed-state" OOONANA_CACHE_DIR="$tmp/signed-cache" \
+  "$ROOT/packages/ooonana/usr/bin/ooonana" install full-i3 --dry-run >/dev/null ||
+  fail "signed staging refresh validated a stale signature"
+before_sums="$(sha256sum "$OUT_DIR/SHA256SUMS" "$OUT_DIR/SHA256SUMS.sig")"
+if (SIGN_KEY=""; index_verified_repo) >/dev/null 2>&1; then
+  fail "signed reindex accepted missing signing key"
+fi
+[[ "$(sha256sum "$OUT_DIR/SHA256SUMS" "$OUT_DIR/SHA256SUMS.sig")" == "$before_sums" ]] ||
+  fail "missing-key refusal changed signed index"
+if bash "$BUILDER" --out-dir "$OUT_DIR" --package-profile /dev/null --packages nano >/dev/null 2>&1; then
+  fail "factory accepted signed-stage refresh without key"
+fi
+[[ "$(sha256sum "$OUT_DIR/SHA256SUMS" "$OUT_DIR/SHA256SUMS.sig")" == "$before_sums" ]] ||
+  fail "factory missing-key refusal changed signed stage"
+SIGN_KEY=""
+
 printf 'kernel-test\n' > "$tmp/vmlinuz"
 kernel_sha256="$(sha256sum "$tmp/vmlinuz" | awk '{print $1}')"
 bash "$KERNEL_PACKAGER" \
