@@ -1128,6 +1128,7 @@ docs/jarvis-agi-research.md
 For prepared Windows/WSL release workspace, run in PowerShell:
 
 ```powershell
+if ((Get-PSDrive C).Free -lt 20GB) { throw 'Free 20 GiB on C: for Ubuntu WSL staging first.' }
 $repo = '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10'
 & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo $repo --preflight-only
 if ($LASTEXITCODE -eq 0) {
@@ -1145,6 +1146,10 @@ rollback. Do not relabel old archives or bypass provenance checks.
 `--repo` selects a repository without changing the stable `CURRENT` pointer or
 installed WSL. It must exist and pass signatures, checksums and dependency checks;
 selecting it does not certify a release. Other machines must supply their own path.
+On this host Ubuntu's VHD is on C:, while repo/release storage is on F:.
+WSL `df` reports virtual guest capacity, not free space on the Windows drive
+backing that VHD. Keep at least 20 GiB free on C: for staging and 8 GiB on F:
+before building; freeing F: alone does not provide C: staging headroom.
 Run a fresh build after
 source or package changes; do not reuse rootfs/ISO resume stages from older code.
 The release script validates package checksums and kernel config, builds in WSL,

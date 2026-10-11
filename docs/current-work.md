@@ -18,8 +18,23 @@
   touching signed staging. Build-time closure checks use the explicitly chosen
   public key, not the unrelated bundled default. Reuse, custom-key verification
   and no-write refusal regression added; client trust enrollment is unchanged.
-- Candidate refresh/publication and final preflight are separate verification
-  steps. No ISO, migration, sound or signing-key upload. F: now about 18 GiB free.
+- Refreshed all factory payloads on the same v3.24 branch, current native
+  core/OpenVINO/Firefox/branding and portal closure. Real Ooonana dry-run checks
+  passed for full-i3, native apps and common tools. Final inventory: 642 packages,
+  623 imported packages with explicit v3.24 provenance, 610 dependency nodes.
+  Initial stale-signature failure log retained; repaired signing phase passed.
+- Current-source factory/release/Firefox/CLI regressions passed. Candidate-only
+  atomic publication target is `F:\Ooonana\ooonana-os\build\full-i3-repo-0.10`;
+  trusted signatures and archive checksums are checked before pointer promotion.
+  Stable `build/full-i3-repo/CURRENT` and installed Ooonana 0.9.9 are unchanged.
+- Input-only preflight passed with repaired native staging: repo/signatures,
+  desktop closure, cached kernel config, firmware and source/boot/service gates.
+  This is not a rebuilt final-image or hardware pass. Evidence:
+  `/var/tmp/ooonana-repo-repair-20261011.iA9JyBvt`.
+- F: initially ~18 GiB free, but C: only ~7 GiB after staging. Ubuntu VHD/staging
+  backs onto C:; virtual WSL `df` capacity is not physical headroom. README build
+  command checks 20 GiB free on C: first. No ISO, migration, sound, stable-channel
+  promotion, client key enrollment or private-key upload.
 
 ## October 11 runtime setup, inference and portal follow-up
 
