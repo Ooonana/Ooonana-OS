@@ -74,8 +74,12 @@ with tempfile.TemporaryDirectory(prefix="ooonana-userland-") as temporary:
     assert "whole-world" in run("upgrade", "same", "--allow-major", success=False)
     assert "whole-world" in run("upgrade", "--security-only", "--allow-major", success=False)
     assert "explicit --allow-major" in run("upgrade", success=False)
+    # Resolve a live-root alias without invoking a host-installed admin helper.
+    # All state stays disposable; the canonical-root guard must refuse payloads.
+    live_alias = work / "live-root"
+    live_alias.symlink_to("/", target_is_directory=True)
     assert "offline target" in run("upgrade", "--allow-major", success=False,
-                                   overrides={"OOONANA_ROOT": "/"})
+                                   overrides={"OOONANA_ROOT": str(live_alias)})
     assert not (work / "state/.userland-migration").exists()
     plan = run("upgrade", "--dry-run", "--allow-major")
     assert "would upgrade same 1 -> 1" in plan and "would upgrade lower 2 -> 1" in plan

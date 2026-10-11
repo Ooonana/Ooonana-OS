@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import signal
 import socket
+import stat
 import subprocess
 import tarfile
 import tempfile
@@ -15,6 +16,7 @@ import time
 
 PROJECT = Path(__file__).resolve().parents[1]
 CLI = PROJECT / "packages/ooonana/usr/bin/ooonana"
+os.umask(0o077)
 
 
 def run(env, *args, success=True):
@@ -66,7 +68,9 @@ with tempfile.TemporaryDirectory(prefix="ooonana-interrupted-update-") as tempor
         package("1")
         run(env, "get", "fixture")
         config = root / "etc/fixture.conf"
+        assert stat.S_IMODE(config.stat().st_mode) == 0o644
         config.write_text("custom=yes")
+        config.chmod(0o640)
         installed = (work / "state/installed/fixture.pkg").read_bytes()
         baseline = (work / "state/config-baselines/fixture.sha256").read_bytes()
         manifest = (work / "state/files/fixture.list").read_bytes()
@@ -115,7 +119,7 @@ with tempfile.TemporaryDirectory(prefix="ooonana-interrupted-update-") as tempor
             bindir = work / "bin"
             bindir.mkdir()
             failing_tar = bindir / "tar"
-            failing_tar.write_text('#!/bin/sh\n[ "$1" != -xf ] || exit 9\nexec /bin/tar "$@"\n')
+            failing_tar.write_text('#!/bin/sh\ncase "$1" in -xf|-xpf) exit 9 ;; esac\nexec /bin/tar "$@"\n')
             failing_tar.chmod(0o755)
             output = run(dict(env, PATH=str(bindir) + ":" + env["PATH"]), "recover", success=False)
             assert "checkpoint retained" in output and checkpoint.is_dir(), output
@@ -125,6 +129,7 @@ with tempfile.TemporaryDirectory(prefix="ooonana-interrupted-update-") as tempor
         assert (root / "usr/share/fixture/version").read_text() == "1"
         assert not (root / "usr/share/fixture/new-file").exists()
         assert config.read_text() == "custom=yes"
+        assert stat.S_IMODE(config.stat().st_mode) == 0o640
         assert not config.with_name("fixture.conf.ooonana-new").exists()
         assert (work / "state/installed/fixture.pkg").read_bytes() == installed
         assert (work / "state/config-baselines/fixture.sha256").read_bytes() == baseline

@@ -30,8 +30,8 @@
   real UID1000 Documents/FUSE activation, Firefox renderer seccomp=2/no-new-privs=1,
   painted controls, minimize/restore/fullscreen/restore/move/close passed:
   `/var/tmp/ooonana-firefox-final-20261012.HgOA2mXJ/run.log`.
-  Sandboxed picker is blocked by Firefox first-run Terms prompt. Consent asked;
-  none accepted. Private QA profile has diagnostics off; production defaults
+  Sandboxed picker is blocked by Firefox first-run Terms prompt. User delegated
+  recommendation; acceptance deferred, none accepted. Private QA profile has diagnostics off; production defaults
   unchanged. No browser/Flatpak sandbox or host security policy disabled.
 - CI caught standalone sandbox-helper fixture missing the new app selector.
   Added explicit Chromium selector plus Firefox uninitialized/unlocked/ready
@@ -39,6 +39,16 @@
   New `/var/tmp` health requirement also exposed outdated shutdown-hook fixture;
   fixture now models actual sticky directory. Entire GitHub CI command suite
   passed locally: `/var/tmp/ooonana-full-ci-20261012.DYLFbvQV/run.log`.
+- GitHub's nonroot factory run exposed archive extraction masking sticky modes.
+  Install, replacement, configuration restore and rollback now preserve archive
+  permissions explicitly. Tests use umask 077 and verify packaged 0644 files,
+  custom 0640 configuration retention and sticky 1777 `/var/tmp`; health checks
+  stay strict. Live-root migration fixture uses a canonical `/` alias, preventing
+  host admin-helper escalation while verifying live replacement refusal.
+  Entire GitHub command suite also passed as UID1000 with private HOME/XDG state:
+  `/var/tmp/ooonana-nonroot-ci-final-20261012.JMr2j1Eu/run.log`. Root upgrade,
+  interruption and migration fixtures passed separately:
+  `/var/tmp/ooonana-root-permissions-20261012.OT6AEchs/run.log`.
 - Removed only two failed private Flatpak download caches (~367 MiB), keeping
   logs and histories. Owned F: 6 GiB test-file format stalled in WSL 9p I/O;
   stopped owned formatter. Removal was tool-policy blocked; file retained,

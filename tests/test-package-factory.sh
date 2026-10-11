@@ -434,7 +434,7 @@ OOONANA_PKG_DEPS=""
 OOONANA_PKG_ARCHIVE="archives/ooonana-core-0.8.1.tar.gz"
 OOONANA_PKG_SHA256="legacy"
 EOF
-core_upgrade="$(OOONANA_REPO_DIR="$tmp/repo" \
+core_upgrade="$(umask 077; OOONANA_REPO_DIR="$tmp/repo" \
   OOONANA_CACHE_DIR="$tmp/core-upgrade-cache" \
   OOONANA_ROOT="$core_upgrade_root" \
   "$ROOT/packages/ooonana/usr/bin/ooonana" upgrade --allow-major ooonana-core)"

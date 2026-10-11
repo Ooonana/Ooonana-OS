@@ -12,11 +12,16 @@ builds/tests. No ISO, installed-distro migration, sound playback or key enrollme
   entry added. All thirteen candidate GUI gates passed together. Current evidence:
   `/var/tmp/ooonana-native-ai-final-20261012.KGKGpMny/run.log`,
   `/var/tmp/ooonana-gui-source-freeze-20261012.v8Yv713R/run.log`.
+- Nonroot package extraction preserves archive permissions through umask 077,
+  including sticky `/var/tmp`, upgrade/configuration retention and rollback.
+  Whole CI command suite passed with private UID1000 HOME/XDG state:
+  `/var/tmp/ooonana-nonroot-ci-final-20261012.JMr2j1Eu/run.log`.
 - Real nonroot Firefox 157.0.1 install/update passed after fixing missing sticky
   `/var/tmp` in builder/core package, with build/upgrade/unsafe-permission tests.
   Documents/FUSE, renderer kernel sandbox state, window paint and actions passed:
   `/var/tmp/ooonana-firefox-final-20261012.HgOA2mXJ/run.log`. Sandboxed picker needs
-  first-run Terms consent; none accepted. New-base Qt file pickers/theme, physical sessions and GPU
+  first-run Terms consent; recommendation is defer acceptance, none accepted.
+  New-base Qt file pickers/theme, physical sessions and GPU
   remain uncertified. Detailed limits: [current work](current-work.md#october-12-ai-qt-and-firefox-closure).
 - C: ~4.4 GiB is below 20 GiB image-staging guard. F: ~10.8 GiB; tool-policy
   blocked removal of owned failed 6 GiB scratch image. ~367 MiB failed download
@@ -212,30 +217,32 @@ Evidence: `/var/tmp/ooonana-openvino-live-20261009.xZBaRy8V`,
 
 ## Still required / not authorized or unavailable
 
-1. Storage: latest check C: about 8.35 GiB free, F: 7.97 GiB. F release builder needs
+1. Storage: latest check C: about 4.3 GiB free, F: 10.8 GiB. F release builder needs
    at least 8 GiB; Linux release scratch needs 20 GiB, and WSL backup needs extra
    independent capacity. Supply another drive or free space before large builds.
-2. Rebuild final signed candidate repository/rootfs/manifest from committed source;
-   run current-image BIOS/UEFI/service/GUI gates. Never resume old 0.9.9 cache as
+2. Final signed candidate repository/manifest refreshed separately from stable;
+   build final rootfs/image and run current-image BIOS/UEFI/service/GUI gates.
+   Never resume old 0.9.9 cache as
    0.10.0, mix libraries, or promote stable endpoints based only on source CI.
    ISO building stays user-owned.
 3. WSL migration remains explicitly deferred. Require verified full backup and
    independent offline target access, resolve retired APKs, migrate whole world,
    then verify installed Ooonana login/GUI/services. Do not overlay candidate core
    on live 0.9.9 libraries or force-reimport over existing data.
-4. Real nonroot Firefox Flatpak download/update and sandboxed Firefox file-picker
-   checks on rebuilt candidate. Independent candidate portal/FUSE/nonroot picker
-   now passed; it does not certify Firefox sandbox integration. OpenVINO fresh
-   Ubuntu/APT/pip setup, small CPU model inference/SSE,
-   cancellation/reuse and loaded-engine restart now passed. Large saved-model
-   inference, GPU and real GUI-to-engine complete journey remain pending;
+4. Firefox sandboxed file-picker check after explicit first-run Terms consent;
+   acceptance deferred. Actual nonroot Flatpak install/update, Firefox sandbox
+   state, controls and Documents/FUSE passed. OpenVINO fresh Ubuntu/APT/pip setup,
+   small CPU model inference/SSE and actual GTK/CLI-to-engine streaming,
+   cancellation/reuse, low-memory refusal and loaded-engine restart passed.
+   Large saved-model inference and GPU remain pending;
    CPU QA proof does not certify those. Models/history must remain intact.
 5. Actual Chromium PDF viewer keyboard/Backspace/startup/command latency. Local
    viewer navigation was policy-denied; no alternate-path/browser workaround.
    Docs-only guide now reflects October 9 evidence; final release-specific
    documentation still needs final image results. Historical PDFs retained.
-6. Interactive new-base Qt/dialog/file-picker and desktop session checks. Real
-   Geany file-picker cancel/open now passed on two isolated resolutions; actual
+6. New-base Qt theme/file-picker and physical desktop session checks. Composited
+   QTerminal controls/close dialog passed. Real Geany file-picker cancel/open
+   passed on two isolated resolutions; actual
    cursor shape/scale, wallpaper/theme consistency, multiple app sessions,
    mixed DPI, small screens, monitor hotplug, Korean IME, text scaling, clipboard,
    WSLg keyboard/mouse, lock/logout/suspend/resume. Fixture successes do not

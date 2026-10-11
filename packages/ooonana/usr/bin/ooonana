@@ -536,7 +536,7 @@ restore_pkg_transaction() (
     rmdir "$(root_join "/$entry")" 2>/dev/null || true
   done
   if [ -f "$transaction/payload.tar" ]; then
-    tar -xf "$transaction/payload.tar" -C "$OOONANA_ROOT" || return 1
+    tar -xpf "$transaction/payload.tar" -C "$OOONANA_ROOT" || return 1
   fi
   cp -p "$transaction/installed.pkg" "$INSTALLED_DIR/$id.pkg" || return 1
   if [ -f "$transaction/manifest" ]; then
@@ -917,7 +917,7 @@ sync_tarball_repo() {
     cp "$repo_uri" "$tarball"
   fi
   validate_repo_tarball_entries "$repo_name" "$tarball"
-  tar -xzf "$tarball" -C "$tmp_dir/root"
+  tar -xzpf "$tarball" -C "$tmp_dir/root"
 
   repo_root="$(resolve_repo_generation "$tmp_dir/root")"
   if [ ! -f "$repo_root/index.tsv" ]; then
@@ -1778,7 +1778,7 @@ install_pkg_archive() {
   verify_pkg_archive "$id" "$archive_path"
   validate_archive_entries "$id" "$archive_path"
   mkdir -p "$OOONANA_ROOT"
-  tar -xzf "$archive_path" -C "$OOONANA_ROOT"
+  tar -xzpf "$archive_path" -C "$OOONANA_ROOT"
   mkdir -p "$(pkg_files_dir)"
   tar_list_archive "$archive_path" | sed -e 's#^\./##' -e '/^$/d' > "$(pkg_files_manifest "$id")"
   printf 'unpacked %s\n' "$OOONANA_PKG_ARCHIVE"
@@ -2898,7 +2898,7 @@ replace_pkg_transaction() (
   active=1
   remove_pkg_archive_files "$id"
   if [ -f "$transaction/replacement.tar.gz" ]; then
-    tar -xzf "$transaction/replacement.tar.gz" -C "$OOONANA_ROOT"
+    tar -xzpf "$transaction/replacement.tar.gz" -C "$OOONANA_ROOT"
     mkdir -p "$(pkg_files_dir)"
     tar_list_archive "$transaction/replacement.tar.gz" | sed -e 's#^\./##' -e '/^$/d' > "$manifest"
     printf 'unpacked %s\n' "$OOONANA_PKG_ARCHIVE"
@@ -2913,7 +2913,7 @@ replace_pkg_transaction() (
     fi
   done <"$transaction/preserved-configs"
   if [ -s "$transaction/preserved-configs" ]; then
-    tar -xf "$transaction/payload.tar" -C "$OOONANA_ROOT" -T "$transaction/preserved-configs"
+    tar -xpf "$transaction/payload.tar" -C "$OOONANA_ROOT" -T "$transaction/preserved-configs"
   fi
   run_pkg_hook "$id" install
   run_pkg_hook "$id" healthcheck

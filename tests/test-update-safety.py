@@ -4,11 +4,13 @@ import io
 import os
 from pathlib import Path
 import subprocess
+import stat
 import tarfile
 import tempfile
 
 project = Path(__file__).resolve().parents[1]
 cli = project / "packages/ooonana/usr/bin/ooonana"
+os.umask(0o077)  # Package and rollback modes must not inherit caller restrictions.
 
 with tempfile.TemporaryDirectory() as temporary:
     work = Path(temporary)
@@ -41,11 +43,14 @@ with tempfile.TemporaryDirectory() as temporary:
     package("0.9.4")
     command("get", "ooonana-core-runtime")
     config = root / "etc/fixture.conf"
+    assert stat.S_IMODE(config.stat().st_mode) == 0o644
     config.write_text("custom=yes\n")
+    config.chmod(0o640)
     package("0.9.5", security=True)
     output = command("upgrade", "--security-only")
     assert "healthcheck" in output and "checkpoint" in output
     assert config.read_text() == "custom=yes\n"
+    assert stat.S_IMODE(config.stat().st_mode) == 0o640
     assert config.with_name("fixture.conf.ooonana-new").read_text() == "default=0.9.5\n"
     assert (root / "run/ooonana/reboot-required").is_file()
     baseline = (work / "state/config-baselines/ooonana-core-runtime.sha256").read_bytes()
@@ -53,6 +58,7 @@ with tempfile.TemporaryDirectory() as temporary:
     command("upgrade", success=False)
     assert (root / "usr/share/fixture/version").read_text() == "0.9.5"
     assert config.read_text() == "custom=yes\n"
+    assert stat.S_IMODE(config.stat().st_mode) == 0o640
     assert (work / "state/config-baselines/ooonana-core-runtime.sha256").read_bytes() == baseline
     package("0.10.0")
     assert "major" in command("update-status")
