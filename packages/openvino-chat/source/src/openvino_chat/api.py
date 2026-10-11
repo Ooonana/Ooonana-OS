@@ -105,6 +105,7 @@ class ApiRuntime:
         self,
         body: dict[str, Any],
         on_token: Callable[[str], None] | None = None,
+        should_stop: Callable[[], bool] | None = None,
     ) -> GenerationResult:
         _validate_generation_numbers(body)
         messages = _normalize_messages(body.get("messages"))
@@ -180,6 +181,7 @@ class ApiRuntime:
                     body,
                     self.context_length,
                     on_token=emit if on_token is not None else None,
+                    should_stop=should_stop,
                     generator=generator,
                 )
             except (RuntimeError, ValueError) as exc:
@@ -210,6 +212,7 @@ class ApiRuntime:
                     body,
                     self.context_length,
                     on_token=emit if on_token is not None else None,
+                    should_stop=should_stop,
                     generator=generator,
                 )
             self._record_metrics(engine)
@@ -224,6 +227,7 @@ class ApiRuntime:
         self,
         body: dict[str, Any],
         on_token: Callable[[str], None] | None = None,
+        should_stop: Callable[[], bool] | None = None,
     ) -> GenerationResult:
         _validate_generation_numbers(body)
         prompt = body.get("prompt")
@@ -251,7 +255,8 @@ class ApiRuntime:
             body["reasoning_effort"] = "off"
         with self._lock:
             engine = self._ensure_engine()
-            raw = _generate(engine, prompt, body, self.context_length, on_token=on_token)
+            raw = _generate(engine, prompt, body, self.context_length,
+                            on_token=on_token, should_stop=should_stop)
             self._record_metrics(engine)
             return _generation_result(engine, prompt, raw, allowed_tools=set())
 
@@ -447,9 +452,16 @@ class OpenVinoApiHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def _sse(self, payload: dict[str, Any] | str) -> None:
+        if getattr(self, "_sse_disconnected", False):
+            return
         value = payload if isinstance(payload, str) else json.dumps(payload, ensure_ascii=False)
-        self.wfile.write(f"data: {value}\n\n".encode("utf-8"))
-        self.wfile.flush()
+        try:
+            self.wfile.write(f"data: {value}\n\n".encode("utf-8"))
+            self.wfile.flush()
+        except (ConnectionError, OSError):
+            # GenAI may swallow Python callback exceptions and keep generating.
+            # Return a stop signal instead of throwing through its native loop.
+            self._sse_disconnected = True
 
     def _stream_error(self, error_type: str, message: str) -> None:
         try:
@@ -486,7 +498,8 @@ class OpenVinoApiHandler(BaseHTTPRequestHandler):
             on_content=lambda value: self._sse(chunk({"content": value})),
         )
         tool_filter = _ToolSafeStreamer(deltas.push)
-        result = self.server.runtime.chat(body, on_token=tool_filter.push)
+        result = self.server.runtime.chat(body, on_token=tool_filter.push,
+                                          should_stop=lambda: getattr(self, "_sse_disconnected", False))
         if tool_filter.raw:
             blocked_native_call = (
                 not result.tool_calls
@@ -528,7 +541,8 @@ class OpenVinoApiHandler(BaseHTTPRequestHandler):
                 }
             )
 
-        result = self.server.runtime.complete(body, on_token=emit)
+        result = self.server.runtime.complete(body, on_token=emit,
+                                              should_stop=lambda: getattr(self, "_sse_disconnected", False))
         if not streamed and result.text:
             emit(result.text)
         self._sse(
@@ -1222,6 +1236,7 @@ def _generate(
     context_length: int,
     on_token: Callable[[str], None] | None = None,
     generator: Callable[..., str] | None = None,
+    should_stop: Callable[[], bool] | None = None,
 ) -> str:
     max_tokens = body.get("max_completion_tokens", body.get("max_tokens", 512))
     try:
@@ -1253,14 +1268,16 @@ def _generate(
         if on_token is not None:
             on_token(token)
 
-    def should_stop() -> bool:
+    def stop_requested() -> bool:
+        if should_stop is not None and should_stop():
+            return True
         current = "".join(chunks)
         return any(marker in current for marker in stop_values)
 
     generate = generator or (lambda **kwargs: engine.generate(prompt, **kwargs))
     call_kwargs = dict(
         on_token=emit_token if stop_values or on_token is not None else None,
-        should_stop=should_stop if stop_values else None,
+        should_stop=stop_requested if stop_values or should_stop is not None else None,
         max_new_tokens=max_tokens,
         temperature=temperature,
         top_p=top_p,

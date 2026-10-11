@@ -72,6 +72,17 @@ if 'info' in sys.argv and os.environ.get('MISSING') == '1':
         assert result.returncode and not calls
     repo = work / 'repo'
     subprocess.run(['bash', str(ROOT / 'scripts/build-firefox-package.sh'), '--out-dir', str(repo)], check=True)
+    metadata = (repo / 'firefox.pkg').read_text()
+    assert 'OOONANA_PKG_DEPS="flatpak xdg-desktop-portal xdg-desktop-portal-gtk"' in metadata
+    profile = (ROOT / 'configs/packages/full-i3.list').read_text().splitlines()
+    for dependency in ('xdg-desktop-portal', 'xdg-desktop-portal-gtk'):
+        assert dependency in profile
+        assert dependency in (ROOT / 'scripts/build-package-repo.sh').read_text()
+    import configparser
+    portal = configparser.ConfigParser()
+    portal.read(ROOT / 'packages/ooonana/etc/xdg-desktop-portal/i3-portals.conf')
+    assert portal['preferred']['default'] == 'gtk'
+    assert portal['preferred']['org.freedesktop.impl.portal.Secret'] == 'gnome-keyring'
     archive = repo / 'archives/firefox-1.0.0.tar.gz'
     original = archive.read_bytes()
     subprocess.run(['bash', str(ROOT / 'scripts/build-firefox-package.sh'), '--out-dir', str(repo)], check=True)

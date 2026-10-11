@@ -1,4 +1,38 @@
-# Current work - 2026-10-09
+# Current work - 2026-10-11
+
+## October 11 runtime setup, inference and portal follow-up
+
+- Hardware/USB checks explicitly skipped by user. No physical target available;
+  GPU, radio/audio routing, power loss, unrelated-drive safety and physical
+  display/session certification are deferred, not passed. No sound or ISO build.
+- Fresh OpenVINO setup completed as UID1000 in disposable storage: pinned Ubuntu
+  root image/checksum, dated APT packages, hash-locked pip dependencies, current
+  app installation, import readiness and real atomic generation promotion.
+  Proof: `/var/tmp/ooonana-fresh-runtime-20261011.pXoMA9RG/setup.log`.
+- Real CPU loading/inference/SSE exposed cancellation continuing generation after
+  BrokenPipeError: GenAI swallowed the Python callback exception. API now captures
+  disconnection and returns an explicit native stop signal for both chat and text
+  completion. Deterministic HTTP cancellation regression added to both CIs.
+- Fresh userspace plus packaged bubblewrap transport passed CPU loading/inference
+  (4.85 s), real SSE, chat/completion cancellation and same-engine reuse
+  (0.33/0.43 s), strict memory JSON/SSE, loaded-engine SIGKILL/restart, UID1000,
+  read-only models, exact dependency versions and current installed GUI assets.
+  Proof: `/var/tmp/ooonana-fresh-inference-20261011.ua0k3JRE/run.log`.
+  Disposable SmolLM2-360M INT4 export was pinned to
+  `a20518b267e200941f99935631a03d57a9eb74ab`; all 13 selected files verified by
+  Hugging Face CLI. About 224 MB downloaded; saved production models untouched.
+  Memory cap 1280 MiB, no swap allowance, two-CPU quota. This is small-model CPU
+  proof, not GPU, large saved-model or new-image physical certification.
+- Candidate image lacked desktop portal frontend/backend. Full-i3 and Firefox
+  dependency closure now include GTK portals; i3-specific backend configuration
+  and desktop/D-Bus activation environment handoff added. Firefox packaging and
+  full-i3 rootfs regressions passed. Real nonroot Flatpak installation/update and
+  portal/file-picker interaction remain pending until current candidate rebuilt.
+- Source/candidate remains 0.10.0; installed Ooonana WSL remains 0.9.9. Migration,
+  signing enrollment and private-key upload remain deferred. No denied cleanup
+  retry. Windows C: ~8.35 GiB, F: ~7.97 GiB; do not treat WSL virtual free space
+  as physical staging headroom. Fresh release repo/rootfs still required.
+
 
 ## October 9 offline installed-app and Qt follow-up
 

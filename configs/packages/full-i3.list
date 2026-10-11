@@ -87,6 +87,8 @@ pipewire-spa-bluez
 wireplumber
 libnotify
 xdg-utils
+xdg-desktop-portal
+xdg-desktop-portal-gtk
 iw
 wireless-tools
 wpa_supplicant

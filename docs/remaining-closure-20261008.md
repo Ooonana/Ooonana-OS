@@ -4,6 +4,29 @@ Source/candidate: core 0.10.0 on `codex/supported-base-0-10`. Installed Ooonana 
 stable main/update endpoints and October 6 ISO remain 0.9.9. Ubuntu only hosts
 builds/tests. No ISO, installed-distro migration, sound playback or key enrollment.
 
+## October 11 follow-up
+
+- User explicitly skipped hardware/physical USB checks; no physical target available.
+- Fresh nonroot OpenVINO userspace setup passed verified root-image download,
+  dated APT installation, hash-locked pip installation and generation promotion:
+  `/var/tmp/ooonana-fresh-runtime-20261011.pXoMA9RG/setup.log`.
+- Small real CPU model loading/inference, SSE, both chat/completion cancellation
+  with same-engine reuse, strict memory errors and loaded-engine crash/restart
+  passed on that fresh userspace through packaged bubblewrap transport:
+  `/var/tmp/ooonana-fresh-inference-20261011.ua0k3JRE/run.log`.
+  Current app/dependencies/assets verified; UID1000, model mount read-only,
+  1280 MiB memory cap, zero swap allowance. About 224 MB disposable QA export,
+  pinned revision and all selected Hub checksums verified. Saved models untouched.
+- Actual inference found GenAI swallowing SSE BrokenPipeError and continuing
+  generation. Both API routes now signal native stop instead of throwing through
+  streamer callbacks. Regression and fresh real-runtime retest passed.
+- Missing desktop portal frontend/backend found in cached candidate image.
+  Firefox and full-i3 now depend on GTK portals; i3 backend configuration and
+  D-Bus activation environment export added. Packaging/rootfs fixtures passed;
+  old cached image does not acquire these dependencies without rebuild.
+- No ISO, WSL migration, signing enrollment, audio, physical disk mutation or
+  previously denied cleanup retry. Candidate 0.10.0, installed/stable 0.9.9.
+
 ## October 9 follow-up
 
 - Offline current-app installation now passed in a disposable copy-on-write venv:
@@ -148,7 +171,7 @@ Evidence: `/var/tmp/ooonana-openvino-live-20261009.xZBaRy8V`,
 
 ## Still required / not authorized or unavailable
 
-1. Storage: latest check C: about 8.88 GiB free, F: 7.97 GiB. F release builder needs
+1. Storage: latest check C: about 8.35 GiB free, F: 7.97 GiB. F release builder needs
    at least 8 GiB; Linux release scratch needs 20 GiB, and WSL backup needs extra
    independent capacity. Supply another drive or free space before large builds.
 2. Rebuild final signed candidate repository/rootfs/manifest from committed source;
@@ -159,15 +182,11 @@ Evidence: `/var/tmp/ooonana-openvino-live-20261009.xZBaRy8V`,
    independent offline target access, resolve retired APKs, migrate whole world,
    then verify installed Ooonana login/GUI/services. Do not overlay candidate core
    on live 0.9.9 libraries or force-reimport over existing data.
-4. Real nonroot Firefox Flatpak download/update/portal/file-picker checks;
-   complete OpenVINO setup installing current app/runtime, heavyweight model
-   load/inference/stream/cancel and loaded-engine recovery. Real pinned Linux
-   runtime/tokenizer/strict memory/idle restart and packaged bubblewrap transport
-   now passed. Offline current-app installation and transport without source
-   override passed too; complete Ubuntu/APT setup and full inference still pending.
-   Setup replacement/rollback fault fixtures and real generation-pointer transport
-   now passed; mocked installer does not close complete installation validation.
-   Models/history must remain intact.
+4. Real nonroot Firefox Flatpak download/update/portal/file-picker checks on rebuilt
+   candidate. OpenVINO fresh Ubuntu/APT/pip setup, small CPU model inference/SSE,
+   cancellation/reuse and loaded-engine restart now passed. Large saved-model
+   inference, GPU and real GUI-to-engine complete journey remain pending;
+   CPU QA proof does not certify those. Models/history must remain intact.
 5. Actual Chromium PDF viewer keyboard/Backspace/startup/command latency. Local
    viewer navigation was policy-denied; no alternate-path/browser workaround.
    Docs-only guide now reflects October 9 evidence; final release-specific
@@ -181,9 +200,11 @@ Evidence: `/var/tmp/ooonana-openvino-live-20261009.xZBaRy8V`,
 7. Physical disposable USB/installed-target power loss/full-storage/offline backup
    recovery and interrupted upgrade/rollback. QEMU never attached host disks.
    Real SSD/unrelated USB/SD safety still needs physical read-only evidence.
+   User skipped these physical checks for now.
 8. Physical Wi-Fi/Bluetooth reconnect/pairing, silent audio routing, GPU drivers,
    idle RAM/zram, CPU/GPU/SSD temperatures/fans. No sound or fan-curve changes.
-   See [hardware checklist](hardware-regression-checklist.md).
+   User skipped these hardware checks for now. See
+   [hardware checklist](hardware-regression-checklist.md).
 9. Signing enrollment and CI private-key upload deferred. Private key stays local;
    locally verified signatures do not enroll client trust automatically.
 

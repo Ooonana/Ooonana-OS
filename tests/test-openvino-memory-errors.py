@@ -20,7 +20,7 @@ class Runtime:
     active_device = "CPU"
     failure = MemoryError("Physical RAM available 128 MiB; choose smaller INT4 model")
 
-    def complete(self, body, on_token=None):
+    def complete(self, body, on_token=None, should_stop=None):
         raise self.failure
 
     chat = complete

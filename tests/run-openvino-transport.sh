@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
-# Existing QA caches only; no downloads, production state, or weight compilation.
+# Existing QA caches only; explicit bounded inference opt-in, never download here.
 set -euo pipefail
 SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 install_app="${OOONANA_TRANSPORT_INSTALL_APP:-0}"
+inference="${OOONANA_TRANSPORT_INFERENCE:-0}"
 case "$install_app" in 0|1) ;; *) printf 'Invalid app-install opt-in\n' >&2; exit 2 ;; esac
+case "$inference" in 0|1) ;; *) printf 'Invalid inference opt-in\n' >&2; exit 2 ;; esac
+[[ "$inference" == 0 || "$install_app" == 1 ]] || {
+  printf 'Inference requires current-app installation opt-in\n' >&2; exit 2;
+}
 if [[ "${1:-}" != --worker ]]; then
   [[ $# -eq 4 && $EUID -eq 0 ]] || {
     printf 'Usage (root): %s UBUNTU_QA_ROOTFS CACHED_VENV EMPTY_QA_DIR MODEL_ROOT\n' "$0" >&2; exit 2;
@@ -18,7 +23,9 @@ if [[ "${1:-}" != --worker ]]; then
   grep -qx 'VERSION_ID="24.04"' "$base/etc/os-release"
   [[ -x "$venv/bin/python" && -x "$venv/bin/openvino" ]]
   export OOONANA_TRANSPORT_WORKER=1
-  exec timeout --kill-after=5 180 unshare --mount --pid --fork --kill-child --net --ipc --mount-proc \
+  deadline=180
+  [[ "$inference" == 0 ]] || deadline=360
+  exec timeout --kill-after=5 "$deadline" unshare --mount --pid --fork --kill-child --net --ipc --mount-proc \
     --propagation private bash "$0" --worker "$base" "$venv" "$qa" "$models"
 fi
 [[ $# -eq 5 && $EUID -eq 0 && $$ -eq 1 && "${OOONANA_TRANSPORT_WORKER:-0}" == 1 ]] || {
@@ -52,7 +59,13 @@ mount -o remount,bind,ro "$rootfs/opt/openvino-venv"
 mount --bind "$venv" "$rootfs$venv"
 mount -o remount,bind,ro "$rootfs$venv"
 if [[ "$install_app" == 1 ]]; then
-  /usr/bin/bwrap --unshare-all --uid 0 --gid 0 --ro-bind "$rootfs" / \
+  # Real nonroot setup owns its userspace; old QA caches may be root-owned.
+  # Match the cached venv owner only inside disposable installation overlay.
+  install_uid=$(stat -c %u "$qa/venv-base"); install_gid=$(stat -c %g "$qa/venv-base")
+  chown "$install_uid:$install_gid" "$venv"
+  chown -R "$install_uid:$install_gid" "$qa/app-source"
+  setpriv --reuid="$install_uid" --regid="$install_gid" --clear-groups \
+    /usr/bin/bwrap --unshare-all --uid 0 --gid 0 --ro-bind "$rootfs" / \
     --bind "$venv" /opt/openvino-venv --bind "$qa/app-source" /build/app \
     --dev /dev --proc /proc --tmpfs /tmp --tmpfs /run \
     --setenv PATH /opt/openvino-venv/bin:/usr/bin:/bin --setenv HOME /tmp \
@@ -73,4 +86,5 @@ setpriv --reuid=1000 --regid=1000 --clear-groups --no-new-privs \
   env -i HOME="$qa/home" PATH=/usr/bin:/bin OPENVINO_HOME="$qa/home/.openvino" \
   OOONANA_TRANSPORT_ISOLATED=1 PYTHONDONTWRITEBYTECODE=1 \
   OOONANA_TRANSPORT_INSTALL_APP="$install_app" \
+  OOONANA_TRANSPORT_INFERENCE="$inference" \
   "$venv/bin/python" "$SOURCE/tests/probe-openvino-transport.py" --source "$SOURCE" --qa "$qa"

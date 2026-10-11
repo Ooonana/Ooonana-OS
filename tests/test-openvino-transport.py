@@ -12,7 +12,8 @@ runner = root / "tests/run-openvino-transport.sh"
 probe = root / "tests/probe-openvino-transport.py"
 ast.parse(probe.read_text())
 subprocess.run(["bash", "-n", str(runner)], check=True)
-environment = {**os.environ, "OOONANA_TRANSPORT_ISOLATED": "0", "OOONANA_TRANSPORT_WORKER": "0"}
+environment = {**os.environ, "OOONANA_TRANSPORT_ISOLATED": "0", "OOONANA_TRANSPORT_WORKER": "0",
+               "OOONANA_TRANSPORT_INFERENCE": "0", "OOONANA_TRANSPORT_INSTALL_APP": "0"}
 with tempfile.TemporaryDirectory() as temporary:
     sentinel = Path(temporary) / "keep"
     sentinel.write_text("unchanged")
@@ -28,5 +29,11 @@ with tempfile.TemporaryDirectory() as temporary:
                              env={**environment, "OOONANA_TRANSPORT_INSTALL_APP": "invalid"},
                              capture_output=True, text=True, timeout=10)
     assert invalid.returncode and "Invalid app-install opt-in" in invalid.stderr
+    for value, expected in (("invalid", "Invalid inference opt-in"),
+                            ("1", "current-app installation opt-in")):
+        invalid = subprocess.run(["bash", str(runner)],
+                                 env={**environment, "OOONANA_TRANSPORT_INFERENCE": value},
+                                 capture_output=True, text=True, timeout=10)
+        assert invalid.returncode and expected in invalid.stderr
     assert list(Path(temporary).iterdir()) == [sentinel] and sentinel.read_text() == "unchanged"
 print("ok openvino-transport diagnostic: syntax, opt-in/worker refusal, unrelated state preserved")

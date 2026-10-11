@@ -468,6 +468,8 @@ assert_contains "$i3_session" 'export XAUTHORITY="$target_authority"'
 assert_contains "$i3_session" "ooonana-theme-env apply"
 assert_contains "$i3_session" "dbus-run-session"
 assert_contains "$i3_session" "OOONANA_DBUS_SESSION"
+assert_contains "$i3_session" "export XDG_CURRENT_DESKTOP=Ooonana:i3"
+assert_contains "$i3_session" "dbus-update-activation-environment DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP"
 assert_contains "$i3_session" "exec i3"
 
 audio_start="$(<"$rootfs/usr/bin/ooonana-audio-start")"

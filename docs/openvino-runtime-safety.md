@@ -59,6 +59,27 @@ current-source QA override in the initial run. A later opt-in run built/installe
 current app 0.2.1 offline into a disposable copy-on-write venv, verified pinned dependency
 versions and bundled web assets, and passed the same transport gates without that
 override. Set `OOONANA_TRANSPORT_INSTALL_APP=1` for the opt-in runner; original
-venv stays unchanged. Complete Ubuntu/APT userspace setup, heavyweight
-inference/stream/cancel, new-image kernel and physical storage checks remain pending.
+venv stays unchanged.
+
+October 11 fresh nonroot setup completed real verified root-image download,
+dated APT install, hash-locked pip install and generation promotion. Log:
+`/var/tmp/ooonana-fresh-runtime-20261011.pXoMA9RG/setup.log`.
+Small-model CPU loading/inference/SSE and loaded-engine restart passed through
+packaged bubblewrap on that fresh userspace. SSE disconnection exposed GenAI
+swallowing Python callback exceptions; API now signals native generation stop.
+Both chat/completion cancellation and subsequent same-engine requests passed
+in about 0.33/0.43 seconds. Real proof:
+`/var/tmp/ooonana-fresh-inference-20261011.ua0k3JRE/run.log`.
+
+Inference runner requires `OOONANA_TRANSPORT_INFERENCE=1` together with current-app
+installation opt-in, an externally enforced cgroup cap no larger than 1280 MiB,
+adequate current memory and a QA model no larger than 256 MiB of weights.
+Default remains lifecycle/memory refusal only; no downloads occur in runner.
+Test model was [SmolLM2-360M INT4](https://huggingface.co/AIFunOver/SmolLM2-360M-Instruct-openvino-4bit/tree/a20518b267e200941f99935631a03d57a9eb74ab),
+about 224 MB selected files, pinned revision and Hub checksums verified. It is
+a disposable test export, not a replacement for saved user models or recommended
+large production model. Preserved original runtime/models stay unchanged.
+
+Heavyweight/GPU inference, full GUI-to-engine interaction, new-image kernel and
+physical storage checks remain pending; user skipped physical/hardware checks.
 Process-kill fault tests are not physical power-loss certification.

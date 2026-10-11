@@ -3732,11 +3732,20 @@ if [ "${1:-}" = "--user-session" ]; then
   shift
 fi
 
+export XDG_CURRENT_DESKTOP=Ooonana:i3
+export XDG_SESSION_DESKTOP=ooonana
+export DESKTOP_SESSION=ooonana
+
 if [ -z "${OOONANA_DBUS_SESSION:-}" ] &&
   [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] &&
   command -v dbus-run-session >/dev/null 2>&1; then
   export OOONANA_DBUS_SESSION=1
   exec dbus-run-session -- "$0" "$@"
+fi
+
+if command -v dbus-update-activation-environment >/dev/null 2>&1; then
+  dbus-update-activation-environment DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP \
+    XDG_SESSION_DESKTOP DESKTOP_SESSION XDG_RUNTIME_DIR >/dev/null 2>&1 || true
 fi
 
 if [ -x /usr/bin/ooonana-theme-env ]; then
