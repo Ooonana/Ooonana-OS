@@ -169,6 +169,8 @@ with tempfile.TemporaryDirectory() as temporary:
     prefix = Path(temporary)
     (prefix / "usr/bin").mkdir(parents=True)
     (prefix / "etc").mkdir()
+    (prefix / "var/tmp").mkdir(parents=True)
+    (prefix / "var/tmp").chmod(0o1777)
     for helper in ("ooonana", "ooonana-memory", "ooonana-panel-start", "ooonana-window-list", "ooonana-shutdown-cleanup", "ooonana-storage-watch", "ooonana-persistence", "gzip"):
         path = prefix / "usr/bin" / helper
         path.write_text('#!/bin/sh\necho "ooonana 0.9.9"\n')

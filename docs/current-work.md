@@ -18,7 +18,7 @@
   session remain separate. Proof:
   `/var/tmp/ooonana-ai-qt-final-20261012.dwDKlZMo/qterminal-frame`.
 - All thirteen isolated candidate GUI gates passed together:
-  `/var/tmp/ooonana-all-gui-20261012.uBo8hhHS/run.log`. Final streaming fixture
+  `/var/tmp/ooonana-gui-source-freeze-20261012.v8Yv713R/run.log`. Final streaming fixture
   also passed after pipe cleanup; read-error fixture confirms owned child stops:
   `/var/tmp/ooonana-ai-stream-freeze-20261012.xrpldgja`.
 - Actual nonroot Firefox installation exposed missing `/var/tmp` in rootfs.
@@ -36,11 +36,14 @@
 - CI caught standalone sandbox-helper fixture missing the new app selector.
   Added explicit Chromium selector plus Firefox uninitialized/unlocked/ready
   regression. This was test-harness scope, not a disabled production sandbox.
+  New `/var/tmp` health requirement also exposed outdated shutdown-hook fixture;
+  fixture now models actual sticky directory. Entire GitHub CI command suite
+  passed locally: `/var/tmp/ooonana-full-ci-20261012.DYLFbvQV/run.log`.
 - Removed only two failed private Flatpak download caches (~367 MiB), keeping
   logs and histories. Owned F: 6 GiB test-file format stalled in WSL 9p I/O;
   stopped owned formatter. Removal was tool-policy blocked; file retained,
   no alternate deletion attempted. Valid runtime/release caches remain.
-- Latest physical headroom roughly C: 4.9 GiB, F: 10.8 GiB. Full image staging
+- Latest physical headroom roughly C: 4.4 GiB, F: 10.8 GiB. Full image staging
   still requires 20 GiB free on C:, 8 GiB on F:. No ISO, installed WSL migration,
   stable-channel promotion, sound, physical disk mutation or key enrollment.
   PDF real Chromium viewer remains tool-policy blocked; hardware explicitly skipped.

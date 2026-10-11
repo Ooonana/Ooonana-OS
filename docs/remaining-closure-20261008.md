@@ -11,14 +11,14 @@ builds/tests. No ISO, installed-distro migration, sound playback or key enrollme
   QTerminal 2.4.0-r0 composited controls and close confirmation passed; catalog
   entry added. All thirteen candidate GUI gates passed together. Current evidence:
   `/var/tmp/ooonana-native-ai-final-20261012.KGKGpMny/run.log`,
-  `/var/tmp/ooonana-all-gui-20261012.uBo8hhHS/run.log`.
+  `/var/tmp/ooonana-gui-source-freeze-20261012.v8Yv713R/run.log`.
 - Real nonroot Firefox 157.0.1 install/update passed after fixing missing sticky
   `/var/tmp` in builder/core package, with build/upgrade/unsafe-permission tests.
   Documents/FUSE, renderer kernel sandbox state, window paint and actions passed:
   `/var/tmp/ooonana-firefox-final-20261012.HgOA2mXJ/run.log`. Sandboxed picker needs
   first-run Terms consent; none accepted. New-base Qt file pickers/theme, physical sessions and GPU
   remain uncertified. Detailed limits: [current work](current-work.md#october-12-ai-qt-and-firefox-closure).
-- C: ~4.9 GiB is below 20 GiB image-staging guard. F: ~10.8 GiB; tool-policy
+- C: ~4.4 GiB is below 20 GiB image-staging guard. F: ~10.8 GiB; tool-policy
   blocked removal of owned failed 6 GiB scratch image. ~367 MiB failed download
   caches removed, logs/history retained. No denied-target deletion retry.
 - Remaining release gates: real PDF Chromium viewer (tool-policy blocked), Firefox
