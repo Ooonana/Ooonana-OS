@@ -15,7 +15,9 @@
 - Actual signed-stage refresh exposed a factory ordering bug: unsigned reindex
   retained an old signature, so the manager correctly rejected dependency checks.
   Factory now signs before validation and refuses missing-key refresh before
-  touching signed staging. Reuse and no-write refusal regression added.
+  touching signed staging. Build-time closure checks use the explicitly chosen
+  public key, not the unrelated bundled default. Reuse, custom-key verification
+  and no-write refusal regression added; client trust enrollment is unchanged.
 - Candidate refresh/publication and final preflight are separate verification
   steps. No ISO, migration, sound or signing-key upload. F: now about 18 GiB free.
 

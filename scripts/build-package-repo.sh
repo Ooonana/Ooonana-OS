@@ -194,6 +194,7 @@ verify_repo_profile() {
   work="$(mktemp -d)"
   mkdir -p "$work/root" "$work/sources" "$work/state" "$work/cache"
   if ! OOONANA_ROOT="$work/root" OOONANA_REPO_DIR="$OUT_DIR" \
+    OOONANA_REPO_VERIFY_KEY="${PUBLIC_KEY:-$OUT_DIR/repo.pub}" \
     OOONANA_SOURCES_DIR="$work/sources" \
     OOONANA_STATE_DIR="$work/state" \
     OOONANA_CACHE_DIR="$work/cache" \
@@ -211,6 +212,7 @@ verify_repo_packages() {
   work="$(mktemp -d)"
   mkdir -p "$work/root" "$work/sources" "$work/state" "$work/cache"
   if ! OOONANA_ROOT="$work/root" OOONANA_REPO_DIR="$OUT_DIR" \
+    OOONANA_REPO_VERIFY_KEY="${PUBLIC_KEY:-$OUT_DIR/repo.pub}" \
     OOONANA_SOURCES_DIR="$work/sources" \
     OOONANA_STATE_DIR="$work/state" \
     OOONANA_CACHE_DIR="$work/cache" \

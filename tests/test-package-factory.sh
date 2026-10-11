@@ -506,10 +506,8 @@ eval "$(sed -n '/^index_verified_repo() {$/,/^}$/p' "$BUILDER")"
 index_verified_repo
 printf '# refreshed package metadata\n' >> "$OUT_DIR/base.pkg"
 index_verified_repo
-OOONANA_REPO_DIR="$OUT_DIR" OOONANA_SOURCES_DIR="$tmp/empty-sources" \
-  OOONANA_STATE_DIR="$tmp/signed-state" OOONANA_CACHE_DIR="$tmp/signed-cache" \
-  "$ROOT/packages/ooonana/usr/bin/ooonana" install full-i3 --dry-run >/dev/null ||
-  fail "signed staging refresh validated a stale signature"
+eval "$(sed -n '/^verify_repo_profile() {$/,/^}$/p' "$BUILDER")"
+verify_repo_profile full-i3
 before_sums="$(sha256sum "$OUT_DIR/SHA256SUMS" "$OUT_DIR/SHA256SUMS.sig")"
 if (SIGN_KEY=""; index_verified_repo) >/dev/null 2>&1; then
   fail "signed reindex accepted missing signing key"
