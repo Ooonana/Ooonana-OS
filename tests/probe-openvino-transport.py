@@ -108,6 +108,16 @@ def main() -> None:
             return error.code, error.read(1024 * 1024).decode()
 
     server_pid = None
+    def gui_probe(memory_error=False):
+        if os.environ.get("OOONANA_TRANSPORT_GUI") != "1":
+            return
+        command = ["xvfb-run", "-a", "--server-args=-screen 0 1280x800x24 -nolisten tcp",
+                   "dbus-run-session", "--", "/usr/bin/python3", "-B",
+                   str(source / "tests/check-ai-engine-runtime.py"), "--source", str(source),
+                   "--qa", str(qa), "--port", str(port), "--model", model.name]
+        if memory_error:
+            command.append("--memory-error")
+        subprocess.run(command, env={**environment, "OOONANA_GUI_TEST_DISPLAY": "1"}, check=True, timeout=150)
     try:
         run("--model-dir", f"/workspace/models/{model.name}", "api", "start",
             "--device", "CPU", "--port", str(port), "--ctx", "131072")
@@ -122,6 +132,7 @@ def main() -> None:
         assert "running" in run("api", "status")
         status, body = request("/health")
         assert status == 200 and not json.loads(body)["loaded"]
+        gui_probe(memory_error=True)
         for stream in (False, True):
             status, body = request("/v1/completions", {
                 "prompt": "Hello", "max_tokens": 1, "knowledge_mode": "offline", "stream": stream,
@@ -134,7 +145,9 @@ def main() -> None:
         if inference:
             assert "stopped" in run("api", "stop")
             server_pid = None
-            context = "512"
+            # Native chat includes the production system prompt. Keep the small
+            # HTTP-only fixture at 512, but give the real GUI enough context.
+            context = "2048" if os.environ.get("OOONANA_TRANSPORT_GUI") == "1" else "512"
             run("--model-dir", f"/workspace/models/{model.name}", "api", "start",
                 "--device", "CPU", "--port", str(port), "--ctx", context)
             state = api.api_status()
@@ -206,6 +219,9 @@ def main() -> None:
             inference_result = {"model": model.name, "load_and_inference_seconds": round(load_and_infer, 3),
                                 "cpu_inference": "passed", "real_sse": "passed",
                                 "disconnect_cancel_reuse_seconds": cancel_seconds}
+            gui_probe()
+            if os.environ.get("OOONANA_TRANSPORT_GUI") == "1":
+                inference_result["native_gui_stream_cancel_reuse"] = "passed"
         # Daemon survives launcher exit, but stale state recovers after owned kill.
         os.kill(server_pid, signal.SIGKILL)
         deadline = time.monotonic() + 5

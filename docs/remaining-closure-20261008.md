@@ -6,6 +6,28 @@ builds/tests. No ISO, installed-distro migration, sound playback or key enrollme
 
 ## October 12 follow-up
 
+- Latest software pass: native AI now paints incremental replies; real GTK/CLI/CPU
+  streaming, Stop, low-memory refusal and loaded-engine restart passed. New-base
+  QTerminal 2.4.0-r0 composited controls and close confirmation passed; catalog
+  entry added. All thirteen candidate GUI gates passed together. Current evidence:
+  `/var/tmp/ooonana-native-ai-final-20261012.KGKGpMny/run.log`,
+  `/var/tmp/ooonana-all-gui-20261012.uBo8hhHS/run.log`.
+- Real nonroot Firefox 157.0.1 install/update passed after fixing missing sticky
+  `/var/tmp` in builder/core package, with build/upgrade/unsafe-permission tests.
+  Documents/FUSE, renderer kernel sandbox state, window paint and actions passed:
+  `/var/tmp/ooonana-firefox-final-20261012.HgOA2mXJ/run.log`. Sandboxed picker needs
+  first-run Terms consent; none accepted. New-base Qt file pickers/theme, physical sessions and GPU
+  remain uncertified. Detailed limits: [current work](current-work.md#october-12-ai-qt-and-firefox-closure).
+- C: ~4.9 GiB is below 20 GiB image-staging guard. F: ~10.8 GiB; tool-policy
+  blocked removal of owned failed 6 GiB scratch image. ~367 MiB failed download
+  caches removed, logs/history retained. No denied-target deletion retry.
+- Remaining release gates: real PDF Chromium viewer (tool-policy blocked), Firefox
+  consent/picker, Qt file pickers/theme, interactive WSLg/IME/clipboard/session,
+  physical displays/input/hardware/persistence/upgrade fault tests (hardware
+  explicitly skipped), and rebuilt final-image/QEMU boot matrix. Installed WSL
+  migration and signing enrollment remain deferred. No further feature edits
+  planned before candidate build; validation-only/docs changes do not require ISO
+  rebuild, but any subsequent package/boot/runtime fix does.
 - Fixed missing split `xdg-document-portal` dependency and FUSE cleanup mount
   table link. Real candidate nonroot frontend/backend/Documents activation,
   FUSE mount, focused floating picker bounds, painted controls, cancel/open and
@@ -17,9 +39,10 @@ builds/tests. No ISO, installed-distro migration, sound playback or key enrollme
 - Tests install signed supplemental packages only into disposable COW upper;
   preserved candidate and installed WSL untouched. Factory/launcher/rootfs
   fixtures passed. Candidate staging: 643 packages, 611 dependency nodes.
-- Actual Firefox Flatpak installation/update and sandboxed picker remain pending,
-  as do new-base Qt and GUI-to-real-model journey. Chroot Glycin sandbox warning
-  remains a limitation; no physical/audio or final-image certification.
+- Earlier portal-only pass did not cover Firefox or real GUI/model journey;
+  latest follow-up above supersedes that gap. Chroot Glycin sandbox warning
+  remains a limitation outside proper namespace probe; no physical/audio or
+  final-image certification.
 - No ISO, migration, stable promotion, signing enrollment or private-key upload.
 
 ## October 11 follow-up

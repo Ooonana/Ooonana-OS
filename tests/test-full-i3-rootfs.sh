@@ -380,6 +380,7 @@ assert_contains "$(<"$rootfs/etc/sudoers.d/ooonana")" '%wheel ALL=(ALL:ALL) NOPA
 assert_contains "$(<"$rootfs/etc/wsl.conf")" "default=ooonana"
 assert_contains "$(<"$rootfs/etc/wsl.conf")" "mountFsTab=false"
 assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS 0.10.0"'
+[[ -d "$rootfs/var/tmp" && "$(stat -c %a "$rootfs/var/tmp")" == 1777 ]] || fail "/var/tmp missing or unsafe"
 [[ "$(head -c 4 "$rootfs/usr/share/icons/OoonanaTailless/cursors/left_ptr")" == Xcur ]] || fail "tailless cursor missing or invalid"
 python3 - "$rootfs/usr/share/icons/OoonanaTailless/cursors/left_ptr" <<'PY'
 import struct

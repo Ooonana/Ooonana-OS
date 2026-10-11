@@ -4,6 +4,9 @@ set -euo pipefail
 SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 install_app="${OOONANA_TRANSPORT_INSTALL_APP:-0}"
 inference="${OOONANA_TRANSPORT_INFERENCE:-0}"
+gui="${OOONANA_TRANSPORT_GUI:-0}"
+case "$gui" in 0|1) ;; *) printf 'Invalid GUI opt-in\n' >&2; exit 2 ;; esac
+[[ "$gui" == 0 || "$inference" == 1 ]] || { printf 'GUI requires bounded inference opt-in\n' >&2; exit 2; }
 case "$install_app" in 0|1) ;; *) printf 'Invalid app-install opt-in\n' >&2; exit 2 ;; esac
 case "$inference" in 0|1) ;; *) printf 'Invalid inference opt-in\n' >&2; exit 2 ;; esac
 [[ "$inference" == 0 || "$install_app" == 1 ]] || {
@@ -87,4 +90,5 @@ setpriv --reuid=1000 --regid=1000 --clear-groups --no-new-privs \
   OOONANA_TRANSPORT_ISOLATED=1 PYTHONDONTWRITEBYTECODE=1 \
   OOONANA_TRANSPORT_INSTALL_APP="$install_app" \
   OOONANA_TRANSPORT_INFERENCE="$inference" \
+  OOONANA_TRANSPORT_GUI="$gui" \
   "$venv/bin/python" "$SOURCE/tests/probe-openvino-transport.py" --source "$SOURCE" --qa "$qa"

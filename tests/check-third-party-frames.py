@@ -17,19 +17,21 @@ from window_controls import Manager, WIDTH
 import i3_events
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("app", choices=("geany", "nemo", "chromium", "qterminal"))
+parser.add_argument("app", choices=("geany", "nemo", "chromium", "qterminal", "firefox"))
 parser.add_argument("output", type=Path)
 parser.add_argument("--csd", action="store_true")
 parser.add_argument("--compositor", action="store_true", help="Capture packaged rounding policy through private xrender compositor")
 parser.add_argument("--disable-shader-cache", action="store_true", help="QA-only Chromium disk-cache isolation, sandbox remains enabled")
 parser.add_argument("--gpu", action="store_true", help="Leave normal GPU selection enabled (device availability remains environment-dependent)")
 parser.add_argument("--url", default="about:blank", help="Private browser probe page")
-parser.add_argument("--file-dialog", action="store_true", help="Geany's real Open dialog: cancel and open an owned fixture")
+parser.add_argument("--file-dialog", action="store_true", help="Real Open dialog: cancel and open an owned fixture")
 args = parser.parse_args()
-if args.file_dialog and args.app != "geany":
-    parser.error("--file-dialog requires geany")
+if args.file_dialog and args.app not in ("geany", "firefox"):
+    parser.error("--file-dialog requires geany or firefox")
 if os.environ.get("OOONANA_GUI_TEST_DISPLAY") != "1":
     raise SystemExit("Explicit isolated display required")
+if args.app == "firefox" and os.getuid() != 1000:
+    raise SystemExit("Firefox probe requires real nonroot desktop UID1000")
 if subprocess.run(["i3-msg", "-t", "get_tree"], capture_output=True).returncode == 0:
     raise SystemExit("Refusing display with existing window manager")
 
@@ -68,8 +70,11 @@ def browser_sandboxes():
     """Kernel state, not a command-line flag or version-specific internal page."""
     states = {}
     for process in browser_process_diagnostics():
-        kind = next((argument.removeprefix("--type=") for argument in process["arguments"].split()
-                     if argument.startswith("--type=")), "")
+        if args.app == "firefox":
+            kind = "renderer" if "-contentproc" in process["arguments"] else ""
+        else:
+            kind = next((argument.removeprefix("--type=") for argument in process["arguments"].split()
+                         if argument.startswith("--type=")), "")
         if kind in ("renderer", "gpu-process"):
             states.setdefault(kind, []).append({"pid": process["pid"],
                 "seccomp": int(process["seccomp"]), "no_new_privs": int(process["no_new_privs"])})
@@ -81,12 +86,15 @@ def browser_process_diagnostics():
     for process in Path("/proc").glob("[0-9]*"):
         try:
             status = dict(line.split(":", 1) for line in process.joinpath("status").read_text().splitlines() if ":" in line)
-            if "chrom" not in status.get("Name", "").lower():
-                continue
             try:
                 arguments = process.joinpath("cmdline").read_bytes().replace(b"\0", b" ").decode(errors="replace")
             except OSError as error:
                 arguments = str(error)
+            if args.app == "firefox":
+                if "firefox" not in arguments:
+                    continue
+            elif "chrom" not in status.get("Name", "").lower():
+                continue
             states.append({"pid": int(process.name), "ppid": status.get("PPid", "").strip(),
                            "seccomp": status.get("Seccomp", "").strip(),
                            "no_new_privs": status.get("NoNewPrivs", "").strip(), "arguments": arguments})
@@ -99,7 +107,8 @@ def ready_browser_sandboxes():
     # Newly forked renderers briefly precede sandbox initialization. Wait for
     # the same nonempty snapshot to show actual filtering and privilege lock.
     states = browser_sandboxes()
-    if not all(states.get(kind) for kind in ("renderer", "gpu-process")):
+    required = ("renderer",) if args.app == "firefox" else ("renderer", "gpu-process")
+    if not all(states.get(kind) for kind in required):
         return None
     if not all(state["seccomp"] == 2 and state["no_new_privs"] == 1
                for group in states.values() for state in group):
@@ -124,10 +133,30 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
         "geany": ["geany", "--new-instance", "--config=" + str(fixture / "geany")],
         "nemo": ["nemo", "--no-desktop", str(fixture)],
         "qterminal": ["qterminal", "--workdir", str(fixture), "--execute", "/bin/sh"],
+        "firefox": ["ooonana-firefox", "run", "--no-remote", "--private-window", "about:blank"],
         "chromium": ["chromium", "--user-data-dir=" + str(fixture / "chromium"), "--no-first-run",
                      "--disable-background-networking", "--disable-component-update", "--password-store=basic",
                      "--disable-gpu", "about:blank"],
     }[args.app]
+    if args.app == "firefox":
+        # Owned QA profile only: no production onboarding/terms acceptance or
+        # diagnostic-data submission. Flatpak persists .mozilla at this path.
+        profile_name = "ooonana-qa-" + fixture.name
+        profile = Path.home() / ".var/app/org.mozilla.firefox/.mozilla" / profile_name
+        assert profile.resolve().is_relative_to(Path.home().resolve()) and not profile.exists()
+        profile.mkdir(mode=0o700, parents=True)
+        preferences = {
+            "browser.aboutwelcome.enabled": False,
+            "browser.startup.firstrunSkipsHomepage": True,
+            "browser.startup.homepage_override.mstone": "ignore",
+            "browser.shell.checkDefaultBrowser": False,
+            "datareporting.healthreport.uploadEnabled": False,
+            "datareporting.policy.dataSubmissionEnabled": False,
+            "toolkit.telemetry.enabled": False,
+        }
+        (profile / "user.js").write_text("\n".join(
+            f"user_pref({json.dumps(name)}, {json.dumps(value)});" for name, value in preferences.items()) + "\n")
+        command[2:2] = ["--profile", str(Path.home() / ".mozilla" / profile_name)]
     if args.app == "chromium" and args.disable_shader_cache:
         command.insert(-1, "--disable-gpu-shader-disk-cache")
     if args.app == "chromium":
@@ -140,6 +169,10 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
     compositor = None
     try:
         wait(lambda: subprocess.run(["i3-msg", "-t", "get_tree"], capture_output=True).returncode == 0)
+        if args.app == "firefox":
+            subprocess.run(["gdbus", "call", "--session", "--dest", "org.freedesktop.portal.Documents",
+                "--object-path", "/org/freedesktop/portal/documents", "--method", "org.freedesktop.portal.Documents.GetMountPoint"],
+                stdout=log, stderr=log, timeout=15, check=True)
         if args.compositor:
             builder = (ROOT / "scripts/build-full-i3-rootfs.sh").read_text()
             policy = builder.split('"$ROOTFS/etc/ooonana/picom.conf" <<\'EOF\'\n', 1)[1].split("\nEOF", 1)[0]
@@ -150,7 +183,7 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
                                           stdout=log, stderr=log)
         client = subprocess.Popen(command, env=environment, stdout=log, stderr=log, start_new_session=True)
         wait(find_client)
-        if args.app == "chromium":
+        if args.app in ("chromium", "firefox"):
             try:
                 sandboxes = wait(ready_browser_sandboxes)
             except AssertionError:
@@ -230,9 +263,11 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
         if args.file_dialog:
             def dialog_node():
                 def visit(item):
+                    properties = item.get("window_properties") or {}
+                    klass = str(properties.get("class", "")).lower()
+                    owner = klass == "geany" if args.app == "geany" else "portal" in klass
                     if (item.get("window") and item.get("id") != identifier
-                            and str((item.get("window_properties") or {}).get("class", "")).lower() == "geany"
-                            and (item.get("window_properties") or {}).get("window_role") == "GtkFileChooserDialog"):
+                            and owner and properties.get("window_role") == "GtkFileChooserDialog"):
                         return item
                     for child in item.get("nodes", []) + item.get("floating_nodes", []):
                         found = visit(child)
@@ -246,7 +281,14 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
 
             subprocess.run(["i3-msg", f"[con_id={identifier}] focus"], check=True, capture_output=True)
             key("ctrl+o")
-            dialog = wait(dialog_node)
+            try:
+                dialog = wait(dialog_node)
+            except AssertionError:
+                tree = i3_events.request(i3_events.socket_path(), 4)
+                args.output.with_name(args.output.stem + "-dialog-failure.json").write_text(json.dumps(tree, indent=2))
+                Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(
+                    str(args.output.with_name(args.output.stem + "-dialog-failure.png")), "png", [], [])
+                raise
             assert dialog["floating"] in ("auto_on", "user_on"), "File picker not floating"
             assert dialog["focused"], "File picker failed to receive keyboard focus"
             rectangle = dialog["rect"]
@@ -286,7 +328,7 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
             wait(lambda: dialog_node() is None)
             wait(lambda: "file-dialog.txt" in find_client().get("name", ""))
             assert owned_file.read_text() == "Ooonana private file-picker check\n"
-            print("PASS real Geany file picker: floating, focused, bounded, cancel, open private file", flush=True)
+            print(f"PASS real {args.app} file picker: floating, focused, bounded, cancel, open private file", flush=True)
         if identifier in manager.controls:
             # Exercise current actions against real clients, not fake GTK windows.
             manager.controls[identifier].get_child().get_children()[1].clicked()
@@ -311,6 +353,36 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
             control = manager.controls[identifier]
             wait(lambda: tuple(control.get_position()) == control.last_position[:2])
             control.get_child().get_children()[0].clicked()
+            if args.app == "qterminal":
+                def exit_dialog():
+                    def visit(item):
+                        if item.get("window") and item.get("name") == "Exit QTerminal":
+                            return item
+                        for child in item.get("nodes", []) + item.get("floating_nodes", []):
+                            found = visit(child)
+                            if found:
+                                return found
+                        return None
+                    return visit(i3_events.request(i3_events.socket_path(), 4))
+
+                dialog = wait(exit_dialog)
+                assert dialog["focused"] and dialog["floating"] in ("auto_on", "user_on")
+                rectangle = dialog["rect"]
+                assert rectangle["x"] >= 0 and rectangle["y"] >= 0
+                assert rectangle["x"] + rectangle["width"] <= root.get_width()
+                assert rectangle["y"] + rectangle["height"] <= root.get_height()
+                manager.refresh()
+                wait(controls_painted)
+                Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(
+                    str(args.output.with_name(args.output.stem + "-exit-dialog.png")), "png", [], [])
+                subprocess.run(["xdotool", "key", "--clearmodifiers", "Escape"], env=environment, check=True)
+                wait(lambda: exit_dialog() is None)
+                assert find_client() is not None, "Cancel closed Qt terminal"
+                wait(lambda: identifier in manager.controls)
+                manager.controls[identifier].get_child().get_children()[0].clicked()
+                wait(exit_dialog)
+                subprocess.run(["xdotool", "key", "--clearmodifiers", "alt+y"], env=environment, check=True)
+                print("QT_CLOSE_DIALOG_OK focus/bounds/cancel/confirm", flush=True)
             wait(lambda: find_client() is None)
             print("REAL_CLIENT_ACTIONS_OK minimize/restore/fullscreen/restore/move/close", flush=True)
     finally:

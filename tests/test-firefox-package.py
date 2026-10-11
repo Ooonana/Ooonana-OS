@@ -93,6 +93,13 @@ if 'info' in sys.argv and os.environ.get('MISSING') == '1':
         env={**os.environ, 'OOONANA_GUI_TEST_DISPLAY': '0'}, capture_output=True, text=True)
     assert refused.returncode and 'isolated nonroot' in refused.stderr
     assert not (work / 'unsafe.png').exists()
+    install_probe = ROOT / 'tests/probe-firefox-install.py'
+    ast.parse(install_probe.read_text())
+    refused = subprocess.run([sys.executable, '-B', str(install_probe)],
+        env={**os.environ, 'OOONANA_FIREFOX_DOWNLOAD': '0'}, capture_output=True, text=True)
+    assert refused.returncode and 'disposable UID1000' in refused.stderr
+    assert subprocess.run(['bash', str(ROOT / 'tests/run-firefox-mount-root.sh')],
+        capture_output=True).returncode == 2
     refused = subprocess.run(['bash', str(ROOT / 'tests/run-candidate-gui.sh')],
         env={**os.environ, 'OOONANA_GUI_ONLY': 'invalid'}, capture_output=True, text=True)
     assert refused.returncode == 2 and 'Unknown GUI probe' in refused.stderr

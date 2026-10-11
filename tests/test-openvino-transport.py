@@ -11,9 +11,10 @@ root = Path(__file__).resolve().parents[1]
 runner = root / "tests/run-openvino-transport.sh"
 probe = root / "tests/probe-openvino-transport.py"
 ast.parse(probe.read_text())
+ast.parse((root / "tests/check-ai-engine-runtime.py").read_text())
 subprocess.run(["bash", "-n", str(runner)], check=True)
 environment = {**os.environ, "OOONANA_TRANSPORT_ISOLATED": "0", "OOONANA_TRANSPORT_WORKER": "0",
-               "OOONANA_TRANSPORT_INFERENCE": "0", "OOONANA_TRANSPORT_INSTALL_APP": "0"}
+               "OOONANA_TRANSPORT_INFERENCE": "0", "OOONANA_TRANSPORT_INSTALL_APP": "0", "OOONANA_TRANSPORT_GUI": "0"}
 with tempfile.TemporaryDirectory() as temporary:
     sentinel = Path(temporary) / "keep"
     sentinel.write_text("unchanged")
@@ -36,4 +37,8 @@ with tempfile.TemporaryDirectory() as temporary:
                                  capture_output=True, text=True, timeout=10)
         assert invalid.returncode and expected in invalid.stderr
     assert list(Path(temporary).iterdir()) == [sentinel] and sentinel.read_text() == "unchanged"
+    for value in ("invalid", "1"):
+        invalid = subprocess.run(["bash", str(runner)], env={**environment, "OOONANA_TRANSPORT_GUI": value},
+                                 capture_output=True, text=True, timeout=10)
+        assert invalid.returncode and "GUI" in invalid.stderr
 print("ok openvino-transport diagnostic: syntax, opt-in/worker refusal, unrelated state preserved")

@@ -137,6 +137,8 @@ for config in \
   extract_config "ROOTFS/$config" "$staging/$config"
 done
 mkdir -p "$staging/var/lib/ooonana/packages/files"
+mkdir -p "$staging/var/tmp"
+chmod 1777 "$staging/var/tmp"
 : > "$staging/var/lib/ooonana/packages/files/ooonana-core.list"
 tar --sort=name --mtime="@${SOURCE_DATE_EPOCH:-0}" --numeric-owner --owner=0 --group=0 \
   --pax-option=delete=atime,delete=ctime -C "$staging" -cf - . | gzip -n >"$archive"
@@ -148,6 +150,9 @@ set -eu
 prefix="${OOONANA_ROOT:-/}"
 cli="${prefix%/}/usr/bin/ooonana"
 [ -x "$cli" ] || { echo 'core healthcheck: CLI missing' >&2; exit 1; }
+[ -d "${prefix%/}/var/tmp" ] && [ "$(stat -c %a "${prefix%/}/var/tmp")" = 1777 ] || {
+  echo 'core healthcheck: /var/tmp missing or unsafe permissions' >&2; exit 1;
+}
 "$cli" version | grep -q "ooonana ${OOONANA_PKG_VERSION}"
 for helper in ooonana-memory ooonana-panel-start ooonana-window-list ooonana-shutdown-cleanup ooonana-storage-watch ooonana-persistence gzip; do
   [ -x "${prefix%/}/usr/bin/$helper" ] || { echo "core healthcheck: missing $helper" >&2; exit 1; }

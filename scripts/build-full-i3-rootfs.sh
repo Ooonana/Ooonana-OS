@@ -4601,9 +4601,9 @@ write_tarball() {
 }
 
 normalize_rootfs_permissions() {
-  mkdir -p "$ROOTFS/tmp"
+  mkdir -p "$ROOTFS/tmp" "$ROOTFS/var/tmp"
   chmod -R go-w "$ROOTFS" 2>/dev/null || true
-  chmod 1777 "$ROOTFS/tmp"
+  chmod 1777 "$ROOTFS/tmp" "$ROOTFS/var/tmp"
 
   local setuid_path
   for setuid_path in \

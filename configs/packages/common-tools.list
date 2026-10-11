@@ -15,4 +15,5 @@ ncdu
 less
 lsof
 strace
+qterminal
 openssh-client-default

@@ -383,6 +383,8 @@ core_runtime_archive="$(find "$tmp/repo/archives" -maxdepth 1 -name 'ooonana-cor
 core_archive_files="$(tar -tzf "$core_runtime_archive")"
 [[ "$core_archive_files" != *'__pycache__'* ]] || fail "core runtime contains Python cache"
 [[ "$core_archive_files" != *'.pyc'* ]] || fail "core runtime contains Python bytecode"
+[[ "$(tar -tvzf "$core_runtime_archive" ./var/tmp/ | awk 'NR == 1 {print $1}')" == "drwxrwxrwt" ]] ||
+  fail "core runtime missing sticky /var/tmp"
 tar -tzf "$core_runtime_archive" | grep 'var/lib/ooonana/packages/files/ooonana-core.list' >/dev/null || fail "core runtime missing legacy manifest guard"
 tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-audio-start' >/dev/null || fail "core runtime missing audio session helper"
 tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-game-launch' >/dev/null || fail "core runtime missing game launcher"
@@ -439,6 +441,14 @@ core_upgrade="$(OOONANA_REPO_DIR="$tmp/repo" \
 assert_contains "$core_upgrade" "installed ooonana-core-runtime"
 assert_contains "$core_upgrade" "upgraded ooonana-core 0.8.1"
 assert_contains "$core_upgrade" "OOONANA_CORE_META_HEALTHCHECK_OK"
+[[ "$(stat -c %a "$core_upgrade_root/var/tmp")" == 1777 ]] || fail "upgrade failed to create sticky /var/tmp"
+chmod 0700 "$core_upgrade_root/var/tmp"
+if OOONANA_ROOT="$core_upgrade_root" OOONANA_PKG_VERSION=0.10.0 \
+  sh "$tmp/repo/hooks/ooonana-core-runtime.healthcheck" >"$tmp/bad-tmp-health.log" 2>&1; then
+  fail "core healthcheck accepted unsafe /var/tmp"
+fi
+assert_contains "$(<"$tmp/bad-tmp-health.log")" '/var/tmp missing or unsafe permissions'
+chmod 1777 "$core_upgrade_root/var/tmp"
 [[ -f "$core_upgrade_state/files/ooonana-core.list" && ! -s "$core_upgrade_state/files/ooonana-core.list" ]] ||
   fail "core migration removed empty legacy manifest guard"
 [[ -x "$core_upgrade_root/usr/bin/ooonana" ]] || fail "core migration removed upgraded CLI"

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Disposable, network-isolated candidate UI gate. Never run installed WSL here.
+# Disposable candidate UI gate. Firefox opt-in downloads into owned ext4 only;
+# rendered probes always have a private network. Never run installed WSL here.
 set -euo pipefail
 SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 only="${OOONANA_GUI_ONLY:-all}"
@@ -9,7 +10,7 @@ case "$geometry" in
   *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
 esac
 case "$only" in
-  all|native-ui-runtime|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|window-controls-runtime|dock-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame) ;;
+  all|native-ui-runtime|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|window-controls-runtime|dock-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -30,24 +31,78 @@ if [[ "${1:-}" != --worker ]]; then
     # Never install supplemental packages into the preserved candidate cache.
     [[ ! -e "$output/overlay" ]] || { printf 'Overlay output must be fresh\n' >&2; exit 2; }
   fi
+  network=(--net)
+  limit=600
+  if [[ "$only" == firefox-frame ]]; then
+    [[ -n "${OOONANA_GUI_REPO:-}" && "${OOONANA_FIREFOX_DOWNLOAD:-0}" == 1 ]] || exit 2
+    if [[ -n "${OOONANA_FIREFOX_REUSE_HOME:-}" ]]; then
+      reused_home="$(realpath "$OOONANA_FIREFOX_REUSE_HOME")"
+      [[ "$reused_home" == /var/tmp/ooonana-firefox-*/storage/home && -d "$reused_home/ooonana/.local/share/flatpak/app/org.mozilla.firefox" ]] || exit 2
+      export OOONANA_FIREFOX_REUSE_HOME="$reused_home"
+    fi
+    if [[ "${OOONANA_FIREFOX_DIRECT_STORAGE:-0}" == 1 ]]; then
+      [[ "$(findmnt -n -o FSTYPE -T "$output")" == ext4 ]] || exit 2
+      [[ "$(df -B1 --output=avail "$output" | tail -n 1)" -ge 4294967296 ]] || exit 2
+    else
+    image="$(realpath "${OOONANA_FIREFOX_TEST_IMAGE:?Owned test image required}")"
+    # Regular, bounded QA file only. Never a disk, symlink or user installation.
+    [[ "$image" == /mnt/winf/Ooonana/ooonana-os/qa-firefox-*/flatpak.ext4 && -f "$image" && ! -L "$OOONANA_FIREFOX_TEST_IMAGE" ]] || exit 2
+    [[ "$(stat -c %s "$image")" -le 8589934592 ]] || exit 2
+    [[ "$(blkid -p -s TYPE -o value "$image")" == ext4 ]] || exit 2
+    export OOONANA_FIREFOX_TEST_IMAGE="$image"
+    fi
+    if [[ -z "${OOONANA_FIREFOX_REUSE_HOME:-}" ]]; then
+      network=()
+      limit=1800
+    fi
+  fi
   for tool in unshare xvfb-run chroot mount timeout; do command -v "$tool" >/dev/null; done
-  exec timeout --kill-after=5 600 unshare --mount --pid --fork --kill-child --ipc --net --propagation private \
+  exec timeout --kill-after=5 "$limit" unshare --mount --pid --fork --kill-child --ipc "${network[@]}" --propagation private \
     bash "$0" --worker "$rootfs" "$output"
 fi
 
 rootfs="$2"; output="$3"
+if [[ "$only" == firefox-frame ]]; then
+  # Host bubblewrap sees worker PIDs, so /proc must match this private PID NS.
+  mount -t proc proc /proc
+fi
 if [[ -n "${OOONANA_GUI_REPO:-}" ]]; then
-  mkdir -p "$output/overlay/"{upper,work,rootfs,empty-sources}
-  mount -t overlay overlay -o "lowerdir=$rootfs,upperdir=$output/overlay/upper,workdir=$output/overlay/work" "$output/overlay/rootfs"
-  rootfs="$output/overlay/rootfs"
+  storage="$output"
+  if [[ "$only" == firefox-frame ]]; then
+    mkdir "$output/storage"
+    if [[ "${OOONANA_FIREFOX_DIRECT_STORAGE:-0}" != 1 ]]; then
+      mount -o loop "$OOONANA_FIREFOX_TEST_IMAGE" "$output/storage"
+    fi
+    storage="$output/storage"
+    [[ ! -e "$storage/overlay" ]] || { printf 'Firefox image must be fresh\n' >&2; exit 2; }
+  fi
+  mkdir -p "$storage/overlay/"{upper,work,rootfs,empty-sources}
+  mount -t overlay overlay -o "lowerdir=$rootfs,upperdir=$storage/overlay/upper,workdir=$storage/overlay/work" "$storage/overlay/rootfs"
+  rootfs="$storage/overlay/rootfs"
   OOONANA_ROOT="$rootfs" OOONANA_REPO_DIR="$OOONANA_GUI_REPO" \
     OOONANA_REPO_VERIFY_KEY="$SOURCE/packages/ooonana/etc/ooonana/trusted-keys/repository-20261002.pub" \
-    OOONANA_SOURCES_DIR="$output/overlay/empty-sources" \
+    OOONANA_SOURCES_DIR="$storage/overlay/empty-sources" \
     sh "$SOURCE/packages/ooonana/usr/bin/ooonana" install xdg-desktop-portal xdg-desktop-portal-gtk xdg-document-portal \
     >"$output/portal-install.log" 2>&1
+  if [[ "$only" == all || "$only" == qterminal-frame ]]; then
+    OOONANA_ROOT="$rootfs" OOONANA_REPO_DIR="$OOONANA_GUI_REPO" \
+      OOONANA_REPO_VERIFY_KEY="$SOURCE/packages/ooonana/etc/ooonana/trusted-keys/repository-20261002.pub" \
+      OOONANA_SOURCES_DIR="$storage/overlay/empty-sources" \
+      sh "$SOURCE/packages/ooonana/usr/bin/ooonana" install qterminal >"$output/qt-install.log" 2>&1
+  fi
+  if [[ "$only" == firefox-frame ]]; then
+    OOONANA_ROOT="$rootfs" OOONANA_REPO_DIR="$OOONANA_GUI_REPO" \
+      OOONANA_REPO_VERIFY_KEY="$SOURCE/packages/ooonana/etc/ooonana/trusted-keys/repository-20261002.pub" \
+      OOONANA_SOURCES_DIR="$storage/overlay/empty-sources" \
+      sh "$SOURCE/packages/ooonana/usr/bin/ooonana" install firefox >"$output/firefox-package-install.log" 2>&1
+    cp --remove-destination /etc/resolv.conf "$rootfs/etc/resolv.conf"
+  fi
   mkdir -p "$rootfs/etc/xdg-desktop-portal"
   cp "$SOURCE/packages/ooonana/etc/xdg-desktop-portal/i3-portals.conf" "$rootfs/etc/xdg-desktop-portal/i3-portals.conf"
   ln -sfn /proc/self/mounts "$rootfs/etc/mtab"
+  # Mirror current builder fix in preserved pre-fix candidate's private upper.
+  mkdir -p "$rootfs/var/tmp"
+  chmod 1777 "$rootfs/var/tmp"
 fi
 # Private mounts vanish on namespace exit; candidate bytes/home remain intact.
 mount --bind "$SOURCE" "$rootfs/source"
@@ -63,11 +118,19 @@ mount -o remount,bind,ro "$rootfs/sys"
 for directory in tmp run home dev; do
   mount -t tmpfs -o size=64m tmpfs "$rootfs/$directory"
 done
+if [[ "$only" == firefox-frame ]]; then
+  if [[ -n "${OOONANA_FIREFOX_REUSE_HOME:-}" ]]; then
+    mount --bind "$OOONANA_FIREFOX_REUSE_HOME" "$rootfs/home"
+  else
+    mkdir "$storage/home"
+    mount --bind "$storage/home" "$rootfs/home"
+  fi
+fi
 chmod 1777 "$rootfs/tmp"
 mkdir -p "$rootfs/dev/shm" "$rootfs/dev/pts" "$rootfs/home/ooonana"
 chmod 1777 "$rootfs/dev/shm"
-for device in null zero random urandom; do
-  case "$device" in null) minor=3 ;; zero) minor=5 ;; random) minor=8 ;; urandom) minor=9 ;; esac
+for device in null zero full random urandom; do
+  case "$device" in null) minor=3 ;; zero) minor=5 ;; full) minor=7 ;; random) minor=8 ;; urandom) minor=9 ;; esac
   mknod -m 0666 "$rootfs/dev/$device" c 1 "$minor"
 done
 mknod -m 0666 "$rootfs/dev/tty" c 5 0
@@ -80,11 +143,23 @@ ln -s /proc/self/fd/2 "$rootfs/dev/stderr"
 mount -t devpts -o newinstance,ptmxmode=0666 devpts "$rootfs/dev/pts"
 ln -s pts/ptmx "$rootfs/dev/ptmx"
 chown 1000:1000 "$rootfs/home/ooonana" "$output"
+if [[ "$only" == firefox-frame && -z "${OOONANA_FIREFOX_REUSE_HOME:-}" ]]; then
+  mkdir -p "$rootfs/home/ooonana/runtime"
+  chown 1000:1000 "$rootfs/home/ooonana/runtime"
+  chmod 0700 "$rootfs/home/ooonana/runtime"
+  timeout --kill-after=5 1200 chroot --userspec=1000:1000 "$rootfs" \
+    /usr/bin/env -i HOME=/home/ooonana USER=ooonana LOGNAME=ooonana \
+    PATH=/usr/bin:/bin:/usr/sbin:/sbin XDG_RUNTIME_DIR=/home/ooonana/runtime \
+    OOONANA_FIREFOX_DOWNLOAD=1 PYTHONDONTWRITEBYTECODE=1 \
+    /usr/bin/dbus-run-session -- python3 /source/tests/probe-firefox-install.py \
+    >"$output/firefox-install-update.log" 2>&1
+fi
 # Host Xvfb and candidate use the same private filesystem socket, no TCP.
 mount --bind "$rootfs/tmp" /tmp
 export rootfs output only
 # Keep namespace init as Bash. Xvfb will not send its readiness signal to PID 1.
-xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp" bash -c '
+# shellcheck disable=SC2016 # Child shell expands exported paths/display.
+unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp" bash -c '
   set -eu
   mkdir -p "$rootfs/home/ooonana/runtime"
   chown 1000:1000 "$rootfs/home/ooonana/runtime"
@@ -96,7 +171,13 @@ xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp" bash -c '
   probe() {
     name="$1"; shift
     [ "$only" = all ] || [ "$only" = "$name" ] || return 0
-    if timeout --kill-after=5 120 chroot --userspec=1000:1000 "$rootfs" \
+    launch=(chroot --userspec=1000:1000 "$rootfs")
+    if [ "$name" = firefox-frame ]; then
+      # Plain chroot cannot create nested user namespaces. Use a proper mount
+      # namespace root, retaining host UID1000 and every browser sandbox.
+      launch=(bash "$rootfs/source/tests/run-firefox-mount-root.sh" "$rootfs")
+    fi
+    if timeout --kill-after=5 120 "${launch[@]}" \
       /usr/bin/env -i HOME=/home/ooonana USER=ooonana LOGNAME=ooonana \
       PATH=/usr/bin:/bin:/usr/sbin:/sbin DISPLAY="$DISPLAY" \
       XAUTHORITY=/home/ooonana/.Xauthority XDG_RUNTIME_DIR=/home/ooonana/runtime \
@@ -118,7 +199,7 @@ xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp" bash -c '
   probe dock-ui python3 /source/tests/check-dock-ui.py /qa/dock.png
   probe panel-ui python3 /source/tests/check-panel-ui.py /qa/panel.png --rootfs / --long-wifi --desktop-overview
   probe portal-ui python3 /source/tests/check-portal-ui.py /qa/portal.png
-  for app in geany nemo chromium; do
+  for app in geany nemo chromium qterminal; do
     if [ "$app" = geany ]; then
       probe "$app-frame" python3 /source/tests/check-third-party-frames.py "$app" "/qa/$app.png" --compositor --file-dialog
     elif [ "$app" = chromium ] && [ "${OOONANA_BROWSER_NO_SHADER_CACHE:-0}" = 1 ]; then
@@ -127,5 +208,12 @@ xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp" bash -c '
       probe "$app-frame" python3 /source/tests/check-third-party-frames.py "$app" "/qa/$app.png" --compositor
     fi
   done
+  if [ "$only" = firefox-frame ]; then
+    if [ "${OOONANA_FIREFOX_PICKER:-1}" = 0 ]; then
+      probe firefox-frame python3 /source/tests/check-third-party-frames.py firefox /qa/firefox.png --compositor
+    else
+      probe firefox-frame python3 /source/tests/check-third-party-frames.py firefox /qa/firefox.png --compositor --file-dialog
+    fi
+  fi
   exit "$failure"
 '

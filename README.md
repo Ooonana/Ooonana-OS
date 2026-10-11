@@ -25,17 +25,21 @@ This branch stages **core 0.10.0**, a coherent Alpine v3.24 imported-userland ca
 
 October 9 follow-up: GTK file pickers no longer open above the display. Actual Geany cancel/open and window controls passed on isolated 1280x800 and 1024x768 displays; ordinary alerts retain their size. OpenVINO low-memory failures now return typed JSON/SSE errors, including CPU-fallback and generation allocation failures; OOM never triggers grammar retry. Real pinned Linux runtime/tokenizer, strict RAM refusal and API crash/restart passed without loading heavyweight model weights; inference remains pending. [Evidence and limits](docs/remaining-closure-20261008.md#october-9-follow-up).
 
-October 11: fresh nonroot OpenVINO setup passed verified Ubuntu root image, dated APT packages, hash-locked pip installation and runtime generation promotion. Real small-model CPU loading/inference, SSE, low-memory errors and loaded-engine crash/restart passed through packaged bubblewrap. Fixed cancellation hang caused by GenAI swallowing broken-pipe callback errors; both chat/completion cancel and same-engine reuse passed. Saved models unchanged; heavyweight/GPU and full GUI-to-engine checks remain pending. Firefox/full-i3 include GTK desktop portals plus i3/D-Bus environment handoff. Hardware checks skipped by user. [Evidence and remaining gates](docs/remaining-closure-20261008.md#october-11-follow-up).
+October 11: fresh nonroot OpenVINO setup passed verified Ubuntu root image, dated APT packages, hash-locked pip installation and runtime generation promotion. Real small-model CPU loading/inference, SSE, low-memory errors and loaded-engine crash/restart passed through packaged bubblewrap. Fixed cancellation hang caused by GenAI swallowing broken-pipe callback errors; both chat/completion cancel and same-engine reuse passed. Saved models unchanged; heavyweight/GPU checks remain separate. Firefox/full-i3 include GTK desktop portals plus i3/D-Bus environment handoff. Hardware checks skipped by user. [Evidence and remaining gates](docs/remaining-closure-20261008.md#october-11-follow-up).
 
-October 12: real candidate portal checks found missing Documents service; added `xdg-document-portal` and fixed FUSE cleanup mount-table link. Nonroot activation/FUSE, bounded picker, painted controls and cancel/open passed at 1024x768. All twelve isolated GUI probes passed together. Supplemental packages used a ~2.2 MiB private overlay; preserved image/WSL unchanged. Actual Firefox Flatpak download/update/sandboxed picker and new-base Qt remain pending. [Latest evidence and limits](docs/remaining-closure-20261008.md#october-12-follow-up).
+October 12: fixed missing Documents portal and sticky `/var/tmp`. Real nonroot Firefox installation/update, Documents/FUSE, renderer sandbox state and window controls passed; picker needs first-run Terms consent. New-base QTerminal composited controls/dialogs passed; optional package catalog includes it. Native AI now streams live text; actual GTK/CLI/CPU streaming, Stop, low-memory refusal and engine recovery passed. All thirteen main GUI gates plus separate real Firefox frame gate passed. Installed WSL/stable remain unchanged; no ISO built. [Latest evidence and limits](docs/remaining-closure-20261008.md#october-12-follow-up).
+
+![Native Ooonana AI with real CPU response and request cancellation](docs/assets/ooonana-ai-real-cpu-20261012.png)
+
+Real GTK screenshot from isolated Xvfb. Low-memory caption reflects deliberate 1280 MiB test cap, not normal physical desktop RAM. Saved models/history untouched.
 
 Packaged OpenVINO bubblewrap launcher also passed nonroot API lifecycle, strict memory JSON/SSE refusal, cross-invocation daemon survival, owned crash/restart and bridge FIFO cleanup. Models/runtime were read-only in private namespaces. Offline installation of current app 0.2.1 in a small copy-on-write fixture passed without source override, including pinned dependencies and bundled GUI asset hashes. Existing Qt terminal window actions and all eleven isolated candidate GUI gates passed too; physical/new-base Qt sessions remain separate.
 
 OpenVINO setup now stages replacement instead of modifying/deleting the working
 runtime. Validated generations stay for recovery; legacy-directory promotion has
 an interrupted-update journal and launch guard. Filesystem/lock/rename/SIGKILL
-fixtures and real generation-pointer transport passed; full APT/pip installation
-is still pending. [Runtime safety and limits](docs/openvino-runtime-safety.md).
+fixtures, full pinned APT/pip setup and real generation-pointer transport passed.
+[Runtime safety and limits](docs/openvino-runtime-safety.md).
 
 ![Candidate Geany file picker contained within 1024x768 display](docs/assets/ooonana-geany-file-picker-20261009.png)
 

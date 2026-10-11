@@ -493,8 +493,30 @@ class AiWindow(Gtk.Window):
         self.send_button.set_tooltip_text("Stop request; shared API stays running")
         self.send_button.get_accessible().set_name("Stop request")
         self.set_phase("Waiting for backend")
+        streaming = {"active": True, "widget": None, "text": None}
+
+        def progress(output):
+            if not output or not streaming["active"] or self.current is not thread or not self.get_visible():
+                return False
+            if self.phase_title != "Generating reply":
+                self.set_phase("Generating reply")
+            if streaming["widget"] not in self.messages.get_children():
+                bubble = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+                bubble.get_style_context().add_class("ai-assistant")
+                bubble.pack_start(label("Ooonana", "ai-heading", wrap=False), False, False, 0)
+                text = label("")
+                text.set_selectable(True)
+                text.set_max_width_chars(68)
+                bubble.pack_start(text, False, False, 0)
+                self.messages.pack_start(bubble, False, False, 0)
+                streaming.update(widget=bubble, text=text)
+                bubble.show_all()
+            streaming["text"].set_text(output)
+            GLib.idle_add(self.scroll_bottom)
+            return False
 
         def done(rc, output):
+            streaming["active"] = False
             self.request = None
             if not self.get_visible():
                 return False
@@ -509,7 +531,7 @@ class AiWindow(Gtk.Window):
             self.refresh_chats()
             return False
 
-        self.request = ChatRequest(["ooonana-ai", "ask", "--no-agent", "--no-env", "--no-history", "--no-stream", "--context-stdin", "--", prompt], context, done)
+        self.request = ChatRequest(["ooonana-ai", "ask", "--no-agent", "--no-env", "--no-history", "--context-stdin", "--", prompt], context, done, on_output=progress)
 
     def run_action(self, title, args):
         self.set_phase(title)

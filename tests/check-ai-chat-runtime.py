@@ -36,9 +36,9 @@ with tempfile.TemporaryDirectory() as temporary:
     ai_app.run = lambda command, **kwargs: (0, "active: nim\nlabel: Fixture provider" if command[-1] == "provider" else "active: Fixture model")
     calls = []
 
-    def fixture_request(command, context, callback):
+    def fixture_request(command, context, callback, on_output=None):
         calls.append((command, context))
-        return ChatRequest([sys.executable, "-c", 'print("Fixture reply\\n```shell\\necho fixture\\n```")'], context, callback)
+        return ChatRequest([sys.executable, "-c", 'print("Fixture reply\\n```shell\\necho fixture\\n```")'], context, callback, on_output=on_output)
 
     ai_app.ChatRequest = fixture_request
     apply_theme()
@@ -65,6 +65,7 @@ with tempfile.TemporaryDirectory() as temporary:
     spin(lambda: window.request is None)
     assert window.current["messages"][-1]["role"] == "assistant"
     assert calls and "--context-stdin" in calls[0][0]
+    assert "--no-stream" not in calls[0][0]
     copy = next(widget for widget in descendants(window.messages) if isinstance(widget, Gtk.Button) and widget.get_accessible().get_name() == "Copy code")
     copy.clicked()
     assert Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).wait_for_text() == "echo fixture"
@@ -84,6 +85,26 @@ with tempfile.TemporaryDirectory() as temporary:
     request.cancel()
     spin(lambda: bool(cancelled))
     assert cancelled[0][0] == 130
+    streamed, finished = [], []
+    request = ChatRequest([sys.executable, "-c",
+        'import sys,time; sys.stdin.read(); sys.stdout.buffer.write("한".encode()[:1]); sys.stdout.flush(); time.sleep(.12); sys.stdout.buffer.write("한".encode()[1:]); sys.stdout.flush(); time.sleep(.4); print("글",flush=True)'],
+        "[]", lambda rc, output: finished.append((rc, output)), on_output=lambda output: streamed.append(output))
+    spin(lambda: any("한" in output for output in streamed))
+    assert not finished, "Streaming waited for process completion"
+    spin(lambda: bool(finished))
+    assert finished == [(0, "한글\n")] and "�" not in "".join(streamed), (streamed, finished)
+    previous_stream = ChatRequest._stream
+    def failed_read(_request, _context):
+        raise OSError("owned fixture read failure")
+    ChatRequest._stream = failed_read
+    try:
+        finished = []
+        failed = ChatRequest([sys.executable, "-c", "import time; time.sleep(30)"], "[]",
+            lambda rc, output: finished.append((rc, output)), on_output=lambda _output: None)
+        spin(lambda: bool(finished) and failed.process.poll() is not None)
+        assert finished == [(1, "owned fixture read failure")]
+    finally:
+        ChatRequest._stream = previous_stream
     window.disconnect_by_func(window.closed)
     window.destroy()
 print("GTK_AI_CHAT_RUNTIME_OK")

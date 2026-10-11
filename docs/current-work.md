@@ -1,5 +1,47 @@
 # Current work - 2026-10-12
 
+## October 12 AI, Qt and Firefox closure
+
+- Native AI was explicitly requesting non-streaming replies. Removed that flag;
+  bounded incremental UTF-8 reads now paint live text, including split Korean
+  bytes. Stop terminates only owned CLI process; shared API stays running.
+- Real GTK -> production CLI -> installed CPU engine passed low-memory refusal,
+  visible streaming, Stop, same-engine reuse and loaded-engine crash/restart.
+  SmolLM2-360M QA export, 1280 MiB cgroup cap, no swap, read-only models;
+  CPU load/inference 4.459 s, HTTP cancel/reuse 0.333/0.219 s. Proof:
+  `/var/tmp/ooonana-native-ai-final-20261012.KGKGpMny/run.log`.
+  This is not GPU/large production-model or physical-session certification.
+- New-base QTerminal 2.4.0-r0 passed composited paint, minimize/restore,
+  fullscreen/restore, movement and close-dialog focus/bounds/cancel/confirmation.
+  Added optional catalog entry, not boot dependency. Candidate stage: 653
+  packages, 611 full-i3 dependency nodes. Qt file pickers/theme and physical
+  session remain separate. Proof:
+  `/var/tmp/ooonana-ai-qt-final-20261012.dwDKlZMo/qterminal-frame`.
+- All thirteen isolated candidate GUI gates passed together:
+  `/var/tmp/ooonana-all-gui-20261012.uBo8hhHS/run.log`. Final streaming fixture
+  also passed after pipe cleanup; read-error fixture confirms owned child stops:
+  `/var/tmp/ooonana-ai-stream-freeze-20261012.xrpldgja`.
+- Actual nonroot Firefox installation exposed missing `/var/tmp` in rootfs.
+  Builder/core archive now create sticky 1777 directory; core health check
+  refuses absent/unsafe permissions. Build, upgrade and refusal regressions pass.
+  Firefox 157.0.1 setup/status/update passed in private Linux storage:
+  `/var/tmp/ooonana-firefox-repaired-20261012.4PxGKuV4/firefox-install-update.log`.
+  Proper mount/PID root and `/dev/full` fix chroot/outer-wrapper QA limitations;
+  real UID1000 Documents/FUSE activation, Firefox renderer seccomp=2/no-new-privs=1,
+  painted controls, minimize/restore/fullscreen/restore/move/close passed:
+  `/var/tmp/ooonana-firefox-final-20261012.HgOA2mXJ/run.log`.
+  Sandboxed picker is blocked by Firefox first-run Terms prompt. Consent asked;
+  none accepted. Private QA profile has diagnostics off; production defaults
+  unchanged. No browser/Flatpak sandbox or host security policy disabled.
+- Removed only two failed private Flatpak download caches (~367 MiB), keeping
+  logs and histories. Owned F: 6 GiB test-file format stalled in WSL 9p I/O;
+  stopped owned formatter. Removal was tool-policy blocked; file retained,
+  no alternate deletion attempted. Valid runtime/release caches remain.
+- Latest physical headroom roughly C: 4.9 GiB, F: 10.8 GiB. Full image staging
+  still requires 20 GiB free on C:, 8 GiB on F:. No ISO, installed WSL migration,
+  stable-channel promotion, sound, physical disk mutation or key enrollment.
+  PDF real Chromium viewer remains tool-policy blocked; hardware explicitly skipped.
+
 ## October 12 real candidate portal follow-up
 
 - Real activation exposed another missing split package: `xdg-document-portal`.

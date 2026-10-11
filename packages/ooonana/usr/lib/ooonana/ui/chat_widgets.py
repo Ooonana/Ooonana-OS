@@ -3,6 +3,9 @@ import signal
 import subprocess
 import threading
 import os
+import codecs
+import selectors
+import time
 from common import Gdk, GLib, Gtk, button, label, icon
 
 AI_CSS = b"""
@@ -105,11 +108,12 @@ def sidebar_button(title, icon_name, callback, primary=False):
 
 class ChatRequest:
     """Own only CLI child; cancellation never stops shared local API."""
-    def __init__(self, command, context, callback):
+    def __init__(self, command, context, callback, on_output=None):
         self.lock = threading.Lock()
         self.process = None
         self.cancelled = False
         self.callback = callback
+        self.on_output = on_output
         threading.Thread(target=self._run, args=(command, context), daemon=True).start()
 
     def cancel(self):
@@ -138,9 +142,12 @@ class ChatRequest:
                 if self.cancelled:
                     GLib.idle_add(self.callback, 130, "Request cancelled. Shared API remains running.")
                     return
-                self.process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, start_new_session=True)
+                self.process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", start_new_session=True)
             try:
-                output, _ = self.process.communicate(context, timeout=300)
+                if self.on_output is None:
+                    output, _ = self.process.communicate(context, timeout=300)
+                else:
+                    output = self._stream(context)
             except subprocess.TimeoutExpired:
                 self.cancel()
                 try:
@@ -149,9 +156,56 @@ class ChatRequest:
                     os.killpg(self.process.pid, signal.SIGKILL)
                     output, _ = self.process.communicate()
             if self.cancelled:
-                status, output = 130, "Request cancelled. Shared API may still finish generation."
+                status, output = 130, "Request cancelled. Shared API remains running."
             else:
                 status = self.process.returncode
         except (OSError, ValueError) as error:
+            if self.process is not None and self.process.poll() is None:
+                self.cancel()
             status, output = 1, str(error)
+        finally:
+            if self.process is not None:
+                for pipe in (self.process.stdin, self.process.stdout):
+                    if pipe is not None:
+                        try:
+                            pipe.close()
+                        except (OSError, ValueError):
+                            pass
         GLib.idle_add(self.callback, status, output[-100000:])
+
+    def _stream(self, context):
+        # Feed separately: bounded stdin must not block cancellation/read timeout.
+        def feed():
+            input_pipe = self.process.stdin
+            try:
+                input_pipe.write(context)
+            except (BrokenPipeError, OSError, ValueError):
+                pass
+            finally:
+                try:
+                    input_pipe.close()
+                except (OSError, ValueError):
+                    pass
+                self.process.stdin = None
+        threading.Thread(target=feed, daemon=True).start()
+        decoder = codecs.getincrementaldecoder("utf-8")("replace")
+        output = ""
+        deadline = time.monotonic() + 300
+        published = 0.0
+        with selectors.DefaultSelector() as reader:
+            reader.register(self.process.stdout, selectors.EVENT_READ)
+            while True:
+                if time.monotonic() >= deadline:
+                    raise subprocess.TimeoutExpired(self.process.args, 300)
+                if not reader.select(0.1):
+                    continue
+                data = os.read(self.process.stdout.fileno(), 4096)
+                output = (output + decoder.decode(data, final=not data))[-100000:]
+                now = time.monotonic()
+                if not self.cancelled and (not data or now - published >= 0.06):
+                    GLib.idle_add(self.on_output, output)
+                    published = now
+                if not data:
+                    break
+        self.process.wait(timeout=max(0.1, deadline - time.monotonic()))
+        return output
