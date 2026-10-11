@@ -5,6 +5,7 @@ import ast
 from pathlib import Path
 import subprocess
 import tempfile
+from types import SimpleNamespace
 
 root = Path(__file__).resolve().parents[1]
 builder = (root / "scripts/build-full-i3-rootfs.sh").read_text()
@@ -54,7 +55,8 @@ fi
                               and node.name in {"browser_sandboxes", "browser_process_diagnostics", "ready_browser_sandboxes"}],
                          type_ignores=[])
     proc = work / "proc"
-    namespace = {"Path": lambda path: proc if path == "/proc" else Path(path)}
+    namespace = {"Path": lambda path: proc if path == "/proc" else Path(path),
+                 "args": SimpleNamespace(app="chromium")}
     exec(compile(helpers, "browser-sandbox-helpers", "exec"), namespace)
     for pid, kind in ((11, ""), (12, "renderer"), (13, "gpu-process")):
         directory = proc / str(pid)
@@ -69,5 +71,15 @@ fi
     assert namespace["ready_browser_sandboxes"]() is None, "Unlocked privilege state accepted"
     proc.joinpath("13/cmdline").write_bytes(b"chromium\0--type=utility\0")
     assert namespace["ready_browser_sandboxes"]() is None, "Missing GPU snapshot accepted"
+    namespace["args"].app = "firefox"
+    directory = proc / "14"
+    directory.mkdir()
+    directory.joinpath("cmdline").write_bytes(b"/app/lib/firefox/firefox\0-contentproc\0")
+    directory.joinpath("status").write_text("Name:\tIsolated Web Co\nPPid:\t11\nSeccomp:\t0\nNoNewPrivs:\t0\n")
+    assert namespace["ready_browser_sandboxes"]() is None, "Uninitialized Firefox renderer accepted"
+    directory.joinpath("status").write_text("Name:\tIsolated Web Co\nPPid:\t11\nSeccomp:\t2\nNoNewPrivs:\t1\n")
+    assert set(namespace["ready_browser_sandboxes"]()) == {"renderer"}
+    directory.joinpath("status").write_text("Name:\tIsolated Web Co\nPPid:\t11\nSeccomp:\t2\nNoNewPrivs:\t0\n")
+    assert namespace["ready_browser_sandboxes"]() is None, "Unlocked Firefox renderer accepted"
 
 print("ok browser-policy: sandbox retained, normal GPU path, software fallback, URL/user flags preserved")

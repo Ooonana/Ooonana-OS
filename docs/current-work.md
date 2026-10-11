@@ -33,6 +33,9 @@
   Sandboxed picker is blocked by Firefox first-run Terms prompt. Consent asked;
   none accepted. Private QA profile has diagnostics off; production defaults
   unchanged. No browser/Flatpak sandbox or host security policy disabled.
+- CI caught standalone sandbox-helper fixture missing the new app selector.
+  Added explicit Chromium selector plus Firefox uninitialized/unlocked/ready
+  regression. This was test-harness scope, not a disabled production sandbox.
 - Removed only two failed private Flatpak download caches (~367 MiB), keeping
   logs and histories. Owned F: 6 GiB test-file format stalled in WSL 9p I/O;
   stopped owned formatter. Removal was tool-policy blocked; file retained,
