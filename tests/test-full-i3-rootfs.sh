@@ -42,6 +42,7 @@ assert_contains "$script_src" "refresh_gtk_caches()"
 assert_contains "$script_src" 'update-mime-database "$ROOTFS/usr/share/mime"'
 assert_contains "$script_src" "gdk-pixbuf-query-loaders"
 assert_contains "$script_src" "normalize_rootfs_permissions()"
+assert_contains "$script_src" 'ln -sfn /proc/self/mounts "$ROOTFS/etc/mtab"'
 assert_contains "$script_src" 'chmod 4755 "$setuid_path"'
 assert_contains "$script_src" "refresh_font_caches()"
 assert_contains "$script_src" 'ln -s python3 "$ROOTFS/usr/bin/python"'
@@ -234,6 +235,7 @@ OOONANA_SKIP_INTEL_FIRMWARE=1 bash "$SCRIPT" \
   --force
 
 rootfs="$tmp/full-rootfs"
+[[ "$(readlink "$rootfs/etc/mtab")" == /proc/self/mounts ]] || fail "missing live mount-table link"
 [[ -f "$tmp/ooonana-full-i3-rootfs.tar.gz" ]] || fail "missing full-i3 tarball"
 [[ -f "$rootfs/etc/ooonana/edition" ]] || fail "missing edition marker"
 [[ "$(<"$rootfs/etc/ooonana/edition")" == "full-i3" ]] || fail "wrong edition marker"

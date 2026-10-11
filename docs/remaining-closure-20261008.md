@@ -4,6 +4,24 @@ Source/candidate: core 0.10.0 on `codex/supported-base-0-10`. Installed Ooonana 
 stable main/update endpoints and October 6 ISO remain 0.9.9. Ubuntu only hosts
 builds/tests. No ISO, installed-distro migration, sound playback or key enrollment.
 
+## October 12 follow-up
+
+- Fixed missing split `xdg-document-portal` dependency and FUSE cleanup mount
+  table link. Real candidate nonroot frontend/backend/Documents activation,
+  FUSE mount, focused floating picker bounds, painted controls, cancel/open and
+  unchanged owned file passed on 1024x768. Proof:
+  `/var/tmp/ooonana-portal-candidate-20261012.MlDoAVbo`.
+- All twelve candidate GUI probes passed together, including new portal gate and
+  composited Geany/Nemo/Chromium. Proof:
+  `/var/tmp/ooonana-gui-portals-final-20261012.QZ9gyduI/run.log`.
+- Tests install signed supplemental packages only into disposable COW upper;
+  preserved candidate and installed WSL untouched. Factory/launcher/rootfs
+  fixtures passed. Candidate staging: 643 packages, 611 dependency nodes.
+- Actual Firefox Flatpak installation/update and sandboxed picker remain pending,
+  as do new-base Qt and GUI-to-real-model journey. Chroot Glycin sandbox warning
+  remains a limitation; no physical/audio or final-image certification.
+- No ISO, migration, stable promotion, signing enrollment or private-key upload.
+
 ## October 11 follow-up
 
 - User explicitly skipped hardware/physical USB checks; no physical target available.
@@ -182,8 +200,10 @@ Evidence: `/var/tmp/ooonana-openvino-live-20261009.xZBaRy8V`,
    independent offline target access, resolve retired APKs, migrate whole world,
    then verify installed Ooonana login/GUI/services. Do not overlay candidate core
    on live 0.9.9 libraries or force-reimport over existing data.
-4. Real nonroot Firefox Flatpak download/update/portal/file-picker checks on rebuilt
-   candidate. OpenVINO fresh Ubuntu/APT/pip setup, small CPU model inference/SSE,
+4. Real nonroot Firefox Flatpak download/update and sandboxed Firefox file-picker
+   checks on rebuilt candidate. Independent candidate portal/FUSE/nonroot picker
+   now passed; it does not certify Firefox sandbox integration. OpenVINO fresh
+   Ubuntu/APT/pip setup, small CPU model inference/SSE,
    cancellation/reuse and loaded-engine restart now passed. Large saved-model
    inference, GPU and real GUI-to-engine complete journey remain pending;
    CPU QA proof does not certify those. Models/history must remain intact.

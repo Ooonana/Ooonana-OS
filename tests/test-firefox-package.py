@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -73,9 +74,10 @@ if 'info' in sys.argv and os.environ.get('MISSING') == '1':
     repo = work / 'repo'
     subprocess.run(['bash', str(ROOT / 'scripts/build-firefox-package.sh'), '--out-dir', str(repo)], check=True)
     metadata = (repo / 'firefox.pkg').read_text()
-    assert 'OOONANA_PKG_DEPS="flatpak xdg-desktop-portal xdg-desktop-portal-gtk"' in metadata
+    assert 'OOONANA_PKG_VERSION="1.0.1"' in metadata
+    assert 'OOONANA_PKG_DEPS="flatpak xdg-desktop-portal xdg-desktop-portal-gtk xdg-document-portal"' in metadata
     profile = (ROOT / 'configs/packages/full-i3.list').read_text().splitlines()
-    for dependency in ('xdg-desktop-portal', 'xdg-desktop-portal-gtk'):
+    for dependency in ('xdg-desktop-portal', 'xdg-desktop-portal-gtk', 'xdg-document-portal'):
         assert dependency in profile
         assert dependency in (ROOT / 'scripts/build-package-repo.sh').read_text()
     import configparser
@@ -83,7 +85,18 @@ if 'info' in sys.argv and os.environ.get('MISSING') == '1':
     portal.read(ROOT / 'packages/ooonana/etc/xdg-desktop-portal/i3-portals.conf')
     assert portal['preferred']['default'] == 'gtk'
     assert portal['preferred']['org.freedesktop.impl.portal.Secret'] == 'gnome-keyring'
-    archive = repo / 'archives/firefox-1.0.0.tar.gz'
+    # Opt-in rendered probe must fail before touching real desktop/session.
+    import ast
+    probe = ROOT / 'tests/check-portal-ui.py'
+    ast.parse(probe.read_text())
+    refused = subprocess.run([sys.executable, '-B', str(probe), str(work / 'unsafe.png')],
+        env={**os.environ, 'OOONANA_GUI_TEST_DISPLAY': '0'}, capture_output=True, text=True)
+    assert refused.returncode and 'isolated nonroot' in refused.stderr
+    assert not (work / 'unsafe.png').exists()
+    refused = subprocess.run(['bash', str(ROOT / 'tests/run-candidate-gui.sh')],
+        env={**os.environ, 'OOONANA_GUI_ONLY': 'invalid'}, capture_output=True, text=True)
+    assert refused.returncode == 2 and 'Unknown GUI probe' in refused.stderr
+    archive = repo / 'archives/firefox-1.0.1.tar.gz'
     original = archive.read_bytes()
     subprocess.run(['bash', str(ROOT / 'scripts/build-firefox-package.sh'), '--out-dir', str(repo)], check=True)
     assert archive.read_bytes() == original

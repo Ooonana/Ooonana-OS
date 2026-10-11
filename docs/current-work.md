@@ -1,4 +1,34 @@
-# Current work - 2026-10-11
+# Current work - 2026-10-12
+
+## October 12 real candidate portal follow-up
+
+- Real activation exposed another missing split package: `xdg-document-portal`.
+  Added it to Firefox dependency closure, native factory imports and both/full-i3
+  profiles. Firefox wrapper bumped to 1.0.1 so existing clients see dependency
+  repair as an upgrade. GTK frontend/backend alone lacked Documents service.
+- FUSE cleanup also lacked `/etc/mtab`; full rootfs now links it to
+  `/proc/self/mounts`. Actual rootfs fixture and portal cleanup retest cover it.
+- Added opt-in real portal probe and signed supplemental-package COW overlay.
+  No full rootfs copy/rebuild, preserved candidate modification or downloads by
+  GUI tests. Real Ooonana manager installed verified packages into private upper.
+- UID1000 frontend/backend/Documents activation and FUSE mount, picker bounds,
+  painted window buttons, Escape cancellation and opening an unchanged owned
+  file passed at 1024x768. Screenshot inspected. Thin upper uses about 2.2 MiB.
+  Proof: `/var/tmp/ooonana-portal-candidate-20261012.MlDoAVbo`.
+- All twelve isolated candidate GUI probes passed together at 1280x800: native
+  apps, AI indicators/chat, desktop interactions, notifications, controls,
+  dock, panel, portals, composited Geany/Nemo/Chromium. Proof:
+  `/var/tmp/ooonana-gui-portals-final-20261012.QZ9gyduI/run.log`.
+- Firefox launcher/probe refusal, full-rootfs and package-factory fixtures passed.
+  Refreshed signed candidate staging contains 643 packages and 611 dependency
+  nodes with supported v3.24 provenance. Only candidate generation is refreshed;
+  stable 0.9.9 repository/installed WSL remain untouched.
+- This is not actual Firefox Flatpak download/update or sandboxed Firefox picker
+  certification. New-base Qt, GUI-to-real-model journey, real PDF viewer and
+  physical/session checks remain separate. Private session intentionally lacks
+  system bus/audio services; Glycin sandbox warning remains a known chroot limit.
+- C: ~7.4 GiB, F: ~16.8 GiB. Large rootfs/ISO staging still needs more C: space.
+  No ISO, WSL migration, sound, signing enrollment or private-key upload.
 
 ## October 11 repository selection repair
 

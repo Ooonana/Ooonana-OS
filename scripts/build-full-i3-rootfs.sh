@@ -4499,6 +4499,8 @@ write_full_groups() {
   mkdir -p "$ROOTFS/var" "$ROOTFS/run"
   rm -rf "$ROOTFS/var/run"
   ln -s ../run "$ROOTFS/var/run"
+  # FUSE helpers need a live mount table for nonroot portal cleanup.
+  ln -sfn /proc/self/mounts "$ROOTFS/etc/mtab"
 
   local live_user="ooonana"
   local live_uid="1000"

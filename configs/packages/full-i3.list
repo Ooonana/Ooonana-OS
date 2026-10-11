@@ -89,6 +89,7 @@ libnotify
 xdg-utils
 xdg-desktop-portal
 xdg-desktop-portal-gtk
+xdg-document-portal
 iw
 wireless-tools
 wpa_supplicant
