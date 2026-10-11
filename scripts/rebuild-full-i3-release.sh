@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 BUILD_DIR="${OOONANA_BUILD_DIR:-/mnt/winf/Ooonana/ooonana-os/build}"
+REPO_OVERRIDE="${OOONANA_RELEASE_REPO:-}"
 RELEASE_DIR="${OOONANA_RELEASE_DIR:-/mnt/winf/Ooonana/ooonana-os/release-current}"
 STAGE_DIR="${OOONANA_STAGE_DIR:-/var/tmp/ooonana-release-stage}"
 KERNEL_WORK_DIR="${OOONANA_KERNEL_WORK_DIR:-/var/tmp/ooonana-kernel-work}"
@@ -26,6 +27,7 @@ Usage:
 
 Options:
   --build-dir PATH       Build/cache directory
+  --repo PATH            Signed package repository (default: BUILD_DIR/full-i3-repo)
   --release-dir PATH     Release output directory
   --skip-boot-matrix     Skip direct BIOS and UEFI QEMU boots
   --preflight-only       Verify inputs and source without building
@@ -38,6 +40,7 @@ Environment:
   OOONANA_KERNEL_WORK_DIR=PATH   Native Linux kernel source/build cache
   OOONANA_KERNEL_SOURCE_VERSION  Kernel source version (default: 6.18.37)
   OOONANA_RELEASE_KERNEL_JOBS=N  Kernel compile jobs (default: 2)
+  OOONANA_RELEASE_REPO=PATH      Separate candidate repository; --repo takes priority
 USAGE
 }
 
@@ -49,6 +52,7 @@ die() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --build-dir) BUILD_DIR="$2"; shift 2 ;;
+    --repo) REPO_OVERRIDE="$2"; shift 2 ;;
     --release-dir) RELEASE_DIR="$2"; shift 2 ;;
     --skip-boot-matrix) RUN_BOOT_MATRIX=0; shift ;;
     --preflight-only) PREFLIGHT_ONLY=1; shift ;;
@@ -105,7 +109,7 @@ KERNEL="$BUILD_DIR/ooonana-kernel/vmlinuz-ooonana"
 KERNEL_CONFIG="$BUILD_DIR/ooonana-kernel/config-ooonana"
 KERNEL_FRAGMENT="$ROOT/configs/kernel/ooonana-minimal-x86_64.fragment"
 KERNEL_CACHE_ERROR=""
-REPO="$BUILD_DIR/full-i3-repo"
+REPO="${REPO_OVERRIDE:-$BUILD_DIR/full-i3-repo}"
 if [[ -f "$REPO/CURRENT" ]]; then
   IFS= read -r repo_generation <"$REPO/CURRENT"
   repo_generation="$(printf '%s' "$repo_generation" | tr -d '\r')"

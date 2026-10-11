@@ -71,6 +71,10 @@ assert_contains "$both_profile" "bubblewrap"
 assert_contains "$both_profile" "xz"
 assert_contains "$both_profile" "nodejs"
 assert_contains "$both_profile" "flatpak"
+for package in xdg-desktop-portal xdg-desktop-portal-gtk; do
+  grep -Fxq "$package" "$FULL_I3_PROFILE" || fail "desktop profile missing $package"
+  grep -Fxq "$package" "$BOTH_PROFILE" || fail "combined profile missing $package"
+done
 assert_contains "$both_profile" "i3wm"
 assert_contains "$both_profile" "xorg-server-xephyr"
 assert_contains "$both_profile" "chromium"

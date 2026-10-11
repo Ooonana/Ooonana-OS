@@ -16,11 +16,6 @@ if [[ "$(findmnt -n -o SOURCE --target "$MOUNT_DIR")" != "F:" ]]; then
   printf 'run-iso-build-wsl: %s is not F:\n' "$MOUNT_DIR" >&2
   exit 1
 fi
-if [[ ! -d "$MOUNT_DIR/Ooonana/ooonana-os/build/full-i3-repo" ]]; then
-  printf 'run-iso-build-wsl: F: package repository missing\n' >&2
-  exit 1
-fi
-
 public_cursor=0
 release_args=()
 for argument in "$@"; do

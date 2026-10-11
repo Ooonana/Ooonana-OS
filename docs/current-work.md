@@ -1,5 +1,20 @@
 # Current work - 2026-10-11
 
+## October 11 repository selection repair
+
+- Confirmed default F: repository is signed stable core 0.9.9, with imported musl
+  1.2.5-r3 and no explicit supported-base provenance. Current source is core
+  0.10.0; release refusal prevents incompatible userland reuse, not a broken
+  Ooonana package manager. Existing isolated candidate contains musl 1.2.6-r2 and
+  explicit Alpine v3.24 provenance.
+- Added explicit `--repo` / `OOONANA_RELEASE_REPO` selection to release builder;
+  default stable repository and installed WSL stay unchanged. Windows wrapper
+  delegates selected-repo validation instead of requiring an unrelated default.
+- Fixed missing GTK portal entries in the combined factory profile as well as
+  full-i3. Regression covers both profiles and CLI/environment precedence.
+- Candidate refresh/publication and final preflight are separate verification
+  steps. No ISO, migration, sound or signing-key upload. F: now about 18 GiB free.
+
 ## October 11 runtime setup, inference and portal follow-up
 
 - Hardware/USB checks explicitly skipped by user. No physical target available;

@@ -1128,11 +1128,24 @@ docs/jarvis-agi-research.md
 For prepared Windows/WSL release workspace, run in PowerShell:
 
 ```powershell
-& 'F:\Ooonana\ooonana-os\Build-ISO.ps1'
+$repo = '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10'
+& 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo $repo --preflight-only
+if ($LASTEXITCODE -eq 0) {
+    & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo $repo
+}
 ```
 
 Output: `F:\Ooonana\ooonana-os\release-current\ooonana-full-i3.iso`.
-Use `& 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --preflight-only` to check inputs without building. Run a fresh build after
+Core 0.10 source needs its separate, verified candidate package repository.
+The default `build/full-i3-repo` still contains stable 0.9.9 packages; the release
+guard correctly refuses that ABI/version mismatch. This is not an Ooonana
+package-manager failure. Alpine supplies imported third-party binaries/libraries;
+Ooonana owns `.pkg` metadata, dependency handling, signatures, install/update and
+rollback. Do not relabel old archives or bypass provenance checks.
+`--repo` selects a repository without changing the stable `CURRENT` pointer or
+installed WSL. It must exist and pass signatures, checksums and dependency checks;
+selecting it does not certify a release. Other machines must supply their own path.
+Run a fresh build after
 source or package changes; do not reuse rootfs/ISO resume stages from older code.
 The release script validates package checksums and kernel config, builds in WSL,
 and verifies the ISO before replacing the previous release.

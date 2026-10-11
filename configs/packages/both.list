@@ -16,6 +16,8 @@ bubblewrap
 xz
 nodejs
 flatpak
+xdg-desktop-portal
+xdg-desktop-portal-gtk
 dbus
 dbus-daemon-launch-helper
 doas

@@ -20,6 +20,8 @@ bash -n "$SCRIPT"
 
 help="$(bash "$SCRIPT" --help)"
 assert_contains "$help" "--preflight-only"
+assert_contains "$help" "--repo PATH"
+assert_contains "$help" "OOONANA_RELEASE_REPO=PATH"
 assert_contains "$help" "--resume-after-rootfs"
 assert_contains "$help" "--resume-after-iso"
 assert_contains "$help" "OOONANA_AUTO_REBUILD_KERNEL=0"
@@ -28,6 +30,8 @@ assert_contains "$help" "OOONANA_RELEASE_KERNEL_JOBS=N"
 
 source_text="$(<"$SCRIPT")"
 assert_contains "$source_text" 'STAGE_DIR="${OOONANA_STAGE_DIR:-/var/tmp/ooonana-release-stage}"'
+assert_contains "$source_text" 'REPO="${REPO_OVERRIDE:-$BUILD_DIR/full-i3-repo}"'
+assert_contains "$source_text" '--repo) REPO_OVERRIDE="$2"; shift 2 ;;'
 assert_contains "$source_text" '[[ "$STAGE_DIR" == /var/tmp/ooonana-* ]]'
 assert_contains "$source_text" 'cp -a "$REPO" "$STAGE_DIR/full-i3-repo"'
 assert_contains "$source_text" 'install -m 0755 "$KERNEL" "$STAGE_DIR/ooonana-kernel/vmlinuz-ooonana"'
@@ -103,6 +107,14 @@ assert_contains "$source_text" 'QEMU_ACCEL=kvm'
 assert_contains "$source_text" 'QEMU_ACCEL=tcg,thread=multi'
 assert_contains "$source_text" '-accel "$QEMU_ACCEL"'
 assert_contains "$(<"$ROOT/scripts/build-full-i3-iso.sh")" 'OOONANA_MAX_ISO_BYTES:-4500000000'
+
+# Exercise actual option parsing without mounting, touching caches or building.
+parser_source="$(sed -n '1,/^\[\[ "${EUID/ p' "$SCRIPT" | sed '$d')"
+option_values="$(bash -c "$parser_source"$'\nprintf "%s\\n" "$REPO_OVERRIDE" "$BUILD_DIR"' -- --repo '/candidate path/repo' --build-dir /cache)"
+[[ "$option_values" == $'/candidate path/repo\n/cache' ]] || fail "candidate repository option not parsed"
+option_values="$(OOONANA_RELEASE_REPO=/environment-repo bash -c "$parser_source"$'\nprintf "%s\\n" "$REPO_OVERRIDE"' -- --repo /explicit-repo)"
+[[ "$option_values" == /explicit-repo ]] || fail "CLI repository must override environment"
+assert_contains "$(<"$(dirname "$SCRIPT")/run-iso-build-wsl.sh")" '"${release_args[@]}"'
 
 fingerprint_work="$(mktemp -d)"
 trap 'rm -rf "$fingerprint_work"' EXIT
