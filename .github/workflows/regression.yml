@@ -53,6 +53,7 @@ jobs:
           bash tests/smoke-cli.sh
           python3 tests/test-release-repo.py
           python3 tests/test-update-safety.py
+          python3 -B tests/test-tar-modes.py
           python3 -B tests/test-userland-migration.py
           python3 -B tests/test-desktop-backend-polish.py
           python3 -B tests/test-update-interruption.py

@@ -53,6 +53,7 @@ ci-smoke:
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-wallpaper-selection.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-firefox-package.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-update-interruption.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-tar-modes.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-userland-migration.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-desktop-backend-polish.py
     - sh tests/test-live-boot-storage.sh

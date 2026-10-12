@@ -16,6 +16,9 @@ builds/tests. No ISO, installed-distro migration, sound playback or key enrollme
   including sticky `/var/tmp`, upgrade/configuration retention and rollback.
   Whole CI command suite passed with private UID1000 HOME/XDG state:
   `/var/tmp/ooonana-nonroot-ci-final-20261012.JMr2j1Eu/run.log`.
+  Actual candidate BusyBox root upgrade/rollback passed too; unsupported nonroot
+  BusyBox extraction refuses before payload changes. Portable proof:
+  `/var/tmp/ooonana-tar-candidate-final-20261012.MPmMW4AU/{root,nonroot}.log`.
 - Real nonroot Firefox 157.0.1 install/update passed after fixing missing sticky
   `/var/tmp` in builder/core package, with build/upgrade/unsafe-permission tests.
   Documents/FUSE, renderer kernel sandbox state, window paint and actions passed:

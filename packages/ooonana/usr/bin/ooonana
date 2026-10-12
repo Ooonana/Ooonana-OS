@@ -487,6 +487,7 @@ check_pending_replacements() {
 restore_pkg_transaction() (
   # Idempotent restore: keep checkpoint until every owned path is restored.
   set -eu
+  require_archive_modes
   local transaction id manifest baseline entry target expected
   transaction="$1"
   id="$2"
@@ -898,6 +899,7 @@ validate_repo_tarball_entries() {
 }
 
 sync_tarball_repo() {
+  require_archive_modes
   repo_name="$1"
   repo_uri="$2"
   cache_dir="$(repo_cache_dir "$repo_name")"
@@ -1727,10 +1729,19 @@ tar_verbose_archive() {
   fi
 }
 
+require_archive_modes() {
+  # BusyBox ignores -p/--same-permissions for nonroot extraction. Do not silently
+  # damage an offline target or weaken umask for unrelated state creation.
+  if [ "$(id -u)" != 0 ] && tar --help 2>&1 | grep -q '^BusyBox '; then
+    die 'nonroot archive extraction requires GNU tar; run BusyBox extraction as root'
+  fi
+}
+
 validate_archive_entries() {
   id="$1"
   archive_path="$2"
   have tar || die "missing command: tar"
+  require_archive_modes
   tar_list_archive "$archive_path" | while IFS= read -r entry; do
     clean_entry="${entry#./}"
     [ -n "$clean_entry" ] || continue

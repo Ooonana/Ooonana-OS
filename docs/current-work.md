@@ -49,6 +49,15 @@
   `/var/tmp/ooonana-nonroot-ci-final-20261012.JMr2j1Eu/run.log`. Root upgrade,
   interruption and migration fixtures passed separately:
   `/var/tmp/ooonana-root-permissions-20261012.OT6AEchs/run.log`.
+- Actual candidate BusyBox/musl passed root installation, upgrade, custom 0640
+  configuration retention, sticky 1777 directory and failed-health rollback.
+  Nonroot BusyBox ignores permission-preservation flags; that unsupported path
+  now refuses before unpack/replacement/recovery deletion instead of silently
+  damaging modes. Normal administrator installation remains supported; GNU tar
+  supports nonroot offline targets. CI includes portable archive-mode fixture.
+  Proof: `/var/tmp/ooonana-tar-candidate-final-20261012.MPmMW4AU/{root,nonroot}.log`.
+  Host Ubuntu BusyBox lacks `-T`; candidate binary was tested through its musl
+  loader in a private binary-only fixture, without changing cached userspace.
 - Removed only two failed private Flatpak download caches (~367 MiB), keeping
   logs and histories. Owned F: 6 GiB test-file format stalled in WSL 9p I/O;
   stopped owned formatter. Removal was tool-policy blocked; file retained,
