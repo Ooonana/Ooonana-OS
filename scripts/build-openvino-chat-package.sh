@@ -72,6 +72,11 @@ find "$staging" -type d -name '*.egg-info' -prune -exec rm -rf -- {} +
 ) >"$staging/usr/lib/ooonana/openvino-chat/APP-MANIFEST.sha256"
 find "$staging" -type d -name __pycache__ -prune -exec rm -rf -- {} +
 find "$staging" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+# Windows/DrvFS source modes can be 0777; never publish writable application
+# code or unreadable umask-dependent directories into a system package.
+find "$staging" -type d -exec chmod 0755 {} +
+find "$staging" -type f -exec chmod 0644 {} +
+find "$staging/usr/lib/ooonana/openvino-chat/scripts" -type f -name '*.sh' -exec chmod 0755 {} +
 chmod 0755 \
   "$staging/usr/bin/openvino" \
   "$staging/usr/bin/ooonana-openvino" \

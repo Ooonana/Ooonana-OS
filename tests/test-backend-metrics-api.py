@@ -110,7 +110,7 @@ with tempfile.TemporaryDirectory(prefix='ooonana-metrics-api-test-') as temporar
         assert not api.api_status()['running']
         request.side_effect = TimeoutError('fixture timeout')
         assert not api.api_status()['running']
-        for invalid in (0, -1, [], True):
+        for invalid in (0, 1, -1, [], True, api.os.getpid()):
             with patch.object(api, 'api_status', return_value={**good, 'running': True, 'pid': invalid}):
                 try:
                     api.stop_api_process()
@@ -122,15 +122,47 @@ with tempfile.TemporaryDirectory(prefix='ooonana-metrics-api-test-') as temporar
         # Stop may encounter newer state from a replacement instance. Keep it.
         state.write_text(json.dumps(good))
         replacement = {**good, 'instance_id': 'replacement'}
-        kill.side_effect = lambda *_args: state.write_text(json.dumps(replacement))
         with patch.object(api, 'api_status', return_value={**good, 'running': True}), \
-                patch.object(api, '_health_matches', return_value=False):
+                patch.object(api, '_health_matches', side_effect=[True, False, False]), \
+                patch.object(api.os, 'pidfd_open', return_value=91, create=True) as opened, \
+                patch.object(api.os, 'close') as closed, \
+                patch.object(api.signal, 'pidfd_send_signal', create=True,
+                             side_effect=lambda *_args: state.write_text(json.dumps(replacement))) as sent:
             assert api.stop_api_process()
-        kill.assert_called_once_with(1234, signal.SIGTERM)
+        opened.assert_called_once_with(1234, 0)
+        sent.assert_called_once_with(91, signal.SIGTERM, None, 0)
+        closed.assert_called_once_with(91)
+        kill.assert_not_called()
         assert json.loads(state.read_text()) == replacement
         api._remove_owned_state('owned')
         assert state.exists()
         api._remove_owned_state('replacement')
         assert not state.exists()
+
+        # Server disappears/restarts between status and descriptor binding.
+        # Health is checked after binding; never signal numeric replacement PID.
+        for bind_error in (None, ProcessLookupError('exited')):
+            state.write_text(json.dumps(good))
+            with patch.object(api, 'api_status', return_value={**good, 'running': True}), \
+                    patch.object(api, '_health_matches', return_value=False), \
+                    patch.object(api.os, 'pidfd_open', return_value=91, side_effect=bind_error, create=True), \
+                    patch.object(api.os, 'close') as closed, \
+                    patch.object(api.signal, 'pidfd_send_signal', create=True) as sent:
+                assert api.stop_api_process() is False
+                sent.assert_not_called()
+                assert closed.call_count == (1 if bind_error is None else 0)
+                kill.assert_not_called()
+                assert not state.exists()
+
+        state.write_text(json.dumps(good))
+        with patch.object(api, 'api_status', return_value={**good, 'running': True}), \
+                patch.object(api, '_health_matches', side_effect=[True, False, False]), \
+                patch.object(api.os, 'pidfd_open', return_value=91, create=True), \
+                patch.object(api.os, 'close') as closed, \
+                patch.object(api.signal, 'pidfd_send_signal', create=True,
+                             side_effect=ProcessLookupError('bound server exited')):
+            assert api.stop_api_process()
+            closed.assert_called_once_with(91)
+            kill.assert_not_called()
 
 print('ok backend-metrics-api: guest counters, active links, malformed/bounded state, safe mocked signals')

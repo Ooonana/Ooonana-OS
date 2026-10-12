@@ -11,6 +11,7 @@ Private migration journal pins complete repository checksum set; interrupted mig
 ## Verified behavior
 
 - Repository generations contain archives, package metadata, hashed index, hooks and build manifest. Validation happens before `CURRENT` changes. Old generations remain available locally and in the append-only R2 publisher.
+- Publication flushes generation files before promotion and CURRENT before replacement. POSIX directory entries also flush in generation-before-pointer order; Windows has file flushes but no portable Python directory flush. Failed pre-promotion flush leaves previous pointer unchanged. Physical power-loss behavior remains a separate gate.
 - Unchanged archive bytes can share hardlinks between immutable published generations, reducing disk duplication. Mutable staging files are never hardlinked into publication. Published files and pointer receive public-readable permissions; hooks remain executable. Never edit published archives in place.
 - HTTP metadata and release-tarball caches use verified generation snapshots. Package downloads stay bound to the selected snapshot. Untrusted keys are not automatically learned from remote `repo.pub`.
 - Changed or previously untracked package-owned `/etc` files survive upgrades. New defaults are written beside them as `.ooonana-new`. `/etc/os-release` intentionally follows the new release.

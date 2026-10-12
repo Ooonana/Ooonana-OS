@@ -752,7 +752,7 @@ def stop_api_process() -> bool:
         _remove_owned_state(status.get("instance_id"))
         return False
     pid = _state_integer(status.get("pid"), 2**31 - 1)
-    if pid is None:
+    if pid is None or pid <= 1 or pid == os.getpid():
         raise RuntimeError("API state has invalid PID; refusing to signal")
     kill_error = ""
     if os.name == "nt":
@@ -770,7 +770,27 @@ def stop_api_process() -> bool:
                 else str(raw_error)
             ).strip()
     else:
-        os.kill(pid, signal.SIGTERM)
+        if not hasattr(os, "pidfd_open") or not hasattr(signal, "pidfd_send_signal"):
+            raise RuntimeError("Identity-safe API stop unavailable on this runtime")
+        try:
+            descriptor = os.pidfd_open(pid, 0)
+        except ProcessLookupError:
+            if _health_matches(status):
+                raise RuntimeError("API process identity changed; refusing to signal")
+            _remove_owned_state(status.get("instance_id"))
+            return False
+        try:
+            # Bind first, then recheck the unique server instance. No numeric-PID
+            # fallback: exit/reuse after this check cannot target another task.
+            if not _health_matches(status):
+                _remove_owned_state(status.get("instance_id"))
+                return False
+            try:
+                signal.pidfd_send_signal(descriptor, signal.SIGTERM, None, 0)
+            except ProcessLookupError:
+                pass  # Bound server exited; verify health before clearing state.
+        finally:
+            os.close(descriptor)
     deadline = time.monotonic() + 5
     while time.monotonic() < deadline and _health_matches(status):
         time.sleep(0.1)

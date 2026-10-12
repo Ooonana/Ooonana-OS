@@ -61,6 +61,10 @@ install -d "$staging/opt/bunanachat"
 install -m 0755 "$SOURCE_DIR/BunanaChat.Linux" "$staging/opt/bunanachat/BunanaChat.Linux"
 install -m 0755 "$SOURCE_DIR/libSkiaSharp.so" "$staging/opt/bunanachat/libSkiaSharp.so"
 install -m 0755 "$SOURCE_DIR/libHarfBuzzSharp.so" "$staging/opt/bunanachat/libHarfBuzzSharp.so"
+find "$staging" -type d -exec chmod 0755 {} +
+find "$staging" -type f -exec chmod 0644 {} +
+chmod 0755 "$staging/opt/bunanachat/BunanaChat.Linux" \
+  "$staging/opt/bunanachat/libSkiaSharp.so" "$staging/opt/bunanachat/libHarfBuzzSharp.so"
 chmod 0755 "$staging/usr/bin/bunanachat"
 
 tar \

@@ -171,7 +171,9 @@ assert_contains "$doctor" "next: openvino setup"
 assert_contains "$setup_text" 'APP-MANIFEST.sha256'
 assert_contains "$setup_text" 'openvino-dependencies.lock'
 assert_contains "$setup_text" 'requirements-linux-full.lock'
-built="$(bash "$BUILDER" --out-dir "$tmp/repo" --version 0.2.1)"
+cp -a "$SOURCE" "$tmp/source"
+chmod 0777 "$tmp/source/src/openvino_chat" "$tmp/source/src/openvino_chat/api.py"
+built="$(umask 077; bash "$BUILDER" --out-dir "$tmp/repo" --version 0.2.1 --source-dir "$tmp/source")"
 assert_contains "$built" "openvino-chat.pkg"
 [[ -f "$tmp/repo/openvino-chat.pkg" ]] || fail "missing package metadata"
 [[ -f "$tmp/repo/archives/openvino-chat-0.2.1.tar.gz" ]] || fail "missing package archive"
@@ -183,6 +185,21 @@ assert_contains "$metadata" "Offline Ooonana AI"
 assert_contains "$metadata" "intel gpu cpu"
 
 contents="$(tar -tzf "$tmp/repo/archives/openvino-chat-0.2.1.tar.gz")"
+python3 -B - "$tmp/repo/archives/openvino-chat-0.2.1.tar.gz" <<'PY'
+import sys
+import tarfile
+with tarfile.open(sys.argv[1]) as archive:
+    for item in archive.getmembers():
+        if item.isdir():
+            assert item.mode == 0o755, (item.name, item.mode)
+        elif item.isfile():
+            path = item.name.removeprefix('./')
+            executable = path.startswith('usr/bin/') or (
+                path.startswith('usr/lib/ooonana/openvino-chat/scripts/') and path.endswith('.sh'))
+            assert item.mode == (0o755 if executable else 0o644), (item.name, item.mode)
+        assert item.uid == item.gid == 0
+print('ok openvino archive modes: writable source/restrictive umask normalized')
+PY
 [[ "$contents" != *'__pycache__'* ]] || fail "OpenVINO contains Python cache"
 [[ "$contents" != *'.pyc'* ]] || fail "OpenVINO contains Python bytecode"
 [[ "$contents" != *'/.openvino/'* && "$contents" != *'/models/'* && "$contents" != *'.venv/'* ]] || fail "OpenVINO package contains user runtime or models"

@@ -32,6 +32,8 @@ def write_json(path, value):
         with os.fdopen(descriptor, "w", encoding="utf-8") as output:
             json.dump(value, output, ensure_ascii=False)
             output.write("\n")
+            output.flush()
+            os.fsync(output.fileno())
         os.replace(temporary, path)
     finally:
         Path(temporary).unlink(missing_ok=True)

@@ -9,6 +9,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+from unittest.mock import patch
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / "packages/openvino-chat/source/src"))
@@ -51,7 +52,33 @@ with tempfile.TemporaryDirectory() as directory:
         pass
     assert (target / "CURRENT").read_text() == pointer
     subprocess.run(["sh", str(cli), "repo", "index", str(source)], check=True, capture_output=True)
-    second = publication.publish(source, target)
+    # A delayed disk-write failure must leave the last usable pointer intact.
+    with patch.object(publication.os, "fsync", side_effect=OSError("fixture ENOSPC")):
+        try:
+            publication.publish(source, target)
+        except OSError:
+            pass
+        else:
+            raise AssertionError("Failed generation flush promoted")
+    assert (target / "CURRENT").read_text() == pointer
+    assert not list((target / "generations").glob(".stage-*"))
+    operations = []
+    real_replace, real_sync = publication.os.replace, publication.sync_directory
+    def replace(old, new):
+        operations.append(("replace", Path(new)))
+        real_replace(old, new)
+    def sync(directory):
+        operations.append(("sync", directory))
+        real_sync(directory)
+    with patch.object(publication.os, "replace", side_effect=replace), \
+            patch.object(publication, "sync_directory", side_effect=sync):
+        second = publication.publish(source, target)
+    promotion = operations.index(("replace", second))
+    pointer_promotion = operations.index(("replace", target / "CURRENT"))
+    assert any(kind == "sync" and path.parent == target / "generations"
+               for kind, path in operations[:promotion])
+    assert ("sync", target / "generations") in operations[promotion:pointer_promotion]
+    assert operations[-1] == ("sync", target)
     assert second != first and first.is_dir()
     assert first.stat().st_mode & 0o777 == 0o755
     assert (target / "CURRENT").stat().st_mode & 0o777 == 0o644

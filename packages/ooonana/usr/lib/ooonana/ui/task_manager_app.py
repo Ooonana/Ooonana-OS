@@ -5,14 +5,16 @@ from __future__ import annotations
 
 import os
 import pwd
-import signal
 import sys
 import time
 from collections import deque
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from common import Gdk, GLib, Gtk, Pango, apply_theme, button, header, label, message  # noqa: E402
+from gi.repository import GObject  # noqa: E402
+from process_control import ProcessChanged, parse_process_stat, terminate_owned_process  # noqa: E402
 
 
 def read_text(path: Path, limit: int = 65536) -> str:
@@ -69,19 +71,6 @@ def cpu_totals(text: str) -> tuple[int, int] | None:
         return None
     # Guest/guest-nice already contribute to user/nice; count them once.
     return sum(counters[:8]), counters[3] + counters[4]
-
-
-def parse_process_stat(text: str) -> tuple[str, int, int] | None:
-    end = text.rfind(")")
-    if end < 0:
-        return None
-    fields = text[end + 1 :].split()
-    if len(fields) < 20:
-        return None
-    try:
-        return fields[0], int(fields[11]) + int(fields[12]), int(fields[19])
-    except ValueError:
-        return None
 
 
 def human_rate(value: float) -> str:
@@ -292,7 +281,7 @@ class TaskManagerWindow(Gtk.Window):
         toolbar.pack_start(self.end_button, False, False, 0)
         page.pack_start(toolbar, False, False, 0)
 
-        self.store = Gtk.ListStore(str, int, float, float, str, str, str, int, int)
+        self.store = Gtk.ListStore(str, int, float, float, str, str, str, GObject.TYPE_UINT64, GObject.TYPE_UINT)
         self.filtered = self.store.filter_new()
         self.filtered.set_visible_func(self.visible_process)
         self.sorted = Gtk.TreeModelSort(model=self.filtered)
@@ -389,16 +378,11 @@ class TaskManagerWindow(Gtk.Window):
         dialog.destroy()
         if not accepted:
             return
-        current = parse_process_stat(read_text(Path(f"/proc/{pid}/stat")))
-        uid_text = read_text(Path(f"/proc/{pid}/status"))
-        current_owner = next((line.split()[1] for line in uid_text.splitlines() if line.startswith("Uid:")), "")
-        if current is None or current[2] != starttime or current_owner != str(owner):
-            message(self, "Task changed", "Process exited or PID was reused.", Gtk.MessageType.WARNING)
-            self.refresh()
-            return
         try:
-            os.kill(pid, signal.SIGTERM)
-        except OSError as error:
+            terminate_owned_process(pid, starttime, owner)
+        except ProcessChanged as error:
+            message(self, "Task changed", str(error), Gtk.MessageType.WARNING)
+        except (OSError, RuntimeError) as error:
             message(self, "End task failed", str(error), Gtk.MessageType.ERROR)
         self.refresh()
 
@@ -428,7 +412,8 @@ class TaskManagerWindow(Gtk.Window):
                 except KeyError:
                     self.users[uid] = str(uid)
             try:
-                command = (entry / "cmdline").read_bytes()[:512].replace(b"\0", b" ").decode("utf-8", "replace").strip()
+                with (entry / "cmdline").open("rb") as stream:
+                    command = stream.read(512).replace(b"\0", b" ").decode("utf-8", "replace").strip()
             except OSError:
                 command = ""
             key = pid, starttime

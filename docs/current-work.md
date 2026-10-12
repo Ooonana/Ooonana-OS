@@ -1,5 +1,16 @@
 # Current work - 2026-10-12
 
+## October 12 deep software scan
+
+Fixed Task Manager long-uptime/unsigned-UID overflow, identity-safe task/API
+termination, quick-kill safeguard bypass, bounded command-line reads, failed
+state flushes, malformed i3 IPC and repository publication flush ordering.
+Thirteen candidate GUI gates and real installed Linux CPU AI journey passed;
+full root and private UID1000 workflows passed. Removed ~224.5 MiB duplicate owned test payloads and
+overlays, retaining logs/screenshots/history. Bytecode cleanup policy-blocked;
+no retry through alternate tools. Installed WSL/stable unchanged; no ISO or sound.
+[Detailed evidence and assistant-owned remaining work](deep-recheck-20261012.md).
+
 ## October 12 AI, Qt and Firefox closure
 
 - Native AI was explicitly requesting non-streaming replies. Removed that flag;

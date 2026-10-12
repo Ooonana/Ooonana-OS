@@ -4,6 +4,12 @@ Source/candidate: core 0.10.0 on `codex/supported-base-0-10`. Installed Ooonana 
 stable main/update endpoints and October 6 ISO remain 0.9.9. Ubuntu only hosts
 builds/tests. No ISO, installed-distro migration, sound playback or key enrollment.
 
+Latest deep scan repaired additional task/API PID races, GTK counter overflow,
+state/IPC failures and repository flush ordering. Removed ~224.5 MiB duplicate
+scratch payloads, not history or valid releases. These shipped fixes require a
+fresh candidate image. [Latest proof and complete assistant-owned gates](deep-recheck-20261012.md)
+supersede older completion notes below.
+
 ## October 12 follow-up
 
 - Latest software pass: native AI now paints incremental replies; real GTK/CLI/CPU

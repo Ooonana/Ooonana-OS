@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+NATIVE_APP=/usr/lib/ooonana/ui/task_manager_app.py
+if [ -x /usr/bin/python3 ] && [ -f "$NATIVE_APP" ] &&
+  /usr/bin/python3 -c 'import gi; gi.require_version("Gtk", "3.0")' >/dev/null 2>&1; then
+  # One confirmation/ownership/identity implementation; no numeric-PID quick kill.
+  exec /usr/bin/python3 "$NATIVE_APP" "$@"
+fi
+if command -v notify-send >/dev/null 2>&1; then
+  notify-send "Ooonana Processes" "Native Task Manager unavailable; no process stopped" || true
+fi
+exit 1

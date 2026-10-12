@@ -13,6 +13,8 @@ probe = root / "tests/probe-openvino-transport.py"
 ast.parse(probe.read_text())
 ast.parse((root / "tests/check-ai-engine-runtime.py").read_text())
 subprocess.run(["bash", "-n", str(runner)], check=True)
+runner_source = runner.read_text()
+assert runner_source.index('chmod 0755 "$qa"') < runner_source.index('install_uid=$(stat')
 environment = {**os.environ, "OOONANA_TRANSPORT_ISOLATED": "0", "OOONANA_TRANSPORT_WORKER": "0",
                "OOONANA_TRANSPORT_INFERENCE": "0", "OOONANA_TRANSPORT_INSTALL_APP": "0", "OOONANA_TRANSPORT_GUI": "0"}
 with tempfile.TemporaryDirectory() as temporary:

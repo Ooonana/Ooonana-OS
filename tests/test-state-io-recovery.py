@@ -159,12 +159,15 @@ with tempfile.TemporaryDirectory(prefix='ooonana-state-io-test-') as temporary:
     preferences = root / 'ui.json'
     write_json(preferences, {'reduce_motion': False})
     old = preferences.read_bytes()
-    with patch('ui_preferences.os.replace', side_effect=OSError('fixture full')):
-        try:
-            write_json(preferences, {'reduce_motion': True})
-        except OSError:
-            pass
-    assert preferences.read_bytes() == old and not list(root.glob('ui.json.*'))
+    for hook in ('ui_preferences.os.fsync', 'ui_preferences.os.replace'):
+        with patch(hook, side_effect=OSError('fixture full')):
+            try:
+                write_json(preferences, {'reduce_motion': True})
+            except OSError:
+                pass
+            else:
+                raise AssertionError('failed preference commit accepted')
+        assert preferences.read_bytes() == old and not list(root.glob('ui.json.*'))
     write_json(preferences, {'reduce_motion': True})
     assert read_json(preferences, {}) == {'reduce_motion': True}
 

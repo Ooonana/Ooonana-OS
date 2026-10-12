@@ -98,5 +98,10 @@ manager = TaskManagerWindow()
 assert manager.stack.get_child_by_name("processes") is not None
 assert manager.stack.get_child_by_name("performance") is not None
 assert len(manager.tree.get_columns()) == 7
+long_uptime = 2**40
+row = manager.store.append(("Long uptime fixture", 1234, 0.0, 1.0, "qa", "S", "qa", long_uptime, 2**32 - 2))
+assert manager.store[row][7] == long_uptime
+assert manager.store[row][8] == 2**32 - 2
+manager.store.remove(row)
 
 print("GTK_UI_RUNTIME_OK")

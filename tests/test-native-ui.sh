@@ -229,7 +229,8 @@ assert_contains "$task_manager" "Gtk.TreeView"
 assert_contains "$task_manager" "CPU %"
 assert_contains "$task_manager" "Wi-Fi / network"
 assert_contains "$task_manager" "gpu_busy_percent"
-assert_contains "$task_manager" "os.kill(pid, signal.SIGTERM)"
+assert_contains "$task_manager" "terminate_owned_process(pid, starttime, owner)"
+assert_contains "$task_manager" "GObject.TYPE_UINT64"
 assert_not_contains "$task_manager" "signal.SIGKILL"
 assert_contains "$i3_config" 'bindsym Control+Shift+Escape exec ooonana-processes'
 assert_contains "$i3_config" 'focus_follows_mouse no'
@@ -242,7 +243,14 @@ assert_contains "$window_list" 'f"[con_id={item[0]}] kill"'
 full_builder="$(<"$ROOT/scripts/build-full-i3-rootfs.sh")"
 assert_contains "$full_builder" 'ROOTFS/usr/bin/ooonana-process-kill'
 assert_contains "$full_builder" 'click-right = ooonana-process-kill'
-assert_contains "$full_builder" '[ "$owner" = "$uid" ]'
+process_control="$(<"$ROOT/packages/ooonana/usr/lib/ooonana/process_control.py")"
+process_kill="$(<"$ROOT/packages/ooonana/usr/bin/ooonana-process-kill")"
+assert_contains "$process_control" 'uid == 0 or owner != uid'
+assert_contains "$process_control" 'os.pidfd_open(pid, 0)'
+assert_contains "$process_control" 'signal.pidfd_send_signal(descriptor, signal.SIGTERM, None, 0)'
+assert_contains "$process_kill" 'task_manager_app.py'
+assert_not_contains "$process_kill" 'kill -'
+assert_not_contains "$process_control" 'os.kill('
 assert_contains "$i3_config" 'Chromium-browser'
 assert_contains "$i3_config" "--backend glx"
 assert_contains "$i3_config" "--backend xrender"

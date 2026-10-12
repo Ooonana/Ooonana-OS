@@ -63,6 +63,8 @@ staging="$(mktemp -d)"
 trap 'rm -rf "$staging"' EXIT
 cp -a "$PAYLOAD_DIR/." "$staging/"
 install -D -m 0644 "$SOURCE_EXE" "$staging/opt/ooonana-wine/OoonanaChat Setup 1.0.0.exe"
+find "$staging" -type d -exec chmod 0755 {} +
+find "$staging" -type f -exec chmod 0644 {} +
 chmod 0755 "$staging/usr/bin/ooonana-chat-windows"
 
 tar \

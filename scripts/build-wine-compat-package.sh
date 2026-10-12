@@ -51,6 +51,8 @@ mkdir -p "$OUT_DIR/archives"
 staging="$(mktemp -d)"
 trap 'rm -rf "$staging"' EXIT
 cp -a "$PAYLOAD_DIR/." "$staging/"
+find "$staging" -type d -exec chmod 0755 {} +
+find "$staging" -type f -exec chmod 0644 {} +
 chmod 0755 "$staging/usr/bin/ooonana-wine" "$staging/usr/bin/wine"
 
 tar \

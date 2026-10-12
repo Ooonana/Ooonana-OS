@@ -13,6 +13,8 @@ mkdir -p "$OUT_DIR/archives"
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
 cp -a "$ROOT/packages/firefox/rootfs/." "$stage/"
+find "$stage" -type d -exec chmod 0755 {} +
+find "$stage" -type f -exec chmod 0644 {} +
 chmod 0755 "$stage/usr/bin/ooonana-firefox" "$stage/usr/bin/firefox"
 archive="archives/firefox-1.0.1.tar.gz"
 tar --sort=name --mtime='UTC 1970-01-01' --numeric-owner --owner=0 --group=0 \

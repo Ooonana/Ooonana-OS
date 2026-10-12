@@ -35,6 +35,9 @@ fi
   printf 'Require owned private namespace worker\n' >&2; exit 2;
 }
 base=$2; venv=$3; qa=$4; models=$5
+# mktemp normally creates 0700 root-owned directories. The nonroot installer
+# must traverse this owned empty QA tree before mounting its private rootfs.
+chmod 0755 "$qa"
 mount --bind "$SOURCE" "$SOURCE"
 mount -o remount,bind,ro "$SOURCE"
 if [[ "$install_app" == 1 ]]; then

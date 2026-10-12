@@ -29,6 +29,8 @@ October 11: fresh nonroot OpenVINO setup passed verified Ubuntu root image, date
 
 October 12: fixed missing Documents portal and sticky `/var/tmp`, including nonroot extraction under restrictive umask. Real nonroot Firefox installation/update, Documents/FUSE, renderer sandbox state and window controls passed; first-run Terms acceptance/picker deferred. New-base QTerminal composited controls/dialogs passed; optional package catalog includes it. Native AI now streams live text; actual GTK/CLI/CPU streaming, Stop, low-memory refusal and engine recovery passed. All thirteen main GUI gates plus separate real Firefox frame gate passed. Installed WSL/stable remain unchanged; no ISO built. [Latest evidence and limits](docs/remaining-closure-20261008.md#october-12-follow-up).
 
+Deep recheck: repaired long-uptime/unsigned-UID Task Manager overflow, Linux task/API PID-reuse races, old quick-kill safeguards, state-write/IPC recovery and generation flush ordering. Current GUI/CPU AI gates passed again; duplicate test scratch removed, history retained. No ISO or installed WSL migration. [Evidence and remaining assistant work](docs/deep-recheck-20261012.md).
+
 ![Native Ooonana AI with real CPU response and request cancellation](docs/assets/ooonana-ai-real-cpu-20261012.png)
 
 Real GTK screenshot from isolated Xvfb. Low-memory caption reflects deliberate 1280 MiB test cap, not normal physical desktop RAM. Saved models/history untouched.
