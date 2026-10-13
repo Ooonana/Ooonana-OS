@@ -63,8 +63,25 @@ with tempfile.TemporaryDirectory() as temporary:
         before = next(item[0] for item in windows.windows(i3_events.request(path, 4)) if item[2])
         content = dock.tooltip_content("terminal")
         assert any(isinstance(child, Gtk.Image) for child in content.get_children())
+        heading = content.get_children()[0].get_children()[0]
+        assert heading.get_xalign() == 0 and heading.get_style_context().has_class("dock-preview-title")
+        caption = content.get_children()[-1]
+        assert caption.get_xalign() == 0 and caption.get_style_context().has_class("dock-preview-caption")
+        assert content.get_preferred_width().natural_width <= 300
         assert next(item[0] for item in windows.windows(i3_events.request(path, 4)) if item[2]) == before
         button = dock.buttons["terminal"][0]
+        assert button.get_style_context().has_class("active")
+        assert button.get_accessible().get_description() == "1 window · Focused"
+        assert dock.buttons["apps"][0].get_accessible().get_description() == "Not running"
+        saved = dock.items
+        dock.items = [(item[0], "Very long title " * 8, False, True, *item[4:]),
+                      (item[0], "Second minimized session", False, True, *item[4:])]
+        minimized = dock.tooltip_content("terminal")
+        assert not any(isinstance(child, Gtk.Image) for child in minimized.get_children())
+        assert all(label.get_ellipsize() for label in minimized.get_children()[1:])
+        assert minimized.get_preferred_width().natural_width <= 300
+        assert minimized.get_children()[0].get_children()[1].get_text() == "2 windows"
+        dock.items = saved
         image = dock.buttons['terminal'][2]
         size = dock.get_size()
         dock.hover(button, None, 'terminal', True)

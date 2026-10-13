@@ -76,6 +76,9 @@ CSS = b"""
 .third-party-controls .minimize { background: #ffd16c; }
 .third-party-controls .fullscreen { background: #7fd6a0; }
 .third-party-controls button:hover { border-color: #ffffff; }
+.third-party-controls .close:active { background: #e65c55; }
+.third-party-controls .minimize:active { background: #e6b955; }
+.third-party-controls .fullscreen:active { background: #67b985; }
 """
 
 

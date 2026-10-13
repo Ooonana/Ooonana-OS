@@ -898,7 +898,8 @@ assert_contains "$polybar_cfg" "width = 98%"
 assert_contains "$polybar_cfg" "radius = 12"
 assert_contains "$polybar_cfg" "OOONANA_PANEL_LEFT:brand workspaces"
 assert_contains "$polybar_cfg" "font-1 = \"Font Awesome"
-assert_contains "$polybar_cfg" "Font Awesome 6 Brands"
+assert_contains "$polybar_cfg" "Font Awesome 7 Free Solid"
+assert_contains "$polybar_cfg" "Font Awesome 7 Brands"
 assert_contains "$polybar_cfg" "[module/brand]"
 assert_contains "$polybar_cfg" "[module/launcher]"
 assert_contains "$polybar_cfg" "[module/terminal]"
@@ -926,7 +927,7 @@ assert_contains "$polybar_cfg" "click-left = ooonana-ai-launch"
 assert_contains "$polybar_cfg" "[bar/ooonana-dock]"
 assert_contains "$polybar_cfg" 'width = ${env:OOONANA_DOCK_WIDTH:524}'
 assert_contains "$polybar_cfg" 'offset-x = ${env:OOONANA_DOCK_OFFSET:378}'
-assert_contains "$polybar_cfg" 'Font Awesome 6 Free Solid:size=15;2'
+assert_contains "$polybar_cfg" 'Font Awesome 7 Free Solid:size=15;2'
 assert_contains "$polybar_cfg" "modules-center = dock-apps"
 assert_contains "$polybar_cfg" "exec = ooonana-window-list --watch-dock"
 assert_contains "$polybar_cfg" "tail = true"

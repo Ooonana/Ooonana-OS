@@ -2536,8 +2536,8 @@ separator-foreground = ${colors.muted}
 line-size = 0
 line-color = ${colors.accent}
 font-0 = "DejaVu Sans:size=10;2"
-font-1 = "Font Awesome 6 Free Solid:size=10;2"
-font-2 = "Font Awesome 6 Brands:size=10;2"
+font-1 = "Font Awesome 7 Free Solid:size=10;2"
+font-2 = "Font Awesome 7 Brands:size=10;2"
 modules-left = ${env:OOONANA_PANEL_LEFT:brand workspaces win-close win-min win-full media}
 modules-center = ai
 modules-right = ${env:OOONANA_PANEL_RIGHT:memory audio battery wifi notifications controls date power}
@@ -2563,9 +2563,9 @@ padding-right = 1
 module-margin = 0
 separator = ""
 font-0 = "DejaVu Sans:size=11;2"
-font-1 = "Font Awesome 6 Free Solid:size=15;2"
-font-2 = "Font Awesome 6 Free Solid:size=12;2"
-font-3 = "Font Awesome 6 Brands:size=12;2"
+font-1 = "Font Awesome 7 Free Solid:size=15;2"
+font-2 = "Font Awesome 7 Free Solid:size=12;2"
+font-3 = "Font Awesome 7 Brands:size=12;2"
 modules-left =
 modules-center = dock-apps
 modules-right =
@@ -2626,7 +2626,7 @@ type = custom/script
 exec = ooonana-media-status --watch
 tail = true
 label = %output%
-label-foreground = ${colors.accent}
+label-foreground = ${colors.foreground}
 label-background = ${colors.background-alt}
 label-padding = 2
 click-left = ooonana-music
@@ -2774,9 +2774,9 @@ interval = 5
 label = %output%
 label-maxlen = 14
 label-ellipsis = true
-label-foreground = ${colors.accent}
+label-foreground = ${colors.foreground}
 label-background = ${colors.background-alt}
-label-padding = 2
+label-padding = 1
 click-left = ooonana-wifi-panel
 
 [module/bluetooth]
@@ -2807,9 +2807,9 @@ type = custom/script
 exec = ooonana-audio-status | sed '/ --$/d'
 interval = 5
 label = %output%
-label-foreground = ${colors.accent}
+label-foreground = ${colors.foreground}
 label-background = ${colors.background-alt}
-label-padding = 2
+label-padding = 1
 click-left = ooonana-audio-panel
 click-middle = pactl set-sink-mute @DEFAULT_SINK@ toggle
 click-right = pavucontrol
@@ -2844,9 +2844,9 @@ type = custom/script
 exec = ooonana-battery-status | sed '/ --$/d'
 interval = 30
 label = %output%
-label-foreground = ${colors.accent}
+label-foreground = ${colors.foreground}
 label-background = ${colors.background-alt}
-label-padding = 2
+label-padding = 1
 click-left = ooonana-settings-launch
 
 [module/date]
@@ -2857,7 +2857,7 @@ time = %H:%M
 label = %time%
 label-foreground = ${colors.cool}
 label-background = ${colors.background-alt}
-label-padding = 2
+label-padding = 1
 EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/rofi.rasi" <<'EOF'

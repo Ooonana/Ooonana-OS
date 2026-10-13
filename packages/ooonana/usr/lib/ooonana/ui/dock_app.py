@@ -33,11 +33,14 @@ CSS = b"""
 .ooonana-dock { background: #1b1f26; border: 1px solid #343b46; border-radius: 20px; }
 .ooonana-dock button { padding: 2px 8px; border: none; border-radius: 13px; background: #1b1f26; box-shadow: none; min-width: 0; min-height: 0; transition: background-color 140ms ease-out; }
 .ooonana-dock button:hover { background: #303640; }
-.ooonana-dock button.active { background: #1b1f26; }
-.ooonana-dock button.active:hover { background: #303640; }
+.ooonana-dock button.active { background: #303640; }
+.ooonana-dock button.active:hover { background: #39414b; }
+.ooonana-dock button:active, .ooonana-dock button.active:active { background: #22272f; }
 .ooonana-dock button.active label { color: #ffb21a; }
-.ooonana-dock label { font-size: 9px; color: #b4bdc8; }
-tooltip { background: #1b1f26; color: #f5f5f7; border: 1px solid #414957; }
+.ooonana-dock label { font-size: 11px; color: #b4bdc8; }
+tooltip { background: #1b1f26; color: #f5f5f7; border: 1px solid #414957; border-radius: 12px; padding: 4px; }
+.dock-preview-title { font-size: 10.5pt; font-weight: 700; color: #f5f5f7; }
+.dock-preview-caption { font-size: 9.5pt; color: #b4bdc8; }
 """
 
 
@@ -214,6 +217,13 @@ class Dock(Gtk.Window):
             style = control.get_style_context()
             (style.add_class if any(item[2] for item in matches) else style.remove_class)("active")
             dot.set_text(str(len(matches)) if len(matches) > 1 else "○" if matches and matches[0][3] else "•" if matches else " ")
+            hidden_count = sum(bool(item[3]) for item in matches)
+            status = f"{len(matches)} window" + ("s" if len(matches) != 1 else "") if matches else "Not running"
+            if hidden_count:
+                status += f" · {hidden_count} minimized"
+            if any(item[2] for item in matches):
+                status += " · Focused"
+            control.get_accessible().set_description(status)
         self.show_all()
         self.position()
         return False
@@ -224,24 +234,36 @@ class Dock(Gtk.Window):
 
     def tooltip_content(self, key):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        box.set_border_width(8)
+        box.set_border_width(6)
         matches = sorted(self.matches(key), key=lambda item: (not item[2], item[3]))
-        title = Gtk.Label(label=NAMES.get(key, "Other windows"))
-        box.pack_start(title, False, False, 0)
+        heading = Gtk.Box(spacing=12)
+        title = Gtk.Label(label=NAMES.get(key, "Other windows"), xalign=0)
+        title.get_style_context().add_class("dock-preview-title")
+        heading.pack_start(title, True, True, 0)
+        if len(matches) > 1:
+            count = Gtk.Label(label=f"{len(matches)} windows")
+            count.get_style_context().add_class("dock-preview-caption")
+            heading.pack_end(count, False, False, 0)
+        box.pack_start(heading, False, False, 0)
         if matches:
             item = matches[0]
             picture = preview_image(self.nodes.get(item[0]), item[3])
             if picture:
                 box.pack_start(Gtk.Image.new_from_pixbuf(picture), False, False, 0)
             for entry in matches[:3]:
-                caption = Gtk.Label(label=entry[1] + (" · Minimized" if entry[3] else ""))
+                caption = Gtk.Label(label=entry[1] + (" · Minimized" if entry[3] else ""), xalign=0)
+                caption.get_style_context().add_class("dock-preview-caption")
                 caption.set_ellipsize(Pango.EllipsizeMode.END)
                 caption.set_max_width_chars(36)
                 box.pack_start(caption, False, False, 0)
             if len(matches) > 3:
-                box.pack_start(Gtk.Label(label=f"+{len(matches) - 3} windows"), False, False, 0)
+                remaining = Gtk.Label(label=f"+{len(matches) - 3} windows", xalign=0)
+                remaining.get_style_context().add_class("dock-preview-caption")
+                box.pack_start(remaining, False, False, 0)
         else:
-            box.pack_start(Gtk.Label(label="Click to open"), False, False, 0)
+            hint = Gtk.Label(label="Click to open", xalign=0)
+            hint.get_style_context().add_class("dock-preview-caption")
+            box.pack_start(hint, False, False, 0)
         box.show_all()
         return box
 

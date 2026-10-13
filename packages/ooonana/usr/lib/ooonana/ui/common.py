@@ -48,11 +48,16 @@ headerbar .subtitle { color: #b4bdc8; }
 .status-neutral { color: #b4bdc8; }
 button { background: #272c34; color: #f5f5f7; border: 1px solid #46505c; border-radius: 10px; padding: 8px 14px; transition: background-color 180ms ease-out; }
 button:hover { background: #39414b; border-color: #596574; }
+button:active { background: #20252c; border-color: #ffb21a; }
 button:focus, entry:focus, combobox button:focus { border-color: #ffb21a; box-shadow: 0 0 0 2px #73521e; }
 button:disabled { background: #1b1f26; color: #78828f; border-color: #313944; }
 button.suggested-action { background: #ffb21a; color: #101317; border-color: #ffb21a; font-weight: 700; }
+button.suggested-action:hover { background: #ffca5c; border-color: #ffca5c; }
+button.suggested-action:active { background: #eaa21a; border-color: #eaa21a; }
 button.suggested-action:disabled { background: #403624; color: #a5987f; border-color: #544733; }
 button.destructive-action { background: #3b2324; color: #ffaaa3; border-color: #8a4749; }
+button.destructive-action:hover { background: #523033; color: #ffd4cf; border-color: #b36161; }
+button.destructive-action:active { background: #2f1c1d; color: #ffd4cf; border-color: #b36161; }
 button.destructive-action:disabled { background: #1b1f26; color: #78828f; border-color: #313944; }
 entry, textview, textview text, textview.view, textview.view text, treeview, list {
   background: #15191f;
@@ -92,6 +97,9 @@ button.close-control { background: #ff736b; }
 button.minimize-control { background: #ffd16c; }
 button.fullscreen-control { background: #7fd6a0; }
 button.window-control:hover { border-color: #f5f5f7; }
+button.close-control:active { background: #e65c55; }
+button.minimize-control:active { background: #e6b955; }
+button.fullscreen-control:active { background: #67b985; }
 button.window-control:focus { box-shadow: 0 0 0 2px #f5f5f7; }
 """
 

@@ -1,5 +1,22 @@
 # Current work - 2026-10-13
 
+## October 13 frontend micro-polish
+
+Corrected stale Font Awesome 6 family names on the v3.24/Font Awesome 7
+candidate: Solid symbols previously resolved to Brands, dropping control,
+AI and status glyphs. Panel status spacing/colors now keep long Wi-Fi labels
+clear of the centered AI action at 1024 and 1280 pixels. Dock focus is visible
+without hovering; preview headings/captions are aligned with stronger hierarchy,
+bounded previews remain focus-neutral, and screen-reader descriptions include
+window/minimized counts. Native and third-party controls gain pressed feedback
+without changing circle sizes, shape/input regions or window actions.
+
+Impeccable guided one bounded refinement pass, preserving wallpaper/cursor,
+icons, opaque palette and behavior. Private actual-userspace GTK/i3/Polybar
+checks pass; enabled button-state text contrast exceeds 4.5:1. README screenshot
+updated; older visual evidence retained. [Evidence and remaining gates](frontend-polish-20261013.md).
+No ISO, audio test, installed WSL migration or stable-channel promotion.
+
 ## October 13 ISO build blockers
 
 User's actual full-rootfs build found three audit errors with two causes:

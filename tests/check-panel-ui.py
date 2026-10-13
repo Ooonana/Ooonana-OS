@@ -107,7 +107,12 @@ with tempfile.TemporaryDirectory(prefix="ooonana-panel-ui-") as temporary:
                     Gtk.main_iteration_do(False)
                 assert panel.poll() is None, args.output.with_suffix(".log").read_text()
                 time.sleep(0.025)
-            assert "polybar|error:" not in args.output.with_suffix(".log").read_text(), "Panel config errors"
+            panel_log = args.output.with_suffix(".log").read_text()
+            assert "polybar|error:" not in panel_log, "Panel config errors"
+            assert 'file=/usr/share/fonts/font-awesome/Font Awesome 7 Free-Solid-900.otf)' in panel_log, 'Solid icon font not loaded'
+            assert 'name=Font Awesome 7 Brands' in panel_log, 'Brands font not loaded'
+            assert 'Dropping unmatched character' not in panel_log, 'Panel icon disappeared'
+            assert 'overlap' not in panel_log.lower(), 'Panel groups overlap'
             pixels = Gdk.pixbuf_get_from_window(screen, 0, 0, screen.get_width(), screen.get_height())
             assert pixels is not None
             pixels.savev(str(args.output), "png", [], [])
