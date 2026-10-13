@@ -31,6 +31,8 @@ October 12: fixed missing Documents portal and sticky `/var/tmp`, including nonr
 
 Deep recheck: repaired long-uptime/unsigned-UID Task Manager overflow, Linux task/API PID-reuse races, old quick-kill safeguards, state-write/IPC recovery and generation flush ordering. Current GUI/CPU AI gates passed again; duplicate test scratch removed, history retained. No ISO or installed WSL migration. [Evidence and remaining assistant work](docs/deep-recheck-20261012.md).
 
+October 13 actual build follow-up: full-i3 now explicitly includes the split `rofi-x11-wayland` executable. Hardware firmware audit recognizes compressed blobs only when the resolved target kernel supports that format. Repaired staging rootfs passes 174 script / 524 ELF checks, zero errors. Use a fresh build, not resume; no ISO built here. [Build repair details](docs/current-work.md#october-13-iso-build-blockers).
+
 ![Native Ooonana AI with real CPU response and request cancellation](docs/assets/ooonana-ai-real-cpu-20261012.png)
 
 Real GTK screenshot from isolated Xvfb. Low-memory caption reflects deliberate 1280 MiB test cap, not normal physical desktop RAM. Saved models/history untouched.

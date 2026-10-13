@@ -441,7 +441,7 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
   grep -q 'governor="schedutil"' "$ROOTFS/etc/init.d/rcS"
   grep -q '/mnt/ooonana-live/persistence-mode' "$ROOTFS/etc/init.d/rcS"
   grep -q 'mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /tmp' "$ROOTFS/etc/init.d/rcS"
-  python3 "$ROOT/tests/audit-full-i3-runtime.py" "$ROOTFS"
+  python3 "$ROOT/tests/audit-full-i3-runtime.py" "$ROOTFS" --kernel-config "$KERNEL_CONFIG"
   : >"$STAGE_DIR/.ooonana-rootfs-complete"
   if [[ -s "$STAGE_DIR/ooonana-full-i3-rootfs.tar.gz" ]]; then
     rootfs_tar="$STAGE_DIR/ooonana-full-i3-rootfs.tar.gz"

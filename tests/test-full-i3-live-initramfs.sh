@@ -38,6 +38,7 @@ mkdir -p "$tmp/rootfs/usr/share/ooonana"
 cat > "$tmp/bin/cpio" <<'EOF'
 #!/bin/sh
 cat >/dev/null
+cmp -s "$OOONANA_EXPECT_DMC" lib/firmware/i915/adlp_dmc.bin.zst || exit 1
 printf 'fake cpio\n'
 EOF
 chmod +x "$tmp/bin/cpio"
@@ -72,6 +73,7 @@ printf 'sof\n' > "$tmp/rootfs/lib/firmware/intel/sof-ipc4/mtl/sof-mtl.ri"
 printf 'rtlbt\n' > "$tmp/rootfs/lib/firmware/rtl_bt/rtl8761bu_fw.bin"
 printf 'rtw89\n' > "$tmp/rootfs/lib/firmware/rtw89/rtw8852b_fw.bin"
 printf 'i915\n' > "$tmp/rootfs/lib/firmware/i915/adlp_dmc.bin"
+printf 'compressed-i915-fixture\n' > "$tmp/rootfs/lib/firmware/i915/adlp_dmc.bin.zst"
 printf 'amdgpu\n' > "$tmp/rootfs/lib/firmware/amdgpu/test.bin"
 printf 'radeon\n' > "$tmp/rootfs/lib/firmware/radeon/test.bin"
 printf 'full-i3\n' > "$tmp/rootfs/etc/ooonana/edition"
@@ -83,7 +85,7 @@ echo start
 EOF
 chmod +x "$tmp/rootfs/usr/bin/start-ooonana-i3"
 
-PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
+OOONANA_EXPECT_DMC="$tmp/rootfs/lib/firmware/i915/adlp_dmc.bin.zst" PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
   --rootfs "$tmp/rootfs" \
   --rootfs-image "$tmp/live-rootfs.ext4" \
   --kernel "$tmp/vmlinuz" \

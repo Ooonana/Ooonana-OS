@@ -52,6 +52,7 @@ jobs:
           bash tests/test-version-order.sh
           bash tests/smoke-cli.sh
           python3 tests/test-release-repo.py
+          python3 tests/test-runtime-firmware.py
           python3 tests/test-update-safety.py
           python3 -B tests/test-tar-modes.py
           python3 -B tests/test-process-control-ipc.py

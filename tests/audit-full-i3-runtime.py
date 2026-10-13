@@ -26,7 +26,29 @@ PATH_DIRS = (
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("rootfs", type=Path)
+    parser.add_argument("--kernel-config", type=Path,
+                        help="Resolved target kernel config; required for compressed firmware")
     return parser.parse_args()
+
+
+def firmware_exists(root: Path, name: str, kernel_options: set[str]) -> bool:
+    """Accept compression only when target kernel can actually load it."""
+    candidates = [name]
+    if {"CONFIG_FW_LOADER=y", "CONFIG_FW_LOADER_COMPRESS=y"} <= kernel_options:
+        for suffix, option in ((".zst", "CONFIG_FW_LOADER_COMPRESS_ZSTD=y"),
+                               (".xz", "CONFIG_FW_LOADER_COMPRESS_XZ=y")):
+            if option in kernel_options:
+                candidates.append(name + suffix)
+    for candidate in candidates:
+        path = root / candidate.lstrip("/")
+        try:
+            resolved = path.resolve(strict=True)
+            if (resolved.is_relative_to(root.resolve()) and resolved.is_file()
+                    and resolved.stat().st_size > 0):
+                return True
+        except (OSError, RuntimeError):
+            continue
+    return False
 
 
 def main() -> int:
@@ -35,6 +57,13 @@ def main() -> int:
     errors: list[str] = []
     checked_elf = 0
     checked_scripts = 0
+    kernel_options: set[str] = set()
+    if args.kernel_config is not None:
+        try:
+            kernel_options = set(args.kernel_config.read_text().splitlines())
+        except OSError as error:
+            print(f"cannot read target kernel config: {error}", file=sys.stderr)
+            return 2
 
     def fail(message: str) -> None:
         errors.append(message)
@@ -333,8 +362,8 @@ def main() -> int:
         "/lib/firmware/intel/sof-ipc4/tgl/sof-tgl.ri": "Intel Tiger Lake audio",
     }
     for firmware_path, description in required_hardware_firmware.items():
-        if not rooted(firmware_path).exists():
-            fail(f"missing {description} firmware: {firmware_path}")
+        if not firmware_exists(root, firmware_path, kernel_options):
+            fail(f"missing/load-incompatible {description} firmware: {firmware_path}")
 
     if not any(rooted("/usr/lib/NetworkManager").rglob("*wifi*")):
         fail("NetworkManager Wi-Fi plugin missing")

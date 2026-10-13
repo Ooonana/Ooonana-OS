@@ -1,4 +1,28 @@
-# Current work - 2026-10-12
+# Current work - 2026-10-13
+
+## October 13 ISO build blockers
+
+User's actual full-rootfs build found three audit errors with two causes:
+v3.24 `rofi` contains shared data but not the launcher executable, and the
+Intel DMC audit demanded a raw blob despite packaged `.zst` firmware and target
+kernel ZSTD support. Both full-i3 and combined profiles now explicitly include
+`rofi-x11-wayland`. Firmware audit accepts nonempty raw blobs or compressed blobs
+only with the corresponding resolved target-kernel loader options; missing,
+unsupported and outside-root targets still fail. Release passes its actual
+cached kernel config to audit. Existing bundle dependencies remain intact.
+
+Repaired failed staging rootfs passes all 174 script / 524 ELF checks with zero
+errors; launcher reports 2.0.0. Regression fixtures cover the split package,
+stale bundles and firmware capabilities. Compressed DMC is retained byte-for-byte
+in the initramfs fixture. Actual UID1000 X11 menu with shipped theme, Wi-Fi
+prompt, two entries and Enter selection passed; earlier auto-select/filter
+probe was inconclusive, not used as evidence of a broken shipped interaction.
+Proof: `/var/tmp/ooonana-build-blockers-20261013.lc6DCFza/` audit/menu logs.
+Candidate metadata contains 654 packages / 612 dependency nodes, with the only
+new desktop dependency `rofi-x11-wayland`. This is not a completed ISO. Rebuild
+normally, without resume flags: earlier rootfs tarball predates launcher repair.
+Physical C: free space remains below the 20 GiB staging recommendation; F: has
+adequate space. No installed Ooonana WSL migration or stable-channel promotion.
 
 ## October 12 deep software scan
 

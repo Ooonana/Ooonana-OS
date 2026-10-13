@@ -27,6 +27,7 @@ ci-smoke:
   script:
     - echo "Ooonana GitLab CI active"
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-release-repo.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-runtime-firmware.py
     - bash tests/test-version-order.sh
     - bash tests/test-qemu-live-kernel-smoke.sh
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-service-watchdog.py

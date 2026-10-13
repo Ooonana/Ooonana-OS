@@ -39,6 +39,8 @@ i3lock
 i3status
 polybar
 rofi
+# v3.24 splits launcher executable from shared themes/scripts.
+rofi-x11-wayland
 yad
 shared-mime-info
 gdk-pixbuf
