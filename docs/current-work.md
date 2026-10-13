@@ -1,5 +1,18 @@
 # Current work - 2026-10-13
 
+## October 13 centered dock and native app detail pass
+
+Dock now measures 60px with icons centered independently of running/count
+markers. Compact targets and unpinned access remain intact. Shared native
+forms/tooltips/sidebar focus and icon/text spacing refined. Task Manager obeys
+reduced motion and prevents multiline process commands from stretching rows.
+Native catalog covers 25 windows/pages/dialogs at 1024x768 and 1280x800 with
+mocked backends; separate interactive source tests cover actions/input.
+Added personal cursor is this machine's default (21px, private assets); public
+fallback remains 19px, now consistent in generated Xsettings. README captures
+updated; old dated evidence retained. [Details and limits](frontend-detail-pass-20261013.md).
+No ISO, sound, installed WSL migration or stable promotion.
+
 ## October 13 frontend micro-polish
 
 Corrected stale Font Awesome 6 family names on the v3.24/Font Awesome 7

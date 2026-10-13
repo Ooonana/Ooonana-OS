@@ -15,7 +15,7 @@ Ooonana OS is a custom Linux distribution built from scratch around its own boot
 
 Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Linux, BusyBox, GRUB, i3, and other open-source components. Ooonana package factory currently imports selected Alpine package payloads into Ooonana `.pkg` repositories while native packages replace them over time.
 
-![Candidate Ooonana desktop with original wallpaper, repaired panel symbols, left music and centered AI](docs/assets/ooonana-candidate-desktop-20261013.png)
+![Candidate desktop with centered dock icons, compact opaque panel, left music and centered AI](docs/assets/ooonana-desktop-details-20261013.png)
 
 October 13 core 0.10.0 candidate captured with real GTK/i3/Polybar on a private, network-isolated X11 display. Panel status uses sample data, including a deliberately long Wi-Fi label; wallpaper/dock are source assets. Font Awesome 7 mapping restores missing/distorted panel controls and status icons. Quieter status colors, compact spacing, clearer dock focus/previews and consistent button states preserve the existing opaque theme. [Polish evidence and limits](docs/frontend-polish-20261013.md). No audio played. Physical USB visuals require a fresh image. Earlier stable/WSL captures remain in `docs/assets/`.
 
@@ -47,7 +47,7 @@ fixtures, full pinned APT/pip setup and real generation-pointer transport passed
 
 ![Candidate Geany file picker contained within 1024x768 display](docs/assets/ooonana-geany-file-picker-20261009.png)
 
-![Current native Appearance settings](docs/assets/ooonana-appearance-20261008.png)
+![Current native Appearance settings](docs/assets/ooonana-appearance-details-20261013.png)
 
 See [October 8 verification and remaining gates](docs/ui-catalog-20261008.md).
 
@@ -279,7 +279,7 @@ Working now:
 - Full-i3 runs the desktop as the unprivileged `ooonana` user (UID 1000). Administrative commands use a validated wheel-only `doas` policy.
 - Full-i3 mounts `/run` and `/dev/shm` before desktop services, maps `/var/run` to `/run`, starts system D-Bus first, then starts NetworkManager and BlueZ. This runtime order supports Chromium, Wi-Fi, Bluetooth, and desktop applets from live USB and installed systems.
 - Full-i3 ships an Ooonana i3 desktop: solid rounded top panel with music status, RAM gauge, workspaces, and minimize/fullscreen/close controls; centered opaque app dock with pinned icons, running dots, restore-on-click, and right-click window actions; Spotlight-style launcher; opaque rounded GTK windows; dunst notifications; Chromium, Nemo, and editor/media shortcuts. Focus changes on click, not cursor hover. Notes is the default wallpaper again; the graphite wallpaper remains selectable. Fit mode preserves aspect ratio rather than stretching.
-- OoonanaTailless cursor keeps a rounded, narrow black-and-white pointer. It is drawn for this project; third-party Windows cursor-pack files are not redistributed.
+- Added Windows cursor conversion is the default for this machine's Ooonana builds (21px, original proportions/hotspot). Public builds use the separately drawn OoonanaTailless fallback (19px); third-party cursor-pack files remain private and are not redistributed.
 - Setup, Settings, Wi-Fi, Bluetooth, Packages, AI, Task Manager, controls, and application launcher are native GTK3 apps with shared graphite/orange design and short slide transitions. Picom keeps windows opaque; shadows and fades are disabled. Panel status scripts degrade cleanly when a VM has no battery, radio, audio, or backlight hardware.
 - Wi-Fi groups repeated school/campus access points by exact SSID, shows real security instead of treating missing metadata as open, retries secured BSSIDs during roaming, and supports WPA/WPA2/WPA3 Personal, OWE, WEP, and 802.1X enterprise identity/password/CA/client-certificate profiles. Wi-Fi and Bluetooth include an RSSI proximity map. Optional `3D mode` launches RuView when its CSI point-cloud runtime is installed; normal laptop adapters remain RSSI-only.
 - Installed disk boots in QEMU
@@ -807,7 +807,7 @@ Default full-i3 UI uses solid dark graphite, light text, and orange accents. Mus
 
 Native GTK window controls now sit on the left as red/yellow/green circles with visible symbols and accessible names. Appearance offers reduced motion; default page slides last 180ms without window transparency. The offline AI dialog separates app, runtime, model files, and API status without claiming that an active API proves successful model loading. Setup presents a review before applying settings; installer text clarifies erase/custom modes, target partitions, and disk swap. Formatter logic is unchanged. Third-party controls attach to visible i3 decorations and target their own window; hidden tabs, occluded and fullscreen-covered controls are excluded. Native dialog headers do not receive a second i3 titlebar. Dock/titlebar action menus provide restore/minimize/fullscreen/close.
 
-This machine's private Windows cursor conversion uses a real 21px frame (+10% from 19px, rounded), retaining original proportions and scaled hotspot. The separately drawn public tailless theme defaults to a real 19px frame (+10% from 17px, rounded). The private theme stays outside tracked sources and must not be redistributed. ISO and WSL overlay builders read preferred size from the private theme's `cursor-size` file.
+The added Windows cursor conversion is now the default for this machine's Ooonana builds: a real 21px frame (+10% from 19px, rounded), retaining original proportions and scaled hotspot. The separately drawn public tailless fallback uses a real 19px frame (+10% from 17px, rounded), consistent between GTK and Xsettings. Private assets stay outside tracked sources and must not be redistributed. The normal ISO wrapper selects the private theme when present and reads its `cursor-size` file; `--public-cursor` explicitly selects the public fallback. Existing user cursor preferences remain intact.
 
 ```bash
 ooonana help ui

@@ -37,7 +37,7 @@ elif [[ -z "${OOONANA_PERSONAL_CURSOR_DIR:-}" && -d "$personal_cursor" ]]; then
     IFS= read -r OOONANA_PERSONAL_CURSOR_SIZE <"$personal_cursor/cursor-size" || true
   fi
   export OOONANA_PERSONAL_CURSOR_SIZE="${OOONANA_PERSONAL_CURSOR_SIZE:-32}"
-  printf '[cursor] personal cursor included; resulting ISO is for personal use only\n'
+  printf '[cursor] default Ooonana local cursor included; resulting ISO is for personal use only\n'
 fi
 
 exec bash "$SCRIPT_DIR/rebuild-full-i3-release.sh" "${release_args[@]}"

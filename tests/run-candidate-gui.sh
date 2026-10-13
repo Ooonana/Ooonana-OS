@@ -10,7 +10,7 @@ case "$geometry" in
   *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
 esac
 case "$only" in
-  all|native-ui-runtime|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|window-controls-runtime|dock-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
+  all|native-ui-runtime|native-app-catalog|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|window-controls-runtime|dock-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -194,10 +194,11 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   for name in native-ui-runtime ai-indicators ai-chat-runtime desktop-interactions; do
     probe "$name" python3 "/source/tests/check-$name.py"
   done
+  probe native-app-catalog python3 /source/tests/check-native-app-catalog.py
   probe notifications-runtime python3 /source/tests/check-notifications-runtime.py --output /qa/notifications.png
   probe window-controls-runtime python3 /source/tests/check-window-controls-runtime.py --own-i3
   probe dock-ui python3 /source/tests/check-dock-ui.py /qa/dock.png
-  probe panel-ui python3 /source/tests/check-panel-ui.py /qa/panel.png --rootfs / --long-wifi --desktop-overview
+  probe panel-ui python3 /source/tests/check-panel-ui.py /qa/panel.png --rootfs / --long-wifi --desktop-overview --appearance-output /qa/appearance.png
   probe portal-ui python3 /source/tests/check-portal-ui.py /qa/portal.png
   for app in geany nemo chromium qterminal; do
     if [ "$app" = geany ]; then

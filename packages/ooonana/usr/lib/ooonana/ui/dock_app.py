@@ -29,15 +29,18 @@ NAMES = {"apps": "Applications", "terminal": "Terminal", "browser": "Browser",
 ICONS = {"apps": "ooonana-apps", "terminal": "ooonana-terminal", "browser": "ooonana-browser",
          "files": "ooonana-files", "editor": "ooonana-editor", "music": "ooonana-music",
          "openvino": "ooonana-openvino", "tasks": "ooonana-task-manager", "other": "application-x-executable"}
+HOVER_MARGIN = 2
+DOCK_RADIUS = 16
 CSS = b"""
-.ooonana-dock { background: #1b1f26; border: 1px solid #343b46; border-radius: 20px; }
-.ooonana-dock button { padding: 2px 8px; border: none; border-radius: 13px; background: #1b1f26; box-shadow: none; min-width: 0; min-height: 0; transition: background-color 140ms ease-out; }
+.ooonana-dock { background: #1b1f26; border: 1px solid #343b46; border-radius: 16px; }
+.ooonana-dock button { padding: 1px 8px; border: none; border-radius: 11px; background: #1b1f26; box-shadow: none; min-width: 28px; min-height: 48px; transition: background-color 140ms ease-out; }
 .ooonana-dock button:hover { background: #303640; }
 .ooonana-dock button.active { background: #303640; }
 .ooonana-dock button.active:hover { background: #39414b; }
 .ooonana-dock button:active, .ooonana-dock button.active:active { background: #22272f; }
 .ooonana-dock button.active label { color: #ffb21a; }
-.ooonana-dock label { font-size: 11px; color: #b4bdc8; }
+.ooonana-dock label { font-size: 9px; color: #b4bdc8; }
+.ooonana-dock separator { background: #414957; min-width: 1px; min-height: 24px; margin: 0 2px; }
 tooltip { background: #1b1f26; color: #f5f5f7; border: 1px solid #414957; border-radius: 12px; padding: 4px; }
 .dock-preview-title { font-size: 10.5pt; font-weight: 700; color: #f5f5f7; }
 .dock-preview-caption { font-size: 9.5pt; color: #b4bdc8; }
@@ -73,6 +76,7 @@ class Dock(Gtk.Window):
         self.set_title("Ooonana Dock")
         self.set_wmclass("ooonana-dock", "OoonanaDock")
         self.set_decorated(False)
+        self.set_resizable(False)
         self.set_accept_focus(False)
         self.set_focus_on_map(False)
         self.set_skip_taskbar_hint(True)
@@ -83,7 +87,7 @@ class Dock(Gtk.Window):
         provider.load_from_data(CSS)
         Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_USER + 1)
         self.row = Gtk.Box(spacing=4)
-        self.row.set_border_width(8)
+        self.row.set_border_width(5)
         self.add(self.row)
         self.snapshot, self.items, self.nodes, self.buttons = {}, [], {}, {}
         self.pending, self.stopped, self.geometry_state = 0, False, None
@@ -110,7 +114,7 @@ class Dock(Gtk.Window):
         settings = Gtk.Settings.get_default()
         if settings:
             settings.set_property('gtk-enable-animations', bool(duration))
-        target = 0 if entered and duration else 4
+        target = 0 if entered and duration else HOVER_MARGIN
         self.hover_states[key] = (image, image.get_margin_top(), target,
                                   GLib.get_monotonic_time(), duration * 1000)
         if not self.motion_source:
@@ -125,7 +129,7 @@ class Dock(Gtk.Window):
             margin = round(initial + (target - initial) * eased)
             # Constant total margins: no dock resize, focus stealing or jitter.
             image.set_margin_top(margin)
-            image.set_margin_bottom(8 - margin)
+            image.set_margin_bottom(2 * HOVER_MARGIN - margin)
             if progress == 1:
                 del self.hover_states[key]
         if not self.hover_states or self.stopped:
@@ -162,7 +166,7 @@ class Dock(Gtk.Window):
         width, height = self.get_size()
         self.move(area.x + max(0, (area.width - width) // 2), area.y + area.height - height - 12)
         # Clip corners without translucent surfaces or compositor dependence.
-        radius = min(20, height // 2, width // 2)
+        radius = min(DOCK_RADIUS, height // 2, width // 2)
         shape = cairo.Region()
         for y in range(height):
             distance = radius - y - 0.5 if y < radius else y - (height - radius) + 0.5 if y >= height - radius else 0
@@ -182,6 +186,8 @@ class Dock(Gtk.Window):
         pins = windows.available_pins()
         if area.width < 520:
             pins = [pin for pin in pins if pin[0] not in ("editor", "music")]
+        if area.width < 380:
+            pins = [pin for pin in pins if pin[0] not in ("openvino", "tasks")]
         keys = [pin[0] for pin in pins]
         other = [item for item in self.items if windows.pin_for(item) not in keys]
         if other:
@@ -195,14 +201,20 @@ class Dock(Gtk.Window):
                 control = Gtk.Button()
                 control.set_can_focus(False)
                 control.get_accessible().set_name(NAMES.get(key, "Other windows"))
-                content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+                content = Gtk.Overlay()
                 image = Gtk.Image.new_from_icon_name(ICONS[key], Gtk.IconSize.DIALOG)
                 image.set_pixel_size(24 if area.width < 520 else 32)
-                image.set_margin_top(4)
-                image.set_margin_bottom(4)
-                content.pack_start(image, False, False, 0)
+                image.set_halign(Gtk.Align.CENTER)
+                image.set_valign(Gtk.Align.CENTER)
+                image.set_margin_top(HOVER_MARGIN)
+                image.set_margin_bottom(HOVER_MARGIN)
+                content.add(image)
                 dot = Gtk.Label(label=" ")
-                content.pack_start(dot, False, False, 0)
+                dot.set_halign(Gtk.Align.CENTER)
+                dot.set_valign(Gtk.Align.END)
+                # Running state must not move the icon away from tile center.
+                content.add_overlay(dot)
+                content.set_overlay_pass_through(dot, True)
                 control.add(content)
                 control.connect("clicked", lambda _button, pin=key: self.open(pin))
                 control.connect("button-press-event", self.press, key)
@@ -212,6 +224,10 @@ class Dock(Gtk.Window):
                 control.connect("leave-notify-event", self.hover, key, False)
                 self.row.pack_start(control, False, False, 0)
                 self.buttons[key] = (control, dot, image)
+                if key == "apps":
+                    divider = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+                    divider.set_valign(Gtk.Align.CENTER)
+                    self.row.pack_start(divider, False, False, 0)
         for key, (control, dot, _image) in self.buttons.items():
             matches = other if key == "other" else [item for item in self.items if windows.pin_for(item) == key]
             style = control.get_style_context()

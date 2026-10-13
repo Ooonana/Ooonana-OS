@@ -25,6 +25,8 @@ decoration { background: #101317; border: 1px solid #343b46; border-radius: 14px
 menu { background: #1b1f26; color: #f5f5f7; border: 1px solid #343b46; border-radius: 10px; padding: 6px; }
 menuitem { padding: 9px 12px; border-radius: 7px; }
 menuitem:hover { background: #303640; color: #ffb21a; }
+tooltip { background: #1b1f26; color: #f5f5f7; border: 1px solid #414957; border-radius: 12px; padding: 6px; }
+tooltip label { color: #f5f5f7; }
 headerbar { background: #1b1f26; color: #ffb21a; border-bottom: 1px solid #343b46; border-radius: 14px 14px 0 0; padding: 5px 10px; }
 headerbar .title { font-weight: 700; color: #ffb21a; }
 headerbar .subtitle { color: #b4bdc8; }
@@ -34,8 +36,10 @@ headerbar .subtitle { color: #b4bdc8; }
 .hero-title { font-size: 24pt; font-weight: 800; color: #ffb21a; }
 .badge { background: #32291a; color: #ffcf77; border: 1px solid #735b33; border-radius: 9px; padding: 4px 10px; }
 .sidebar { background: #171b21; border-right: 1px solid #343b46; }
-.sidebar row { margin: 3px 8px; padding: 10px 12px; border-left: 3px solid transparent; border-radius: 10px; transition: background-color 180ms ease-out; }
+.sidebar row { margin: 3px 8px; padding: 10px 14px; border-left: 1px solid transparent; border-radius: 10px; transition: background-color 180ms ease-out; }
+.sidebar row:hover { background: #22272f; }
 .sidebar row:selected { background: #303640; border-left-color: #ffb21a; color: #f5f5f7; }
+.sidebar row:focus, .spotlight-results row:focus { outline: 1px solid #ffb21a; outline-offset: -2px; }
 .page-title { font-size: 19pt; font-weight: 700; color: #f5f5f7; }
 .page-subtitle, .muted { color: #b4bdc8; }
 .card { background: #1b1f26; border: 1px solid #343b46; border-radius: 14px; padding: 16px; }
@@ -65,10 +69,15 @@ entry, textview, textview text, textview.view, textview.view text, treeview, lis
   border-color: #46505c;
 }
 entry { padding: 9px; border-radius: 10px; }
+entry:hover { border-color: #778493; }
+entry:focus { border-color: #ffb21a; }
+entry selection, textview text selection { background: #ffcf77; color: #101317; }
 combobox button { min-height: 28px; }
 checkbutton, radiobutton { padding: 4px 0; }
 checkbutton check { background: #15191f; border: 1px solid #596574; border-radius: 4px; min-width: 14px; min-height: 14px; }
 checkbutton check:checked { background: #ffb21a; color: #101317; border-color: #ffb21a; }
+checkbutton:hover check:not(:checked) { border-color: #9ca7b6; }
+checkbutton:focus, radiobutton:focus { outline: 1px solid #ffb21a; outline-offset: 2px; }
 treeview header button { background: #272c34; color: #ffcf77; padding: 7px; }
 treeview:selected, row:selected { background: #303640; color: #ffffff; }
 notebook header { background: #171b21; }
@@ -159,7 +168,9 @@ def window_control_icon(name):
 def button(label_text, icon_name=None, callback=None, style=None):
     widget = Gtk.Button.new_with_label(label_text)
     if icon_name:
-        widget.set_image(icon(icon_name))
+        image = icon(icon_name)
+        image.set_margin_end(6)
+        widget.set_image(image)
         widget.set_always_show_image(True)
     if callback:
         widget.connect("clicked", callback)

@@ -32,6 +32,8 @@ root = Path(__file__).resolve().parents[1]
 public = frames(root / "packages/ooonana/usr/share/icons/OoonanaTailless/cursors/left_ptr")
 assert public[17] == public[19] == (2, 2), public
 assert "gtk-cursor-theme-size=19" in (root / "packages/ooonana/etc/gtk-3.0/settings.ini").read_text()
+assert 'Gtk/CursorThemeSize 19' in (root / "scripts/build-full-i3-rootfs.sh").read_text()
+assert 'Gtk/CursorThemeSize 17' not in (root / "scripts/build-full-i3-rootfs.sh").read_text()
 if args.personal_dir:
     personal = frames(args.personal_dir / "cursors/left_ptr")
     assert personal[21] == (2, 6), personal

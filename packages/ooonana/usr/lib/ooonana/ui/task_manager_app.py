@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from common import Gdk, GLib, Gtk, Pango, apply_theme, button, header, label, message  # noqa: E402
 from gi.repository import GObject  # noqa: E402
 from process_control import ProcessChanged, parse_process_stat, terminate_owned_process  # noqa: E402
+from ui_preferences import transition_ms  # noqa: E402
 
 
 def read_text(path: Path, limit: int = 65536) -> str:
@@ -252,7 +253,7 @@ class TaskManagerWindow(Gtk.Window):
         self.add(root)
         self.stack = Gtk.Stack()
         self.stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
-        self.stack.set_transition_duration(220)
+        self.stack.set_transition_duration(transition_ms())
         sidebar = Gtk.StackSidebar()
         sidebar.set_stack(self.stack)
         sidebar.set_size_request(175, -1)
@@ -413,7 +414,7 @@ class TaskManagerWindow(Gtk.Window):
                     self.users[uid] = str(uid)
             try:
                 with (entry / "cmdline").open("rb") as stream:
-                    command = stream.read(512).replace(b"\0", b" ").decode("utf-8", "replace").strip()
+                    command = " ".join(stream.read(512).replace(b"\0", b" ").decode("utf-8", "replace").split())
             except OSError:
                 command = ""
             key = pid, starttime

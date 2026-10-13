@@ -2501,7 +2501,7 @@ Net/ThemeName "Adwaita-dark"
 Net/IconThemeName "Adwaita"
 Gtk/FontName "Sans 10"
 Gtk/CursorThemeName "OoonanaTailless"
-Gtk/CursorThemeSize 17
+Gtk/CursorThemeSize 19
 Gtk/ButtonImages 1
 Gtk/MenuImages 1
 EOF

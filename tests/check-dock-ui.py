@@ -2,6 +2,7 @@
 """Own Xvfb/i3 fixture only. No user's windows, models or sound."""
 import os
 from pathlib import Path
+from types import SimpleNamespace
 import subprocess
 import sys
 import tempfile
@@ -9,7 +10,7 @@ import time
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / "packages/ooonana/usr/lib/ooonana/ui"))
-from dock_app import Dock, Gdk, Gtk, preview_image, windows
+from dock_app import Dock, Gdk, Gtk, HOVER_MARGIN, preview_image, windows
 from common import apply_theme
 from ui_preferences import save_preferences
 import i3_events
@@ -24,6 +25,15 @@ def wait(predicate, seconds=10):
         drain()
         assert time.monotonic() < deadline, "Dock fixture timeout"
         time.sleep(0.02)
+
+def centered_icons(dock):
+    for control, dot, image in dock.buttons.values():
+        overlay = control.get_child()
+        assert isinstance(overlay, Gtk.Overlay)
+        assert overlay.get_overlay_pass_through(dot)
+        x, y = image.translate_coordinates(control, 0, 0)[-2:]
+        assert abs(x + image.get_allocated_width() / 2 - control.get_allocated_width() / 2) <= 1
+        assert abs(y + image.get_allocated_height() / 2 - control.get_allocated_height() / 2) <= 1
 
 with tempfile.TemporaryDirectory() as temporary:
     config = Path(temporary) / "i3.conf"
@@ -70,6 +80,8 @@ with tempfile.TemporaryDirectory() as temporary:
         assert content.get_preferred_width().natural_width <= 300
         assert next(item[0] for item in windows.windows(i3_events.request(path, 4)) if item[2]) == before
         button = dock.buttons["terminal"][0]
+        assert not dock.get_resizable()
+        assert any(isinstance(child, Gtk.Separator) for child in dock.row.get_children())
         assert button.get_style_context().has_class("active")
         assert button.get_accessible().get_description() == "1 window · Focused"
         assert dock.buttons["apps"][0].get_accessible().get_description() == "Not running"
@@ -84,9 +96,22 @@ with tempfile.TemporaryDirectory() as temporary:
         dock.items = saved
         image = dock.buttons['terminal'][2]
         size = dock.get_size()
+        assert 56 <= size.height <= 64, size
+        assert image.get_pixel_size() == 32
+        assert button.get_allocated_width() >= 44 and button.get_allocated_height() >= 44
+        centered_icons(dock)
+        # Wider window counts remain overlays, never layout rows.
+        marker = dock.buttons['terminal'][1]
+        marker.set_text('99')
+        for _ in range(5):
+            drain()
+            time.sleep(0.02)
+        centered_icons(dock)
+        assert dock.get_size() == size
+        marker.set_text('•')
         dock.hover(button, None, 'terminal', True)
         wait(lambda: not dock.hover_states)
-        assert image.get_margin_top() == 0 and image.get_margin_bottom() == 8
+        assert image.get_margin_top() == 0 and image.get_margin_bottom() == 2 * HOVER_MARGIN
         assert dock.get_size() == size
         with tempfile.TemporaryDirectory() as preference_home:
             original = os.environ.get('XDG_CONFIG_HOME')
@@ -95,12 +120,35 @@ with tempfile.TemporaryDirectory() as temporary:
                 save_preferences(reduce_motion=True)
                 dock.hover(button, None, 'terminal', True)
                 wait(lambda: not dock.hover_states)
-                assert image.get_margin_top() == image.get_margin_bottom() == 4
+                assert image.get_margin_top() == image.get_margin_bottom() == HOVER_MARGIN
             finally:
                 if original is None:
                     os.environ.pop('XDG_CONFIG_HOME')
                 else:
                     os.environ['XDG_CONFIG_HOME'] = original
+        # Include an unpinned client: reserved "other" slot must also fit.
+        geometry = dock.monitor_geometry
+        snapshot = dock.snapshot
+        extra = dict(id=987654, window=987654, name="Compact unpinned fixture",
+                     window_properties={"class": "QAOther"}, nodes=[], floating_nodes=[])
+        dock.snapshot = {**snapshot, "nodes": [*snapshot.get("nodes", []), extra]}
+        for width in (320, 480):
+            dock.monitor_geometry = lambda width=width: SimpleNamespace(x=0, y=0, width=width, height=768)
+            dock.geometry_state = None
+            dock.refresh()
+            wait(lambda: dock.get_size().width <= width - 24 and
+                 all(control.get_allocated_width() >= 44 and control.get_allocated_height() >= 44
+                     for control, _dot, _image in dock.buttons.values()))
+            assert "other" in dock.buttons
+            centered_icons(dock)
+            assert all(control.get_allocated_width() >= 44 and control.get_allocated_height() >= 44
+                       for control, _dot, _image in dock.buttons.values())
+        dock.monitor_geometry = geometry
+        dock.snapshot = snapshot
+        dock.geometry_state = None
+        dock.refresh()
+        wait(lambda: dock.get_size() == size)
+        button = dock.buttons["terminal"][0]
         coordinates = button.translate_coordinates(dock, 0, 0)
         x, y = coordinates[-2:]
         origin = dock.get_position()
@@ -118,7 +166,7 @@ with tempfile.TemporaryDirectory() as temporary:
             window = Gdk.get_default_root_window()
             image = Gdk.pixbuf_get_from_window(window, 0, 0, window.get_width(), window.get_height())
             image.savev(sys.argv[1], "png", [], [])
-        print("DOCK_UI_OK preview bounded; hover focus unchanged; compact panel")
+        print(f"DOCK_UI_OK {size.width}x{size.height}; centered 32px icons; overlay markers; 44px targets; compact/other fit; hover focus unchanged")
     finally:
         if dock:
             dock.stopped = True

@@ -26,6 +26,7 @@ parser.add_argument("--rootfs", type=Path, required=True)
 parser.add_argument("--long-wifi", action="store_true")
 parser.add_argument("--desktop", action="store_true", help="Include source native Settings/dock and original wallpaper")
 parser.add_argument("--desktop-overview", action="store_true", help="Wallpaper/panel/dock without Settings window")
+parser.add_argument("--appearance-output", type=Path, help="Additional same-session native Appearance capture")
 args = parser.parse_args()
 loader = SourceFileLoader("panel_windows", str(ROOT / "packages/ooonana/usr/bin/ooonana-window-list"))
 windows = module_from_spec(spec_from_loader(loader.name, loader))
@@ -116,6 +117,18 @@ with tempfile.TemporaryDirectory(prefix="ooonana-panel-ui-") as temporary:
             pixels = Gdk.pixbuf_get_from_window(screen, 0, 0, screen.get_width(), screen.get_height())
             assert pixels is not None
             pixels.savev(str(args.output), "png", [], [])
+            if args.appearance_output:
+                assert args.desktop_overview, 'Appearance capture requires isolated desktop fixture'
+                settings = SettingsWindow()
+                settings.headerbar.set_subtitle('Isolated native GTK preview')
+                settings.show_all()
+                settings.sidebar.select_row(settings.sidebar.get_row_at_index(3))
+                for _ in range(40):
+                    while Gtk.events_pending():
+                        Gtk.main_iteration_do(False)
+                    time.sleep(0.025)
+                pixels = Gdk.pixbuf_get_from_window(screen, 0, 0, screen.get_width(), screen.get_height())
+                pixels.savev(str(args.appearance_output), 'png', [], [])
         print(f"PANEL_UI_OK {width}px sample state: {args.output}")
     finally:
         if dock:

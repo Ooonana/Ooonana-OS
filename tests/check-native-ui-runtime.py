@@ -2,6 +2,7 @@
 """Optional GTK smoke check on a host with a display and PyGObject."""
 
 import sys
+import subprocess
 import tempfile
 import time
 from types import SimpleNamespace
@@ -11,13 +12,14 @@ from pathlib import Path
 ui_dir = Path(__file__).resolve().parents[1] / "packages/ooonana/usr/lib/ooonana/ui"
 sys.path.insert(0, str(ui_dir))
 
-from common import CSS, WINDOW_CONTROL_CSS, Gdk, Gtk, apply_theme, host_radio_unavailable, icon  # noqa: E402
+from common import CSS, WINDOW_CONTROL_CSS, Gdk, Gtk, apply_theme, button, host_radio_unavailable, icon  # noqa: E402
 from wifi_app import WifiWindow  # noqa: E402
 from bluetooth_app import BluetoothWindow  # noqa: E402
 from settings_app import SettingsWindow  # noqa: E402
 from setup_app import SetupWindow  # noqa: E402
 from task_manager_app import TaskManagerWindow, cpu_totals, meminfo_values, parse_process_stat, thermal_fan_snapshot  # noqa: E402
 from gi.repository import GdkPixbuf  # noqa: E402
+from ui_preferences import save_preferences, transition_ms  # noqa: E402
 
 
 ready, _args = Gtk.init_check([])
@@ -36,6 +38,9 @@ for css_path in sys.argv[1:]:
     provider.load_from_path(css_path)
     assert not errors, (css_path, errors)
 apply_theme()
+image_button = button("Refresh", "view-refresh-symbolic")
+assert image_button.get_image().get_margin_end() == 6
+assert button("Text only").get_image() is None
 
 # Resolve real GTK styles, not CSS substring matches. Never activate actions.
 style_window = Gtk.Window(title="Button states · isolated QA")
@@ -123,6 +128,8 @@ setup.network_combo.set_active_id("dhcp")
 assert not setup.static_revealer.get_reveal_child()
 
 settings = SettingsWindow()
+sidebar_row = settings.sidebar.get_row_at_index(0)
+assert sidebar_row.get_style_context().get_border(Gtk.StateFlags.NORMAL).left == 1
 assert settings.stack.get_transition_type() == Gtk.StackTransitionType.SLIDE_LEFT_RIGHT
 for page_id, _title, _icon in SettingsWindow.PAGES:
     assert settings.stack.get_child_by_name(page_id) is not None, page_id
@@ -154,6 +161,7 @@ with tempfile.TemporaryDirectory() as temporary:
         "Package id 0 48°C", "coretemp 2134 RPM"
     )
 manager = TaskManagerWindow()
+assert manager.stack.get_transition_duration() == transition_ms()
 assert manager.stack.get_child_by_name("processes") is not None
 assert manager.stack.get_child_by_name("performance") is not None
 assert len(manager.tree.get_columns()) == 7
@@ -162,5 +170,28 @@ row = manager.store.append(("Long uptime fixture", 1234, 0.0, 1.0, "qa", "S", "q
 assert manager.store[row][7] == long_uptime
 assert manager.store[row][8] == 2**32 - 2
 manager.store.remove(row)
+child = subprocess.Popen([sys.executable, '-c', 'import time\ntime.sleep(30)'])
+try:
+    command = next(row[6] for row in manager.process_rows(0) if row[1] == child.pid)
+    assert '\n' not in command and '\t' not in command and len(command) <= 512, command
+finally:
+    child.terminate()
+    child.wait(timeout=5)
+with tempfile.TemporaryDirectory() as preference_home:
+    import os
+    original = os.environ.get('XDG_CONFIG_HOME')
+    os.environ['XDG_CONFIG_HOME'] = preference_home
+    try:
+        save_preferences(reduce_motion=True)
+        reduced = TaskManagerWindow()
+        assert reduced.stack.get_transition_duration() == 0
+        reduced.disconnect_by_func(reduced.on_destroy)
+        reduced.closed = True
+        reduced.destroy()
+    finally:
+        if original is None:
+            os.environ.pop('XDG_CONFIG_HOME')
+        else:
+            os.environ['XDG_CONFIG_HOME'] = original
 
 print("GTK_UI_RUNTIME_OK")
