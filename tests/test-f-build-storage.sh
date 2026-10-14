@@ -37,6 +37,7 @@ if (validate_workspace) >/dev/null 2>&1; then die 'symlink accepted'; fi
 [[ "$(<"$work/original")" == data ]] || die 'existing image was modified'
 source_text="$(<"$SCRIPT")"
 [[ "$source_text" == *'fsutil.exe sparse setflag'* &&
+   "$source_text" == *'"$(wslpath -w "$partial")" </dev/null'* &&
    "$source_text" == *'trap cleanup EXIT'* &&
    "$source_text" == *'sync -f "$native"'* &&
    "$source_text" == *'workspace already attached'* &&

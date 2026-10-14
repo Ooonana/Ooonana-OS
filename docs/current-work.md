@@ -13,7 +13,11 @@ failures retain workspace. Retry space accounting includes reclaimable failed
 scratch, refuses mounted children, and rechecks capacity after kernel compile.
 
 Actual 64 MiB F-backed ext4 probe passed ownership, setuid, hardlinks, symlinks
-and `cp -a`. Launcher/storage/source-release/backend regressions pass. Removed
+and `cp -a`. Sparse variant also passes with only 393,216 bytes allocated;
+evidence: `F:\Ooonana\ooonana-os\build-storage-thin-probe-20261014.1igKczFW\result.log`.
+Windows sparse helper now has null stdin, avoiding WSL interop consuming a piped
+script's remaining commands. Launcher/storage/source-release/backend regressions
+and signed 654-package / 612-node input-only release preflight pass. Removed
 5,755,216 KiB (~5.49 GiB) inactive failed C-backed build scratch after retaining
 fingerprint/completion markers and file listing under
 `/var/tmp/ooonana-build-storage-cleanup-20261014.ke7Wd2xb/`. This is logical guest

@@ -68,7 +68,7 @@ if [[ ! -e "$image" ]]; then
   (set -o noclobber; : >"$partial")
   creating=1
   # Without this flag NTFS zero-fills the entire gap before end-of-file writes.
-  /mnt/c/Windows/System32/fsutil.exe sparse setflag "$(wslpath -w "$partial")"
+  /mnt/c/Windows/System32/fsutil.exe sparse setflag "$(wslpath -w "$partial")" </dev/null
   truncate -s "$size_bytes" "$partial"
   mkfs.ext4 -q -F -m 0 -i 65536 -L OOONANA_BUILD -E nodiscard,lazy_journal_init=1 "$partial"
   uuid="$(blkid -p -s UUID -o value "$partial")"
