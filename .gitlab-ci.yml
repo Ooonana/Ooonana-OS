@@ -26,6 +26,8 @@ ci-smoke:
     - apk add --no-cache bash python3 diffutils findutils tar gzip xz coreutils binutils git openssl
   script:
     - echo "Ooonana GitLab CI active"
+    - bash tests/test-iso-launcher.sh
+    - PYTHONDONTWRITEBYTECODE=1 bash tests/test-rebuild-full-i3-release.sh
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-release-repo.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-runtime-firmware.py
     - bash tests/test-version-order.sh

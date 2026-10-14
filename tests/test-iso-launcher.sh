@@ -9,4 +9,7 @@ source="$(<"$SCRIPT")"
 [[ "$source" == *'mount -t drvfs F: "$MOUNT_DIR"'* ]]
 [[ "$source" == *'findmnt -n -o SOURCE --target "$MOUNT_DIR"'* ]]
 [[ "$source" == *'exec bash "$SCRIPT_DIR/rebuild-full-i3-release.sh" "${release_args[@]}"'* ]]
+[[ "$source" == *'exec bash "$SCRIPT_DIR/with-f-build-storage.sh"'* ]]
+bash -n "$ROOT/scripts/with-f-build-storage.sh"
+bash "$ROOT/tests/test-f-build-storage.sh"
 printf 'ok iso-launcher\n'

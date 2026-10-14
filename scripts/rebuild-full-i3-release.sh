@@ -2,6 +2,8 @@
 set -euo pipefail
 
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
+# shellcheck source=lib/f-build-budget.sh
+source "$ROOT/scripts/lib/f-build-budget.sh"
 BUILD_DIR="${OOONANA_BUILD_DIR:-/mnt/winf/Ooonana/ooonana-os/build}"
 REPO_OVERRIDE="${OOONANA_RELEASE_REPO:-}"
 RELEASE_DIR="${OOONANA_RELEASE_DIR:-/mnt/winf/Ooonana/ooonana-os/release-current}"
@@ -93,7 +95,7 @@ done
 
 ensure_default_build_mount
 
-for command_name in awk cmp cp dd df find flock grep install mv python3 qemu-system-x86_64 realpath sha256sum sort stat sync timeout xargs; do
+for command_name in awk cmp cp dd df du find flock grep install mv python3 qemu-system-x86_64 realpath sha256sum sort stat sync timeout xargs; do
   command -v "$command_name" >/dev/null 2>&1 || die "missing command: $command_name"
 done
 
@@ -104,6 +106,25 @@ flock -n 9 || die "another Ooonana full-i3 release build is already running"
 STAGE_DIR="$(realpath -m "$STAGE_DIR")"
 [[ "$STAGE_DIR" == /var/tmp/ooonana-* ]] ||
   die "unsafe stage directory: $STAGE_DIR"
+
+check_stage_space() {
+  local stage_available_kb stage_used_kb=0 stage_mounts
+  # Never count or remove an attached installer filesystem as reclaimable scratch.
+  stage_mounts="$(findmnt -rn -o TARGET)" || die "cannot inspect stage mounts"
+  if printf '%s\n' "$stage_mounts" | awk -v stage="$STAGE_DIR" \
+      '$0 == stage || index($0, stage "/") == 1 {found=1} END {exit !found}'; then
+    die "stage contains mounted filesystems: $STAGE_DIR"
+  fi
+  stage_available_kb="$(df -Pk "$(dirname "$STAGE_DIR")" | awk 'NR == 2 {print $4}')"
+  [[ "$stage_available_kb" =~ ^[0-9]+$ ]] || die "cannot read stage disk space"
+  if [[ -d "$STAGE_DIR" ]]; then
+    stage_used_kb="$(du -skx "$STAGE_DIR" | awk '{print $1}')"
+  fi
+  [[ "$stage_used_kb" =~ ^[0-9]+$ ]] || die "cannot read existing stage allocation"
+  # Fresh builds reclaim this directory; resumes already own its allocated bytes.
+  (( stage_available_kb + stage_used_kb >= STAGE_MIN_FREE_KB )) ||
+    die "need at least 20 GiB free for stage (including reusable scratch): $STAGE_DIR"
+}
 
 KERNEL="$BUILD_DIR/ooonana-kernel/vmlinuz-ooonana"
 KERNEL_CONFIG="$BUILD_DIR/ooonana-kernel/config-ooonana"
@@ -246,6 +267,7 @@ release_input_fingerprint() {
 }
 
 mkdir -p "$BUILD_DIR" "$RELEASE_DIR"
+check_f_build_budget || die "insufficient F: backing capacity"
 if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
   kernel_refresh_needed=0
   if ! kernel_cache_matches_fragment; then
@@ -281,11 +303,11 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
   available_kb="$(df -Pk "$BUILD_DIR" | awk 'NR == 2 { print $4 }')"
   [[ "$available_kb" =~ ^[0-9]+$ ]] || die "cannot read build disk space"
   (( available_kb >= BUILD_MIN_FREE_KB )) || die "need at least 8 GiB free in $BUILD_DIR"
-  stage_available_kb="$(df -Pk "$(dirname "$STAGE_DIR")" | awk 'NR == 2 { print $4 }')"
-  [[ "$stage_available_kb" =~ ^[0-9]+$ ]] || die "cannot read stage disk space"
-  (( stage_available_kb >= STAGE_MIN_FREE_KB )) || die "need at least 20 GiB free for stage: $STAGE_DIR"
+  check_stage_space
   if [[ "$kernel_refresh_needed" -eq 1 ]]; then
     refresh_cached_kernel
+    # Kernel and rootfs may share F-backed scratch; don't overcommit after compile.
+    check_stage_space
   fi
 else
   if [[ -s "$STAGED_ISO" ]]; then
@@ -378,11 +400,13 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
   fi
 
   printf '[2/7] Scratch rootfs\n'
+  check_f_build_budget || die "F: backing space changed"
   if [[ "$RESUME_AFTER_ROOTFS" -eq 0 ]]; then
     bash "$ROOT/scripts/build-scratch-rootfs.sh" --work-dir "$STAGE_DIR" --force
     bash "$ROOT/scripts/build-scratch-initramfs.sh" --work-dir "$STAGE_DIR" --force
 
     printf '[3/7] Full rootfs\n'
+    check_f_build_budget || die "F: backing space changed"
     bash "$ROOT/scripts/build-full-i3-rootfs.sh" \
       --work-dir "$STAGE_DIR" \
       --repo "$STAGE_DIR/full-i3-repo" \
@@ -469,10 +493,12 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
   fi
 
   printf '[4/7] Live and installer images\n'
+  check_f_build_budget || die "F: backing space changed"
   bash "$ROOT/scripts/build-full-i3-live-initramfs.sh" --work-dir "$STAGE_DIR" --force
   bash "$ROOT/scripts/build-full-i3-disk.sh" --work-dir "$STAGE_DIR" --force
 
   printf '[5/7] ISO\n'
+  check_f_build_budget || die "F: backing space changed"
   printf '[iso] Building in WSL-native storage: %s\n' "$STAGED_ISO"
   bash "$ROOT/scripts/build-full-i3-iso.sh" \
     --work-dir "$STAGE_DIR" \
@@ -484,6 +510,7 @@ else
 fi
 
 printf '[6/7] Verification\n'
+check_f_build_budget || die "F: backing space changed"
 if [[ "$(findmnt -n -o FSTYPE --target "$VERIFY_ISO" 2>/dev/null || true)" == "9p" ]]; then
   SOURCE_ISO="$VERIFY_ISO"
   VERIFY_ISO="$WORK/ooonana-full-i3.iso"
@@ -565,6 +592,7 @@ if [[ "$RUN_BOOT_MATRIX" -eq 1 ]]; then
 fi
 
 printf '[7/7] Promote\n'
+check_f_build_budget || die "F: backing space changed"
 iso_sha256="$(sha256sum "$VERIFY_ISO" | awk '{ print $1 }')"
 iso_size="$(stat -c %s "$VERIFY_ISO")"
 if [[ "$VERIFY_ISO" != "$NEW_ISO" ]]; then

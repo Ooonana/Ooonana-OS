@@ -110,11 +110,30 @@ assert_contains "$(<"$ROOT/scripts/build-full-i3-iso.sh")" 'OOONANA_MAX_ISO_BYTE
 
 # Exercise actual option parsing without mounting, touching caches or building.
 parser_source="$(sed -n '1,/^\[\[ "${EUID/ p' "$SCRIPT" | sed '$d')"
-option_values="$(bash -c "$parser_source"$'\nprintf "%s\\n" "$REPO_OVERRIDE" "$BUILD_DIR"' -- --repo '/candidate path/repo' --build-dir /cache)"
+option_values="$(bash -c "$parser_source"$'\nprintf "%s\\n" "$REPO_OVERRIDE" "$BUILD_DIR"' "$SCRIPT" --repo '/candidate path/repo' --build-dir /cache)"
 [[ "$option_values" == $'/candidate path/repo\n/cache' ]] || fail "candidate repository option not parsed"
-option_values="$(OOONANA_RELEASE_REPO=/environment-repo bash -c "$parser_source"$'\nprintf "%s\\n" "$REPO_OVERRIDE"' -- --repo /explicit-repo)"
+option_values="$(OOONANA_RELEASE_REPO=/environment-repo bash -c "$parser_source"$'\nprintf "%s\\n" "$REPO_OVERRIDE"' "$SCRIPT" --repo /explicit-repo)"
 [[ "$option_values" == /explicit-repo ]] || fail "CLI repository must override environment"
 assert_contains "$(<"$(dirname "$SCRIPT")/run-iso-build-wsl.sh")" '"${release_args[@]}"'
+
+# Small F-backed workspace: old failed scratch must not prevent a fresh retry.
+eval "$(sed -n '/^check_stage_space() {$/,/^}$/p' "$SCRIPT")"
+die() { fail "$*"; }
+STAGE_DIR=/var/tmp/ooonana-test-stage
+STAGE_MIN_FREE_KB=100
+df() { printf 'Filesystem 1K-blocks Used Available Capacity Mounted\nfixture 200 160 %s 80%% /fixture\n' "${fixture_free:-60}"; }
+du() { printf '%s\tfixture\n' "${fixture_used:-40}"; }
+findmnt() { [[ "${fixture_mount_failure:-0}" == 0 ]] || return 1; printf '%s\n' "${fixture_mount:-/fixture}"; }
+# Exercise directory-present branch without creating anything in /var/tmp.
+space_function="$(declare -f check_stage_space)"
+eval "${space_function/\[\[ -d \"\$STAGE_DIR\" \]\]/true}"
+check_stage_space
+if (fixture_free=59; check_stage_space) >/dev/null 2>&1; then fail 'low capacity accepted'; fi
+if (fixture_mount="$STAGE_DIR/nested"; check_stage_space) >/dev/null 2>&1; then fail 'mounted scratch accepted'; fi
+if (fixture_mount="$STAGE_DIR"; check_stage_space) >/dev/null 2>&1; then fail 'stage mount accepted'; fi
+if (fixture_mount_failure=1; check_stage_space) >/dev/null 2>&1; then fail 'failed mount inspection accepted'; fi
+if (fixture_free=invalid; check_stage_space) >/dev/null 2>&1; then fail 'invalid free space accepted'; fi
+unset -f df du findmnt check_stage_space die
 
 fingerprint_work="$(mktemp -d)"
 trap 'rm -rf "$fingerprint_work"' EXIT

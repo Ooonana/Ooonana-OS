@@ -18,6 +18,8 @@ jobs:
         run: |
           set -eu
           bash tests/test-backend-regressions.sh
+          bash tests/test-iso-launcher.sh
+          PYTHONDONTWRITEBYTECODE=1 bash tests/test-rebuild-full-i3-release.sh
           python3 -B tests/test-service-watchdog.py
           python3 -B tests/test-service-readiness.py
           python3 -B tests/test-cgroup-memory.py

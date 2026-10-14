@@ -1,5 +1,34 @@
 # Current work - 2026-10-14
 
+## October 14 F-backed build workspace
+
+Windows ISO launcher now prepares a separate 21 GiB sparse ext4 build file on
+F:, keeping Ubuntu/Ooonana distro VHD locations unchanged. Rootfs, disk images,
+temporary files and future kernel work use that native filesystem, not raw
+NTFS trees. Initial setup requires 29 GiB F: headroom; reuse counts physical
+free space plus already allocated workspace extents, retaining an 8 GiB output
+reserve. Checks run before expensive release phases. UUID/label/size, symlink,
+exclusive-lock and mount checks reject foreign or damaged files; flush/unmount
+failures retain workspace. Retry space accounting includes reclaimable failed
+scratch, refuses mounted children, and rechecks capacity after kernel compile.
+
+Actual 64 MiB F-backed ext4 probe passed ownership, setuid, hardlinks, symlinks
+and `cp -a`. Launcher/storage/source-release/backend regressions pass. Removed
+5,755,216 KiB (~5.49 GiB) inactive failed C-backed build scratch after retaining
+fingerprint/completion markers and file listing under
+`/var/tmp/ooonana-build-storage-cleanup-20261014.ke7Wd2xb/`. This is logical guest
+space reclaimed; no VHD compaction or promise of equal Windows free space.
+History, model stores, old releases, signed generations and keys remain.
+
+Non-sparse NTFS formatting caused long zero-fill I/O on removable F: (~3.6 MB/s
+observed). Stopped only this run's Ubuntu session to cancel it; sparse-file
+setup replaces that slow allocation path. Removal of the owned incomplete
+`F:\Ooonana\ooonana-os\build-storage\release-stage.ext4.creating` (21 GiB) was
+policy-blocked; no alternate deletion/overwrite attempted. User removal after
+the owning session stopped is required before final workspace setup/preflight.
+Final F-backed full release has not run; no ISO built, sound, installed WSL
+migration, stable promotion or private-key upload.
+
 ## October 14 startup, Power and Settings
 
 Actual GRUB EFI preview reproduced small-screen logo/menu overlap; responsive

@@ -1143,7 +1143,10 @@ docs/jarvis-agi-research.md
 For prepared Windows/WSL release workspace, run in PowerShell:
 
 ```powershell
-if ((Get-PSDrive C).Free -lt 20GB) { throw 'Free 20 GiB on C: for Ubuntu WSL staging first.' }
+# First run needs 29 GiB free on F:; launcher also checks backing capacity on reuse.
+$workspace = 'F:\Ooonana\ooonana-os\build-storage\release-stage.ext4'
+$required = if (Test-Path -LiteralPath $workspace) { 8GB } else { 29GB }
+if ((Get-PSDrive F).Free -lt $required) { throw 'Insufficient F: space for build workspace/output.' }
 $repo = '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10'
 & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo $repo --preflight-only
 if ($LASTEXITCODE -eq 0) {
@@ -1161,10 +1164,29 @@ rollback. Do not relabel old archives or bypass provenance checks.
 `--repo` selects a repository without changing the stable `CURRENT` pointer or
 installed WSL. It must exist and pass signatures, checksums and dependency checks;
 selecting it does not certify a release. Other machines must supply their own path.
-On this host Ubuntu's VHD is on C:, while repo/release storage is on F:.
-WSL `df` reports virtual guest capacity, not free space on the Windows drive
-backing that VHD. Keep at least 20 GiB free on C: for staging and 8 GiB on F:
-before building; freeing F: alone does not provide C: staging headroom.
+The Windows launcher now places rootfs, installer images, temporary files and
+future kernel work in a separate F-backed ext4 workspace:
+`F:\Ooonana\ooonana-os\build-storage\release-stage.ext4`. Ubuntu's distro VHD
+stays on C:; no distro relocation, reimport or migration occurs. First use needs
+29 GiB free on F: (21 GiB sparse scratch capacity plus 8 GiB output reserve).
+Windows sparse-file setup avoids slow zero-filling of the entire workspace.
+Later runs require free F: space plus already allocated workspace extents to
+cover those 29 GiB, with at least 8 GiB actually free. The launcher and each
+release phase check this physical budget; guest `df` alone is insufficient.
+Keep normal Windows free-space headroom
+on C: too. The ext4 workspace is mounted only during the command and flushed/
+unmounted afterward; UUID, label, size and exclusive-use checks refuse foreign
+or damaged images rather than formatting them. Failed scratch can be retried
+normally; mounted leftovers and insufficient capacity fail closed.
+Do not delete the workspace while a build runs. It is reusable build storage,
+not a moved WSL disk or a release backup. Raw rootfs trees must not live directly
+on NTFS/DrvFS: Unix permissions and links need ext4. Direct Linux invocation of
+`rebuild-full-i3-release.sh` still uses its configured native staging filesystem;
+the F-backed behavior belongs to `run-iso-build-wsl.sh` / `Build-ISO.ps1`.
+An interrupted first-time setup can leave `release-stage.ext4.creating`.
+The launcher refuses to overwrite it. Stop its owning setup/build before
+removing that incomplete scratch file; never remove a mounted finalized image
+or any `ext4.vhdx` distro disk.
 Run a fresh build after
 source or package changes; do not reuse rootfs/ISO resume stages from older code.
 The release script validates package checksums and kernel config, builds in WSL,
