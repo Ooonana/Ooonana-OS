@@ -105,9 +105,12 @@ These are conditional validation/migration gates, not claims of unfinished known
 feature fixes. Any subsequent shipped runtime/kernel/package fix requires a fresh
 ISO; documentation/test-only changes do not. User performs ISO build.
 
-PowerShell, after enough free space, using the separate signed candidate:
+Current launcher uses F-backed native scratch, not the historical C: 20 GiB
+staging requirement above. See [current build instructions](../README.md#build-from-source).
+Do not rerun this command while the user's October 14 build is active.
+
+PowerShell, using the separate signed candidate:
 
 ```powershell
-if ((Get-PSDrive C).Free -lt 20GB) { throw 'Need 20 GiB free on C:' }
 & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10'
 ```

@@ -1,5 +1,28 @@
 # Current work - 2026-10-14
 
+## October 14 user build and model inventory
+
+User removed the incomplete `.creating` file; actual F-backed sparse-workspace
+setup/preflight passed. Ongoing full build passed scratch/full-rootfs stages and
+runtime audit (174 scripts, 524 ELF files, zero errors), then entered live/installer
+creation. Read-only observation confirms an active installer-image process, not
+a completed ISO. Final ISO/service/BIOS/UEFI verification, promotion and checksum
+remain pending; existing October 6 release remains untouched at this snapshot.
+No second build, restart, active-scratch cleanup, runtime/package edit or signed
+generation replacement during the user's build. Documentation-only changes do
+not require another ISO.
+
+Pinned candidate generation:
+`5f8074ffabc6ed5848360cd1666d0c7f74ae9f2961656b6ade612efc192dbe8f`;
+core 0.10.0, 654 packages / 612 nodes, clean source revision
+`2c7a925e1d9e6d0e7b4e8723350b036885a4a795`. Both source CI pipelines passed.
+Native Ubuntu retains one testing-only SmolLM2-360M store, 218,728 KiB (~214 MiB),
+with ~207 MiB primary weights. No personal weights or extensionless model-cache
+blobs found in scanned native paths; Windows mounts/symlinks not followed.
+Ooonana WSL stays stopped and unverified, not claimed empty. C: ~2.49 GiB free
+at initial check: installed WSL update/migration deferred, no model/runtime
+download, VHD relocation or compaction. [Inventory and policy](wsl-model-storage-20261014.md).
+
 ## October 14 F-backed build workspace
 
 Windows ISO launcher now prepares a separate 21 GiB sparse ext4 build file on
@@ -28,10 +51,11 @@ Non-sparse NTFS formatting caused long zero-fill I/O on removable F: (~3.6 MB/s
 observed). Stopped only this run's Ubuntu session to cancel it; sparse-file
 setup replaces that slow allocation path. Removal of the owned incomplete
 `F:\Ooonana\ooonana-os\build-storage\release-stage.ext4.creating` (21 GiB) was
-policy-blocked; no alternate deletion/overwrite attempted. User removal after
-the owning session stopped is required before final workspace setup/preflight.
-Final F-backed full release has not run; no ISO built, sound, installed WSL
-migration, stable promotion or private-key upload.
+policy-blocked; no alternate deletion/overwrite attempted. User subsequently
+removed it manually and passed actual sparse-workspace setup/preflight, as
+recorded above. Full release is now user-run and in progress, not yet verified
+complete. No assistant ISO build, sound, installed WSL migration, stable
+promotion or private-key upload.
 
 ## October 14 startup, Power and Settings
 
@@ -630,10 +654,12 @@ Current source includes the backend/desktop repairs below. ISO building stays wi
 User-owned ISO build, from PowerShell:
 
 ```powershell
-& 'F:\Ooonana\ooonana-os\Build-ISO.ps1'
+& 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10'
 ```
 
-Current source requires a fresh normal build. Do not use `--resume-after-iso` or
+Do not launch another copy while the current build runs. Shipped runtime/package
+changes require a fresh normal build; documentation-only updates do not.
+Do not use `--resume-after-iso` or
 `--resume-after-rootfs` against the old October 5 staging. Back up persistent USB
 data before flashing; existing production/staged ISOs do not contain these repairs.
 

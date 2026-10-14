@@ -4,6 +4,11 @@ Applies to the Ooonana `openvino setup` wrapper, not Windows standalone setup.
 Source/candidate core remains 0.10.0; installed Ooonana WSL/stable remains 0.9.9.
 Models, sessions and user configuration outside the runtime stay separate.
 
+October 14 WSL policy: reuse explicit mounted model paths from existing Windows
+stores; no duplicate production-weight download into native WSL. Ubuntu retains
+one small QA model (~214 MiB); stopped Ooonana WSL was not inspected. Runtime
+generations/wheels are not weights. [Inventory and limits](wsl-model-storage-20261014.md).
+
 ## Replacement flow
 
 1. A kernel-released writer lock serializes setup. The inner installer does not

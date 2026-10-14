@@ -1,5 +1,16 @@
 # Remaining-work closure - 2026-10-08
 
+## October 14 current status
+
+Older dated storage/build notes below are historical. User's F-backed sparse
+setup/preflight passed; full rootfs passed 174 script / 524 ELF checks, zero
+errors. Live/installer creation is running; final ISO/boot gates remain pending.
+Do not start another build or modify its inputs. Signed candidate is current;
+installed Ooonana WSL/stable remain 0.9.9. WSL migration stays deferred pending
+verified backup/headroom. Documentation-only updates do not require another ISO.
+[Current snapshot](current-work.md#october-14-user-build-and-model-inventory)
+and [WSL model inventory](wsl-model-storage-20261014.md) supersede old snapshots.
+
 Source/candidate: core 0.10.0 on `codex/supported-base-0-10`. Installed Ooonana WSL,
 stable main/update endpoints and October 6 ISO remain 0.9.9. Ubuntu only hosts
 builds/tests. No ISO, installed-distro migration, sound playback or key enrollment.
