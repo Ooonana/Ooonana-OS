@@ -18,6 +18,9 @@ Read-only cleanup recheck: temporary QA registration/VHD, raw image and tarball
 are absent; logs and replacement plan retained. C: ~3.7 GiB / F: ~28.9 GiB free.
 No denied-target cleanup retry. Active disks/models/history/keys preserved.
 CI/tests/docs only; no packaged runtime/kernel edits or ISO remake.
+Remote eccf95c checks passed: GitLab 2948761455 and GitHub 38655509434.
+Follow-up pins tested Ubuntu 24.04 and verified Node24 checkout SHA in both
+GitHub workflows to avoid upcoming runner/runtime drift; no package publication.
 [Detailed checks and remaining work](ci-smoke-repair-20261015.md).
 
 ## October 14 installed WSL fresh replacement completed

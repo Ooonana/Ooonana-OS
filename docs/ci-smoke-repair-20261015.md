@@ -26,6 +26,16 @@ backup/xattr/hardlink/tamper/atomic-migration/shutdown fixtures passed too.
 Temporary fixture filesystems were normally unmounted and discarded afterward.
 Remote post-push pipeline outcome remains separate from this local proof.
 
+Commit eccf95c then passed both remote providers:
+[GitLab 2948761455](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2948761455),
+[GitHub 38655509434](https://github.com/Ooonana/Ooonana-OS/actions/runs/38655509434).
+GitHub reported deprecated checkout Node runtime and upcoming ubuntu-latest
+rollover. Follow-up pins both workflows to tested Ubuntu 24.04 and full verified
+checkout commit `3d3c42e5aac5ba805825da76410c181273ba90b1` (v7.0.1, Node 24).
+[Runner announcement](https://github.com/actions/runner-images/issues/14748),
+[official checkout release](https://github.com/actions/checkout/releases/tag/v7.0.1).
+Package publishing workflow is not dispatched; stable release controls unchanged.
+
 ## Docs and cleanup
 
 Guide updated to current installed/stable distinction, WSL-local launch command,
