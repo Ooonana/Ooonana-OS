@@ -526,7 +526,7 @@ timeout "$QEMU_TIMEOUT" qemu-system-x86_64 \
   -accel "$QEMU_ACCEL" -machine q35 -m "$QEMU_MEMORY" -smp 2 \
   -kernel "$WORK/vmlinuz" -initrd "$WORK/smoke-initramfs.cpio.gz" \
   -append 'console=ttyS0 loglevel=4 ooonana.live=1' \
-  -cdrom "$ISO" -nic user,model=e1000 \
+  -cdrom "$ISO" -nic user,model=e1000e \
   -audiodev none,id=ooonana-audio \
   -device intel-hda -device hda-duplex,audiodev=ooonana-audio \
   -display none -serial stdio -monitor none -no-reboot >"$WORK/qemu.log" 2>&1 &

@@ -2,6 +2,17 @@
 set -eu
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 . "$ROOT/scripts/lib/verification-media.sh"
+wsl_resident_reuse_kb 8388608 7340032 3145728
+[ "$wsl_reuse_kb" -eq 1572864 ]
+wsl_resident_reuse_kb 8388608 7340032 0
+[ "$wsl_reuse_kb" -eq 0 ]
+wsl_resident_reuse_kb 8388608 7340032 1048576
+[ "$wsl_reuse_kb" -eq 0 ]
+wsl_resident_reuse_kb 8388608 7340032 99999999
+[ "$wsl_reuse_kb" -eq 0 ]
+if wsl_resident_reuse_kb 8388608 8388609 3145728; then exit 1; fi
+if wsl_resident_reuse_kb 8388608 7340032 invalid; then exit 1; fi
+if wsl_resident_reuse_kb 8388608 07340032 3145728; then exit 1; fi
 ram_media_memory_ok 1073741824 2048 5242880 5242880
 if ram_media_memory_ok 1073741824 2048 5242879 5242880; then exit 1; fi
 if ram_media_memory_ok 1073741824 2048 5242880 5242879; then exit 1; fi
@@ -21,7 +32,8 @@ trap 'rm -rf -- "$fixture"' EXIT
 printf '%s\n' 'Ooonana full i3 rootfs' >"$fixture/boot.log"
 verification_guest_log_ok "$fixture/boot.log"
 for fault in 'I/O error, dev sr0' 'Buffer I/O error' 'EXT4-fs error' \
-  'Remounting filesystem read-only' 'Kernel panic' 'Out of memory: Killed process'; do
+  'Remounting filesystem read-only' 'Kernel panic' 'Out of memory: Killed process' \
+  'Detected Tx Unit Hang' 'NETDEV WATCHDOG'; do
   printf '%s\n' 'Ooonana full i3 rootfs' "$fault" >"$fixture/boot.log"
   if verification_guest_log_ok "$fixture/boot.log"; then exit 1; fi
 done

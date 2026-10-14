@@ -10,6 +10,7 @@ fail() {
 }
 
 source_text="$(<"$SCRIPT")"
+[[ "$source_text" == *'-nic user,model=e1000e'* ]] || fail 'q35 smoke must use PCIe NIC like normal boot matrix'
 [[ "$source_text" == *'for bluetoothd_path in'* ]] ||
   fail "service smoke does not accept packaged bluetoothd path"
 [[ "$source_text" == *'/usr/lib/bluetooth/bluetoothd'* ]] ||

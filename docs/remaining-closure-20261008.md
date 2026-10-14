@@ -6,23 +6,33 @@ Older dated storage/build notes below are historical. User's F-backed sparse
 setup/preflight passed; full rootfs passed 174 script / 524 ELF checks, zero
 errors. ISO was created but service verification failed. Repeat service success
 contained guest CD-ROM I/O errors. Later explicit disk-backed verification
-passed static/service/BIOS/UEFI checks without guest errors. ISO remains
-unpromoted; user-run disk-backed resume handles final checksum/promotion.
+passed static/service/BIOS/UEFI checks without guest I/O/OOM/panic errors.
+Final existing-ISO resume and independent Windows checksum completed; candidate
+published at `F:\Ooonana\ooonana-os\release-current\ooonana-full-i3.iso`.
+Legacy virtual-NIC Tx-hang warnings prompted an `e1000e` host-harness repair;
+actual published-image service/fault/shutdown retest passed cleanly.
 Host-only fixes now reject those errors, preserve serial evidence, validate
 resume inputs and guard storage cleanup. Existing staged fingerprint matches;
 no payload remake required for these changes. Temporary plain-ISO copy on C:
-requires ~3.5 GiB free RAM and ISO-size-plus-2-GiB free disk; original RAM mirror
+requires ~3.5 GiB effective host RAM budget and ISO-size-plus-2-GiB free disk;
+resident WSL credit excludes guest-used RAM plus 512 MiB VM overhead and requires
+1 GiB immediately free Windows RAM. Original RAM mirror
 remains optional. Copy cleaned up, no WSL VHD growth/relocation. Signed candidate stays pinned;
 installed Ooonana WSL/stable remain 0.9.9. WSL migration stays deferred pending
-verified backup/headroom. User compacted WSL, restoring C: ~9.8 GiB. Removed
-~456 MiB redundant QA libraries, history retained. No models/releases/keys removed.
+verified backup/headroom. Latest C: ~5.1 GiB / F: ~17.1 GiB snapshot followed
+publication; future full-workspace capacity guard refused, without bypass.
+Earlier ~456 MiB redundant QA libraries removed, history retained. Latest
+computer scan found ~652 MiB inactive QA payload but deletion was policy-blocked;
+no retry/bypass. No models/releases/keys removed.
 [Latest build recheck and complete remaining gates](build-verification-recheck-20261014.md).
-[Current snapshot](current-work.md#october-14-user-build-and-model-inventory)
+[Current snapshot](current-work.md#october-14-computer-scan-and-resident-ram-accounting)
 and [WSL model inventory](wsl-model-storage-20261014.md) supersede old snapshots.
 
 Source/candidate: core 0.10.0 on `codex/supported-base-0-10`. Installed Ooonana WSL,
-stable main/update endpoints and October 6 ISO remain 0.9.9. Ubuntu only hosts
-builds/tests. No ISO, installed-distro migration, sound playback or key enrollment.
+stable main/update endpoints remain 0.9.9. October 6 ISO is historical; current
+local published candidate is 0.10.0. Ubuntu only hosts builds/tests. Assistant
+verified/promoted the user-built ISO, without fresh construction, installed-distro
+migration, sound playback or key enrollment. Older notes below are historical.
 
 Latest deep scan repaired additional task/API PID races, GTK counter overflow,
 state/IPC failures and repository flush ordering. Removed ~224.5 MiB duplicate
@@ -244,7 +254,11 @@ Evidence: `/var/tmp/ooonana-openvino-live-20261009.xZBaRy8V`,
   current CLI, control popup, browser helper and global compatibility config.
   This package is QA output, not a promoted complete repository generation.
 
-## Still required / not authorized or unavailable
+## Historical October 8 pending list
+
+Superseded by October 14 current status and the current remaining gates in
+[build recheck](build-verification-recheck-20261014.md#remaining-work). Preserve
+this older list as history, not current build or consent instructions.
 
 1. Storage: latest check C: about 4.3 GiB free, F: 10.8 GiB. F release builder needs
    at least 8 GiB; Linux release scratch needs 20 GiB, and WSL backup needs extra

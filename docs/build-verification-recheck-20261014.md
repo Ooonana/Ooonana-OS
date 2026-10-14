@@ -1,6 +1,36 @@
 # Build verification and cleanup - 2026-10-14
 
+## Final closure: existing ISO verified and published
+
+Assistant resumed the user-built ISO, not a fresh construction. Static/Rufus,
+service, BIOS and UEFI gates passed; `OOONANA_REBUILD_COMPLETE` followed final
+checksum/promotion. Published candidate:
+`F:\Ooonana\ooonana-os\release-current\ooonana-full-i3.iso` (2,895,407,104 bytes).
+Independent Windows SHA256 matched its sidecar:
+`96dc45a2f27f0cd6e0e2e4e76b78af0604b3cbe79231c3eddadd1fc85c94c86d`.
+Temporary C: verification copy was removed and F workspace normally unmounted.
+Completed staging was retired; do not resume that old staging again.
+
+The completed resume revealed legacy `e1000` virtual-NIC Tx-hang warnings.
+Host-only q35 service harness now uses `e1000e`, already supported by this
+kernel; common log checks reject Tx hangs/network watchdogs too. Real retest of
+the published ISO passed all service/fault/shutdown gates without those errors:
+`F:\Ooonana\ooonana-os\build-diagnostics-20261014\service.va5T6eo1.log`.
+Source/unit checks and ShellCheck passed. No packaged input changed.
+
+Core 0.10.0 candidate generation remains pinned; installed WSL and stable package
+channel remain 0.9.9. Physical gates remain untested. Latest C: ~5.1 GiB / F:
+~17.1 GiB snapshot followed publication; a future full-workspace launch refused
+its full-capacity-plus-8-GiB reserve. No guard bypass. Additional NIC QA used
+bounded native scratch rather than rebuilding. Historical steps follow.
+
 ## Follow-up: disk verification instead of RAM mirroring
+
+Later user retry reproduced another refusal: host check excluded reusable RAM
+already resident inside WSL. Resident accounting correction retains the 2 GiB
+budget reserve, subtracts guest-used memory plus 512 MiB VM overhead, and
+requires at least 1 GiB immediately free Windows RAM independently. Virtual
+guest capacity alone never supplies credit. [Computer scan and accounting evidence](computer-junk-review-20261014.md).
 
 Repeated RAM refusal is a host-resource limitation, not another ISO build
 failure. Added explicit `--verify-on-disk PATH`; RAM guard remains unchanged.
@@ -97,9 +127,9 @@ No downloads, sound playback or private-key upload during this pass.
 
 ## Remaining work
 
-1. User-run final checksum/promotion using the disk-backed resume command below.
-   Actual service and BIOS/UEFI checks now passed; command repeats them before
-   promoting. Existing October 6 release remains unchanged until then.
+1. Final checksum/promotion completed. Use the published candidate above; no
+   repeat resume or rebuild needed for these host-only fixes. Future fresh
+   builds require enough F: headroom for the guarded full workspace.
 2. RAM-mirror integration is optional and still untested; disk verification
    removes this prerequisite. Do not disable either mode's resource guard.
 3. Actual Chromium PDF-viewer boot/input/Backspace/latency; earlier tool-policy
@@ -109,20 +139,22 @@ No downloads, sound playback or private-key upload during this pass.
 5. Heavyweight/GPU OpenVINO inference and physical hardware/persistence/upgrade
    fault tests remain separate. Hardware checks were explicitly skipped.
 6. Installed Ooonana WSL migration remains deferred until a verified backup and
-   sufficient storage; stable channel/installed WSL/October 6 ISO stay 0.9.9.
+   sufficient storage; stable package channel/installed WSL stay 0.9.9. Older
+   October 6 release is historical, not the current local candidate ISO.
 7. Repository signing enrollment stays deferred; private key remains local.
 
-## Resume existing staged ISO using temporary C: disk copy
+## Historical resume command: completed; do not rerun
 
-Run in PowerShell with at least ~3.5 GiB free RAM and ~4.7 GiB free C: disk
-space (for this ISO). No `--verify-in-ram`:
+The completed invocation used at least ~3.5 GiB RAM budget (Windows-free plus conservatively
+reusable resident WSL RAM), 1 GiB immediately free Windows RAM, and ~4.7 GiB free C: disk
+space (for this ISO). It did not use `--verify-in-ram`:
 
 ```powershell
 $repo = '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10/generations/5f8074ffabc6ed5848360cd1666d0c7f74ae9f2961656b6ade612efc192dbe8f'
 & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo $repo --resume-after-iso --verify-on-disk '/mnt/c/Users/7ryan/AppData/Local/Temp'
 ```
 
-This skips ISO construction, verifies existing media and promotes only after
-all enabled gates pass. No `--skip-boot-matrix`. Any subsequent packaged-input
-change correctly refuses resume and needs a fresh normal build. Retain staged
-media and the original generation until verification completes.
+This skipped ISO construction, verified existing media and promoted only after
+all enabled gates passed. No `--skip-boot-matrix`. Completed staging is gone;
+this command is retained as invocation history, not current instructions.
+Any subsequent packaged-input change needs a fresh normal build.

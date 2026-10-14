@@ -21,9 +21,9 @@ October 13 core 0.10.0 candidate captured with real GTK/i3/Polybar on a private,
 
 Stable core 0.9.9 desktop refresh adds unboxed dock hover feedback, slimmer panel, open Appearance groups, blue globe browser icon and canonical wallpaper fitting. Component previews use isolated test windows, not physical USB boot.
 
-This branch stages **core 0.10.0**, a coherent Alpine v3.24 imported-userland candidate. Installed Ooonana WSL and stable package channel remain 0.9.9. Chromium's optional shader disk cache triggered a syscall-sandbox crash; disabling that cache fixes isolated window tests without disabling sandbox or normal GPU selection. Kernel-reported renderer/GPU seccomp and privilege-lock checks passed. User's October 14 F-backed build produced a staged ISO after a clean full-rootfs audit (174 scripts / 524 ELF files). Earlier verification exposed guest CD-ROM I/O errors. Explicit disk-backed verification now passed static, service, BIOS and UEFI checks without guest I/O/OOM/panic errors; user-run final checksum/promotion remains. Host-only verification/resume/cleanup repairs do not change runtime payload; matching staged inputs were checked. Installed WSL migration stays deferred for safe backup/headroom. No ISO built by the assistant. See [build recheck](docs/build-verification-recheck-20261014.md) and [remaining gates](docs/remaining-closure-20261008.md).
+This branch stages **core 0.10.0**, a coherent Alpine v3.24 imported-userland candidate. Installed Ooonana WSL and stable package channel remain 0.9.9. Chromium's optional shader disk cache triggered a syscall-sandbox crash; disabling that cache fixes isolated window tests without disabling sandbox or normal GPU selection. Kernel-reported renderer/GPU seccomp and privilege-lock checks passed. User's October 14 F-backed ISO build passed full-rootfs audit (174 scripts / 524 ELF files). Assistant resumed that existing ISO: disk-backed static/Rufus, service, BIOS/UEFI and final checksum/promotion passed. Independent Windows SHA256 matched the published `F:\Ooonana\ooonana-os\release-current\ooonana-full-i3.iso`. Legacy virtual-NIC Tx-hang warnings prompted a host-only `e1000e` harness repair; actual published-image service/fault/shutdown retest passed without those errors. No fresh ISO construction or packaged-input change. Installed WSL migration stays deferred for safe backup/headroom. Physical hardware gates remain untested. See [build recheck](docs/build-verification-recheck-20261014.md) and [remaining gates](docs/remaining-closure-20261008.md).
 
-October 14 storage update: sparse ext4 scratch on F: works without moving any WSL distro disk. Ubuntu native model scan found one testing-only SmolLM2-360M store (~214 MiB total), not personal model weights in the scanned native user locations. Stopped Ooonana WSL was not started or inspected; do not treat that as proof its model storage is empty. Windows C:/F: model stores are separate and preserved. [Inventory, limits and storage policy](docs/wsl-model-storage-20261014.md).
+October 14 storage update: sparse ext4 scratch on F: works without moving any WSL distro disk. Full accessible C:/F: metadata scan covered 1,660,467 files; protected/reparse paths skipped. Both native WSL roots reviewed: Ubuntu retains a testing-only SmolLM2-360M store (~214 MiB); no weights found in inspected Ooonana native paths, not a blanket emptiness guarantee. Windows model stores/history/keys preserved. Latest ~652 MiB confirmed QA junk removal was policy-blocked; no bypass. Existing ISO is published, but future fresh full-workspace launches still need guarded F: capacity. [Computer scan and RAM accounting](docs/computer-junk-review-20261014.md); [earlier inventory and policy](docs/wsl-model-storage-20261014.md).
 
 October 9 follow-up: GTK file pickers no longer open above the display. Actual Geany cancel/open and window controls passed on isolated 1280x800 and 1024x768 displays; ordinary alerts retain their size. OpenVINO low-memory failures now return typed JSON/SSE errors, including CPU-fallback and generation allocation failures; OOM never triggers grammar retry. Real pinned Linux runtime/tokenizer, strict RAM refusal and API crash/restart passed without loading heavyweight model weights; inference remains pending. [Evidence and limits](docs/remaining-closure-20261008.md#october-9-follow-up).
 
@@ -33,7 +33,7 @@ October 12: fixed missing Documents portal and sticky `/var/tmp`, including nonr
 
 Deep recheck: repaired long-uptime/unsigned-UID Task Manager overflow, Linux task/API PID-reuse races, old quick-kill safeguards, state-write/IPC recovery and generation flush ordering. Current GUI/CPU AI gates passed again; duplicate test scratch removed, history retained. No ISO or installed WSL migration. [Evidence and remaining assistant work](docs/deep-recheck-20261012.md).
 
-October 13 actual build follow-up: full-i3 now explicitly includes the split `rofi-x11-wayland` executable. Hardware firmware audit recognizes compressed blobs only when the resolved target kernel supports that format. Repaired staging rootfs passes 174 script / 524 ELF checks, zero errors. Use a fresh build, not resume; no ISO built here. [Build repair details](docs/current-work.md#october-13-iso-build-blockers).
+October 13 actual build follow-up: full-i3 now explicitly includes the split `rofi-x11-wayland` executable. Hardware firmware audit recognizes compressed blobs only when the resolved target kernel supports that format. Repaired staging rootfs passes 174 script / 524 ELF checks, zero errors. Those packaged changes required the fresh build completed by the user on October 14; older unrepaired images cannot resume into them. [Build repair details](docs/current-work.md#october-13-iso-build-blockers).
 
 ![Native Ooonana AI with real CPU response and request cancellation](docs/assets/ooonana-ai-real-cpu-20261012.png)
 
@@ -1142,6 +1142,12 @@ docs/jarvis-agi-research.md
 
 ## Build From Source
 
+October 14 existing user-built candidate is already verified/published at
+`F:\Ooonana\ooonana-os\release-current\ooonana-full-i3.iso`. No rebuild needed
+for the latest host-only verification fixes. Commands below are for future fresh
+builds. Current ~17.1 GiB F: free snapshot failed the stricter workspace-capacity
+check even though the simple 8 GiB minimum passed; free more space first.
+
 For prepared Windows/WSL release workspace, run in PowerShell:
 
 ```powershell
@@ -1206,7 +1212,7 @@ Both Linux and Windows available RAM must cover the ISO, the largest test guest
 6.7 GiB available on both sides while WSL is running; larger service-memory
 overrides increase the budget. Insufficient RAM refuses before copying.
 Service and BIOS/UEFI success markers cannot override guest I/O, filesystem,
-kernel-panic or OOM errors. [Existing staged-image resume command and limits](docs/build-verification-recheck-20261014.md).
+kernel-panic, OOM or network Tx-hang/watchdog errors. [Completed existing-image verification and limits](docs/build-verification-recheck-20261014.md).
 
 If RAM mirroring cannot fit, `--verify-on-disk PATH` instead makes a temporary,
 byte-compared ISO copy on a fast disk. On this Windows workspace use
@@ -1215,7 +1221,12 @@ trees, build staging or a relocated/growing WSL distro VHD. Copy cleanup removes
 only its owned ISO and empty directory. Both destination and Windows C: must
 have ISO-size-plus-2-GiB disk headroom. RAM still needs guest-size-plus-2-GiB;
 the disk-backed service and BIOS/UEFI probes use 1536 MiB VMs by default (~3.5 GiB
-free RAM required), with `OOONANA_QEMU_MEMORY` overrides counted. This changes
+budget required), with `OOONANA_QEMU_MEMORY` overrides counted. On WSL, that
+host budget includes conservatively estimated reusable RAM already resident in
+the VM, not only Windows free RAM; virtual VM capacity alone is never credited.
+Linux availability and the 2 GiB reserve still must pass independently.
+Windows must also retain at least 1 GiB immediately free physical RAM.
+This changes
 test VM allocation only, never physical/live OS RAM. RAM and disk flags are
 mutually exclusive; neither bypasses boot/service/error checks.
 

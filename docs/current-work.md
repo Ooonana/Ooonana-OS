@@ -1,5 +1,35 @@
 # Current work - 2026-10-14
 
+## October 14 computer scan and resident RAM accounting
+
+Accessible C:/F: metadata scan covered 1,660,467 files; both WSL native roots
+reviewed. Junction/cloud reparse entries and protected paths skipped, with
+local-only evidence. Confirmed ~652 MiB old QA kernel/initramfs payload and a
+small byte-identical C: QA archive, but execution policy blocked removal before
+the command ran. No deletion/bypass; history/models/releases/keys remain.
+
+Reproduced disk-mode RAM refusal. Corrected conservative host accounting to
+include reusable RAM already resident in one observed WSL VM, subtracting all
+Linux nonreclaimable usage and another 512 MiB overhead. Virtual capacity is
+not credit; invalid/ambiguous readings refuse/fall back. Both 2 GiB reserves
+remain; unit/source/ShellCheck and live RAM-budget checks pass. Existing user-built
+ISO resume completed static/Rufus, service, BIOS/UEFI and checksum/promotion.
+No fresh construction or installed WSL migration. Candidate now at
+`F:\Ooonana\ooonana-os\release-current\ooonana-full-i3.iso`, 2,895,407,104 bytes;
+independent Windows SHA256 matched:
+`96dc45a2f27f0cd6e0e2e4e76b78af0604b3cbe79231c3eddadd1fc85c94c86d`.
+Temporary C: ISO removed; F workspace unmounted; old completed staging retired.
+
+Legacy virtual `e1000` Tx-hang warnings triggered a host-only harness repair:
+q35 probe uses PCIe `e1000e`, and health predicates reject Tx hangs/watchdogs.
+Actual published-image service/fault/shutdown retest passed without those
+errors; `build-diagnostics-20261014/service.va5T6eo1.log` retains evidence.
+Physical Wi-Fi is not certified. Core 0.10.0 candidate; stable/installed WSL
+remain 0.9.9. Latest C: ~5.1 GiB / F: ~17.1 GiB snapshot; future full-workspace
+launch correctly refused capacity-plus-reserve. No bypass or ISO rebuild needed
+for current host-only changes. Older dated status below is historical.
+[Detailed scan, boundaries, blocked targets and accounting](computer-junk-review-20261014.md).
+
 ## October 14 disk-backed verification closure
 
 Repeated RAM-mirror refusal resolved with explicit `--verify-on-disk PATH`.

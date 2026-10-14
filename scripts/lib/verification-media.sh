@@ -7,21 +7,57 @@ DISK_MEDIA_DIR=''
 DISK_MEDIA_ISO=''
 DISK_MEDIA_SOURCE=''
 
+wsl_resident_reuse_kb() {
+  # Total/available Linux KiB, resident WSL VM KiB. Never credit its virtual cap.
+  wsl_reuse_kb=0
+  [ "$#" -eq 3 ] || return 1
+  for memory_value in "$@"; do
+    case "$memory_value" in ''|*[!0-9]*|0[0-9]*) return 1 ;; esac
+  done
+  [ "$1" -gt 0 ] && [ "$2" -le "$1" ] || return 1
+  # Oversized/ambiguous VM working sets cannot establish resident guest credit.
+  [ "$3" -le "$1" ] || return 0
+  # Subtract ALL nonreclaimable guest RAM and an extra 512 MiB VM overhead.
+  resident_spare_kb=$(($3 - ($1 - $2) - 512 * 1024))
+  [ "$resident_spare_kb" -gt 0 ] || return 0
+  wsl_reuse_kb="$resident_spare_kb"
+  [ "$wsl_reuse_kb" -le "$2" ] || wsl_reuse_kb="$2"
+}
+
 verification_available_memory() {
   linux_kb="$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)"
+  linux_total_kb="$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)"
   windows_kb=0
+  windows_free_kb=0
+  wsl_reuse_kb=0
   windows_ps=/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe
   if grep -qi microsoft /proc/sys/kernel/osrelease; then
     [ -x "$windows_ps" ] || { echo 'FAIL: cannot check Windows RAM headroom' >&2; return 1; }
-    windows_kb="$("$windows_ps" -NoProfile -NonInteractive -Command \
-      '(Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory' </dev/null | tr -d '[:space:]')" || return 1
-    case "$windows_kb" in ''|0|*[!0-9]*) echo 'FAIL: invalid Windows RAM reading' >&2; return 1 ;; esac
+    # PowerShell variables must stay literal until Windows interprets them.
+    # shellcheck disable=SC2016
+    memory_reading="$("$windows_ps" -NoProfile -NonInteractive -Command \
+      '$ErrorActionPreference="Stop"; $m=Get-CimInstance Win32_OperatingSystem; $v=@(Get-Process -Name vmmemWSL -ErrorAction SilentlyContinue); $r=0; if($v.Count -eq 1){$v[0].Refresh(); $r=[math]::Floor($v[0].WorkingSet64/1024)}; $m2=Get-CimInstance Win32_OperatingSystem; if($v.Count -eq 1){$v[0].Refresh(); $r=[math]::Min($r,[math]::Floor($v[0].WorkingSet64/1024))}; "free=$([math]::Min($m.FreePhysicalMemory,$m2.FreePhysicalMemory))"; "resident=$r"' \
+      </dev/null | tr -d '\r')" || return 1
+    windows_free_kb="$(printf '%s\n' "$memory_reading" | awk -F= '$1=="free" {print $2}')"
+    resident_kb="$(printf '%s\n' "$memory_reading" | awk -F= '$1=="resident" {print $2}')"
+    case "$windows_free_kb" in ''|0|*[!0-9]*|0[0-9]*) echo 'FAIL: invalid Windows RAM reading' >&2; return 1 ;; esac
+    [ "$windows_free_kb" -ge 1048576 ] || {
+      echo 'FAIL: keep at least 1 GiB immediately free Windows RAM, independent of WSL resident credit' >&2; return 1;
+    }
+    # Refresh after host sampling; don't credit pages allocated in the interval.
+    linux_after_kb="$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)"
+    case "$linux_after_kb" in ''|*[!0-9]*|0[0-9]*) return 1 ;; esac
+    [ "$linux_kb" -le "$linux_after_kb" ] || linux_kb="$linux_after_kb"
+    wsl_resident_reuse_kb "$linux_total_kb" "$linux_kb" "$resident_kb" || return 1
+    windows_kb=$((windows_free_kb + wsl_reuse_kb))
+    printf '[verify] RAM KiB: Windows-free=%s resident-WSL-credit=%s host-budget=%s Linux-available=%s\n' \
+      "$windows_free_kb" "$wsl_reuse_kb" "$windows_kb" "$linux_kb"
   fi
 }
 
 verification_guest_log_ok() {
   [ -f "$1" ] || return 1
-  if grep -Eq 'I/O error, dev|Buffer I/O error|EXT4-fs error|Remounting filesystem read-only|Kernel panic|Out of memory: Killed process' "$1"; then
+  if grep -Eq 'I/O error, dev|Buffer I/O error|EXT4-fs error|Remounting filesystem read-only|Kernel panic|Out of memory: Killed process|Detected Tx Unit Hang|NETDEV WATCHDOG' "$1"; then
     return 1
   else
     # A grep read error is not proof of a healthy guest.
