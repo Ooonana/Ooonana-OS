@@ -21,7 +21,7 @@ October 13 core 0.10.0 candidate captured with real GTK/i3/Polybar on a private,
 
 Stable core 0.9.9 desktop refresh adds unboxed dock hover feedback, slimmer panel, open Appearance groups, blue globe browser icon and canonical wallpaper fitting. Component previews use isolated test windows, not physical USB boot.
 
-This branch stages **core 0.10.0**, a coherent Alpine v3.24 imported-userland candidate. Installed Ooonana WSL and stable package channel remain 0.9.9. Chromium's optional shader disk cache triggered a syscall-sandbox crash; disabling that cache fixes isolated window tests without disabling sandbox or normal GPU selection. Kernel-reported renderer/GPU seccomp and privilege-lock checks passed. User's October 14 F-backed ISO build is in progress: preflight passed and full-rootfs audit reports 174 scripts / 524 ELF files, zero errors. Final ISO verification/promotion and real-device/new-base session checks remain pending. Installed WSL migration stays deferred for safe backup/headroom. No ISO built by the assistant. See [latest closure and remaining gates](docs/remaining-closure-20261008.md).
+This branch stages **core 0.10.0**, a coherent Alpine v3.24 imported-userland candidate. Installed Ooonana WSL and stable package channel remain 0.9.9. Chromium's optional shader disk cache triggered a syscall-sandbox crash; disabling that cache fixes isolated window tests without disabling sandbox or normal GPU selection. Kernel-reported renderer/GPU seccomp and privilege-lock checks passed. User's October 14 F-backed build produced a staged ISO after a clean full-rootfs audit (174 scripts / 524 ELF files). Release verification failed; a repeat reached service success but exposed guest CD-ROM I/O errors. This is not a verified release. Host-only verification/resume/cleanup repairs do not change its runtime payload; matching staged inputs were checked. Installed WSL migration stays deferred for safe backup/headroom. No ISO built by the assistant. See [build recheck](docs/build-verification-recheck-20261014.md) and [remaining gates](docs/remaining-closure-20261008.md).
 
 October 14 storage update: sparse ext4 scratch on F: works without moving any WSL distro disk. Ubuntu native model scan found one testing-only SmolLM2-360M store (~214 MiB total), not personal model weights in the scanned native user locations. Stopped Ooonana WSL was not started or inspected; do not treat that as proof its model storage is empty. Windows C:/F: model stores are separate and preserved. [Inventory, limits and storage policy](docs/wsl-model-storage-20261014.md).
 
@@ -1176,7 +1176,9 @@ Later runs require free F: space plus already allocated workspace extents to
 cover those 29 GiB, with at least 8 GiB actually free. The launcher and each
 release phase check this physical budget; guest `df` alone is insufficient.
 Keep normal Windows free-space headroom
-on C: too. The ext4 workspace is mounted only during the command and flushed/
+on C: too; the launcher refuses below 1 GiB even when bulk staging stays on F:.
+This is a minimum guard, not a recommended operating target.
+The ext4 workspace is mounted only during the command and flushed/
 unmounted afterward; UUID, label, size and exclusive-use checks refuse foreign
 or damaged images rather than formatting them. Failed scratch can be retried
 normally; mounted leftovers and insufficient capacity fail closed.
@@ -1190,9 +1192,21 @@ The launcher refuses to overwrite it. Stop its owning setup/build before
 removing that incomplete scratch file; never remove a mounted finalized image
 or any `ext4.vhdx` distro disk.
 Run a fresh build after
-source or package changes; do not reuse rootfs/ISO resume stages from older code.
+packaged runtime, boot, kernel, cursor or package-input changes; do not reuse
+older payloads. Host-only verification/docs repairs can reuse matching staged
+media. ISO resume now checks completed provenance, kernel configuration, the
+input fingerprint, signed repository and mounted-child safety before proceeding.
 The release script validates package checksums and kernel config, builds in WSL,
 and verifies the ISO before replacing the previous release.
+
+For slow F-backed QEMU media, optional `--verify-in-ram` mirrors existing media
+in guarded nonswappable tmpfs; it does not rebuild the ISO or move a WSL disk.
+Both Linux and Windows available RAM must cover the ISO, the largest test guest
+(at least 2 GiB), and a 2 GiB reserve. A 2.90 GB ISO therefore needs approximately
+6.7 GiB available on both sides while WSL is running; larger service-memory
+overrides increase the budget. Insufficient RAM refuses before copying.
+Service and BIOS/UEFI success markers cannot override guest I/O, filesystem,
+kernel-panic or OOM errors. [Existing staged-image resume command and limits](docs/build-verification-recheck-20261014.md).
 
 After upgrading `openvino-chat`, run `openvino setup` to update its separate
 runtime. Model downloads require Internet and enough USB storage; inference

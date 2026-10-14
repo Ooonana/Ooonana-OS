@@ -75,6 +75,7 @@ trap 'rm -rf -- "$fixture"' EXIT
 predicate="$(awk '/^assert_service_smoke_result\(\) \{/ { capture=1 }
   capture { print } capture && /^\}/ { exit }' "$SCRIPT")"
 [[ -n "$predicate" ]] || fail "missing service smoke result predicate"
+predicate="$(sed -n '/^verification_guest_log_ok() {$/,/^}$/p' "$ROOT/scripts/lib/verification-media.sh")"$'\n'"$predicate"
 printf '%s\n' OOONANA_SERVICE_SMOKE_OK OOONANA_BUNANA_SHUTDOWN_BEGIN \
   OOONANA_SHUTDOWN_CLEANUP_DONE '[60.0] reboot: Power down' >"$fixture/good.log"
 printf '%s\n' OOONANA_SERVICE_SMOKE_OK OOONANA_BUNANA_SHUTDOWN_BEGIN \
@@ -83,6 +84,10 @@ printf '%s\n' OOONANA_SERVICE_SMOKE_OK OOONANA_BUNANA_SHUTDOWN_BEGIN \
   OOONANA_SHUTDOWN_CLEANUP_DONE >"$fixture/no-powerdown.log"
 cp "$fixture/good.log" "$fixture/failure.log"
 printf '%s\n' 'OOONANA_SERVICE_SMOKE_FAIL: forced poweroff' >>"$fixture/failure.log"
+cp "$fixture/good.log" "$fixture/media-error.log"
+printf '%s\n' 'I/O error, dev sr0, sector 4277768 op 0x0:(READ)' >>"$fixture/media-error.log"
+cp "$fixture/good.log" "$fixture/oom.log"
+printf '%s\n' 'Out of memory: Killed process 123 (NetworkManager)' >>"$fixture/oom.log"
 awk '{ printf "%s\r\n", $0 }' "$fixture/good.log" >"$fixture/crlf.log"
 grep -v '^OOONANA_SERVICE_SMOKE_OK$' "$fixture/good.log" >"$fixture/no-success.log"
 grep -v '^OOONANA_BUNANA_SHUTDOWN_BEGIN$' "$fixture/good.log" >"$fixture/no-request.log"
@@ -97,11 +102,15 @@ check_result() {
 check_result good 0 || fail "valid orderly shutdown rejected"
 check_result crlf 0 || fail "serial CRLF orderly shutdown rejected"
 for rejected in 'good 124' 'good 1' 'no-cleanup 0' 'no-powerdown 0' 'failure 0' \
-  'no-success 0' 'no-request 0' 'prefixed 0'; do
+  'no-success 0' 'no-request 0' 'prefixed 0' 'media-error 0' 'oom 0'; do
   read -r name status <<<"$rejected"
   if check_result "$name" "$status"; then
     fail "invalid shutdown accepted: $rejected"
   fi
 done
+
+[[ "$source_text" == *'[ "$service_attempt" -lt 3 ]'* &&
+   "$source_text" == *'serial evidence retained'* &&
+   "$source_text" == *'trap '\''exit 143'\'' TERM'* ]] || fail 'missing bounded startup/evidence/signal guards'
 
 printf 'ok qemu-service-smoke-source\n'

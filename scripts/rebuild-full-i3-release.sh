@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 # shellcheck source=lib/f-build-budget.sh
 source "$ROOT/scripts/lib/f-build-budget.sh"
+# shellcheck source=lib/verification-media.sh
+source "$ROOT/scripts/lib/verification-media.sh"
 BUILD_DIR="${OOONANA_BUILD_DIR:-/mnt/winf/Ooonana/ooonana-os/build}"
 REPO_OVERRIDE="${OOONANA_RELEASE_REPO:-}"
 RELEASE_DIR="${OOONANA_RELEASE_DIR:-/mnt/winf/Ooonana/ooonana-os/release-current}"
@@ -16,6 +18,7 @@ RUN_BOOT_MATRIX=1
 PREFLIGHT_ONLY=0
 RESUME_AFTER_ROOTFS=0
 RESUME_AFTER_ISO=0
+VERIFY_IN_RAM=0
 BUILD_MIN_FREE_KB=$((8 * 1024 * 1024))
 STAGE_MIN_FREE_KB=$((20 * 1024 * 1024))
 KERNEL_MIN_FREE_KB=$((20 * 1024 * 1024))
@@ -35,6 +38,7 @@ Options:
   --preflight-only       Verify inputs and source without building
   --resume-after-rootfs  Reuse completed scratch and full rootfs
   --resume-after-iso     Reuse completed .iso.new and continue verification
+  --verify-in-ram        Mirror verification media in guarded nonswappable RAM
   -h, --help             Show help
 
 Environment:
@@ -60,6 +64,7 @@ while [[ $# -gt 0 ]]; do
     --preflight-only) PREFLIGHT_ONLY=1; shift ;;
     --resume-after-rootfs) RESUME_AFTER_ROOTFS=1; shift ;;
     --resume-after-iso) RESUME_AFTER_ISO=1; shift ;;
+    --verify-in-ram) VERIFY_IN_RAM=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) die "unknown option: $1" ;;
   esac
@@ -159,9 +164,12 @@ cleanup() {
     wait "$QEMU_PID" 2>/dev/null || true
   fi
   [[ -n "$OVMF_VARS" ]] && rm -f "$OVMF_VARS"
+  cleanup_ram_media || return 1
   rm -rf "$WORK"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 kernel_cache_matches_fragment() {
   local kernel_option cached_version
@@ -266,6 +274,18 @@ release_input_fingerprint() {
   } | sha256sum | awk '{ print $1 }'
 }
 
+verify_iso_resume_inputs() {
+  local expected
+  kernel_cache_matches_fragment || die "ISO resume kernel cache/config differs from requested inputs"
+  [[ -s "$STAGE_DIR/.release-inputs.sha256" &&
+     -f "$STAGE_DIR/.ooonana-rootfs-complete" ]] ||
+    die "ISO resume lacks completed build provenance; rerun without resume"
+  expected="$(<"$STAGE_DIR/.release-inputs.sha256")"
+  [[ "$expected" =~ ^[0-9a-f]{64}$ &&
+     "$expected" == "$(release_input_fingerprint)" ]] ||
+    die "ISO resume inputs changed; rerun without resume or select original signed generation"
+}
+
 mkdir -p "$BUILD_DIR" "$RELEASE_DIR"
 check_f_build_budget || die "insufficient F: backing capacity"
 if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
@@ -310,6 +330,12 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
     check_stage_space
   fi
 else
+  check_stage_space
+  verify_iso_resume_inputs
+  source_core_version="$("$ROOT/packages/ooonana/usr/bin/ooonana" version | awk '{print $2}')"
+  python3 "$ROOT/scripts/check-release-repo.py" --repo "$REPO" \
+    --profile "$ROOT/configs/packages/full-i3.list" --core-version "$source_core_version" \
+    --public-key "$ROOT/packages/ooonana/etc/ooonana/trusted-keys/repository-20261002.pub"
   if [[ -s "$STAGED_ISO" ]]; then
     VERIFY_ISO="$STAGED_ISO"
   elif [[ -s "$NEW_ISO" ]]; then
@@ -511,6 +537,14 @@ fi
 
 printf '[6/7] Verification\n'
 check_f_build_budget || die "F: backing space changed"
+if [[ "$VERIFY_IN_RAM" -eq 1 ]]; then
+  verification_guest_mib="${OOONANA_QEMU_MEMORY:-1536}"
+  [[ "$verification_guest_mib" =~ ^[1-9][0-9]*$ ]] &&
+    (( verification_guest_mib >= 1024 )) || die "invalid QEMU service RAM budget"
+  (( verification_guest_mib >= 2048 )) || verification_guest_mib=2048
+  prepare_ram_media "$VERIFY_ISO" "$verification_guest_mib" || die "RAM media preparation failed"
+  VERIFY_ISO="$RAM_MEDIA_ISO"
+fi
 if [[ "$(findmnt -n -o FSTYPE --target "$VERIFY_ISO" 2>/dev/null || true)" == "9p" ]]; then
   SOURCE_ISO="$VERIFY_ISO"
   VERIFY_ISO="$WORK/ooonana-full-i3.iso"
@@ -540,10 +574,15 @@ boot_check() {
   QEMU_PID=$!
 
   while kill -0 "$QEMU_PID" 2>/dev/null; do
+    if ! verification_guest_log_ok "$log"; then
+      tail -200 "$log" >&2
+      die "$name guest storage/memory/kernel failure"
+    fi
     if grep -q 'Ooonana full i3 rootfs' "$log"; then
       kill "$QEMU_PID" 2>/dev/null || true
       wait "$QEMU_PID" 2>/dev/null || true
       QEMU_PID=""
+      verification_guest_log_ok "$log" || die "$name guest storage/memory/kernel failure"
       printf 'PASS: %s boot\n' "$name"
       return 0
     fi
@@ -565,6 +604,7 @@ boot_check() {
     tail -200 "$log" >&2
     die "$name boot failed with status $status"
   fi
+  verification_guest_log_ok "$log" || die "$name guest storage/memory/kernel failure"
   printf 'PASS: %s boot\n' "$name"
 }
 
@@ -602,6 +642,8 @@ if [[ "$VERIFY_ISO" != "$NEW_ISO" ]]; then
     die "release ISO copy is incomplete"
   sync "$NEW_ISO"
 fi
+cleanup_ram_media || die "verification media still busy; refusing promotion"
+check_stage_space
 mv -f "$NEW_ISO" "$ISO"
 printf '%s  ooonana-full-i3.iso\n' "$iso_sha256" >"$RELEASE_DIR/ooonana-full-i3.iso.sha256"
 sync

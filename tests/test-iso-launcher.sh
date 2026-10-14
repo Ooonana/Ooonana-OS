@@ -12,4 +12,5 @@ source="$(<"$SCRIPT")"
 [[ "$source" == *'exec bash "$SCRIPT_DIR/with-f-build-storage.sh"'* ]]
 bash -n "$ROOT/scripts/with-f-build-storage.sh"
 bash "$ROOT/tests/test-f-build-storage.sh"
+sh "$ROOT/tests/test-verification-media.sh"
 printf 'ok iso-launcher\n'

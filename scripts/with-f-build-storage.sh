@@ -13,6 +13,7 @@ for tool in awk blkid df findmnt flock losetup ls mkfs.ext4 mount mountpoint mv 
 done
 [[ "$(findmnt -n -o SOURCE --target /mnt/winf)" == F: &&
    "$(findmnt -n -o FSTYPE --target /mnt/winf)" == 9p ]] || die '/mnt/winf must be F: drvfs'
+check_wsl_system_headroom || die 'insufficient Windows system-drive headroom'
 
 storage=/mnt/winf/Ooonana/ooonana-os/build-storage
 image="$storage/release-stage.ext4"
@@ -38,11 +39,26 @@ loop=''
 creating=0
 cleanup() {
   local status=$?
+  local attempt detached=0 mounted_source
   trap - EXIT
   if [[ -n "$loop" ]]; then
     if mountpoint -q "$native"; then
-      if ! sync -f "$native" || ! umount "$native"; then
-        printf 'F build storage: flush/unmount failed; workspace retained, loop %s\n' "$loop" >&2
+      mounted_source="$(findmnt -n -o SOURCE --target "$native")"
+      [[ "$mounted_source" == "$loop" ]] || {
+        printf 'F build storage: mount ownership changed; leaving it untouched\n' >&2
+        exit 1
+      }
+      sync -f "$native" || exit 1
+      # Loop detach/udev cleanup can finish asynchronously. Never force/lazy
+      # unmount, kill unrelated processes or steal nested/foreign mounts.
+      for attempt in 1 2 3 4 5; do
+        if umount "$native"; then detached=1; break; fi
+        (( attempt == 5 )) || sleep 1
+      done
+      if (( ! detached )); then
+        printf 'F build storage: unmount busy after bounded retries; workspace retained, loop %s\n' "$loop" >&2
+        findmnt -R "$native" >&2 || true
+        if command -v fuser >/dev/null; then fuser -vm "$native" >&2 || true; fi
         exit 1
       fi
     fi

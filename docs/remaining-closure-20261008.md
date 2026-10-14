@@ -4,10 +4,16 @@
 
 Older dated storage/build notes below are historical. User's F-backed sparse
 setup/preflight passed; full rootfs passed 174 script / 524 ELF checks, zero
-errors. Live/installer creation is running; final ISO/boot gates remain pending.
-Do not start another build or modify its inputs. Signed candidate is current;
+errors. ISO was created but service verification failed. Repeat service success
+contained guest CD-ROM I/O errors, so release remains unverified/unpromoted.
+Host-only fixes now reject those errors, preserve serial evidence, validate
+resume inputs and guard storage cleanup. Existing staged fingerprint matches;
+no payload remake required for these changes. Guarded RAM verification still
+needs sufficient Windows/Linux RAM with WSL active. Signed candidate stays pinned;
 installed Ooonana WSL/stable remain 0.9.9. WSL migration stays deferred pending
-verified backup/headroom. Documentation-only updates do not require another ISO.
+verified backup/headroom. User compacted WSL, restoring C: ~9.8 GiB. Removed
+~456 MiB redundant QA libraries, history retained. No models/releases/keys removed.
+[Latest build recheck and complete remaining gates](build-verification-recheck-20261014.md).
 [Current snapshot](current-work.md#october-14-user-build-and-model-inventory)
 and [WSL model inventory](wsl-model-storage-20261014.md) supersede old snapshots.
 

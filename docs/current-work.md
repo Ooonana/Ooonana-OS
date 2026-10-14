@@ -2,15 +2,33 @@
 
 ## October 14 user build and model inventory
 
-User removed the incomplete `.creating` file; actual F-backed sparse-workspace
-setup/preflight passed. Ongoing full build passed scratch/full-rootfs stages and
-runtime audit (174 scripts, 524 ELF files, zero errors), then entered live/installer
-creation. Read-only observation confirms an active installer-image process, not
-a completed ISO. Final ISO/service/BIOS/UEFI verification, promotion and checksum
-remain pending; existing October 6 release remains untouched at this snapshot.
-No second build, restart, active-scratch cleanup, runtime/package edit or signed
-generation replacement during the user's build. Documentation-only changes do
-not require another ISO.
+User's F-backed sparse-workspace build passed preflight and full-rootfs audit
+(174 scripts, 524 ELF files, zero errors), then produced a 2,895,407,104-byte
+staged ISO. Static hybrid/GRUB/kernel/payload checks passed, but service
+verification failed on NetworkManager/BlueZ readiness. A repeat using the same
+ISO reached all service/shutdown markers while reporting a guest CD-ROM timeout
+and I/O error. Exact cause of the first failure is unproven; daemon binaries are
+not demonstrated broken. Staged ISO remains unpromoted; October 6 release stays.
+
+Fixed host verification to reject guest I/O/filesystem/OOM/panic errors even
+with success markers, retain service serial logs and bound cold-start retries.
+ISO resume verifies signed inputs, current kernel config, fingerprint and
+completed provenance; mounted children refuse resume/promotion cleanup.
+Workspace cleanup retries ordinary unmount within a bound, checks ownership and
+retains busy/foreign mounts. F builds also require at least 1 GiB C: headroom.
+Optional nonswappable RAM verification checks Windows and Linux free memory
+before copying existing media. Actual staged fingerprint passed after these
+host-only changes; no runtime/package edit or ISO rebuild occurred.
+
+Source/backend regression suites passed. Actual RAM-media preparation refused
+because Windows had ~1.7 GiB free with WSL active (latest snapshot ~2 GiB); full verification needs ~6.7
+GiB. Unit tests cover memory budgets, read errors, mount ownership and failure
+predicates; RAM-backed real-guest verification remains pending. User compacted
+WSL disk; latest C: ~9.8 GiB, F: ~17.5 GiB. No assistant compaction/relocation.
+Removed 467,228 KiB (~456 MiB) redundant QA Python libraries after retaining
+metadata/file history and confirming a matching QA environment remains.
+Models, signed generations, kernel cache, releases and keys stay.
+[Evidence, cleanup targets, limits and resume command](build-verification-recheck-20261014.md).
 
 Pinned candidate generation:
 `5f8074ffabc6ed5848360cd1666d0c7f74ae9f2961656b6ade612efc192dbe8f`;
@@ -19,9 +37,9 @@ core 0.10.0, 654 packages / 612 nodes, clean source revision
 Native Ubuntu retains one testing-only SmolLM2-360M store, 218,728 KiB (~214 MiB),
 with ~207 MiB primary weights. No personal weights or extensionless model-cache
 blobs found in scanned native paths; Windows mounts/symlinks not followed.
-Ooonana WSL stays stopped and unverified, not claimed empty. C: ~2.49 GiB free
-at initial check: installed WSL update/migration deferred, no model/runtime
-download, VHD relocation or compaction. [Inventory and policy](wsl-model-storage-20261014.md).
+Ooonana WSL stays stopped and unverified, not claimed empty. Installed WSL
+update/migration deferred; no assistant model/runtime download, VHD relocation
+or compaction. [Inventory and policy](wsl-model-storage-20261014.md).
 
 ## October 14 F-backed build workspace
 
@@ -53,8 +71,9 @@ setup replaces that slow allocation path. Removal of the owned incomplete
 `F:\Ooonana\ooonana-os\build-storage\release-stage.ext4.creating` (21 GiB) was
 policy-blocked; no alternate deletion/overwrite attempted. User subsequently
 removed it manually and passed actual sparse-workspace setup/preflight, as
-recorded above. Full release is now user-run and in progress, not yet verified
-complete. No assistant ISO build, sound, installed WSL migration, stable
+recorded above. Later user build produced unpromoted media; verification outcome
+and host repairs above supersede the earlier in-progress snapshot.
+No assistant ISO build, sound, installed WSL migration, stable
 promotion or private-key upload.
 
 ## October 14 startup, Power and Settings

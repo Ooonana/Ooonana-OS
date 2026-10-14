@@ -2,6 +2,8 @@
 set -eu
 
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
+# shellcheck source=../scripts/lib/verification-media.sh
+. "$ROOT/scripts/lib/verification-media.sh"
 ISO="$ROOT/../release-current/ooonana-full-i3.iso"
 WORK="${TMPDIR:-/var/tmp}/ooonana-qemu-service-smoke.$$"
 ALPINE="https://dl-cdn.alpinelinux.org/alpine/v3.20"
@@ -30,6 +32,8 @@ fail() {
 
 assert_service_smoke_result() {
   ! grep -q 'OOONANA_SERVICE_SMOKE_FAIL' "$1" || fail "QEMU service assertion failed"
+  verification_guest_log_ok "$1" ||
+    fail "QEMU guest storage/memory/kernel failure; success markers are insufficient"
   [ "$2" -eq 0 ] || fail "QEMU service guest did not exit cleanly (rc=$2)"
   # Serial tty output uses CRLF; match complete markers with trailing whitespace.
   grep -q '^OOONANA_SERVICE_SMOKE_OK[[:space:]]*$' "$1" || fail "QEMU service smoke did not finish"
@@ -43,9 +47,22 @@ cleanup() {
     kill "$QEMU_PID" 2>/dev/null || true
     wait "$QEMU_PID" 2>/dev/null || true
   fi
+  if [ -s "$WORK/qemu.log" ]; then
+    evidence_dir="${OOONANA_QEMU_SERVICE_EVIDENCE_DIR:-${TMPDIR:-/var/tmp}/ooonana-qemu-service-history}"
+    if mkdir -p "$evidence_dir" &&
+       evidence_log="$(mktemp "$evidence_dir/service.XXXXXXXX.log")" &&
+       cp "$WORK/qemu.log" "$evidence_log"; then
+      printf '[qemu-service] serial evidence retained: %s\n' "$evidence_log"
+    else
+      printf '[qemu-service] warning: could not retain serial evidence\n' >&2
+    fi
+  fi
+  cleanup_ram_media || return 1
   rm -rf "$WORK"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 command -v qemu-system-x86_64 >/dev/null 2>&1 || fail "qemu-system-x86_64 missing"
 command -v xorriso >/dev/null 2>&1 || fail "xorriso missing"
@@ -65,6 +82,11 @@ if [ -z "$QEMU_ACCEL" ]; then
   else
     QEMU_ACCEL=tcg,thread=multi
   fi
+fi
+
+if [ "${OOONANA_QEMU_SERVICE_RAM_MEDIA:-0}" = 1 ]; then
+  prepare_ram_media "$ISO" "$QEMU_MEMORY" || fail "RAM media preparation"
+  ISO="$RAM_MEDIA_ISO"
 fi
 
 mkdir -p "$WORK/patch/smoke-root"
@@ -170,6 +192,10 @@ fail() {
   tail -100 /var/log/bluetoothd.log 2>/dev/null || true
   echo '--- service-watchdog.log ---'
   tail -100 /var/log/ooonana-service-watchdog.log 2>/dev/null || true
+  echo '--- processes/memory/kernel ---'
+  /bin/busybox ps 2>/dev/null || true
+  /bin/busybox free -m 2>/dev/null || true
+  /bin/busybox dmesg | tail -80
   /sbin/poweroff -f
   exit 1
 }
@@ -210,7 +236,15 @@ done
 [ "$(stat -c %g /usr/libexec/dbus-daemon-launch-helper)" = 81 ] || fail "D-Bus launch helper group"
 
 step service-repair
-/usr/bin/ooonana-service-repair boot || fail "service repair"
+# Normal boot keeps a watchdog alive after delayed startup. Give cold-media
+# daemons bounded retries here too, but retain every endpoint and fault check.
+service_attempt=0
+while ! /usr/bin/ooonana-service-repair boot; do
+  service_attempt=$((service_attempt + 1))
+  [ "$service_attempt" -lt 3 ] || fail "service repair"
+  echo "OOONANA_SERVICE_SMOKE_STEP: waiting for service startup ($service_attempt/3)"
+  sleep 2
+done
 /usr/bin/ooonana-service-repair force-wifi || fail "forced Wi-Fi repair"
 /usr/bin/ooonana-service-repair force-bluetooth || fail "forced Bluetooth repair"
 /usr/bin/ooonana-service-repair status

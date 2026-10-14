@@ -106,6 +106,11 @@ assert_contains "$source_text" 'QEMU_ACCEL="${OOONANA_QEMU_ACCEL:-}"'
 assert_contains "$source_text" 'QEMU_ACCEL=kvm'
 assert_contains "$source_text" 'QEMU_ACCEL=tcg,thread=multi'
 assert_contains "$source_text" '-accel "$QEMU_ACCEL"'
+assert_contains "$source_text" 'verification_guest_log_ok "$log"'
+assert_contains "$source_text" 'verification_guest_mib="${OOONANA_QEMU_MEMORY:-1536}"'
+assert_contains "$source_text" 'prepare_ram_media "$VERIFY_ISO" "$verification_guest_mib"'
+assert_contains "$source_text" $'else\n  check_stage_space\n  verify_iso_resume_inputs'
+assert_contains "$source_text" $'check_stage_space\nmv -f "$NEW_ISO" "$ISO"'
 assert_contains "$(<"$ROOT/scripts/build-full-i3-iso.sh")" 'OOONANA_MAX_ISO_BYTES:-4500000000'
 
 # Exercise actual option parsing without mounting, touching caches or building.
@@ -169,5 +174,19 @@ printf '19\n' >"$OOONANA_PERSONAL_CURSOR_DIR/cursor-size"
 fingerprint_before="$(release_input_fingerprint)"
 OOONANA_PERSONAL_CURSOR_SIZE=20
 [[ "$(release_input_fingerprint)" != "$fingerprint_before" ]] || fail "Personal cursor size missing from release inputs"
+eval "$(sed -n '/^verify_iso_resume_inputs() {$/,/^}$/p' "$SCRIPT")"
+die() { fail "$*"; }
+kernel_cache_matches_fragment() { [[ "${fixture_kernel_current:-1}" == 1 ]]; }
+STAGE_DIR="$fingerprint_work/stage"
+mkdir "$STAGE_DIR"
+release_input_fingerprint >"$STAGE_DIR/.release-inputs.sha256"
+: >"$STAGE_DIR/.ooonana-rootfs-complete"
+verify_iso_resume_inputs
+if (fixture_kernel_current=0; verify_iso_resume_inputs) >/dev/null 2>&1; then fail 'stale requested kernel accepted'; fi
+printf 'changed kernel\n' >"$KERNEL"
+if (verify_iso_resume_inputs) >/dev/null 2>&1; then fail 'stale ISO resume accepted'; fi
+release_input_fingerprint >"$STAGE_DIR/.release-inputs.sha256"
+rm "$STAGE_DIR/.ooonana-rootfs-complete"
+if (verify_iso_resume_inputs) >/dev/null 2>&1; then fail 'unfinished ISO resume accepted'; fi
 printf 'ok rebuild-full-i3-release\n'
 PYTHONDONTWRITEBYTECODE=1 python3 "$(dirname "$SCRIPT")/../tests/test-release-repo.py"

@@ -44,7 +44,35 @@ source_text="$(<"$SCRIPT")"
    "$source_text" == *'export OOONANA_STAGE_DIR="$native/release-stage"'* &&
    "$source_text" == *'export TMPDIR="$native/tmp"'* &&
    "$source_text" == *'export OOONANA_KERNEL_WORK_DIR="$native/kernel-work"'* ]]
+
+# Exercise real EXIT cleanup with fixture commands only; never mount/detach host disks.
+cleanup_function="$(sed -n '/^cleanup() {$/,/^}$/p' "$SCRIPT")"
+cleanup_probe() {
+  bash -c '
+    native=/fixture; loop=/dev/loop-fixture; creating=0; count=0
+    mountpoint() { return 0; }
+    findmnt() { printf "%s\n" "${fixture_owner:-$loop}"; }
+    sync() { return 0; }
+    sleep() { return 0; }
+    umount() { count=$((count + 1)); printf "%s\n" "$count" >>"$fixture_log"; (( count >= fixture_success )); }
+    losetup() { printf "detached\n" >>"$fixture_log"; }
+    fuser() { return 0; }
+    fixture_success="$1"; fixture_log="$2"; fixture_owner="$3"
+    eval "$4"
+    (exit "$5")
+    cleanup
+  ' probe "$1" "$work/$2.log" "$3" "$cleanup_function" "$4" >"$work/cleanup-output.log" 2>&1
+}
+cleanup_probe 3 retry /dev/loop-fixture 0 || die 'transient busy cleanup failed'
+[[ "$(tail -1 "$work/retry.log")" == detached && "$(wc -l <"$work/retry.log")" == 4 ]] || die 'wrong detach/retry count'
+if cleanup_probe 99 busy /dev/loop-fixture 0; then die 'persistent busy mount accepted'; fi
+[[ "$(wc -l <"$work/busy.log")" == 5 ]] || die 'unmount retry not bounded'
+if cleanup_probe 1 foreign /dev/foreign 0; then die 'foreign mount detached'; fi
+[[ ! -e "$work/foreign.log" ]] || die 'foreign mount modified'
+if cleanup_probe 1 prior-error /dev/loop-fixture 7; then die 'original failure lost'; fi
+
 source "$ROOT/scripts/lib/f-build-budget.sh"
+check_wsl_system_headroom() { return 0; }
 OOONANA_STAGE_BACKING_IMAGE=/mnt/winf/Ooonana/ooonana-os/build-storage/release-stage.ext4
 budget_function="$(declare -f check_f_build_budget)"
 # Filesystem fixtures provide backing-file presence without touching real F:.
