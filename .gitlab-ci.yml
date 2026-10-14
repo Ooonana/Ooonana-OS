@@ -23,10 +23,14 @@ ci-smoke:
   image: alpine:3.24
   stage: check
   before_script:
-    - apk add --no-cache bash python3 diffutils findutils tar gzip xz coreutils binutils git openssl
+    # Verification fixtures use findmnt; BusyBox does not provide it.
+    - apk add --no-cache bash python3 diffutils findutils tar gzip xz coreutils binutils git openssl util-linux nodejs gcc musl-dev
+    - command -v findmnt && command -v mountpoint
+    - command -v node && command -v cc
   script:
     - echo "Ooonana GitLab CI active"
     - bash tests/test-iso-launcher.sh
+    - bash tests/test-wsl-distro.sh
     - PYTHONDONTWRITEBYTECODE=1 bash tests/test-rebuild-full-i3-release.sh
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-release-repo.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-runtime-firmware.py

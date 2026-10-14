@@ -1,5 +1,13 @@
 # Remaining-work closure - 2026-10-08
 
+## October 15 latest status
+
+Installed Ooonana WSL is 0.10.0 after completed fresh replacement; stable channel
+remains 0.9.9. Existing verified candidate ISO needs no remake for CI/test/guide
+fixes. Temporary replacement QA distro/raw/tar payloads are now absent; history
+remains. Newest actionable gates: [CI follow-up](ci-smoke-repair-20261015.md).
+All older installed-WSL deferral/0.9.9 snapshots below are historical.
+
 ## October 14 current status
 
 Later October 14 follow-up supersedes installed-WSL deferral below: user waived
@@ -36,8 +44,9 @@ no retry/bypass. No models/releases/keys removed.
 [Current snapshot](current-work.md#october-14-computer-scan-and-resident-ram-accounting)
 and [WSL model inventory](wsl-model-storage-20261014.md) supersede old snapshots.
 
-Source/candidate: core 0.10.0 on `codex/supported-base-0-10`. Installed Ooonana WSL,
-stable main/update endpoints remain 0.9.9. October 6 ISO is historical; current
+Source/candidate and installed Ooonana WSL: core 0.10.0 on
+`codex/supported-base-0-10`. Stable main/update endpoints remain 0.9.9.
+October 6 ISO is historical; current
 local published candidate is 0.10.0. Ubuntu only hosts builds/tests. Assistant
 verified/promoted the user-built ISO, without fresh construction, installed-distro
 migration, sound playback or key enrollment. Older notes below are historical.

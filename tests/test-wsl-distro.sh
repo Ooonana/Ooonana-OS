@@ -22,6 +22,7 @@ assert_contains() {
 [[ -x "$UPDATE_SCRIPT" ]] || fail "missing executable WSL updater"
 assert_contains "$(<"$UPDATE_SCRIPT")" '--repo'
 assert_contains "$(<"$UPDATE_SCRIPT")" 'raw source overlay retired'
+# shellcheck disable=SC2016
 assert_contains "$(<"$UPDATE_SCRIPT")" '"$cli" reinstall'
 assert_contains "$(<"$UPDATE_SCRIPT")" 'OOONANA_KEEP_UPDATE_BACKUPS'
 assert_contains "$(<"$UPDATE_SCRIPT")" 'refusing non-Ooonana distro'
@@ -71,6 +72,29 @@ listing="$(tar -tzf "$tmp/ooonana-wsl.tar.gz")"
 assert_contains "$listing" "./etc/os-release"
 assert_contains "$listing" "./usr/bin/ooonana"
 
+# Never call real Windows tools, including during dry-run/default-path probes.
+mkdir -p "$tmp/fakebin"
+cat > "$tmp/fakebin/wsl.exe" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" >> "$OOONANA_FAKE_WSL_LOG"
+cat >/dev/null
+case "$1" in
+  --list) printf 'Ubuntu\r\n'; exit 0 ;;
+  *) exit 0 ;;
+esac
+EOF
+cat > "$tmp/fakebin/cmd.exe" <<'EOF'
+#!/bin/sh
+printf 'C:\\fixture\\LocalAppData\r\n'
+EOF
+cat > "$tmp/fakebin/wslpath" <<'EOF'
+#!/bin/sh
+[ "$1" = -w ] && printf '%s\n' "$2"
+EOF
+chmod +x "$tmp/fakebin/"*
+export OOONANA_FAKE_WSL_LOG="$tmp/fake-wsl.log"
+export PATH="$tmp/fakebin:$PATH"
+
 dry_run="$(bash "$INSTALL_SCRIPT" \
   --distro OoonanaTest \
   --install-dir "$tmp/install" \
@@ -90,21 +114,7 @@ full_default_dir="$(bash "$INSTALL_SCRIPT" \
   --dry-run)"
 assert_contains "$full_default_dir" "OoonanaWSL"
 
-mkdir -p "$tmp/fakebin"
-cat > "$tmp/fakebin/wsl.exe" <<'EOF'
-#!/bin/sh
-printf '%s\n' "$*" >> "$OOONANA_FAKE_WSL_LOG"
-case "$1" in
-  --list) printf 'Ubuntu\r\n'; exit 0 ;;
-  --unregister) exit 0 ;;
-  *) exit 0 ;;
-esac
-EOF
-chmod +x "$tmp/fakebin/wsl.exe"
-
-OOONANA_FAKE_WSL_LOG="$tmp/fake-wsl.log" \
-  PATH="$tmp/fakebin:$PATH" \
-  bash "$INSTALL_SCRIPT" \
+bash "$INSTALL_SCRIPT" \
     --distro Ooonana \
     --install-dir "$tmp/install" \
     --tarball "$tmp/ooonana-wsl.tar.gz" \
@@ -114,6 +124,11 @@ assert_contains "$fake_wsl" "--import Ooonana"
 if [[ "$fake_wsl" == *"--unregister Ooonana"* ]]; then
   fail "force unregistered absent distro"
 fi
+
+# A Windows tool that drains stdin must not swallow later piped script commands.
+input_probe="$(printf 'bash %q --distro OoonanaTest --install-dir %q --tarball %q --force\nprintf "stdin-retained\\n"\n' \
+  "$INSTALL_SCRIPT" "$tmp/install" "$tmp/ooonana-wsl.tar.gz" | bash)"
+assert_contains "$input_probe" "stdin-retained"
 
 mkdir -p "$tmp/full-rootfs/bin" "$tmp/full-rootfs/etc/ooonana" "$tmp/full-rootfs/usr/bin"
 printf 'busybox\n' > "$tmp/full-rootfs/bin/busybox"

@@ -1,4 +1,24 @@
-# Current work - 2026-10-14
+# Current work - 2026-10-15
+
+## October 15 GitLab smoke repair and guide refresh
+
+Screenshot identifies failed pipeline 2948699262, job 17185957127, commit
+2f891ed. Job trace access is restricted; matching Alpine 3.24.2 reproduction
+found first launcher test exits 127 because CI omitted `findmnt`. Added
+`util-linux`, explicit readiness checks, Node and C compiler so PDF harness/time
+CSR tests run instead of silently skipping. Both providers now run WSL fixtures;
+those fixtures mock all Windows tools and check that interop cannot drain the
+calling script's stdin. No real distro import/unregister from regression tests.
+
+Field guide refreshed to installed WSL 0.10.0/stable 0.9.9, correct local GUI
+launcher, verified user-built ISO and accurately separated remaining runtime/
+interactive gates. Four rendered pages checked. Bootable PDF unchanged.
+
+Read-only cleanup recheck: temporary QA registration/VHD, raw image and tarball
+are absent; logs and replacement plan retained. C: ~3.7 GiB / F: ~28.9 GiB free.
+No denied-target cleanup retry. Active disks/models/history/keys preserved.
+CI/tests/docs only; no packaged runtime/kernel edits or ISO remake.
+[Detailed checks and remaining work](ci-smoke-repair-20261015.md).
 
 ## October 14 installed WSL fresh replacement completed
 

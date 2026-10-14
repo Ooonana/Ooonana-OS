@@ -138,9 +138,10 @@ No downloads, sound playback or private-key upload during this pass.
    lock/logout/suspend/resume, physical DPI/multi-monitor/hotplug and GPU.
 5. Heavyweight/GPU OpenVINO inference and physical hardware/persistence/upgrade
    fault tests remain separate. Hardware checks were explicitly skipped.
-6. Installed Ooonana WSL migration remains deferred until a verified backup and
-   sufficient storage; stable package channel/installed WSL stay 0.9.9. Older
-   October 6 release is historical, not the current local candidate ISO.
+6. Installed Ooonana WSL fresh replacement completed after explicit user backup
+   waiver; installed WSL is 0.10.0, stable package channel stays 0.9.9.
+   [Replacement details](wsl-replacement-20261014.md). Older October 6 release
+   is historical, not the current local candidate ISO.
 7. Repository signing enrollment stays deferred; private key remains local.
 
 ## Historical resume command: completed; do not rerun

@@ -48,6 +48,11 @@ logout/suspend behavior remain separate gates, not certified by readiness checks
 
 ## Completed replacement and remaining cleanup
 
+October 15 read-only recheck: temporary QA distro is no longer registered;
+its VHD, generated raw image and rootfs tarball are absent. Replacement plan
+and GUI logs remain. Cleanup commands below are historical, not instructions
+to repeat. Active Ooonana and Ubuntu remain registered.
+
 Verified export: 3,370,123,264 bytes, SHA256
 `c87c8d560333946109b4692a47d0fc7151960bf6879bc7ecb6c9224088d3ee5b`.
 QEMU VHDX check found no errors. First export hit a stale sharing handle;
