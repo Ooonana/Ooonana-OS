@@ -178,7 +178,11 @@ assert_contains "$theme" 'width = 216'
 assert_contains "$theme" 'align = "left"'
 assert_contains "$theme" 'visible = true'
 assert_contains "$theme" 'item_font = "Unifont Regular 16"'
-assert_contains "$theme" "item_height = 30"
+assert_contains "$theme" "item_height = 24"
+assert_contains "$theme" "top = 11%+112"
+assert_contains "$theme" "top = 11%+136"
+assert_contains "$theme" "top = 11%+168"
+assert_contains "$theme" "height = 33%"
 assert_contains "$theme" "scrollbar = false"
 assert_contains "$theme" "STARTUP MODES"
 assert_contains "$theme" "ARROWS select  |  ENTER boot  |  ESC back"

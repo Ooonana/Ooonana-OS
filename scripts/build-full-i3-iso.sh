@@ -286,7 +286,7 @@ message-bg-color: "#101317"
 EOF
 
   local logo_index=0
-  local logo_top=96
+  local logo_offset=0
   local logo_line escaped_logo_line
   while IFS= read -r logo_line || [[ -n "$logo_line" ]]; do
     logo_index=$((logo_index + 1))
@@ -298,7 +298,7 @@ EOF
   id = "ooonana-logo-$logo_index"
   text = "$escaped_logo_line"
   left = 50%-108
-  top = $logo_top
+  top = 11%+$logo_offset
   width = 216
   height = 20
   color = "#ffb21a"
@@ -306,14 +306,14 @@ EOF
   align = "left"
 }
 EOF
-    logo_top=$((logo_top + 20))
+    logo_offset=$((logo_offset + 16))
   done < "$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt"
 
   cat >> "$ISO_TREE/boot/grub/theme.txt" <<'EOF'
 + label {
   text = "STARTUP MODES"
   left = 16%
-  top = 33%
+  top = 11%+136
   width = 68%
   height = 20
   color = "#ffd37a"
@@ -322,15 +322,15 @@ EOF
 
 + boot_menu {
   left = 16%
-  top = 38%
+  top = 11%+168
   width = 68%
-  height = 44%
+  height = 33%
   visible = true
   item_font = "Unifont Regular 16"
   selected_item_font = "Unifont Regular 16"
   item_color = "#b4bdc8"
   selected_item_color = "#ffb21a"
-  item_height = 30
+  item_height = 24
   item_padding = 6
   item_spacing = 4
   scrollbar = false
@@ -339,7 +339,7 @@ EOF
 + label {
   text = "ARROWS select  |  ENTER boot  |  ESC back"
   left = 16%
-  top = 78%
+  top = 82%
   width = 68%
   height = 18
   color = "#ffb21a"

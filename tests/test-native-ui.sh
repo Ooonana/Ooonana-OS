@@ -75,7 +75,12 @@ assert_contains "$common" "textview text"
 assert_contains "$common" "progressbar progress"
 assert_contains "$settings" "Desktop runs without root privileges"
 assert_contains "$settings" '"Memory and swap"'
-assert_contains "$settings" 'run(["ooonana-memory", "status"]'
+assert_contains "$settings" 'run_async(["ooonana-memory", "status"]'
+assert_not_contains "$settings" 'memory_rc, memory_text = run('
+assert_contains "$settings" 'env={"OOONANA_THEME": selected}'
+assert_contains "$settings" 'os.replace(temporary, path)'
+assert_contains "$controls" 'dialog.set_default_response(Gtk.ResponseType.CANCEL)'
+assert_not_contains "$controls" 'launch(["xset", "dpms", "force", "off"])'
 assert_contains "$settings" "ooonana-wifi-panel"
 assert_contains "$settings" "ooonana-bluetooth-panel"
 assert_contains "$settings" "Fit desktop / keep dock clear"

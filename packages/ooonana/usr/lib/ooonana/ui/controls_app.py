@@ -480,6 +480,9 @@ class MediaWindow(Gtk.Window):
 class PowerWindow(Gtk.Window):
     def __init__(self):
         super().__init__(title="Ooonana Power")
+        self.pending = False
+        self.closed = False
+        self.actions = []
         self.set_default_size(620, 320)
         self.set_position(Gtk.WindowPosition.CENTER)
         header(self, "Power", "Session and computer", "system-shutdown-symbolic")
@@ -500,49 +503,66 @@ class PowerWindow(Gtk.Window):
         for index, (title, icon_name, callback, style) in enumerate(actions):
             widget = button(title, icon_name, callback, style)
             widget.set_size_request(170, 70)
+            self.actions.append(widget)
             grid.attach(widget, index % 3, index // 3, 1, 1)
         root.pack_start(grid, True, True, 0)
-        self.connect("destroy", Gtk.main_quit)
+        self.status = label("", "muted")
+        root.pack_start(self.status, False, False, 0)
+        self.connect("destroy", self.on_destroy)
 
-    @staticmethod
-    def lock(*_args):
-        if not launch(["i3lock"]):
-            launch(["xset", "dpms", "force", "off"])
+    def on_destroy(self, *_args):
+        self.closed = True
+        if Gtk.main_level():
+            Gtk.main_quit()
 
-    @staticmethod
-    def logout(*_args):
-        launch(["i3-msg", "exit"])
+    def request(self, command, title):
+        if self.closed or self.pending:
+            return
+        self.pending = True
+        for widget in self.actions[:-1]:
+            widget.set_sensitive(False)
+        self.status.set_text(title + " requested...")
+        def done(rc, output):
+            if self.closed:
+                return
+            self.pending = False
+            for widget in self.actions[:-1]:
+                widget.set_sensitive(True)
+            self.status.set_text(title + (" failed." if rc else " requested."))
+            if rc:
+                message(self, title + " failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)
+        run_async(command, done, timeout=20)
 
-    @staticmethod
-    def restart_i3(*_args):
-        launch(["i3-msg", "restart"])
+    def lock(self, *_args):
+        # Display blanking is not authentication and must never replace a lock.
+        self.request(["i3lock"], "Lock")
+
+    def logout(self, *_args):
+        self.confirm("logout")
+
+    def restart_i3(self, *_args):
+        self.request(["i3-msg", "restart"], "Restart i3")
 
     def confirm(self, action):
+        if self.closed or self.pending:
+            return
+        title, command = {"reboot": ("Reboot", ["bunana", "--restart"]),
+                          "shutdown": ("Shut down", ["bunana", "--shutdown"]),
+                          "logout": ("Log out", ["i3-msg", "exit"])}[action]
         dialog = Gtk.MessageDialog(
             transient_for=self,
             modal=True,
             message_type=Gtk.MessageType.WARNING,
             buttons=Gtk.ButtonsType.NONE,
-            text=f"{action.title()} Ooonana OS?",
+            text=f"{title} Ooonana OS?",
         )
         dialog.format_secondary_text("Unsaved work will be lost.")
-        dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL, action.title(), Gtk.ResponseType.OK)
-        if dialog.run() == Gtk.ResponseType.OK:
-            dialog.destroy()
-            command = ["bunana", "--restart" if action == "reboot" else "--shutdown"]
-
-            def done(rc, output):
-                if rc != 0:
-                    message(
-                        self,
-                        f"{action.title()} failed",
-                        output or f"Exit status {rc}",
-                        Gtk.MessageType.ERROR,
-                    )
-
-            run_async(command, done, timeout=20)
-            return
+        dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL, title, Gtk.ResponseType.OK)
+        dialog.set_default_response(Gtk.ResponseType.CANCEL)
+        accepted = dialog.run() == Gtk.ResponseType.OK
         dialog.destroy()
+        if accepted:
+            self.request(command, title)
 
 
 def main():

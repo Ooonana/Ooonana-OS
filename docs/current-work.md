@@ -1,4 +1,18 @@
-# Current work - 2026-10-13
+# Current work - 2026-10-14
+
+## October 14 startup, Power and Settings
+
+Actual GRUB EFI preview reproduced small-screen logo/menu overlap; responsive
+spacing and divider repair retain boot policy. Power lock errors cannot fall
+back to insecure blanking; logout/reboot/shutdown default to Cancel, duplicate
+requests are blocked and failures visible. Settings now waits for command
+completion, rolls back failed theme preference, preserves failed wallpaper
+choice and reads memory asynchronously with stale/closed-window guards.
+Private 640/1280px state/action tests, native catalog/window/dock/panel and
+source generation checks pass. Removed ~125 MiB confirmed current-turn test
+payloads; logs/screenshots/configs/history/releases/models kept.
+[Evidence and limits](ui-structure-recheck-20261014.md). No ISO, sound, actual
+host power action, installed WSL migration or stable promotion.
 
 ## October 13 centered dock and native app detail pass
 

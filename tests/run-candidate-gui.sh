@@ -6,11 +6,11 @@ SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 only="${OOONANA_GUI_ONLY:-all}"
 geometry="${OOONANA_GUI_GEOMETRY:-1280x800}"
 case "$geometry" in
-  1024x768|1280x800|1600x900) ;;
+  640x600|1024x768|1280x800|1600x900) ;;
   *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
 esac
 case "$only" in
-  all|native-ui-runtime|native-app-catalog|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|window-controls-runtime|dock-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
+  all|settings-power-ui|native-ui-runtime|native-app-catalog|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|window-controls-runtime|dock-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -195,6 +195,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
     probe "$name" python3 "/source/tests/check-$name.py"
   done
   probe native-app-catalog python3 /source/tests/check-native-app-catalog.py
+  probe settings-power-ui python3 /source/tests/check-settings-power-ui.py
   probe notifications-runtime python3 /source/tests/check-notifications-runtime.py --output /qa/notifications.png
   probe window-controls-runtime python3 /source/tests/check-window-controls-runtime.py --own-i3
   probe dock-ui python3 /source/tests/check-dock-ui.py /qa/dock.png

@@ -49,6 +49,11 @@ fixtures, full pinned APT/pip setup and real generation-pointer transport passed
 
 ![Current native Appearance settings](docs/assets/ooonana-appearance-details-20261013.png)
 
+[Startup, Power and Settings detail checks](docs/ui-structure-recheck-20261014.md)
+cover small-screen GRUB layout, default-Cancel power review, visible action
+failures and completion-aware appearance changes. Test actions are isolated or
+mocked; physical boot/lock/logout are not certified by these captures.
+
 See [October 8 verification and remaining gates](docs/ui-catalog-20261008.md).
 
 ### Optional common packages

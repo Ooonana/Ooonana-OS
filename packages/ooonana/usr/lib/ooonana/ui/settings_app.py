@@ -3,6 +3,7 @@ import getpass
 import os
 import socket
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -47,6 +48,10 @@ class SettingsWindow(Gtk.Window):
         self.set_size_request(820, 540)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.status_widgets = {}
+        self.closed = False
+        self.status_version = 0
+        self.appearance_pending = False
+        self.appearance_actions = []
         self.card_grids = []
         self.appearance_rows = []
         self.headerbar = header(
@@ -97,7 +102,7 @@ class SettingsWindow(Gtk.Window):
         self.compact_layout = None
         self.connect("size-allocate", self.resized)
         self.resized(self, self.get_default_size())
-        self.connect("destroy", Gtk.main_quit)
+        self.connect("destroy", self.on_destroy)
         self.refresh_status()
 
     @staticmethod
@@ -317,7 +322,9 @@ class SettingsWindow(Gtk.Window):
         current = self.current_theme()
         self.theme_combo.set_active_id(current if current in ("dark", "light") else "dark")
         row.pack_start(self.theme_combo, True, True, 0)
-        row.pack_start(button("Apply", "object-select-symbolic", self.apply_selected_theme, "suggested-action"), False, False, 0)
+        theme_apply = button("Apply", "object-select-symbolic", self.apply_selected_theme, "suggested-action")
+        self.appearance_actions.append(theme_apply)
+        row.pack_start(theme_apply, False, False, 0)
         theme.pack_start(row, False, False, 0)
         page.pack_start(theme, False, False, 0)
 
@@ -346,24 +353,23 @@ class SettingsWindow(Gtk.Window):
                 renderer.set_property('ellipsize', Pango.EllipsizeMode.END)
                 renderer.set_property('max-width-chars', 24)
         mode_row.pack_start(self.wallpaper_mode_combo, True, True, 0)
-        mode_row.pack_start(
-            button("Apply layout", "object-select-symbolic", self.apply_wallpaper_mode),
-            False,
-            False,
-            0,
-        )
+        layout_apply = button("Apply layout", "object-select-symbolic", self.apply_wallpaper_mode)
+        self.appearance_actions.append(layout_apply)
+        mode_row.pack_start(layout_apply, False, False, 0)
         wallpaper.pack_start(mode_row, False, False, 0)
-        wallpaper.pack_start(
-            self.actions(
-                button("Choose image", "document-open-symbolic", self.choose_wallpaper, "suggested-action"),
-                button("Default", "edit-undo-symbolic", self.default_wallpaper),
-            ),
-            False,
-            False,
-            0,
-        )
+        choose = button("Choose image", "document-open-symbolic", self.choose_wallpaper, "suggested-action")
+        default = button("Default", "edit-undo-symbolic", self.default_wallpaper)
+        self.appearance_actions.extend((choose, default))
+        wallpaper.pack_start(self.actions(choose, default), False, False, 0)
         page.pack_start(wallpaper, False, False, 0)
+        self.appearance_status = label("", "muted")
+        page.pack_start(self.appearance_status, False, False, 0)
         return page
+
+    def on_destroy(self, *_args):
+        self.closed = True
+        if Gtk.main_level():
+            Gtk.main_quit()
 
     def build_apps(self):
         page = self.page("Applications", "Launch Ooonana tools and default desktop applications.")
@@ -454,13 +460,21 @@ class SettingsWindow(Gtk.Window):
         context.add_class(f"status-{state}")
 
     def refresh_status(self):
+        if self.closed:
+            return
+        self.status_version += 1
+        version = self.status_version
         user = getpass.getuser()
         uid = os.geteuid()
         state = "good" if uid != 0 else "bad"
         self.set_status("session", f"{user} (uid {uid})" + (" - root session" if uid == 0 else " - protected desktop"), state)
         self.set_status("identity", f"User: {user}\nUID: {uid}\nHost: {socket.gethostname()}\nEdition: {read_file('/etc/ooonana/edition', 'full-i3')}", state)
-        memory_rc, memory_text = run(["ooonana-memory", "status"], timeout=3)
-        self.set_status("memory", memory_text or "Memory status unavailable", "good" if memory_rc == 0 and "Swap: 0 MiB" not in memory_text else "warn")
+        self.set_status("memory", "Checking memory...", "warn")
+        def memory_done(rc, text):
+            if not self.closed and version == self.status_version:
+                self.set_status("memory", text or "Memory status unavailable",
+                                "good" if rc == 0 and "Swap: 0 MiB" not in text else "warn")
+        run_async(["ooonana-memory", "status"], memory_done, timeout=3)
         self.set_status("network", "Checking NetworkManager...", "warn")
         self.set_status("wifi_detail", "Checking Wi-Fi service...", "warn")
         self.set_status("bluetooth", "Checking BlueZ...", "warn")
@@ -496,7 +510,13 @@ class SettingsWindow(Gtk.Window):
                 "bt_out": bt_out,
             }
 
-        def done(_rc, data):
+        def done(rc, data):
+            if self.closed or version != self.status_version:
+                return
+            if rc != 0 or not isinstance(data, dict):
+                for key in ("network", "wifi_detail", "bluetooth", "bluetooth_detail"):
+                    self.set_status(key, str(data) or "Status unavailable; try Refresh.", "bad")
+                return
             nm_text = data["nm_out"] or "NetworkManager not ready"
             wifi_text = data["wifi_out"] or "unknown"
             self.set_status("network", nm_text, "good" if data["nm_rc"] == 0 else "bad")
@@ -547,13 +567,60 @@ class SettingsWindow(Gtk.Window):
     def open_terminal(self, *_args):
         launch(["ooonana-theme-env", "xterm"])
 
+    @staticmethod
+    def save_theme(path, data):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, temporary = tempfile.mkstemp(prefix="theme.", dir=path.parent)
+        try:
+            with os.fdopen(descriptor, "wb") as output:
+                output.write(data)
+                output.flush()
+                os.fsync(output.fileno())
+            os.replace(temporary, path)
+        finally:
+            Path(temporary).unlink(missing_ok=True)
+
+    def appearance_busy(self, text):
+        if self.closed or self.appearance_pending:
+            return False
+        self.appearance_pending = True
+        for widget in self.appearance_actions:
+            widget.set_sensitive(False)
+        self.appearance_status.set_text(text)
+        return True
+
+    def appearance_done(self, rc, output, title):
+        if self.closed:
+            return
+        self.appearance_pending = False
+        for widget in self.appearance_actions:
+            widget.set_sensitive(True)
+        self.appearance_status.set_text(title + (" failed. Try again." if rc else " applied."))
+        if rc:
+            message(self, title + " failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)
+
     def apply_selected_theme(self, *_args):
         selected = self.theme_combo.get_active_id() or "dark"
+        if not self.appearance_busy("Applying theme..."):
+            return
         path = Path.home() / ".config/ooonana/theme"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(selected + "\n", encoding="utf-8")
-        launch(["ooonana-theme-env", "apply"])
-        message(self, "Theme applied", f"{selected.title()} theme active. New apps use updated style.")
+        def task():
+            previous = path.read_bytes() if path.exists() else None
+            current = (selected + "\n").encode()
+            self.save_theme(path, current)
+            rc, output = run(["ooonana-theme-env", "apply"], env={"OOONANA_THEME": selected}, timeout=30)
+            if rc and path.read_bytes() == current:
+                if previous is None:
+                    path.unlink()
+                else:
+                    self.save_theme(path, previous)
+            return rc, output
+        def done(rc, output):
+            if not rc and not self.closed:
+                os.environ["OOONANA_THEME"] = selected
+                apply_theme()
+            self.appearance_done(rc, output, "Theme")
+        run_async_task(task, done)
 
     def choose_wallpaper(self, *_args):
         dialog = Gtk.FileChooserDialog(
@@ -567,32 +634,41 @@ class SettingsWindow(Gtk.Window):
         image_filter.add_pixbuf_formats()
         dialog.add_filter(image_filter)
         dialog.set_current_folder("/usr/share/ooonana/wallpapers")
-        if dialog.run() == Gtk.ResponseType.OK:
-            mode = self.wallpaper_mode_combo.get_active_id() or "fit"
-            launch(["ooonana-wallpaper", "--mode", mode, dialog.get_filename()])
-            self.status_widgets["wallpaper"].set_text(f"{dialog.get_filename()}\nLayout: {mode}")
+        selected = dialog.get_filename() if dialog.run() == Gtk.ResponseType.OK else None
         dialog.destroy()
+        if selected:
+            self.apply_wallpaper(selected, self.wallpaper_mode_combo.get_active_id() or "fit")
 
     def default_wallpaper(self, *_args):
         path = "/usr/share/ooonana/wallpapers/ooonana-notes.jpg"
-        self.wallpaper_mode_combo.set_active_id("fit")
-        launch(["ooonana-wallpaper", "--mode", "fit", path])
-        self.status_widgets["wallpaper"].set_text(f"{path}\nLayout: fit")
+        self.apply_wallpaper(path, "fit")
 
     def apply_wallpaper_mode(self, *_args):
         mode = self.wallpaper_mode_combo.get_active_id() or "fit"
         wallpaper = self.current_wallpaper()
-        launch(["ooonana-wallpaper", "--mode", mode, wallpaper])
-        self.status_widgets["wallpaper"].set_text(f"{wallpaper}\nLayout: {mode}")
+        self.apply_wallpaper(wallpaper, mode)
+
+    def apply_wallpaper(self, path, mode):
+        if not self.appearance_busy("Applying wallpaper..."):
+            return
+        def done(rc, output):
+            if not rc and not self.closed:
+                self.status_widgets["wallpaper"].set_text(Path(path).name)
+                self.status_widgets["wallpaper"].set_tooltip_text(path)
+                self.wallpaper_mode_combo.set_active_id(mode)
+            self.appearance_done(rc, output, "Wallpaper")
+        run_async(["ooonana-wallpaper", "--mode", mode, path], done, timeout=30)
 
     def repair_services(self, widget):
         widget.set_sensitive(False)
 
-        def done(_rc, output):
+        def done(rc, output):
+            if self.closed:
+                return
             widget.set_sensitive(True)
             self.refresh_status()
-            if output and "failed" in output.lower():
-                message(self, "Service repair", output, Gtk.MessageType.WARNING)
+            if rc != 0:
+                message(self, "Service repair failed", output or f"Exit status {rc}", Gtk.MessageType.WARNING)
 
         run_async(["ooonana-service-repair", "force"], done, admin=True, timeout=30)
 

@@ -134,7 +134,8 @@ with tempfile.TemporaryDirectory(prefix="ooonana-panel-ui-") as temporary:
         if dock:
             dock.destroy()
         if settings:
-            settings.disconnect_by_func(Gtk.main_quit)
+            settings.disconnect_by_func(settings.on_destroy)
+            settings.closed = True
             settings.destroy()
         wallpaper_error = None
         if wallpaper:
