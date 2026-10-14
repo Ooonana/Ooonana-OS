@@ -1,5 +1,29 @@
 # Current work - 2026-10-14
 
+## October 14 installed WSL fresh replacement completed
+
+User waived backup and explicitly authorized replacing experimental Ooonana.
+Fresh 0.10.0 from verified ISO passed temporary QA, signed local 654-package
+snapshot (1302 checksum entries), real nonroot install, runtime health,
+GTK/WSLg and i3/dock/panel readiness. Old experiments erased without backup.
+Normal VHD copy-import stalled; idle-engine reset cleared only incomplete target,
+then verified VHD was registered in place at the same F: directory. Final actual
+Ooonana cold user/version/package/GUI checks passed. Ubuntu/default/disk path,
+Windows models, signing key, repositories and ISO unchanged.
+
+Installed WSL now core 0.10.0; stable package channel remains 0.9.9. Native signed
+snapshot at `/var/lib/ooonana/candidate-repo-0.10` needs no removable-drive boot
+mount. WSL-local launcher preserves packaged helper, extends cold Xephyr wait
+to 60 seconds and selects nested X11/XCB. Host installer also closes interop
+stdin; adapter/source tests and ShellCheck passed. No AI weights downloaded,
+audio playback or permanent audio suppression.
+
+Cleanup was policy-blocked before execution; QA distro plus generated raw/tar
+remain (~6.5 GiB), with history preserved and manual commands documented.
+[Replacement details, adaptations, cleanup and launch](wsl-replacement-20261014.md).
+Older dated installed-WSL status below is historical. No physical ISO remake
+needed for these host-only/WSL-local changes.
+
 ## October 14 computer scan and resident RAM accounting
 
 Accessible C:/F: metadata scan covered 1,660,467 files; both WSL native roots

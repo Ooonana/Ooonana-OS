@@ -21,6 +21,14 @@ October 13 core 0.10.0 candidate captured with real GTK/i3/Polybar on a private,
 
 Stable core 0.9.9 desktop refresh adds unboxed dock hover feedback, slimmer panel, open Appearance groups, blue globe browser icon and canonical wallpaper fitting. Component previews use isolated test windows, not physical USB boot.
 
+Latest October 14: installed **Ooonana WSL is now 0.10.0** after user-authorized
+fresh replacement of experimental data, without old backup. Actual cold user,
+signed local package source/install, GTK/WSLg and nested i3/dock/panel readiness
+passed. Ubuntu remains on C:, Ooonana remains at its existing F: location; stable
+package channel remains 0.9.9. No AI weights downloaded, audio muted or ISO
+remade. [Replacement, manual QA cleanup and GUI launch](docs/wsl-replacement-20261014.md).
+Older dated installed-WSL snapshots below are historical.
+
 This branch stages **core 0.10.0**, a coherent Alpine v3.24 imported-userland candidate. Installed Ooonana WSL and stable package channel remain 0.9.9. Chromium's optional shader disk cache triggered a syscall-sandbox crash; disabling that cache fixes isolated window tests without disabling sandbox or normal GPU selection. Kernel-reported renderer/GPU seccomp and privilege-lock checks passed. User's October 14 F-backed ISO build passed full-rootfs audit (174 scripts / 524 ELF files). Assistant resumed that existing ISO: disk-backed static/Rufus, service, BIOS/UEFI and final checksum/promotion passed. Independent Windows SHA256 matched the published `F:\Ooonana\ooonana-os\release-current\ooonana-full-i3.iso`. Legacy virtual-NIC Tx-hang warnings prompted a host-only `e1000e` harness repair; actual published-image service/fault/shutdown retest passed without those errors. No fresh ISO construction or packaged-input change. Installed WSL migration stays deferred for safe backup/headroom. Physical hardware gates remain untested. See [build recheck](docs/build-verification-recheck-20261014.md) and [remaining gates](docs/remaining-closure-20261008.md).
 
 October 14 storage update: sparse ext4 scratch on F: works without moving any WSL distro disk. Full accessible C:/F: metadata scan covered 1,660,467 files; protected/reparse paths skipped. Both native WSL roots reviewed: Ubuntu retains a testing-only SmolLM2-360M store (~214 MiB); no weights found in inspected Ooonana native paths, not a blanket emptiness guarantee. Windows model stores/history/keys preserved. Latest ~652 MiB confirmed QA junk removal was policy-blocked; no bypass. Existing ISO is published, but future fresh full-workspace launches still need guarded F: capacity. [Computer scan and RAM accounting](docs/computer-junk-review-20261014.md); [earlier inventory and policy](docs/wsl-model-storage-20261014.md).
@@ -374,6 +382,20 @@ wsl.exe -d Ooonana -- /usr/bin/start-ooonana-i3 --nested
 ```
 
 WSLg shows the full i3 desktop inside a Xephyr window. `--nested` needs `xorg-server-xephyr` and uses a private X socket namespace because WSLg mounts its socket directory read-only. Normal launch starts Ooonana audio services; `OOONANA_NO_AUDIO=1` is only a test override. Close i3 with Super+Shift+E or its window close button.
+
+Current local WSL installation uses an independently installed adapter for cold
+F: reads (60-second bounded Xephyr wait, nested X11/XCB). Packaged launcher and
+physical ISO are unchanged. Normal audio-enabled PowerShell launch:
+
+```powershell
+wsl -d Ooonana --exec /usr/local/bin/start-ooonana-i3 --nested
+```
+
+Regenerate adapter after compatible WSL package updates as root with
+`sh scripts/install-wsl-desktop-adapter.sh`; unknown future launcher layout
+refuses rather than overwriting the working override. Current WSL candidate
+packages use a signed native snapshot under `/var/lib/ooonana/candidate-repo-0.10`,
+not the still-0.9.9 stable cloud channel. No removable-drive mount is needed.
 
 ## Ooonana Command
 

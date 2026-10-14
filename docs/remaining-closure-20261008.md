@@ -2,6 +2,14 @@
 
 ## October 14 current status
 
+Later October 14 follow-up supersedes installed-WSL deferral below: user waived
+backup and requested fresh replacement. Installed Ooonana now 0.10.0, at same
+F: location; old experiments erased without backup. Actual cold/default-user,
+signed local repository, package install and GTK/WSLg/i3/dock/panel readiness
+passed. Ubuntu and stable package channel unchanged. No fresh physical ISO
+required. Temporary QA cleanup was policy-blocked; manual commands/history:
+[WSL replacement report](wsl-replacement-20261014.md).
+
 Older dated storage/build notes below are historical. User's F-backed sparse
 setup/preflight passed; full rootfs passed 174 script / 524 ELF checks, zero
 errors. ISO was created but service verification failed. Repeat service success

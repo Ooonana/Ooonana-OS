@@ -49,13 +49,13 @@ run_cmd() {
   if [[ "$DRY_RUN" -eq 1 ]]; then
     ooonana_print_command "$@"
   else
-    "$@"
+    "$@" </dev/null
   fi
 }
 
 default_install_dir() {
   local local_appdata
-  local_appdata="$(cmd.exe /C echo %LOCALAPPDATA% 2>/dev/null | tr -d '\r' | tail -n 1 || true)"
+  local_appdata="$(cmd.exe /C echo %LOCALAPPDATA% </dev/null 2>/dev/null | tr -d '\r' | tail -n 1 || true)"
   if [[ -n "$local_appdata" && "$local_appdata" != "%LOCALAPPDATA%" ]]; then
     printf '%s\\%sWSL\n' "$local_appdata" "$DISTRO"
     return 0
@@ -73,7 +73,7 @@ for_wsl_exe() {
 }
 
 distro_exists() {
-  wsl.exe --list --quiet 2>/dev/null | tr -d '\000\r' | grep -Fx "$DISTRO" >/dev/null 2>&1
+  wsl.exe --list --quiet </dev/null 2>/dev/null | tr -d '\000\r' | grep -Fx "$DISTRO" >/dev/null 2>&1
 }
 
 main() {

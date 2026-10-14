@@ -141,4 +141,5 @@ assert_contains "$full_listing" "./usr/bin/ooonana-gui-installer"
 assert_contains "$full_listing" "./usr/bin/ooonana-install-wizard"
 assert_contains "$(bash "$BUILD_SCRIPT" --work-dir "$tmp" --edition full-i3 --help)" "ooonana-full-i3-wsl-rootfs.tar.gz"
 
+sh "$ROOT/tests/test-wsl-desktop-adapter.sh"
 printf 'ok wsl-distro\n'
