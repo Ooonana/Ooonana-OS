@@ -1,6 +1,32 @@
 # Build verification and cleanup - 2026-10-14
 
-## Current result
+## Follow-up: disk verification instead of RAM mirroring
+
+Repeated RAM refusal is a host-resource limitation, not another ISO build
+failure. Added explicit `--verify-on-disk PATH`; RAM guard remains unchanged.
+On WSL this path must be C: DrvFS, so no VHD expansion or another slow F: mirror.
+The existing ISO is copied to a private temporary directory, compared byte for
+byte, and used directly by QEMU rather than recopied into F-backed scratch.
+Only its one copied ISO and empty directory are removed afterward; unexpected
+files, symlinks or a changed mount refuse cleanup. No recursive disk-cache delete.
+
+Destination and Windows C: must retain ISO-size-plus-2-GiB disk headroom.
+Windows/Linux RAM must cover guest plus the unchanged 2 GiB reserve, not pinned
+ISO media. Disk-backed service and simple BIOS/UEFI startup probes use the
+already-used 1536 MiB service VM size by default (~3.5 GiB available RAM), or
+the explicit `OOONANA_QEMU_MEMORY` value. This is verification VM sizing, not a
+physical Ooonana RAM limit. Source/fixture/ShellCheck checks pass. Actual full
+ISO copy/comparison, Rufus/static checks, service smoke and BIOS/UEFI startup
+probes all passed with no guest I/O/OOM/panic errors. Temporary 2.90 GB C: copy
+was removed; normal F-workspace unmount passed. Fresh helper copy/cleanup also
+passed after ownership guards were added. No rebuild, promotion or installed
+WSL change. Slow F: copy/comparison can take several minutes.
+
+Evidence under `F:\Ooonana\ooonana-os\build-diagnostics-20261014\`:
+`service.jQ5tj5Ro.log`, `disk-bios-ooonana-disk-verify.knCZ13cJ.log`,
+`disk-uefi-ooonana-disk-verify.knCZ13cJ.log`.
+
+## Original failure and retained evidence
 
 User built the ISO; assistant did not rebuild or promote it. Full-rootfs audit
 passed 174 scripts / 524 ELF files with zero errors. Staged ISO is
@@ -71,10 +97,11 @@ No downloads, sound playback or private-key upload during this pass.
 
 ## Remaining work
 
-1. Clean actual service and BIOS/UEFI verification on reliable media; final
-   checksum/promotion belongs to the user-run release command.
-2. Actual guarded RAM-mirror integration if used; close applications until its
-   live Windows/Linux memory guard passes. Do not disable the guard.
+1. User-run final checksum/promotion using the disk-backed resume command below.
+   Actual service and BIOS/UEFI checks now passed; command repeats them before
+   promoting. Existing October 6 release remains unchanged until then.
+2. RAM-mirror integration is optional and still untested; disk verification
+   removes this prerequisite. Do not disable either mode's resource guard.
 3. Actual Chromium PDF-viewer boot/input/Backspace/latency; earlier tool-policy
    restriction remains, not bypassed.
 4. Real session coverage still pending: WSLg input, Korean IME, clipboard,
@@ -85,13 +112,14 @@ No downloads, sound playback or private-key upload during this pass.
    sufficient storage; stable channel/installed WSL/October 6 ISO stay 0.9.9.
 7. Repository signing enrollment stays deferred; private key remains local.
 
-## Resume existing staged ISO
+## Resume existing staged ISO using temporary C: disk copy
 
-Only after sufficient free RAM with WSL active, run in PowerShell:
+Run in PowerShell with at least ~3.5 GiB free RAM and ~4.7 GiB free C: disk
+space (for this ISO). No `--verify-in-ram`:
 
 ```powershell
 $repo = '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10/generations/5f8074ffabc6ed5848360cd1666d0c7f74ae9f2961656b6ade612efc192dbe8f'
-& 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo $repo --resume-after-iso --verify-in-ram
+& 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo $repo --resume-after-iso --verify-on-disk '/mnt/c/Users/7ryan/AppData/Local/Temp'
 ```
 
 This skips ISO construction, verifies existing media and promotes only after

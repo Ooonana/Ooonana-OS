@@ -19,6 +19,8 @@ PREFLIGHT_ONLY=0
 RESUME_AFTER_ROOTFS=0
 RESUME_AFTER_ISO=0
 VERIFY_IN_RAM=0
+VERIFY_DISK_DIR=''
+BOOT_MEMORY=2048
 BUILD_MIN_FREE_KB=$((8 * 1024 * 1024))
 STAGE_MIN_FREE_KB=$((20 * 1024 * 1024))
 KERNEL_MIN_FREE_KB=$((20 * 1024 * 1024))
@@ -39,6 +41,7 @@ Options:
   --resume-after-rootfs  Reuse completed scratch and full rootfs
   --resume-after-iso     Reuse completed .iso.new and continue verification
   --verify-in-ram        Mirror verification media in guarded nonswappable RAM
+  --verify-on-disk PATH  Temporary fast-disk ISO copy (WSL: C: directory)
   -h, --help             Show help
 
 Environment:
@@ -65,10 +68,13 @@ while [[ $# -gt 0 ]]; do
     --resume-after-rootfs) RESUME_AFTER_ROOTFS=1; shift ;;
     --resume-after-iso) RESUME_AFTER_ISO=1; shift ;;
     --verify-in-ram) VERIFY_IN_RAM=1; shift ;;
+    --verify-on-disk) [[ $# -ge 2 && -n "$2" ]] || die "--verify-on-disk requires a directory"; VERIFY_DISK_DIR="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) die "unknown option: $1" ;;
   esac
 done
+
+[[ "$VERIFY_IN_RAM" -eq 0 || -z "$VERIFY_DISK_DIR" ]] || die "choose RAM or disk verification, not both"
 
 [[ "${EUID:-$(id -u)}" -eq 0 ]] || die "run as root"
 case "$AUTO_REBUILD_KERNEL" in
@@ -165,6 +171,7 @@ cleanup() {
   fi
   [[ -n "$OVMF_VARS" ]] && rm -f "$OVMF_VARS"
   cleanup_ram_media || return 1
+  cleanup_disk_media || return 1
   rm -rf "$WORK"
 }
 trap cleanup EXIT
@@ -544,8 +551,15 @@ if [[ "$VERIFY_IN_RAM" -eq 1 ]]; then
   (( verification_guest_mib >= 2048 )) || verification_guest_mib=2048
   prepare_ram_media "$VERIFY_ISO" "$verification_guest_mib" || die "RAM media preparation failed"
   VERIFY_ISO="$RAM_MEDIA_ISO"
+elif [[ -n "$VERIFY_DISK_DIR" ]]; then
+  # Service smoke already runs at 1536 MiB. Use that same proven VM size for
+  # simple BIOS/UEFI startup probes too; physical/live-system RAM is unchanged.
+  BOOT_MEMORY="${OOONANA_QEMU_MEMORY:-1536}"
+  prepare_disk_media "$VERIFY_ISO" "$BOOT_MEMORY" "$VERIFY_DISK_DIR" || die "disk media preparation failed"
+  VERIFY_ISO="$DISK_MEDIA_ISO"
 fi
-if [[ "$(findmnt -n -o FSTYPE --target "$VERIFY_ISO" 2>/dev/null || true)" == "9p" ]]; then
+if [[ "$VERIFY_ISO" != "$DISK_MEDIA_ISO" &&
+      "$(findmnt -n -o FSTYPE --target "$VERIFY_ISO" 2>/dev/null || true)" == "9p" ]]; then
   SOURCE_ISO="$VERIFY_ISO"
   VERIFY_ISO="$WORK/ooonana-full-i3.iso"
   printf '[verify] Copying ISO to WSL-native storage for QEMU\n'
@@ -566,7 +580,7 @@ boot_check() {
 
   : >"$log"
   qemu-system-x86_64 \
-    -accel "$QEMU_ACCEL" -machine q35 -m 2048 -smp 2 \
+    -accel "$QEMU_ACCEL" -machine q35 -m "$BOOT_MEMORY" -smp 2 \
     "$@" \
     -cdrom "$VERIFY_ISO" -boot d \
     -display none -serial stdio -monitor none -no-reboot \
@@ -643,6 +657,7 @@ if [[ "$VERIFY_ISO" != "$NEW_ISO" ]]; then
   sync "$NEW_ISO"
 fi
 cleanup_ram_media || die "verification media still busy; refusing promotion"
+cleanup_disk_media || die "disk verification media cleanup failed; refusing promotion"
 check_stage_space
 mv -f "$NEW_ISO" "$ISO"
 printf '%s  ooonana-full-i3.iso\n' "$iso_sha256" >"$RELEASE_DIR/ooonana-full-i3.iso.sha256"

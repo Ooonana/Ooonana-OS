@@ -21,7 +21,7 @@ October 13 core 0.10.0 candidate captured with real GTK/i3/Polybar on a private,
 
 Stable core 0.9.9 desktop refresh adds unboxed dock hover feedback, slimmer panel, open Appearance groups, blue globe browser icon and canonical wallpaper fitting. Component previews use isolated test windows, not physical USB boot.
 
-This branch stages **core 0.10.0**, a coherent Alpine v3.24 imported-userland candidate. Installed Ooonana WSL and stable package channel remain 0.9.9. Chromium's optional shader disk cache triggered a syscall-sandbox crash; disabling that cache fixes isolated window tests without disabling sandbox or normal GPU selection. Kernel-reported renderer/GPU seccomp and privilege-lock checks passed. User's October 14 F-backed build produced a staged ISO after a clean full-rootfs audit (174 scripts / 524 ELF files). Release verification failed; a repeat reached service success but exposed guest CD-ROM I/O errors. This is not a verified release. Host-only verification/resume/cleanup repairs do not change its runtime payload; matching staged inputs were checked. Installed WSL migration stays deferred for safe backup/headroom. No ISO built by the assistant. See [build recheck](docs/build-verification-recheck-20261014.md) and [remaining gates](docs/remaining-closure-20261008.md).
+This branch stages **core 0.10.0**, a coherent Alpine v3.24 imported-userland candidate. Installed Ooonana WSL and stable package channel remain 0.9.9. Chromium's optional shader disk cache triggered a syscall-sandbox crash; disabling that cache fixes isolated window tests without disabling sandbox or normal GPU selection. Kernel-reported renderer/GPU seccomp and privilege-lock checks passed. User's October 14 F-backed build produced a staged ISO after a clean full-rootfs audit (174 scripts / 524 ELF files). Earlier verification exposed guest CD-ROM I/O errors. Explicit disk-backed verification now passed static, service, BIOS and UEFI checks without guest I/O/OOM/panic errors; user-run final checksum/promotion remains. Host-only verification/resume/cleanup repairs do not change runtime payload; matching staged inputs were checked. Installed WSL migration stays deferred for safe backup/headroom. No ISO built by the assistant. See [build recheck](docs/build-verification-recheck-20261014.md) and [remaining gates](docs/remaining-closure-20261008.md).
 
 October 14 storage update: sparse ext4 scratch on F: works without moving any WSL distro disk. Ubuntu native model scan found one testing-only SmolLM2-360M store (~214 MiB total), not personal model weights in the scanned native user locations. Stopped Ooonana WSL was not started or inspected; do not treat that as proof its model storage is empty. Windows C:/F: model stores are separate and preserved. [Inventory, limits and storage policy](docs/wsl-model-storage-20261014.md).
 
@@ -1207,6 +1207,17 @@ Both Linux and Windows available RAM must cover the ISO, the largest test guest
 overrides increase the budget. Insufficient RAM refuses before copying.
 Service and BIOS/UEFI success markers cannot override guest I/O, filesystem,
 kernel-panic or OOM errors. [Existing staged-image resume command and limits](docs/build-verification-recheck-20261014.md).
+
+If RAM mirroring cannot fit, `--verify-on-disk PATH` instead makes a temporary,
+byte-compared ISO copy on a fast disk. On this Windows workspace use
+`/mnt/c/Users/7ryan/AppData/Local/Temp`: only the plain ISO goes on C:, not rootfs
+trees, build staging or a relocated/growing WSL distro VHD. Copy cleanup removes
+only its owned ISO and empty directory. Both destination and Windows C: must
+have ISO-size-plus-2-GiB disk headroom. RAM still needs guest-size-plus-2-GiB;
+the disk-backed service and BIOS/UEFI probes use 1536 MiB VMs by default (~3.5 GiB
+free RAM required), with `OOONANA_QEMU_MEMORY` overrides counted. This changes
+test VM allocation only, never physical/live OS RAM. RAM and disk flags are
+mutually exclusive; neither bypasses boot/service/error checks.
 
 After upgrading `openvino-chat`, run `openvino setup` to update its separate
 runtime. Model downloads require Internet and enough USB storage; inference

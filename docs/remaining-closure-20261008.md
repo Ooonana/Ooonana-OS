@@ -5,11 +5,14 @@
 Older dated storage/build notes below are historical. User's F-backed sparse
 setup/preflight passed; full rootfs passed 174 script / 524 ELF checks, zero
 errors. ISO was created but service verification failed. Repeat service success
-contained guest CD-ROM I/O errors, so release remains unverified/unpromoted.
+contained guest CD-ROM I/O errors. Later explicit disk-backed verification
+passed static/service/BIOS/UEFI checks without guest errors. ISO remains
+unpromoted; user-run disk-backed resume handles final checksum/promotion.
 Host-only fixes now reject those errors, preserve serial evidence, validate
 resume inputs and guard storage cleanup. Existing staged fingerprint matches;
-no payload remake required for these changes. Guarded RAM verification still
-needs sufficient Windows/Linux RAM with WSL active. Signed candidate stays pinned;
+no payload remake required for these changes. Temporary plain-ISO copy on C:
+requires ~3.5 GiB free RAM and ISO-size-plus-2-GiB free disk; original RAM mirror
+remains optional. Copy cleaned up, no WSL VHD growth/relocation. Signed candidate stays pinned;
 installed Ooonana WSL/stable remain 0.9.9. WSL migration stays deferred pending
 verified backup/headroom. User compacted WSL, restoring C: ~9.8 GiB. Removed
 ~456 MiB redundant QA libraries, history retained. No models/releases/keys removed.

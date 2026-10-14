@@ -109,6 +109,9 @@ assert_contains "$source_text" '-accel "$QEMU_ACCEL"'
 assert_contains "$source_text" 'verification_guest_log_ok "$log"'
 assert_contains "$source_text" 'verification_guest_mib="${OOONANA_QEMU_MEMORY:-1536}"'
 assert_contains "$source_text" 'prepare_ram_media "$VERIFY_ISO" "$verification_guest_mib"'
+assert_contains "$source_text" 'prepare_disk_media "$VERIFY_ISO" "$BOOT_MEMORY" "$VERIFY_DISK_DIR"'
+assert_contains "$source_text" '"$VERIFY_ISO" != "$DISK_MEDIA_ISO"'
+assert_contains "$source_text" '-machine q35 -m "$BOOT_MEMORY"'
 assert_contains "$source_text" $'else\n  check_stage_space\n  verify_iso_resume_inputs'
 assert_contains "$source_text" $'check_stage_space\nmv -f "$NEW_ISO" "$ISO"'
 assert_contains "$(<"$ROOT/scripts/build-full-i3-iso.sh")" 'OOONANA_MAX_ISO_BYTES:-4500000000'
@@ -119,6 +122,10 @@ option_values="$(bash -c "$parser_source"$'\nprintf "%s\\n" "$REPO_OVERRIDE" "$B
 [[ "$option_values" == $'/candidate path/repo\n/cache' ]] || fail "candidate repository option not parsed"
 option_values="$(OOONANA_RELEASE_REPO=/environment-repo bash -c "$parser_source"$'\nprintf "%s\\n" "$REPO_OVERRIDE"' "$SCRIPT" --repo /explicit-repo)"
 [[ "$option_values" == /explicit-repo ]] || fail "CLI repository must override environment"
+option_values="$(bash -c "$parser_source"$'\nprintf "%s\\n" "$VERIFY_DISK_DIR"' "$SCRIPT" --verify-on-disk '/fast disk/temp')"
+[[ "$option_values" == '/fast disk/temp' ]] || fail 'disk directory option not parsed'
+if bash -c "$parser_source" "$SCRIPT" --verify-on-disk >/dev/null 2>&1; then fail 'missing disk directory accepted'; fi
+if bash -c "$parser_source" "$SCRIPT" --verify-on-disk /fast --verify-in-ram >/dev/null 2>&1; then fail 'conflicting mirror modes accepted'; fi
 assert_contains "$(<"$(dirname "$SCRIPT")/run-iso-build-wsl.sh")" '"${release_args[@]}"'
 
 # Small F-backed workspace: old failed scratch must not prevent a fresh retry.

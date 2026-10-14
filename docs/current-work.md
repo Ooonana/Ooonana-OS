@@ -1,5 +1,23 @@
 # Current work - 2026-10-14
 
+## October 14 disk-backed verification closure
+
+Repeated RAM-mirror refusal resolved with explicit `--verify-on-disk PATH`.
+Plain ISO temporary copy on C: DrvFS avoids pinned media, WSL VHD growth and
+slow F-backed QEMU CD reads. Copy is compared byte-for-byte; both disk and RAM
+retain 2 GiB reserves. Disk-mode probes use 1536 MiB VMs (~3.5 GiB host RAM
+headroom), not a physical/live OS limit. Unknown files, changed mount ownership
+and symlinks refuse cleanup; only the owned ISO and empty directory are removed.
+
+Actual existing ISO copy, static/Rufus checks, all service/fault/shutdown checks
+and BIOS/UEFI startup passed without guest I/O/OOM/panic errors. Temporary
+2.90 GB C: copy removed; F workspace normally unmounted. Fresh helper copy and
+cleanup, source/fixture guards and ShellCheck passed. No rebuild or promotion;
+user-run resume remains for final checksum/promotion. Stable/installed WSL stay
+0.9.9; original candidate generation unchanged. C: ~8.8 GiB after cleanup.
+Prior `37f1ba4` GitHub/GitLab CI passed. Full evidence and new command:
+[build verification recheck](build-verification-recheck-20261014.md).
+
 ## October 14 user build and model inventory
 
 User's F-backed sparse-workspace build passed preflight and full-rootfs audit
