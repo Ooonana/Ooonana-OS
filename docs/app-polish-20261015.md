@@ -33,8 +33,8 @@ and native GTK behavior. No replacement editor, transparency or UI fork.
 - Source-only manifest, package-index and GUI-preferences fixtures passed.
 - Impeccable detector reported no findings for the edited generator; it does
   not certify native GTK visuals. Rendered checks supply that evidence.
-- Actual installed Ooonana WSLg: mouse focus, physical `a`, Backspace,
-  selection and nested copy/paste worked. Geany's real GTK picker opened within
+- Actual installed Ooonana WSLg: mouse focus, physical `a`, Backspace and
+  selection worked. Geany's real GTK picker opened within
   the display and Escape returned focus to the editor.
 
 ![Geany in actual nested Ooonana WSLg](assets/ooonana-geany-polish-20261015.png)
@@ -48,8 +48,9 @@ Isolated GTK preview; no sound played. Playback and hardware routing untested.
 ## Remaining gates
 
 - Windows-to-nested-WSLg automated Unicode text did not arrive; physical keys
-  did. Nested clipboard round-trip worked, but export to Windows was not
-  confirmed. Real Korean IME composition is not covered by literal Korean text.
+  did. Clipboard shortcuts were exercised, but independent native and Windows
+  clipboard reads did not confirm delivery. Treat clipboard as unpassed.
+  Real Korean IME composition is not covered by literal Korean text.
 - PDF Chrome viewer still rejects automated local `file:` navigation. Manual
   boot time, Backspace and `ooonana --version` latency results remain pending.
 - Firefox first-run/picker and installed new-base Qt dialogs need separate
