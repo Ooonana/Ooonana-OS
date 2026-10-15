@@ -75,6 +75,25 @@ ooonana_console_frame
         assert len(set(frames)) == 3
         assert all("\x1b[2J" not in frame and "Saving changes" in frame for frame in frames)
 
+    # A disappearing /dev must never turn drawing into regular-file writes.
+    strict = work / "strict-helper.sh"
+    strict.write_text(source.replace("ooonana_ui_device=/dev/tty1", f"ooonana_ui_device='{device}'"))
+    for exists in (True, False):
+        if exists:
+            device.write_text("untouched")
+        else:
+            device.unlink()
+        subprocess.run(["sh", "-c", f"""set -eu
+. '{strict}'
+ooonana_ui_device='{device}'
+ooonana_ui_animated=1
+ooonana_console_frame
+ooonana_console_end
+"""], check=True, timeout=5)
+        assert device.exists() == exists
+        if exists:
+            assert device.read_text() == "untouched"
+
 init = (ROOT / "scripts/build-full-i3-live-initramfs.sh").read_text()
 assert init.index("ooonana_console_end\nmount --move /proc") < init.index("exec switch_root")
 assert 'cp /lib/ooonana-console-ui.sh "$shutdown_root/console-ui.sh"' in init
@@ -82,4 +101,6 @@ shutdown = (ROOT / "scripts/lib/live-shutdown.sh").read_text()
 assert shutdown.index('[ "${1:-}" = --from-init ]') < shutdown.index("ooonana_console_begin")
 assert shutdown.index("kill -TERM -1") < shutdown.index("ooonana_console_wait 2") < shutdown.index("kill -KILL -1")
 assert "umount /oldroot" in shutdown and "trap 'shutdown_failed" in shutdown
+normal_shutdown = (ROOT / "packages/ooonana/usr/bin/ooonana-shutdown-cleanup").read_text()
+assert normal_shutdown.index("&& ooonana_console_end") < normal_shutdown.index("umount -a -r")
 print("CONSOLE_UI_OK POSIX/BusyBox; motion-off/serial/small-console; exact waits; no worker/trap; guarded RAM shutdown")

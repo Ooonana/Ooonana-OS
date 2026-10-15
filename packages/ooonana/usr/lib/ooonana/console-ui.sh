@@ -49,6 +49,7 @@ ooonana_console_center() {
 
 ooonana_console_frame() {
   [ "${ooonana_ui_animated:-0}" = 1 ] || return 0
+  [ -c "$ooonana_ui_device" ] && [ -w "$ooonana_ui_device" ] || return 0
   case "$ooonana_ui_frame" in
     0) ooonana_ui_pulse='o . .' ;;
     1) ooonana_ui_pulse='. o .' ;;
@@ -85,7 +86,8 @@ ooonana_console_wait() {
 }
 
 ooonana_console_end() {
-  if [ "${ooonana_ui_animated:-0}" = 1 ]; then
+  if [ "${ooonana_ui_animated:-0}" = 1 ] &&
+     [ -c "$ooonana_ui_device" ] && [ -w "$ooonana_ui_device" ]; then
     printf '\033[%s;1H\033[2K\033[0m\033[%s;1H' \
       "$ooonana_ui_row" "$((ooonana_ui_row + 3))" >"$ooonana_ui_device" 2>/dev/null || true
   fi

@@ -41,9 +41,9 @@ shutdown_cleanup() {
       echo 'OOONANA_SHUTDOWN_PERSIST_RO_WARNING' >&2
     fi
   fi
+  command -v ooonana_console_end >/dev/null 2>&1 && ooonana_console_end
   umount -a -r 2>/dev/null || echo 'OOONANA_SHUTDOWN_UNMOUNT_WARNING' >&2
   sync || echo 'OOONANA_SHUTDOWN_SYNC_FAILED' >&2
-  command -v ooonana_console_end >/dev/null 2>&1 && ooonana_console_end
   echo 'OOONANA_SHUTDOWN_CLEANUP_DONE'
 }
 

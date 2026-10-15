@@ -27,6 +27,9 @@ No ISO was built. A fresh user build is required to include these changes.
 - Warnings remain below the status; stage transitions do not clear the whole
   console. Final status stops activity before handoff. BusyBox init guards,
   persistence selection, failure-held rescue and unmount ordering are unchanged.
+  Every drawing write rechecks the character device. Normal shutdown ends the
+  presentation before unmounting `/dev`; missing/replaced VT fixtures confirm
+  no regular file is created or overwritten.
 - Persistent storage-file shutdown copies the tiny UI helper, logo and required
   console applets to its RAM root. UI functions retain no file descriptor or
   worker that could pin the writable old root during pivot/unmount.
@@ -53,6 +56,24 @@ No ISO was built. A fresh user build is required to include these changes.
 Physical framebuffer handoff, visible shutdown VT switching, power-loss and
 reboot timing still need the disposable USB session. No physical drives were
 modified and no WSL/host shutdown action was invoked by these tests.
+
+## Delivery checkpoint
+
+- Clean source manifest: `4e0738db6acbfe977752806b6f071102459ecdb0`.
+  [GitHub regression](https://github.com/Ooonana/Ooonana-OS/actions/runs/38687884012)
+  and [GitLab smoke](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2949438824)
+  passed. Commits pushed to both `codex/supported-base-0-10` branches.
+- Signed local candidate generation:
+  `fcf0a97450fd86c44fa410e933e380300ed62fc069ee752a5e9b4aca8aedaf58`.
+  Coherent Alpine v3.24 package inputs; no models bundled. Prior published
+  generations retained unchanged. Private signing key stayed local.
+- Installed Ooonana WSL refreshed through native package transactions; both
+  core and runtime verification passed. Signed native snapshot:
+  `/var/lib/ooonana/candidate-boot-ui-20261015.dKK8PvUA`.
+  Previous snapshot/checkpoints retained; neither WSL disk moved. WSL boot uses
+  Microsoft's kernel, so this update does not prove physical boot animation.
+- Core stays **0.10.0 candidate**. Stable promotion/signing enrollment remain
+  deferred. Existing completed ISO does not acquire these edits through resume.
 
 ## Reproduce focused checks
 
