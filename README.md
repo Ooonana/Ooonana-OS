@@ -56,10 +56,11 @@ Batches 1–3 are now in the signed local candidate repository and installed
 Ooonana WSL; both core/runtime verification checks pass. Relaunch GUI to use
 new app code. Existing ISO is unchanged; broader review remains active.
 This is not a claim that every installer, app, display or session path is done.
-Next source batch adds default-Cancel package change previews and readable Health
+Follow-up adds default-Cancel package change previews and readable Health
 snapshots with exact raw/copy access and honest service/memory warnings. Compact
 dock overflow now tracks visible pins; `Super+Ctrl+D` opens keyboard dock actions.
-These later edits await the next signed runtime refresh; older ISO stays unchanged.
+Batch 4/5 are now signed/published locally and verified in Ooonana WSL; relaunch
+GUI for current app code/shortcut. Older ISO stays unchanged.
 [Full scope, current evidence and remaining UI work](docs/ui-whole-os-review.md).
 
 October 15 CI follow-up: Alpine smoke environment lacked `findmnt`, required by

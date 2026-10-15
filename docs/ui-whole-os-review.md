@@ -308,3 +308,33 @@ display hotplug/WSLg input still needs separate evidence. Batch 4/5 source edits
 remain pending the next signed runtime refresh; no ISO built.
 
 ![Keyboard window actions on owned Music fixture, opaque dark appearance](assets/ooonana-dock-keyboard-20261015.png)
+
+## Published checkpoint after Batch 5
+
+Supersedes the preceding Batch 4/5 source-pending notes. Whole-OS review remains
+active; software coverage is not physical/session certification.
+
+- Source `49748aa8a04d80ac78b2c4de73e48d03e6f4393a` pushed to both branches.
+  [GitHub regression](https://github.com/Ooonana/Ooonana-OS/actions/runs/38732716980)
+  and [GitLab smoke](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2950779363)
+  passed. Native package/health, content/detail and source regressions also pass.
+- Clean source-only manifest, no bundled weights, coherent Alpine v3.24 inputs;
+  signed local repository validates **654 packages / 612 dependency nodes**.
+  New generation:
+  `3bbaadda499b28f7f8e885fed33690f1b446a7832bc722dacd1b781eb69fb782`.
+  Prior generation checksum manifest unchanged; no stable promotion/enrollment.
+- Native WSL snapshot:
+  `/var/lib/ooonana/candidate-package-dock-20261015.xr0wY3b1`.
+  Pinned public-key hash, detached signature, all 1302 checksums and clean
+  source revision passed before native CLI transactions. Both core/runtime
+  reinstall, verification and explicit health hooks pass. All rollback
+  checkpoints and the prior source config remain.
+- Installed Packages, Health/summary, dock, action popup, window helper and i3
+  config hashes match source. Actual installed GTK imports pass unprivileged.
+  Existing trusted cloud source points at the new native snapshot. WSL-local
+  launcher/compositor adaptation refreshed; no forced desktop/WSL restart.
+- Logs: `/var/tmp/ooonana-package-dock-sync-20261015.3Kj6Vc2S` in Ooonana.
+  First transfer preflight found the optional F: mount absent, before transfer
+  or installation. Mount existence is now checked in that transfer step.
+  Ubuntu/Ooonana disks stay put. No model download, sound, physical disk change
+  or ISO construction. Fresh ISO remains user's later step after UI review.
