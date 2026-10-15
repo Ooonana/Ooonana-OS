@@ -63,5 +63,6 @@ jobs:
           python3 -B tests/test-userland-migration.py
           python3 -B tests/test-desktop-backend-polish.py
           python3 -B tests/test-editor-polish.py
+          python3 -B tests/test-chart-layout.py
           python3 -B tests/test-update-interruption.py
           bash tests/test-package-factory.sh

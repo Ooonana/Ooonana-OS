@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from common import Gdk, GLib, Gtk, Pango, apply_theme, button, header, label, message  # noqa: E402
+from common import Gdk, GLib, Gtk, Pango, apply_theme, button, chart_colors, header, label, message  # noqa: E402
 from gi.repository import GObject  # noqa: E402
 from process_control import ProcessChanged, parse_process_stat, terminate_owned_process  # noqa: E402
 from ui_preferences import transition_ms  # noqa: E402
@@ -207,10 +207,11 @@ class MetricCard(Gtk.Box):
     def draw_chart(self, area: Gtk.DrawingArea, cr) -> bool:
         width = area.get_allocated_width()
         height = area.get_allocated_height()
-        cr.set_source_rgb(0.10, 0.12, 0.15)
+        colors = chart_colors()
+        cr.set_source_rgb(*colors["background"])
         cr.rectangle(0, 0, width, height)
         cr.fill()
-        cr.set_source_rgb(0.22, 0.25, 0.29)
+        cr.set_source_rgb(*colors["grid"])
         for fraction in (0.25, 0.5, 0.75):
             y = height * fraction
             cr.move_to(0, y)
@@ -220,7 +221,7 @@ class MetricCard(Gtk.Box):
         if len(self.history) < 2:
             return False
         peak = 100.0 if self.percent_scale else max(1.0, max(self.history))
-        cr.set_source_rgb(1.0, 0.70, 0.10)
+        cr.set_source_rgb(*colors["accent"])
         cr.set_line_width(2)
         values = list(self.history)
         for index, value in enumerate(values):

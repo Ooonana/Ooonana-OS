@@ -5,12 +5,14 @@ set -euo pipefail
 SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 only="${OOONANA_GUI_ONLY:-all}"
 geometry="${OOONANA_GUI_GEOMETRY:-1280x800}"
+theme="${OOONANA_GUI_THEME:-dark}"
+case "$theme" in dark|light) ;; *) printf 'Unsupported test appearance: %s\n' "$theme" >&2; exit 2 ;; esac
 case "$geometry" in
   640x600|1024x768|1280x800|1600x900) ;;
   *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
 esac
 case "$only" in
-  all|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|window-controls-runtime|dock-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
+  all|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|window-controls-runtime|dock-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -156,7 +158,7 @@ if [[ "$only" == firefox-frame && -z "${OOONANA_FIREFOX_REUSE_HOME:-}" ]]; then
 fi
 # Host Xvfb and candidate use the same private filesystem socket, no TCP.
 mount --bind "$rootfs/tmp" /tmp
-export rootfs output only
+export rootfs output only theme
 # Keep namespace init as Bash. Xvfb will not send its readiness signal to PID 1.
 # shellcheck disable=SC2016 # Child shell expands exported paths/display.
 unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp" bash -c '
@@ -183,7 +185,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
       XAUTHORITY=/home/ooonana/.Xauthority XDG_RUNTIME_DIR=/home/ooonana/runtime \
       XDG_CURRENT_DESKTOP=Ooonana:i3 XDG_SESSION_DESKTOP=ooonana DESKTOP_SESSION=ooonana \
       PYTHONDONTWRITEBYTECODE=1 OOONANA_GUI_TEST_DISPLAY=1 OOONANA_NOTIFICATION_TEST_SESSION=1 GDK_BACKEND=x11 \
-      GTK_THEME=Adwaita:dark NO_AT_BRIDGE=1 \
+      GTK_THEME="Adwaita:$theme" OOONANA_THEME="$theme" NO_AT_BRIDGE=1 \
       /usr/bin/dbus-run-session -- "$@" >"$output/$name.log" 2>&1; then
       printf "PASS %s\n" "$name"
     else
@@ -195,6 +197,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
     probe "$name" python3 "/source/tests/check-$name.py"
   done
   probe native-app-catalog python3 /source/tests/check-native-app-catalog.py
+  probe ui-details-runtime python3 /source/tests/check-ui-details-runtime.py /qa/details
   probe settings-power-ui python3 /source/tests/check-settings-power-ui.py
   probe notifications-runtime python3 /source/tests/check-notifications-runtime.py --output /qa/notifications.png
   probe window-controls-runtime python3 /source/tests/check-window-controls-runtime.py --own-i3

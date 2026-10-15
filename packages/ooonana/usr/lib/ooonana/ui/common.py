@@ -175,6 +175,17 @@ def light_appearance():
     return bool(settings and not settings.get_property("gtk-application-prefer-dark-theme"))
 
 
+def chart_colors():
+    """Opaque drawing-area roles shared by native plots, in the active theme."""
+    colors = ({"background": "#ffffff", "grid": "#d8dee6", "text": "#1b1f26",
+               "muted": "#55616e", "accent": "#805600", "green": "#25663f", "blue": "#0065a8"}
+              if light_appearance() else
+              {"background": "#15191f", "grid": "#343b46", "text": "#f5f5f7",
+               "muted": "#b4bdc8", "accent": "#ffb21a", "green": "#70d69b", "blue": "#74c9ff"})
+    return {name: tuple(int(value[index:index + 2], 16) / 255 for index in (1, 3, 5))
+            for name, value in colors.items()}
+
+
 _theme_provider = None
 
 
@@ -246,18 +257,19 @@ def button(label_text, icon_name=None, callback=None, style=None):
     return widget
 
 
-def flow_row(widgets, max_children=8):
+def flow_row(widgets, max_children=8, min_children=3):
     widgets = list(widgets)
     row = Gtk.FlowBox()
     row.set_selection_mode(Gtk.SelectionMode.NONE)
     row.set_homogeneous(False)
     row.set_row_spacing(8)
     row.set_column_spacing(8)
-    row.set_min_children_per_line(min(3, max_children, max(1, len(widgets))))
+    row.set_min_children_per_line(min(max(1, min_children), max_children, max(1, len(widgets))))
     row.set_max_children_per_line(max_children)
     row.set_valign(Gtk.Align.START)
     for widget in widgets:
         row.insert(widget, -1)
+        widget.get_parent().set_can_focus(False)
     return row
 
 

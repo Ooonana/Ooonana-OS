@@ -90,6 +90,7 @@ def main():
     parser.add_argument("--require-fit", action="store_true", help="Reject windows extending outside isolated display")
     parser.add_argument("--sample-data", action="store_true", help="Private state and mocked backend; no hardware actions")
     parser.add_argument("--page", help="Settings or Task Manager page")
+    parser.add_argument("--text-scale", type=float, choices=(1.0, 1.25, 1.5), help="Private GTK DPI regression")
     args = parser.parse_args()
     fixture = None
     if args.sample_data:
@@ -114,6 +115,8 @@ def main():
     elif args.app == "music":
         module.run_async = lambda *_args, **_kwargs: None
     apply_theme()
+    if args.text_scale is not None:
+        Gtk.Settings.get_default().set_property("gtk-xft-dpi", round(96 * 1024 * args.text_scale))
     Gtk.IconTheme.get_default().append_search_path(str(ROOT / "packages/ooonana/usr/share/icons/hicolor/scalable/apps"))
     factory = getattr(module, class_name)
     if args.app == "updates":

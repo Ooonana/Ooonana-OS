@@ -10,6 +10,7 @@ if os.environ.get("OOONANA_GUI_TEST_DISPLAY") != "1" or os.getuid() == 0:
     raise SystemExit("Dedicated test display and nonroot test user required")
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--output-dir", type=Path, default=Path("/qa"))
+parser.add_argument("--text-scale", type=float, choices=(1.0, 1.25, 1.5))
 args = parser.parse_args()
 args.output_dir.mkdir(parents=True, exist_ok=True)
 root = Path(__file__).resolve().parents[1]
@@ -25,6 +26,8 @@ for app, page in cases:
                "--sample-data", "--require-fit", "--delay-ms", "800"]
     if page:
         command += ["--page", page]
+    if args.text_scale is not None:
+        command += ["--text-scale", str(args.text_scale)]
     result = subprocess.run(command, timeout=12, capture_output=True, text=True)
     (args.output_dir / f"{name}.log").write_text(result.stdout + result.stderr)
     if result.returncode:

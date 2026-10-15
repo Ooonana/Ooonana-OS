@@ -43,6 +43,12 @@ repaired light-mode native/chat contrast, quieter application launch actions and
 form accessibility. Dock, native window controls, Settings/Power recovery and
 small-screen GRUB rechecked. [Coverage, screenshots and remaining gates](docs/ui-missed-recheck-20261015.md).
 
+Whole-OS UI review remains active. New compact-layout fixes cover Packages,
+Health/Updates and signal maps; native plots now follow both appearances.
+Busy/error/retry feedback and keyboard action rows have isolated GTK checks.
+This is not a claim that every installer, app, display or session path is done.
+[Full scope, current evidence and remaining UI work](docs/ui-whole-os-review.md).
+
 October 15 CI follow-up: Alpine smoke environment lacked `findmnt`, required by
 verification fixtures. Added its dependency and explicit Node/C-compiler tooling;
 WSL fixture now mocks every Windows tool even for dry runs and checks piped-input
