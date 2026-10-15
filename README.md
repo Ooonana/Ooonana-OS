@@ -61,6 +61,11 @@ snapshots with exact raw/copy access and honest service/memory warnings. Compact
 dock overflow now tracks visible pins; `Super+Ctrl+D` opens keyboard dock actions.
 Batch 4/5 are now signed/published locally and verified in Ooonana WSL; relaunch
 GUI for current app code/shortcut. Older ISO stays unchanged.
+October 16 source follow-up corrects oversized desktop controls: normal buttons/
+entries 32px, dropdowns 33px, existing font sizes retained and actions content-fit.
+Settings gains compact page navigation, visible keyboard focus, bounded native
+picker/log dialogs and stronger failure/duplicate handling. This newer batch is
+still pending signed runtime refresh; details distinguish source from installed.
 [Full scope, current evidence and remaining UI work](docs/ui-whole-os-review.md).
 
 October 15 CI follow-up: Alpine smoke environment lacked `findmnt`, required by

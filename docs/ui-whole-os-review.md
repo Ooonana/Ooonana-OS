@@ -14,7 +14,7 @@ mascot/cursor identity. Do not build an ISO or play sound during review.
 | Dock | Centered icons, bounded previews/tooltips, compact grouping, 44px targets and unchanged hover focus; follow-up action/keyboard checks below | Edge placement and actual session/display integration |
 | Native Launcher | Long names bounded with full tooltips; visible no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard pass | Real application launch and installed keyboard/IME integration |
 | Wi-Fi / Bluetooth | Managed i3 populated lists and hidden/personal/TLS/PIN dialogs fit 640×600; bounded names, list room, More keyboard/Escape and secret labels pass | Every advanced security/IPv4/proxy/certificate picker, service failure/lifecycle, sustained activity feedback and physical radios |
-| Settings: all six pages | Fresh initial-state captures, 640×600 dark/light and 1024×768 dark | Scaled text, completion/error/rollback, file chooser, long system values, keyboard navigation |
+| Settings: all six pages | Compact page picker, bounded/selectable source values, visible keyboard focus, managed wallpaper/log dialogs, repair/update retry and motion rollback; 100/125/200% text checks below | Real installed-session preference/authentication paths and external file/device failures |
 | Setup | Native compact overflow fixed; static fields labelled; validation, default-Back review, mocked pending/failure/late completion tested | Complete real setup/persistence and scaled-text interaction path |
 | Sound / brightness / music | Long selected device/track names bounded; full-name tooltips, music error/retry/closed-callback behavior; no audio playback | Empty device lists, permission errors, actual route/mute/volume semantics and keyboard |
 | Power | Native default-Cancel, duplicate refusal, error/retry, failed lock refusal pass with mocked commands | Actual isolated lock/logout/suspend and unavailable capabilities |
@@ -338,3 +338,72 @@ active; software coverage is not physical/session certification.
   or installation. Mount existence is now checked in that transfer step.
   Ubuntu/Ooonana disks stay put. No model download, sound, physical disk change
   or ISO construction. Fresh ISO remains user's later step after UI review.
+
+## Batch 6: proportional controls and Settings details (October 16)
+
+User requested less oversized objects relative to text and asked to try UI/UX
+Pro Max alongside Impeccable. Existing opaque Graphite/Paper identity stays.
+Impeccable guided bounded refinement; UI/UX Pro Max's focus/semantic guidance
+informed interaction checks. Its desktop-size search had no verified GTK match;
+off-topic mobile guidance was rejected, not treated as a desktop size standard.
+
+Actual candidate GTK measurements at normal text scale:
+
+| Control | Native before → after | Generated GTK theme before → after |
+| --- | --- | --- |
+| Button | 42 → 32 px | 42 → 32 px |
+| Entry | 52 → 32 px | 50 → 32 px |
+| Dropdown | 46 → 33 px | 42 → 33 px |
+
+Text line remains 17px. Font declarations remain Sans 10.5 for native apps and
+Sans 10 for the generated user profile. Removed excess padding/inherited
+minimum height, not text size. Native helper actions now fit their labels
+(sample Apply: 86px wide including icon), while editable fields can still expand.
+Font scaling grows the controls naturally: 200% native text line 33px gives
+45px buttons/entries and a 49px dropdown. Existing window-control sizes, dock
+targets, toolbar-specific styling and contrast roles remain unchanged.
+
+Settings baseline exposed clipped managed picker/log windows, extremely tall
+source values, misleading BlueZ-running output after a failed query, duplicate
+service repairs/metadata requests, a failed motion preference staying selected,
+and a delayed package dialog after Settings closed. Repairs:
+
+- Narrow windows use an accessible native page picker; larger windows retain
+  sidebar navigation. Returning to wide layout shows every row. Settings actions
+  wrap without forcing three columns. Theme/layout fields have accessible names
+  and cannot change while an appearance operation is pending.
+- Source/status values have bounded lines, full selectable text, tooltips and
+  accessible descriptions. Repository configuration is neutral, not proof of
+  repository health. Native focus adjustments scroll the focused value into view.
+- Wallpaper uses native GtkFileChooserWidget inside a monitor-bounded modal
+  shell: fixed reachable Cancel/Apply, explicit scrollbars, default Cancel,
+  proper image filtering/selection and parent-close cleanup. No custom filesystem
+  browser or disk installer was introduced.
+- Service log wraps inside bounded native dialog, has Copy log and closes with
+  its parent. Repair/Reprobe buttons share a pending guard and retry feedback.
+  Bluetooth query failure no longer claims BlueZ is running.
+- Failed motion saving restores its checkbox; failed theme/wallpaper operations
+  preserve saved state. Metadata action explicitly says Refresh metadata; success
+  says no packages installed, failures retain retry, late callbacks stay silent.
+
+Native private i3/GTK evidence: `batch6-settings-before`, `batch6-density-before`,
+`batch6-focus-width-*`, `batch6-final-*` under the existing QA root. Proportion
+checks cover native/generated themes and 100/125/200% text; Settings checks cover
+real keyboard page navigation, full focused-value visibility, Cancel/selection,
+copy, duplicate refusal, failures/retry and parent destruction. Actual Geany
+picker/window controls also pass with the new generated theme. All commands
+that would change packages/services/wallpaper in these interaction fixtures are
+mocked; no sound, model download, physical disk writes or ISO build.
+
+Final shared-style regression: all **25 native pages** pass at 640×600 in both
+appearances after content-fit actions. Package/Health, shared detail, native
+window controls, editor/profile and installer source regressions pass. Those
+catalog captures are normal-text initial states; 200% interaction evidence is
+the targeted Settings/proportion fixture, not a claim about every app at 200%.
+
+![Compact Settings with proportional action controls, native candidate](assets/ooonana-settings-proportions-20261016.png)
+
+![Reachable wallpaper picker actions and explicit scrolling at 125% text](assets/ooonana-settings-picker-20261016.png)
+
+This batch is source work pending the next signed runtime refresh. Batch 5
+remains the installed checkpoint until a later publication record supersedes it.

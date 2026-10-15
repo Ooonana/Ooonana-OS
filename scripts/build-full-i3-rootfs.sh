@@ -390,7 +390,7 @@ menuitem:hover { background: @ooonana_panel_alt; color: @ooonana_text_accent; }
 headerbar { background: @ooonana_panel; color: @ooonana_fg; border-bottom: 1px solid @ooonana_border; border-radius: 14px 14px 0 0; padding: 5px 10px; }
 headerbar .title { font-weight: bold; }
 headerbar .subtitle { color: @ooonana_muted; opacity: 1; }
-button { background: @ooonana_panel_alt; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 10px; padding: 8px 14px; transition: background-color 180ms ease-out; }
+button { background: @ooonana_panel_alt; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 10px; min-height: 20px; padding: 5px 10px; transition: background-color 180ms ease-out; }
 button:hover { background: @ooonana_hover; border-color: @ooonana_accent; }
 button:active { background: @ooonana_entry; border-color: @ooonana_accent; }
 button:checked, button.suggested-action { background: @ooonana_accent; color: #101317; border-color: @ooonana_accent; }
@@ -410,7 +410,7 @@ toolbar entry { min-height: 20px; padding: 3px 6px; border-radius: 6px; }
 toolbar separator { margin: 3px 5px; background: @ooonana_border; }
 notebook tab button { min-width: 16px; min-height: 16px; padding: 2px; border: 0; border-radius: 5px; }
 entry, textview, treeview, list { background: @ooonana_entry; color: @ooonana_fg; border-color: @ooonana_border; }
-entry { padding: 8px 10px; border-radius: 10px; }
+entry { min-height: 20px; padding: 5px 8px; border-radius: 10px; }
 treeview header button { background: @ooonana_panel_alt; color: @ooonana_text_accent; }
 treeview:selected, row:selected { background: @ooonana_panel_alt; color: @ooonana_fg; }
 notebook header { background: @ooonana_panel; }
@@ -530,7 +530,7 @@ window.background, dialog.background, messagedialog.background { border-radius: 
 decoration { background: @ooonana_bg; border: 1px solid @ooonana_border; border-radius: 14px; box-shadow: none; }
 headerbar { background: @ooonana_panel; color: @ooonana_fg; border-bottom: 1px solid @ooonana_border; border-radius: 14px 14px 0 0; }
 headerbar .subtitle { color: @ooonana_muted; opacity: 1; }
-button { background: @ooonana_panel_alt; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 10px; padding: 8px 14px; transition: background-color 180ms ease-out; }
+button { background: @ooonana_panel_alt; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 10px; min-height: 20px; padding: 5px 10px; transition: background-color 180ms ease-out; }
 button:hover { background: #39414b; border-color: @ooonana_accent; }
 button:active { background: #15191f; border-color: @ooonana_accent; }
 button:checked, button.suggested-action { background: @ooonana_accent; color: #101317; }
@@ -549,7 +549,7 @@ toolbar entry { min-height: 20px; padding: 3px 6px; border-radius: 6px; }
 toolbar separator { margin: 3px 5px; background: @ooonana_border; }
 notebook tab button { min-width: 16px; min-height: 16px; padding: 2px; border: 0; border-radius: 5px; }
 entry, textview, treeview, list { background: @ooonana_entry; color: @ooonana_fg; border-color: @ooonana_border; }
-entry { padding: 8px 10px; border-radius: 10px; }
+entry { min-height: 20px; padding: 5px 8px; border-radius: 10px; }
 treeview:selected, row:selected { background: @ooonana_panel_alt; color: @ooonana_fg; }
 scale highlight { background: @ooonana_accent; }
 EOF

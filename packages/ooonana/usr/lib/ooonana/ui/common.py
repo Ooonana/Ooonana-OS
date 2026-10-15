@@ -50,7 +50,7 @@ headerbar .subtitle { color: #b4bdc8; opacity: 1; }
 .status-warn { color: #ffd37a; font-weight: 700; }
 .status-bad { color: #ff675c; font-weight: 700; }
 .status-neutral { color: #b4bdc8; }
-button { background: #272c34; color: #f5f5f7; border: 1px solid #46505c; border-radius: 10px; padding: 8px 14px; transition: background-color 180ms ease-out; }
+button { background: #272c34; color: #f5f5f7; border: 1px solid #46505c; border-radius: 10px; min-height: 20px; padding: 5px 10px; transition: background-color 180ms ease-out; }
 button:hover { background: #39414b; border-color: #596574; }
 button:active { background: #20252c; border-color: #ffb21a; }
 button:focus, entry:focus, combobox button:focus { border-color: #ffb21a; box-shadow: 0 0 0 2px #73521e; }
@@ -68,11 +68,11 @@ entry, textview, textview text, textview.view, textview.view text, treeview, lis
   color: #f5f5f7;
   border-color: #46505c;
 }
-entry { padding: 9px; border-radius: 10px; }
+entry { min-height: 20px; padding: 5px 8px; border-radius: 10px; }
 entry:hover { border-color: #778493; }
 entry:focus { border-color: #ffb21a; }
 entry selection, textview text selection { background: #ffcf77; color: #101317; }
-combobox button { min-height: 28px; }
+combobox button { min-height: 20px; }
 checkbutton, radiobutton { padding: 4px 0; }
 checkbutton check { background: #15191f; border: 1px solid #596574; border-radius: 4px; min-width: 14px; min-height: 14px; }
 checkbutton check:checked { background: #ffb21a; color: #101317; border-color: #ffb21a; }
@@ -245,6 +245,7 @@ def window_control_icon(name):
 
 def button(label_text, icon_name=None, callback=None, style=None):
     widget = Gtk.Button.new_with_label(label_text)
+    widget.set_halign(Gtk.Align.START)
     if icon_name:
         image = icon(icon_name)
         image.set_margin_end(6)

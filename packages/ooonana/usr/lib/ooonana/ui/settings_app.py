@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from ui_preferences import load_preferences, save_preferences, transition_ms
 from storage_health import storage_health
 from common import (  # noqa: E402
+    Gdk,
     Gtk,
     Pango,
     apply_theme,
@@ -19,6 +20,7 @@ from common import (  # noqa: E402
     section,
     command_exists,
     flow_row,
+    fit_dialog,
     header,
     icon,
     label,
@@ -52,6 +54,11 @@ class SettingsWindow(Gtk.Window):
         self.status_version = 0
         self.appearance_pending = False
         self.appearance_actions = []
+        self.service_actions = []
+        self.service_pending = False
+        self.metadata_pending = False
+        self.dialog_open = False
+        self.motion_sync = False
         self.card_grids = []
         self.appearance_rows = []
         self.headerbar = header(
@@ -78,7 +85,18 @@ class SettingsWindow(Gtk.Window):
         self.stack.set_hhomogeneous(False)
         self.stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
         self.stack.set_transition_duration(transition_ms())
-        root.pack_start(self.stack, True, True, 0)
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.page_picker = Gtk.ComboBoxText()
+        self.page_picker.set_no_show_all(True)
+        self.page_picker.set_margin_start(16)
+        self.page_picker.set_margin_end(16)
+        self.page_picker.set_margin_top(8)
+        self.page_picker.get_accessible().set_name("Settings page")
+        self.page_picker.set_tooltip_text("Choose Settings page")
+        self.page_picker.connect("changed", self.page_changed)
+        content.pack_start(self.page_picker, False, False, 0)
+        content.pack_start(self.stack, True, True, 0)
+        root.pack_start(content, True, True, 0)
 
         builders = {
             "overview": self.build_overview,
@@ -89,6 +107,7 @@ class SettingsWindow(Gtk.Window):
             "system": self.build_system,
         }
         for page_id, title, icon_name in self.PAGES:
+            self.page_picker.append(page_id, title)
             row = Gtk.ListBoxRow()
             row.page_id = page_id
             content = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
@@ -114,6 +133,8 @@ class SettingsWindow(Gtk.Window):
         scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scroll.set_overlay_scrolling(False)
         scroll.add(viewport)
+        content.set_focus_vadjustment(scroll.get_vadjustment())
+        content.set_focus_hadjustment(scroll.get_hadjustment())
         return scroll
 
     @staticmethod
@@ -125,7 +146,18 @@ class SettingsWindow(Gtk.Window):
 
     @staticmethod
     def actions(*widgets):
-        return flow_row(widgets, max_children=max(1, len(widgets)))
+        return flow_row(widgets, max_children=max(1, len(widgets)), min_children=1)
+
+    def service_action(self, title):
+        control = button(title, "view-refresh-symbolic", self.repair_services)
+        self.service_actions.append(control)
+        return control
+
+    def feedback(self, key):
+        widget = label("", "muted")
+        widget.set_no_show_all(True)
+        self.status_widgets[key] = widget
+        return widget
 
     def status_card(self, key, title, description, icon_name, *actions):
         widget = card(title, description, icon_name)
@@ -143,10 +175,15 @@ class SettingsWindow(Gtk.Window):
         return grid
 
     def resized(self, _window, allocation):
-        compact = allocation.width < 900
-        if compact == self.compact_layout:
+        compact, narrow = allocation.width < 900, allocation.width < 720
+        if (compact, narrow) == self.compact_layout:
             return
-        self.compact_layout = compact
+        self.compact_layout = (compact, narrow)
+        self.sidebar.set_no_show_all(narrow)
+        if not narrow:
+            self.sidebar.show_all()
+        self.sidebar.set_visible(not narrow)
+        self.page_picker.set_visible(narrow)
         for row in self.appearance_rows:
             row.set_orientation(Gtk.Orientation.VERTICAL if compact else Gtk.Orientation.HORIZONTAL)
         self.sidebar.set_size_request(175 if compact else 210, -1)
@@ -253,7 +290,7 @@ class SettingsWindow(Gtk.Window):
             self.actions(
                 button("Open Wi-Fi", "network-wireless-symbolic", lambda *_: launch(["ooonana-wifi-panel"]), "suggested-action"),
                 button("Connection editor", "document-edit-symbolic", lambda *_: launch(["nm-connection-editor"])),
-                button("Repair", "view-refresh-symbolic", self.repair_services),
+                self.service_action("Repair"),
             ),
             False,
             False,
@@ -268,13 +305,14 @@ class SettingsWindow(Gtk.Window):
             self.actions(
                 button("Open Bluetooth", "bluetooth-symbolic", lambda *_: launch(["ooonana-bluetooth-panel"]), "suggested-action"),
                 button("Blueman", "preferences-system-bluetooth-symbolic", lambda *_: launch(["blueman-manager"])),
-                button("Repair", "view-refresh-symbolic", self.repair_services),
+                self.service_action("Repair"),
             ),
             False,
             False,
             0,
         )
         page.pack_start(bluetooth, False, False, 0)
+        page.pack_start(self.feedback("repair_network"), False, False, 0)
         return page
 
     def build_hardware(self):
@@ -299,7 +337,7 @@ class SettingsWindow(Gtk.Window):
         diagnostics = card("Hardware diagnostics", "Reprobe drivers and inspect boot-time service logs.", "utilities-system-monitor-symbolic")
         diagnostics.pack_start(
             self.actions(
-                button("Reprobe", "view-refresh-symbolic", self.repair_services),
+                self.service_action("Reprobe"),
                 button("Service log", "text-x-log-symbolic", self.show_service_log),
             ),
             False,
@@ -307,6 +345,7 @@ class SettingsWindow(Gtk.Window):
             0,
         )
         page.pack_start(diagnostics, False, False, 0)
+        page.pack_start(self.feedback("repair_hardware"), False, False, 0)
         return page
 
     def build_appearance(self):
@@ -316,6 +355,8 @@ class SettingsWindow(Gtk.Window):
         theme = section("Color theme", "Dark uses black surfaces and sunset-orange focus.", "preferences-desktop-theme-symbolic")
         row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         self.theme_combo = Gtk.ComboBoxText()
+        self.theme_combo.get_accessible().set_name("Color theme")
+        self.appearance_actions.append(self.theme_combo)
         self.appearance_rows.append(row)
         self.theme_combo.append("dark", "Dark")
         self.theme_combo.append("light", "Light")
@@ -341,6 +382,8 @@ class SettingsWindow(Gtk.Window):
         wallpaper.pack_start(self.status_widgets["wallpaper"], False, False, 0)
         mode_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         self.wallpaper_mode_combo = Gtk.ComboBoxText()
+        self.wallpaper_mode_combo.get_accessible().set_name("Wallpaper layout")
+        self.appearance_actions.append(self.wallpaper_mode_combo)
         self.appearance_rows.append(mode_row)
         self.wallpaper_mode_combo.append("fit", "Fit desktop / keep dock clear")
         self.wallpaper_mode_combo.append("fill", "Fill screen / crop")
@@ -407,7 +450,7 @@ class SettingsWindow(Gtk.Window):
         source.pack_start(self.status_widgets["repo_detail"], False, False, 0)
         source.pack_start(
             self.actions(
-                button("Update", "view-refresh-symbolic", self.package_update),
+                button("Refresh metadata", "view-refresh-symbolic", self.package_update),
                 button("Open packages", "system-software-install-symbolic", lambda *_: launch(["ooonana-packages-app"])),
             ),
             False,
@@ -415,6 +458,7 @@ class SettingsWindow(Gtk.Window):
             0,
         )
         page.pack_start(source, False, False, 0)
+        page.pack_start(self.feedback("metadata"), False, False, 0)
 
         storage = card("Live storage", "Persistent USB saves changes; temporary sessions do not. Backup/migration requires offline maintenance.", "drive-removable-media-symbolic")
         self.status_widgets["storage"] = label("")
@@ -437,11 +481,30 @@ class SettingsWindow(Gtk.Window):
     def on_page_selected(self, _listbox, row):
         if row:
             self.stack.set_visible_child_name(row.page_id)
+            if self.page_picker.get_active_id() != row.page_id:
+                self.page_picker.set_active_id(row.page_id)
+
+    def page_changed(self, picker):
+        page_id = picker.get_active_id()
+        for index, (candidate, _title, _icon) in enumerate(self.PAGES):
+            if candidate == page_id:
+                row = self.sidebar.get_row_at_index(index)
+                if row and self.sidebar.get_selected_row() is not row:
+                    self.sidebar.select_row(row)
+                return
 
     def motion_changed(self, widget):
+        if self.closed or self.motion_sync:
+            return
+        previous = load_preferences()["reduce_motion"]
         try:
             save_preferences(reduce_motion=widget.get_active())
         except OSError as exc:
+            self.motion_sync = True
+            try:
+                widget.set_active(previous)
+            finally:
+                self.motion_sync = False
             message(self, "Could not save motion preference", str(exc), Gtk.MessageType.WARNING)
             return
         settings = Gtk.Settings.get_default()
@@ -454,6 +517,14 @@ class SettingsWindow(Gtk.Window):
         if not widget:
             return
         widget.set_text(text)
+        widget.set_selectable(True)
+        widget.set_tooltip_text(text)
+        widget.get_accessible().set_description(text)
+        if key != "memory":
+            widget.set_lines(5 if key == "identity" else 3)
+            widget.set_ellipsize(Pango.EllipsizeMode.END)
+        if key in ("repair_network", "repair_hardware", "metadata"):
+            widget.show()
         context = widget.get_style_context()
         for css in ("status-good", "status-warn", "status-bad", "status-neutral"):
             context.remove_class(css)
@@ -483,8 +554,8 @@ class SettingsWindow(Gtk.Window):
         repo = self.repo_uri()
         health = storage_health()
         self.set_status("storage", health["caption"], "bad" if health["level"] == "critical" else "warn" if health["level"] == "low" else "neutral")
-        self.set_status("repo", repo, "good" if repo.startswith("http") else "warn")
-        self.set_status("repo_detail", repo, "good" if repo.startswith("http") else "warn")
+        self.set_status("repo", repo, "neutral")
+        self.set_status("repo_detail", repo, "neutral")
         if "wallpaper" in self.status_widgets:
             self.status_widgets["wallpaper"].set_text(self.wallpaper_status())
             self.status_widgets["wallpaper"].set_tooltip_text(self.current_wallpaper())
@@ -527,9 +598,12 @@ class SettingsWindow(Gtk.Window):
                 powered = next((line.split(":", 1)[1].strip() for line in bt_out.splitlines() if "Powered:" in line), "unknown")
                 bt_text = f"Controller ready - powered {powered}"
                 bt_state = "good" if powered == "yes" else "warn"
-            elif command_exists("bluetoothctl"):
-                bt_text = "BlueZ running; no Bluetooth controller detected"
+            elif data["bt_rc"] != 0 and command_exists("bluetoothctl"):
+                bt_text = "Bluetooth status unavailable; open Devices or try Refresh.\n" + bt_out
                 bt_state = "bad"
+            elif data["bt_rc"] == 0:
+                bt_text = "No Bluetooth controller reported."
+                bt_state = "warn"
             else:
                 bt_text = "bluetoothctl missing"
                 bt_state = "bad"
@@ -623,20 +697,39 @@ class SettingsWindow(Gtk.Window):
         run_async_task(task, done)
 
     def choose_wallpaper(self, *_args):
-        dialog = Gtk.FileChooserDialog(
-            title="Choose Ooonana wallpaper",
-            transient_for=self,
-            action=Gtk.FileChooserAction.OPEN,
-        )
+        if self.closed or self.appearance_pending or self.dialog_open:
+            return
+        self.dialog_open = True
+        dialog = Gtk.Dialog(title="Choose Ooonana wallpaper", transient_for=self, modal=True)
+        dialog.set_destroy_with_parent(True)
+        header(dialog, "Choose wallpaper", "", "preferences-desktop-wallpaper-symbolic")
+        fit_dialog(dialog, 780, 540)
         dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Apply", Gtk.ResponseType.OK)
+        dialog.set_default_response(Gtk.ResponseType.CANCEL)
+        chooser = Gtk.FileChooserWidget(action=Gtk.FileChooserAction.OPEN)
+        chooser.set_local_only(True)
+        chooser.get_accessible().set_name("Wallpaper image")
         image_filter = Gtk.FileFilter()
         image_filter.set_name("Images")
         image_filter.add_pixbuf_formats()
-        dialog.add_filter(image_filter)
-        dialog.set_current_folder("/usr/share/ooonana/wallpapers")
-        selected = dialog.get_filename() if dialog.run() == Gtk.ResponseType.OK else None
-        dialog.destroy()
-        if selected:
+        chooser.add_filter(image_filter)
+        chooser.set_current_folder("/usr/share/ooonana/wallpapers")
+        apply = dialog.get_widget_for_response(Gtk.ResponseType.OK)
+        apply.set_sensitive(False)
+        chooser.connect("selection-changed", lambda *_: apply.set_sensitive(bool(chooser.get_filename())))
+        chooser.connect("file-activated", lambda *_: dialog.response(Gtk.ResponseType.OK))
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_overlay_scrolling(False)
+        scroll.add(chooser)
+        dialog.get_content_area().pack_start(scroll, True, True, 0)
+        dialog.show_all()
+        try:
+            selected = chooser.get_filename() if dialog.run() == Gtk.ResponseType.OK else None
+        finally:
+            dialog.destroy()
+            self.dialog_open = False
+        if selected and not self.closed:
             self.apply_wallpaper(selected, self.wallpaper_mode_combo.get_active_id() or "fit")
 
     def default_wallpaper(self, *_args):
@@ -660,19 +753,32 @@ class SettingsWindow(Gtk.Window):
         run_async(["ooonana-wallpaper", "--mode", mode, path], done, timeout=30)
 
     def repair_services(self, widget):
-        widget.set_sensitive(False)
+        if self.closed or self.service_pending:
+            return
+        self.service_pending = True
+        for control in self.service_actions:
+            control.set_sensitive(False)
+        for key in ("repair_network", "repair_hardware"):
+            self.set_status(key, "Rechecking services…", "neutral")
 
         def done(rc, output):
             if self.closed:
                 return
-            widget.set_sensitive(True)
+            self.service_pending = False
+            for control in self.service_actions:
+                control.set_sensitive(True)
             self.refresh_status()
+            for key in ("repair_network", "repair_hardware"):
+                self.set_status(key, "Service repair failed. Try again or open Service log." if rc else "Services rechecked.", "bad" if rc else "neutral")
             if rc != 0:
                 message(self, "Service repair failed", output or f"Exit status {rc}", Gtk.MessageType.WARNING)
 
         run_async(["ooonana-service-repair", "force"], done, admin=True, timeout=30)
 
     def show_service_log(self, *_args):
+        if self.closed or self.dialog_open:
+            return
+        self.dialog_open = True
         text = "\n\n".join(
             [
                 read_file("/var/log/ooonana-services.log", "No service log yet."),
@@ -681,30 +787,49 @@ class SettingsWindow(Gtk.Window):
             ]
         )
         dialog = Gtk.Dialog(title="Ooonana service log", transient_for=self, modal=True)
+        dialog.set_destroy_with_parent(True)
+        header(dialog, "Service log", "", "text-x-log-symbolic")
         dialog.add_button("Close", Gtk.ResponseType.CLOSE)
-        dialog.set_default_size(780, 520)
+        dialog.set_default_response(Gtk.ResponseType.CLOSE)
+        fit_dialog(dialog, 780, 520)
         view = Gtk.TextView()
         view.set_editable(False)
         view.set_monospace(True)
+        view.set_cursor_visible(False)
+        view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        view.set_left_margin(12)
+        view.set_right_margin(12)
+        view.set_top_margin(12)
+        view.set_bottom_margin(12)
         view.get_buffer().set_text(text)
         scroll = Gtk.ScrolledWindow()
+        scroll.set_overlay_scrolling(False)
         scroll.add(view)
         dialog.get_content_area().pack_start(scroll, True, True, 0)
+        copy = button("Copy log", "edit-copy-symbolic", lambda *_: Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(text, -1))
+        dialog.get_action_area().pack_start(copy, False, False, 0)
         dialog.show_all()
-        dialog.run()
-        dialog.destroy()
+        try:
+            dialog.run()
+        finally:
+            dialog.destroy()
+            self.dialog_open = False
 
     def package_update(self, widget):
+        if self.closed or self.metadata_pending:
+            return
+        self.metadata_pending = True
         widget.set_sensitive(False)
+        self.set_status("metadata", "Refreshing repository metadata…", "neutral")
 
         def done(rc, output):
+            if self.closed:
+                return
+            self.metadata_pending = False
             widget.set_sensitive(True)
-            message(
-                self,
-                "Package update complete" if rc == 0 else "Package update failed",
-                output or f"Exit status {rc}",
-                Gtk.MessageType.INFO if rc == 0 else Gtk.MessageType.ERROR,
-            )
+            self.set_status("metadata", "Metadata refresh failed. Try Refresh metadata again." if rc else "Metadata refreshed. No packages installed.", "bad" if rc else "neutral")
+            if rc:
+                message(self, "Metadata refresh failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)
             self.refresh_status()
 
         run_async(["ooonana", "update"], done, admin=True, timeout=90)
