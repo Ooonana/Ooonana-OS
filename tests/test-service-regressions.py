@@ -49,9 +49,12 @@ for password_rc in [0, 1]:
     def thread(target, **kwargs):
         return SimpleNamespace(start=target)
     namespace = dict(run=run, command_exists=lambda _: True, admin_command=lambda x: x,
+                     load_preferences=lambda: {'reduce_motion': False},
                      Gtk=SimpleNamespace(
                          MessageDialog=lambda **_kwargs: SimpleNamespace(
                              format_secondary_text=lambda *_args: None, add_button=lambda *_args: None,
+                             set_default_response=lambda *_args: None,
+                             get_message_area=lambda: SimpleNamespace(get_children=lambda: []),
                              run=lambda: 1, destroy=lambda: None),
                          MessageType=SimpleNamespace(QUESTION=0),
                          ButtonsType=SimpleNamespace(NONE=0),
@@ -63,8 +66,13 @@ for password_rc in [0, 1]:
     exec(compile(ast.Module(body=[method], type_ignores=[]), 'setup-test', 'exec'), namespace)
     values = dict(user='test', password='secret', mode='dhcp', theme='dark',
                   zram_percent='50', disk_swap='on', repo='file:///repo')
-    target = SimpleNamespace(validate=lambda: (values, ''), spinner=SimpleNamespace(start=lambda: None),
-                             status=SimpleNamespace(set_text=lambda _: None), finished=lambda *args: None)
+    sensitive = SimpleNamespace(set_sensitive=lambda _: None)
+    target = SimpleNamespace(closed=False, pending=False, validate=lambda: (values, ''),
+                             apply_button=sensitive, cancel_button=sensitive, content=sensitive,
+                             spinner=SimpleNamespace(start=lambda: None),
+                             status=SimpleNamespace(set_text=lambda _: None, get_text=lambda: '',
+                                                    set_tooltip_text=lambda _: None),
+                             finished=lambda *args: None)
     namespace['apply'](target, SimpleNamespace(set_sensitive=lambda _: None))
     assert '--done' not in commands[0]
     assert any('--done' in command for command in commands) == (password_rc == 0)
