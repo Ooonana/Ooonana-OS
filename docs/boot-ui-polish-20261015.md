@@ -59,21 +59,26 @@ modified and no WSL/host shutdown action was invoked by these tests.
 
 ## Delivery checkpoint
 
-- Clean source manifest: `4e0738db6acbfe977752806b6f071102459ecdb0`.
-  [GitHub regression](https://github.com/Ooonana/Ooonana-OS/actions/runs/38687884012)
-  and [GitLab smoke](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2949438824)
+- Clean source manifest: `d0c1a60d70d9a53a97cb134a580fe691c62b12c8`.
+  [GitHub regression](https://github.com/Ooonana/Ooonana-OS/actions/runs/38688451413)
+  and [GitLab smoke](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2949449344)
   passed. Commits pushed to both `codex/supported-base-0-10` branches.
 - Signed local candidate generation:
-  `fcf0a97450fd86c44fa410e933e380300ed62fc069ee752a5e9b4aca8aedaf58`.
+  `ce7089f45b52a066125746249d03d3cd61e968ce594ec281c3728022aa0ff37a`.
   Coherent Alpine v3.24 package inputs; no models bundled. Prior published
   generations retained unchanged. Private signing key stayed local.
 - Installed Ooonana WSL refreshed through native package transactions; both
   core and runtime verification passed. Signed native snapshot:
-  `/var/lib/ooonana/candidate-boot-ui-20261015.dKK8PvUA`.
+  `/var/lib/ooonana/candidate-boot-ui-final-20261015.uEbOTlzL`.
   Previous snapshot/checkpoints retained; neither WSL disk moved. WSL boot uses
   Microsoft's kernel, so this update does not prove physical boot animation.
+  One WSL instance-start timeout cleared after restarting the idle VM with both
+  distros stopped; final signed sync and package verification then succeeded.
 - Core stays **0.10.0 candidate**. Stable promotion/signing enrollment remain
   deferred. Existing completed ISO does not acquire these edits through resume.
+- Final signed generation passed full ISO preflight
+  (`OOONANA_RELEASE_PREFLIGHT_OK`, 654 packages / 612 dependency nodes).
+  This was `--preflight-only`; no ISO construction or hardware boot test.
 
 ## Reproduce focused checks
 
