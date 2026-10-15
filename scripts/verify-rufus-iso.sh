@@ -137,8 +137,15 @@ if grep -qF 'set theme=/boot/grub/theme.txt' "$tmp/grub.cfg"; then
     need_contains "$tmp/theme.txt" 'desktop-image-scale-method: "stretch"'
     need_contains "$tmp/theme.txt" 'item_color = "#b4bdc8"'
     need_contains "$tmp/theme.txt" 'selected_item_color = "#ffb21a"'
-    need_contains "$tmp/theme.txt" 'id = "ooonana-logo-1"'
-    need_contains "$tmp/theme.txt" 'id = "ooonana-logo-8"'
+    if grep -qF 'id = "ooonana-brand-mark"' "$tmp/theme.txt"; then
+      need_contains "$tmp/theme.txt" 'file = "boot-mark.png"'
+      need_contains "$tmp/theme.txt" 'id = "ooonana-brand-name"'
+      xorriso -osirrox on -indev "$ISO" -extract /boot/grub/boot-mark.png "$tmp/boot-mark.png" >/dev/null 2>&1 || fail 'boot mark image missing'
+      [[ -s "$tmp/boot-mark.png" ]] || fail 'boot mark image empty'
+    else
+      need_contains "$tmp/theme.txt" 'id = "ooonana-logo-1"'
+      need_contains "$tmp/theme.txt" 'id = "ooonana-logo-8"'
+    fi
     need_contains "$tmp/theme.txt" 'visible = true'
     need_contains "$tmp/theme.txt" 'item_font = "Unifont Regular 16"'
     need_contains "$tmp/theme.txt" 'scrollbar = false'

@@ -162,30 +162,20 @@ assert_contains "$theme" 'desktop-image: "/boot/grub/background.png"'
 assert_contains "$theme" 'desktop-image-scale-method: "stretch"'
 assert_contains "$theme" 'item_color = "#b4bdc8"'
 assert_contains "$theme" 'selected_item_color = "#ffb21a"'
-logo_index=0
-while IFS= read -r logo_line || [[ -n "$logo_line" ]]; do
-  logo_index=$((logo_index + 1))
-  escaped_logo_line="${logo_line//\\/\\\\}"
-  escaped_logo_line="${escaped_logo_line//\"/\\\"}"
-  assert_contains "$theme" "id = \"ooonana-logo-$logo_index\""
-  assert_contains "$theme" "text = \"$escaped_logo_line\""
-done < "$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt"
-[[ "$logo_index" -eq 8 ]] || fail "GRUB logo must have eight canonical lines"
-[[ "$(grep -c 'id = \"ooonana-logo-' "$tmp/build/full-i3-iso-tree/boot/grub/theme.txt")" -eq 8 ]] ||
-  fail "GRUB theme must contain only eight logo labels"
-assert_contains "$theme" 'left = 50%-108'
-assert_contains "$theme" 'width = 216'
-assert_contains "$theme" 'align = "left"'
-first_logo="${theme#*id = \"ooonana-logo-1\"}"
-first_logo="${first_logo%%\}*}"
-assert_contains "$first_logo" 'align = "center"'
+assert_contains "$theme" 'id = "ooonana-brand-mark"'
+assert_contains "$theme" 'file = "boot-mark.png"'
+assert_contains "$theme" 'left = 50%-64'
+assert_contains "$theme" 'id = "ooonana-brand-name"'
+assert_contains "$theme" 'align = "center"'
+[[ "$theme" != *'id = "ooonana-logo-'* ]] || fail 'graphical theme still uses broken glyph mascot'
+cmp -s "$ROOT/branding/boot-mark.png" "$tmp/build/full-i3-iso-tree/boot/grub/boot-mark.png" || fail 'missing boot mark image'
 assert_contains "$theme" 'icon_width = 0'
 assert_contains "$theme" 'icon_height = 0'
 assert_contains "$theme" 'item_icon_space = 0'
 assert_contains "$theme" 'visible = true'
 assert_contains "$theme" 'item_font = "Unifont Regular 16"'
 assert_contains "$theme" "item_height = 24"
-assert_contains "$theme" "top = 11%+112"
+assert_contains "$theme" "top = 11%+104"
 assert_contains "$theme" "top = 11%+136"
 assert_contains "$theme" "top = 11%+168"
 assert_contains "$theme" "height = 33%"

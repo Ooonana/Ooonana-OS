@@ -37,6 +37,8 @@ grub_logo="$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt"
 [[ -f "$i3_config" ]] || fail "missing i3 config"
 [[ -f "$grub_logo" ]] || fail "missing GRUB logo"
 assert_png "$ROOT/branding/logo.png"
+assert_png "$ROOT/branding/boot-mark.png"
+assert_contains "$(<"$ROOT/branding/boot-mark.svg")" 'viewBox="0 0 256 176"'
 assert_png "$ROOT/branding/wallpaper.png"
 assert_png "$ROOT/branding/desktop-0.9.png"
 

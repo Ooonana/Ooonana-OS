@@ -17,27 +17,15 @@ ooonana_console_begin() {
   ooonana_ui_cols=${ooonana_ui_dimensions##* }
   case "$ooonana_ui_rows:$ooonana_ui_cols" in *[!0-9:]*|:*|*:) return 0 ;; esac
   [ "$ooonana_ui_rows" -ge 20 ] && [ "$ooonana_ui_cols" -ge 60 ] || return 0
-  ooonana_ui_logo=${1:-/usr/share/ooonana/boot-logo.txt}
-  ooonana_ui_lines=0
-  if [ -r "$ooonana_ui_logo" ]; then
-    while IFS= read -r ooonana_ui_line || [ -n "$ooonana_ui_line" ]; do
-      ooonana_ui_lines=$((ooonana_ui_lines + 1))
-    done <"$ooonana_ui_logo"
-  fi
-  [ "$ooonana_ui_lines" -gt 0 ] || ooonana_ui_lines=1
-  ooonana_ui_row=$(((ooonana_ui_rows - ooonana_ui_lines - 4) / 2))
+  # Text-only VTs cannot faithfully render the graphical mark. Use a compact
+  # wordmark, not a font-dependent ASCII face or an extra framebuffer daemon.
+  ooonana_ui_row=$(((ooonana_ui_rows - 4) / 3))
   {
     printf '\033]P3ffb21a\033[2J\033[%s;1H\033[1;33m' "$ooonana_ui_row"
-    if [ -r "$ooonana_ui_logo" ]; then
-      while IFS= read -r ooonana_ui_line || [ -n "$ooonana_ui_line" ]; do
-        ooonana_console_center "$ooonana_ui_line"
-      done <"$ooonana_ui_logo"
-    else
-      ooonana_console_center 'Ooonana OS'
-    fi
+    ooonana_console_center 'Ooonana OS'
     printf '\033[0m'
   } >"$ooonana_ui_device" 2>/dev/null || return 0
-  ooonana_ui_row=$((ooonana_ui_row + ooonana_ui_lines + 2))
+  ooonana_ui_row=$((ooonana_ui_row + 3))
   ooonana_ui_animated=1
 }
 

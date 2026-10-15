@@ -3,6 +3,39 @@
 Impeccable refinement preserves opaque graphite/amber and the existing mascot.
 No ISO was built. A fresh user build is required to include these changes.
 
+## Logo and persistence follow-up
+
+Earlier captures still used a font-dependent ASCII mascot. Spacing changes did
+not repair its disconnected strokes. Full-i3 live ISO GRUB now uses a small
+continuous-stroke image of the same smiling box mascot, with separately centered
+brand name. Canonical ASCII branding remains unchanged for legacy text surfaces;
+there were no doubled backslashes in the actual source.
+
+Text-only boot/shutdown now deliberately use a compact **wordmark**, not a
+graphical mascot. No framebuffer/Plymouth backend or dependency was added.
+The old startup script no longer redraws the large ASCII face over this layout.
+
+Persistent USB remains the second GRUB entry. Eligible first boot shows the
+existing **text-based** size selection and exact `CREATE` confirmation. Splash
+drawing ends before input; cancel, timeout, invalid size and unconfirmed creation
+now explain the stopped setup. These paths still make no storage file, and do
+not silently continue in supposedly persistent RAM mode. Existing identity,
+space, no-clobber and cleanup checks are unchanged. FAT32/ext4 file setup only;
+DD/ISO9660 still needs a separately prepared same-USB persistence partition.
+
+![Graphical mascot in actual 640×480 EFI fixture](assets/ooonana-grub-mascot-20261015.png)
+
+![Text-only shutdown wordmark](assets/ooonana-shutdown-wordmark-20261015.png)
+
+![Real prompt rendering with mocked answers; no storage created](assets/ooonana-persistence-prompt-20261015.png)
+
+Captures: real EFI/QEMU GRUB at 640×480 and 1280×800; private Xvfb/xterm for
+shutdown and setup. Prompt answers and `/dev/fixtureUSB` are test data. Physical
+boot, input and power-loss tests remain pending. No ISO built or disk formatted.
+
+The earlier checklist/checkpoint below records the preceding patch, not these
+follow-up assets.
+
 ## Shipped changes
 
 - GRUB: removed duplicate title, decorative accent rail/dot and nested footer

@@ -285,33 +285,28 @@ message-color: "#f5f5f7"
 message-bg-color: "#101317"
 EOF
 
-  local logo_index=0
-  local logo_offset=0
-  local logo_line escaped_logo_line logo_align
-  while IFS= read -r logo_line || [[ -n "$logo_line" ]]; do
-    logo_index=$((logo_index + 1))
-    logo_align=left
-    [[ "$logo_index" -ne 1 ]] || logo_align=center
-    escaped_logo_line="${logo_line//\\/\\\\}"
-    escaped_logo_line="${escaped_logo_line//\"/\\\"}"
-    cat >> "$ISO_TREE/boot/grub/theme.txt" <<EOF
+  cat >> "$ISO_TREE/boot/grub/theme.txt" <<'EOF'
++ image {
+  id = "ooonana-brand-mark"
+  file = "boot-mark.png"
+  left = 50%-64
+  top = 11%
+  width = 128
+  height = 88
+}
 
 + label {
-  id = "ooonana-logo-$logo_index"
-  text = "$escaped_logo_line"
-  left = 50%-108
-  top = 11%+$logo_offset
-  width = 216
+  id = "ooonana-brand-name"
+  text = "Ooonana OS"
+  left = 16%
+  top = 11%+104
+  width = 68%
   height = 20
-  color = "#ffb21a"
+  color = "#f5f5f7"
   font = "Unifont Regular 16"
-  align = "$logo_align"
+  align = "center"
 }
-EOF
-    logo_offset=$((logo_offset + 16))
-  done < "$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt"
 
-  cat >> "$ISO_TREE/boot/grub/theme.txt" <<'EOF'
 + label {
   text = "Choose how to start"
   left = 16%+6
@@ -364,6 +359,7 @@ EOF
 }
 EOF
   install -m 0644 "$ROOT/branding/grub-background.png" "$ISO_TREE/boot/grub/background.png"
+  install -m 0644 "$ROOT/branding/boot-mark.png" "$ISO_TREE/boot/grub/boot-mark.png"
   write_grub_config
   check_iso_mode_file_sizes
   chmod -R a+rwX "$ISO_TREE" 2>/dev/null || true

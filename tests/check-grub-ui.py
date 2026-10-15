@@ -56,7 +56,7 @@ for geometry in (args.geometry,) if args.geometry else ("640x480", "1280x800"):
     binary = volume / "EFI/BOOT/BOOTX64.EFI"
     binary.parent.mkdir(parents=True)
     embedded = ["boot/grub/grub.cfg=" + str(bootstrap), "boot/grub/main.cfg=" + str(config)]
-    for filename in ("theme.txt", "background.png", "ooonana-logo.txt", "fonts/unicode.pf2"):
+    for filename in ("theme.txt", "background.png", "boot-mark.png", "ooonana-logo.txt", "fonts/unicode.pf2"):
         embedded.append("boot/grub/" + filename + "=" + str(volume / "boot/grub" / filename))
     subprocess.run(["grub-mkstandalone", "-O", "x86_64-efi", "-o", str(binary), *embedded], check=True, timeout=45)
     variables = case / "OVMF_VARS.fd"

@@ -34,11 +34,26 @@ ooonana_console_stage 'Saving changes'
 printf saved >{shlex.quote(str(work / 'state'))}
 sleep 3
 ooonana_console_end
+ooonana_console_begin
+ooonana_console_stage 'Preparing writable session'
+ooonana_console_end
+. {shlex.quote(str(ROOT / 'scripts/lib/live-persistence-file.sh'))}
+boot_media_device=/dev/fixtureUSB
+exec 3>/dev/tty
+fixture_reads=0
+live_persistence_read() {{
+  if [ "$fixture_reads" = 0 ]; then LIVE_SETUP_REPLY=512; else LIVE_SETUP_REPLY=CREATE; fi
+  fixture_reads=$((fixture_reads + 1))
+  printf '%s\\n' "$LIVE_SETUP_REPLY" >&3
+}}
+live_persistence_file_prompt 4095
+printf setup >{shlex.quote(str(work / 'state'))}
+sleep 3
 """)
 process = subprocess.Popen(["xterm", "-geometry", "80x25+0+0", "-fa", "DejaVu Sans Mono", "-fs", "12",
                             "-bg", "#101317", "-fg", "#f5f5f7", "-e", "sh", str(fixture)])
 try:
-    for state in ("boot", "shutdown", "saved"):
+    for state in ("boot", "shutdown", "saved", "setup"):
         deadline = time.monotonic() + 10
         while not (work / "state").exists() or (work / "state").read_text() != state:
             assert process.poll() is None and time.monotonic() < deadline, state

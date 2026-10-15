@@ -4140,15 +4140,6 @@ fi
 [ -n "$host" ] || host="ooonana"
 hostname "$host" 2>/dev/null || true
 
-if [ -f /usr/share/ooonana/boot-logo.txt ]; then
-  printf '\033]P3ffb21a\033[1;33m'
-  cat /usr/share/ooonana/boot-logo.txt
-  printf '\033[0m'
-elif [ -f /usr/share/ooonana/logo.txt ]; then
-  printf '\033]P3ffb21a\033[1;33m'
-  cat /usr/share/ooonana/logo.txt
-  printf '\033[0m'
-fi
 echo "Ooonana full i3 rootfs"
 
 if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
