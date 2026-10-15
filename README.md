@@ -29,6 +29,15 @@ package channel remains 0.9.9. No AI weights downloaded, audio muted or ISO
 remade. [Replacement, manual QA cleanup and GUI launch](docs/wsl-replacement-20261014.md).
 Older dated installed-WSL snapshots below are historical.
 
+October 15 application polish: compact first-run Geany toolbar and readable
+Graphite/Paper palettes; preserved existing editor preferences. Shared GTK
+pressed-button states and dim subtitles repaired; AI now distinguishes request
+Idle from a loaded model. Ten native app layouts fit 1280×800 and 1024×768;
+actual WSLg mouse/physical-key/Backspace and GTK picker checks passed.
+Windows clipboard/Unicode, Korean IME and manual PDF metrics remain open.
+These runtime changes require a new user-built ISO after repository refresh.
+[Screenshots, checks and limits](docs/app-polish-20261015.md).
+
 October 15 CI follow-up: Alpine smoke environment lacked `findmnt`, required by
 verification fixtures. Added its dependency and explicit Node/C-compiler tooling;
 WSL fixture now mocks every Windows tool even for dry runs and checks piped-input

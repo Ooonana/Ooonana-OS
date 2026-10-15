@@ -146,7 +146,7 @@ class AiWindow(Gtk.Window):
         self.activity = Gtk.Spinner()
         provider_row.pack_end(self.activity, False, False, 0)
         indicators = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
-        self.phase_label = label("Ready", "muted", wrap=False)
+        self.phase_label = label("Idle", "muted", wrap=False)
         self.phase_label.set_max_width_chars(24)
         self.phase_label.set_ellipsize(Pango.EllipsizeMode.END)
         indicators.pack_start(self.phase_label, False, False, 0)
@@ -356,8 +356,8 @@ class AiWindow(Gtk.Window):
             self.phase_timer = 0
         self.phase_title = title or ""
         self.phase_started = time.monotonic() if title else None
-        self.phase_label.set_text(title or "Ready")
-        self.phase_label.set_tooltip_text("Elapsed request time, not estimated progress. Stop cancels only this request.")
+        self.phase_label.set_text(title or "Idle")
+        self.phase_label.set_tooltip_text("Request activity only; Idle does not mean an offline model is loaded. Elapsed time is not estimated progress. Stop cancels only this request.")
         self.update_memory()
         if title:
             self.activity.start()

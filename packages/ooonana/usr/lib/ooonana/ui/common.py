@@ -29,7 +29,7 @@ tooltip { background: #1b1f26; color: #f5f5f7; border: 1px solid #414957; border
 tooltip label { color: #f5f5f7; }
 headerbar { background: #1b1f26; color: #ffb21a; border-bottom: 1px solid #343b46; border-radius: 14px 14px 0 0; padding: 5px 10px; }
 headerbar .title { font-weight: 700; color: #ffb21a; }
-headerbar .subtitle { color: #b4bdc8; }
+headerbar .subtitle { color: #b4bdc8; opacity: 1; }
 .window-control { min-width: 16px; min-height: 16px; padding: 3px; margin: 0; border-radius: 99px; }
 .close-control:hover { background: #b83832; color: #ffffff; border-color: #e85b52; }
 .hero { background: #1b1f26; border-bottom: 1px solid #343b46; }

@@ -94,7 +94,8 @@ class NotificationsWindow(Gtk.Window):
             self.pause.handler_unblock(self.pause_handler)
             self.pause.set_sensitive(rc == 0)
             self.clear_button.set_sensitive(bool(self.records))
-            self.status.set_text(f"{len(self.records)} messages" if rc == 0 else "Saved history · service unavailable")
+            count = len(self.records)
+            self.status.set_text(f"{count} {'message' if count == 1 else 'messages'}" if rc == 0 else "Saved history · service unavailable")
             for child in self.list.get_children():
                 child.destroy()
             if not self.records:

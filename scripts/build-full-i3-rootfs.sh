@@ -386,12 +386,26 @@ menu { background: @ooonana_panel; color: @ooonana_fg; border: 1px solid @ooonan
 menuitem:hover { background: @ooonana_panel_alt; color: @ooonana_accent; }
 headerbar { background: @ooonana_panel; color: @ooonana_fg; border-bottom: 1px solid @ooonana_border; border-radius: 14px 14px 0 0; padding: 5px 10px; }
 headerbar .title { font-weight: bold; }
-headerbar .subtitle { color: @ooonana_muted; }
+headerbar .subtitle { color: @ooonana_muted; opacity: 1; }
 button { background: @ooonana_panel_alt; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 10px; padding: 8px 14px; transition: background-color 180ms ease-out; }
 button:hover { background: @ooonana_hover; border-color: @ooonana_accent; }
+button:active { background: @ooonana_entry; border-color: @ooonana_accent; }
 button:checked, button.suggested-action { background: @ooonana_accent; color: #101317; border-color: @ooonana_accent; }
+button.suggested-action:hover { background: #ffca5c; border-color: #ffca5c; }
+button.suggested-action:active { background: #eaa21a; border-color: #eaa21a; }
+button.destructive-action { background: #3b2324; color: #ffaaa3; border-color: #8a4749; }
+button.destructive-action:hover { background: #523033; color: #ffd4cf; border-color: #b36161; }
+button.destructive-action:active { background: #2f1c1d; color: #ffd4cf; border-color: #b36161; }
 button:disabled { background: @ooonana_panel; color: #78828f; border-color: @ooonana_border; }
 button.suggested-action:disabled { background: #403624; color: #a5987f; border-color: #544733; }
+/* Toolbars are compact work surfaces, not rows of primary-action cards. */
+toolbar { background: @ooonana_panel; padding: 3px 6px; border-bottom: 1px solid @ooonana_border; }
+toolbar button { background: @ooonana_panel; border: 0; border-radius: 6px; min-width: 20px; min-height: 20px; padding: 3px 4px; box-shadow: none; }
+toolbar button:hover, toolbar button:checked { background: @ooonana_hover; color: @ooonana_fg; }
+toolbar button:focus { outline: 2px solid @ooonana_accent; outline-offset: -2px; }
+toolbar entry { min-height: 20px; padding: 3px 6px; border-radius: 6px; }
+toolbar separator { margin: 3px 5px; background: @ooonana_border; }
+notebook tab button { min-width: 16px; min-height: 16px; padding: 2px; border: 0; border-radius: 5px; }
 entry, textview, treeview, list { background: @ooonana_entry; color: @ooonana_fg; border-color: @ooonana_border; }
 entry { padding: 8px 10px; border-radius: 10px; }
 treeview header button { background: @ooonana_panel_alt; color: @ooonana_accent; }
@@ -505,15 +519,31 @@ EOF
 @define-color ooonana_panel_alt #272d36;
 @define-color ooonana_border #46505c;
 @define-color ooonana_entry #15191f;
+@define-color ooonana_hover #39414b;
+@define-color ooonana_muted #b4bdc8;
 window, dialog, .background { background-color: @ooonana_bg; color: @ooonana_fg; }
 window.background, dialog.background, messagedialog.background { border-radius: 14px; }
 decoration { background: @ooonana_bg; border: 1px solid @ooonana_border; border-radius: 14px; box-shadow: none; }
 headerbar { background: @ooonana_panel; color: @ooonana_fg; border-bottom: 1px solid @ooonana_border; border-radius: 14px 14px 0 0; }
+headerbar .subtitle { color: @ooonana_muted; opacity: 1; }
 button { background: @ooonana_panel_alt; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 10px; padding: 8px 14px; transition: background-color 180ms ease-out; }
 button:hover { background: #39414b; border-color: @ooonana_accent; }
+button:active { background: #15191f; border-color: @ooonana_accent; }
 button:checked, button.suggested-action { background: @ooonana_accent; color: #101317; }
+button.suggested-action:hover { background: #ffca5c; border-color: #ffca5c; }
+button.suggested-action:active { background: #eaa21a; border-color: #eaa21a; }
+button.destructive-action { background: #3b2324; color: #ffaaa3; border-color: #8a4749; }
+button.destructive-action:hover { background: #523033; color: #ffd4cf; border-color: #b36161; }
+button.destructive-action:active { background: #2f1c1d; color: #ffd4cf; border-color: #b36161; }
 button:disabled { background: @ooonana_panel; color: #78828f; border-color: @ooonana_border; }
 button.suggested-action:disabled { background: #403624; color: #a5987f; border-color: #544733; }
+toolbar { background: @ooonana_panel; padding: 3px 6px; border-bottom: 1px solid @ooonana_border; }
+toolbar button { background: @ooonana_panel; border: 0; border-radius: 6px; min-width: 20px; min-height: 20px; padding: 3px 4px; box-shadow: none; }
+toolbar button:hover, toolbar button:checked { background: @ooonana_hover; color: @ooonana_fg; }
+toolbar button:focus { outline: 2px solid @ooonana_accent; outline-offset: -2px; }
+toolbar entry { min-height: 20px; padding: 3px 6px; border-radius: 6px; }
+toolbar separator { margin: 3px 5px; background: @ooonana_border; }
+notebook tab button { min-width: 16px; min-height: 16px; padding: 2px; border: 0; border-radius: 5px; }
 entry, textview, treeview, list { background: @ooonana_entry; color: @ooonana_fg; border-color: @ooonana_border; }
 entry { padding: 8px 10px; border-radius: 10px; }
 treeview:selected, row:selected { background: @ooonana_panel_alt; color: @ooonana_fg; }
@@ -1940,10 +1970,36 @@ EOF
 set -eu
 target="${1:-}"
 if command -v geany >/dev/null 2>&1; then
-  if [ -n "$target" ]; then
-    exec geany "$target"
+  # Seed only a new profile. Never replace an existing user's editor choices.
+  geany_dir="${XDG_CONFIG_HOME:-${HOME:-/tmp}/.config}/geany"
+  if [ ! -L "$geany_dir" ] && [ ! -e "$geany_dir/geany.conf" ] && [ ! -L "$geany_dir/geany.conf" ]; then
+    if (umask 077; mkdir -p "$geany_dir") 2>/dev/null; then
+      editor_theme="${OOONANA_THEME:-dark}"
+      if command -v ooonana-theme-env >/dev/null 2>&1; then
+        editor_theme="$(ooonana-theme-env env | sed -n 's/^OOONANA_THEME="\([^"]*\)"$/\1/p')"
+      fi
+      case "$editor_theme" in light) scheme=ooonana-light.conf ;; *) scheme=ooonana-dark.conf ;; esac
+      (umask 077; set -C; printf '[geany]\ncolor_scheme=%s\neditor_font=Monospace 11\npref_toolbar_use_gtk_default_icon=false\npref_toolbar_icon_size=2\npref_toolbar_use_gtk_default_style=false\npref_toolbar_icon_style=0\nmsgwindow_visible=false\n' "$scheme" >"$geany_dir/geany.conf") 2>/dev/null || true
+      # Keep frequent actions visible; remaining commands stay in native menus.
+      if [ ! -e "$geany_dir/ui_toolbar.xml" ] && [ ! -L "$geany_dir/ui_toolbar.xml" ]; then
+        (umask 077; set -C; printf '%s\n' '<ui>
+  <toolbar name="GeanyToolbar">
+    <toolitem action="New" />
+    <toolitem action="Open" />
+    <toolitem action="Save" />
+    <separator />
+    <toolitem action="NavBack" />
+    <toolitem action="NavFor" />
+    <toolitem action="Search" />
+    <separator />
+    <toolitem action="Build" />
+    <toolitem action="Run" />
+  </toolbar>
+</ui>' >"$geany_dir/ui_toolbar.xml") 2>/dev/null || true
+      fi
+    fi
   fi
-  exec geany
+  exec geany "$@"
 fi
 if command -v vim >/dev/null 2>&1; then
   if [ -n "$target" ]; then

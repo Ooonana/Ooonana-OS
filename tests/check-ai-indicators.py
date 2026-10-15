@@ -37,6 +37,7 @@ with tempfile.TemporaryDirectory() as temporary:
         image = Gdk.pixbuf_get_from_window(root_window, 0, 0, root_window.get_width(), root_window.get_height())
         image.savev(sys.argv[1], "png", [], [])
     window.set_phase()
-    assert window.phase_label.get_text() == "Ready" and not window.phase_timer
+    assert window.phase_label.get_text() == "Idle" and not window.phase_timer
+    assert "does not mean an offline model is loaded" in window.phase_label.get_tooltip_text()
     window.destroy()
 print("AI_INDICATORS_OK phase lifecycle; low RAM; no API calls")
