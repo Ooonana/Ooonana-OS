@@ -66,3 +66,13 @@ custom content has not refreshed. No models downloaded or sound played.
 Packaged UI changes require refreshed signed candidate inputs and a fresh
 user-built ISO. Old completed ISO cannot be resumed to add them. Stable remains
 0.9.9; candidate core remains 0.10.0; signing enrollment remains deferred.
+
+Signed local generation:
+`0dc6f49d79bcd9eaac0c20317e260fcb9dd3edf74c7435ba001f9b5bc0561fe4`.
+Source manifest records clean commit `47bc0a5`, coherent Alpine v3.24 and no
+bundled models. Existing generation preserved. Installed Ooonana WSL updated
+through native transactions; core/runtime health checks and verification passed,
+with rollback checkpoint retained. Ubuntu/WSL disks were not moved.
+[GitHub regression](https://github.com/Ooonana/Ooonana-OS/actions/runs/38670774068)
+and [GitLab smoke](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2949070608)
+passed for that source checkpoint.
