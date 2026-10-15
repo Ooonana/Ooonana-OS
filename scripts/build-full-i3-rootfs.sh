@@ -274,6 +274,7 @@ load_theme() {
       OOONANA_MUTED="#55616e"
       OOONANA_ENTRY="#ffffff"
       OOONANA_HOVER="#d8dee6"
+      OOONANA_TEXT_ACCENT="#805600"
       OOONANA_GTK_THEME="Adwaita"
       OOONANA_GTK_DARK="false"
       ;;
@@ -287,6 +288,7 @@ load_theme() {
       OOONANA_MUTED="#b4bdc8"
       OOONANA_ENTRY="#15191f"
       OOONANA_HOVER="#39414b"
+      OOONANA_TEXT_ACCENT="#ffb21a"
       OOONANA_GTK_THEME="Adwaita:dark"
       OOONANA_GTK_DARK="true"
       ;;
@@ -379,11 +381,12 @@ XSETTINGS
 @define-color ooonana_muted $OOONANA_MUTED;
 @define-color ooonana_entry $OOONANA_ENTRY;
 @define-color ooonana_hover $OOONANA_HOVER;
+@define-color ooonana_text_accent $OOONANA_TEXT_ACCENT;
 window, dialog, .background { background-color: @ooonana_bg; color: @ooonana_fg; }
 window.background, dialog.background, messagedialog.background { border-radius: 14px; }
 decoration { background: @ooonana_bg; border: 1px solid @ooonana_border; border-radius: 14px; box-shadow: none; }
 menu { background: @ooonana_panel; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 10px; padding: 6px; }
-menuitem:hover { background: @ooonana_panel_alt; color: @ooonana_accent; }
+menuitem:hover { background: @ooonana_panel_alt; color: @ooonana_text_accent; }
 headerbar { background: @ooonana_panel; color: @ooonana_fg; border-bottom: 1px solid @ooonana_border; border-radius: 14px 14px 0 0; padding: 5px 10px; }
 headerbar .title { font-weight: bold; }
 headerbar .subtitle { color: @ooonana_muted; opacity: 1; }
@@ -402,17 +405,17 @@ button.suggested-action:disabled { background: #403624; color: #a5987f; border-c
 toolbar { background: @ooonana_panel; padding: 3px 6px; border-bottom: 1px solid @ooonana_border; }
 toolbar button { background: @ooonana_panel; border: 0; border-radius: 6px; min-width: 20px; min-height: 20px; padding: 3px 4px; box-shadow: none; }
 toolbar button:hover, toolbar button:checked { background: @ooonana_hover; color: @ooonana_fg; }
-toolbar button:focus { outline: 2px solid @ooonana_accent; outline-offset: -2px; }
+toolbar button:focus { outline: 2px solid @ooonana_text_accent; outline-offset: -2px; }
 toolbar entry { min-height: 20px; padding: 3px 6px; border-radius: 6px; }
 toolbar separator { margin: 3px 5px; background: @ooonana_border; }
 notebook tab button { min-width: 16px; min-height: 16px; padding: 2px; border: 0; border-radius: 5px; }
 entry, textview, treeview, list { background: @ooonana_entry; color: @ooonana_fg; border-color: @ooonana_border; }
 entry { padding: 8px 10px; border-radius: 10px; }
-treeview header button { background: @ooonana_panel_alt; color: @ooonana_accent; }
+treeview header button { background: @ooonana_panel_alt; color: @ooonana_text_accent; }
 treeview:selected, row:selected { background: @ooonana_panel_alt; color: @ooonana_fg; }
 notebook header { background: @ooonana_panel; }
 notebook tab { padding: 8px 14px; }
-notebook tab:checked { color: @ooonana_accent; border-bottom: 2px solid @ooonana_accent; }
+notebook tab:checked { color: @ooonana_text_accent; border-bottom: 2px solid @ooonana_accent; }
 scale highlight { background: @ooonana_accent; }
 scale trough { background: @ooonana_panel_alt; min-height: 6px; border-radius: 6px; }
 scrollbar slider { background: @ooonana_border; border-radius: 6px; min-width: 7px; min-height: 7px; }
@@ -520,6 +523,7 @@ EOF
 @define-color ooonana_border #46505c;
 @define-color ooonana_entry #15191f;
 @define-color ooonana_hover #39414b;
+@define-color ooonana_text_accent #ffb21a;
 @define-color ooonana_muted #b4bdc8;
 window, dialog, .background { background-color: @ooonana_bg; color: @ooonana_fg; }
 window.background, dialog.background, messagedialog.background { border-radius: 14px; }
@@ -540,7 +544,7 @@ button.suggested-action:disabled { background: #403624; color: #a5987f; border-c
 toolbar { background: @ooonana_panel; padding: 3px 6px; border-bottom: 1px solid @ooonana_border; }
 toolbar button { background: @ooonana_panel; border: 0; border-radius: 6px; min-width: 20px; min-height: 20px; padding: 3px 4px; box-shadow: none; }
 toolbar button:hover, toolbar button:checked { background: @ooonana_hover; color: @ooonana_fg; }
-toolbar button:focus { outline: 2px solid @ooonana_accent; outline-offset: -2px; }
+toolbar button:focus { outline: 2px solid @ooonana_text_accent; outline-offset: -2px; }
 toolbar entry { min-height: 20px; padding: 3px 6px; border-radius: 6px; }
 toolbar separator { margin: 3px 5px; background: @ooonana_border; }
 notebook tab button { min-width: 16px; min-height: 16px; padding: 2px; border: 0; border-radius: 5px; }

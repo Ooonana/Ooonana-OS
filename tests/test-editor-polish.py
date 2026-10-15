@@ -59,7 +59,7 @@ with tempfile.TemporaryDirectory(prefix="ooonana-editor-polish-") as temporary:
     assert toolbar.read_bytes() == custom_toolbar
 
 assert source.count("toolbar button { background: @ooonana_panel; border: 0;") == 2
-assert "toolbar button:focus { outline: 2px solid @ooonana_accent;" in source
+assert "toolbar button:focus { outline: 2px solid @ooonana_text_accent;" in source
 assert source.count("toolbar entry { min-height: 20px;") == 2
 for state in ("button:active", "button.suggested-action:hover", "button.suggested-action:active",
               "button.destructive-action:hover", "button.destructive-action:active"):

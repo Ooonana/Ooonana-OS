@@ -38,6 +38,11 @@ Windows clipboard/Unicode, Korean IME and manual PDF metrics remain open.
 These runtime changes require a new user-built ISO after repository refresh.
 [Screenshots, checks and limits](docs/app-polish-20261015.md).
 
+Broader UI recheck: 25 native pages/dialogs checked in both appearances;
+repaired light-mode native/chat contrast, quieter application launch actions and
+form accessibility. Dock, native window controls, Settings/Power recovery and
+small-screen GRUB rechecked. [Coverage, screenshots and remaining gates](docs/ui-missed-recheck-20261015.md).
+
 October 15 CI follow-up: Alpine smoke environment lacked `findmnt`, required by
 verification fixtures. Added its dependency and explicit Node/C-compiler tooling;
 WSL fixture now mocks every Windows tool even for dry runs and checks piped-input

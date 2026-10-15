@@ -386,7 +386,7 @@ class SettingsWindow(Gtk.Window):
         for index, (title, description, icon_name, command) in enumerate(apps):
             box = card(title, description, icon_name)
             box.pack_start(
-                button("Launch", icon_name, lambda _w, cmd=command: launch(cmd), "suggested-action"),
+                button("Launch", icon_name, lambda _w, cmd=command: launch(cmd)),
                 False,
                 False,
                 0,

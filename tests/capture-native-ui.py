@@ -5,6 +5,7 @@ import argparse
 import importlib
 import json
 import os
+import shutil
 from pathlib import Path
 import sys
 import tempfile
@@ -95,6 +96,14 @@ def main():
         if os.environ.get("OOONANA_GUI_TEST_DISPLAY") != "1" or os.getuid() == 0:
             raise SystemExit("Dedicated test display and nonroot test user required")
         fixture = tempfile.TemporaryDirectory(prefix="ooonana-native-catalog-")
+        # Keep the selected presentation while isolating writable app state.
+        # Dropping these files silently turned light-theme QA into dark/default.
+        gtk_source = Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))) / "gtk-3.0"
+        gtk_target = Path(fixture.name) / "config/gtk-3.0"
+        gtk_target.mkdir(parents=True)
+        for name in ("gtk.css", "settings.ini"):
+            if (gtk_source / name).is_file():
+                shutil.copyfile(gtk_source / name, gtk_target / name)
         for key, directory in (("XDG_CONFIG_HOME", "config"), ("XDG_STATE_HOME", "state"),
                                ("XDG_DATA_HOME", "data"), ("OOONANA_OPENVINO_HOME", "models")):
             os.environ[key] = str(Path(fixture.name) / directory)

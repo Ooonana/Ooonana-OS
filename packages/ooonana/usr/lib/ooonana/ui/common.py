@@ -112,14 +112,81 @@ button.fullscreen-control:active { background: #67b985; }
 button.window-control:focus { box-shadow: 0 0 0 2px #f5f5f7; }
 """
 
+# Native content roles must follow the same appearance as desktop GTK chrome.
+# Semantic foregrounds stay readable; primary/destructive actions retain meaning.
+LIGHT_CSS = b"""
+window, dialog, .background { background: #f5f5f7; color: #1b1f26; }
+decoration { background: #f5f5f7; border-color: #adb7c2; }
+menu, tooltip, headerbar { background: #ffffff; color: #1b1f26; border-color: #adb7c2; }
+tooltip label, headerbar .subtitle { color: #55616e; }
+headerbar .title, .hero-title { color: #805600; }
+menuitem:hover { background: #e9edf1; color: #1b1f26; }
+.hero, .card { background: #ffffff; border-color: #adb7c2; }
+.sidebar { background: #ffffff; border-color: #adb7c2; }
+.sidebar row:hover { background: #eef1f5; }
+.sidebar row:selected { background: #e9edf1; color: #1b1f26; }
+.page-title, .card-title { color: #1b1f26; }
+.page-subtitle, .muted, .status-neutral { color: #55616e; }
+.settings-section { background: #f5f5f7; border-color: #adb7c2; }
+.badge { background: #fff0cc; color: #6c4a00; border-color: #c3a563; }
+.status-good { color: #25663f; }
+.status-warn { color: #765300; }
+.status-bad { color: #a52620; }
+button { background: #e9edf1; color: #1b1f26; border-color: #adb7c2; box-shadow: none; }
+button:hover { background: #d8dee6; border-color: #805600; }
+button:active { background: #ffffff; border-color: #805600; }
+button:disabled { background: #eef1f5; color: #687380; border-color: #cbd2da; }
+button.suggested-action { background: #ffb21a; color: #101317; border-color: #ffb21a; }
+button.suggested-action:hover { background: #ffca5c; }
+button.suggested-action:active { background: #eaa21a; }
+button.suggested-action:disabled { background: #eee2c9; color: #776b53; border-color: #d1c3a6; }
+button.destructive-action { background: #fce9e7; color: #8d2621; border-color: #c98b86; }
+button.destructive-action:hover { background: #f8d8d4; color: #7b1d18; }
+button.destructive-action:active { background: #f1c3bd; color: #7b1d18; }
+button.destructive-action:disabled { background: #eef1f5; color: #687380; border-color: #cbd2da; }
+button:focus, entry:focus, combobox button:focus { outline: 2px solid #805600; outline-offset: -2px; box-shadow: none; border-color: #805600; }
+.sidebar row:focus, .spotlight-results row:focus { outline-color: #805600; }
+entry, textview, textview text, textview.view, textview.view text, treeview, list {
+  background: #ffffff; color: #1b1f26; border-color: #adb7c2;
+}
+checkbutton check { background: #ffffff; border-color: #687380; }
+treeview header button, notebook header { background: #e9edf1; color: #1b1f26; }
+treeview:selected, row:selected { background: #e9edf1; color: #1b1f26; }
+notebook tab:checked { color: #805600; }
+scale trough, progressbar trough { background: #d8dee6; }
+progressbar text { color: #1b1f26; }
+scrollbar slider { background: #687380; }
+separator { background: #adb7c2; }
+.spotlight, .spotlight-results { background: #ffffff; border-color: #adb7c2; }
+.spotlight-brand { color: #805600; }
+.spotlight-results row { border-color: #e9edf1; }
+.spotlight-results row:hover, .spotlight-results row:selected { background: #e9edf1; color: #1b1f26; }
+"""
+
+
+def light_appearance():
+    explicit = os.environ.get("OOONANA_THEME", "")
+    if explicit in ("light", "dark"):
+        return explicit == "light"
+    override = os.environ.get("GTK_THEME", "")
+    if override:
+        return not override.endswith((":dark", "-dark"))
+    settings = Gtk.Settings.get_default()
+    return bool(settings and not settings.get_property("gtk-application-prefer-dark-theme"))
+
+
+_theme_provider = None
+
 
 def apply_theme():
-    provider = Gtk.CssProvider()
-    provider.load_from_data(CSS)
+    global _theme_provider
+    if _theme_provider is None:
+        _theme_provider = Gtk.CssProvider()
+    _theme_provider.load_from_data(CSS + (LIGHT_CSS if light_appearance() else b""))
     screen = Gdk.Screen.get_default()
     if screen:
         Gtk.StyleContext.add_provider_for_screen(
-            screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+            screen, _theme_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
     settings = Gtk.Settings.get_default()
     if settings:

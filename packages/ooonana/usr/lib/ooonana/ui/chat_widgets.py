@@ -6,7 +6,7 @@ import os
 import codecs
 import selectors
 import time
-from common import Gdk, GLib, Gtk, button, label, icon
+from common import Gdk, GLib, Gtk, button, label, icon, light_appearance
 
 AI_CSS = b"""
 .ai-window { background: #101317; }
@@ -37,11 +37,26 @@ button.ai-model, button.ai-model:hover { background: transparent; border-color: 
 .ai-wide .ai-sidebar button { border-radius: 14px; }
 """
 
+AI_LIGHT_CSS = b"""
+.ai-window { background: #f5f5f7; }
+.ai-window headerbar { background: #ffffff; color: #1b1f26; }
+.ai-sidebar { background: #ffffff; border-color: #adb7c2; }
+.ai-sidebar row:selected { background: #e9edf1; color: #1b1f26; }
+.ai-user { background: #e9edf1; }
+.ai-assistant { background: #ffffff; border-color: #adb7c2; }
+.ai-heading { color: #805600; }
+.ai-code { background: #eef1f5; border-color: #adb7c2; }
+.ai-code-header { background: #e9edf1; border-color: #adb7c2; }
+.ai-code textview, .ai-code textview text { background: #eef1f5; color: #1b1f26; }
+.ai-composer { background: #ffffff; border-color: #adb7c2; }
+.ai-composer textview, .ai-composer textview text { background: #ffffff; color: #1b1f26; }
+"""
+
 
 def apply_ai_theme(window):
     window.get_style_context().add_class("ai-window")
     provider = Gtk.CssProvider()
-    provider.load_from_data(AI_CSS)
+    provider.load_from_data(AI_CSS + (AI_LIGHT_CSS if light_appearance() else b""))
     Gtk.StyleContext.add_provider_for_screen(window.get_screen(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1)
 
 

@@ -30,6 +30,8 @@ USER_RE = re.compile(r"^[a-z_][a-z0-9_-]{0,31}$")
 
 def field_row(grid, row, title, widget, help_text=""):
     title_label = label(title, xalign=1.0, wrap=False)
+    title_label.set_mnemonic_widget(widget)
+    widget.get_accessible().set_name(title)
     title_label.set_size_request(130, -1)
     grid.attach(title_label, 0, row, 1, 1)
     grid.attach(widget, 1, row, 1, 1)

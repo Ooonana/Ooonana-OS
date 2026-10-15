@@ -52,6 +52,8 @@ WIFI_ACTIVATION_TIMEOUT = 45
 
 def add_grid_row(grid, row, text, widget):
     prompt = label(text)
+    prompt.set_mnemonic_widget(widget)
+    widget.get_accessible().set_name(text)
     grid.attach(prompt, 0, row, 1, 1)
     grid.attach(widget, 1, row, 1, 1)
     return row + 1
@@ -234,6 +236,8 @@ class WifiCredentialsDialog(Gtk.Dialog):
     @staticmethod
     def attach_row(grid, row, text, widget):
         prompt = label(text)
+        prompt.set_mnemonic_widget(widget)
+        widget.get_accessible().set_name(text)
         grid.attach(prompt, 0, row, 1, 1)
         grid.attach(widget, 1, row, 1, 1)
         return prompt, widget

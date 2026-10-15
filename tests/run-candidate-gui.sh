@@ -10,7 +10,7 @@ case "$geometry" in
   *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
 esac
 case "$only" in
-  all|settings-power-ui|native-ui-runtime|native-app-catalog|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|window-controls-runtime|dock-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
+  all|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|window-controls-runtime|dock-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -191,7 +191,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
       failure=1
     fi
   }
-  for name in native-ui-runtime ai-indicators ai-chat-runtime desktop-interactions; do
+  for name in native-ui-runtime native-appearance ai-indicators ai-chat-runtime desktop-interactions; do
     probe "$name" python3 "/source/tests/check-$name.py"
   done
   probe native-app-catalog python3 /source/tests/check-native-app-catalog.py

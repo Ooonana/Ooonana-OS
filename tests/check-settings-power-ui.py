@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Private native state transitions. Every power/theme command is mocked."""
+import argparse
 import os
 from pathlib import Path
 import sys
@@ -8,6 +9,10 @@ import time
 
 if os.environ.get("OOONANA_GUI_TEST_DISPLAY") != "1" or os.getuid() == 0:
     raise SystemExit("Dedicated nonroot test display required")
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--output-dir", type=Path, default=Path("/qa"))
+args = parser.parse_args()
+args.output_dir.mkdir(parents=True, exist_ok=True)
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "packages/ooonana/usr/lib/ooonana/ui"))
 import settings_app as settings
@@ -26,7 +31,7 @@ def capture(window, name):
     bounds = window.get_window().get_frame_extents()
     assert bounds.x >= 0 and bounds.y >= 0
     assert bounds.x + bounds.width <= root.get_width() and bounds.y + bounds.height <= root.get_height(), (name, bounds)
-    Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev("/qa/" + name + ".png", "png", [], [])
+    Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(str(args.output_dir / (name + ".png")), "png", [], [])
 
 jobs, messages, calls = [], [], []
 settings.run_async = lambda command, done, **kwargs: jobs.append((command, done))
