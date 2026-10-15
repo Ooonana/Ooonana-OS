@@ -64,8 +64,9 @@ GUI for current app code/shortcut. Older ISO stays unchanged.
 October 16 source follow-up corrects oversized desktop controls: normal buttons/
 entries 32px, dropdowns 33px, existing font sizes retained and actions content-fit.
 Settings gains compact page navigation, visible keyboard focus, bounded native
-picker/log dialogs and stronger failure/duplicate handling. This newer batch is
-still pending signed runtime refresh; details distinguish source from installed.
+picker/log dialogs and stronger failure/duplicate handling. This batch is now in
+the signed local candidate and Ooonana WSL; close older desktop/apps and relaunch
+for current code/theme. Existing ISO is unchanged; broader UI review continues.
 [Full scope, current evidence and remaining UI work](docs/ui-whole-os-review.md).
 
 October 15 CI follow-up: Alpine smoke environment lacked `findmnt`, required by

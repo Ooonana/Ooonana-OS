@@ -9,6 +9,7 @@ mascot/cursor identity. Do not build an ISO or play sound during review.
 
 | Surface / paths | Current evidence | Work still required |
 | --- | --- | --- |
+| Control proportions | Measured shared native/generated GTK heights, content-fit native actions; unchanged type; 100/125/200% scaling | App-specific Qt/AI controls, panel/card/dock content proportions; no blind blanket shrink |
 | Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; current source inventory | Fresh composited desktop, cursor hotspot/scale, icon consistency and selection states |
 | Panel / music / AI / notifications / tray | Source Polybar/wallpaper/dock at 640×600 and 1280×800; long Wi-Fi/media sample, no overlap/missing glyphs | Real empty/playing/paused media transitions, expanded notification integration and middle widths |
 | Dock | Centered icons, bounded previews/tooltips, compact grouping, 44px targets and unchanged hover focus; follow-up action/keyboard checks below | Edge placement and actual session/display integration |
@@ -407,3 +408,31 @@ the targeted Settings/proportion fixture, not a claim about every app at 200%.
 
 This batch is source work pending the next signed runtime refresh. Batch 5
 remains the installed checkpoint until a later publication record supersedes it.
+
+## Published checkpoint after Batch 6
+
+Supersedes the preceding source-pending note, not the remaining whole-OS work.
+
+- Source `8cc3b177e8ceba40f47c7215df0b074991ad975a` pushed to both branches;
+  [GitHub regression](https://github.com/Ooonana/Ooonana-OS/actions/runs/38824635241)
+  and [GitLab smoke](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2953124816)
+  passed.
+- Clean source-only manifest, no bundled models, coherent Alpine v3.24 inputs;
+  signed **654-package / 612-dependency-node** generation validated/published:
+  `c518fe57962e40589f80a2c53c4f158fcdca4cc3568c5b913c0059fbe3600733`.
+  Prior generation checksum manifest unchanged. Signing key remains local;
+  stable promotion and broader enrollment remain deferred.
+- Ooonana WSL snapshot:
+  `/var/lib/ooonana/candidate-proportions-20261016.5Udsm91e`.
+  Pinned key hashes, detached signature, all 1302 checksums and source manifest
+  verified before native CLI dry-runs/reinstalls. Both core/runtime verification
+  and explicit health hooks pass; all rollback checkpoints remain.
+- Installed common, Settings, Packages and i3 config hashes match source. Actual
+  dark/light CSS parsing and GTK imports pass as UID1000; ordinary unprivileged
+  package search returns installed Geany. Cloud source points at the new signed
+  native snapshot. WSL-local compositor/launcher adaptation refreshed without
+  restarting a running desktop, WSL or Windows.
+- Logs: `/var/tmp/ooonana-proportions-sync-20261016.BOFyrrjd` inside Ooonana.
+  Ubuntu stays on C:, Ooonana stays at its existing F: location. No sound,
+  model download, physical media modification or ISO construction. Relaunch old
+  desktop/apps for current code/generated theme; existing ISO remains unchanged.

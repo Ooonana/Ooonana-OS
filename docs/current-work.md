@@ -1,4 +1,29 @@
-# Current work - 2026-10-15
+# Current work - 2026-10-16
+
+## October 16 proportional controls and Settings
+
+Source `8cc3b17` fixes oversized desktop controls without reducing type. At
+normal scale, native button/entry/dropdown heights change from 42/52/46px to
+32/32/33px; native helper actions fit their labels. Generated GTK theme matches
+the compact sizing. Existing window-control/dock targets remain unchanged.
+
+Settings gains narrow page navigation, bounded/selectable status values,
+automatic visible keyboard focus, bounded native wallpaper/log dialogs, Copy
+log, honest Bluetooth errors, motion rollback and duplicate/late-action guards.
+Private actual GTK/i3 tests pass 25 normal-scale native pages in dark/light;
+targeted Settings/control fixtures pass through 200% text. Geany real picker and
+window controls pass. Commands that could change services/packages/wallpaper
+were mocked in the interaction fixtures. No sound, models or ISO build.
+
+Both remotes contain source. [GitHub regression](https://github.com/Ooonana/Ooonana-OS/actions/runs/38824635241)
+and [GitLab smoke](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2953124816)
+passed. Signed 654-package candidate generation and native Ooonana WSL update
+are verified, including core/runtime health hooks, source hashes, actual GTK/CSS
+imports as UID1000 and unprivileged package search. Previous generations and
+rollback checkpoints stay. Relaunch desktop/apps for updated code/theme.
+[Publication and coverage ledger](ui-whole-os-review.md#published-checkpoint-after-batch-6).
+Broader application/display/session review remains active; physical/interactive
+gates are not implied by fixture success.
 
 ## October 15 physical USB identification and frontend preparation
 
