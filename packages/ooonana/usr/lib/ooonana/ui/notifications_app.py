@@ -3,8 +3,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import GLib, Gtk, Pango, apply_theme, button, card, header, label, page_intro, run, run_async, run_async_task  # noqa: E402
-from notification_utils import NotificationState, notification_age, parse_history, read_history  # noqa: E402
+from common import GLib, Gtk, Pango, apply_theme, button, card, header, label, run, run_async, run_async_task  # noqa: E402
+from notification_utils import NotificationState, notification_age, parse_history, read_history, record_key  # noqa: E402
 from ui_preferences import load_preferences, save_preferences
 
 
@@ -15,10 +15,20 @@ class NotificationsWindow(Gtk.Window):
         self.closed = False
         self.refreshing = False
         self.service_available = False
+        self.action_pending = False
+        self.action_error = ""
+        self.action_detail = ""
+        self.pause_known = False
+        self.render_signature = None
+        self.render_version = 0
+        self.remove_buttons = []
+        self.age_labels = []
+        self.expanded_messages = set()
         self.records = []
         self.state = NotificationState()
         bar = header(self, "Notification center", "Desktop messages", "dialog-information-symbolic")
-        bar.pack_end(button("Refresh", "view-refresh-symbolic", lambda *_: self.refresh()))
+        self.refresh_button = button("Refresh", "view-refresh-symbolic", lambda *_: self.refresh())
+        bar.pack_end(self.refresh_button)
         self.clear_button = button("Clear all", "edit-clear-symbolic", lambda *_: self.perform(["history-clear"]))
         self.clear_button.set_sensitive(False)
         bar.pack_end(self.clear_button)
@@ -26,12 +36,15 @@ class NotificationsWindow(Gtk.Window):
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
         root.set_border_width(20)
         self.add(root)
-        root.pack_start(page_intro("Notifications", "Recent desktop messages from this session."), False, False, 0)
         controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         self.pause = Gtk.CheckButton.new_with_label("Do Not Disturb")
         self.pause_handler = self.pause.connect("toggled", self.pause_changed)
+        self.pause.set_sensitive(False)
         controls.pack_start(self.pause, False, False, 0)
         self.status = label("Loading notifications...", "muted")
+        self.status.set_line_wrap(False)
+        self.status.set_ellipsize(Pango.EllipsizeMode.END)
+        self.status.set_max_width_chars(28)
         controls.pack_end(self.status, False, False, 0)
         root.pack_start(controls, False, False, 0)
         self.remember = Gtk.CheckButton.new_with_label("Remember messages viewed here")
@@ -46,15 +59,20 @@ class NotificationsWindow(Gtk.Window):
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scroll.set_overlay_scrolling(False)
         scroll.add(self.list)
+        self.scroll = scroll
         root.pack_start(scroll, True, True, 0)
         self.connect("destroy", self.on_destroy)
         self.connect("focus-in-event", lambda *_: (GLib.idle_add(self.refresh), False)[1])
         self.refresh(collect_popups=True)
-        GLib.timeout_add_seconds(5, self.periodic_refresh)
+        self.timer_id = GLib.timeout_add_seconds(5, self.periodic_refresh)
 
     def on_destroy(self, *_args):
         self.closed = True
-        Gtk.main_quit()
+        if self.timer_id:
+            GLib.source_remove(self.timer_id)
+            self.timer_id = 0
+        if Gtk.main_level():
+            Gtk.main_quit()
 
     def periodic_refresh(self):
         if self.closed:
@@ -63,23 +81,26 @@ class NotificationsWindow(Gtk.Window):
         return True
 
     def refresh(self, collect_popups=False):
-        if self.closed or self.refreshing:
+        if self.closed or self.refreshing or self.action_pending:
             return
+        focus_before = self.get_focus()
         self.refreshing = True
+        self.update_actions()
+        focus_loading = self.get_focus()
 
         def task():
             if collect_popups:
                 run(["dunstctl", "close-all"], timeout=3)
             rc, text = read_history()
-            _pause_rc, paused = run(["dunstctl", "is-paused"], timeout=3)
-            return rc, (text, paused.strip() == "true")
+            pause_rc, paused = run(["dunstctl", "is-paused"], timeout=3)
+            return rc, (text, paused.strip() == "true" if pause_rc == 0 else None)
 
         def done(rc, result):
             self.refreshing = False
             if self.closed:
                 return
             if not isinstance(result, tuple) or len(result) != 2:
-                rc, result = 1, ("", False)
+                rc, result = 1, ("", None)
             text, paused = result
             live = parse_history(text) if rc == 0 else []
             self.service_available = rc == 0
@@ -89,35 +110,89 @@ class NotificationsWindow(Gtk.Window):
                     self.state.mark_read(live)
             except OSError:
                 self.records = [{**record, "archived": False} for record in live]
-            self.pause.handler_block(self.pause_handler)
-            self.pause.set_active(paused)
-            self.pause.handler_unblock(self.pause_handler)
-            self.pause.set_sensitive(rc == 0)
-            self.clear_button.set_sensitive(bool(self.records))
+            self.pause_known = isinstance(paused, bool)
+            if self.pause_known:
+                self.pause.handler_block(self.pause_handler)
+                self.pause.set_active(paused)
+                self.pause.handler_unblock(self.pause_handler)
+            self.pause.set_tooltip_text(None if self.pause_known else "Do Not Disturb status unavailable. Refresh to retry.")
             count = len(self.records)
-            self.status.set_text(f"{count} {'message' if count == 1 else 'messages'}" if rc == 0 else "Saved history · service unavailable")
-            for child in self.list.get_children():
-                child.destroy()
-            if not self.records:
-                empty = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-                empty.set_border_width(24)
-                empty.pack_start(label("No notifications yet", "page-title"), False, False, 0)
-                empty.pack_start(label("Desktop app notifications appear here. Opening this center collects visible popups into history.", "muted"), False, False, 0)
-                self.list.add(empty)
-            groups = {}
-            for record in self.records:
-                groups.setdefault(record["app"], []).append(record)
-            for app, records in groups.items():
-                heading = label(f"{app}  ·  {len(records)}", "card-title", wrap=False)
-                heading.set_ellipsize(Pango.EllipsizeMode.END)
-                heading.set_margin_top(14)
-                heading.set_margin_bottom(6)
-                self.list.add(heading)
-                for record in records:
-                    self.add_notification(record)
-            self.list.show_all()
+            summary = (f"{count} {'message' if count == 1 else 'messages'}" if rc == 0 else
+                       "Saved history · service unavailable" if self.records else "Service unavailable")
+            self.status.set_text(summary + (" · " + self.action_error if self.action_error else ""))
+            self.status.set_tooltip_text(self.action_detail or self.status.get_text())
+            context = self.status.get_style_context()
+            context.remove_class("status-bad")
+            if self.action_error or rc != 0:
+                context.add_class("status-bad")
+            preserve_focus = focus_before if self.get_focus() is focus_loading else None
+            self.render_records(preserve_focus)
+            self.update_actions()
+            if preserve_focus and self.get_focus() is focus_loading and preserve_focus.get_mapped():
+                preserve_focus.grab_focus()
 
         run_async_task(task, done)
+
+    def update_actions(self):
+        ready = not (self.refreshing or self.action_pending)
+        self.refresh_button.set_sensitive(ready)
+        self.pause.set_sensitive(ready and self.service_available and self.pause_known)
+        self.clear_button.set_sensitive(ready and bool(self.records))
+        for control, record in self.remove_buttons:
+            control.set_sensitive(ready and (record.get("archived") or self.service_available))
+
+    def render_records(self, preserve_focus=None):
+        signature = tuple((record_key(item), item.get("archived", False)) for item in self.records)
+        signature = (signature, self.service_available if not self.records else None)
+        if signature == self.render_signature:
+            for control, record in self.age_labels:
+                control.set_text("Earlier session" if record.get("archived") else notification_age(record["timestamp"]))
+            return
+        self.render_signature = signature
+        self.render_version += 1
+        version = self.render_version
+        previous_focus = preserve_focus or self.get_focus()
+        focus_key = next((record_key(item) for control, item in self.remove_buttons if control is previous_focus), None)
+        previous_scroll = self.scroll.get_vadjustment().get_value()
+        self.remove_buttons = []
+        self.age_labels = []
+        for child in self.list.get_children():
+            child.destroy()
+        if not self.records:
+            empty = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+            empty.set_border_width(24)
+            empty.pack_start(label("No notifications yet" if self.service_available else "Notification service unavailable", "card-title"), False, False, 0)
+            empty.pack_start(label(
+                "Desktop messages appear here. Opening this center collects visible popups into history."
+                if self.service_available else "Refresh to retry when the desktop notification service returns.", "muted"), False, False, 0)
+            self.list.add(empty)
+        groups = {}
+        for record in self.records:
+            groups.setdefault(record["app"], []).append(record)
+        for app, records in groups.items():
+            heading = label(f"{app}  ·  {len(records)}", "card-title", wrap=False)
+            heading.set_ellipsize(Pango.EllipsizeMode.END)
+            heading.set_max_width_chars(40)
+            heading.set_tooltip_text(app)
+            heading.set_margin_top(8)
+            heading.set_margin_bottom(6)
+            self.list.add(heading)
+            for record in records:
+                self.add_notification(record)
+        self.expanded_messages.intersection_update(record_key(item) for item in self.records)
+        self.list.show_all()
+
+        def restore():
+            if self.closed or self.render_version != version:
+                return False
+            adjustment = self.scroll.get_vadjustment()
+            adjustment.set_value(min(previous_scroll, max(0, adjustment.get_upper() - adjustment.get_page_size())))
+            if focus_key:
+                control = next((control for control, item in self.remove_buttons if record_key(item) == focus_key),
+                               self.remove_buttons[0][0] if self.remove_buttons else self.refresh_button)
+                control.grab_focus()
+            return False
+        GLib.idle_add(restore)
 
     def add_notification(self, record):
         widget = card(record["summary"])
@@ -126,36 +201,83 @@ class NotificationsWindow(Gtk.Window):
         heading = widget.get_children()[0].get_children()[0]
         heading.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
         heading.set_max_width_chars(64)
+        heading.set_lines(2)
+        heading.set_ellipsize(Pango.EllipsizeMode.END)
+        heading.set_tooltip_text(record["summary"])
         info = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         app = label(record["app"], "muted", wrap=False)
         app.set_ellipsize(Pango.EllipsizeMode.END)
         app.set_max_width_chars(40)
+        app.set_tooltip_text(record["app"])
         info.pack_start(app, True, True, 0)
         age = "Earlier session" if record.get("archived") else notification_age(record["timestamp"])
-        info.pack_end(label(age, "muted", wrap=False), False, False, 0)
+        age_label = label(age, "muted", wrap=False)
+        self.age_labels.append((age_label, record))
+        remove = button("Remove", "edit-delete-symbolic", lambda *_: self.remove_record(record))
+        self.remove_buttons.append((remove, record))
+        info.pack_end(remove, False, False, 0)
+        info.pack_end(age_label, False, False, 0)
         widget.pack_start(info, False, False, 0)
         if record["body"]:
-            body = label(record["body"])
+            long_body = len(record["body"]) > 240 or record["body"].count("\n") >= 2
+            preview = " ".join(record["body"].splitlines())[:240].rstrip() + "…" if long_body else record["body"]
+            body = label(preview)
             body.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
             body.set_max_width_chars(64)
+            body.set_lines(2)
+            body.set_ellipsize(Pango.EllipsizeMode.END)
             body.set_selectable(True)
             widget.pack_start(body, False, False, 0)
-        remove = button("Remove", "edit-delete-symbolic", lambda *_: self.remove_record(record))
-        remove.set_halign(Gtk.Align.END)
-        widget.pack_start(remove, False, False, 0)
+            if long_body:
+                key = record_key(record)
+                expander = Gtk.Expander(label="Show full message")
+                full_text = label(record["body"])
+                full_text.set_selectable(True)
+                expander.add(full_text)
+                body.set_no_show_all(True)
+                def expanded(control, _property, preview=body, identity=key):
+                    active = control.get_expanded()
+                    preview.set_visible(not active)
+                    if active:
+                        self.expanded_messages.add(identity)
+                    else:
+                        self.expanded_messages.discard(identity)
+                expander.connect("notify::expanded", expanded)
+                expander.set_expanded(key in self.expanded_messages)
+                body.set_visible(not expander.get_expanded())
+                widget.pack_start(expander, False, False, 0)
         self.list.add(widget)
 
     def remember_changed(self, widget):
+        self.action_error = self.action_detail = ""
         try:
             save_preferences(remember_notifications=widget.get_active())
-            if not widget.get_active():
-                self.state.clear_saved()
         except OSError as exc:
-            self.status.set_text(f"Could not save preference: {exc}")
+            # Reflect the stored preference even if an atomic save failed
+            # after replacing its target, rather than assuming old/new state.
+            widget.handler_block_by_func(self.remember_changed)
+            widget.set_active(load_preferences()["remember_notifications"])
+            widget.handler_unblock_by_func(self.remember_changed)
+            self.action_error = "Could not save preference"
+            self.action_detail = str(exc)
+            self.status.set_text(self.action_error)
+            self.status.set_tooltip_text(self.action_detail)
+            self.status.get_style_context().add_class("status-bad")
             return
+        if not widget.get_active():
+            try:
+                self.state.clear_saved()
+            except OSError as exc:
+                self.action_error = "Saved history could not be removed"
+                self.action_detail = str(exc)
+                self.status.set_text(self.action_error)
+                self.status.set_tooltip_text(self.action_detail)
+                self.status.get_style_context().add_class("status-bad")
         self.refresh()
 
     def remove_record(self, record):
+        if self.closed or self.action_pending or self.refreshing:
+            return
         if record.get("archived"):
             try:
                 self.state.forget(record)
@@ -170,6 +292,8 @@ class NotificationsWindow(Gtk.Window):
         self.perform(["set-paused", "true" if widget.get_active() else "false"])
 
     def perform(self, arguments, removed_record=None):
+        if self.closed or self.action_pending or self.refreshing:
+            return
         if arguments[0] == "history-clear" and not self.service_available:
             try:
                 self.state.clear_saved()
@@ -178,11 +302,13 @@ class NotificationsWindow(Gtk.Window):
                 return
             self.refresh()
             return
-        self.clear_button.set_sensitive(False)
-        self.pause.set_sensitive(False)
+        self.action_pending = True
+        self.action_error = self.action_detail = ""
+        self.update_actions()
 
-        def done(rc, _output):
+        def done(rc, output):
             if not self.closed:
+                self.action_pending = False
                 if rc == 0 and removed_record:
                     try:
                         self.state.forget(removed_record)
@@ -194,7 +320,8 @@ class NotificationsWindow(Gtk.Window):
                     except OSError:
                         self.status.set_text("Could not clear saved history")
                 if rc != 0:
-                    self.status.set_text("Notification action failed")
+                    self.action_error = "Action failed"
+                    self.action_detail = output or "Notification action failed. Refresh, then retry."
                 self.refresh()
 
         run_async(["dunstctl", *arguments], done, timeout=3)

@@ -273,6 +273,41 @@ def flow_row(widgets, max_children=8, min_children=3):
     return row
 
 
+def more_actions(widgets, name="More actions"):
+    """Native disclosure for secondary tools, with normal keyboard navigation."""
+    control = Gtk.MenuButton(label="More")
+    control.set_image(icon("view-more-symbolic"))
+    control.set_always_show_image(True)
+    control.get_accessible().set_name(name)
+    control.set_tooltip_text(name)
+    popover = Gtk.Popover.new(control)
+    content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+    content.set_border_width(12)
+    for widget in widgets:
+        content.pack_start(widget, False, False, 0)
+        widget.connect("clicked", lambda *_args: popover.popdown())
+    popover.add(content)
+    content.show_all()
+    control.set_popover(popover)
+    return control
+
+
+def fit_dialog(dialog, width, height=-1):
+    """Leave room for WM decorations; do not request an entire display's height."""
+    display = Gdk.Display.get_default()
+    parent = dialog.get_transient_for()
+    monitor = display.get_monitor_at_window(parent.get_window()) if display and parent and parent.get_window() else None
+    if display:
+        monitor = monitor or display.get_primary_monitor() or display.get_monitor(0)
+    if monitor:
+        area = monitor.get_workarea()
+        width = min(width, max(1, area.width - 48))
+        if height > 0:
+            height = min(height, max(1, area.height - 96))
+    dialog.set_default_size(width, height)
+    dialog.set_position(Gtk.WindowPosition.CENTER_ON_PARENT if parent else Gtk.WindowPosition.CENTER)
+
+
 def i3_window_action(window, action):
     native = window.get_window()
     if native is None or not command_exists("i3-msg"):

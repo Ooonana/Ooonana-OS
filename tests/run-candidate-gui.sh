@@ -12,7 +12,7 @@ case "$geometry" in
   *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
 esac
 case "$only" in
-  all|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|window-controls-runtime|dock-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
+  all|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|window-controls-runtime|dock-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -199,6 +199,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   probe native-app-catalog python3 /source/tests/check-native-app-catalog.py
   probe ui-details-runtime python3 /source/tests/check-ui-details-runtime.py /qa/details
   probe ui-content-runtime python3 /source/tests/check-ui-content-runtime.py /qa/content
+  probe wireless-notification-ui python3 /source/tests/check-wireless-notification-ui.py /qa/wireless-notification
   probe installer-ui python3 /source/tests/check-installer-ui.py /qa/installer
   probe settings-power-ui python3 /source/tests/check-settings-power-ui.py
   probe notifications-runtime python3 /source/tests/check-notifications-runtime.py --output /qa/notifications.png

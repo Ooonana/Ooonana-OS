@@ -8,15 +8,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (  # noqa: E402
     GLib,
     Gtk,
+    Pango,
     apply_theme,
     button,
     command_exists,
     flow_row,
+    fit_dialog,
     header,
     host_radio_unavailable,
     label,
     launch,
     message,
+    more_actions,
     page_intro,
     run,
     run_async,
@@ -62,6 +65,8 @@ def add_grid_row(grid, row, text, widget):
 def text_entry(secret=False, placeholder=""):
     entry = Gtk.Entry()
     entry.set_visibility(not secret)
+    if secret:
+        entry.set_input_purpose(Gtk.InputPurpose.PASSWORD)
     entry.set_hexpand(True)
     if placeholder:
         entry.set_placeholder_text(placeholder)
@@ -73,12 +78,13 @@ class WifiCredentialsDialog(Gtk.Dialog):
         super().__init__(title=f"Connect to {network['ssid']}", transient_for=parent, modal=True)
         self.network = network
         self.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Connect", Gtk.ResponseType.OK)
-        self.set_default_size(620, 600)
+        fit_dialog(self, 620, 560)
         area = self.get_content_area()
         area.set_border_width(16)
         area.set_spacing(12)
         area.pack_start(
-            label(f"{network['security_label']}  |  {network.get('ap_count', 1)} access point(s)", "muted"),
+            label(f"{network['security_label']}  ·  {network.get('ap_count', 1)} "
+                  f"{'access point' if network.get('ap_count', 1) == 1 else 'access points'}", "muted"),
             False,
             False,
             0,
@@ -232,6 +238,10 @@ class WifiCredentialsDialog(Gtk.Dialog):
         self.show_all()
         self.update_security_fields()
         self.update_advanced_fields()
+        self.set_default_response(Gtk.ResponseType.OK)
+        self.password.set_activates_default(True)
+        (self.identity if detected_kind == "enterprise" else
+         self.password if detected_kind in ("personal", "wep") else self.security).grab_focus()
 
     @staticmethod
     def attach_row(grid, row, text, widget):
@@ -342,7 +352,7 @@ class ManualNetworkDialog(Gtk.Dialog):
     def __init__(self, parent, devices, ssid=""):
         super().__init__(title="Other Wi-Fi network", transient_for=parent, modal=True)
         self.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Continue", Gtk.ResponseType.OK)
-        self.set_default_size(520, -1)
+        fit_dialog(self, 520)
         area = self.get_content_area()
         area.set_border_width(16)
         grid = Gtk.Grid(column_spacing=12, row_spacing=10)
@@ -362,6 +372,9 @@ class ManualNetworkDialog(Gtk.Dialog):
         row = add_grid_row(grid, row, "Security", self.security)
         add_grid_row(grid, row, "Adapter", self.device)
         self.show_all()
+        self.set_default_response(Gtk.ResponseType.OK)
+        self.ssid.set_activates_default(True)
+        self.ssid.grab_focus()
 
     def network(self):
         index = self.security.get_active()
@@ -408,6 +421,9 @@ class WifiWindow(Gtk.Window):
         self.service_label = label("Service: checking", "status-warn")
         self.radio_label = label("Radio: checking", "status-warn")
         self.active_label = label("Connection: checking", "status-warn")
+        for status_label in (self.service_label, self.radio_label, self.active_label):
+            status_label.set_lines(2)
+            status_label.set_ellipsize(Pango.EllipsizeMode.END)
         status = flow_row((self.service_label, self.radio_label, self.active_label), 3)
         root.pack_start(status, False, False, 0)
 
@@ -415,33 +431,36 @@ class WifiWindow(Gtk.Window):
         self.scan_button = button("Scan", "edit-find-symbolic", lambda *_: self.refresh(scan=True))
         self.repair_button = button("Repair service", "emblem-system-symbolic", self.repair_service)
         self.hardware_reset_button = button("Reset adapter", "view-refresh-symbolic", self.reset_hardware)
-        self.toolbar = flow_row(
-            (
-                self.radio_button,
-                self.scan_button,
-                button("Other network", "list-add-symbolic", self.connect_manual),
-                button("Signal map", "find-location-symbolic", self.show_signal_map),
-                button("CSI 3D", "video-display-symbolic", self.launch_csi_3d),
-                button("Wi-Fi Aware", "network-transmit-receive-symbolic", self.show_wifi_aware),
-                button("Profiles", "document-edit-symbolic", lambda *_: launch(["nm-connection-editor"])),
-                self.repair_button,
-                self.hardware_reset_button,
-            ),
-            5,
-        )
+        self.more_button = more_actions([
+            button("Signal map", "find-location-symbolic", self.show_signal_map),
+            button("CSI 3D", "video-display-symbolic", self.launch_csi_3d),
+            button("Wi-Fi Aware", "network-transmit-receive-symbolic", self.show_wifi_aware),
+            button("Profiles", "document-edit-symbolic", lambda *_: launch(["nm-connection-editor"])),
+            self.repair_button,
+            self.hardware_reset_button,
+        ], "More Wi-Fi tools and repair actions")
+        self.toolbar = flow_row([
+            self.radio_button, self.scan_button,
+            button("Other network", "list-add-symbolic", self.connect_manual), self.more_button,
+        ], max_children=4, min_children=2)
         root.pack_start(self.toolbar, False, False, 0)
 
         self.store = Gtk.ListStore(str, str, int, str, int, str, str, str, str)
         self.tree = Gtk.TreeView(model=self.store)
         for title, index in (("Connected", 0), ("Network", 1), ("Signal", 2), ("Security", 3), ("APs", 4), ("Device", 5)):
             renderer = Gtk.CellRendererText()
+            if index == 1:
+                renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
+                renderer.set_property("max-width-chars", 24)
             column = Gtk.TreeViewColumn(title, renderer, text=index)
             column.set_resizable(True)
             column.set_expand(index == 1)
             self.tree.append_column(column)
         self.tree.get_selection().connect("changed", self.on_selection_changed)
+        self.tree.set_tooltip_column(1)
         self.tree.connect("row-activated", lambda *_: self.connect_selected())
         scroll = Gtk.ScrolledWindow()
+        scroll.set_min_content_height(90)
         scroll.add(self.tree)
         root.pack_start(scroll, True, True, 0)
 
@@ -458,11 +477,20 @@ class WifiWindow(Gtk.Window):
         self.progress.set_no_show_all(True)
         root.pack_start(self.progress, False, False, 0)
         self.detail = label("Select a network to connect.", "muted")
+        self.detail.set_lines(3)
+        self.detail.set_ellipsize(Pango.EllipsizeMode.END)
         self.detail.set_selectable(True)
         root.pack_start(self.detail, False, False, 0)
 
         self.connect("destroy", Gtk.main_quit)
+        self.connect("size-allocate", self.resized)
+        self.resized(self, self.get_default_size())
         self.initial_refresh()
+
+    def resized(self, _window, allocation):
+        # Keep network identity readable; adapter/AP detail remains below.
+        for index in (4, 5):
+            self.tree.get_column(index).set_visible(allocation.width >= 760)
 
     @staticmethod
     def nmcli(*args, timeout=12):
@@ -471,12 +499,15 @@ class WifiWindow(Gtk.Window):
     @staticmethod
     def set_state(widget, text, state):
         widget.set_text(text)
+        widget.set_tooltip_text(text)
         context = widget.get_style_context()
         for css in ("status-good", "status-warn", "status-bad", "status-neutral"):
             context.remove_class(css)
         context.add_class(f"status-{state}")
 
     def set_busy(self, busy, text=""):
+        self.toolbar.set_sensitive(not busy)
+        self.actions.set_sensitive(not busy)
         for widget in (
             self.refresh_button,
             self.radio_button,
@@ -488,8 +519,9 @@ class WifiWindow(Gtk.Window):
         if busy:
             self.progress.show()
             self.progress.pulse()
-            self.progress.set_text(text)
-            self.progress.set_show_text(bool(text))
+            self.progress.set_show_text(False)
+            self.detail.set_text(text)
+            self.detail.set_tooltip_text(text)
         else:
             self.progress.hide()
 
@@ -756,6 +788,7 @@ class WifiWindow(Gtk.Window):
                 f"{network['ssid']} | signal {network['signal']}% | {network['security_label']} | "
                 f"{network['ap_count']} access point(s) | strongest {network.get('bssid') or 'unknown'}.{warning}"
             )
+            self.detail.set_tooltip_text(self.detail.get_text())
 
     def toggle_radio(self, widget):
         target = "off" if "off" in widget.get_label().lower() else "on"

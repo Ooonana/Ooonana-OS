@@ -7,14 +7,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (  # noqa: E402
     GLib,
     Gtk,
+    Pango,
     apply_theme,
     button,
     flow_row,
+    fit_dialog,
     header,
     host_radio_unavailable,
     label,
     launch,
     message,
+    more_actions,
     page_intro,
     read_file,
     run,
@@ -34,16 +37,21 @@ class PairDialog(Gtk.Dialog):
     def __init__(self, parent, device):
         super().__init__(title=f"Pair {device['name']}", transient_for=parent, modal=True)
         self.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Pair", Gtk.ResponseType.OK)
-        self.set_default_size(500, -1)
+        fit_dialog(self, 500)
         area = self.get_content_area()
         area.set_border_width(16)
         area.set_spacing(10)
         area.pack_start(label("Enter a PIN only when the device requires one."), False, False, 0)
         self.entry = Gtk.Entry()
         self.entry.set_visibility(False)
+        self.entry.set_input_purpose(Gtk.InputPurpose.PASSWORD)
+        self.entry.get_accessible().set_name("PIN (optional)")
         self.entry.set_placeholder_text("Automatic confirmation")
         area.pack_start(self.entry, False, False, 0)
         self.show_all()
+        self.entry.grab_focus()
+        self.entry.set_activates_default(True)
+        self.set_default_response(Gtk.ResponseType.OK)
 
     def pin(self):
         return self.entry.get_text()
@@ -79,30 +87,31 @@ class BluetoothWindow(Gtk.Window):
         self.scan_button = button("Scan", "edit-find-symbolic", self.scan_devices)
         self.repair_button = button("Repair service", "emblem-system-symbolic", self.repair_service)
         self.hardware_reset_button = button("Reset adapter", "view-refresh-symbolic", self.reset_hardware)
-        self.toolbar = flow_row(
-            (
-                self.power_button,
-                self.scan_button,
-                button("Signal map", "find-location-symbolic", self.show_signal_map),
-                button("Blueman", "preferences-system-bluetooth-symbolic", lambda *_: launch(["blueman-manager"])),
-                self.repair_button,
-                self.hardware_reset_button,
-            ),
-            4,
-        )
+        self.more_button = more_actions([
+            button("Signal map", "find-location-symbolic", self.show_signal_map),
+            button("Blueman", "preferences-system-bluetooth-symbolic", lambda *_: launch(["blueman-manager"])),
+            self.repair_button,
+            self.hardware_reset_button,
+        ], "More Bluetooth tools and repair actions")
+        self.toolbar = flow_row([self.power_button, self.scan_button, self.more_button], max_children=3)
         root.pack_start(self.toolbar, False, False, 0)
 
         self.store = Gtk.ListStore(str, str, int, str, str, str)
         self.tree = Gtk.TreeView(model=self.store)
         for title, index in (("Device", 0), ("Address", 1), ("Signal", 2), ("Paired", 3), ("Trusted", 4), ("Connected", 5)):
             renderer = Gtk.CellRendererText()
+            if index == 0:
+                renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
+                renderer.set_property("max-width-chars", 24)
             column = Gtk.TreeViewColumn(title, renderer, text=index)
             column.set_resizable(True)
             column.set_expand(index == 0)
             self.tree.append_column(column)
         self.tree.get_selection().connect("changed", self.on_selection_changed)
+        self.tree.set_tooltip_column(0)
         self.tree.connect("row-activated", lambda *_: self.activate_selected())
         scroll = Gtk.ScrolledWindow()
+        scroll.set_min_content_height(90)
         scroll.set_shadow_type(Gtk.ShadowType.IN)
         scroll.add(self.tree)
         root.pack_start(scroll, True, True, 0)
@@ -123,11 +132,19 @@ class BluetoothWindow(Gtk.Window):
         self.progress.set_no_show_all(True)
         root.pack_start(self.progress, False, False, 0)
         self.detail = label("Select a device to manage it.", "muted")
+        self.detail.set_lines(3)
+        self.detail.set_ellipsize(Pango.EllipsizeMode.END)
         self.detail.set_selectable(True)
         root.pack_start(self.detail, False, False, 0)
 
         self.connect("destroy", Gtk.main_quit)
+        self.connect("size-allocate", self.resized)
+        self.resized(self, self.get_default_size())
         self.initial_refresh()
+
+    def resized(self, _window, allocation):
+        # Address is available in selection details; preserve device-name room.
+        self.tree.get_column(1).set_visible(allocation.width >= 760)
 
     @staticmethod
     def btctl(*args, timeout=12, input_text=None):
@@ -136,12 +153,15 @@ class BluetoothWindow(Gtk.Window):
     @staticmethod
     def set_state(widget, text, state):
         widget.set_text(text)
+        widget.set_tooltip_text(text)
         context = widget.get_style_context()
         for css in ("status-good", "status-warn", "status-bad", "status-neutral"):
             context.remove_class(css)
         context.add_class(f"status-{state}")
 
     def set_busy(self, busy, text=""):
+        self.toolbar.set_sensitive(not busy)
+        self.actions.set_sensitive(not busy)
         self.refresh_button.set_sensitive(not busy)
         self.power_button.set_sensitive(not busy)
         self.scan_button.set_sensitive(not busy)
@@ -156,11 +176,11 @@ class BluetoothWindow(Gtk.Window):
         ):
             widget.set_sensitive(False)
         if busy:
-            self.progress.set_no_show_all(False)
             self.progress.show()
             self.progress.pulse()
-            self.progress.set_text(text)
-            self.progress.set_show_text(bool(text))
+            self.progress.set_show_text(False)
+            self.detail.set_text(text)
+            self.detail.set_tooltip_text(text)
         else:
             self.progress.hide()
             self.on_selection_changed(self.tree.get_selection())
@@ -338,6 +358,7 @@ class BluetoothWindow(Gtk.Window):
                 f"{device['name']}\n{device['address']} | Signal: {device['signal']}%\n"
                 f"Paired: {'yes' if device['paired'] else 'no'}  Trusted: {'yes' if device['trusted'] else 'no'}  Connected: {'yes' if device['connected'] else 'no'}"
             )
+            self.detail.set_tooltip_text(self.detail.get_text())
 
     def toggle_power(self, widget):
         target = "off" if "off" in widget.get_label().lower() else "on"

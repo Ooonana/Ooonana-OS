@@ -13,12 +13,12 @@ mascot/cursor identity. Do not build an ISO or play sound during review.
 | Panel / music / AI / notifications / tray | Source Polybar/wallpaper/dock at 640×600 and 1280×800; long Wi-Fi/media sample, no overlap/missing glyphs | Real empty/playing/paused media transitions, expanded notification integration and middle widths |
 | Dock | Native owned-window fixture passes centered icons, previews, long/minimized multi-session tooltips, compact/other slot, 44px targets and unchanged hover focus | Multi-window context-menu actions, edge placement and complete keyboard path |
 | Native Launcher | Long names bounded with full tooltips; visible no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard pass | Real application launch and installed keyboard/IME integration |
-| Wi-Fi / Bluetooth | Fresh initial-state windows, enterprise credentials and pairing dialog | Populated lists, hidden-network form, permission/service failure, long device names, focus/keyboard |
+| Wi-Fi / Bluetooth | Managed i3 populated lists and hidden/personal/TLS/PIN dialogs fit 640×600; bounded names, list room, More keyboard/Escape and secret labels pass | Every advanced security/IPv4/proxy/certificate picker, service failure/lifecycle, sustained activity feedback and physical radios |
 | Settings: all six pages | Fresh initial-state captures, 640×600 dark/light and 1024×768 dark | Scaled text, completion/error/rollback, file chooser, long system values, keyboard navigation |
 | Setup | Native compact overflow fixed; static fields labelled; validation, default-Back review, mocked pending/failure/late completion tested | Complete real setup/persistence and scaled-text interaction path |
 | Sound / brightness / music | Long selected device/track names bounded; full-name tooltips, music error/retry/closed-callback behavior; no audio playback | Empty device lists, permission errors, actual route/mute/volume semantics and keyboard |
 | Power | Native default-Cancel, duplicate refusal, error/retry, failed lock refusal pass with mocked commands | Actual isolated lock/logout/suspend and unavailable capabilities |
-| Notifications | Private real Dunst history, DND, remove/clear pass | Long/multiline messages, grouping, unavailable service, privacy toggle and keyboard |
+| Notifications | Private real Dunst history/DND/remove/clear; long grouped messages/full expansion, unchanged refresh focus, failure persistence, unavailable/unknown DND and privacy UI checks | Archived/live mixtures under service restarts, changed-record keyboard/scroll integration, actual session notifications |
 | Packages | 771px overflow fixed; compact captures and native candidate busy/error/retry/reduced-motion/lifecycle tests pass | Install/remove/upgrade dialogs and close-in-flight UX |
 | Health / Updates | 735px overflow fixed; compact/native candidate pending/error/retry and default-Cancel tests pass | Readable real health results, full metadata confirmation interaction |
 | Wi-Fi / Bluetooth signal maps | 658×750 overflow fixed; populated/empty/light/dark native candidate render, bounded labels, full-name tooltips and accessibility checks pass | Real data refresh/focus integration and physical radio/session behavior |
@@ -150,4 +150,55 @@ source remains pending signed runtime-package publication.
 Preceding batch source `57b2cde` passed
 [GitHub regression](https://github.com/Ooonana/Ooonana-OS/actions/runs/38693731125)
 and [GitLab smoke](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2949578827).
-That earlier CI success is not a claim about this batch's uncommitted source.
+That earlier CI success covers Batch 1 only. Batch 2 plus its updated setup
+ordering fixture (`c2d42a7`) subsequently passed
+[GitHub](https://github.com/Ooonana/Ooonana-OS/actions/runs/38697082040) and
+[GitLab](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2949670485).
+
+## Batch 3: usable wireless lists and stable notifications
+
+- Tested real Ooonana candidate GTK **with owned i3**, not only WM-free page
+  captures. Baseline Wi-Fi had room for one row and credentials requested a
+  623px frame on a 600px display. Lower dialog buttons were clipped. Shared
+  dialog sizing now reserves WM space; personal, hidden-network, enterprise TLS
+  and Bluetooth PIN fixtures fit the managed small display.
+- Secondary tools moved under native **More** popovers; no actions removed.
+  Keyboard Space opens them, Escape closes after the native transition, and
+  focus returns to More. Network/device lists retain at least three-row space.
+  Compact layouts prioritize names; adapter/AP counts and Bluetooth address
+  columns return at wider sizes and remain in selected details/tooltips.
+- Password/PIN fields have secret input purpose and accessible names. Hidden
+  network input receives focus. Busy Wi-Fi disables overlapping UI actions.
+  Physical connection, pairing and firmware operations were never invoked.
+- Notification center removes duplicate heading chrome. Long subjects are
+  bounded, and long/multiline bodies have short previews with **Show full
+  message** retaining the parser's existing full 4096-character message limit.
+  Remove stays near the subject rather than below an arbitrarily tall body.
+- Unchanged refreshes no longer rebuild every message or discard keyboard
+  focus. A read completing after the user moves focus does not steal it back.
+  Duplicate actions are refused; action errors survive the follow-up refresh.
+  Unknown DND status is disabled rather than presented as false. Service failure
+  has its own recovery state instead of falsely claiming normal empty history.
+- Privacy toggle reflects stored state when saving fails; preference failure
+  remains visible. Opt-out's request to clear saved history was checked through
+  a fake state object. No user history was deleted by these fixtures. Refresh
+  timer is removed when the center closes.
+- Focus fixture first settles focus-in reads before trying to focus Remove;
+  a disabled control is not keyboard evidence. Popover dismissal waits for its
+  native transition rather than treating an intermediate visible frame as a bug.
+- New `wireless-notification-ui` gate passes at 640×600 in both appearances and
+  1280×800 dark. Separate private **real Dunst** action regression passes too.
+  Native catalog/regression results and package publication are recorded below
+  when complete, not inferred from these narrower interactions.
+- Final native catalog passes all 25 pages at 640×600 in dark/light, and source
+  native/backend regressions pass. Separate 1024×768 fixture verifies unknown
+  DND retains its last value while disabled, with a recovery explanation.
+
+![Wireless list with compact name priority, native candidate/i3 fixture](assets/ooonana-wireless-compact-20261015.png)
+
+![Long grouped message with visible Remove and full-message disclosure](assets/ooonana-notifications-detail-20261015.png)
+
+Evidence: `batch3-wireless-notification-before`, `batch3-gate-*` and
+`batch3-catalog-light-resumed` under the existing private QA root. Earlier
+confirmation/focus fixtures remain diagnostic history. Image-loader sandbox
+warnings remain logged; no browser sandbox or host security setting changed.
