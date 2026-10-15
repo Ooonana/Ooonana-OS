@@ -275,7 +275,7 @@ stage_iso_tree() {
   chmod 0644 "$ISO_TREE/boot/grub/ooonana-logo.txt"
   write_rufus_note
   cat > "$ISO_TREE/boot/grub/theme.txt" <<'EOF'
-title-text: "Ooonana OS  /  STARTUP"
+title-text: ""
 title-color: "#f5f5f7"
 desktop-image: "/boot/grub/background.png"
 desktop-image-scale-method: "stretch"
@@ -311,12 +311,12 @@ EOF
 
   cat >> "$ISO_TREE/boot/grub/theme.txt" <<'EOF'
 + label {
-  text = "STARTUP MODES"
+  text = "Choose how to start"
   left = 16%
   top = 11%+136
   width = 68%
   height = 20
-  color = "#ffd37a"
+  color = "#b4bdc8"
   font = "Unifont Regular 16"
 }
 
@@ -332,7 +332,7 @@ EOF
   selected_item_color = "#ffb21a"
   item_height = 24
   item_padding = 6
-  item_spacing = 4
+  item_spacing = 5
   scrollbar = false
 }
 
@@ -342,19 +342,20 @@ EOF
   top = 82%
   width = 68%
   height = 18
-  color = "#ffb21a"
+  color = "#b4bdc8"
   align = "center"
 }
 
-+ progress_bar {
++ label {
   id = "__timeout__"
+  text = "Starting in %d s"
   left = 16%
-  top = 86%
+  top = 88%
   width = 68%
   height = 18
-  fg_color = "#ffb21a"
-  bg_color = "#343b46"
-  border_color = "#596574"
+  color = "#b4bdc8"
+  font = "Unifont Regular 16"
+  align = "center"
 }
 EOF
   install -m 0644 "$ROOT/branding/grub-background.png" "$ISO_TREE/boot/grub/background.png"

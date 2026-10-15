@@ -14,8 +14,17 @@ shutdown_context_allowed() {
 shutdown_cleanup() {
   # Shell builtin excludes caller and PID 1. Stop writers before sync/unmount.
   kill -TERM -1 2>/dev/null || true
-  sleep 2
+  if [ -r /usr/lib/ooonana/console-ui.sh ]; then
+    . /usr/lib/ooonana/console-ui.sh
+    chvt 1 2>/dev/null || true
+    ooonana_console_begin
+    ooonana_console_stage "Closing session"
+    ooonana_console_wait 2
+  else
+    sleep 2
+  fi
   kill -KILL -1 2>/dev/null || true
+  command -v ooonana_console_stage >/dev/null 2>&1 && ooonana_console_stage "Saving changes"
   sync || echo 'OOONANA_SHUTDOWN_SYNC_FAILED' >&2
   swapoff -a 2>/dev/null || true
   mount -o remount,ro / 2>/dev/null || echo 'OOONANA_SHUTDOWN_ROOT_RO_WARNING' >&2
@@ -34,6 +43,7 @@ shutdown_cleanup() {
   fi
   umount -a -r 2>/dev/null || echo 'OOONANA_SHUTDOWN_UNMOUNT_WARNING' >&2
   sync || echo 'OOONANA_SHUTDOWN_SYNC_FAILED' >&2
+  command -v ooonana_console_end >/dev/null 2>&1 && ooonana_console_end
   echo 'OOONANA_SHUTDOWN_CLEANUP_DONE'
 }
 

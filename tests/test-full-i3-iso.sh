@@ -54,7 +54,7 @@ assert_contains "$script_src" "if terminal_output gfxterm serial; then"
 assert_contains "$script_src" "terminal_output console serial"
 assert_contains "$script_src" "set gfxpayload=keep"
 assert_contains "$script_src" "set theme=/boot/grub/theme.txt"
-assert_contains "$script_src" "+ progress_bar"
+assert_contains "$script_src" 'text = "Starting in %d s"'
 assert_contains "$script_src" "ooonana_boot_hint"
 assert_not_contains "$script_src" "[#####-----]"
 verifier_src="$(<"$ROOT/scripts/verify-rufus-iso.sh")"
@@ -156,7 +156,7 @@ if command -v grub-script-check >/dev/null 2>&1; then
   grub-script-check "$tmp/build/full-i3-iso-tree/boot/grub/grub.cfg" || fail "invalid GRUB config"
 fi
 theme="$(<"$tmp/build/full-i3-iso-tree/boot/grub/theme.txt")"
-assert_contains "$theme" "+ progress_bar"
+assert_contains "$theme" '+ label'
 assert_contains "$theme" 'id = "__timeout__"'
 assert_contains "$theme" 'desktop-image: "/boot/grub/background.png"'
 assert_contains "$theme" 'desktop-image-scale-method: "stretch"'
@@ -184,7 +184,10 @@ assert_contains "$theme" "top = 11%+136"
 assert_contains "$theme" "top = 11%+168"
 assert_contains "$theme" "height = 33%"
 assert_contains "$theme" "scrollbar = false"
-assert_contains "$theme" "STARTUP MODES"
+assert_contains "$theme" 'title-text: ""'
+assert_contains "$theme" "Choose how to start"
+assert_contains "$theme" 'text = "Starting in %d s"'
+[[ "$theme" != *'+ progress_bar'* ]] || fail 'GRUB progress bar minimum height defeats compact countdown'
 assert_contains "$theme" "ARROWS select  |  ENTER boot  |  ESC back"
 [[ -s "$tmp/build/full-i3-iso-tree/boot/grub/background.png" ]] || fail "missing GRUB background bitmap"
 cmp -s "$ROOT/branding/grub-background.png" "$tmp/build/full-i3-iso-tree/boot/grub/background.png" ||

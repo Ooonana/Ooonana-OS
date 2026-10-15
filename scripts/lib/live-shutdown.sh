@@ -28,8 +28,19 @@ trap 'shutdown_failed "$?"' 0
 awk '$2 == "/mnt/ooonana-shutdown" && $3 == "tmpfs" { found=1 } END { exit !found }' /proc/mounts || exit 1
 echo OOONANA_SHUTDOWN_RAM_START
 kill -TERM -1 2>/dev/null || true
-sleep 2
+if [ -r /mnt/ooonana-shutdown/console-ui.sh ]; then
+  . /mnt/ooonana-shutdown/console-ui.sh
+  chvt 1 2>/dev/null || true
+  ooonana_console_begin /mnt/ooonana-shutdown/boot-logo.txt
+  ooonana_console_stage "Closing session"
+  ooonana_console_wait 2
+else
+  sleep 2
+fi
 kill -KILL -1 2>/dev/null || true
+if command -v ooonana_console_stage >/dev/null 2>&1; then
+  ooonana_console_stage "Saving changes"
+fi
 sync
 if [ -x /mnt/ooonana-shutdown/lib/ld-musl-x86_64.so.1 ]; then
   /mnt/ooonana-shutdown/lib/ld-musl-x86_64.so.1 /mnt/ooonana-shutdown/bin/busybox swapoff -a 2>/dev/null || true
@@ -70,4 +81,7 @@ mount -o remount,ro /iso
 echo OOONANA_BOOT_STORAGE_READ_ONLY
 umount /iso
 sync
+if command -v ooonana_console_end >/dev/null 2>&1; then
+  ooonana_console_end
+fi
 echo OOONANA_SHUTDOWN_CLEANUP_DONE

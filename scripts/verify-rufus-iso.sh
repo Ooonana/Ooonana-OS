@@ -122,14 +122,19 @@ need_contains "$tmp/grub.cfg" "set color_normal=yellow/black"
 need_contains "$tmp/grub.cfg" "set color_highlight=black/yellow"
 if grep -qF 'set theme=/boot/grub/theme.txt' "$tmp/grub.cfg"; then
   [[ -f "$tmp/theme.txt" ]] || fail "GRUB config loads missing theme file"
-  need_contains "$tmp/theme.txt" "+ progress_bar"
   need_contains "$tmp/theme.txt" 'id = "__timeout__"'
-  need_contains "$tmp/theme.txt" 'fg_color = "#ffb21a"'
+  # Full desktop uses a text countdown; retain legacy/minimal bar support.
+  if [[ "$EDITION" == full-i3 ]] && grep -qF 'text = "Starting in %d s"' "$tmp/theme.txt"; then
+    need_contains "$tmp/theme.txt" '+ label'
+  else
+    need_contains "$tmp/theme.txt" '+ progress_bar'
+    need_contains "$tmp/theme.txt" 'fg_color = "#ffb21a"'
+    [[ "$EDITION" != full-i3 ]] || need_contains "$tmp/theme.txt" 'bg_color = "#343b46"'
+  fi
   if [[ "$EDITION" == "full-i3" ]]; then
     need_contains "$tmp/grub.cfg" "set timeout_style=menu"
     need_contains "$tmp/theme.txt" 'desktop-image: "/boot/grub/background.png"'
     need_contains "$tmp/theme.txt" 'desktop-image-scale-method: "stretch"'
-    need_contains "$tmp/theme.txt" 'bg_color = "#343b46"'
     need_contains "$tmp/theme.txt" 'item_color = "#b4bdc8"'
     need_contains "$tmp/theme.txt" 'selected_item_color = "#ffb21a"'
     need_contains "$tmp/theme.txt" 'id = "ooonana-logo-1"'

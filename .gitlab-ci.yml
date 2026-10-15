@@ -67,6 +67,7 @@ ci-smoke:
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-desktop-backend-polish.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-editor-polish.py
     - sh tests/test-live-boot-storage.sh
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-console-ui.py
     - sh tests/test-live-persistence-file.sh
     - sh tests/test-persistence-maintenance.sh
 
