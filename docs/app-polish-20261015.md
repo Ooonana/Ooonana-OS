@@ -46,6 +46,11 @@ and native GTK behavior. No replacement editor, transparency or UI fork.
 
 Private disposable editor profile/document; no user file was edited.
 
+![Files after WSLg full-repaint correction](assets/ooonana-nemo-wslg-fixed-20261015.png)
+
+Actual installed Nemo, showing only the owned QA folder. Native X11 readback;
+no Windows capture artifact and no change to physical compositor settings.
+
 ![Music after subtitle correction](assets/ooonana-music-polish-20261015.png)
 
 Isolated GTK preview; no sound played. Playback and hardware routing untested.
