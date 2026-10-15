@@ -287,9 +287,11 @@ EOF
 
   local logo_index=0
   local logo_offset=0
-  local logo_line escaped_logo_line
+  local logo_line escaped_logo_line logo_align
   while IFS= read -r logo_line || [[ -n "$logo_line" ]]; do
     logo_index=$((logo_index + 1))
+    logo_align=left
+    [[ "$logo_index" -ne 1 ]] || logo_align=center
     escaped_logo_line="${logo_line//\\/\\\\}"
     escaped_logo_line="${escaped_logo_line//\"/\\\"}"
     cat >> "$ISO_TREE/boot/grub/theme.txt" <<EOF
@@ -303,7 +305,7 @@ EOF
   height = 20
   color = "#ffb21a"
   font = "Unifont Regular 16"
-  align = "left"
+  align = "$logo_align"
 }
 EOF
     logo_offset=$((logo_offset + 16))
@@ -312,7 +314,7 @@ EOF
   cat >> "$ISO_TREE/boot/grub/theme.txt" <<'EOF'
 + label {
   text = "Choose how to start"
-  left = 16%
+  left = 16%+6
   top = 11%+136
   width = 68%
   height = 20
@@ -332,6 +334,9 @@ EOF
   selected_item_color = "#ffb21a"
   item_height = 24
   item_padding = 6
+  icon_width = 0
+  icon_height = 0
+  item_icon_space = 0
   item_spacing = 5
   scrollbar = false
 }

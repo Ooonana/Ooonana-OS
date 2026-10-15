@@ -176,6 +176,12 @@ done < "$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt"
 assert_contains "$theme" 'left = 50%-108'
 assert_contains "$theme" 'width = 216'
 assert_contains "$theme" 'align = "left"'
+first_logo="${theme#*id = \"ooonana-logo-1\"}"
+first_logo="${first_logo%%\}*}"
+assert_contains "$first_logo" 'align = "center"'
+assert_contains "$theme" 'icon_width = 0'
+assert_contains "$theme" 'icon_height = 0'
+assert_contains "$theme" 'item_icon_space = 0'
 assert_contains "$theme" 'visible = true'
 assert_contains "$theme" 'item_font = "Unifont Regular 16"'
 assert_contains "$theme" "item_height = 24"

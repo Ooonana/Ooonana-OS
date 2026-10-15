@@ -7,6 +7,8 @@ No ISO was built. A fresh user build is required to include these changes.
 
 - GRUB: removed duplicate title, decorative accent rail/dot and nested footer
   backing. Quieter instructions, slightly more menu spacing, rounded backdrop.
+  Centered the brand-name line independently of the ASCII mascot's indentation;
+  removed the unused 32px icon gutter and aligned heading/menu text baselines.
 - Countdown: actual seconds in a small text label. GRUB's built-in progress bar
   has a hardcoded 28px minimum, so setting `height = 4` was not sufficient.
   [Upstream progress-bar renderer](https://github.com/rhboot/grub2/blob/master/grub-core/gfxmenu/gui_progress_bar.c)
