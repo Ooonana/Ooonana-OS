@@ -1,5 +1,21 @@
 # Current work - 2026-10-15
 
+## October 15 physical USB identification and frontend preparation
+
+User connects freshly flashed disposable G: USB and authorizes erasing fault-test
+data there. Read-only payload hashing matches published ISO kernel/initramfs/
+rootfs/EFI loader; persistent GRUB entry is present, persistence file absent.
+No formatting, raw writable access, power cut, storage fill or physical upgrade.
+Same-PC USB boot requires manual stage-1 evidence before fault tests.
+
+Native installed Ooonana WSL gained Firefox launcher/QTerminal and coherent Qt6
+dependencies through real nonroot package operations; archive verification and
+offscreen QTerminal 2.4.0 version passed. No browser runtime/model downloads.
+Windows UI/browser helpers fail at kernel-assets initialization even after reset;
+no UI tests claimed, alternate automation or old PDF-navigation bypass attempted.
+Signing/promotion scope still awaits answer; key stays local, stable unchanged.
+[Payload proof, boundaries and manual USB baseline](physical-usb-qa-20261015.md).
+
 ## October 15 GitLab smoke repair and guide refresh
 
 Screenshot identifies failed pipeline 2948699262, job 17185957127, commit
