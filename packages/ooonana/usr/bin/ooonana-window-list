@@ -18,6 +18,9 @@ PINS = (
     ("openvino", "", ("ooonana-openvino-launch",)),
     ("tasks", "", ("ooonana-processes",)),
 )
+PIN_NAMES = {"apps": "Applications", "terminal": "Terminal", "browser": "Browser",
+             "files": "Files", "editor": "Editor", "music": "Music",
+             "openvino": "Offline AI", "tasks": "Task Manager", "other": "Other windows"}
 
 PIN_COLORS = {
     "apps": "#c4a9ff", "terminal": "#c0c8d4", "browser": "#8cbcff",
@@ -211,9 +214,9 @@ def dock(items):
     return " ".join(chips)
 
 
-def dock_open(items, key):
+def dock_open(items, key, visible_pins=None):
     if key == "other":
-        matches = other_windows(items)
+        matches = other_windows(items, visible_pins)
         item = matches[0] if len(matches) == 1 else choose(matches, "Other windows")
         if item is not None:
             focus(item)
@@ -233,28 +236,47 @@ def dock_open(items, key):
         return
 
 
-def dock_actions(items, key):
+def dock_actions(items, key, visible_pins=None, keyboard=False):
     if key == "other":
-        matches = other_windows(items)
+        matches = other_windows(items, visible_pins)
         item = matches[0] if len(matches) == 1 else choose(matches, "Other windows")
         if item is not None:
-            actions_menu(items, item[0])
+            actions_menu(items, item[0], keyboard=keyboard)
         return
     if not any(pin == key for pin, _icon, _command in PINS):
         return
     matches = [item for item in items if pin_for(item) == key]
     if not matches:
-        if choose([(0, f"Open {key.title()}", False, False, "")], "Dock") is not None:
+        if choose([(0, f"Open {PIN_NAMES[key]}", False, False, "")], "Dock") is not None:
             dock_open(items, key)
         return
     item = matches[0] if len(matches) == 1 else choose(matches, "App sessions")
     if item is not None:
-        actions_menu(items, item[0])
+        actions_menu(items, item[0], keyboard=keyboard)
 
 
-def other_windows(items):
-    pinned = {pin[0] for pin in available_pins()}
+def other_windows(items, visible_pins=None):
+    pinned = {pin[0] for pin in available_pins()} if visible_pins is None else set(visible_pins)
     return [item for item in items if pin_for(item) not in pinned]
+
+
+def dock_menu(items):
+    """Keyboard entry point; pointer dock never needs to steal window focus."""
+    keys = [pin[0] for pin in available_pins()]
+    if other_windows(items):
+        keys.append("other")
+    choices = []
+    for index, key in enumerate(keys):
+        matches = other_windows(items) if key == "other" else [item for item in items if pin_for(item) == key]
+        count = len(matches)
+        detail = f"{count} {'window' if count == 1 else 'windows'}" if count else "Open app"
+        hidden = sum(bool(item[3]) for item in matches)
+        if hidden:
+            detail += f" · {hidden} minimized"
+        choices.append((index, f"{PIN_NAMES[key]} · {detail}", False, False, ""))
+    selected = choose(choices, "Dock actions")
+    if selected is not None:
+        dock_actions(items, keys[selected[0]], keyboard=True)
 
 
 def focus(item):
@@ -287,6 +309,8 @@ def choose(items, prompt):
             timeout=30,
             check=False,
         )
+        if result.returncode != 0:
+            return None
         selected = int(result.stdout.strip())
     except (OSError, ValueError, subprocess.SubprocessError):
         return None
@@ -303,7 +327,7 @@ def menu(items, close=False):
         focus(item)
 
 
-def actions_menu(items, con_id=None):
+def actions_menu(items, con_id=None, keyboard=False):
     item = next((entry for entry in items if entry[0] == con_id), None) if con_id else choose(items, "Window actions")
     if item is None:
         return
@@ -312,6 +336,8 @@ def actions_menu(items, con_id=None):
         command = ["python3", str(popup), "--window", str(item[0]), "--title", item[1]]
         if item[3]:
             command.append("--hidden")
+        if keyboard:
+            command.append("--keyboard")
         try:
             subprocess.Popen(command, start_new_session=True)
             return
@@ -324,6 +350,8 @@ def actions_menu(items, con_id=None):
             input="\n".join(choices) + "\n", text=True,
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=30, check=False,
         )
+        if result.returncode != 0:
+            return
         selected = int(result.stdout.strip())
     except (OSError, ValueError, subprocess.SubprocessError):
         return
@@ -388,11 +416,19 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == "--dock":
         print(dock(items))
         return
-    if len(sys.argv) > 2 and sys.argv[1] == "--dock-open":
-        dock_open(items, sys.argv[2])
+    if len(sys.argv) > 1 and sys.argv[1] == "--dock-menu":
+        dock_menu(items)
         return
-    if len(sys.argv) > 2 and sys.argv[1] == "--dock-actions":
-        dock_actions(items, sys.argv[2])
+    if len(sys.argv) > 2 and sys.argv[1] in ("--dock-open", "--dock-actions"):
+        visible = None
+        if len(sys.argv) != 3:
+            if len(sys.argv) != 5 or sys.argv[3] != "--visible-pins":
+                return
+            visible = sys.argv[4].split(",")
+            if not visible or any(key not in PIN_NAMES or key == "other" for key in visible):
+                return
+        action = dock_open if sys.argv[1] == "--dock-open" else dock_actions
+        action(items, sys.argv[2], visible)
         return
     if len(sys.argv) > 1 and sys.argv[1] == "--menu":
         menu(items)

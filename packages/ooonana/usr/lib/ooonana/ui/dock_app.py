@@ -23,9 +23,7 @@ from gi.repository import GdkX11, GdkPixbuf
 loader = SourceFileLoader("dock_windows", str(Path(__file__).resolve().parents[3] / "bin/ooonana-window-list"))
 windows = module_from_spec(spec_from_loader(loader.name, loader))
 loader.exec_module(windows)
-NAMES = {"apps": "Applications", "terminal": "Terminal", "browser": "Browser",
-         "files": "Files", "editor": "Editor", "music": "Music",
-         "openvino": "Offline AI", "tasks": "Task Manager"}
+NAMES = windows.PIN_NAMES
 ICONS = {"apps": "ooonana-apps", "terminal": "ooonana-terminal", "browser": "ooonana-browser",
          "files": "ooonana-files", "editor": "ooonana-editor", "music": "ooonana-music",
          "openvino": "ooonana-openvino", "tasks": "ooonana-task-manager", "other": "application-x-executable"}
@@ -288,11 +286,17 @@ class Dock(Gtk.Window):
         return True
 
     def open(self, key):
-        run_async(["ooonana-window-list", "--dock-open", key], lambda *_: None)
+        self.action("--dock-open", key)
+
+    def action(self, action, key):
+        command = ["ooonana-window-list", action, key]
+        if key == "other":
+            command.extend(["--visible-pins", ",".join(pin for pin in self.buttons if pin != "other")])
+        run_async(command, lambda *_: None)
 
     def press(self, _button, event, key):
         if event.button == 3:
-            run_async(["ooonana-window-list", "--dock-actions", key], lambda *_: None)
+            self.action("--dock-actions", key)
             return True
         return False
 

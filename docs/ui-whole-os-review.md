@@ -11,7 +11,7 @@ mascot/cursor identity. Do not build an ISO or play sound during review.
 | --- | --- | --- |
 | Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; current source inventory | Fresh composited desktop, cursor hotspot/scale, icon consistency and selection states |
 | Panel / music / AI / notifications / tray | Source Polybar/wallpaper/dock at 640×600 and 1280×800; long Wi-Fi/media sample, no overlap/missing glyphs | Real empty/playing/paused media transitions, expanded notification integration and middle widths |
-| Dock | Native owned-window fixture passes centered icons, previews, long/minimized multi-session tooltips, compact/other slot, 44px targets and unchanged hover focus | Multi-window context-menu actions, edge placement and complete keyboard path |
+| Dock | Centered icons, bounded previews/tooltips, compact grouping, 44px targets and unchanged hover focus; follow-up action/keyboard checks below | Edge placement and actual session/display integration |
 | Native Launcher | Long names bounded with full tooltips; visible no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard pass | Real application launch and installed keyboard/IME integration |
 | Wi-Fi / Bluetooth | Managed i3 populated lists and hidden/personal/TLS/PIN dialogs fit 640×600; bounded names, list room, More keyboard/Escape and secret labels pass | Every advanced security/IPv4/proxy/certificate picker, service failure/lifecycle, sustained activity feedback and physical radios |
 | Settings: all six pages | Fresh initial-state captures, 640×600 dark/light and 1024×768 dark | Scaled text, completion/error/rollback, file chooser, long system values, keyboard navigation |
@@ -19,8 +19,8 @@ mascot/cursor identity. Do not build an ISO or play sound during review.
 | Sound / brightness / music | Long selected device/track names bounded; full-name tooltips, music error/retry/closed-callback behavior; no audio playback | Empty device lists, permission errors, actual route/mute/volume semantics and keyboard |
 | Power | Native default-Cancel, duplicate refusal, error/retry, failed lock refusal pass with mocked commands | Actual isolated lock/logout/suspend and unavailable capabilities |
 | Notifications | Private real Dunst history/DND/remove/clear; long grouped messages/full expansion, unchanged refresh focus, failure persistence, unavailable/unknown DND and privacy UI checks | Archived/live mixtures under service restarts, changed-record keyboard/scroll integration, actual session notifications |
-| Packages | 771px overflow fixed; compact captures and native candidate busy/error/retry/reduced-motion/lifecycle tests pass | Install/remove/upgrade dialogs and close-in-flight UX |
-| Health / Updates | 735px overflow fixed; compact/native candidate pending/error/retry and default-Cancel tests pass | Readable real health results, full metadata confirmation interaction |
+| Packages | Default-Cancel install/remove/upgrade preview; failed/empty plans cannot apply; mutating close guard and parent-dialog lifecycle pass | Actual privileged transaction/authentication UX on disposable installation |
+| Health / Updates | Readable snapshot, exact raw/copy, honest attention/malformed states; metadata Cancel/approved admin dispatch pass | Actual installed-session service/repository failures and authentication UX |
 | Wi-Fi / Bluetooth signal maps | 658×750 overflow fixed; populated/empty/light/dark native candidate render, bounded labels, full-name tooltips and accessibility checks pass | Real data refresh/focus integration and physical radio/session behavior |
 | Task Manager | Real owned process filter/sort/sample/cancel/SIGTERM/removal pass; both tabs fit; plots follow theme | Crowded values, selection races and actual hardware/GPU graphs |
 | AI / offline setup / model UI | Native fixture chat streaming, composer, search/code copy/cancel and status indicators pass | Real engine transcript/long titles, loading/low RAM/restart/offline dialogs; bundled OpenVINO Qt UI |
@@ -247,3 +247,64 @@ wsl -d Ooonana --exec /usr/local/bin/start-ooonana-i3 --nested
 This is a launch command, not proof of WSLg mouse, keyboard, IME or clipboard.
 Current source application improvements are installed; live-input/physical
 gates still need their own evidence.
+
+## Batch 4: package change review and readable Health
+
+- Install, Remove and Upgrade first request a dry-run plan. Native review keeps
+  the full plan scrollable, defaults to Cancel, and names the explicit action.
+  Failed/empty previews never apply; no-upgrades avoids an unnecessary approval.
+  Final transaction still rechecks dependencies and major-upgrade policy.
+- Package IDs reject option-like/multiple/overlong input. Duplicate requests are
+  refused. Normal close waits during a mutation, but read-only previews can
+  close. Destroying the parent also destroys its review without submitting work.
+- Health defaults to a structured report with section hierarchy, binary memory
+  units and explicit physical zram consumption versus logical capacity. Raw
+  output and Copy retain the exact diagnostic payload, including unknown fields.
+  A successful probe is not a declaration that physical hardware works.
+- Unready services, incomplete memory and restart requirements produce attention
+  states. Unrecognized successful output stays a warning/raw report, not green
+  success. Secondary tools and policy disclosure leave useful report space on
+  640×600. Metadata confirmation defaults to Cancel; approval uses admin helper.
+- Private native GTK/i3 checks pass compact dark/light and desktop light, including
+  real isolated read-only backend schema, copy fidelity, reduced motion, rejected
+  previews, approval/cancel, lifecycle and error recovery. Source native tests
+  and pure malformed/extreme-value report tests pass. No real package mutation,
+  radio operation or sound playback was performed by these interaction fixtures.
+
+![Readable Health snapshot with sample values and honest attention state](assets/ooonana-health-summary-20261015.png)
+
+![Native package removal review; sample plan only](assets/ooonana-package-review-20261015.png)
+
+Evidence: `batch4-close-parent`, `batch4-gate-*` and
+`batch4-layout-functional-*` under the existing QA root. This batch is source
+work pending the next signed runtime publication; Batch 3 remains the installed
+checkpoint until that publication is recorded.
+
+## Batch 5: compact dock groups and keyboard actions
+
+- Compact dock hides selected pins to preserve 44px targets. Its Other button
+  previously displayed those sessions but the command helper excluded every
+  pinned app. Both open and right-click now pass the actually visible pin set;
+  hidden-pin sessions remain restorable and actionable.
+- `Super+Ctrl+D` opens a themed keyboard dock picker with app names, running
+  counts and minimized counts. Selection reaches the same session/window actions
+  as right-click. Keyboard popups identify their input source and select the
+  first enabled item; pointer dock still never accepts or steals focus.
+- Cancelled/failed rofi output cannot select a window from stale stdout. Invalid
+  visible-pin arguments are rejected. Unit fixtures cover both command dispatch
+  and minimized compact overflow, with no real user windows touched.
+- Real owned i3 windows pass selection among two terminal sessions, minimize,
+  restore, fullscreen/restore and target-only close. Real rofi-to-GTK keyboard
+  path reaches Close; Escape cancels both stages without closing any app.
+  Compact dark 640×600 and light 1024×768 confirmations pass.
+- Old preserved QA root had common rofi data but lacked `rofi-x11-wayland`.
+  Current signed repository and full-desktop profile already contain both; no
+  release-package regression inferred. Runner installs the X11 payload only in
+  a disposable overlay. Native popup tests wait for mapping rather than assuming
+  that a CLI exit means the GTK child has finished starting.
+
+Evidence: `batch5-dock-keyboard-mapped`, `batch5-dock-confirm-*`. Real-session
+display hotplug/WSLg input still needs separate evidence. Batch 4/5 source edits
+remain pending the next signed runtime refresh; no ISO built.
+
+![Keyboard window actions on owned Music fixture, opaque dark appearance](assets/ooonana-dock-keyboard-20261015.png)

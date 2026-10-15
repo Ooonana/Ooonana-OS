@@ -12,7 +12,7 @@ case "$geometry" in
   *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
 esac
 case "$only" in
-  all|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|window-controls-runtime|dock-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
+  all|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|window-controls-runtime|dock-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -91,6 +91,13 @@ if [[ -n "${OOONANA_GUI_REPO:-}" ]]; then
       OOONANA_REPO_VERIFY_KEY="$SOURCE/packages/ooonana/etc/ooonana/trusted-keys/repository-20261002.pub" \
       OOONANA_SOURCES_DIR="$storage/overlay/empty-sources" \
       sh "$SOURCE/packages/ooonana/usr/bin/ooonana" install qterminal >"$output/qt-install.log" 2>&1
+  fi
+  if [[ "$only" == all || "$only" == dock-ui ]]; then
+    # Old preserved QA roots may have rofi common data without X11 executable.
+    OOONANA_ROOT="$rootfs" OOONANA_REPO_DIR="$OOONANA_GUI_REPO" \
+      OOONANA_REPO_VERIFY_KEY="$SOURCE/packages/ooonana/etc/ooonana/trusted-keys/repository-20261002.pub" \
+      OOONANA_SOURCES_DIR="$storage/overlay/empty-sources" \
+      sh "$SOURCE/packages/ooonana/usr/bin/ooonana" reinstall rofi-x11-wayland >"$output/rofi-install.log" 2>&1
   fi
   if [[ "$only" == firefox-frame ]]; then
     OOONANA_ROOT="$rootfs" OOONANA_REPO_DIR="$OOONANA_GUI_REPO" \
@@ -200,6 +207,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   probe ui-details-runtime python3 /source/tests/check-ui-details-runtime.py /qa/details
   probe ui-content-runtime python3 /source/tests/check-ui-content-runtime.py /qa/content
   probe wireless-notification-ui python3 /source/tests/check-wireless-notification-ui.py /qa/wireless-notification
+  probe package-health-ui python3 /source/tests/check-package-health-ui.py /qa/package-health
   probe installer-ui python3 /source/tests/check-installer-ui.py /qa/installer
   probe settings-power-ui python3 /source/tests/check-settings-power-ui.py
   probe notifications-runtime python3 /source/tests/check-notifications-runtime.py --output /qa/notifications.png

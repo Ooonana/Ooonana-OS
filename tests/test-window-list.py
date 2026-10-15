@@ -55,6 +55,7 @@ module.shutil.which = original_which
 commands = []
 launches = []
 selection = "0"
+returncode = 0
 
 
 menu_inputs = []
@@ -64,7 +65,7 @@ def run(command, **kwargs):
     commands.append(command)
     if command[0] == "rofi":
         menu_inputs.append(kwargs["input"])
-    return SimpleNamespace(stdout=selection)
+    return SimpleNamespace(stdout=selection, returncode=returncode)
 
 
 module.subprocess.run = run
@@ -135,6 +136,47 @@ assert commands[-1] == ["i3-msg", "[con_id=3] move scratchpad"]
 selection = "0"
 module.dock_actions(items, "music")
 assert launches[-1] == ("ooonana-music",)
+
+# Compact dock's Other group includes pins hidden to make room, not only unpinned apps.
+music = (20, "Ooonana Music", False, True, "ooonanaapp")
+compact_pins = ["apps", "terminal", "browser", "files"]
+assert module.other_windows(items + [music], compact_pins) == [music]
+module.dock_open(items + [music], "other", compact_pins)
+assert commands[-1] == ["i3-msg", "[con_id=20] scratchpad show; [con_id=20] focus"]
+selection = "1"
+module.dock_actions(items + [music], "other", compact_pins)
+assert commands[-1] == ["i3-msg", "[con_id=20] move scratchpad"]
+module.tree = lambda: dict(nodes=[window(20, "Ooonana Music", window_properties={"class": "OoonanaApp"})])
+module.sys.argv = ["ooonana-window-list", "--dock-open", "other", "--visible-pins", ",".join(compact_pins)]
+module.main()
+assert commands[-1] == ["i3-msg", "[con_id=20] focus"]
+before = len(commands)
+module.sys.argv[-1] = "unknown-pin"
+module.main()
+assert len(commands) == before
+module.tree = lambda: tree
+
+# Failed/cancelled chooser stdout must never restore or close a session.
+returncode = 1
+selection = "3"
+before = len(commands)
+module.actions_menu(items, 3)
+assert all(command[0] != "i3-msg" for command in commands[before:])
+selection = "0"
+assert module.choose(items, "Cancelled") is None
+returncode = 0
+original_actions = module.dock_actions
+selected_groups = []
+module.dock_actions = lambda data, key, **kwargs: selected_groups.append((data, key, kwargs))
+selection = "1"
+module.dock_menu(items + [music, other])
+assert selected_groups[-1] == (items + [music, other], "terminal", {"keyboard": True})
+assert "Terminal · 1 window" in menu_inputs[-1] and "Other windows" in menu_inputs[-1]
+returncode = 1
+module.dock_menu(items)
+assert len(selected_groups) == 1
+returncode = 0
+module.dock_actions = original_actions
 tree["nodes"].append(window(5, "100%{A1:bad:} CPU"))
 assert "%{A1:bad:}" not in module.bar(module.windows())
 assert "ooonana-window-list --focus 5" in module.dock(module.windows())

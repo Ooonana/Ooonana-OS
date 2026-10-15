@@ -12,6 +12,7 @@ def main():
     parser.add_argument("--window", type=int, required=True)
     parser.add_argument("--title", default="Window")
     parser.add_argument("--hidden", action="store_true")
+    parser.add_argument("--keyboard", action="store_true")
     args = parser.parse_args()
     if args.window <= 0:
         return 2
@@ -47,12 +48,17 @@ def main():
     _screen, x, y = pointer.get_position()
     anchor = Gdk.Rectangle()
     anchor.x, anchor.y, anchor.width, anchor.height = x, y, 1, 1
-    trigger = Gdk.Event.new(Gdk.EventType.BUTTON_PRESS)
+    trigger = Gdk.Event.new(Gdk.EventType.KEY_PRESS if args.keyboard else Gdk.EventType.BUTTON_PRESS)
     trigger.window = Gdk.get_default_root_window()
-    trigger.set_device(pointer)
-    trigger.button = 3
+    trigger.set_device(Gdk.Display.get_default().get_default_seat().get_keyboard() if args.keyboard else pointer)
+    if args.keyboard:
+        trigger.keyval = Gdk.KEY_Menu
+    else:
+        trigger.button = 3
     trigger.time = Gdk.CURRENT_TIME
     menu.popup_at_rect(Gdk.get_default_root_window(), anchor, Gdk.Gravity.NORTH_WEST, Gdk.Gravity.SOUTH_WEST, trigger)
+    if args.keyboard:
+        menu.select_first(True)
     Gtk.main()
     return 0
 

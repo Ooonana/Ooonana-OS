@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Own Xvfb/i3 fixture only. No user's windows, models or sound."""
 import os
+import shutil
 from pathlib import Path
 from types import SimpleNamespace
 import subprocess
@@ -10,6 +11,7 @@ import time
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / "packages/ooonana/usr/lib/ooonana/ui"))
+import dock_app
 from dock_app import Dock, Gdk, Gtk, HOVER_MARGIN, preview_image, windows
 from common import apply_theme
 from ui_preferences import save_preferences
@@ -43,6 +45,7 @@ with tempfile.TemporaryDirectory() as temporary:
     os.environ["PATH"] = environment["PATH"]
     wm = subprocess.Popen(["i3", "-c", str(config)], env=environment, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     terminal, dock = None, None
+    owned = []
     terminal_log = tempfile.TemporaryFile()
     try:
         def connected():
@@ -140,6 +143,16 @@ with tempfile.TemporaryDirectory() as temporary:
                  all(control.get_allocated_width() >= 44 and control.get_allocated_height() >= 44
                      for control, _dot, _image in dock.buttons.values()))
             assert "other" in dock.buttons
+            submitted = []
+            real_async = dock_app.run_async
+            dock_app.run_async = lambda command, *_args, **_kwargs: submitted.append(command)
+            try:
+                dock.open("other")
+                dock.press(None, SimpleNamespace(button=3), "other")
+            finally:
+                dock_app.run_async = real_async
+            for command in submitted:
+                assert command[-2:] == ["--visible-pins", ",".join(key for key in dock.buttons if key != "other")]
             centered_icons(dock)
             assert all(control.get_allocated_width() >= 44 and control.get_allocated_height() >= 44
                        for control, _dot, _image in dock.buttons.values())
@@ -159,6 +172,75 @@ with tempfile.TemporaryDirectory() as temporary:
         assert next(item[0] for item in windows.windows(i3_events.request(path, 4)) if item[2]) == before
         assert windows.panel_layout(640)[0] == "workspaces media"
         assert windows.panel_layout(1024)[2] == 0 and windows.panel_layout(1280)[2] == 1
+
+        def current():
+            return windows.windows(i3_events.request(path, 4))
+        def dock_node(identifier):
+            return next(node for node, _hidden in windows.leaves(i3_events.request(path, 4)) if node["id"] == identifier)
+        def by_title(title):
+            return next((entry for entry in current() if entry[1] == title), None)
+        secondary = subprocess.Popen(["xterm", "-title", "Secondary fixture", "-e", "sleep", "120"], env=environment)
+        owned.append(secondary)
+        wait(lambda: by_title("Secondary fixture"))
+        selected = by_title("Secondary fixture")
+        primary = by_title("Preview fixture")
+        real_choose = windows.choose
+        windows.choose = lambda choices, _prompt: next(entry for entry in choices if entry[0] == selected[0])
+        try:
+            windows.dock_open(current(), "terminal")
+        finally:
+            windows.choose = real_choose
+        wait(lambda: by_title("Secondary fixture")[2])
+        windows.window_action(selected, "minimize")
+        wait(lambda: by_title("Secondary fixture")[3])
+        windows.dock_open([by_title("Secondary fixture")], "terminal")
+        wait(lambda: by_title("Secondary fixture")[2] and not by_title("Secondary fixture")[3])
+        windows.window_action(by_title("Secondary fixture"), "fullscreen")
+        wait(lambda: dock_node(selected[0]).get("fullscreen_mode") == 1)
+        windows.window_action(by_title("Secondary fixture"), "fullscreen")
+        wait(lambda: not dock_node(selected[0]).get("fullscreen_mode"))
+        windows.window_action(by_title("Secondary fixture"), "close")
+        wait(lambda: by_title("Secondary fixture") is None)
+        assert by_title("Preview fixture")[0] == primary[0]
+
+        # Real compact Other restore, then complete native keyboard menu path.
+        assert shutil.which("rofi"), "Keyboard dock fixture requires real rofi (use signed candidate overlay)"
+        music = subprocess.Popen(["xterm", "-class", "OoonanaApp", "-title", "Ooonana Music", "-e", "sleep", "120"], env=environment)
+        owned.append(music)
+        wait(lambda: by_title("Ooonana Music"))
+        music_item = by_title("Ooonana Music")
+        assert windows.pin_for(music_item) == "music"
+        windows.window_action(music_item, "minimize")
+        wait(lambda: by_title("Ooonana Music")[3])
+        cli = str(root / "packages/ooonana/usr/bin/ooonana-window-list")
+        subprocess.run([sys.executable, cli, "--dock-open", "other", "--visible-pins", "apps,terminal,browser,files"],
+                       env=environment, check=True, timeout=5)
+        wait(lambda: by_title("Ooonana Music")[2] and not by_title("Ooonana Music")[3])
+        def visible_class(name):
+            return subprocess.run(["xdotool", "search", "--onlyvisible", "--class", name], capture_output=True).returncode == 0
+        def keyboard_menu(select=True):
+            keyboard = subprocess.Popen([sys.executable, cli, "--dock-menu"], env=environment)
+            owned.append(keyboard)
+            wait(lambda: visible_class("Rofi"))
+            if select:
+                subprocess.run(["xdotool", "type", "--clearmodifiers", "--", "Music"], check=True)
+            subprocess.run(["xdotool", "key", "--clearmodifiers", "Return" if select else "Escape"], check=True)
+            wait(lambda: keyboard.poll() is not None)
+            if select:
+                wait(lambda: visible_class("window_menu"))
+        keyboard_menu(select=False)
+        assert by_title("Ooonana Music")[0] == music_item[0]
+        keyboard_menu()
+        subprocess.run(["xdotool", "key", "--clearmodifiers", "Escape"], check=True)
+        wait(lambda: not visible_class("window_menu"))
+        assert by_title("Ooonana Music")[0] == music_item[0]
+        keyboard_menu()
+        # Dock hands off to mapped Gtk menu, last item is Close window.
+        canvas = Gdk.get_default_root_window()
+        Gdk.pixbuf_get_from_window(canvas, 0, 0, canvas.get_width(), canvas.get_height()).savev("/qa/dock-keyboard-menu.png", "png", [], [])
+        subprocess.run(["xdotool", "key", "--clearmodifiers", "End", "Return"], check=True)
+        wait(lambda: by_title("Ooonana Music") is None)
+        assert by_title("Preview fixture")[0] == primary[0]
         if len(sys.argv) > 1:
             for _ in range(20):
                 drain()
@@ -166,7 +248,7 @@ with tempfile.TemporaryDirectory() as temporary:
             window = Gdk.get_default_root_window()
             image = Gdk.pixbuf_get_from_window(window, 0, 0, window.get_width(), window.get_height())
             image.savev(sys.argv[1], "png", [], [])
-        print(f"DOCK_UI_OK {size.width}x{size.height}; centered 32px icons; overlay markers; 44px targets; compact/other fit; hover focus unchanged")
+        print(f"DOCK_UI_OK {size.width}x{size.height}; centered icons; compact Other restore; multi-session actions; native keyboard close; hover focus unchanged")
     finally:
         if dock:
             dock.stopped = True
@@ -174,6 +256,10 @@ with tempfile.TemporaryDirectory() as temporary:
         if terminal and terminal.poll() is None:
             terminal.terminate()
             terminal.wait(timeout=5)
+        for process in owned:
+            if process.poll() is None:
+                process.terminate()
+                process.wait(timeout=5)
         terminal_log.close()
         wm.terminate()
         wm.wait(timeout=5)
