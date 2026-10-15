@@ -202,3 +202,48 @@ Evidence: `batch3-wireless-notification-before`, `batch3-gate-*` and
 `batch3-catalog-light-resumed` under the existing private QA root. Earlier
 confirmation/focus fixtures remain diagnostic history. Image-loader sandbox
 warnings remain logged; no browser sandbox or host security setting changed.
+
+## Published checkpoint after Batch 3
+
+This supersedes earlier “source pending publication” notes, not the coverage
+ledger's remaining work. Whole-OS review stays active.
+
+- Source `265eb57c226113e9a8653108f33b61dae72a07d6` pushed to both branches.
+  [GitHub regression](https://github.com/Ooonana/Ooonana-OS/actions/runs/38727193585)
+  and [GitLab smoke](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2950609245)
+  passed.
+- Clean source-only manifest, no bundled models, coherent Alpine v3.24 inputs;
+  signed **654 packages / 612 dependency nodes** validated and atomically
+  published to the local candidate repository. Generation:
+  `9d355bc29e79694f5d36d989856bd543fbaeac8825022a6414a1d5fb1540a312`.
+  Prior generation/checksum manifest unchanged. Private signing key stays local;
+  wider client enrollment and stable promotion remain deferred.
+- Ooonana WSL native signed snapshot:
+  `/var/lib/ooonana/candidate-ui-whole-20261015.46QKweEA`.
+  Existing trusted public-key digest matched; detached signature and every
+  manifest checksum passed before installation. Core/runtime were reinstalled
+  separately through native CLI transactions, with all update checkpoints kept;
+  both package verification and both health hooks passed.
+- Installed common, Wi-Fi, Bluetooth, Notifications, Setup and controls source
+  hashes match current repository files. Actual installed GTK modules import.
+  Cloud source now points at the verified native snapshot and existing trusted
+  key. Local WSL compositor/launcher adaptation refreshed after the transaction.
+  Previous native snapshot unchanged; previous source config retained in logs.
+- Logs: `/var/tmp/ooonana-ui-sync-20261015.WL1JZjn4` inside Ooonana WSL. First
+  preflight stopped because minimal userland lacks `cmp`; no transaction had
+  started. Resumed trust comparison used pinned public-key SHA256, followed by
+  the same detached signature/full checksum validation. No checks bypassed.
+- Ubuntu/Ooonana disk locations unchanged. No models downloaded, audio played,
+  running GUI/WSL forcibly restarted, physical storage modified or ISO built.
+  Existing ISO does not acquire these changes through resume. Fresh manual ISO
+  build belongs after the remaining source/UI work, not this partial checkpoint.
+
+GUI launch after closing the older nested desktop:
+
+```powershell
+wsl -d Ooonana --exec /usr/local/bin/start-ooonana-i3 --nested
+```
+
+This is a launch command, not proof of WSLg mouse, keyboard, IME or clipboard.
+Current source application improvements are installed; live-input/physical
+gates still need their own evidence.

@@ -52,6 +52,9 @@ adaptation now preserves full redraw/redirection without changing physical defau
 Wireless pages keep list space and name priority on compact screens; secondary
 tools stay under keyboard-accessible More. Notification refresh retains focus,
 long messages expand on demand and action/preference failures stay visible.
+Batches 1–3 are now in the signed local candidate repository and installed
+Ooonana WSL; both core/runtime verification checks pass. Relaunch GUI to use
+new app code. Existing ISO is unchanged; broader review remains active.
 This is not a claim that every installer, app, display or session path is done.
 [Full scope, current evidence and remaining UI work](docs/ui-whole-os-review.md).
 
