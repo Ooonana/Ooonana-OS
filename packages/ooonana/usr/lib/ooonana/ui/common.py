@@ -591,6 +591,7 @@ def message_dialog(parent, title, text, kind=Gtk.MessageType.INFO):
     copy_button = Gtk.Button()
     copy_button.set_image(icon("edit-copy-symbolic"))
     copy_button.set_tooltip_text("Copy diagnostics")
+    copy_button.get_accessible().set_name("Copy diagnostics")
     copy_button.connect("clicked", lambda *_: Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(text, -1))
     dialog.get_action_area().pack_start(copy_button, False, False, 0)
     dialog.show_all()
@@ -610,16 +611,22 @@ def ask_text(parent, title, prompt, secret=False):
     area = dialog.get_content_area()
     area.set_spacing(10)
     area.set_border_width(16)
-    area.pack_start(label(prompt), False, False, 0)
+    prompt_label = label(prompt)
+    area.pack_start(prompt_label, False, False, 0)
     entry = Gtk.Entry()
     entry.set_visibility(not secret)
+    entry.get_accessible().set_name(prompt)
+    prompt_label.set_mnemonic_widget(entry)
+    if secret:
+        entry.set_input_purpose(Gtk.InputPurpose.PASSWORD)
     entry.set_activates_default(True)
     area.pack_start(entry, False, False, 0)
     dialog.set_default_response(Gtk.ResponseType.OK)
     dialog.show_all()
-    value = entry.get_text().strip() if dialog.run() == Gtk.ResponseType.OK else ""
+    entry.grab_focus()
+    value = entry.get_text() if dialog.run() == Gtk.ResponseType.OK else ""
     dialog.destroy()
-    return value
+    return value if secret else value.strip()
 
 
 def read_file(path, default=""):

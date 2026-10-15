@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (  # noqa: E402
     GLib,
     Gtk,
+    Pango,
     admin_command,
     apply_theme,
     button,
@@ -22,6 +23,7 @@ from common import (  # noqa: E402
     run,
     transition_ms,
 )
+from ui_preferences import load_preferences
 
 
 DEFAULT_REPO = "https://ooonana.gitlab.io/ooonana-repo"
@@ -46,6 +48,8 @@ def field_row(grid, row, title, widget, help_text=""):
 class SetupWindow(Gtk.Window):
     def __init__(self, first_boot=False):
         super().__init__(title="Ooonana Setup")
+        self.closed = False
+        self.pending = False
         self.first_boot = first_boot
         self.set_default_size(800, 600)
         self.set_position(Gtk.WindowPosition.CENTER)
@@ -75,6 +79,7 @@ class SetupWindow(Gtk.Window):
         scroll.set_overlay_scrolling(False)
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
         content.set_border_width(20)
+        self.content = content
         scroll.add(content)
         root.pack_start(scroll, True, True, 0)
 
@@ -97,11 +102,13 @@ class SetupWindow(Gtk.Window):
 
         self.password_entry = Gtk.Entry()
         self.password_entry.set_visibility(False)
+        self.password_entry.set_input_purpose(Gtk.InputPurpose.PASSWORD)
         self.password_entry.set_placeholder_text("Optional")
         row = field_row(identity_grid, row, "Password", self.password_entry)
 
         self.password_confirm = Gtk.Entry()
         self.password_confirm.set_visibility(False)
+        self.password_confirm.set_input_purpose(Gtk.InputPurpose.PASSWORD)
         self.password_confirm.set_placeholder_text("Repeat optional password")
         field_row(identity_grid, row, "Confirm", self.password_confirm)
         identity.pack_start(identity_grid, False, False, 0)
@@ -135,11 +142,8 @@ class SetupWindow(Gtk.Window):
             ("Gateway", self.gateway_entry),
             ("DNS", self.dns_entry),
         )):
-            title_widget = label(title, xalign=1.0, wrap=False)
-            title_widget.set_size_request(130, -1)
             widget.set_hexpand(True)
-            static_grid.attach(title_widget, 0, static_row, 1, 1)
-            static_grid.attach(widget, 1, static_row, 1, 1)
+            field_row(static_grid, static_row, title, widget)
         self.static_revealer.add(static_grid)
         network_grid.attach(self.static_revealer, 0, row, 2, 1)
         row += 1
@@ -196,13 +200,32 @@ class SetupWindow(Gtk.Window):
         self.spinner = Gtk.Spinner()
         footer.pack_start(self.spinner, False, False, 0)
         self.status = label("Scroll for memory, theme, and package repo ↓", "muted", wrap=False)
+        self.status.set_ellipsize(Pango.EllipsizeMode.END)
+        self.status.set_max_width_chars(28)
+        self.status.set_hexpand(True)
+        self.status.set_tooltip_text(self.status.get_text())
         footer.pack_start(self.status, True, True, 0)
-        footer.pack_end(button("Apply setup", "object-select-symbolic", self.apply, "suggested-action"), False, False, 0)
-        footer.pack_end(button("Not now", "window-close-symbolic", lambda *_: self.destroy()), False, False, 0)
+        self.apply_button = button("Apply setup", "object-select-symbolic", self.apply, "suggested-action")
+        self.cancel_button = button("Not now", "window-close-symbolic", lambda *_: self.destroy())
+        footer.pack_end(self.apply_button, False, False, 0)
+        footer.pack_end(self.cancel_button, False, False, 0)
         root.pack_end(footer, False, False, 0)
 
         self.network_changed()
-        self.connect("destroy", Gtk.main_quit)
+        self.connect("delete-event", self.before_close)
+        self.connect("destroy", self.on_destroy)
+
+    def on_destroy(self, *_args):
+        self.closed = True
+        self.spinner.stop()
+        if Gtk.main_level():
+            Gtk.main_quit()
+
+    def before_close(self, *_args):
+        if self.pending:
+            self.status.set_text("Setup running · wait before closing")
+            self.status.set_tooltip_text(self.status.get_text())
+        return self.pending
 
     def network_changed(self, *_args):
         self.static_revealer.set_reveal_child(self.network_combo.get_active_id() == "static")
@@ -239,6 +262,8 @@ class SetupWindow(Gtk.Window):
         }, ""
 
     def apply(self, widget):
+        if self.closed or self.pending:
+            return
         values, error = self.validate()
         if error:
             message(self, "Check setup details", error, Gtk.MessageType.WARNING)
@@ -252,13 +277,23 @@ class SetupWindow(Gtk.Window):
         )
         review.add_button("Back", Gtk.ResponseType.CANCEL)
         review.add_button("Apply setup", Gtk.ResponseType.OK)
+        review.set_default_response(Gtk.ResponseType.CANCEL)
+        for child in review.get_message_area().get_children():
+            if isinstance(child, Gtk.Label):
+                child.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+                child.set_max_width_chars(50)
         response = review.run()
         review.destroy()
         if response != Gtk.ResponseType.OK:
             return
-        widget.set_sensitive(False)
-        self.spinner.start()
+        self.pending = True
+        self.apply_button.set_sensitive(False)
+        self.cancel_button.set_sensitive(False)
+        self.content.set_sensitive(False)
+        if not load_preferences()["reduce_motion"]:
+            self.spinner.start()
         self.status.set_text("Applying system defaults...")
+        self.status.set_tooltip_text(self.status.get_text())
 
         def worker():
             command = [
@@ -307,10 +342,16 @@ class SetupWindow(Gtk.Window):
         threading.Thread(target=worker, daemon=True).start()
 
     def finished(self, widget, rc, output):
-        widget.set_sensitive(True)
+        if self.closed:
+            return False
+        self.pending = False
+        self.apply_button.set_sensitive(True)
+        self.cancel_button.set_sensitive(True)
+        self.content.set_sensitive(True)
         self.spinner.stop()
         if rc != 0:
             self.status.set_text("Setup needs attention")
+            self.status.set_tooltip_text(self.status.get_text())
             message(self, "Setup failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)
             return False
         self.status.set_text("Setup complete")

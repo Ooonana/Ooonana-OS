@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (  # noqa: E402
     GLib,
     Gtk,
+    Pango,
     apply_theme,
     button,
     flow_row,
@@ -88,14 +89,21 @@ class AudioWindow(Gtk.Window):
         root.pack_start(self.scale, False, False, 0)
 
         devices = Gtk.Grid(column_spacing=12, row_spacing=10)
-        devices.attach(label("Output"), 0, 0, 1, 1)
+        devices.attach(label("Output", wrap=False), 0, 0, 1, 1)
         self.output_combo = Gtk.ComboBoxText()
         self.output_combo.set_hexpand(True)
         devices.attach(self.output_combo, 1, 0, 1, 1)
-        devices.attach(label("Input"), 0, 1, 1, 1)
+        devices.attach(label("Input", wrap=False), 0, 1, 1, 1)
         self.input_combo = Gtk.ComboBoxText()
         self.input_combo.set_hexpand(True)
         devices.attach(self.input_combo, 1, 1, 1, 1)
+        for combo in (self.output_combo, self.input_combo):
+            for cell in combo.get_cells():
+                if isinstance(cell, Gtk.CellRendererText):
+                    cell.set_property("ellipsize", Pango.EllipsizeMode.END)
+                    cell.set_property("width-chars", 12)
+                    cell.set_property("max-width-chars", 32)
+            combo.connect("changed", lambda selected: selected.set_tooltip_text(selected.get_active_text() or ""))
         root.pack_start(devices, False, False, 0)
         self.hardware_status = label("Detecting ALSA hardware...", "status-warn")
         self.hardware_status.set_line_wrap(True)
@@ -198,7 +206,8 @@ class AudioWindow(Gtk.Window):
         self.apply_button.set_sensitive(bool(outputs or inputs))
         if outputs or inputs:
             self.hardware_status.set_text("ALSA hardware detected" if data["alsa_card_ready"] else "Audio device detected")
-            self.status.set_text(f"Audio ready | {len(outputs)} output(s) | {len(inputs)} input(s)")
+            self.status.set_text(f"Audio ready · {len(outputs)} {'output' if len(outputs) == 1 else 'outputs'}"
+                                 f" · {len(inputs)} {'input' if len(inputs) == 1 else 'inputs'}")
         elif data["alsa_card_ready"]:
             self.hardware_status.set_text("ALSA card detected")
             self.status.set_text("PipeWire has no hardware route. Use Retry hardware.")
@@ -322,6 +331,7 @@ class AudioWindow(Gtk.Window):
 class MediaWindow(Gtk.Window):
     def __init__(self):
         super().__init__(title="Ooonana Music")
+        self.closed = False
         self.set_default_size(720, 460)
         self.set_position(Gtk.WindowPosition.CENTER)
         header(self, "Music", "Local library and playback", "multimedia-player-symbolic")
@@ -334,9 +344,14 @@ class MediaWindow(Gtk.Window):
         cover.set_size_request(96, 96)
         now_playing.pack_start(cover, False, False, 0)
         details = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        self.track_label = label("Nothing playing", "page-title")
-        self.artist_label = label("Add audio files to Music, then refresh library.", "muted")
+        self.track_label = label("Nothing playing", "page-title", wrap=False)
+        self.artist_label = label("Add audio files to Music, then refresh library.", "muted", wrap=False)
+        for metadata in (self.track_label, self.artist_label):
+            metadata.set_ellipsize(Pango.EllipsizeMode.END)
+            metadata.set_max_width_chars(40)
         self.state_label = label("Starting player...", "status-warn")
+        self.state_label.set_lines(2)
+        self.state_label.set_ellipsize(Pango.EllipsizeMode.END)
         details.pack_start(self.track_label, False, False, 0)
         details.pack_start(self.artist_label, False, False, 0)
         details.pack_start(self.state_label, False, False, 0)
@@ -348,13 +363,14 @@ class MediaWindow(Gtk.Window):
         self.progress.set_text("Stopped")
         root.pack_start(self.progress, False, False, 0)
 
-        playback = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        playback.set_halign(Gtk.Align.CENTER)
-        playback.pack_start(button("Previous", "media-skip-backward-symbolic", lambda widget: self.action(widget, "previous")), False, False, 0)
         self.play_button = button("Play", "media-playback-start-symbolic", lambda widget: self.action(widget, "play-pause"), "suggested-action")
-        playback.pack_start(self.play_button, False, False, 0)
-        playback.pack_start(button("Next", "media-skip-forward-symbolic", lambda widget: self.action(widget, "next")), False, False, 0)
-        playback.pack_start(button("Stop", "media-playback-stop-symbolic", lambda widget: self.action(widget, "stop")), False, False, 0)
+        self.playback_actions = [
+            button("Previous", "media-skip-backward-symbolic", lambda widget: self.action(widget, "previous")),
+            self.play_button,
+            button("Next", "media-skip-forward-symbolic", lambda widget: self.action(widget, "next")),
+            button("Stop", "media-playback-stop-symbolic", lambda widget: self.action(widget, "stop")),
+        ]
+        playback = flow_row(self.playback_actions, max_children=4, min_children=2)
         root.pack_start(playback, False, False, 0)
 
         volume_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
@@ -366,10 +382,11 @@ class MediaWindow(Gtk.Window):
         volume_row.pack_start(button("Apply", "object-select-symbolic", self.apply_volume), False, False, 0)
         root.pack_start(volume_row, False, False, 0)
 
-        tools = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        tools.pack_start(button("Refresh library", "view-refresh-symbolic", self.refresh_library), False, False, 0)
-        tools.pack_start(button("Music folder", "folder-music-symbolic", lambda *_: launch(["ooonana-media-control", "open"])), False, False, 0)
-        tools.pack_start(button("Terminal player", "utilities-terminal-symbolic", lambda *_: launch(["ooonana-media-control", "terminal"])), False, False, 0)
+        tools = flow_row([
+            button("Refresh library", "view-refresh-symbolic", self.refresh_library),
+            button("Music folder", "folder-music-symbolic", lambda *_: launch(["ooonana-media-control", "open"])),
+            button("Terminal player", "utilities-terminal-symbolic", lambda *_: launch(["ooonana-media-control", "terminal"])),
+        ], max_children=3, min_children=2)
         root.pack_end(tools, False, False, 0)
 
         self.refreshing = False
@@ -378,26 +395,43 @@ class MediaWindow(Gtk.Window):
         run_async(["ooonana-media-control", "status"], self.player_started, timeout=20)
 
     def destroyed(self, *_args):
+        self.closed = True
         if self.timer_id:
             GLib.source_remove(self.timer_id)
             self.timer_id = 0
         Gtk.main_quit()
 
     def player_started(self, rc, output):
+        if self.closed:
+            return
         if rc != 0:
-            self.state_label.set_text(output or "MPD failed to start")
+            self.player_unavailable(output or "MPD failed to start")
             return
         self.refresh_state()
 
     def periodic_refresh(self):
+        if self.closed:
+            return False
         self.refresh_state()
         return True
+
+    def player_unavailable(self, detail):
+        self.state_label.set_text("Player unavailable · retrying automatically")
+        self.state_label.set_tooltip_text(str(detail))
+        self.state_label.get_style_context().remove_class("status-warn")
+        self.state_label.get_style_context().add_class("status-bad")
+        self.progress.set_fraction(0)
+        self.progress.set_text("Unavailable")
+        for action in self.playback_actions:
+            action.set_sensitive(False)
 
     @staticmethod
     def collect_state():
         current_rc, current = run(["mpc", "--format", "%artist%\t%title%\t%file%", "current"], timeout=5)
         status_rc, status = run(["mpc", "status"], timeout=5)
         volume_rc, volume = run(["mpc", "volume"], timeout=5)
+        if status_rc != 0:
+            return status_rc, status or "Music service unavailable"
         return 0, {
             "current": current if current_rc == 0 else "",
             "status": status if status_rc == 0 else "",
@@ -405,18 +439,27 @@ class MediaWindow(Gtk.Window):
         }
 
     def refresh_state(self):
-        if self.refreshing:
+        if self.closed or self.refreshing:
             return
         self.refreshing = True
 
-        def done(_rc, data):
+        def done(rc, data):
+            if self.closed:
+                return
             self.refreshing = False
+            if rc != 0 or not isinstance(data, dict):
+                self.player_unavailable(data)
+                return
+            for action in self.playback_actions:
+                action.set_sensitive(True)
             fields = data["current"].split("\t", 2) if data["current"] else []
             artist = fields[0].strip() if fields else ""
             title = fields[1].strip() if len(fields) > 1 else ""
             filename = fields[2].strip() if len(fields) > 2 else ""
             self.track_label.set_text(title or filename or "Nothing playing")
             self.artist_label.set_text(artist or ("Local music" if title or filename else "Add audio files to Music, then refresh library."))
+            for metadata in (self.track_label, self.artist_label):
+                metadata.set_tooltip_text(metadata.get_text())
 
             status = data["status"]
             if "[playing]" in status:
@@ -428,12 +471,18 @@ class MediaWindow(Gtk.Window):
             else:
                 state = "Stopped"
                 self.play_button.set_label("Play")
+            self.play_button.get_image().set_from_icon_name(
+                "media-playback-pause-symbolic" if state == "Playing" else "media-playback-start-symbolic",
+                Gtk.IconSize.BUTTON)
             percent = re.search(r"\((\d+)%\)", status)
             fraction = min(100, int(percent.group(1))) / 100 if percent else 0
             self.progress.set_fraction(fraction)
             timing = re.search(r"(\d+:\d+)/(\d+:\d+)", status)
             self.progress.set_text(f"{state}  {timing.group(1)} / {timing.group(2)}" if timing else state)
             self.state_label.set_text("MPD ready" if status else "Player ready; library empty")
+            self.state_label.set_tooltip_text(None)
+            self.state_label.get_style_context().remove_class("status-warn")
+            self.state_label.get_style_context().remove_class("status-bad")
 
             volume = re.search(r"volume:\s*(\d+)%", data["volume"])
             if volume:
@@ -445,6 +494,8 @@ class MediaWindow(Gtk.Window):
         widget.set_sensitive(False)
 
         def done(rc, output):
+            if self.closed:
+                return
             widget.set_sensitive(True)
             if rc != 0:
                 message(self, "Playback failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)
@@ -457,6 +508,8 @@ class MediaWindow(Gtk.Window):
         widget.set_sensitive(False)
 
         def done(rc, output):
+            if self.closed:
+                return
             widget.set_sensitive(True)
             if rc != 0:
                 message(self, "Volume failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)
@@ -469,6 +522,8 @@ class MediaWindow(Gtk.Window):
         self.state_label.set_text("Refreshing music library...")
 
         def done(rc, output):
+            if self.closed:
+                return
             widget.set_sensitive(True)
             if rc != 0:
                 message(self, "Library refresh failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)

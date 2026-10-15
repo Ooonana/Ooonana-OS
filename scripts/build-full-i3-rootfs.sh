@@ -3141,11 +3141,36 @@ root_disk() {
   esac
 }
 
-form="$(yad --center --title "Install Ooonana OS" --width=720 \
-  --text "Erase disk: deletes target disk contents. Custom: uses explicitly selected partitions.
-Only chosen target and listed partitions may be changed. Leave unrelated USB/SD cards unselected.
+form_width=720
+form_height=680
+review_width=860
+review_height=560
+# Match the primary monitor's usable area, including desktop panel reservations.
+geometry="$(python3 -c 'import gi; gi.require_version("Gdk", "3.0"); from gi.repository import Gdk; d=Gdk.Display.get_default(); m=(d.get_primary_monitor() or d.get_monitor(0)) if d else None; r=m.get_workarea() if m else None; print(r.width, r.height) if r else None' 2>/dev/null || true)"
+screen_width="${geometry%% *}"
+screen_height="${geometry#* }"
+case "$screen_width:$screen_height" in
+  *[!0-9:]*|:*|*:) ;;
+  *)
+    if [ "$screen_width" -ge 320 ] && [ "$screen_height" -ge 320 ]; then
+      [ "$form_width" -le "$((screen_width - 48))" ] || form_width="$((screen_width - 48))"
+      [ "$review_width" -le "$((screen_width - 48))" ] || review_width="$((screen_width - 48))"
+      [ "$form_height" -le "$((screen_height - 96))" ] || form_height="$((screen_height - 96))"
+      [ "$review_height" -le "$((screen_height - 96))" ] || review_height="$((screen_height - 96))"
+    fi
+    ;;
+esac
+
+form="$(yad --center --title "Install Ooonana OS" --width="$form_width" --height="$form_height" \
+  --window-icon=ooonana-installer --borders=16 --text-width=50 \
+  --text "Erase mode deletes target disk contents.
+Custom mode uses explicitly selected partitions.
+Check target carefully; leave unrelated USB/SD unselected.
+
+Detected disks:
 $disk_summary" \
-  --form --separator='|' \
+  --form --scroll --focus-field=1 --separator='|' \
+  --button=Cancel:1 --button="Review installation":0 \
   --field "Mode:CB" "erase-disk!custom-existing-partitions" \
   --field "Target disk or root partition" "$default_target" \
   --field "Home partition" "" \
@@ -3237,12 +3262,13 @@ else
   "$@" --dry-run --yes >"$preview" 2>&1 && preview_ok=1
 fi
 if [ "$preview_ok" -ne 1 ]; then
-  yad --center --title "Ooonana Install Blocked" --width=860 --height=420 \
+  yad --center --title "Ooonana Install Blocked" --width="$review_width" --height="$review_height" \
     --text-info --filename="$preview" --button=Close:0 2>/dev/null || true
   exit 1
 fi
 
-yad --center --title "Ooonana Install Preview" --width=860 --height=560 \
+yad --center --title "Ooonana Install Preview" --width="$review_width" --height="$review_height" \
+  --window-icon=ooonana-installer --text-width=50 \
   --text "Final review. Installation changes only listed target/partitions. Verify sizes and format flags below before continuing." \
   --text-info --filename="$preview" \
   --button=Cancel:1 --button="Install selected target":0 2>/dev/null || exit 0
@@ -3260,7 +3286,7 @@ yad --center --title "Ooonana Install Preview" --width=860 --height=560 \
 ) &
 pid="$!"
 
-yad --center --title "Ooonana Install Log" --width=860 --height=560 \
+yad --center --title "Ooonana Install Log" --width="$review_width" --height="$review_height" \
   --text-info --tail --filename="$log" --button=Close:0 2>/dev/null || true
 wait "$pid" 2>/dev/null || true
 status="$(cat "$status_file" 2>/dev/null || echo 1)"

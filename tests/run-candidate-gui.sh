@@ -12,7 +12,7 @@ case "$geometry" in
   *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
 esac
 case "$only" in
-  all|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|window-controls-runtime|dock-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
+  all|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|window-controls-runtime|dock-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -198,6 +198,8 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   done
   probe native-app-catalog python3 /source/tests/check-native-app-catalog.py
   probe ui-details-runtime python3 /source/tests/check-ui-details-runtime.py /qa/details
+  probe ui-content-runtime python3 /source/tests/check-ui-content-runtime.py /qa/content
+  probe installer-ui python3 /source/tests/check-installer-ui.py /qa/installer
   probe settings-power-ui python3 /source/tests/check-settings-power-ui.py
   probe notifications-runtime python3 /source/tests/check-notifications-runtime.py --output /qa/notifications.png
   probe window-controls-runtime python3 /source/tests/check-window-controls-runtime.py --own-i3
@@ -205,12 +207,15 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   probe panel-ui python3 /source/tests/check-panel-ui.py /qa/panel.png --rootfs / --long-wifi --desktop-overview --appearance-output /qa/appearance.png
   probe portal-ui python3 /source/tests/check-portal-ui.py /qa/portal.png
   for app in geany nemo chromium qterminal; do
+    compositor_options=(--compositor)
+    if [ "${OOONANA_GUI_COMPOSITOR_OFF:-0}" = 1 ]; then compositor_options=(); fi
+    if [ "${OOONANA_GUI_COMPOSITOR_NO_DAMAGE:-0}" = 1 ]; then compositor_options+=(--no-use-damage); fi
     if [ "$app" = geany ]; then
-      probe "$app-frame" python3 /source/tests/check-third-party-frames.py "$app" "/qa/$app.png" --compositor --file-dialog
+      probe "$app-frame" python3 /source/tests/check-third-party-frames.py "$app" "/qa/$app.png" --file-dialog "${compositor_options[@]}"
     elif [ "$app" = chromium ] && [ "${OOONANA_BROWSER_NO_SHADER_CACHE:-0}" = 1 ]; then
-      probe "$app-frame" python3 /source/tests/check-third-party-frames.py "$app" "/qa/$app.png" --compositor --disable-shader-cache
+      probe "$app-frame" python3 /source/tests/check-third-party-frames.py "$app" "/qa/$app.png" --disable-shader-cache "${compositor_options[@]}"
     else
-      probe "$app-frame" python3 /source/tests/check-third-party-frames.py "$app" "/qa/$app.png" --compositor
+      probe "$app-frame" python3 /source/tests/check-third-party-frames.py "$app" "/qa/$app.png" "${compositor_options[@]}"
     fi
   done
   if [ "$only" = firefox-frame ]; then

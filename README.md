@@ -46,6 +46,9 @@ small-screen GRUB rechecked. [Coverage, screenshots and remaining gates](docs/ui
 Whole-OS UI review remains active. New compact-layout fixes cover Packages,
 Health/Updates and signal maps; native plots now follow both appearances.
 Busy/error/retry feedback and keyboard action rows have isolated GTK checks.
+Follow-up repairs bound long app/music/device names, add empty-search guidance,
+keep installer fields scrollable and protect in-flight Setup. WSL compositor
+adaptation now preserves full redraw/redirection without changing physical defaults.
 This is not a claim that every installer, app, display or session path is done.
 [Full scope, current evidence and remaining UI work](docs/ui-whole-os-review.md).
 

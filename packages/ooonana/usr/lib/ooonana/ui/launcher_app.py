@@ -50,7 +50,7 @@ class LauncherWindow(Gtk.Window):
         search_box = Gtk.Box()
         search_box.set_border_width(12)
         self.search = Gtk.SearchEntry()
-        self.search.set_placeholder_text("Search apps, settings, and commands")
+        self.search.set_placeholder_text("Search applications")
         self.search.get_style_context().add_class("spotlight-search")
         self.search.connect("search-changed", self.search_changed)
         self.search.connect("activate", self.launch_selected)
@@ -64,10 +64,20 @@ class LauncherWindow(Gtk.Window):
         self.results.set_activate_on_single_click(True)
         self.results.set_filter_func(self.filter_row)
         self.results.connect("row-activated", self.activate_row)
-        scroll = Gtk.ScrolledWindow()
-        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scroll.add(self.results)
-        root.pack_start(scroll, True, True, 0)
+        self.result_scroll = Gtk.ScrolledWindow()
+        self.result_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.result_scroll.add(self.results)
+        root.pack_start(self.result_scroll, True, True, 0)
+        self.empty_state = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        self.empty_state.set_border_width(24)
+        self.empty_state.set_valign(Gtk.Align.CENTER)
+        self.empty_title = label("No applications found", "card-title")
+        self.empty_hint = label("Install applications using Packages, then reopen Spotlight.", "muted")
+        self.empty_state.pack_start(self.empty_title, False, False, 0)
+        self.empty_state.pack_start(self.empty_hint, False, False, 0)
+        self.empty_state.show_all()
+        self.empty_state.set_no_show_all(True)
+        root.pack_start(self.empty_state, True, True, 0)
 
         apps = [
             app
@@ -80,11 +90,9 @@ class LauncherWindow(Gtk.Window):
         ))
         for app in apps:
             self.add_app(app)
-        self.titlebar.set_subtitle(f"{len(apps)} applications")
-        if apps:
-            self.results.select_row(self.results.get_row_at_index(0))
-        else:
-            self.results.add(label("No applications found", "status-bad"))
+        self.result_scroll.show_all()
+        self.result_scroll.set_no_show_all(True)
+        self.select_first()
 
         self.connect("key-press-event", self.window_key)
         self.connect("destroy", Gtk.main_quit)
@@ -123,16 +131,24 @@ class LauncherWindow(Gtk.Window):
         image.set_pixel_size(34)
         box.pack_start(image, False, False, 0)
         text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-        name_label = label(name, "spotlight-app-name")
+        name_label = label(name, "spotlight-app-name", wrap=False)
+        name_label.set_ellipsize(Pango.EllipsizeMode.END)
+        name_label.set_max_width_chars(48)
+        name_label.set_tooltip_text(name)
         detail = label(description, "muted")
+        detail.set_line_wrap(False)
         detail.set_ellipsize(Pango.EllipsizeMode.END)
         detail.set_max_width_chars(72)
+        detail.set_tooltip_text(description)
         text.pack_start(name_label, False, False, 0)
         text.pack_start(detail, False, False, 0)
         box.pack_start(text, True, True, 0)
         box.pack_end(icon("go-next-symbolic"), False, False, 0)
         row.add(box)
+        row.get_accessible().set_name(name)
+        row.get_accessible().set_description(description)
         self.results.add(row)
+        row.show_all()
 
     def filter_row(self, row):
         query = self.search.get_text().strip().casefold()
@@ -148,6 +164,16 @@ class LauncherWindow(Gtk.Window):
     def select_first(self):
         rows = self.visible_rows()
         self.results.select_row(rows[0] if rows else None)
+        total = len(self.results.get_children())
+        query = self.search.get_text().strip()
+        self.titlebar.set_subtitle(
+            f"{len(rows)} of {total} {'application' if total == 1 else 'applications'}" if query else
+            f"{total} {'application' if total == 1 else 'applications'}")
+        self.empty_title.set_text("No matching applications" if query else "No applications found")
+        self.empty_hint.set_text("Try another name or clear the search." if query else
+                                 "Install applications using Packages, then reopen Spotlight.")
+        self.empty_state.set_visible(not rows)
+        self.result_scroll.set_visible(bool(rows))
         return False
 
     def search_key(self, _entry, event):

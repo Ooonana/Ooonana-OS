@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -21,11 +22,14 @@ parser.add_argument("app", choices=("geany", "nemo", "chromium", "qterminal", "f
 parser.add_argument("output", type=Path)
 parser.add_argument("--csd", action="store_true")
 parser.add_argument("--compositor", action="store_true", help="Capture packaged rounding policy through private xrender compositor")
+parser.add_argument("--no-use-damage", action="store_true", help="WSL/Xvfb full-redraw compositor mode; not physical GPU evidence")
 parser.add_argument("--disable-shader-cache", action="store_true", help="QA-only Chromium disk-cache isolation, sandbox remains enabled")
 parser.add_argument("--gpu", action="store_true", help="Leave normal GPU selection enabled (device availability remains environment-dependent)")
 parser.add_argument("--url", default="about:blank", help="Private browser probe page")
 parser.add_argument("--file-dialog", action="store_true", help="Real Open dialog: cancel and open an owned fixture")
 args = parser.parse_args()
+if args.no_use_damage and not args.compositor:
+    parser.error("--no-use-damage requires --compositor")
 if args.file_dialog and args.app not in ("geany", "firefox"):
     parser.error("--file-dialog requires geany or firefox")
 if os.environ.get("OOONANA_GUI_TEST_DISPLAY") != "1":
@@ -122,15 +126,31 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
     config = fixture / "i3.conf"
     config.write_text("\n".join(line for line in (ROOT / "branding/i3/config").read_text().splitlines()
                                 if not line.startswith("exec")) + "\n")
-    environment = {**os.environ, "GDK_BACKEND": "x11", "GTK_THEME": "Adwaita:dark",
+    theme = os.environ.get("OOONANA_THEME", "dark")
+    builder = (ROOT / "scripts/build-full-i3-rootfs.sh").read_text()
+    helper_directory = fixture / "bin"
+    helper_directory.mkdir()
+    for name in ("ooonana-theme-env", "ooonana-editor"):
+        script = builder.split(f'"$ROOTFS/usr/bin/{name}" <<\'EOF\'\n', 1)[1].split("\nEOF", 1)[0]
+        path = helper_directory / name
+        path.write_text(script)
+        path.chmod(0o700)
+    environment = {**os.environ, "GDK_BACKEND": "x11", "GTK_THEME": "Adwaita" if theme == "light" else "Adwaita:dark",
                    "GTK_CSD": "1" if args.csd else "0", "XDG_CONFIG_HOME": str(fixture / "config"),
                    "XDG_CACHE_HOME": str(fixture / "cache"), "XDG_STATE_HOME": str(fixture / "state"),
-                   "PATH": str(ROOT / "packages/ooonana/usr/bin") + ":" + os.environ["PATH"]}
+                   "PATH": str(helper_directory) + ":" + str(ROOT / "packages/ooonana/usr/bin") + ":" + os.environ["PATH"]}
     environment.pop("WAYLAND_DISPLAY", None)
     environment["NO_AT_BRIDGE"] = "1"
     os.environ["PATH"] = environment["PATH"]
+    subprocess.run([str(helper_directory / "ooonana-theme-env"), "apply"], env=environment,
+                   stdout=log, stderr=log, check=True, timeout=20)
+    if args.app == "geany":
+        schemes = fixture / "config/geany/colorschemes"
+        schemes.mkdir(parents=True)
+        for path in (ROOT / "packages/ooonana/usr/share/geany/colorschemes").glob("*.conf"):
+            shutil.copyfile(path, schemes / path.name)
     command = {
-        "geany": ["geany", "--new-instance", "--config=" + str(fixture / "geany")],
+        "geany": [str(helper_directory / "ooonana-editor"), "--new-instance", "--config=" + str(fixture / "config/geany")],
         "nemo": ["nemo", "--no-desktop", str(fixture)],
         "qterminal": ["qterminal", "--workdir", str(fixture), "--execute", "/bin/sh"],
         "firefox": ["ooonana-firefox", "run", "--no-remote", "--private-window", "about:blank"],
@@ -176,10 +196,16 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
         if args.compositor:
             builder = (ROOT / "scripts/build-full-i3-rootfs.sh").read_text()
             policy = builder.split('"$ROOTFS/etc/ooonana/picom.conf" <<\'EOF\'\n', 1)[1].split("\nEOF", 1)[0]
+            if args.no_use_damage:
+                policy = policy.replace("use-damage = true;", "use-damage = false;")
+                policy = policy.replace("unredir-if-possible = true;", "unredir-if-possible = false;")
             compositor_config = fixture / "picom.conf"
             compositor_config.write_text(policy)
             subprocess.run(["xsetroot", "-solid", "#555963"], check=True)
-            compositor = subprocess.Popen(["picom", "--backend", "xrender", "--config", str(compositor_config)],
+            compositor_command = ["picom", "--backend", "xrender", "--config", str(compositor_config)]
+            if args.no_use_damage:
+                compositor_command.append("--no-use-damage")
+            compositor = subprocess.Popen(compositor_command,
                                           stdout=log, stderr=log)
         client = subprocess.Popen(command, env=environment, stdout=log, stderr=log, start_new_session=True)
         wait(find_client)
@@ -249,7 +275,21 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
             print("FAILED frame pixels:", json.dumps(details), flush=True)
             raise
         Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(str(args.output), "png", [], [])
-        record = {"app": args.app, "csd": args.csd, "compositor": args.compositor, "deco": node["deco_rect"], "rect": node["rect"],
+        if args.app == "nemo":
+            rectangle = node["rect"]
+            # This owned fixture has blue Adwaita folders. A flat dark client
+            # can still pass a pure-black test; require actual folder painting.
+            content = Gdk.pixbuf_get_from_window(root, rectangle["x"] + 180,
+                rectangle["y"] + node["deco_rect"]["height"] + 80,
+                min(500, rectangle["width"] - 188), min(280, rectangle["height"] - 110))
+            data, channels, stride = content.get_pixels(), content.get_n_channels(), content.get_rowstride()
+            samples = [data[y * stride + x * channels:y * stride + x * channels + 3]
+                       for y in range(0, content.get_height(), 8) for x in range(0, content.get_width(), 8)]
+            painted = sum(blue > red + 25 and green > red + 15 for red, green, blue in samples)
+            print(f"NEMO_PAINTED_FOLDER_SAMPLES {painted}", flush=True)
+            assert painted >= 5, "Nemo folder contents unpainted; control-state success is insufficient"
+        record = {"app": args.app, "csd": args.csd, "compositor": args.compositor, "full_redraw": args.no_use_damage,
+                  "deco": node["deco_rect"], "rect": node["rect"],
                   "properties": properties, "controls": {str(k): list(v.get_size()) for k, v in manager.controls.items()}}
         args.output.with_suffix(".json").write_text(json.dumps(record, indent=2) + "\n")
         print(json.dumps(record), flush=True)
