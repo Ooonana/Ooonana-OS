@@ -36,6 +36,19 @@ boot, input and power-loss tests remain pending. No ISO built or disk formatted.
 The earlier checklist/checkpoint below records the preceding patch, not these
 follow-up assets.
 
+Follow-up source: `861f37c9803d47207a9644bd3cc7f2f38ac0c01a`.
+[GitHub regression](https://github.com/Ooonana/Ooonana-OS/actions/runs/38690288149)
+and [GitLab smoke](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2949488589)
+passed. Logo/branding, live-initramfs, GRUB/Rufus (including missing image),
+console, persistence and backend regression fixtures passed locally.
+Signed candidate `4f606d511804c8ecf01f942fafdd3336d10ac37a5ef9d43206ecf8aa9f641973`
+passed package/signature/dependency validation; prior generation unchanged.
+Ooonana WSL core/runtime health checks and verification passed using native
+snapshot `/var/lib/ooonana/candidate-logo-20261015.UZP0DU4p`.
+No models downloaded, no disk relocation, private signing key remains local.
+Full release preflight runs again inside the user's fresh ISO build; the earlier
+standalone preflight checkpoint below is not a claim of a new ISO or physical boot.
+
 ## Shipped changes
 
 - GRUB: removed duplicate title, decorative accent rail/dot and nested footer
