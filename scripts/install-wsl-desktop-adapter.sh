@@ -12,7 +12,7 @@ source_helper="$prefix/usr/bin/start-ooonana-i3"
 [ -x "$source_helper" ] || { echo 'WSL adapter: missing packaged launcher' >&2; exit 1; }
 mkdir -p "$prefix/usr/local/bin"
 work="$(mktemp -d "$prefix/usr/local/bin/.ooonana-wsl-adapter.XXXXXX")"
-trap 'rm -f -- "$work/launcher"; rmdir -- "$work"' EXIT
+trap 'rm -f -- "$work/launcher" "$work/picom"; rmdir -- "$work"' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 # Derive from installed version instead of maintaining a forked launcher.
@@ -34,4 +34,15 @@ awk '
 }
 sh -n "$work/launcher"
 install -m 0755 "$work/launcher" "$prefix/usr/local/bin/start-ooonana-i3"
+# Xephyr/WSLg can lose XDamage regions: Nemo's sidebar/menu remained black
+# until full repaint. Keep this workaround outside packaged/physical defaults.
+compositor="$prefix/usr/local/bin/picom"
+if [ -L "$compositor" ] || { [ -e "$compositor" ] &&
+   ! grep -qx '# Ooonana WSL compositor adapter.' "$compositor"; }; then
+  echo 'WSL compositor: custom local wrapper retained; full-repaint adaptation skipped' >&2
+else
+  printf '%s\n' '#!/bin/sh' '# Ooonana WSL compositor adapter.' \
+    'exec /usr/bin/picom --no-use-damage "$@"' >"$work/picom"
+  install -m 0755 "$work/picom" "$compositor"
+fi
 echo 'WSL desktop adapter installed: /usr/local/bin/start-ooonana-i3'

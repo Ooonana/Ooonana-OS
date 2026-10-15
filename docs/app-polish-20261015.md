@@ -36,6 +36,11 @@ and native GTK behavior. No replacement editor, transparency or UI fork.
 - Actual installed Ooonana WSLg: mouse focus, physical `a`, Backspace and
   selection worked. Geany's real GTK picker opened within
   the display and Escape returned focus to the editor.
+- Installed Files/Nemo exposed a genuine WSLg/Xephyr repaint defect: sidebar
+  and menu stayed black in both Windows capture and native X11 readback.
+  Restarting the owned compositor with `--no-use-damage` restored both.
+  The WSL-local adapter now installs that full-repaint wrapper, preserving any
+  custom local wrapper/symlink. Physical/ISO compositor policy is unchanged.
 
 ![Geany in actual nested Ooonana WSLg](assets/ooonana-geany-polish-20261015.png)
 
@@ -67,3 +72,10 @@ contain them. Refresh the signed local candidate repository and installed WSL
 through native package transactions before a new user-built ISO. Do not resume
 an old completed ISO to apply new runtime inputs. Stable channel stays 0.9.9;
 this branch remains the 0.10.0 candidate. No ISO is constructed by this pass.
+
+Runtime commit `2998ab6` and clarification `74fb79d` passed both
+[GitHub regression](https://github.com/Ooonana/Ooonana-OS/actions/runs/38661006709)
+and [GitLab smoke](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2948877441).
+Installed Ooonana WSL core/runtime reinstallation and individual verification
+passed through signed native package transactions, with rollback checkpoint
+retained. Source snapshot and private key remain outside system payload.

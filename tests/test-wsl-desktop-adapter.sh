@@ -25,9 +25,20 @@ grep -Fq '"$tries" -le 600' "$target"
 grep -Fq 'export GDK_BACKEND=x11 QT_QPA_PLATFORM=xcb' "$target"
 if grep -Fq /usr/bin/start-ooonana-i3 "$target"; then exit 1; fi
 [ "$before" = "$(sha256sum "$work/root/usr/bin/start-ooonana-i3" | cut -d' ' -f1)" ]
+compositor="$work/root/usr/local/bin/picom"
+grep -Fq 'exec /usr/bin/picom --no-use-damage "$@"' "$compositor"
+[ -x "$compositor" ]
+printf '#!/bin/sh\n# custom compositor\nexit 0\n' >"$compositor"
+custom_before="$(sha256sum "$compositor" | cut -d' ' -f1)"
+OOONANA_ROOT="$work/root" sh "$ROOT/scripts/install-wsl-desktop-adapter.sh" >/dev/null 2>&1
+[ "$custom_before" = "$(sha256sum "$compositor" | cut -d' ' -f1)" ]
+rm -- "$compositor"
+ln -s "$target" "$compositor"
+OOONANA_ROOT="$work/root" sh "$ROOT/scripts/install-wsl-desktop-adapter.sh" >/dev/null 2>&1
+[ -L "$compositor" ]
 local_before="$(sha256sum "$target" | cut -d' ' -f1)"
 # An unfamiliar future launcher must not replace the existing working adapter.
 printf '#!/bin/sh\nexit 0\n' >"$work/root/usr/bin/start-ooonana-i3"
 if OOONANA_ROOT="$work/root" sh "$ROOT/scripts/install-wsl-desktop-adapter.sh" >/dev/null 2>&1; then exit 1; fi
 [ "$local_before" = "$(sha256sum "$target" | cut -d' ' -f1)" ]
-printf 'ok wsl-desktop-adapter: OS guard, bounded wait, X11, recursion, original retained\n'
+printf 'ok wsl-desktop-adapter: OS guard, bounded wait, X11, recursion, full repaint, custom wrapper/symlink retained\n'
