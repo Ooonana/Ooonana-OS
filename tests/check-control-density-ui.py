@@ -36,7 +36,7 @@ if args.mode == "source":
     subprocess.run([str(helper), "apply"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
 
 sys.path.insert(0, str(ROOT / "packages/ooonana/usr/lib/ooonana/ui"))
-from common import Gdk, Gtk, apply_theme, button, header
+from common import Gdk, Gtk, apply_theme, button, header, label
 scale = float(os.environ.get("OOONANA_GUI_TEXT_SCALE", "1.25"))
 Gtk.Settings.get_default().set_property("gtk-xft-dpi", int(96 * 1024 * scale))
 if args.mode == "native":
@@ -83,6 +83,45 @@ Gdk.pixbuf_get_from_window(screen, 0, 0, screen.get_width(), screen.get_height()
 (args.output / (args.mode + ".json")).write_text(json.dumps(report, indent=2) + "\n")
 print("CONTROL_DENSITY " + args.mode + " " + json.dumps(report), flush=True)
 window.destroy()
+if args.mode == "native":
+    # Heading refinements must not shrink body copy or defeat user DPI.
+    specimen = Gtk.Window(title="Ooonana typography")
+    specimen.set_default_size(560, 420)
+    header(specimen, "Typography", "Compact headings · unchanged body text")
+    content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+    content.set_border_width(16)
+    specimen.add(content)
+    roles = {}
+    for role, text in (("hero-title", "Ooonana"), ("page-title", "Appearance"),
+                       ("card-title", "Desktop settings"), ("body", "Readable text · 한글 입력")):
+        widget = label(text, None if role == "body" else role)
+        content.pack_start(widget, False, False, 0)
+        roles[role] = widget
+    search = Gtk.SearchEntry()
+    search.set_placeholder_text("Search applications")
+    search.get_style_context().add_class("spotlight-search")
+    content.pack_start(search, False, False, 0)
+    roles["spotlight-search"] = search
+    specimen.show_all()
+    deadline = time.monotonic() + 0.3
+    while time.monotonic() < deadline:
+        while Gtk.events_pending():
+            Gtk.main_iteration_do(False)
+        time.sleep(0.005)
+    expected = {"body": 10, "card-title": 11, "spotlight-search": 12,
+                "page-title": 14, "hero-title": 18}
+    sizes = {}
+    for role, widget in roles.items():
+        size = widget.get_style_context().get_font(Gtk.StateFlags.NORMAL).get_size() / 1024
+        sizes[role] = size
+        if size != expected[role]:
+            failures.append(f"{role} expected {expected[role]}pt, got {size}pt")
+    if Gtk.Settings.get_default().get_property("gtk-xft-dpi") != int(96 * 1024 * scale):
+        failures.append("typography changed accessibility DPI")
+    Gdk.pixbuf_get_from_window(screen, 0, 0, screen.get_width(), screen.get_height()).savev(
+        str(args.output / "typography.png"), "png", [], [])
+    print("TYPOGRAPHY_ROLES " + json.dumps(sizes), flush=True)
+    specimen.destroy()
 if failures:
     print("CONTROL_DENSITY_FINDING oversized/undersized desktop controls: " + ", ".join(failures), flush=True)
     if not args.baseline:

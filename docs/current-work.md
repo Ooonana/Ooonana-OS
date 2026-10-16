@@ -1,5 +1,17 @@
 # Current work - 2026-10-16
 
+## October 16 smaller-heading refinement
+
+Shared native page headings change 16→14pt, hero headings 20→18pt and launcher
+search 14→12pt, with proportional search padding. Body stays 10pt; card titles,
+window controls, user DPI and Korean text remain unchanged. Impeccable's role
+hierarchy, ui-styling's shared tokens and ui-ux-pro-max's consistent type scale
+guide this narrow refinement, not a theme/framework replacement.
+Private actual GTK density/type checks pass dark/light at 100/200%; compact
+Task Manager interaction regression passes both themes. Source patch only:
+signed candidate/installed WSL still use the preceding published checkpoint.
+No ISO built. [Evidence](ui-whole-os-review.md#smaller-heading-refinement).
+
 ## October 16 Task Manager and window interaction follow-up
 
 Task Manager gains compact navigation, bounded/copyable sensor values, filtered

@@ -622,3 +622,24 @@ Supersedes preceding pending-publication note; broader ledger remains active.
   Relaunch desktop/apps for code and bindings. No OpenVINO work/model download,
   sound playback, physical-media changes, disk relocation or ISO construction.
   C: approximately 1.1 GiB free during sync; further heavy QA/builds need space.
+
+## Smaller-heading refinement
+
+- User still finds text oversized. Shared page/hero/search roles now use
+  14/18/12pt instead of 16/20/14pt. Body remains 10pt and card titles 11pt;
+  user DPI, focus rings, control targets, fonts and color identity stay intact.
+  Search padding changes 10×14px to 8×12px to retain proportions.
+- Impeccable typography guidance, ui-styling shared-role consistency and
+  ui-ux-pro-max's verified Typography / Font Size Scale guidance informed this
+  bounded adjustment. No web stack or new font dependency added to GTK.
+- Private `control-density-ui` passes both themes at 100% and 200%, resolving
+  exact role sizes from actual GTK and checking unchanged DPI/control overhead.
+  Actual compact Task Manager interaction regression passes both themes.
+  Final type detector reports no findings. Representative normal/200% captures
+  inspected; large stress text remains intentional accessibility scaling.
+- QA: `/var/tmp/ooonana-typography-20261016.AUwWADL4` in Ubuntu.
+  Existing wireless baseline work stays separate and unfinished. No physical
+  radio action, OpenVINO/model work, sound, disk relocation or ISO construction.
+- Source refinement not yet incorporated into signed candidate or installed
+  Ooonana WSL. Earlier publication record describes the preceding checkpoint,
+  not this patch. Broader coverage ledger remains active.

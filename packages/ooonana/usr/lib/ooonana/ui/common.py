@@ -33,14 +33,14 @@ headerbar .subtitle { color: #b4bdc8; opacity: 1; }
 .window-control { min-width: 16px; min-height: 16px; padding: 3px; margin: 0; border-radius: 99px; }
 .close-control:hover { background: #b83832; color: #ffffff; border-color: #e85b52; }
 .hero { background: #1b1f26; border-bottom: 1px solid #343b46; }
-.hero-title { font-size: 20pt; font-weight: 800; color: #ffb21a; }
+.hero-title { font-size: 18pt; font-weight: 800; color: #ffb21a; }
 .badge { background: #32291a; color: #ffcf77; border: 1px solid #735b33; border-radius: 9px; padding: 4px 10px; }
 .sidebar { background: #171b21; border-right: 1px solid #343b46; }
 .sidebar row { margin: 3px 8px; padding: 10px 14px; border-left: 1px solid transparent; border-radius: 10px; transition: background-color 180ms ease-out; }
 .sidebar row:hover { background: #22272f; }
 .sidebar row:selected { background: #303640; border-left-color: #ffb21a; color: #f5f5f7; }
 .sidebar row:focus, .spotlight-results row:focus { outline: 1px solid #ffb21a; outline-offset: -2px; }
-.page-title { font-size: 16pt; font-weight: 700; color: #f5f5f7; }
+.page-title { font-size: 14pt; font-weight: 700; color: #f5f5f7; }
 .page-subtitle, .muted { color: #b4bdc8; }
 .card { background: #1b1f26; border: 1px solid #343b46; border-radius: 14px; padding: 16px; }
 .card-title { font-size: 11pt; font-weight: 700; color: #f5f5f7; }
@@ -93,7 +93,7 @@ scrollbar slider:hover { background: #ffb21a; }
 separator { background: #343b46; }
 .spotlight { background: #171b21; border: 1px solid #ffb21a; border-radius: 18px; }
 .spotlight-brand { color: #ffb21a; font-size: 11pt; font-weight: 800; }
-.spotlight-search { font-size: 14pt; padding: 10px 14px; border-radius: 12px; }
+.spotlight-search { font-size: 12pt; padding: 8px 12px; border-radius: 12px; }
 .spotlight-results { background: #171b21; }
 .spotlight-results row { padding: 10px 12px; border-top: 1px solid #303640; border-radius: 9px; transition: background-color 180ms ease-out; }
 .spotlight-results row:hover, .spotlight-results row:selected { background: #303640; color: #ffffff; }
