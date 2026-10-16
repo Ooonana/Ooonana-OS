@@ -73,7 +73,9 @@ OpenVINO work is deferred by user until its unfinished major update is ready;
 no OpenVINO runtime changes or model downloads. Native chat checks use fixtures.
 Typography follow-up: native body matches desktop 10pt, headings/search are
 quieter, and wide AI windows no longer auto-enlarge text. User scaling retained;
-large stress-test screenshots are not default size. Signed refresh pending.
+large stress-test screenshots are not default size.
+Typography/native-chat refresh is now signed/published and verified in Ooonana
+WSL; both remotes contain source. Relaunch apps for new text size. No ISO built.
 [Full scope, current evidence and remaining UI work](docs/ui-whole-os-review.md).
 
 October 15 CI follow-up: Alpine smoke environment lacked `findmnt`, required by

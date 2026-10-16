@@ -10,8 +10,10 @@ respected, and action/window-control target dimensions are not blanket-shrunk.
 The earlier large dark screenshot used 200% text as a stress fixture, not default
 configuration. Normal-scale captures and current evidence follow in the ledger.
 All 25 compact native pages pass dark/light, plus both-theme contrast,
-native/generated density, wide AI and targeted 200% text checks. Signed refresh
-pending; no ISO build. [Measurements and screenshot](ui-whole-os-review.md#batch-8-smaller-native-type-no-width-triggered-ai-zoom).
+native/generated density, wide AI and targeted 200% text checks. Source
+`f39e99b` is pushed to both remotes, both CI checks pass, signed candidate and
+Ooonana WSL refresh verified. Relaunch apps for new typography; no ISO build.
+[Measurements and screenshot](ui-whole-os-review.md#batch-8-smaller-native-type-no-width-triggered-ai-zoom).
 
 ## October 16 native chat details; OpenVINO deferred
 
@@ -25,7 +27,7 @@ native attachment picker. Failed/stale/closed provider callbacks stay safe and
 UTF-8 attachments remain editable, never sent automatically. Actual private
 GTK/i3 checks pass dark/light compact/desktop and targeted 125/200% text; existing
 stream/cancel/copy/keyboard regression passes with fixture processes only.
-Source publication pending; existing ISO unchanged. [Evidence and scope](ui-whole-os-review.md#batch-7-generic-native-chat-details-openvino-deferred).
+Published with typography follow-up below; existing ISO unchanged. [Evidence and scope](ui-whole-os-review.md#batch-7-generic-native-chat-details-openvino-deferred).
 
 ## October 16 proportional controls and Settings
 

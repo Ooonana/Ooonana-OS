@@ -504,3 +504,28 @@ product bug. Earlier screenshots/unchanged-type statements are historical to
 their named batch. Signed runtime refresh remains pending.
 
 ![Native chat at normal 100% text, smaller shared typography](assets/ooonana-native-typography-20261016.png)
+
+## Published checkpoint after Batches 7 and 8
+
+Supersedes preceding pending-publication notes, not remaining whole-OS work.
+
+- Source `f39e99bc63ad6f7098ef9bc5ec53d1eea45144c1` pushed to GitHub/GitLab;
+  [GitHub regression](https://github.com/Ooonana/Ooonana-OS/actions/runs/38827783754)
+  and [GitLab smoke](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2953185769)
+  passed. Clean source-only manifest; coherent v3.24 inputs, no models bundled.
+- Signed 654-package/612-dependency-node generation:
+  `a23b66494a11b1381da781f2a666712658b9b9c01efa210c2f3c4a475c570054`.
+  Previous generation checksum manifest remains unchanged. Private key local;
+  stable promotion and enrollment deferred.
+- Ooonana WSL snapshot:
+  `/var/lib/ooonana/candidate-native-chat-20261016.YCqjSPA4`.
+  Pinned keys, signature, all 1302 checksums and exact clean-source revision
+  verified before native core/runtime dry-runs, reinstalls, verification and
+  health hooks. All checkpoints retained; configured file source updated.
+- Installed common/chat/app/i3 hashes match source. Actual GTK imports and both
+  CSS variants parse as UID1000, native typography is 10pt with no wide zoom;
+  unprivileged package search succeeds. WSL-local adapter refreshed, not restarted.
+- Logs: `/var/tmp/ooonana-native-chat-sync-20261016.vSKi62N9` in Ooonana.
+  No OpenVINO integration changes, runtime/model downloads, sound playback,
+  physical disk changes, WSL disk relocation or ISO build. Relaunch apps for
+  updated code/text; broader UI and interactive-session ledger stays active.
