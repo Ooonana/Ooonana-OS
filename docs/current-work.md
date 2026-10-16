@@ -1,5 +1,19 @@
 # Current work - 2026-10-16
 
+## October 16 native chat details; OpenVINO deferred
+
+User defers OpenVINO until its unfinished major update is ready. No integration
+changes, runtime setup/tests or model downloads in this pass. Earlier OpenVINO
+entries below remain historical. Generic native Ooonana AI stays in scope.
+
+Native chat now has proportional controls, compact chats/conversation switching,
+bounded long captions, useful empty search, default-Cancel Delete and bounded
+native attachment picker. Failed/stale/closed provider callbacks stay safe and
+UTF-8 attachments remain editable, never sent automatically. Actual private
+GTK/i3 checks pass dark/light compact/desktop and targeted 125/200% text; existing
+stream/cancel/copy/keyboard regression passes with fixture processes only.
+Source publication pending; existing ISO unchanged. [Evidence and scope](ui-whole-os-review.md#batch-7-generic-native-chat-details-openvino-deferred).
+
 ## October 16 proportional controls and Settings
 
 Source `8cc3b17` fixes oversized desktop controls without reducing type. At

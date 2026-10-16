@@ -6,16 +6,16 @@ import os
 import codecs
 import selectors
 import time
-from common import Gdk, GLib, Gtk, button, label, icon, light_appearance
+from common import Gdk, GLib, Gtk, Pango, button, label, icon, light_appearance
 
 AI_CSS = b"""
 .ai-window { background: #101317; }
 .ai-window headerbar { color: #f5f5f7; background: #1b1f26; }
 .ai-sidebar { background: #171b21; border-right: 1px solid #343b46; }
-.ai-sidebar button { background: transparent; border-color: transparent; padding: 10px 14px; }
+.ai-sidebar button { background: transparent; border-color: transparent; padding: 5px 10px; }
 .ai-sidebar button.suggested-action { background: #ffb21a; color: #101317; }
 .ai-sidebar list { background: transparent; }
-.ai-sidebar row { padding: 10px 12px; margin: 3px 0; border-radius: 10px; border-left: 3px solid transparent; }
+.ai-sidebar row { padding: 6px 8px; margin: 3px 0; border-radius: 10px; border-left: 1px solid transparent; }
 .ai-sidebar row:selected { background: #303640; border-left-color: #ffb21a; }
 .ai-user { background: #272c34; padding: 14px 18px; border-radius: 14px; }
 .ai-assistant { background: #1b1f26; padding: 16px; border: 1px solid #343b46; border-radius: 14px; }
@@ -25,7 +25,7 @@ AI_CSS = b"""
 .ai-code textview, .ai-code textview text { background: #101317; font-family: Monospace; }
 .ai-composer { background: #1b1f26; border: 1px solid #46505c; border-radius: 18px; padding: 8px; }
 .ai-composer textview, .ai-composer textview text { background: #1b1f26; }
-.ai-composer button { min-width: 20px; padding: 10px; border-radius: 12px; }
+.ai-composer button { min-width: 20px; padding: 5px 6px; border-radius: 10px; }
 .ai-utility { padding: 6px 12px; }
 button.ai-model, button.ai-model:hover { background: transparent; border-color: transparent; box-shadow: none; padding: 0; }
 .ai-wide * { font-size: 14.5pt; }
@@ -66,6 +66,10 @@ def message_widget(message):
     outer.set_halign(Gtk.Align.END if user else Gtk.Align.FILL)
     heading = message.get("heading") or ("You" if user else "Ooonana")
     speaker = label(heading, "muted" if user else "ai-heading", wrap=False)
+    speaker.set_ellipsize(Pango.EllipsizeMode.END)
+    speaker.set_max_width_chars(36)
+    speaker.set_tooltip_text(heading)
+    speaker.get_accessible().set_description(heading)
     speaker.get_style_context().add_class("ai-speaker")
     outer.pack_start(speaker, False, False, 0)
     bubble = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
@@ -81,7 +85,12 @@ def message_widget(message):
             block.get_style_context().add_class("ai-code")
             toolbar = Gtk.Box(spacing=8)
             toolbar.get_style_context().add_class("ai-code-header")
-            toolbar.pack_start(label(language or "text", "muted", wrap=False), True, True, 0)
+            language_label = label(language or "text", "muted", wrap=False)
+            language_label.set_ellipsize(Pango.EllipsizeMode.END)
+            language_label.set_max_width_chars(18)
+            language_label.set_tooltip_text(language or "text")
+            language_label.get_accessible().set_description(language or "text")
+            toolbar.pack_start(language_label, True, True, 0)
             copy = button("", "edit-copy-symbolic", lambda _widget, text=code: Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(text, -1))
             copy.set_tooltip_text("Copy code")
             copy.get_accessible().set_name("Copy code")
@@ -111,8 +120,8 @@ def message_widget(message):
 
 def sidebar_button(title, icon_name, callback, primary=False):
     widget = Gtk.Button()
-    row = Gtk.Box(spacing=14)
-    row.pack_start(icon(icon_name, Gtk.IconSize.LARGE_TOOLBAR), False, False, 0)
+    row = Gtk.Box(spacing=8)
+    row.pack_start(icon(icon_name, Gtk.IconSize.BUTTON), False, False, 0)
     row.pack_start(label(title, wrap=False), True, True, 0)
     widget.add(row)
     widget.connect("clicked", callback)

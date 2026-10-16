@@ -5,11 +5,16 @@ This goal remains **active**. A passing catalog is not whole-OS completion.
 Preserve opaque graphite/amber, paper light mode, rounded controls and current
 mascot/cursor identity. Do not build an ISO or play sound during review.
 
+October 16 scope update: user deferred OpenVINO until its major upstream update
+is finished. Do not change/setup/test that integration or download models.
+Generic native Ooonana AI, cloud-provider UI fixtures and other Qt apps remain
+in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
+
 ## Coverage ledger
 
 | Surface / paths | Current evidence | Work still required |
 | --- | --- | --- |
-| Control proportions | Measured shared native/generated GTK heights, content-fit native actions; unchanged type; 100/125/200% scaling | App-specific Qt/AI controls, panel/card/dock content proportions; no blind blanket shrink |
+| Control proportions | Shared native/generated GTK and native chat actions measured; unchanged type; targeted 100/125/200% scaling | Other app-specific Qt controls, panel/card/dock content proportions; no blind blanket shrink |
 | Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; current source inventory | Fresh composited desktop, cursor hotspot/scale, icon consistency and selection states |
 | Panel / music / AI / notifications / tray | Source Polybar/wallpaper/dock at 640×600 and 1280×800; long Wi-Fi/media sample, no overlap/missing glyphs | Real empty/playing/paused media transitions, expanded notification integration and middle widths |
 | Dock | Centered icons, bounded previews/tooltips, compact grouping, 44px targets and unchanged hover focus; follow-up action/keyboard checks below | Edge placement and actual session/display integration |
@@ -24,7 +29,7 @@ mascot/cursor identity. Do not build an ISO or play sound during review.
 | Health / Updates | Readable snapshot, exact raw/copy, honest attention/malformed states; metadata Cancel/approved admin dispatch pass | Actual installed-session service/repository failures and authentication UX |
 | Wi-Fi / Bluetooth signal maps | 658×750 overflow fixed; populated/empty/light/dark native candidate render, bounded labels, full-name tooltips and accessibility checks pass | Real data refresh/focus integration and physical radio/session behavior |
 | Task Manager | Real owned process filter/sort/sample/cancel/SIGTERM/removal pass; both tabs fit; plots follow theme | Crowded values, selection races and actual hardware/GPU graphs |
-| AI / offline setup / model UI | Native fixture chat streaming, composer, search/code copy/cancel and status indicators pass | Real engine transcript/long titles, loading/low RAM/restart/offline dialogs; bundled OpenVINO Qt UI |
+| Native AI / model UI | Generic native chat compact layout, bounded headings, no-match search, draft attachment, safe Delete, status failure/stale/closed callbacks and streaming/copy/cancel fixtures pass | Real cloud-provider session, long-running transcript navigation; OpenVINO GUI/runtime/offline checks deferred by user October 16 |
 | Installer GUI / text wizard | 720×724 form overflow fixed; real themed YAD form fits 640×600 and 1280×800, scrollable fields/visible Cancel + Review; no install executed | Keyboard through all fields, preview/log/blocked UI, text wizard and actual storage summary; no physical install |
 | Shared dialogs / menus / tooltips | Short/unbroken and long diagnostic text fit; secret input labelled/focused, password spaces retained, Cancel verified | Remaining file pickers, menus, escape/return and scaled text |
 | Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Nemo requires WSL/Xvfb full-redraw/redirection adaptation | Qt/Firefox current-source integrated rerun, menu/dialog variants, actual physical compositor and live WSLg |
@@ -436,3 +441,38 @@ Supersedes the preceding source-pending note, not the remaining whole-OS work.
   Ubuntu stays on C:, Ooonana stays at its existing F: location. No sound,
   model download, physical media modification or ISO construction. Relaunch old
   desktop/apps for current code/generated theme; existing ISO remains unchanged.
+
+## Batch 7: generic native chat details; OpenVINO deferred
+
+- Impeccable refinement preserves fonts, opaque Graphite/Paper and amber. UI/UX
+  Pro Max's verified cross-platform Empty States result informs search recovery;
+  GTK has no supported stack result, so actual desktop geometry supplies sizing.
+- Native chat sidebar/composer actions now follow shared control density rather
+  than oversized per-app padding. Compact navigation shows chats/tools separately
+  from the conversation instead of pushing both beyond the screen. Empty-chat
+  spacing/composer height leave useful conversation room.
+- Long speaker/code-language captions ellipsize with full tooltip/accessibility
+  descriptions. Message/code contents stay selectable/copyable and unchanged.
+- Search explains no matches and clearing restores saved chats. Delete defaults
+  to Cancel. Attachment uses bounded native chooser with fixed actions, default
+  Cancel, managed parent lifecycle and UTF-8 text inserted into editable draft;
+  no automatic request submission.
+- Provider/model query failures remain unavailable rather than inventing a
+  successful selection; retry recovers, stale responses cannot overwrite newer
+  status and callbacks ignore closed windows. Offline-specific methods unchanged.
+- Private UID1000 real GTK/i3 fixture passes dark/light at 640×600 and 1280×800;
+  targeted 1024×768 checks pass 125% light and 200% dark. Existing native chat
+  streaming, Enter/Shift+Enter, full code copy, owned-child cancellation and UTF-8
+  split-stream regression passes. All providers/status actions mocked; no engine
+  setup, OpenVINO tests, downloads, user history changes or audio.
+- QA: `batch7-ai-baseline`, `batch7-ai-verified-*`, `batch7-ai-chat-regression`
+  under the existing QA root. Initial fixture cleanup caused a GTK garbage-
+  collection crash after checks; removing redundant toplevel destruction and
+  draining queued GTK events made the process exit cleanly. Failed logs retained.
+
+This source batch awaits signed runtime publication; Batch 6 remains installed
+until a later checkpoint supersedes it. Whole-OS review remains active.
+
+![Compact native chat search with explicit recovery](assets/ooonana-ai-search-20261016.png)
+
+![Bounded native attachment picker, Paper appearance, mocked conversation](assets/ooonana-ai-attachment-20261016.png)

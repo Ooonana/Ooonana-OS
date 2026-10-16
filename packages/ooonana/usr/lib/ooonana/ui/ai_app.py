@@ -16,6 +16,7 @@ from common import (  # noqa: E402
     card,
     command_exists,
     flow_row,
+    fit_dialog,
     header,
     icon,
     label,
@@ -71,6 +72,9 @@ class AiWindow(Gtk.Window):
         self.store = ChatStore(self.transcript_path.with_name("ai-chats.json"))
         self.current = self.store.threads[0] if self.store.threads else self.store.new()
         self.request = None
+        self.is_closed = False
+        self.dialog_open = False
+        self.model_generation = 0
         self.phase_timer = 0
         self.phase_started = None
         self.phase_title = ""
@@ -86,6 +90,7 @@ class AiWindow(Gtk.Window):
         self.headerbar.pack_end(self.sidebar_toggle)
         apply_ai_theme(self)
         root = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        self.root_box = root
         self.add(root)
         sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         self.sidebar_box = sidebar
@@ -96,6 +101,7 @@ class AiWindow(Gtk.Window):
         sidebar.pack_start(self.new_button, False, False, 0)
         self.search = Gtk.SearchEntry()
         self.search.set_placeholder_text("Search chats")
+        self.search.get_accessible().set_name("Search saved chats")
         self.search.connect("search-changed", lambda *_: self.refresh_chats())
         sidebar.pack_start(self.search, False, False, 0)
         sidebar.pack_start(label("Recent", "muted", wrap=False), False, False, 6)
@@ -105,6 +111,9 @@ class AiWindow(Gtk.Window):
         chats_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         chats_scroll.add(self.chat_list)
         sidebar.pack_start(chats_scroll, True, True, 0)
+        self.search_empty = label("No matching chats. Clear search to show all.", "muted")
+        self.search_empty.set_no_show_all(True)
+        sidebar.pack_start(self.search_empty, False, False, 0)
         sidebar.pack_start(Gtk.Separator(), False, False, 0)
         sidebar.pack_start(sidebar_button("Offline setup", "folder-download-symbolic", lambda *_: self.offline_dialog()), False, False, 0)
         sidebar.pack_start(sidebar_button("Tools", "applications-engineering-symbolic", self.tools_menu), False, False, 0)
@@ -115,7 +124,7 @@ class AiWindow(Gtk.Window):
         self.sidebar_revealer.add(sidebar)
         self.sidebar_revealer.set_reveal_child(True)
         root.pack_start(self.sidebar_revealer, False, False, 0)
-        self.sidebar_toggle.connect("toggled", lambda widget: self.sidebar_revealer.set_reveal_child(widget.get_active()))
+        self.sidebar_toggle.connect("toggled", self.toggle_sidebar)
         main = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
         self.main_box = main
         main.set_border_width(22)
@@ -142,7 +151,7 @@ class AiWindow(Gtk.Window):
         model_button.set_tooltip_text("Choose model. Offline model loading happens in Offline setup.")
         model_button.connect("clicked", self.choose_model)
         provider_box.pack_start(model_button, False, False, 0)
-        provider_row.pack_start(provider_box, False, False, 0)
+        provider_row.pack_start(provider_box, True, True, 0)
         self.activity = Gtk.Spinner()
         provider_row.pack_end(self.activity, False, False, 0)
         indicators = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
@@ -187,8 +196,8 @@ class AiWindow(Gtk.Window):
         self.composer.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
         self.composer.set_left_margin(10)
         self.composer.set_right_margin(10)
-        self.composer.set_top_margin(14)
-        self.composer.set_bottom_margin(14)
+        self.composer.set_top_margin(10)
+        self.composer.set_bottom_margin(10)
         self.composer.get_accessible().set_name("Message Ooonana")
         self.composer.connect("key-press-event", self.composer_key)
         composer_scroll = Gtk.ScrolledWindow()
@@ -202,7 +211,7 @@ class AiWindow(Gtk.Window):
         self.composer_placeholder.set_halign(Gtk.Align.START)
         self.composer_placeholder.set_valign(Gtk.Align.START)
         self.composer_placeholder.set_margin_left(10)
-        self.composer_placeholder.set_margin_top(14)
+        self.composer_placeholder.set_margin_top(10)
         composer_overlay.add_overlay(self.composer_placeholder)
         composer_overlay.set_overlay_pass_through(self.composer_placeholder, True)
         self.composer.get_buffer().connect("changed", lambda buffer: self.composer_placeholder.set_visible(buffer.get_char_count() == 0))
@@ -220,6 +229,8 @@ class AiWindow(Gtk.Window):
         self.wide = None
         self.layout_mode = None
         self.connect("size-allocate", self.resized)
+        self.main_box.show_all()
+        self.main_box.set_no_show_all(True)
         self.resized(self, self.get_default_size())
         self.load_transcript()
         self.refresh_model()
@@ -247,7 +258,7 @@ class AiWindow(Gtk.Window):
             self.messages.remove(child)
         if not self.current["messages"]:
             empty = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-            empty.set_margin_top(110)
+            empty.set_margin_top(24)
             empty.pack_start(label("Message Ooonana", "page-title", wrap=False), False, False, 0)
             empty.pack_start(label("Choose provider and model, then start chatting.", "muted"), False, False, 0)
             self.messages.pack_start(empty, False, False, 0)
@@ -267,6 +278,8 @@ class AiWindow(Gtk.Window):
             GLib.timeout_add(transition_ms() + 20, self.scroll_bottom)
 
     def scroll_bottom(self):
+        if self.is_closed:
+            return False
         adjustment = self.message_scroll.get_vadjustment()
         adjustment.set_value(max(0, adjustment.get_upper() - adjustment.get_page_size()))
         return False
@@ -290,26 +303,37 @@ class AiWindow(Gtk.Window):
             if thread is self.current:
                 self.chat_list.select_row(row)
         self.chat_list.show_all()
+        self.search_empty.set_visible(bool(search) and not self.chat_list.get_children())
         self.chat_list.handler_unblock_by_func(self.select_chat)
 
     def select_chat(self, _list, row):
         if row:
             self.current = row.thread
             self.render_messages()
+            if self.layout_mode == "compact":
+                self.sidebar_toggle.set_active(False)
 
     def new_chat(self):
         self.current = self.store.new()
         self.refresh_chats()
         self.render_messages()
+        if self.layout_mode == "compact":
+            self.sidebar_toggle.set_active(False)
         self.composer.grab_focus()
 
     def delete_chat(self, *_args):
-        if self.request:
+        if self.request or self.is_closed or self.dialog_open:
             return
+        self.dialog_open = True
         dialog = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.QUESTION, buttons=Gtk.ButtonsType.OK_CANCEL, text="Delete current chat?")
-        accepted = dialog.run() == Gtk.ResponseType.OK
-        dialog.destroy()
-        if accepted:
+        dialog.set_destroy_with_parent(True)
+        dialog.set_default_response(Gtk.ResponseType.CANCEL)
+        try:
+            accepted = dialog.run() == Gtk.ResponseType.OK
+        finally:
+            dialog.destroy()
+            self.dialog_open = False
+        if accepted and not self.is_closed:
             self.store.threads.remove(self.current)
             self.current = self.store.threads[0] if self.store.threads else self.store.new()
             self.store.save()
@@ -324,6 +348,7 @@ class AiWindow(Gtk.Window):
         return False
 
     def closed(self, *_args):
+        self.is_closed = True
         if self.phase_timer:
             GLib.source_remove(self.phase_timer)
             self.phase_timer = 0
@@ -385,16 +410,27 @@ class AiWindow(Gtk.Window):
         self.sidebar_toggle.set_visible(compact)
         self.sidebar_toggle.set_active(not compact)
         self.sidebar_revealer.set_reveal_child(not compact)
+        self.root_box.set_child_packing(self.sidebar_revealer, compact, True, 0, Gtk.PackType.START)
+        self.toggle_sidebar(self.sidebar_toggle)
         style = self.get_style_context()
         (style.add_class if wide else style.remove_class)("ai-wide")
         self.sidebar_box.set_size_request(336 if wide else 228, -1)
         self.sidebar_box.set_border_width(22 if wide else 16)
         self.main_box.set_border_width(0)
-        self.main_box.set_margin_left(32 if wide else 22)
-        self.main_box.set_margin_right(32 if wide else 22)
+        self.main_box.set_margin_left(32 if wide else 12 if compact else 22)
+        self.main_box.set_margin_right(32 if wide else 12 if compact else 22)
         self.main_box.set_margin_top(16)
         self.main_box.set_margin_bottom(22)
-        self.composer_scroll.set_size_request(-1, 90 if wide else 76)
+        self.composer_scroll.set_size_request(-1, 72 if wide else 56)
+
+    def toggle_sidebar(self, widget):
+        opened = widget.get_active()
+        compact = self.layout_mode == "compact"
+        self.sidebar_revealer.set_reveal_child(opened)
+        self.main_box.set_visible(not (compact and opened))
+        title = "Back to conversation" if compact and opened else "Show chats and tools"
+        widget.set_tooltip_text(title)
+        widget.get_accessible().set_name(title)
 
     def tools_menu(self, widget):
         menu = Gtk.Menu()
@@ -413,10 +449,35 @@ class AiWindow(Gtk.Window):
             self.run_action("Model", ["model", "set", model])
 
     def attach_text(self, *_args):
-        chooser = Gtk.FileChooserDialog(title="Attach text file", transient_for=self, action=Gtk.FileChooserAction.OPEN)
-        chooser.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Insert text", Gtk.ResponseType.OK)
-        if chooser.run() == Gtk.ResponseType.OK:
-            path = Path(chooser.get_filename())
+        if self.is_closed or self.dialog_open:
+            return
+        self.dialog_open = True
+        dialog = Gtk.Dialog(title="Attach text file", transient_for=self, modal=True)
+        dialog.set_destroy_with_parent(True)
+        header(dialog, "Attach text file", "", "mail-attachment-symbolic")
+        fit_dialog(dialog, 780, 540)
+        dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Insert text", Gtk.ResponseType.OK)
+        dialog.set_default_response(Gtk.ResponseType.CANCEL)
+        chooser = Gtk.FileChooserWidget(action=Gtk.FileChooserAction.OPEN)
+        chooser.set_local_only(True)
+        chooser.get_accessible().set_name("Text attachment")
+        insert = dialog.get_widget_for_response(Gtk.ResponseType.OK)
+        insert.set_sensitive(False)
+        chooser.connect("selection-changed", lambda *_: insert.set_sensitive(bool(chooser.get_filename())))
+        chooser.connect("file-activated", lambda *_: dialog.response(Gtk.ResponseType.OK))
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_overlay_scrolling(False)
+        scroll.add(chooser)
+        dialog.get_content_area().pack_start(scroll, True, True, 0)
+        dialog.show_all()
+        try:
+            selected = chooser.get_filename() if dialog.run() == Gtk.ResponseType.OK else None
+        finally:
+            dialog.destroy()
+            self.dialog_open = False
+        if selected and not self.is_closed:
+            path = Path(selected)
             try:
                 if path.stat().st_size > 32000:
                     raise ValueError("Text attachment limited to 32 KB.")
@@ -427,18 +488,29 @@ class AiWindow(Gtk.Window):
                 buffer.insert_at_cursor(f"\nFile: {path.name}\n```text\n{content}\n```\n")
             except (OSError, UnicodeError, ValueError) as error:
                 self.append("Attachment", str(error), self.meta_tag)
-        chooser.destroy()
 
     def refresh_model(self):
+        if self.is_closed:
+            return
+        self.model_generation += 1
+        generation = self.model_generation
         self.provider_label.set_text("provider: checking...")
         self.model_label.set_text("model: checking...")
 
         def task():
-            _provider_rc, provider = run(["ooonana-ai", "provider"], timeout=5)
-            _model_rc, model = run(["ooonana-ai", "model"], timeout=5)
-            return 0, (provider, model)
+            provider_rc, provider = run(["ooonana-ai", "provider"], timeout=5)
+            model_rc, model = run(["ooonana-ai", "model"], timeout=5)
+            return (provider_rc or model_rc), (provider, model)
 
-        def done(_rc, values):
+        def done(rc, values):
+            if self.is_closed or generation != self.model_generation:
+                return
+            if rc or not isinstance(values, tuple) or len(values) != 2:
+                self.provider_label.set_text("Provider unavailable")
+                self.model_label.set_text("Model unavailable")
+                detail = "\n".join(str(value) for value in values) if isinstance(values, tuple) else str(values)
+                self.model_label.set_tooltip_text(detail + "\nOpen Status or Settings to check provider, then retry.")
+                return
             provider, model = values
             active = status_field(provider, "active", "nim")
             provider_name = status_field(provider, "label", active.upper())
@@ -460,6 +532,8 @@ class AiWindow(Gtk.Window):
             return
 
         def done(rc, output):
+            if self.is_closed:
+                return
             self.append(
                 "Provider",
                 output or (f"Using {provider}." if rc == 0 else "Provider change failed."),
@@ -537,6 +611,8 @@ class AiWindow(Gtk.Window):
         self.set_phase(title)
 
         def done(rc, output):
+            if self.is_closed:
+                return
             self.set_phase()
             self.append(
                 title,

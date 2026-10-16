@@ -67,6 +67,10 @@ Settings gains compact page navigation, visible keyboard focus, bounded native
 picker/log dialogs and stronger failure/duplicate handling. This batch is now in
 the signed local candidate and Ooonana WSL; close older desktop/apps and relaunch
 for current code/theme. Existing ISO is unchanged; broader UI review continues.
+Latest source: native chat gains proportional controls, compact navigation,
+bounded captions/attachment picker, empty search and safe status callbacks.
+OpenVINO work is deferred by user until its unfinished major update is ready;
+no OpenVINO runtime changes or model downloads. Native chat checks use fixtures.
 [Full scope, current evidence and remaining UI work](docs/ui-whole-os-review.md).
 
 October 15 CI follow-up: Alpine smoke environment lacked `findmnt`, required by
