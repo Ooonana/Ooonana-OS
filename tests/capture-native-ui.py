@@ -43,7 +43,7 @@ def sample_backend(module, app):
     """Block every external action; representative state only, never hardware QA."""
     def sample(command, **_kwargs):
         if command == ["ooonana-ai", "provider"]:
-            return 0, "active: openvino\nlabel: Offline Intel\nkey: not required"
+            return 0, "active: nim\nlabel: Fixture NVIDIA NIM\nkey: configured"
         if command == ["ooonana-ai", "model"]:
             return 0, "active: Choose model"
         if command == ["dunstctl", "is-paused"]:

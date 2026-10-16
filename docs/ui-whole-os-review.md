@@ -476,3 +476,31 @@ until a later checkpoint supersedes it. Whole-OS review remains active.
 ![Compact native chat search with explicit recovery](assets/ooonana-ai-search-20261016.png)
 
 ![Bounded native attachment picker, Paper appearance, mocked conversation](assets/ooonana-ai-attachment-20261016.png)
+
+## Batch 8: smaller native type, no width-triggered AI zoom
+
+User requests smaller text after Batch 7. Large 200% stress screenshots are not
+default configuration. A separate actual wide-window baseline also confirms an
+unwanted 14.5pt automatic AI enlargement; that rule is removed, not replaced
+with forced DPI or disabled accessibility scaling.
+
+- Native body 10.5→10pt, matching generated desktop GTK; page headings 19→16pt,
+  card headings 12→11pt, hero 24→20pt, launcher search 16→14pt. Control targets,
+  user text scaling, font family, palette and native roles stay intact.
+- Impeccable preserves incumbent identity. UI/UX Pro Max's Typography / Font
+  Size Scale result supports coherent hierarchy; its mobile 16px floor does not
+  apply to native desktop. ui-styling contributes hierarchy/shared-token
+  principles only: GTK is not shadcn/Tailwind, no web stack or dependency added.
+- Generic catalog fixtures now select mocked NIM rather than OpenVINO. No
+  offline integration/runtime/model tests resumed.
+
+Confirmation passes all 25 native pages at 640×600 in both appearances, resolved
+text/surface contrast in both, native/generated 10pt control proportions, wide
+AI at 1600×900 and compact AI at 640×600. Targeted AI/control checks still pass
+200% user text scale. QA directories `batch8-type-before-wide` and
+`batch8-confirm-*` retain measurements, captures and logs. The baseline resize
+needed fixture-only recentering; off-screen baseline geometry is not a claimed
+product bug. Earlier screenshots/unchanged-type statements are historical to
+their named batch. Signed runtime refresh remains pending.
+
+![Native chat at normal 100% text, smaller shared typography](assets/ooonana-native-typography-20261016.png)

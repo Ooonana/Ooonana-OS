@@ -71,6 +71,9 @@ Latest source: native chat gains proportional controls, compact navigation,
 bounded captions/attachment picker, empty search and safe status callbacks.
 OpenVINO work is deferred by user until its unfinished major update is ready;
 no OpenVINO runtime changes or model downloads. Native chat checks use fixtures.
+Typography follow-up: native body matches desktop 10pt, headings/search are
+quieter, and wide AI windows no longer auto-enlarge text. User scaling retained;
+large stress-test screenshots are not default size. Signed refresh pending.
 [Full scope, current evidence and remaining UI work](docs/ui-whole-os-review.md).
 
 October 15 CI follow-up: Alpine smoke environment lacked `findmnt`, required by

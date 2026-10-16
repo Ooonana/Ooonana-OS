@@ -83,7 +83,14 @@ with tempfile.TemporaryDirectory(prefix="ooonana-ai-details-") as temporary:
         task, done = jobs.pop()
         done(*task())
         window.show_all()
+        if Gdk.get_default_root_window().get_width() >= 1500:
+            window.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
+            window.resize(1450, 760)
         capture(window, "ai-empty")
+        font = window.composer.get_style_context().get_font(Gtk.StateFlags.NORMAL)
+        point_size = font.get_size() / 1024
+        print("AI_TYPOGRAPHY points=" + str(point_size) + " mode=" + str(window.layout_mode), flush=True)
+        check(point_size == 10, "Chat text differs from desktop 10pt or auto-enlarges on wide windows")
         text_height = window.send_button.create_pango_layout("Send").get_pixel_size()[1]
         check(window.send_button.get_allocated_height() <= max(36, text_height + 18), "Composer action oversized relative to text")
         check(window.message_scroll.get_allocated_height() >= 130, "Compact chat leaves too little conversation room")

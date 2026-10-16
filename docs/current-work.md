@@ -1,5 +1,18 @@
 # Current work - 2026-10-16
 
+## October 16 typography follow-up
+
+User requests smaller text. Default native body now matches desktop GTK at 10pt
+(previously 10.5pt); page/card/hero headings are 16/11/20pt instead of 19/12/24pt.
+Launcher search is 14pt instead of 16pt. AI no longer silently raises body text
+to 14.5pt or titlebar text to 13pt on wide windows. User DPI/text scaling stays
+respected, and action/window-control target dimensions are not blanket-shrunk.
+The earlier large dark screenshot used 200% text as a stress fixture, not default
+configuration. Normal-scale captures and current evidence follow in the ledger.
+All 25 compact native pages pass dark/light, plus both-theme contrast,
+native/generated density, wide AI and targeted 200% text checks. Signed refresh
+pending; no ISO build. [Measurements and screenshot](ui-whole-os-review.md#batch-8-smaller-native-type-no-width-triggered-ai-zoom).
+
 ## October 16 native chat details; OpenVINO deferred
 
 User defers OpenVINO until its unfinished major update is ready. No integration

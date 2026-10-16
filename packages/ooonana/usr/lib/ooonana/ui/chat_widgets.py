@@ -28,11 +28,6 @@ AI_CSS = b"""
 .ai-composer button { min-width: 20px; padding: 5px 6px; border-radius: 10px; }
 .ai-utility { padding: 6px 12px; }
 button.ai-model, button.ai-model:hover { background: transparent; border-color: transparent; box-shadow: none; padding: 0; }
-.ai-wide * { font-size: 14.5pt; }
-.ai-wide headerbar * { font-size: 13pt; }
-.ai-wide .ai-heading { font-size: 11.5pt; }
-.ai-wide .ai-speaker { font-size: 11.5pt; }
-.ai-wide .ai-hint { font-size: 10.5pt; }
 .ai-wide .ai-composer { border-radius: 22px; }
 .ai-wide .ai-sidebar button { border-radius: 14px; }
 """

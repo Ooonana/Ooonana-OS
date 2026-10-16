@@ -70,6 +70,8 @@ for name, widget in widgets.items():
     height = widget.get_allocated_height()
     report[name] = dict(height=height, text_height=text_height, overhead=height-text_height,
                         font=widget.get_style_context().get_font(Gtk.StateFlags.NORMAL).to_string())
+    if widget.get_style_context().get_font(Gtk.StateFlags.NORMAL).get_size() != 10 * 1024:
+        failures.append(name + " typography differs from desktop 10pt")
     if height < max(28, text_height + 8) or height > max(36, text_height + 18):
         failures.append(name)
 button_text_width = action.create_pango_layout(action.get_label()).get_pixel_size()[0]
@@ -86,4 +88,4 @@ if failures:
     if not args.baseline:
         raise SystemExit(1)
 else:
-    print("CONTROL_DENSITY_UI_OK " + args.mode + "; text unchanged; bounded control overhead", flush=True)
+    print("CONTROL_DENSITY_UI_OK " + args.mode + "; desktop 10pt; bounded control overhead", flush=True)
