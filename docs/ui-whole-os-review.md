@@ -14,7 +14,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 
 | Surface / paths | Current evidence | Work still required |
 | --- | --- | --- |
-| Control proportions | Shared native/generated GTK and native chat actions measured; unchanged type; targeted 100/125/200% scaling | Other app-specific Qt controls, panel/card/dock content proportions; no blind blanket shrink |
+| Control proportions | Shared/native GTK 10pt typography and chat actions measured; targeted 100/125/200% scaling; Task Manager headers/values follow text metrics | Other app-specific Qt controls, panel/card/dock content proportions; no blind blanket shrink |
 | Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; current source inventory | Fresh composited desktop, cursor hotspot/scale, icon consistency and selection states |
 | Panel / music / AI / notifications / tray | Source Polybar/wallpaper/dock at 640×600 and 1280×800; long Wi-Fi/media sample, no overlap/missing glyphs | Real empty/playing/paused media transitions, expanded notification integration and middle widths |
 | Dock | Centered icons, bounded previews/tooltips, compact grouping, 44px targets and unchanged hover focus; follow-up action/keyboard checks below | Edge placement and actual session/display integration |
@@ -28,12 +28,12 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Packages | Default-Cancel install/remove/upgrade preview; failed/empty plans cannot apply; mutating close guard and parent-dialog lifecycle pass | Actual privileged transaction/authentication UX on disposable installation |
 | Health / Updates | Readable snapshot, exact raw/copy, honest attention/malformed states; metadata Cancel/approved admin dispatch pass | Actual installed-session service/repository failures and authentication UX |
 | Wi-Fi / Bluetooth signal maps | 658×750 overflow fixed; populated/empty/light/dark native candidate render, bounded labels, full-name tooltips and accessibility checks pass | Real data refresh/focus integration and physical radio/session behavior |
-| Task Manager | Real owned process filter/sort/sample/cancel/SIGTERM/removal pass; both tabs fit; plots follow theme | Crowded values, selection races and actual hardware/GPU graphs |
+| Task Manager | Real owned process termination regression; crowded metrics, compact navigation, keyboard/copy, filter counts, stable refresh/selection, PID reuse and parent-close confirmation checked; unavailable counters never show stale graphs | Actual hardware/GPU readings, large real /proc sampling latency and installed-session shortcut launch |
 | Native AI / model UI | Generic native chat compact layout, bounded headings, no-match search, draft attachment, safe Delete, status failure/stale/closed callbacks and streaming/copy/cancel fixtures pass | Real cloud-provider session, long-running transcript navigation; OpenVINO GUI/runtime/offline checks deferred by user October 16 |
 | Installer GUI / text wizard | 720×724 form overflow fixed; real themed YAD form fits 640×600 and 1280×800, scrollable fields/visible Cancel + Review; no install executed | Keyboard through all fields, preview/log/blocked UI, text wizard and actual storage summary; no physical install |
 | Shared dialogs / menus / tooltips | Short/unbroken and long diagnostic text fit; secret input labelled/focused, password spaces retained, Cancel verified | Remaining file pickers, menus, escape/return and scaled text |
 | Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Nemo requires WSL/Xvfb full-redraw/redirection adaptation | Qt/Firefox current-source integrated rerun, menu/dialog variants, actual physical compositor and live WSLg |
-| Window manager | Native minimize/fullscreen/close and native/third-party transient decoration checks pass | Drag/resize, tiling/tabs, workspaces, focus/session/display transitions |
+| Window manager | Native/XTerm modifier drag/resize, all number/move workspace keys, cycling, click focus, tile/tab/stack, resize mode, fullscreen, exact-session restore and unfocused close pass in private compositor | Real WSLg/physical compositor, multi-display and complete session lifecycle transitions |
 | GRUB: live / audio submenu | Most recent mascot patch has 640×480 and 1280×800 real EFI captures | Compare current output; installed/minimal boot menus remain separate review targets |
 | Boot / shutdown / reboot / persistent setup | Most recent wordmark/prompt source and PTY captures | Error/serial/reduced motion, install paths and real framebuffer handoff; physical USB tests separate |
 | Bootable PDF UI | Previous source/VM fixtures; browser viewer requires manual check | Viewer rendering, keyboard/Backspace, focus, responsive controls and perceived command delay |
@@ -529,3 +529,71 @@ Supersedes preceding pending-publication notes, not remaining whole-OS work.
   No OpenVINO integration changes, runtime/model downloads, sound playback,
   physical disk changes, WSL disk relocation or ISO build. Relaunch apps for
   updated code/text; broader UI and interactive-session ledger stays active.
+
+## Batch 9: Task Manager detail and lifecycle checks
+
+- Compact page picker replaces sidebar; keyboard Home/End tested. Performance
+  changes to one column where needed. Sensor/status values stay within three
+  lines, selectable with full tooltip/accessibility text. Native 10pt retained.
+- Name/user/command columns ellipsize instead of swallowing numeric columns;
+  default widths use actual text metrics so 200% headers/PIDs/RAM stay readable.
+  Compact row tooltips summarize identity; actual Ctrl+C provides full
+  identity/command access without a screen-filling popup. Keyboard tooltips are
+  display-bounded at normal/200% text, with full accessibility descriptions.
+- Search states show matching/total counts and actionable no-match text. Row
+  updates are incremental, preserving selected PID/start-time and scroll. Reused
+  identities clear selection; owner changes recalculate permission feedback.
+- End task defaults to Cancel, blocks duplicate/refresh re-enabling, retains the
+  originally confirmed identity and closes with parent. Native process-control
+  backend still revalidates identity; no broader termination authority added.
+- Missing CPU/RAM/disk/storage counters have honest unavailable states. No valid
+  disk device no longer reports measured zero. Missing samples clear old graphs
+  and hide meaningless percentage bars; recovery begins fresh samples.
+- Private GTK/i3 checks pass dark/light compact/desktop and targeted 200% text.
+  Actual keyboard navigation/clipboard, cancel/reused identity/parent close,
+  stable scroll, ownership-change refusal and measured numeric widths tested
+  with mocked sensors/processes. Initial raw multiline tooltip overflow was
+  caught by actual keyboard invocation, replaced with a compact summary and
+  retested in `batch9-task-tooltip-final-*`.
+  Existing owned-child SIGTERM/removal and shared chart regression pass; separate
+  identity-bound process-control/IPC test passes. No real hardware stress.
+- QA `batch9-task-before`, `batch9-task-confirm-*`, `batch9-task-keyboard-*` and
+  `batch9-task-regression-*` under existing root. Baseline parent destruction
+  stranded confirmation until timeout; later keyboard test needed its own window
+  mapped before sending keys. Failed evidence retained, not counted as passes.
+
+![Compact Task Manager with bounded sensor values, mocked data](assets/ooonana-task-compact-20261016.png)
+
+![Compact task table with bounded names and numeric columns](assets/ooonana-task-details-20261016.png)
+
+## Batch 10: real window interaction paths
+
+- All 20 workspace select/move keys were absent. Source now provides Super+1…9/0
+  and Super+Shift+1…9/0 (0 means workspace 10), plus Super+Ctrl+Left/Right cycling.
+- Real pointer test found a separate production bug: bare `move` / `resize`
+  mouse commands overrode native handling and raised i3 error bars. Removed
+  invalid overrides; existing `floating_modifier $mod` supplies the intended
+  [native drag/resize behavior](https://i3wm.org/docs/userguide.html#floating_modifier).
+  Branding regression previously required the bad lines; now rejects them and
+  checks all workspace bindings instead. Configuration parsing alone missed this.
+- Private UID1000 i3/XRender checks pass both themes: every number/move key,
+  cycling, actual native/XTerm modifier pointer drag/resize, hover without focus
+  theft, tile/tab/stack and keyboard resize-mode exit, fullscreen/restore, hidden
+  client fullscreen, exact original client restore with two minimized sessions,
+  unfocused overlay close and Alt+F4. Overlay targets follow visible tabs,
+  workspaces and final geometry; no detached fullscreen controls or i3 errors.
+- Native window-controls regression also passes. Test-only XRender full-redraw
+  policy handles WSL/Xvfb; not physical GPU/animation-performance certification.
+  XTerms here are interaction fixtures, not evidence of application color/profile
+  consistency. No real user session, disk, radio or audio action.
+- QA `batch10-workspace-before`, `batch10-workspace-confirm-*`,
+  `batch10-workspace-final-*`, `batch10-native-and-thirdparty-*` and
+  `batch10-window-controls-regression`. Pointer fixture timing and nonexistent
+  i3 `pid` field corrected before final confirmation. Baseline/red-bar evidence
+  remains; successful runs reject i3 command-error messages explicitly.
+
+![Owned native/XTerm drag-resize interaction fixture, no error bar](assets/ooonana-window-interactions-20261016.png)
+
+These source batches await signed publication. Previous Batches 7/8 remain the
+installed checkpoint until a publication record supersedes it. Broader review
+stays active; physical/WSLg/displays/boot/PDF and other ledger gaps remain.

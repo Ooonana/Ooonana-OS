@@ -79,8 +79,16 @@ assert_not_contains "$desktop_wallpaper" 'opacity='
 assert_contains "$config" '# i3 config file (v4)'
 assert_contains "$config" 'set $mod Mod4'
 assert_contains "$config" 'bindsym $mod+Return exec ooonana-theme-env xterm'
-assert_contains "$config" 'bindsym --whole-window $mod+button1 move'
-assert_contains "$config" 'bindsym --whole-window $mod+button3 resize'
+assert_contains "$config" 'floating_modifier $mod'
+assert_not_contains "$config" 'bindsym --whole-window $mod+button1 move'
+assert_not_contains "$config" 'bindsym --whole-window $mod+button3 resize'
+for workspace in {1..10}; do
+  key="$((workspace % 10))"
+  assert_contains "$config" "bindsym \$mod+$key workspace number $workspace"
+  assert_contains "$config" "bindsym \$mod+Shift+$key move container to workspace number $workspace"
+done
+assert_contains "$config" 'bindsym $mod+Control+Left workspace prev'
+assert_contains "$config" 'bindsym $mod+Control+Right workspace next'
 assert_contains "$config" 'exec_always --no-startup-id ooonana-panel-start'
 panel_start="$(<"$ROOT/packages/ooonana/usr/bin/ooonana-panel-start")"
 assert_contains "$panel_start" 'exec python3 /usr/lib/ooonana/panel_session.py'

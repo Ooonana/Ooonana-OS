@@ -1,5 +1,21 @@
 # Current work - 2026-10-16
 
+## October 16 Task Manager and window interaction follow-up
+
+Task Manager gains compact navigation, bounded/copyable sensor values, filtered
+counts, full-detail row tooltips/Ctrl+C, text-aware numeric widths and stable
+row/scroll refresh. Missing counters clear stale graphs. End task defaults to
+Cancel, retains confirmed identity and closes with parent. Actual private
+GTK/i3 checks include 200% text and owned-process termination regression.
+
+Window review found missing workspace keys and invalid bare move/resize mouse
+commands. All number/select/move/cycle keys added; broken overrides removed.
+Both-theme real native/XTerm pointer, tiling/tab/stack, focus, fullscreen,
+exact-session restore and close checks pass with private compositor, without
+i3 command-error bars. Branding test corrected rather than preserving bad code.
+Signed publication pending; no ISO build. C: free space fell to 1.1 GiB, so no
+more heavy QA/build work this pass. [Evidence and limits](ui-whole-os-review.md#batch-9-task-manager-detail-and-lifecycle-checks).
+
 ## October 16 typography follow-up
 
 User requests smaller text. Default native body now matches desktop GTK at 10pt

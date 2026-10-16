@@ -76,6 +76,10 @@ quieter, and wide AI windows no longer auto-enlarge text. User scaling retained;
 large stress-test screenshots are not default size.
 Typography/native-chat refresh is now signed/published and verified in Ooonana
 WSL; both remotes contain source. Relaunch apps for new text size. No ISO built.
+Latest source follow-up improves Task Manager compact views, copyable diagnostics,
+stable selection/scroll and safe End task confirmation. Real window interaction
+checks caught/fixed missing workspace keys and broken modifier drag/resize;
+private native/XTerm tests pass both themes. Signed refresh pending.
 [Full scope, current evidence and remaining UI work](docs/ui-whole-os-review.md).
 
 October 15 CI follow-up: Alpine smoke environment lacked `findmnt`, required by
@@ -438,6 +442,15 @@ wsl.exe -d Ooonana -- /usr/bin/start-ooonana-i3 --nested
 ```
 
 WSLg shows the full i3 desktop inside a Xephyr window. `--nested` needs `xorg-server-xephyr` and uses a private X socket namespace because WSLg mounts its socket directory read-only. Normal launch starts Ooonana audio services; `OOONANA_NO_AUDIO=1` is only a test override. Close i3 with Super+Shift+E or its window close button.
+
+Desktop workspace/window shortcuts:
+
+- `Super+1…9/0`: select workspace 1…9/10; add `Shift` to move selected window.
+- `Super+Ctrl+Left/Right`: previous/next workspace.
+- `Super+left-drag/right-drag`: move/resize floating window using native i3 handling.
+- `Super+Shift+Space`: floating/tiling; `Super+W/S/E`: tabbed/stacked/split.
+- `Super+R`: keyboard resize mode; `Escape` exits. `Super+F`: fullscreen/restore.
+- `Super+M`: minimize; dock actions restore specific sessions. `Alt+F4`: close.
 
 Current local WSL installation uses an independently installed adapter for cold
 F: reads (60-second bounded Xephyr wait, nested X11/XCB). Packaged launcher and

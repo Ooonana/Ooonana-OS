@@ -14,7 +14,7 @@ case "$geometry" in
   *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
 esac
 case "$only" in
-  all|ai-details-ui|control-density-ui|settings-details-ui|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|window-controls-runtime|dock-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
+  all|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|window-controls-runtime|dock-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -214,6 +214,8 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   probe settings-power-ui python3 /source/tests/check-settings-power-ui.py
   probe settings-details-ui python3 /source/tests/check-settings-details-ui.py /qa/settings-details
   probe ai-details-ui python3 /source/tests/check-ai-details-ui.py /qa/ai-details
+  probe task-details-ui python3 /source/tests/check-task-details-ui.py /qa/task-details
+  probe workspace-ui python3 /source/tests/check-workspace-ui.py /qa/workspaces
   probe control-density-ui python3 /source/tests/check-control-density-ui.py /qa/density
   probe notifications-runtime python3 /source/tests/check-notifications-runtime.py --output /qa/notifications.png
   probe window-controls-runtime python3 /source/tests/check-window-controls-runtime.py --own-i3
