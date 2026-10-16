@@ -79,7 +79,8 @@ WSL; both remotes contain source. Relaunch apps for new text size. No ISO built.
 Latest source follow-up improves Task Manager compact views, copyable diagnostics,
 stable selection/scroll and safe End task confirmation. Real window interaction
 checks caught/fixed missing workspace keys and broken modifier drag/resize;
-private native/XTerm tests pass both themes. Signed refresh pending.
+private native/XTerm tests pass both themes. This refresh is signed/published and
+verified in Ooonana WSL; relaunch desktop/apps. Existing ISO remains unchanged.
 [Full scope, current evidence and remaining UI work](docs/ui-whole-os-review.md).
 
 October 15 CI follow-up: Alpine smoke environment lacked `findmnt`, required by

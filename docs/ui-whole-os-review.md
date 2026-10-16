@@ -597,3 +597,28 @@ Supersedes preceding pending-publication notes, not remaining whole-OS work.
 These source batches await signed publication. Previous Batches 7/8 remain the
 installed checkpoint until a publication record supersedes it. Broader review
 stays active; physical/WSLg/displays/boot/PDF and other ledger gaps remain.
+
+## Published checkpoint after Batches 9 and 10
+
+Supersedes preceding pending-publication note; broader ledger remains active.
+
+- Source `b6f186f872ac5f0ec864aae5a97e5ec6e1fecc67` on both remotes;
+  [GitHub regression](https://github.com/Ooonana/Ooonana-OS/actions/runs/38853580245)
+  and [GitLab smoke](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2953727515)
+  passed. Clean source-only manifest, coherent v3.24 inputs, no bundled models.
+- Signed 654-package/612-dependency-node generation:
+  `cdfa85aabf54ab923f879028fb215481ca4e83e2da8c0aae147622c9fc3a54bd`.
+  Prior generation checksum manifest remains unchanged. Keys stay local; stable
+  promotion/enrollment deferred.
+- Ooonana WSL native snapshot:
+  `/var/lib/ooonana/candidate-tasks-workspaces-20261016.WBpyPnQO`.
+  Pinned key hashes, detached signature, all 1302 checksums and exact clean
+  source manifest verified before core/runtime dry-runs/reinstalls. Both package
+  verifications and health hooks pass; rollback checkpoints retained.
+- Installed Task Manager/i3 config hashes match source. Actual GTK imports and
+  both CSS variants parse as UID1000; ordinary package search succeeds. Configured
+  local repository source and WSL adapter refreshed without GUI/WSL restart.
+- Logs: `/var/tmp/ooonana-tasks-workspaces-sync-20261016.CFPSdFRR` in Ooonana.
+  Relaunch desktop/apps for code and bindings. No OpenVINO work/model download,
+  sound playback, physical-media changes, disk relocation or ISO construction.
+  C: approximately 1.1 GiB free during sync; further heavy QA/builds need space.

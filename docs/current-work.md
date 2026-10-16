@@ -13,8 +13,11 @@ commands. All number/select/move/cycle keys added; broken overrides removed.
 Both-theme real native/XTerm pointer, tiling/tab/stack, focus, fullscreen,
 exact-session restore and close checks pass with private compositor, without
 i3 command-error bars. Branding test corrected rather than preserving bad code.
-Signed publication pending; no ISO build. C: free space fell to 1.1 GiB, so no
-more heavy QA/build work this pass. [Evidence and limits](ui-whole-os-review.md#batch-9-task-manager-detail-and-lifecycle-checks).
+Source `b6f186f` is pushed to both remotes and both CI checks pass. Signed
+654-package candidate and Ooonana WSL core/runtime update verified, including
+1302 checksums, health hooks and installed source hashes. No ISO built or GUI
+restart forced. Relaunch desktop/apps. C: free space fell to 1.1 GiB, so no more
+heavy QA/build work this pass. [Evidence and limits](ui-whole-os-review.md#batch-9-task-manager-detail-and-lifecycle-checks).
 
 ## October 16 typography follow-up
 
