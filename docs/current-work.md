@@ -1,5 +1,24 @@
 # Current work - 2026-10-17
 
+## October 17 Sound, Brightness and Music details
+
+Startup waits for verified state rather than allowing guessed writes. Audio
+reads and changes the selected output by identity; route/list failures remain
+visible, preserve drafts and offer Refresh/retry. Unknown volume/mute stays
+unknown. Brightness accepts only a verified display-backlight device, binds
+writes to that device and does not guess 75% when hardware is absent. Music
+polling cannot re-enable pending actions or overwrite an uncommitted volume.
+Failures remain inline; closed callbacks and duplicate actions are refused.
+
+Controls use compact content-fit actions, labelled sliders/device selectors,
+bounded full-value tooltips and scrollable, keyboard-accessible content. Private
+GTK/i3 checks pass dark/light, 100/200% text; all 25 native catalog pages pass
+both appearances at 640×600. Full native/backend source regression passes.
+No real route/mute/brightness/playback change or sound test ran. This batch
+awaits source commit and signed candidate/WSL publication. Confirmed redundant
+staging/transfers and regenerable bytecode are inventoried for cleanup; nothing
+deleted yet. [Evidence and limits](ui-whole-os-review.md#batch-12-sound-brightness-and-music-details).
+
 ## October 17 wireless details and lifecycle
 
 Wi-Fi/Bluetooth now reject overlapping actions and closed-window callbacks;

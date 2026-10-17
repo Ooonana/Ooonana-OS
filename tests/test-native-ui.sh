@@ -203,7 +203,7 @@ assert_contains "$controls" "PipeWire has no hardware route"
 assert_contains "$controls" "def collect_audio_state"
 assert_contains "$controls" "def refresh_audio"
 audio_start_line="$(grep -n 'service_rc, service_output = self.audio_command("info")' "$UI_DIR/controls_app.py" | cut -d: -f1)"
-audio_refresh_line="$(grep -n 'outputs = self.list_audio_devices("sinks")' "$UI_DIR/controls_app.py" | cut -d: -f1)"
+audio_refresh_line="$(grep -n 'self.list_audio_devices("sinks"' "$UI_DIR/controls_app.py" | cut -d: -f1)"
 [[ -n "$audio_start_line" && -n "$audio_refresh_line" && "$audio_start_line" -lt "$audio_refresh_line" ]] ||
   fail "audio UI must start its server before enumerating devices"
 assert_contains "$controls" "set-default-sink"

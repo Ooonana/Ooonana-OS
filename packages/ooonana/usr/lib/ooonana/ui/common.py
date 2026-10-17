@@ -277,6 +277,7 @@ def flow_row(widgets, max_children=8, min_children=3):
 def more_actions(widgets, name="More actions"):
     """Native disclosure for secondary tools, with normal keyboard navigation."""
     control = Gtk.MenuButton(label="More")
+    control.set_halign(Gtk.Align.START)
     control.set_image(icon("view-more-symbolic"))
     control.set_always_show_image(True)
     control.get_accessible().set_name(name)

@@ -88,6 +88,12 @@ Wireless follow-up hardens busy/closed states, advanced form validation, bounded
 certificate pickers and safe Reset/Remove; scaled CSD placement now stays onscreen.
 Source verified in private GTK/i3, both remotes/CI and signed candidate/Ooonana
 WSL. Relaunch apps for changes; ISO unchanged. No forced restart.
+Sound/brightness/music follow-up adds verified-readiness gates, selected-device
+audio commands, inline permission/retry feedback and preserved volume drafts.
+Actions cannot overlap or re-enable from stale polling; small/scaled layouts
+remain scrollable and keyboard accessible. Silent private GTK fixtures pass both
+themes at 100/200% text, plus all 25 native catalog pages at compact size.
+This controls batch awaits signed candidate/WSL publication; no sound played.
 [Full scope, current evidence and remaining UI work](docs/ui-whole-os-review.md).
 
 October 15 CI follow-up: Alpine smoke environment lacked `findmnt`, required by

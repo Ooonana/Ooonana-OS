@@ -22,7 +22,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Wi-Fi / Bluetooth | Managed lists/hidden/personal/TLS/PIN forms; advanced fields, bounded certificate pickers, inline validation, progress/reduced motion, service gating, duplicate/closed refusal and safe Reset/Remove pass both themes through 200% text | Actual installed authentication, advanced network activation, physical reconnect/pairing and changed-adapter integration |
 | Settings: all six pages | Compact page picker, bounded/selectable source values, visible keyboard focus, managed wallpaper/log dialogs, repair/update retry and motion rollback; 100/125/200% text checks below | Real installed-session preference/authentication paths and external file/device failures |
 | Setup | Native compact overflow fixed; static fields labelled; validation, default-Back review, mocked pending/failure/late completion tested | Complete real setup/persistence and scaled-text interaction path |
-| Sound / brightness / music | Long selected device/track names bounded; full-name tooltips, music error/retry/closed-callback behavior; no audio playback | Empty device lists, permission errors, actual route/mute/volume semantics and keyboard |
+| Sound / brightness / music | Verified readiness, selected-identity audio/backlight commands, unknown/empty/permission states, persistent inline retry, serialized actions, preserved drafts, stale-poll/closed refusal; keyboard and both themes through 200% text pass silent fixtures | Actual installed route/mute/volume and playback semantics, changed-device integration and real hardware; no sound playback |
 | Power | Native default-Cancel, duplicate refusal, error/retry, failed lock refusal pass with mocked commands | Actual isolated lock/logout/suspend and unavailable capabilities |
 | Notifications | Private real Dunst history/DND/remove/clear; long grouped messages/full expansion, unchanged refresh focus, failure persistence, unavailable/unknown DND and privacy UI checks | Archived/live mixtures under service restarts, changed-record keyboard/scroll integration, actual session notifications |
 | Packages | Default-Cancel install/remove/upgrade preview; failed/empty plans cannot apply; mutating close guard and parent-dialog lifecycle pass | Actual privileged transaction/authentication UX on disposable installation |
@@ -718,3 +718,52 @@ Broader UI coverage remains active, not certified complete.
   and `build/ui-wireless-transfer-20261017.SEp6Wai6.tar`. No model download,
   sound, live-radio/device change, physical-disk operation, WSL relocation or ISO
   construction. Relaunch desktop/apps; physical/session/display gates remain.
+
+## Batch 12: Sound, Brightness and Music details
+
+- Baseline silent fixtures reproduced enabled startup writes, overlapping
+  actions, old-default volume shown for a newly selected output, mute targeting
+  the moving default, absent-device brightness guesses, unlabeled sliders and
+  music polls re-enabling pending playback/overwriting drafts. These were
+  actual fixture failures, not physical hardware findings.
+- Shared control lifecycle now gates startup/actions, keeps progress and inline
+  errors persistent, respects reduced motion and ignores closed callbacks.
+  Compact More menus fit content; Sound and Brightness secondary tools no
+  longer force oversized rows. Native scrollable content keeps focused footer
+  actions reachable at 200% text. Labels, selected names, errors and full-value
+  tooltips remain accessible; text scale and opaque theme are unchanged.
+- Sound captures selected output/input identities and does not use a changing
+  default for mute. Selection-specific reads reject stale results; device-list
+  permission failures remain errors instead of being called missing hardware.
+  Unknown volume/mute never presents guessed state as verified. Partial route
+  failures preserve input and tell users to Refresh/check routing or retry.
+  Existing ALSA/Pulse readiness and explicit Repair behavior are retained.
+- Brightness verifies the backlight class and exact device before enabling
+  Apply. Keyboard LED results are rejected; zero current brightness is reported
+  honestly with recovery through the existing 1–100% selectable range.
+  No unavailable device receives a guessed 75% write.
+- Music gates startup/actions, separates pending epochs from periodic reads,
+  retains uncommitted volume and persistent errors, and offers Refresh library
+  for service retry rather than promising automatic restart. Decorative art
+  and action spacing are smaller without reducing body text or focus targets.
+- Final private UID1000 GTK/i3 fixtures pass dark/light at 640×600, 100/200%
+  text. They cover keyboard arrows/menu Space/Escape, selected-target binding,
+  unknown/input-only/empty/permission states, draft retention, repeated actions,
+  stale reads and late parent close. Commands are queued/mocked and unexpected
+  actual command launches fail the fixture. No playback, actual route/mute or
+  brightness write occurred. Installed brightnessctl help was read-only.
+- Full native/backend source regression, shared content and wireless menu
+  regressions pass. All 25 native catalog pages pass both appearances at
+  640×600. The first final-copy rerun lacked its output directory and failed
+  before GTK; creating that owned QA directory made the same probe pass.
+- Evidence in Ubuntu: `ooonana-controls-baseline-20261017.mVNwBcdS` (expected
+  failures), `ooonana-controls-release-20261017.f1uYMOYW` (four control variants
+  and shared wireless regression), `ooonana-controls-catalog-20261017.zO4M8bZB`
+  (25-page both-theme catalog), and `ooonana-controls-copy-20261017.AFeunWFQ`
+  under `/var/tmp`. Earlier confirmation outputs remain diagnostic history.
+- Source/signed-candidate/WSL publication pending. Cleanup inventory identifies
+  duplicate agent staging/transfers and ignored bytecode only; no cleanup has
+  yet occurred. Published generations, rollback checkpoints, ISO/resume media,
+  models, signing keys and evidence/history are excluded. Broad review continues.
+
+![Sound controls at normal text scale, silent private fixture](assets/ooonana-sound-details-20261017.png)
