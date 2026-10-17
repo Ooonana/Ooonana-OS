@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import json
+import ipaddress
+import re
 import sys
 import time
 from pathlib import Path
@@ -27,6 +29,7 @@ from common import (  # noqa: E402
     system_dbus_ready,
 )
 from signal_map import SignalMapWindow  # noqa: E402
+from wireless_ui import LocalFileButton, WirelessWindowState  # noqa: E402
 from wireless_utils import (  # noqa: E402
     group_wifi_access_points,
     parse_ip_neighbors,
@@ -57,8 +60,13 @@ def add_grid_row(grid, row, text, widget):
     prompt = label(text)
     prompt.set_mnemonic_widget(widget)
     widget.get_accessible().set_name(text)
-    grid.attach(prompt, 0, row, 1, 1)
-    grid.attach(widget, 1, row, 1, 1)
+    widget.set_hexpand(True)
+    if getattr(grid, "stacked", False):
+        grid.attach(prompt, 0, row * 2, 1, 1)
+        grid.attach(widget, 0, row * 2 + 1, 1, 1)
+    else:
+        grid.attach(prompt, 0, row, 1, 1)
+        grid.attach(widget, 1, row, 1, 1)
     return row + 1
 
 
@@ -76,7 +84,9 @@ def text_entry(secret=False, placeholder=""):
 class WifiCredentialsDialog(Gtk.Dialog):
     def __init__(self, parent, network):
         super().__init__(title=f"Connect to {network['ssid']}", transient_for=parent, modal=True)
+        self.set_destroy_with_parent(True)
         self.network = network
+        self.error_field = None
         self.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Connect", Gtk.ResponseType.OK)
         fit_dialog(self, 620, 560)
         area = self.get_content_area()
@@ -90,10 +100,19 @@ class WifiCredentialsDialog(Gtk.Dialog):
             0,
         )
         grid = Gtk.Grid(column_spacing=12, row_spacing=10)
+        grid.stacked = self.create_pango_layout("Certificate validation").get_pixel_size()[0] > self.get_default_size().width * .35
+        self.form_error = label("", "status-bad")
+        self.form_error.set_no_show_all(True)
+        self.form_error.set_lines(2)
+        self.form_error.set_ellipsize(Pango.EllipsizeMode.END)
+        area.pack_start(self.form_error, False, False, 0)
         scroll = Gtk.ScrolledWindow()
-        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scroll.set_min_content_height(320)
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_min_content_height(160)
         scroll.add(grid)
+        self.form_scroll, self.form_grid = scroll, grid
+        grid.set_focus_vadjustment(scroll.get_vadjustment())
+        grid.set_focus_hadjustment(scroll.get_hadjustment())
         area.pack_start(scroll, True, True, 0)
 
         self.password = text_entry(secret=True)
@@ -132,7 +151,7 @@ class WifiCredentialsDialog(Gtk.Dialog):
         self.ca_policy.append("custom", "Choose CA certificate")
         self.ca_policy.append("insecure", "Do not validate certificate (unsafe)")
         self.ca_policy.set_active_id("system")
-        self.ca_cert = Gtk.FileChooserButton.new("Choose CA certificate", Gtk.FileChooserAction.OPEN)
+        self.ca_cert = LocalFileButton("Choose CA certificate")
         self.ca_cert.set_sensitive(False)
         self.ca_warning = label(
             "System certificates protect against fake access points. Add server domain when school provides it.",
@@ -140,8 +159,8 @@ class WifiCredentialsDialog(Gtk.Dialog):
         )
         self.ca_warning.set_line_wrap(True)
         self.ca_policy.connect("changed", self.update_ca_policy)
-        self.client_cert = Gtk.FileChooserButton.new("Choose client certificate", Gtk.FileChooserAction.OPEN)
-        self.private_key = Gtk.FileChooserButton.new("Choose private key", Gtk.FileChooserAction.OPEN)
+        self.client_cert = LocalFileButton("Choose client certificate")
+        self.private_key = LocalFileButton("Choose private key")
         self.private_key_password = text_entry(secret=True)
 
         row = 0
@@ -165,7 +184,7 @@ class WifiCredentialsDialog(Gtk.Dialog):
             if title in ("Anonymous identity", "Inner authentication"):
                 self.tunneled_rows.append(attached)
             row += 1
-        grid.attach(self.ca_warning, 1, row, 1, 1)
+        grid.attach(self.ca_warning, 0 if grid.stacked else 1, row * 2 if grid.stacked else row, 1, 1)
         self.enterprise_rows.append((self.ca_warning,))
         row += 1
         for title, widget in (
@@ -179,10 +198,13 @@ class WifiCredentialsDialog(Gtk.Dialog):
             row += 1
 
         advanced = Gtk.Expander(label="Network options")
+        self.advanced = advanced
         advanced_grid = Gtk.Grid(column_spacing=12, row_spacing=10)
+        advanced_grid.stacked = grid.stacked
+        advanced_grid.set_focus_vadjustment(scroll.get_vadjustment())
         advanced_grid.set_margin_top(10)
         advanced.add(advanced_grid)
-        grid.attach(advanced, 0, row, 2, 1)
+        grid.attach(advanced, 0, row * 2 if grid.stacked else row, 1 if grid.stacked else 2, 1)
 
         self.mac_policy = Gtk.ComboBoxText()
         self.mac_policy.append("stable", "Stable address per network")
@@ -240,16 +262,26 @@ class WifiCredentialsDialog(Gtk.Dialog):
         self.update_advanced_fields()
         self.set_default_response(Gtk.ResponseType.OK)
         self.password.set_activates_default(True)
+        self.connect("set-focus", self.follow_focus)
         (self.identity if detected_kind == "enterprise" else
          self.password if detected_kind in ("personal", "wep") else self.security).grab_focus()
 
+    def follow_focus(self, _window, widget):
+        if widget:
+            GLib.idle_add(self.reveal_field, widget)
+
+    def reveal_field(self, widget):
+        if self.get_visible() and widget.get_mapped():
+            position = widget.translate_coordinates(self.form_grid, 0, 0)
+            if position:
+                y = position[1]
+                self.form_scroll.get_vadjustment().clamp_page(max(0, y - 8), y + widget.get_allocated_height() + 8)
+        return False
+
     @staticmethod
     def attach_row(grid, row, text, widget):
-        prompt = label(text)
-        prompt.set_mnemonic_widget(widget)
-        widget.get_accessible().set_name(text)
-        grid.attach(prompt, 0, row, 1, 1)
-        grid.attach(widget, 1, row, 1, 1)
+        add_grid_row(grid, row, text, widget)
+        prompt = grid.get_child_at(0, row * 2 if getattr(grid, "stacked", False) else row)
         return prompt, widget
 
     def selected_security(self):
@@ -328,29 +360,60 @@ class WifiCredentialsDialog(Gtk.Dialog):
 
     def validate(self):
         values = self.values()
+        self.error_field = None
+        def invalid(text, field, advanced=False):
+            self.error_field = field
+            if advanced:
+                self.advanced.set_expanded(True)
+            return text
         kind = values["security_kind"]
         if kind in ("personal", "wep") and not values["password"]:
-            return "Password is required."
+            return invalid("Password is required.", self.password)
         if kind == "enterprise":
             if not values["identity"]:
-                return "Enterprise identity is required."
+                return invalid("Enterprise identity is required.", self.identity)
             if values["eap"] == "tls":
                 if not values["client_cert"] or not values["private_key"]:
-                    return "EAP-TLS needs a client certificate and private key."
+                    return invalid("EAP-TLS needs a client certificate and private key.", self.client_cert if not values["client_cert"] else self.private_key)
             elif not values["password"]:
-                return "Enterprise password is required for this EAP method."
+                return invalid("Enterprise password is required for this EAP method.", self.password)
             if values["ca_policy"] == "custom" and not values["ca_cert"]:
-                return "Choose a CA certificate."
-        if values["ipv4_mode"] == "manual" and "/" not in values["ipv4_address"]:
-            return "Manual IPv4 address needs a prefix, for example 192.168.1.20/24."
+                return invalid("Choose a CA certificate.", self.ca_cert)
+        if values["ipv4_mode"] == "manual":
+            try:
+                if "/" not in values["ipv4_address"]:
+                    raise ValueError()
+                ipaddress.IPv4Interface(values["ipv4_address"])
+            except ValueError:
+                return invalid("Enter an IPv4 address and prefix, for example 192.168.1.20/24.", self.ipv4_address, True)
+            if values["ipv4_gateway"]:
+                try:
+                    ipaddress.IPv4Address(values["ipv4_gateway"])
+                except ValueError:
+                    return invalid("Enter a valid IPv4 gateway, or leave it empty.", self.ipv4_gateway, True)
+            try:
+                for address in re.split(r"[,\s]+", values["ipv4_dns"]):
+                    if address:
+                        ipaddress.IPv4Address(address)
+            except ValueError:
+                return invalid("Enter IPv4 DNS addresses separated by commas or spaces.", self.ipv4_dns, True)
         if values["proxy_mode"] == "auto" and not values["proxy_url"]:
-            return "Automatic proxy needs a configuration URL."
+            return invalid("Automatic proxy needs a configuration URL.", self.proxy_url, True)
         return ""
+
+    def show_error(self, text):
+        self.form_error.set_text(text)
+        self.form_error.set_tooltip_text(text)
+        self.form_error.get_accessible().set_description(text)
+        self.form_error.show()
+        if self.error_field:
+            self.error_field.grab_focus()
 
 
 class ManualNetworkDialog(Gtk.Dialog):
     def __init__(self, parent, devices, ssid=""):
         super().__init__(title="Other Wi-Fi network", transient_for=parent, modal=True)
+        self.set_destroy_with_parent(True)
         self.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Continue", Gtk.ResponseType.OK)
         fit_dialog(self, 520)
         area = self.get_content_area()
@@ -395,9 +458,12 @@ class ManualNetworkDialog(Gtk.Dialog):
         }
 
 
-class WifiWindow(Gtk.Window):
+class WifiWindow(WirelessWindowState, Gtk.Window):
     def __init__(self):
         super().__init__(title="Ooonana Wi-Fi")
+        self.init_wireless_state()
+        self.radio_enabled = False
+        self.active_connection = False
         self.set_default_size(940, 600)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.networks = {}
@@ -415,7 +481,12 @@ class WifiWindow(Gtk.Window):
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
         root.set_border_width(20)
-        self.add(root)
+        viewport = Gtk.ScrolledWindow()
+        viewport.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        viewport.add(root)
+        root.set_focus_vadjustment(viewport.get_vadjustment())
+        self.add(viewport)
+        fit_dialog(self, 940, 500)
         root.pack_start(page_intro("Wireless networks", "Nearby access points, saved profiles, and enterprise security."), False, False, 0)
 
         self.service_label = label("Service: checking", "status-warn")
@@ -439,9 +510,10 @@ class WifiWindow(Gtk.Window):
             self.repair_button,
             self.hardware_reset_button,
         ], "More Wi-Fi tools and repair actions")
+        self.manual_button = button("Other network", "list-add-symbolic", self.connect_manual)
         self.toolbar = flow_row([
             self.radio_button, self.scan_button,
-            button("Other network", "list-add-symbolic", self.connect_manual), self.more_button,
+            self.manual_button, self.more_button,
         ], max_children=4, min_children=2)
         root.pack_start(self.toolbar, False, False, 0)
 
@@ -482,7 +554,7 @@ class WifiWindow(Gtk.Window):
         self.detail.set_selectable(True)
         root.pack_start(self.detail, False, False, 0)
 
-        self.connect("destroy", Gtk.main_quit)
+        self.connect("destroy", self.on_destroy)
         self.connect("size-allocate", self.resized)
         self.resized(self, self.get_default_size())
         self.initial_refresh()
@@ -505,25 +577,20 @@ class WifiWindow(Gtk.Window):
             context.remove_class(css)
         context.add_class(f"status-{state}")
 
-    def set_busy(self, busy, text=""):
-        self.toolbar.set_sensitive(not busy)
-        self.actions.set_sensitive(not busy)
-        for widget in (
-            self.refresh_button,
-            self.radio_button,
-            self.scan_button,
-            self.repair_button,
-            self.hardware_reset_button,
-        ):
-            widget.set_sensitive(not busy)
-        if busy:
-            self.progress.show()
-            self.progress.pulse()
-            self.progress.set_show_text(False)
-            self.detail.set_text(text)
-            self.detail.set_tooltip_text(text)
-        else:
-            self.progress.hide()
+    def update_controls(self):
+        available = self.can_act()
+        native = available and not host_radio_unavailable("wifi")
+        ready = native and self.services_ready and self.radio_enabled and bool(self.ready_wifi_devices)
+        self.toolbar.set_sensitive(native)
+        self.actions.set_sensitive(native)
+        self.refresh_button.set_sensitive(available)
+        self.radio_button.set_sensitive(native and self.services_ready and bool(self.wifi_devices))
+        self.scan_button.set_sensitive(ready)
+        self.manual_button.set_sensitive(ready)
+        self.connect_button.set_sensitive(ready and self.selected_network() is not None)
+        self.disconnect_button.set_sensitive(native and self.services_ready and self.active_connection)
+        self.repair_button.set_sensitive(native)
+        self.hardware_reset_button.set_sensitive(native)
 
     def initial_refresh(self):
         if self.show_host_network_state():
@@ -543,6 +610,8 @@ class WifiWindow(Gtk.Window):
             )
 
         def done(rc, output):
+            if self.closed:
+                return
             self.set_busy(False)
             if rc != 0:
                 message(self, "NetworkManager repair failed", output or f"Exit status {rc}. Check /var/log/ooonana-services.log.", Gtk.MessageType.ERROR)
@@ -554,10 +623,14 @@ class WifiWindow(Gtk.Window):
         launch(["ooonana-wifi-aware", "--gui"])
 
     def refresh(self, scan=False):
+        if self.closed or self.dialog_open:
+            return
+        if self.busy:
+            if self.refresh_running:
+                self.refresh_pending_scan = self.refresh_pending_scan or scan
+            return
         if self.show_host_network_state():
             return
-        self.toolbar.set_sensitive(True)
-        self.actions.set_sensitive(True)
         if self.refresh_running:
             self.refresh_pending_scan = self.refresh_pending_scan or scan
             return
@@ -568,9 +641,14 @@ class WifiWindow(Gtk.Window):
             return 0, self.collect_refresh_data(scan)
 
         def done(rc, data):
+            if self.closed:
+                return
             self.refresh_running = False
             self.set_busy(False)
             if rc != 0:
+                self.services_ready = False
+                self.update_controls()
+                self.show_detail("Wi-Fi refresh failed. Try Refresh or Repair service from More.")
                 message(self, "Wi-Fi refresh failed", str(data), Gtk.MessageType.ERROR)
             else:
                 self.apply_refresh_data(data)
@@ -589,7 +667,7 @@ class WifiWindow(Gtk.Window):
         self.set_state(self.active_label, "Virtual WSL network", "neutral")
         self.toolbar.set_sensitive(False)
         self.actions.set_sensitive(False)
-        self.detail.set_text("Use Windows controls for host Wi-Fi. Ooonana can manage a Wi-Fi adapter passed into WSL.")
+        self.show_detail("Use Windows controls for host Wi-Fi. Ooonana can manage a Wi-Fi adapter passed into WSL.")
         return True
 
     def collect_refresh_data(self, scan=False):
@@ -699,11 +777,15 @@ class WifiWindow(Gtk.Window):
         }
 
     def apply_refresh_data(self, data):
+        selected = self.selected_network()
         self.wifi_devices = data["wifi_devices"]
         self.ready_wifi_devices = data["ready_wifi_devices"]
         self.device_states = data["device_states"]
         self.access_points = data["access_points"]
         services_ready = data["dbus_ok"] and data["daemon_ok"] and data["supplicant_ok"]
+        self.services_ready = services_ready
+        self.radio_enabled = data["radio"] == "enabled"
+        self.active_connection = bool(data["active_name"])
         if services_ready:
             service_text = "Services: D-Bus + NetworkManager + supplicant"
         elif not data["dbus_ok"]:
@@ -753,22 +835,28 @@ class WifiWindow(Gtk.Window):
                 network["ap_count"], network.get("device", ""), network.get("bssid", ""),
                 network["security_kind"], network["ssid"],
             ])
+        if selected:
+            for row in self.store:
+                if row[8] == selected["ssid"]:
+                    self.tree.get_selection().select_iter(row.iter)
+                    break
         self.update_signal_map()
         scan_errors = data["scan_errors"]
         if not self.wifi_devices:
-            self.detail.set_text("Wi-Fi adapter not detected. Repair reloads firmware, clears RFKill, retriggers udev, then restarts NetworkManager.")
+            self.show_detail("Wi-Fi adapter not detected. Repair reloads firmware, clears RFKill, retriggers udev, then restarts NetworkManager.")
         elif not self.ready_wifi_devices:
             detail = "Wi-Fi adapter detected but unavailable to NetworkManager. Repair restarts wpa_supplicant and NetworkManager."
             if scan_errors:
                 detail += " " + " | ".join(dict.fromkeys(scan_errors))
-            self.detail.set_text(detail)
+            self.show_detail(detail)
         elif not grouped:
             detail = "No networks found after NetworkManager and direct hardware scans."
             if scan_errors:
                 detail += " " + " | ".join(dict.fromkeys(scan_errors))
-            self.detail.set_text(detail)
+            self.show_detail(detail)
         else:
-            self.detail.set_text(f"{len(grouped)} network name(s), {len(self.access_points)} access point(s). Duplicate SSIDs are grouped.")
+            self.show_detail(f"{len(grouped)} network name(s), {len(self.access_points)} access point(s). Duplicate SSIDs are grouped.")
+        self.update_controls()
 
     @staticmethod
     def parse_iw_scan(output):
@@ -779,22 +867,27 @@ class WifiWindow(Gtk.Window):
         return self.networks.get(model[tree_iter][8]) if tree_iter else None
 
     def on_selection_changed(self, selection):
+        if not self.can_act():
+            return
         _model, tree_iter = selection.get_selected()
-        self.connect_button.set_sensitive(tree_iter is not None)
+        self.update_controls()
         network = self.selected_network()
         if network:
             warning = " Mixed security is present; secured access points are preferred." if network.get("mixed_security") else ""
-            self.detail.set_text(
+            self.show_detail(
                 f"{network['ssid']} | signal {network['signal']}% | {network['security_label']} | "
                 f"{network['ap_count']} access point(s) | strongest {network.get('bssid') or 'unknown'}.{warning}"
             )
-            self.detail.set_tooltip_text(self.detail.get_text())
 
     def toggle_radio(self, widget):
+        if not self.can_act():
+            return
         target = "off" if "off" in widget.get_label().lower() else "on"
         self.set_busy(True, f"Turning Wi-Fi {target}")
 
         def done(rc, output):
+            if self.closed:
+                return
             self.set_busy(False)
             if rc != 0:
                 message(self, "Wi-Fi action failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)
@@ -803,8 +896,13 @@ class WifiWindow(Gtk.Window):
         run_async(["nmcli", "radio", "wifi", target], done, admin=True, timeout=20)
 
     def connect_manual(self, _widget):
+        if not self.can_act():
+            return
+        self.dialog_open = True
         dialog = ManualNetworkDialog(self, self.wifi_devices)
-        if dialog.run() == Gtk.ResponseType.OK:
+        response = dialog.run()
+        self.dialog_open = False
+        if response == Gtk.ResponseType.OK and not self.closed:
             network = dialog.network()
             dialog.destroy()
             if not network["ssid"]:
@@ -815,23 +913,30 @@ class WifiWindow(Gtk.Window):
         dialog.destroy()
 
     def connect_selected(self):
+        if not self.can_act():
+            return
         network = self.selected_network()
         if network:
             self.connect_network(network)
 
     def connect_network(self, network):
+        if not self.can_act():
+            return
+        self.dialog_open = True
         dialog = WifiCredentialsDialog(self, network)
         while True:
             response = dialog.run()
-            if response != Gtk.ResponseType.OK:
+            if response != Gtk.ResponseType.OK or self.closed:
                 dialog.destroy()
+                self.dialog_open = False
                 return
             error = dialog.validate()
             if not error:
                 credentials = dialog.values()
                 dialog.destroy()
+                self.dialog_open = False
                 break
-            message(dialog, "Missing connection details", error, Gtk.MessageType.ERROR)
+            dialog.show_error(error)
         network = dict(network)
         for key in ("security", "security_kind", "security_label"):
             network[key] = credentials[key]
@@ -841,6 +946,8 @@ class WifiWindow(Gtk.Window):
             return self.connect_task(network, credentials)
 
         def done(rc, output):
+            if self.closed:
+                return
             self.set_busy(False)
             if rc != 0:
                 message(self, "Connection failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)
@@ -1440,20 +1547,28 @@ class WifiWindow(Gtk.Window):
         return self.activate_profile(profile, network, device, "enterprise")
 
     def disconnect_active(self):
-        rc, active = self.nmcli("-t", "--escape", "yes", "-f", "NAME,TYPE", "connection", "show", "--active")
-        names = [fields[0] for fields in (split_nmcli_terse(line) for line in active.splitlines()) if len(fields) == 2 and fields[1] == "802-11-wireless"]
-        if rc != 0 or not names:
-            message(self, "Wi-Fi", "No active Wi-Fi connection.")
+        if not self.can_act():
             return
-        self.set_busy(True, f"Disconnecting {names[0]}")
+        self.set_busy(True, "Disconnecting Wi-Fi")
+
+        def task():
+            rc, active = self.nmcli("-t", "--escape", "yes", "-f", "NAME,TYPE", "connection", "show", "--active")
+            if rc != 0:
+                return rc, active
+            names = [fields[0] for fields in (split_nmcli_terse(line) for line in active.splitlines()) if len(fields) == 2 and fields[1] == "802-11-wireless"]
+            if not names:
+                return 0, "No active Wi-Fi connection."
+            return self.nmcli("connection", "down", names[0], timeout=20)
 
         def done(result, output):
+            if self.closed:
+                return
             self.set_busy(False)
             if result != 0:
                 message(self, "Disconnect failed", output or f"Exit status {result}", Gtk.MessageType.ERROR)
             self.refresh()
 
-        run_async(["nmcli", "connection", "down", names[0]], done, admin=True, timeout=20)
+        run_async_task(task, done)
 
     def show_signal_map(self, _widget):
         if self.signal_window is None or not self.signal_window.get_visible():
@@ -1489,6 +1604,8 @@ class WifiWindow(Gtk.Window):
         self.signal_window.update_items(items)
 
     def launch_csi_3d(self, _widget):
+        if not self.can_act():
+            return
         dialog = Gtk.MessageDialog(
             transient_for=self,
             modal=True,
@@ -1496,6 +1613,7 @@ class WifiWindow(Gtk.Window):
             buttons=Gtk.ButtonsType.NONE,
             text="Choose Wi-Fi 3D mode",
         )
+        dialog.set_destroy_with_parent(True)
         dialog.format_secondary_text(
             "RuView uses Ooonana sensing-server. wifi-3d-fusion needs compatible CSI hardware and drivers. "
             "Normal laptop Wi-Fi provides only coarse RSSI mapping."
@@ -1503,8 +1621,13 @@ class WifiWindow(Gtk.Window):
         dialog.add_button("Close", Gtk.ResponseType.CLOSE)
         dialog.add_button("RuView", 1)
         dialog.add_button("wifi-3d-fusion", 2)
+        dialog.set_default_response(Gtk.ResponseType.CLOSE)
+        self.dialog_open = True
         response = dialog.run()
         dialog.destroy()
+        self.dialog_open = False
+        if self.closed:
+            return
         if response == 1:
             self.launch_ruview_runtime()
         elif response == 2:
@@ -1538,7 +1661,11 @@ class WifiWindow(Gtk.Window):
             viewer = "http://127.0.0.1:3000/ui/observatory.html"
 
             def probe(attempt=0):
+                if self.closed:
+                    return
                 def done(rc, _output):
+                    if self.closed:
+                        return
                     if rc == 0:
                         launch(["ooonana-browser", viewer])
                     elif attempt < 11:
@@ -1563,19 +1690,25 @@ class WifiWindow(Gtk.Window):
             buttons=Gtk.ButtonsType.NONE,
             text="RuView runtime is not installed",
         )
+        dialog.set_destroy_with_parent(True)
         dialog.format_secondary_text(
             "Install sensing-server for RuView. Full pose tracking needs supported CSI hardware."
         )
         dialog.add_button("Close", Gtk.ResponseType.CLOSE)
         dialog.add_button("Open RuView", Gtk.ResponseType.OK)
-        if dialog.run() == Gtk.ResponseType.OK:
+        dialog.set_default_response(Gtk.ResponseType.CLOSE)
+        if dialog.run() == Gtk.ResponseType.OK and not self.closed:
             launch(["xdg-open", "https://github.com/ruvnet/RuView"])
         dialog.destroy()
 
     def repair_service(self, _widget):
+        if not self.can_act():
+            return
         self.set_busy(True, "Repairing network service")
 
         def done(rc, output):
+            if self.closed:
+                return
             self.set_busy(False)
             if rc != 0:
                 message(self, "Network repair failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)
@@ -1589,25 +1722,15 @@ class WifiWindow(Gtk.Window):
         )
 
     def reset_hardware(self, _widget):
-        dialog = Gtk.MessageDialog(
-            transient_for=self,
-            modal=True,
-            message_type=Gtk.MessageType.WARNING,
-            buttons=Gtk.ButtonsType.NONE,
-            text="Reset Wi-Fi adapter?",
-        )
-        dialog.format_secondary_text(
-            "Use only when normal service repair fails. Adapter disappears briefly while its kernel driver resets."
-        )
-        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        dialog.add_button("Reset adapter", Gtk.ResponseType.OK)
-        response = dialog.run()
-        dialog.destroy()
-        if response != Gtk.ResponseType.OK:
+        if not self.confirm_action("Reset Wi-Fi adapter?",
+                "Use only when normal service repair fails. Adapter disappears briefly while its kernel driver resets.",
+                "Reset adapter"):
             return
         self.set_busy(True, "Resetting Wi-Fi adapter")
 
         def done(rc, output):
+            if self.closed:
+                return
             self.set_busy(False)
             if rc != 0:
                 message(self, "Wi-Fi reset failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)

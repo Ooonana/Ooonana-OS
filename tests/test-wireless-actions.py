@@ -16,7 +16,7 @@ except ImportError:
 
     common = SimpleNamespace(
         GLib=SimpleNamespace(),
-        Gtk=SimpleNamespace(Dialog=DummyWidget, Window=DummyWidget),
+        Gtk=SimpleNamespace(Dialog=DummyWidget, Window=DummyWidget, Button=DummyWidget),
         Pango=SimpleNamespace(),
         apply_theme=lambda: None,
         button=lambda *_args, **_kwargs: None,

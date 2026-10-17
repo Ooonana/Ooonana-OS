@@ -304,9 +304,36 @@ def fit_dialog(dialog, width, height=-1):
         area = monitor.get_workarea()
         width = min(width, max(1, area.width - 48))
         if height > 0:
-            height = min(height, max(1, area.height - 96))
+            # CSD titlebars grow with user text scaling; a fixed reserve can
+            # place an otherwise scrollable window outside a small display.
+            titlebar = dialog.get_titlebar()
+            reserve = max(96, titlebar.get_preferred_height()[1] + 64) if titlebar else 96
+            height = min(height, max(1, area.height - reserve))
     dialog.set_default_size(width, height)
     dialog.set_position(Gtk.WindowPosition.CENTER_ON_PARENT if parent else Gtk.WindowPosition.CENTER)
+    if not getattr(dialog, "_ooonana_fit_connected", False):
+        dialog._ooonana_fit_connected = True
+        dialog.connect("map-event", lambda widget, _event: (
+            GLib.timeout_add(80, fit_initial_position, widget), False)[1])
+
+
+def fit_initial_position(window):
+    """Clamp initial CSD placement after WM/map size negotiation, never dragging."""
+    native = window.get_window()
+    display = Gdk.Display.get_default()
+    if not native or not window.get_visible() or not display:
+        return False
+    monitor = display.get_monitor_at_window(native)
+    if not monitor:
+        return False
+    area, frame = monitor.get_workarea(), native.get_frame_extents()
+    x = max(area.x, min(frame.x, area.x + area.width - frame.width))
+    y = max(area.y, min(frame.y, area.y + area.height - frame.height))
+    if (x, y) != (frame.x, frame.y):
+        current_x, current_y = window.get_position()
+        window.set_position(Gtk.WindowPosition.NONE)
+        window.move(current_x + x - frame.x, current_y + y - frame.y)
+    return False
 
 
 def i3_window_action(window, action):

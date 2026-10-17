@@ -88,6 +88,8 @@ for module in (wifi, bluetooth, notifications):
     module.message = lambda *_args, **_kwargs: None
 wifi.WifiWindow.initial_refresh = lambda _self: None
 bluetooth.BluetoothWindow.initial_refresh = lambda _self: None
+# Populated fixtures model native adapters, not this WSL host's absent radios.
+wifi.host_radio_unavailable = bluetooth.host_radio_unavailable = lambda _kind: False
 network_name = "Nearby network with a long name"
 network = dict(ssid=network_name, signal=77, security_label="WPA2/WPA3 Personal",
                security_kind="personal", security="WPA2 PSK", connected=True,

@@ -1,4 +1,22 @@
-# Current work - 2026-10-16
+# Current work - 2026-10-17
+
+## October 17 wireless details and lifecycle
+
+Wi-Fi/Bluetooth now reject overlapping actions and closed-window callbacks;
+selection changes cannot hide pending progress. Indeterminate feedback runs only
+while busy and respects reduced motion. Service/controller state gates actions,
+with Repair recovery retained. Reset and Bluetooth Remove default to Cancel,
+remain parent-owned and cannot dispatch after parent close.
+
+Wi-Fi advanced forms preserve secrets and show inline IPv4/gateway/DNS/proxy
+errors with visible field focus. Certificates use bounded native local pickers;
+scaled forms stack labels. Bluetooth secondary actions move under Device actions.
+Scrollable wireless content, text-aware CSD reserves and one-time initial
+placement correction prevent small-screen overflow, without fighting later drag.
+Private GTK/i3 checks pass both themes, normal and 200% text; prior wireless,
+shared-dialog and scaled Settings regressions pass. Backend/native source tests
+pass. No physical radio, audio, OpenVINO/model or ISO action. Signed publication
+and installed WSL sync follow source commit. [Evidence](ui-whole-os-review.md#batch-11-wireless-details-and-lifecycle).
 
 ## October 16 smaller-heading refinement
 

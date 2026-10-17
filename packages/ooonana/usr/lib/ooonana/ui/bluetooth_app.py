@@ -26,6 +26,7 @@ from common import (  # noqa: E402
     system_dbus_ready,
 )
 from signal_map import SignalMapWindow  # noqa: E402
+from wireless_ui import WirelessWindowState  # noqa: E402
 from wireless_utils import clean_display_name, parse_bluetooth_info, parse_bluetooth_scan  # noqa: E402
 
 
@@ -36,6 +37,7 @@ SERVICE_REPAIR_TIMEOUT = 150
 class PairDialog(Gtk.Dialog):
     def __init__(self, parent, device):
         super().__init__(title=f"Pair {device['name']}", transient_for=parent, modal=True)
+        self.set_destroy_with_parent(True)
         self.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Pair", Gtk.ResponseType.OK)
         fit_dialog(self, 500)
         area = self.get_content_area()
@@ -57,9 +59,12 @@ class PairDialog(Gtk.Dialog):
         return self.entry.get_text()
 
 
-class BluetoothWindow(Gtk.Window):
+class BluetoothWindow(WirelessWindowState, Gtk.Window):
     def __init__(self):
         super().__init__(title="Ooonana Bluetooth")
+        self.init_wireless_state()
+        self.has_controller = False
+        self.powered = False
         self.set_default_size(940, 600)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.devices = {}
@@ -74,12 +79,20 @@ class BluetoothWindow(Gtk.Window):
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
         root.set_border_width(20)
-        self.add(root)
+        viewport = Gtk.ScrolledWindow()
+        viewport.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        viewport.add(root)
+        root.set_focus_vadjustment(viewport.get_vadjustment())
+        self.add(viewport)
+        fit_dialog(self, 940, 500)
         root.pack_start(page_intro("Bluetooth devices", "Discover, pair, trust, and connect through BlueZ."), False, False, 0)
 
         self.service_status = label("Service: checking", "status-warn")
         self.adapter_status = label("Adapter: checking", "status-warn")
         self.power_status = label("Power: checking", "status-warn")
+        for status_label in (self.service_status, self.adapter_status, self.power_status):
+            status_label.set_lines(2)
+            status_label.set_ellipsize(Pango.EllipsizeMode.END)
         status_row = flow_row((self.service_status, self.adapter_status, self.power_status), 3)
         root.pack_start(status_row, False, False, 0)
 
@@ -116,14 +129,16 @@ class BluetoothWindow(Gtk.Window):
         scroll.add(self.tree)
         root.pack_start(scroll, True, True, 0)
 
-        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.pair_button = button("Pair", "emblem-ok-symbolic", lambda *_: self.device_action("pair"))
         self.trust_button = button("Trust", "security-high-symbolic", lambda *_: self.device_action("trust"))
         self.connect_button = button("Connect", "network-transmit-receive-symbolic", lambda *_: self.device_action("connect"), "suggested-action")
         self.disconnect_button = button("Disconnect", "network-offline-symbolic", lambda *_: self.device_action("disconnect"))
         self.remove_button = button("Remove", "edit-delete-symbolic", lambda *_: self.device_action("remove"), "destructive-action")
-        for widget in (self.pair_button, self.trust_button, self.connect_button, self.disconnect_button, self.remove_button):
-            actions.pack_start(widget, False, False, 0)
+        device_buttons = (self.pair_button, self.trust_button, self.connect_button, self.disconnect_button, self.remove_button)
+        self.device_actions = more_actions([self.trust_button, self.disconnect_button, self.remove_button], "More selected-device actions")
+        self.device_actions.set_label("Device actions")
+        actions = flow_row([self.pair_button, self.connect_button, self.device_actions], max_children=3, min_children=1)
+        for widget in device_buttons:
             widget.set_sensitive(False)
         root.pack_start(actions, False, False, 0)
         self.actions = actions
@@ -137,7 +152,7 @@ class BluetoothWindow(Gtk.Window):
         self.detail.set_selectable(True)
         root.pack_start(self.detail, False, False, 0)
 
-        self.connect("destroy", Gtk.main_quit)
+        self.connect("destroy", self.on_destroy)
         self.connect("size-allocate", self.resized)
         self.resized(self, self.get_default_size())
         self.initial_refresh()
@@ -159,31 +174,24 @@ class BluetoothWindow(Gtk.Window):
             context.remove_class(css)
         context.add_class(f"status-{state}")
 
-    def set_busy(self, busy, text=""):
-        self.toolbar.set_sensitive(not busy)
-        self.actions.set_sensitive(not busy)
-        self.refresh_button.set_sensitive(not busy)
-        self.power_button.set_sensitive(not busy)
-        self.scan_button.set_sensitive(not busy)
-        self.repair_button.set_sensitive(not busy)
-        self.hardware_reset_button.set_sensitive(not busy)
-        for widget in (
-            self.pair_button,
-            self.trust_button,
-            self.connect_button,
-            self.disconnect_button,
-            self.remove_button,
-        ):
-            widget.set_sensitive(False)
-        if busy:
-            self.progress.show()
-            self.progress.pulse()
-            self.progress.set_show_text(False)
-            self.detail.set_text(text)
-            self.detail.set_tooltip_text(text)
-        else:
-            self.progress.hide()
-            self.on_selection_changed(self.tree.get_selection())
+    def update_controls(self):
+        available = self.can_act()
+        native = available and not host_radio_unavailable("bluetooth")
+        ready = native and self.services_ready and self.has_controller and self.powered
+        self.toolbar.set_sensitive(native)
+        self.actions.set_sensitive(native)
+        self.refresh_button.set_sensitive(available)
+        self.power_button.set_sensitive(native and self.services_ready and self.has_controller)
+        self.scan_button.set_sensitive(ready)
+        self.repair_button.set_sensitive(native)
+        self.hardware_reset_button.set_sensitive(native)
+        device = self.selected_device()
+        active = ready and device is not None
+        self.pair_button.set_sensitive(active and not device["paired"])
+        self.trust_button.set_sensitive(active and not device["trusted"])
+        self.connect_button.set_sensitive(active and not device["connected"])
+        self.disconnect_button.set_sensitive(active and device["connected"])
+        self.remove_button.set_sensitive(active)
 
     def initial_refresh(self):
         if self.show_host_adapter_state():
@@ -202,6 +210,8 @@ class BluetoothWindow(Gtk.Window):
             )
 
         def done(rc, output):
+            if self.closed:
+                return
             self.set_busy(False)
             if rc != 0:
                 message(self, "Bluetooth repair failed", output or f"Exit status {rc}. Check /var/log/ooonana-services.log.", Gtk.MessageType.ERROR)
@@ -210,10 +220,12 @@ class BluetoothWindow(Gtk.Window):
         run_async_task(task, done)
 
     def refresh(self):
+        if self.closed or self.dialog_open:
+            return
+        if self.busy:
+            return
         if self.show_host_adapter_state():
             return
-        self.toolbar.set_sensitive(True)
-        self.actions.set_sensitive(True)
         if self.refresh_running:
             self.refresh_pending = True
             return
@@ -224,8 +236,12 @@ class BluetoothWindow(Gtk.Window):
             return 0, self.collect_refresh_data()
 
         def done(rc, data):
+            if self.closed:
+                return
             self.refresh_running = False
             if rc != 0:
+                self.services_ready = False
+                self.show_detail("Bluetooth refresh failed. Try Refresh or Repair service from More.")
                 message(self, "Bluetooth refresh failed", str(data), Gtk.MessageType.ERROR)
             else:
                 self.apply_refresh_data(data)
@@ -245,7 +261,7 @@ class BluetoothWindow(Gtk.Window):
         self.set_state(self.power_status, "Host controls available in Windows", "neutral")
         self.toolbar.set_sensitive(False)
         self.actions.set_sensitive(False)
-        self.detail.set_text("Use Windows controls for host Bluetooth. Pass a USB Bluetooth controller into WSL for native device management.")
+        self.show_detail("Use Windows controls for host Bluetooth. Pass a USB Bluetooth controller into WSL for native device management.")
         return True
 
     def collect_refresh_data(self):
@@ -304,8 +320,12 @@ class BluetoothWindow(Gtk.Window):
         }
 
     def apply_refresh_data(self, data):
+        selected = self.selected_device()
         self.store.clear()
         services_ready = data["dbus_ok"] and data["daemon_ok"]
+        self.services_ready = services_ready
+        self.has_controller = data["has_controller"]
+        self.powered = data["powered"] == "yes"
         if services_ready:
             service_text = "Services: D-Bus + BlueZ"
         elif not data["dbus_ok"]:
@@ -330,41 +350,45 @@ class BluetoothWindow(Gtk.Window):
                 "yes" if values["trusted"] else "no",
                 "yes" if values["connected"] else "no",
             ])
+        if selected:
+            for row in self.store:
+                if row[1] == selected["address"]:
+                    self.tree.get_selection().select_iter(row.iter)
+                    break
         self.update_signal_map()
         if not has_controller:
             log = data["log"]
-            self.detail.set_text("No controller found. Repair reloads Bluetooth modules, clears RFKill, restarts BlueZ, then retriggers udev.\n\n" + log[-1200:])
+            self.show_detail("No controller found. Repair reloads Bluetooth modules, clears RFKill, restarts BlueZ, then retriggers udev.\n\n" + log[-1200:])
         elif not discovered:
-            self.detail.set_text(f"Adapter {data['address'] or 'ready'}. No known devices. Press Scan to discover nearby devices.")
+            self.show_detail(f"Adapter {data['address'] or 'ready'}. No known devices. Press Scan to discover nearby devices.")
         else:
-            self.detail.set_text(f"{len(discovered)} device(s). Signal appears while devices advertise during a scan.")
+            self.show_detail(f"{len(discovered)} device(s). Signal appears while devices advertise during a scan.")
+        self.update_controls()
 
     def selected_device(self):
         model, tree_iter = self.tree.get_selection().get_selected()
         return self.devices.get(model[tree_iter][1]) if tree_iter else None
 
     def on_selection_changed(self, selection):
-        _model, tree_iter = selection.get_selected()
-        active = tree_iter is not None
-        for widget in (self.pair_button, self.trust_button, self.connect_button, self.disconnect_button, self.remove_button):
-            widget.set_sensitive(active)
+        if not self.can_act():
+            return
+        self.update_controls()
         device = self.selected_device()
         if device:
-            self.pair_button.set_sensitive(not device["paired"])
-            self.trust_button.set_sensitive(not device["trusted"])
-            self.connect_button.set_sensitive(not device["connected"])
-            self.disconnect_button.set_sensitive(device["connected"])
-            self.detail.set_text(
+            self.show_detail(
                 f"{device['name']}\n{device['address']} | Signal: {device['signal']}%\n"
                 f"Paired: {'yes' if device['paired'] else 'no'}  Trusted: {'yes' if device['trusted'] else 'no'}  Connected: {'yes' if device['connected'] else 'no'}"
             )
-            self.detail.set_tooltip_text(self.detail.get_text())
 
     def toggle_power(self, widget):
+        if not self.can_act():
+            return
         target = "off" if "off" in widget.get_label().lower() else "on"
         self.run_bt_action(["power", target], f"Turning Bluetooth {target}")
 
     def scan_devices(self, _widget):
+        if not self.can_act():
+            return
         self.set_busy(True, "Scanning for 12 seconds")
 
         def task():
@@ -373,6 +397,8 @@ class BluetoothWindow(Gtk.Window):
             return self.btctl("--timeout", "12", "scan", "on", timeout=18)
 
         def done(rc, output):
+            if self.closed:
+                return
             self.set_busy(False)
             self.scan_observations = parse_bluetooth_scan(output)
             if rc != 0:
@@ -382,6 +408,8 @@ class BluetoothWindow(Gtk.Window):
         run_async_task(task, done)
 
     def device_action(self, action):
+        if not self.can_act():
+            return
         device = self.selected_device()
         if not device:
             message(self, "Select device", "Choose a Bluetooth device first.")
@@ -394,9 +422,14 @@ class BluetoothWindow(Gtk.Window):
             else:
                 self.ask_pair(device)
         else:
+            if action == "remove" and not self.confirm_action("Remove Bluetooth device?",
+                    f"Remove {device['name']} from saved devices? Pairing again may require its PIN.", "Remove device"):
+                return
             self.run_bt_action([action, device["address"]], f"{action.title()} {device['name']}")
 
     def activate_selected(self):
+        if not self.can_act():
+            return
         device = self.selected_device()
         if not device:
             return
@@ -406,14 +439,20 @@ class BluetoothWindow(Gtk.Window):
             self.ask_pair(device)
 
     def ask_pair(self, device):
+        if not self.can_act():
+            return
+        self.dialog_open = True
         dialog = PairDialog(self, device)
         response = dialog.run()
         pin = dialog.pin()
         dialog.destroy()
-        if response == Gtk.ResponseType.OK:
+        self.dialog_open = False
+        if response == Gtk.ResponseType.OK and not self.closed:
             self.pair_device(device, pin)
 
     def pair_device(self, device, pin):
+        if not self.can_act():
+            return
         self.set_busy(True, f"Pairing {device['name']}")
 
         def task():
@@ -450,6 +489,8 @@ class BluetoothWindow(Gtk.Window):
         self.finish_device_task(task)
 
     def connect_device(self, device):
+        if not self.can_act():
+            return
         self.set_busy(True, f"Connecting {device['name']}")
 
         def task():
@@ -495,6 +536,8 @@ class BluetoothWindow(Gtk.Window):
 
     def finish_device_task(self, task):
         def done(rc, output):
+            if self.closed:
+                return
             self.set_busy(False)
             if rc != 0:
                 message(self, "Bluetooth action failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)
@@ -503,9 +546,13 @@ class BluetoothWindow(Gtk.Window):
         run_async_task(task, done)
 
     def run_bt_action(self, args, progress_text):
+        if not self.can_act():
+            return
         self.set_busy(True, progress_text)
 
         def done(rc, output):
+            if self.closed:
+                return
             self.set_busy(False)
             if rc != 0:
                 message(self, "Bluetooth action failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)
@@ -535,9 +582,13 @@ class BluetoothWindow(Gtk.Window):
         ])
 
     def repair_service(self, _widget):
+        if not self.can_act():
+            return
         self.set_busy(True, "Repairing Bluetooth")
 
         def done(rc, output):
+            if self.closed:
+                return
             self.set_busy(False)
             self.refresh()
             if rc != 0:
@@ -551,25 +602,15 @@ class BluetoothWindow(Gtk.Window):
         )
 
     def reset_hardware(self, _widget):
-        dialog = Gtk.MessageDialog(
-            transient_for=self,
-            modal=True,
-            message_type=Gtk.MessageType.WARNING,
-            buttons=Gtk.ButtonsType.NONE,
-            text="Reset Bluetooth adapter?",
-        )
-        dialog.format_secondary_text(
-            "Use only when normal service repair fails. Active Bluetooth connections will be interrupted."
-        )
-        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        dialog.add_button("Reset adapter", Gtk.ResponseType.OK)
-        response = dialog.run()
-        dialog.destroy()
-        if response != Gtk.ResponseType.OK:
+        if not self.confirm_action("Reset Bluetooth adapter?",
+                "Use only when normal service repair fails. Active Bluetooth connections will be interrupted.",
+                "Reset adapter"):
             return
         self.set_busy(True, "Resetting Bluetooth adapter")
 
         def done(rc, output):
+            if self.closed:
+                return
             self.set_busy(False)
             if rc != 0:
                 message(self, "Bluetooth reset failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)

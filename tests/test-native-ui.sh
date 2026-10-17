@@ -25,7 +25,7 @@ assert_not_contains() {
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
-for app in common ui_preferences window_menu wireless_utils notification_utils signal_map setup_app settings_app wifi_app bluetooth_app packages_app ai_app controls_app launcher_app task_manager_app notifications_app; do
+for app in common ui_preferences window_menu wireless_utils wireless_ui notification_utils signal_map setup_app settings_app wifi_app bluetooth_app packages_app ai_app controls_app launcher_app task_manager_app notifications_app; do
   [[ -f "$UI_DIR/$app.py" ]] || fail "missing GTK app: $app"
 done
 for app in signal_map setup_app settings_app wifi_app bluetooth_app packages_app ai_app controls_app launcher_app task_manager_app notifications_app; do

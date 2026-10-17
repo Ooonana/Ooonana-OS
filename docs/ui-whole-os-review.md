@@ -19,7 +19,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Panel / music / AI / notifications / tray | Source Polybar/wallpaper/dock at 640×600 and 1280×800; long Wi-Fi/media sample, no overlap/missing glyphs | Real empty/playing/paused media transitions, expanded notification integration and middle widths |
 | Dock | Centered icons, bounded previews/tooltips, compact grouping, 44px targets and unchanged hover focus; follow-up action/keyboard checks below | Edge placement and actual session/display integration |
 | Native Launcher | Long names bounded with full tooltips; visible no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard pass | Real application launch and installed keyboard/IME integration |
-| Wi-Fi / Bluetooth | Managed i3 populated lists and hidden/personal/TLS/PIN dialogs fit 640×600; bounded names, list room, More keyboard/Escape and secret labels pass | Every advanced security/IPv4/proxy/certificate picker, service failure/lifecycle, sustained activity feedback and physical radios |
+| Wi-Fi / Bluetooth | Managed lists/hidden/personal/TLS/PIN forms; advanced fields, bounded certificate pickers, inline validation, progress/reduced motion, service gating, duplicate/closed refusal and safe Reset/Remove pass both themes through 200% text | Actual installed authentication, advanced network activation, physical reconnect/pairing and changed-adapter integration |
 | Settings: all six pages | Compact page picker, bounded/selectable source values, visible keyboard focus, managed wallpaper/log dialogs, repair/update retry and motion rollback; 100/125/200% text checks below | Real installed-session preference/authentication paths and external file/device failures |
 | Setup | Native compact overflow fixed; static fields labelled; validation, default-Back review, mocked pending/failure/late completion tested | Complete real setup/persistence and scaled-text interaction path |
 | Sound / brightness / music | Long selected device/track names bounded; full-name tooltips, music error/retry/closed-callback behavior; no audio playback | Empty device lists, permission errors, actual route/mute/volume semantics and keyboard |
@@ -643,3 +643,46 @@ Supersedes preceding pending-publication note; broader ledger remains active.
 - Source refinement not yet incorporated into signed candidate or installed
   Ooonana WSL. Earlier publication record describes the preceding checkpoint,
   not this patch. Broader coverage ledger remains active.
+
+## Batch 11: wireless details and lifecycle
+
+- Reproduced overlapping startup/refresh/action dispatch, controls re-enabled
+  while pending, selection overwriting progress, stale callbacks reopening UI
+  and a Bluetooth callback touching a destroyed tree. Shared lifecycle now guards
+  these paths, removes progress timers on idle/close and honors reduced motion.
+  Repair stays available when services fail; radio/device actions reflect actual
+  controller/service state. List refresh retains selected SSID/device identity.
+- Reset and Bluetooth Remove use bounded parent-owned confirmations with default
+  Cancel and close refusal. Remove no longer silently forgets a saved pairing.
+  Pair/manual/credentials dialogs are destroyed with their parent. Wi-Fi
+  disconnect lookup moves off the GTK thread; existing backend authority,
+  activation, retry and secret transport remain unchanged.
+- All seven security selections/four enterprise EAP visibility combinations
+  checked. IPv4 interface/gateway/DNS and required proxy input receive inline,
+  secret-preserving errors with focused, fully visible fields. Custom CA/client
+  certificate/private-key selection uses native local-only file chooser content
+  in a bounded scrollable shell; Cancel preserves the prior file.
+- Large-text form labels stack. Bluetooth secondary selected-device actions
+  stay under Device actions rather than growing the window. Scrollable main
+  content, titlebar-aware height reserve and one-time post-map placement clamp
+  fix real 640×600 overflow/negative initial CSD position. Later manual movement
+  is not continuously constrained.
+- Private actual UID1000 GTK/i3 checks pass dark/light at normal and 200% text:
+  advanced values/focus, picker/reset/remove Cancel, service failure/recovery,
+  repeated actions, reduced motion, late completion and confirmation parent
+  close. Existing wireless/notification menu-keyboard regression passes both
+  themes. Shared busy/error/plot/dialog and scaled Settings regression pass both
+  themes; complete native source/backend regression passes. Final detector empty.
+- QA under `/var/tmp/ooonana-whole-ui-20261015.n7zRUus3`: initial failing
+  `batch11-wireless-baseline`, subsequent confirmation evidence, final
+  `batch11-wireless-placement-*`, `batch11-wireless-bounds-*` and
+  `batch11-shared-placement-*`. Failed captures retained, not counted as passes.
+  Existing wireless fixture was corrected to model native adapters explicitly;
+  installed WSL host-radio protections were not disabled.
+- Source batch awaits signed candidate/WSL publication. No live radio changes,
+  sound playback, OpenVINO integration/model download, physical storage changes,
+  WSL relocation or ISO build. Broad review and physical/session gates remain.
+
+![Advanced Wi-Fi error with visible field at intentional 200% text](assets/ooonana-wireless-validation-200-20261017.png)
+
+![Compact parent-owned Bluetooth removal confirmation](assets/ooonana-bluetooth-confirmation-20261017.png)
