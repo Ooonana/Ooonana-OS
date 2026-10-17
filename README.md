@@ -81,12 +81,13 @@ stable selection/scroll and safe End task confirmation. Real window interaction
 checks caught/fixed missing workspace keys and broken modifier drag/resize;
 private native/XTerm tests pass both themes. This refresh is signed/published and
 verified in Ooonana WSL; relaunch desktop/apps. Existing ISO remains unchanged.
-New source-only refinement further reduces page/hero/search text to 14/18/12pt,
+Latest refinement further reduces page/hero/search text to 14/18/12pt,
 keeping body 10pt and user scaling. Dark/light 100/200% checks pass; this small
-follow-up still awaits signed candidate/WSL refresh.
+follow-up is included in October 17 signed candidate/WSL refresh.
 Wireless follow-up hardens busy/closed states, advanced form validation, bounded
 certificate pickers and safe Reset/Remove; scaled CSD placement now stays onscreen.
-Source verified in private GTK/i3; publication status recorded in current work.
+Source verified in private GTK/i3, both remotes/CI and signed candidate/Ooonana
+WSL. Relaunch apps for changes; ISO unchanged. No forced restart.
 [Full scope, current evidence and remaining UI work](docs/ui-whole-os-review.md).
 
 October 15 CI follow-up: Alpine smoke environment lacked `findmnt`, required by

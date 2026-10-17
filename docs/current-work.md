@@ -15,8 +15,14 @@ Scrollable wireless content, text-aware CSD reserves and one-time initial
 placement correction prevent small-screen overflow, without fighting later drag.
 Private GTK/i3 checks pass both themes, normal and 200% text; prior wireless,
 shared-dialog and scaled Settings regressions pass. Backend/native source tests
-pass. No physical radio, audio, OpenVINO/model or ISO action. Signed publication
-and installed WSL sync follow source commit. [Evidence](ui-whole-os-review.md#batch-11-wireless-details-and-lifecycle).
+pass. Source `617dabe` is on both remotes; GitHub/GitLab checks passed. Signed
+654-package generation `6bf47130fc3e1fa0d5ac5dc10445d1f11dfaf4fdb24735e3a9014320ecf2076a`
+and native Ooonana WSL core/runtime refresh verified: pinned keys, signature,
+1302 checksums, clean source manifest, health hooks, installed hashes, actual GTK
+imports/styles and nonroot query. Default metadata cache refreshed to the new
+cloud snapshot. Older generations/checkpoints retained; adapter refreshed without
+restart. Smaller headings included. No physical radio, audio, OpenVINO/model or
+ISO action. [Evidence](ui-whole-os-review.md#published-checkpoint-after-batch-11).
 
 ## October 16 smaller-heading refinement
 
@@ -26,9 +32,9 @@ window controls, user DPI and Korean text remain unchanged. Impeccable's role
 hierarchy, ui-styling's shared tokens and ui-ux-pro-max's consistent type scale
 guide this narrow refinement, not a theme/framework replacement.
 Private actual GTK density/type checks pass dark/light at 100/200%; compact
-Task Manager interaction regression passes both themes. Source patch only:
-signed candidate/installed WSL still use the preceding published checkpoint.
-No ISO built. [Evidence](ui-whole-os-review.md#smaller-heading-refinement).
+Task Manager interaction regression passes both themes. Included in October 17
+signed candidate/installed WSL checkpoint above. No ISO built.
+[Evidence](ui-whole-os-review.md#smaller-heading-refinement).
 
 ## October 16 Task Manager and window interaction follow-up
 

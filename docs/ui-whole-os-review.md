@@ -686,3 +686,35 @@ Supersedes preceding pending-publication note; broader ledger remains active.
 ![Advanced Wi-Fi error with visible field at intentional 200% text](assets/ooonana-wireless-validation-200-20261017.png)
 
 ![Compact parent-owned Bluetooth removal confirmation](assets/ooonana-bluetooth-confirmation-20261017.png)
+
+## Published checkpoint after Batch 11
+
+Supersedes preceding pending-publication notes for smaller headings and Batch 11.
+Broader UI coverage remains active, not certified complete.
+
+- Source `617dabef8e9da3252111e38b76e6f4c2bf2608e5` is on both remotes;
+  [GitHub regression](https://github.com/Ooonana/Ooonana-OS/actions/runs/38989705803)
+  and [GitLab smoke](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2957559272)
+  passed. Clean source-only manifest, coherent v3.24 base, no bundled models.
+- Signed 654-package/612-dependency-node generation:
+  `6bf47130fc3e1fa0d5ac5dc10445d1f11dfaf4fdb24735e3a9014320ecf2076a`.
+  Previous `cdfa85a…` checksum manifest remains
+  `acbe575cfa2a65d1b0fdf319f32a39c01ec4136c102fddfb039e6b18b37d11cb`.
+  Private key local; stable promotion/signing enrollment still deferred.
+- Native Ooonana WSL snapshot:
+  `/var/lib/ooonana/candidate-wireless-ui-20261017.XIV7pHV5`.
+  Pinned public-key hashes, detached signature, all 1302 checksums and exact
+  clean source revision verified before separate core/runtime dry-runs,
+  reinstalls, package verification and explicit health hooks. All checkpoints
+  retained. First transfer attempt found absent Ubuntu F: mount and extracted
+  nothing; explicit-mount retry passed complete signature/checksum validation.
+- Installed common/Wi-Fi/Bluetooth/shared-wireless module hashes match source.
+  Actual GTK imports and both style variants parse as UID1000; compact heading
+  roles and shared lifecycle inheritance verified. Nonroot Geany search passes.
+  Default package metadata cache refreshed and core runtime resolves to the new
+  local cloud snapshot. WSL adapter refreshed without GUI/WSL restart.
+- Logs: `/var/tmp/ooonana-wireless-ui-sync-20261017.Ox1fMm9X` in Ooonana.
+  Build stage/transfer retained under F: `build/ui-wireless-stage-20261017.ayfWOZ4z`
+  and `build/ui-wireless-transfer-20261017.SEp6Wai6.tar`. No model download,
+  sound, live-radio/device change, physical-disk operation, WSL relocation or ISO
+  construction. Relaunch desktop/apps; physical/session/display gates remain.
