@@ -849,5 +849,11 @@ remains active; signed candidate and installed Ooonana WSL now include this batc
   (expected failures) and `/var/tmp/ooonana-setup-confirm-20261017.Rc2GznpK`
   (confirmation and regressions). Candidate/WSL publication pending for this
   patch; Batch 12 publication above remains the previous runtime checkpoint.
+- First GitHub run on `e58642b` failed because its AST-isolated backend test
+  still mocked the old MessageDialog and omitted review state. Updated that
+  fixture for the real Dialog/lifecycle instead of weakening production guards.
+  Local backend regression passes, including setup completion only after
+  successful password change and exact preservation of password spaces via
+  stdin. No fixture dispatches a real privileged setup command.
 
 ![Setup at normal text scale, private GTK fixture](assets/ooonana-setup-details-20261017.png)

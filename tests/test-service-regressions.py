@@ -48,26 +48,39 @@ for password_rc in [0, 1]:
         return 0, 'saved'
     def thread(target, **kwargs):
         return SimpleNamespace(start=target)
+    review_widget = SimpleNamespace(
+        set_destroy_with_parent=lambda *_: None, set_icon_name=lambda *_: None,
+        set_selectable=lambda *_: None, set_valign=lambda *_: None,
+        set_policy=lambda *_: None, add=lambda *_: None,
+        set_border_width=lambda *_: None, set_spacing=lambda *_: None,
+        pack_start=lambda *_: None, add_class=lambda *_: None,
+        set_default_response=lambda *_: None, show_all=lambda: None,
+        run=lambda: 1, destroy=lambda: None)
+    review_widget.get_content_area = review_widget.get_style_context = lambda: review_widget
+    review_widget.add_button = lambda *_: review_widget
+    password_inputs = []
+    def change_password(*args, **kwargs):
+        password_inputs.append(kwargs['input'])
+        return SimpleNamespace(returncode=password_rc, stdout='')
     namespace = dict(run=run, command_exists=lambda _: True, admin_command=lambda x: x,
                      load_preferences=lambda: {'reduce_motion': False},
+                     fit_dialog=lambda *_args: None, label=lambda *_args: review_widget,
                      Gtk=SimpleNamespace(
-                         MessageDialog=lambda **_kwargs: SimpleNamespace(
-                             format_secondary_text=lambda *_args: None, add_button=lambda *_args: None,
-                             set_default_response=lambda *_args: None,
-                             get_message_area=lambda: SimpleNamespace(get_children=lambda: []),
-                             run=lambda: 1, destroy=lambda: None),
-                         MessageType=SimpleNamespace(QUESTION=0),
-                         ButtonsType=SimpleNamespace(NONE=0),
+                         Dialog=lambda **_kwargs: review_widget,
+                         ScrolledWindow=lambda: review_widget,
+                         PolicyType=SimpleNamespace(NEVER=0, AUTOMATIC=1),
+                         Align=SimpleNamespace(START=0),
                          ResponseType=SimpleNamespace(OK=1, CANCEL=0)),
-                     subprocess=SimpleNamespace(run=lambda *a, **k: SimpleNamespace(returncode=password_rc, stdout=''),
+                     subprocess=SimpleNamespace(run=change_password,
                                                 PIPE=-1, STDOUT=-2, TimeoutExpired=subprocess.TimeoutExpired),
                      threading=SimpleNamespace(Thread=thread),
                      GLib=SimpleNamespace(idle_add=lambda callback, *args: completion.append(args)))
     exec(compile(ast.Module(body=[method], type_ignores=[]), 'setup-test', 'exec'), namespace)
-    values = dict(user='test', password='secret', mode='dhcp', theme='dark',
+    values = dict(user='test', password=' secret ', mode='dhcp', theme='dark',
                   zram_percent='50', disk_swap='on', repo='file:///repo')
     sensitive = SimpleNamespace(set_sensitive=lambda _: None)
-    target = SimpleNamespace(closed=False, pending=False, validate=lambda: (values, ''),
+    target = SimpleNamespace(closed=False, pending=False, review_dialog=None,
+                             validate=lambda: (values, ''), feedback=lambda *_args: None,
                              apply_button=sensitive, cancel_button=sensitive, content=sensitive,
                              spinner=SimpleNamespace(start=lambda: None),
                              status=SimpleNamespace(set_text=lambda _: None, get_text=lambda: '',
@@ -77,4 +90,6 @@ for password_rc in [0, 1]:
     assert '--done' not in commands[0]
     assert any('--done' in command for command in commands) == (password_rc == 0)
     assert completion[0][1] == password_rc
+    assert target.review_dialog is None
+    assert password_inputs == ['test: secret \n']
 print('ok radio scope, audio owner, setup failure ordering')
