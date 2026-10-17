@@ -767,3 +767,55 @@ Broader UI coverage remains active, not certified complete.
   models, signing keys and evidence/history are excluded. Broad review continues.
 
 ![Sound controls at normal text scale, silent private fixture](assets/ooonana-sound-details-20261017.png)
+
+## Published checkpoint and cleanup after Batch 12
+
+Supersedes Batch 12 pending-publication/cleanup notes above. Whole-OS UI review
+remains active; signed candidate and installed Ooonana WSL now include this batch.
+
+- Source `9d02988ed3f42e5bd7fe2166914ecd970621d0c8` pushed to both remotes;
+  [GitHub regression](https://github.com/Ooonana/Ooonana-OS/actions/runs/38991693350)
+  and [GitLab smoke](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2957617970)
+  pass. Clean source-only manifest: v3.24, no bundled models.
+- Signed local 654-package/612-dependency-node generation:
+  `8cc58fc2caf8b8b7fd600bfe8925fa9fa4d5fadd2116bd315374953a9b61a2b3`.
+  Publication validates hashes, index/closure and detached signature before
+  promoting CURRENT. Previous `6bf47130…` SHA256SUMS remains
+  `6f185bb9461443447bf7288cf75f84a34ac6e9c4d32bb15f5cec8ff2be3c4a97`.
+  Signing key stays local; no enrollment or stable-channel promotion.
+- First native Ooonana startup returned
+  `Wsl/Service/CreateInstance/ERROR_TIMEOUT` before executing the preparation
+  script. After filesystem operations settled, a read-only startup retry
+  succeeded without forced GUI/WSL restart. Signed native snapshot:
+  `/var/lib/ooonana/candidate-controls-ui-20261017.KPwtkH7z`.
+  Pinned key, detached signature, all 1302 checksums and exact clean source
+  manifest verified before separate core/runtime dry-runs, reinstalls,
+  package verification and explicit health hooks; all checkpoints retained.
+- Installed common/controls hashes match source. Actual GTK imports and both
+  CSS variants parse as UID1000; nonroot Geany query and metadata-only update
+  pass. Default cache contains 654 packages from two sources and core/runtime
+  resolves to the new local cloud snapshot, not stale builtin metadata. WSL
+  adapter refreshed after install, without launching/restarting GUI. Logs:
+  `/var/tmp/ooonana-controls-ui-sync-20261017.xHtnm1XP` in Ooonana.
+  These checks do not certify live WSLg pointer/IME/session behavior.
+- Cleanup targets were agent-owned duplicates, with matching retained signed
+  generations, exact validated absolute paths and no unknown/reparse children.
+  Seven old `build/ui-*-stage-*` copies and six named transfer archives removed.
+  Transfers total 4,321,280 bytes; five ignored project bytecode files total
+  69,929 bytes. Final controls staging copy also removed after matching the
+  verified new generation: eight stage copies removed in total. Logical
+  sizes of hardlinked stages are not counted as physical space reclaimed.
+  OneDrive cloud placeholders initially tripped an overstrict parent check;
+  that attempt deleted nothing. Exact nonlinked bytecode files were subsequently
+  removed without changing cloud directories or unrelated files.
+- All signed generations, native rollback snapshots, Git/diagnostic/screenshot
+  history, ISO/resume media, WSL disks, models and keys retained. OpenVINO subtree
+  untouched. New stage/public metadata can be regenerated; no material user
+  data was deleted. C: about 1.55 GiB, F: about 25.09 GiB free during publication;
+  these concurrent-work snapshots are not a claimed net-reclaimed amount.
+- Review resumed: actual private Polybar/dock/wallpaper at 1024×768 passes both
+  appearances with long sample Wi-Fi/media. Scoped panel reload, sibling
+  preservation, owned-child recovery and UTF-8 media truncation regressions pass.
+  Evidence: `/var/tmp/ooonana-panel-resume-20261017.AspRnmNt` in Ubuntu. No
+  real playback/radio action. Real empty/playing/paused service transitions,
+  physical/WSLg/input/display gates and remaining coverage rows still open.

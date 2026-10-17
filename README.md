@@ -93,7 +93,11 @@ audio commands, inline permission/retry feedback and preserved volume drafts.
 Actions cannot overlap or re-enable from stale polling; small/scaled layouts
 remain scrollable and keyboard accessible. Silent private GTK fixtures pass both
 themes at 100/200% text, plus all 25 native catalog pages at compact size.
-This controls batch awaits signed candidate/WSL publication; no sound played.
+Controls batch is signed/published locally and pushed to both remotes; both CI
+checks pass. Installed Ooonana WSL refresh, module hashes, user GTK imports and
+default package cache verified after a successful startup retry; no forced restart.
+Confirmed redundant staging/transfers and bytecode
+cleaned, with history/models/keys/ISO checkpoints retained. No sound played.
 [Full scope, current evidence and remaining UI work](docs/ui-whole-os-review.md).
 
 October 15 CI follow-up: Alpine smoke environment lacked `findmnt`, required by

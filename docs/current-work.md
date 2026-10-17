@@ -14,10 +14,17 @@ Controls use compact content-fit actions, labelled sliders/device selectors,
 bounded full-value tooltips and scrollable, keyboard-accessible content. Private
 GTK/i3 checks pass dark/light, 100/200% text; all 25 native catalog pages pass
 both appearances at 640×600. Full native/backend source regression passes.
-No real route/mute/brightness/playback change or sound test ran. This batch
-awaits source commit and signed candidate/WSL publication. Confirmed redundant
-staging/transfers and regenerable bytecode are inventoried for cleanup; nothing
-deleted yet. [Evidence and limits](ui-whole-os-review.md#batch-12-sound-brightness-and-music-details).
+No real route/mute/brightness/playback change or sound test ran. Source `9d02988`
+is pushed to both remotes and both CI checks pass. Signed 654-package generation
+`8cc58fc2caf8b8b7fd600bfe8925fa9fa4d5fadd2116bd315374953a9b61a2b3`
+is published locally; previous generation is unchanged. Native Ooonana WSL
+refresh verified after a successful startup retry: signature, 1302 checksums,
+package health, installed hashes, UID1000 GTK/CSS, nonroot query and default
+metadata source. Adapter refreshed; no forced restart.
+Eight redundant staging copies, six transfer archives and five bytecode files
+removed, including final publication stage. History/models/keys/ISO checkpoints
+stay. Review resumed with both-theme 1024px panel and scoped-session regression,
+all passing silent fixtures. [Evidence and limits](ui-whole-os-review.md#published-checkpoint-and-cleanup-after-batch-12).
 
 ## October 17 wireless details and lifecycle
 
