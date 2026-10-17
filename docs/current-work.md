@@ -12,9 +12,15 @@ approval is refused; failure feedback remains visible and warns changes may be
 partial. Existing CLI/backend authority and password transport are unchanged.
 Private GTK/i3 checks pass both themes, 100/200%, including keyboard focus,
 review Back/parent-close, draft retention, duplicate actions and reduced motion.
-Prior content/dialog regression and full native source suite pass. Signed
-candidate/WSL publication pending for this newer patch; controls checkpoint below
-is already published. [Evidence](ui-whole-os-review.md#batch-13-setup-form-and-review).
+Prior content/dialog regression and full native source suite pass. Source
+`a57c0cb` is on both remotes; GitHub/GitLab checks pass. Signed generation
+`6515c1e66d0770af57ddc3544ba2446d91a4492108cbb4d73d7fc4412fc4bf80`
+and native Ooonana WSL refresh verified, including pinned key, signature, 1302
+checksums, health hooks, installed module hashes, UID1000 GTK/CSS and default
+cloud metadata. Scratch stage/payload removed; history/checkpoints stay. Adapter
+refreshed without restart. Computer Use still fails kernel-assets initialization
+with error 3, so live Windows/WSLg gates remain open. Installer interaction review
+continues. [Evidence](ui-whole-os-review.md#published-checkpoint-after-batch-13).
 
 ## October 17 Sound, Brightness and Music details
 

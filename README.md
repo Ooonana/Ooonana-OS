@@ -102,7 +102,9 @@ Setup follow-up now bounds scaled forms/review, focuses invalid fields and shows
 network/repository choices without exposing passwords. Review cannot dispatch
 after parent close; failed setup retains drafts and warns about partial changes.
 Private keyboard/form/lifecycle checks pass dark/light through 200% text.
-This newer Setup patch awaits signed candidate/WSL refresh.
+Setup refresh is now signed/published and verified in Ooonana WSL; both remotes
+and source CI are updated. Relaunch apps for changes; no forced restart or ISO
+build. Whole-OS review remains active.
 [Full scope, current evidence and remaining UI work](docs/ui-whole-os-review.md).
 
 October 15 CI follow-up: Alpine smoke environment lacked `findmnt`, required by

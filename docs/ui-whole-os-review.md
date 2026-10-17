@@ -43,6 +43,9 @@ Windows Computer Use failed during initialization with “failed to write kernel
 assets … path specified (os error 3)”. No fallback Windows automation used.
 Linux Xvfb fixtures remain available; live WSLg behavior is not certified.
 Previously denied local-PDF browser navigation is not retried or bypassed.
+October 17 updated Computer Use runtime was retried through its documented
+`@oai/sky` initialization; the same kernel-assets error 3 occurred before any
+app input. No Windows automation workaround or security setting change used.
 
 ## Current batch evidence
 
@@ -857,3 +860,31 @@ remains active; signed candidate and installed Ooonana WSL now include this batc
   stdin. No fixture dispatches a real privileged setup command.
 
 ![Setup at normal text scale, private GTK fixture](assets/ooonana-setup-details-20261017.png)
+
+## Published checkpoint after Batch 13
+
+Supersedes Batch 13 pending-publication notes. Whole-OS review remains active.
+
+- Source `a57c0cb2f56fdb8cd00dbc800c7d77ba1cda9e1f` is on both remotes;
+  [GitHub regression](https://github.com/Ooonana/Ooonana-OS/actions/runs/39022235329)
+  and [GitLab smoke](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2958238333)
+  pass after repairing the stale backend test mock, without weakening guards.
+- Clean source-only, v3.24, model-free 654-package/612-node generation:
+  `6515c1e66d0770af57ddc3544ba2446d91a4492108cbb4d73d7fc4412fc4bf80`.
+  Signature, archive/index checksums and closure pass before atomic promotion.
+  Prior `8cc58fc2…` SHA256SUMS stays
+  `035cbef3d30d3143c68c94f16367160ef9cfb240ed8bb8b56d844ef8b91cf51e`.
+- Native snapshot `/var/lib/ooonana/candidate-setup-ui-20261017.YZrR8O7r`:
+  pinned trust key/signature, all 1302 checksums and source manifest verified
+  before core/runtime dry-runs, reinstalls, package checks and health hooks.
+  Common/Setup/Controls hashes match source; actual UID1000 GTK imports/CSS,
+  nonroot package search and default cloud metadata cache pass. Adapter updated
+  without forced GUI/WSL restart; all rollback checkpoints retained. Logs:
+  `/var/tmp/ooonana-setup-ui-sync-20261017.GjKQWl8X` in Ooonana.
+- Slow agent-owned staging loop was identified by exact command and Codex parent,
+  stopped with terminal confirmation, then its same scratch tree was completed
+  using verified native hard links. No active repo or user process was stopped.
+  Final staging copy and five-file temporary payload were removed only after
+  verified publication; generation, source, evidence and native snapshots stay.
+  No key upload/enrollment, stable promotion, model download, playback, physical
+  disk operation or ISO build. Live Windows/WSLg/input/display gates remain.
