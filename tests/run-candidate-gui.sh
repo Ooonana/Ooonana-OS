@@ -14,7 +14,7 @@ case "$geometry" in
   *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
 esac
 case "$only" in
-  all|controls-details-ui|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|window-controls-runtime|dock-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
+  all|setup-details-ui|controls-details-ui|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|window-controls-runtime|dock-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -218,6 +218,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   probe workspace-ui python3 /source/tests/check-workspace-ui.py /qa/workspaces
   probe wireless-details-ui python3 /source/tests/check-wireless-details-ui.py /qa/wireless-details
   probe controls-details-ui python3 /source/tests/check-controls-details-ui.py /qa/controls-details
+  probe setup-details-ui python3 /source/tests/check-setup-details-ui.py /qa/setup-details
   probe control-density-ui python3 /source/tests/check-control-density-ui.py /qa/density
   probe notifications-runtime python3 /source/tests/check-notifications-runtime.py --output /qa/notifications.png
   probe window-controls-runtime python3 /source/tests/check-window-controls-runtime.py --own-i3

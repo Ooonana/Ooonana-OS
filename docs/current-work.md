@@ -1,5 +1,21 @@
 # Current work - 2026-10-17
 
+## October 17 Setup form and review follow-up
+
+Reproduced 200% form/review overflow, invalid-field focus loss and stale review
+approval dispatch after parent close. Setup now scrolls its welcome with the
+form, stacks wide labels, wraps swap text and uses a bounded scrollable review.
+Review includes manual routing/repository/password-presence choices, never
+password contents. Inline validation focuses the field, preserves secrets and
+checks IPv4/prefix/gateway/DNS and repository input. Pending/reentrant/closed
+approval is refused; failure feedback remains visible and warns changes may be
+partial. Existing CLI/backend authority and password transport are unchanged.
+Private GTK/i3 checks pass both themes, 100/200%, including keyboard focus,
+review Back/parent-close, draft retention, duplicate actions and reduced motion.
+Prior content/dialog regression and full native source suite pass. Signed
+candidate/WSL publication pending for this newer patch; controls checkpoint below
+is already published. [Evidence](ui-whole-os-review.md#batch-13-setup-form-and-review).
+
 ## October 17 Sound, Brightness and Music details
 
 Startup waits for verified state rather than allowing guessed writes. Audio

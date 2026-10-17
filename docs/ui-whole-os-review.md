@@ -21,7 +21,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Native Launcher | Long names bounded with full tooltips; visible no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard pass | Real application launch and installed keyboard/IME integration |
 | Wi-Fi / Bluetooth | Managed lists/hidden/personal/TLS/PIN forms; advanced fields, bounded certificate pickers, inline validation, progress/reduced motion, service gating, duplicate/closed refusal and safe Reset/Remove pass both themes through 200% text | Actual installed authentication, advanced network activation, physical reconnect/pairing and changed-adapter integration |
 | Settings: all six pages | Compact page picker, bounded/selectable source values, visible keyboard focus, managed wallpaper/log dialogs, repair/update retry and motion rollback; 100/125/200% text checks below | Real installed-session preference/authentication paths and external file/device failures |
-| Setup | Native compact overflow fixed; static fields labelled; validation, default-Back review, mocked pending/failure/late completion tested | Complete real setup/persistence and scaled-text interaction path |
+| Setup | Compact/200% scrolling and stacked labels; focused inline validation, secret-preserving drafts, full source/routing review, default Back, reduced motion, pending/reentrant and closed-parent refusal checked both themes | Complete installed privileged setup/persistence and actual authentication/network failures; CLI backend preflight is not certified by UI validation |
 | Sound / brightness / music | Verified readiness, selected-identity audio/backlight commands, unknown/empty/permission states, persistent inline retry, serialized actions, preserved drafts, stale-poll/closed refusal; keyboard and both themes through 200% text pass silent fixtures | Actual installed route/mute/volume and playback semantics, changed-device integration and real hardware; no sound playback |
 | Power | Native default-Cancel, duplicate refusal, error/retry, failed lock refusal pass with mocked commands | Actual isolated lock/logout/suspend and unavailable capabilities |
 | Notifications | Private real Dunst history/DND/remove/clear; long grouped messages/full expansion, unchanged refresh focus, failure persistence, unavailable/unknown DND and privacy UI checks | Archived/live mixtures under service restarts, changed-record keyboard/scroll integration, actual session notifications |
@@ -819,3 +819,35 @@ remains active; signed candidate and installed Ooonana WSL now include this batc
   Evidence: `/var/tmp/ooonana-panel-resume-20261017.AspRnmNt` in Ubuntu. No
   real playback/radio action. Real empty/playing/paused service transitions,
   physical/WSLg/input/display gates and remaining coverage rows still open.
+
+## Batch 13: Setup form and review
+
+- Fresh baseline exposed whole-form/review overflow at 200%, validation that
+  did not focus its field, an orphan review and a closed-parent approval that
+  still queued administrative work. Tests queue workers and reject command
+  execution; no account/network/password/disk changes were made.
+- Welcome now scrolls with the form, leaving room for Account at normal small
+  size. Wide labels stack by measured text, checkbox text wraps, fields follow
+  focus adjustments and initial placement uses shared titlebar-aware bounds.
+  Existing typography, themes, targets and mascot/cursor remain unchanged.
+- Inline validation retains password spaces/drafts, identifies/focuses the
+  offending field and checks IPv4/prefix/gateway/DNS plus repository input.
+  This is UI feedback, not a claim of a new server-side/CLI security boundary.
+  The authoritative setup CLI and password stdin transport are unchanged.
+- Scrollable parent-owned review includes exact manual routing, source URI,
+  theme, capped RAM policy and existing disk-swap choice. Password is reported
+  only as supplied/not supplied. Back remains default; reentrant Apply and
+  any approval after parent close cannot dispatch. Partial backend failure
+  remains visible with drafts and retry, instead of implying rollback.
+- Private actual UID1000 GTK/i3 passes dark/light at 640×600, 100/200% text:
+  every field's visible focus, invalid entries, DNS normalization, secret
+  retention, complete review, Back, pending/duplicate refusal, reduced motion,
+  failure recovery and parent-close. Prior content/dialog regression passes
+  both themes; full native source/backend suite passes. No physical/session
+  or real privileged transaction is certified by these mocked results.
+- Ubuntu evidence: `/var/tmp/ooonana-setup-baseline-20261017.CuR92Nvh`
+  (expected failures) and `/var/tmp/ooonana-setup-confirm-20261017.Rc2GznpK`
+  (confirmation and regressions). Candidate/WSL publication pending for this
+  patch; Batch 12 publication above remains the previous runtime checkpoint.
+
+![Setup at normal text scale, private GTK fixture](assets/ooonana-setup-details-20261017.png)

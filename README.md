@@ -98,6 +98,11 @@ checks pass. Installed Ooonana WSL refresh, module hashes, user GTK imports and
 default package cache verified after a successful startup retry; no forced restart.
 Confirmed redundant staging/transfers and bytecode
 cleaned, with history/models/keys/ISO checkpoints retained. No sound played.
+Setup follow-up now bounds scaled forms/review, focuses invalid fields and shows
+network/repository choices without exposing passwords. Review cannot dispatch
+after parent close; failed setup retains drafts and warns about partial changes.
+Private keyboard/form/lifecycle checks pass dark/light through 200% text.
+This newer Setup patch awaits signed candidate/WSL refresh.
 [Full scope, current evidence and remaining UI work](docs/ui-whole-os-review.md).
 
 October 15 CI follow-up: Alpine smoke environment lacked `findmnt`, required by

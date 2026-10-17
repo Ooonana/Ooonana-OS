@@ -181,7 +181,7 @@ window = setup.SetupWindow()
 window.show_all()
 window.user_entry.set_text("Bad user!")
 window.apply(window.apply_button)
-check(messages[-1] == "Check setup details" and not workers, "Invalid setup dispatched work")
+check(window.get_focus() is window.user_entry and not workers and window.status.get_text(), "Invalid setup lost field focus/inline feedback or dispatched work")
 window.user_entry.set_text("ooonana")
 window.network_combo.set_active_id("static")
 window.address_entry.set_text("192.0.2.10/24")
@@ -194,7 +194,7 @@ capture(window, "setup-static")
 
 def setup_response(response):
     def respond():
-        dialog = next(item for item in Gtk.Window.list_toplevels() if isinstance(item, Gtk.MessageDialog))
+        dialog = next(item for item in Gtk.Window.list_toplevels() if isinstance(item, Gtk.Dialog) and item.get_title() == "Review setup")
         check(dialog.get_default_widget() == dialog.get_widget_for_response(Gtk.ResponseType.CANCEL),
               "Setup review does not default to Back")
         if response == Gtk.ResponseType.CANCEL:
