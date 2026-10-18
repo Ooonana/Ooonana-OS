@@ -1469,3 +1469,38 @@ Supersedes Batch 22's source-pending note. Whole-OS review remains active.
 - Source runtime changes await clean commit, signed local generation and native
   WSL refresh. Installed-session notifications, automatic recovery, other ledger
   rows, live WSLg and physical/PDF manual gates remain open.
+
+## Published checkpoint after Batch 23
+
+Supersedes Batch 23's source-pending note. Whole-OS review remains active.
+
+- Runtime source `9aa2ac7d9360dc874bed7ada8821ebdba7a2a2aa` passes GitHub
+  [39120254410](https://github.com/Ooonana/Ooonana-OS/actions/runs/39120254410)
+  and GitLab [2960105002](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2960105002).
+- Signed local `CURRENT`:
+  `ad33c627306829f0d3b6eba287a71215d86fb9d8440645a90fbd3106bab5c4e3`.
+  SHA256SUMS digest:
+  `e2560db45d215f7dfce6837fb815f225c175af2eddb4278ecb33eabaebe5b842`.
+  All 1302 checksums, signature/pinned public key, clean 300-source-file manifest,
+  supported v3.24 base, model-free declaration and 654-package/612-node closure
+  verified. Prior generation's SHA256SUMS remains
+  `82fc7560d5ec2ec3755e5211e1f8a43cf8039bf646619cacf595ef5e683ab12d`.
+- Native snapshot:
+  `/var/lib/ooonana/candidate-notifications-20261018.4WdW31cG`.
+  Reuses 643 unchanged immutable archives and copies 659 other entries. Full
+  signature/checksum verification precedes separate runtime/core dry-runs,
+  reinstall, file verification and explicit health hooks; all pass. Actual
+  installed notification imports pass as UID1000. Default cloud source points
+  here; default metadata update resolves 654 packages/two sources.
+- Installed notification application SHA256:
+  `3a0425e53f8eb254aaecef2b160f8c6f8ed35b9a661811f19a2758574cac7663`;
+  state helper `c3e5f464460a41386b8a7be5dd39e0c48ecab40b731acc8534f60de6784c62f9`.
+  Both match canonical source exactly. OpenVINO installed metadata and
+  `/etc/wsl.conf` unchanged before/after install and adapter regeneration.
+  Logs: `/var/tmp/ooonana-notifications-sync-20261018.LyeXArbH` (Ooonana).
+- Adapter regenerated without GUI/WSL restart. Relaunch apps to use updated
+  code. Private signing key stays local; enrollment/stable promotion deferred,
+  stable channel remains 0.9.9. No release ISO built, audio played, models
+  downloaded or physical device/power operation performed. Captures, logs,
+  prior generations and checkpoints retained; unrelated denied cleanup not
+  retried. Other ledger rows and actual session/manual gates remain open.

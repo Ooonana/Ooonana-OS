@@ -19,6 +19,13 @@ Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Li
 
 October 18 core 0.10.0 candidate captured with real GTK/i3/Polybar on a private, network-isolated X11 display. Panel status uses sample data, including a deliberately long Wi-Fi label; wallpaper/dock are source assets. Shipped CJK font fallback restores Korean/Japanese/Chinese labels. Responsive status budgets keep AI centered and right controls visible on narrow/middle widths without changing text size. Graphite desktop framing and Paper native-app appearance remain the existing theme choices. [Current evidence and limits](docs/ui-whole-os-review.md#batch-22-qt-pickers-and-wide-label-panel-details). No audio played. Physical USB visuals require a fresh image. Earlier captures remain in `docs/assets/`.
 
+October 18 notification follow-up preserves keyboard reading position when new
+messages arrive and keeps saved history visible during storage failures, with
+persistent error/retry feedback. Actual private Dunst checks pass both themes
+and compact/desktop sizes. Signed candidate and native Ooonana WSL are updated;
+relaunch apps for changed code. [Checks and remaining limits](docs/ui-whole-os-review.md#published-checkpoint-after-batch-23).
+No release ISO built; an old ISO/resume cannot acquire these runtime changes.
+
 Stable core 0.9.9 desktop refresh adds unboxed dock hover feedback, slimmer panel, open Appearance groups, blue globe browser icon and canonical wallpaper fitting. Component previews use isolated test windows, not physical USB boot.
 
 Latest October 14: installed **Ooonana WSL is now 0.10.0** after user-authorized

@@ -1,5 +1,17 @@
 # Current work - 2026-10-18
 
+## October 18 notification publication and native refresh
+
+Runtime source `9aa2ac7` passes GitHub/GitLab CI and is signed/published as
+generation `ad33c627306829f0d3b6eba287a71215d86fb9d8440645a90fbd3106bab5c4e3`.
+All 1302 checksums, signature/trust pin, clean 300-source-file manifest and
+654-package/612-node closure verified. Native core/runtime dry-run, reinstall,
+verify and health checks pass after full verification; installed notification
+files match source and UID1000 imports pass. Default metadata resolves the new
+snapshot; WSL adapter refreshed without restart. History, previous generations,
+OpenVINO metadata and boot configuration retained. No ISO, sound or models.
+[Publication evidence and remaining gates](ui-whole-os-review.md#published-checkpoint-after-batch-23).
+
 ## October 18 notification reading and storage recovery
 
 Actual private Dunst/GTK lifecycle checks reproduced lost keyboard focus and
@@ -10,7 +22,7 @@ persistent save/remove errors with retry recovery. No text/control enlargement.
 Four normal100% dark/light, 640×600/1024×768 checks pass, including explicit
 service restart refresh, DND reset, reused notification IDs and clear-all.
 Only owned private history is used; sound is suppressed in QA, not production.
-Source batch awaits signed publication and native WSL refresh; broader review
+Signed publication and native WSL refresh are completed above; broader review
 remains active. [Evidence and limits](ui-whole-os-review.md#batch-23-notification-reading-and-storage-recovery).
 
 ## October 18 multilingual panel publication and WSL refresh
