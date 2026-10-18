@@ -1,5 +1,18 @@
 # Current work - 2026-10-19
 
+## October 19 actual device-scale alignment
+
+Real `GDK_SCALE=2` exposed third-party controls displaced/doubled beyond their
+i3 titlebar and logical/device mixing in fullscreen overlap. GTK placement,
+CSS/icon budgets and i3 hit testing now use the appropriate coordinate units.
+Four dark/light, normal-font 1×/2× cases pass real Minimize/Close clicks,
+titlebar bounds and fullscreen restoration. Default typography stays unchanged;
+2× is an isolated test, not a new default. Pure scale/negative-origin/remap
+guards run in both CIs. Native/rootfs source regressions pass; broader
+package-factory, shared native controls and actual2× dock-edge regressions also
+pass both themes. Signed publication and native WSL refresh remain in progress.
+[Evidence and limits](ui-whole-os-review.md#batch-26-device-scale-coordinate-alignment).
+
 ## October 19 dock publication and native WSL refresh
 
 Source `519de7d` passes both CIs; signed candidate generation is

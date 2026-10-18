@@ -40,6 +40,13 @@ height, icons, framing and default text scale stay unchanged. Signed candidate
 and Ooonana WSL refreshed; relaunch GUI for new dock code. No ISO built.
 [Preview, fullscreen checks and remaining display limits](docs/ui-whole-os-review.md#published-checkpoint-after-batch-25).
 
+October 19 device-scale follow-up keeps third-party window controls inside their
+native i3 titlebar at actual 1×/2× device scaling and fixes offset-monitor
+fullscreen hit testing. Four real dark/light cases pass, including physical
+Minimize/Close clicks. Default text size and normal control proportions stay
+unchanged. Source changes await signed-package/WSL refresh; no ISO built.
+[Checks and physical-display limits](docs/ui-whole-os-review.md#batch-26-device-scale-coordinate-alignment).
+
 Stable core 0.9.9 desktop refresh adds unboxed dock hover feedback, slimmer panel, open Appearance groups, blue globe browser icon and canonical wallpaper fitting. Component previews use isolated test windows, not physical USB boot.
 
 Latest October 14: installed **Ooonana WSL is now 0.10.0** after user-authorized

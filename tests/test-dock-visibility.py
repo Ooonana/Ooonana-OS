@@ -54,4 +54,8 @@ assert not hidden(multi, area), "Secondary output fullscreen hid primary dock"
 assert hidden(multi, SimpleNamespace(x=640, y=0, width=640, height=600))
 second["nodes"][0]["nodes"][0]["nodes"][0]["fullscreen_mode"] = 2
 assert hidden(multi, area), "Global fullscreen on secondary did not hide primary dock"
+scaled = SimpleNamespace(x=320, y=0, width=320, height=300)
+local = dict(type="con", fullscreen_mode=1, rect=dict(x=640, y=0, width=640, height=600))
+assert hidden(local, scaled, scale=2), "Offset logical monitor was not converted to device pixels"
+assert not hidden(local, SimpleNamespace(x=0, y=0, width=320, height=300), scale=2)
 print("DOCK_VISIBILITY_OK visible workspaces/tabs, output edges, scratchpad, floating and global fullscreen")

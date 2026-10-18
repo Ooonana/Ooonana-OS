@@ -121,6 +121,8 @@ class Controls(Gtk.Window):
             self.set_visual(visual)
         self.identifier = identifier
         self.last_position = None
+        self.last_scale = None
+        self.scale_provider = Gtk.CssProvider()
         self.connect("realize", self.register, owner)
         self.connect("destroy", self.unregister, owner)
         self.xid = None
@@ -146,6 +148,7 @@ class Controls(Gtk.Window):
             control.set_image(image)
             control.set_can_focus(False)
             control.get_style_context().add_class(action)
+            control.get_style_context().add_provider(self.scale_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER + 1)
             control.set_tooltip_text(title)
             control.get_accessible().set_name(title)
             control.connect("clicked", lambda _widget, operation=action: self.activate(operation))
@@ -197,11 +200,28 @@ class Controls(Gtk.Window):
         run_async(["ooonana-window-list", "--window-action", action, str(self.identifier)], lambda *_: None)
 
     def position(self, target):
-        if self.last_position != target:
+        scale = max(1, self.get_scale_factor())
+        if self.last_position != target or self.last_scale != scale:
             x, y, height = target
-            self.set_size_request(WIDTH, height)
-            self.move(x, y)
+            # i3 targets are X11 device pixels; GTK placement and CSS use
+            # application pixels. Match the native titlebar, not GDK_SCALE.
+            # GTK quantizes CSS borders to whole application pixels. Budget
+            # their actual width, or three buttons exceed the 66-device-pixel row.
+            border = math.ceil(1 / scale)
+            minimum = max(1, 16 / scale - 2 * border)
+            self.scale_provider.load_from_data((
+                "button { min-width: %gpx; min-height: %gpx; border-width: %gpx; }"
+                % (minimum, minimum, border)).encode())
+            row = self.get_child()
+            row.set_spacing(max(1, 5 // scale))
+            row.set_margin_left(max(1, 4 // scale))
+            row.set_margin_right(max(1, 4 // scale))
+            for button in row.get_children():
+                button.get_image().set_pixel_size(max(1, 10 // scale))
+            self.set_size_request(math.ceil(WIDTH / scale), math.ceil(height / scale))
+            self.move(x // scale, y // scale)
             self.last_position = target
+            self.last_scale = scale
         self.show_all()
 
 

@@ -10,6 +10,8 @@ if [[ "$only" == firefox-frame ]]; then gui_runtime=/run/user/1000; fi
 geometry="${OOONANA_GUI_GEOMETRY:-1280x800}"
 theme="${OOONANA_GUI_THEME:-dark}"
 text_scale="${OOONANA_GUI_TEXT_SCALE:-1.25}"
+device_scale="${OOONANA_GUI_DEVICE_SCALE:-1}"
+case "$device_scale" in 1|2) ;; *) printf 'Unsupported device scale: %s\n' "$device_scale" >&2; exit 2 ;; esac
 case "$text_scale" in 1.0|1.25|1.5|2.0) ;; *) printf 'Unsupported native text scale: %s\n' "$text_scale" >&2; exit 2 ;; esac
 case "$theme" in dark|light) ;; *) printf 'Unsupported test appearance: %s\n' "$theme" >&2; exit 2 ;; esac
 case "$geometry" in
@@ -18,7 +20,7 @@ case "$geometry" in
   *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
 esac
 case "$only" in
-  all|setup-details-ui|controls-details-ui|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|notification-lifecycle|window-controls-runtime|dock-ui|dock-edges-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
+  all|setup-details-ui|controls-details-ui|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|notification-lifecycle|window-controls-runtime|dock-ui|dock-edges-ui|device-scale-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -207,7 +209,7 @@ if [[ "$only" == firefox-frame && -z "${OOONANA_FIREFOX_REUSE_HOME:-}" ]]; then
 fi
 # Host Xvfb and candidate use the same private filesystem socket, no TCP.
 mount --bind "$rootfs/tmp" /tmp
-export rootfs output only theme text_scale gui_runtime admin_policy
+export rootfs output only theme text_scale device_scale gui_runtime admin_policy
 # Keep namespace init as Bash. Xvfb will not send its readiness signal to PID 1.
 # shellcheck disable=SC2016 # Child shell expands exported paths/display.
 unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp" bash -c '
@@ -236,6 +238,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
       PYTHONDONTWRITEBYTECODE=1 OOONANA_GUI_TEST_DISPLAY=1 OOONANA_NOTIFICATION_TEST_SESSION=1 GDK_BACKEND=x11 \
       OOONANA_GUI_TEST_ADMIN_POLICY="$admin_policy" \
       GTK_THEME="Adwaita:$theme" OOONANA_THEME="$theme" OOONANA_GUI_TEXT_SCALE="$text_scale" NO_AT_BRIDGE=1 \
+      GDK_SCALE="$device_scale" \
       /usr/bin/dbus-run-session -- "$@" >"$output/$name.log" 2>&1; then
       printf "PASS %s\n" "$name"
     else
@@ -268,6 +271,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   probe window-controls-runtime python3 /source/tests/check-window-controls-runtime.py --own-i3
   probe dock-ui python3 /source/tests/check-dock-ui.py /qa/dock.png
   probe dock-edges-ui python3 /source/tests/check-dock-edges-ui.py /qa/dock-edges
+  probe device-scale-ui python3 /source/tests/check-device-scale-ui.py /qa/device-scale
   panel_options=()
   if [ "${OOONANA_PANEL_WIDE_LABELS:-0}" = 1 ]; then panel_options+=(--wide-labels); fi
   probe panel-ui python3 /source/tests/check-panel-ui.py /qa/panel.png --rootfs / --long-wifi --desktop-overview --appearance-output /qa/appearance.png "${panel_options[@]}"

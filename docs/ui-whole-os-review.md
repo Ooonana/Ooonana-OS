@@ -17,7 +17,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Control proportions | Shared/native GTK 10pt typography and chat actions measured; targeted 100/125/200% scaling; Task Manager headers/values follow text metrics | Other app-specific Qt controls, panel/card/dock content proportions; no blind blanket shrink |
 | Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; current source inventory | Fresh composited desktop, cursor hotspot/scale, icon consistency and selection states |
 | Panel / music / AI / notifications / tray | Actual source Polybar/wallpaper/dock; wide CJK labels and full counters at 640/760/900/1000/1024/1100/1280px; missing-glyph and actual AI-centering checks, bounded Wi-Fi labels and compact right controls | Real empty/playing/paused media transitions, expanded notification/service integration and physical/live-session states |
-| Dock | Actual Gdk edge placement, tooltips/four-corner menus, 44px targets, fullscreen/workspace visibility and focus restoration pass; centered icons, compact grouping, preview and action checks below | Actual installed-session/display integration, physical mixed DPI/hotplug; multi-output visibility currently pure guards |
+| Dock | Actual Gdk edge placement, tooltips/four-corner menus, 44px targets, fullscreen/workspace visibility and focus restoration pass; actual 1×/2× device coordinate checks; centered icons, compact grouping, preview and action checks below | Actual installed-session/display integration, physical mixed DPI/hotplug; multi-output visibility currently pure/derived guards |
 | Native Launcher | Long names bounded with full tooltips; visible no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard pass | Real application launch and installed keyboard/IME integration |
 | Wi-Fi / Bluetooth | Managed lists/hidden/personal/TLS/PIN forms; advanced fields, bounded certificate pickers, inline validation, progress/reduced motion, service gating, duplicate/closed refusal and safe Reset/Remove pass both themes through 200% text | Actual installed authentication, advanced network activation, physical reconnect/pairing and changed-adapter integration |
 | Settings: all six pages | Compact page picker, bounded/selectable sources, managed dialogs, repair/update retry; actual private 0600 preference writes, reopen, read-only rollback and retry through 200% text | Actual installed-session theme/wallpaper/authentication paths, other external file/device failures |
@@ -33,7 +33,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Installer GUI / text wizard | Real font-metric 100/200% form/review/blocked fit 640×600 both themes; all 16 fields keyboard-walked, exact disk/password mapping and safe Cancel checked; disk details scroll inside form | Actual privileged preview/log lifecycle, text wizard and physical storage summary/install; bare UI fixtures never install |
 | Shared dialogs / menus / tooltips | Font-metric-bounded short errors and scrollable diagnostics; actual Settings storage faults through 200%; real askpass labelled/focused, Escape/close/blank/Enter and pipe-only secrets checked | Remaining file pickers/menus and installed-session integration |
 | Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Qt6/QTerminal dark/light, density, six Preferences pages, initial small-screen placement, nested font/portal image picker cancel/select and exit actions pass. Firefox dark QA scoped onboarding, portal open/cancel, exact URL/rendered-content read and window actions pass. Local WSL canonical runtime installed; guard/selection regressions pass | Other Qt apps and scaled picker variants; Firefox light/scaling/installed-session integration, actual physical compositor and live WSLg |
-| Window manager | Native/XTerm modifier drag/resize, all number/move workspace keys, cycling, click focus, tile/tab/stack, resize mode, fullscreen, exact-session restore and unfocused close pass in private compositor | Real WSLg/physical compositor, multi-display and complete session lifecycle transitions |
+| Window manager | Native/XTerm modifier drag/resize, all number/move workspace keys, cycling, click focus, tile/tab/stack, resize mode, fullscreen, exact-session restore and unfocused close pass in private compositor; actual 1×/2× third-party titlebar alignment and physical Minimize/Close clicks pass | Real WSLg/physical compositor, multi-display and complete session lifecycle transitions |
 | GRUB: live / audio submenu | Shared live/installed branding, compact audio labels; actual EFI 640×480/1280×800, missing-font/mark fallback and unchanged kernel arguments checked. Minimal contrast repaired | Physical BIOS/UEFI, corrupted-media/runtime graphics failure and actual installed boot |
 | Boot / shutdown / reboot / persistent setup | Private PTY boot/save/setup; consecutive warning retention, normal console ordering, serial/ambiguous/motion-off/small-console and exact existing waits pass | Real framebuffer/kernel-message handoff, physical shutdown/recovery and complete persistent-setup interaction |
 | Bootable PDF UI | Previous source/VM fixtures; browser viewer requires manual check | Viewer rendering, keyboard/Backspace, focus, responsive controls and perceived command delay |
@@ -1665,3 +1665,43 @@ Supersedes Batch 25's publication-pending note. Whole-OS review remains active.
   coordinate alignment under `GDK_SCALE=2`, physical mixed DPI/hotplug, live WSLg
   or every installed-session transition. Those and other ledger rows remain
   open; edge tests are not whole-OS completion.
+
+## Batch 26: device-scale coordinate alignment
+
+- Actual `GDK_SCALE=2`, with normal100% text, reproduced a real coordinate
+  fault. i3 requested `(818,217,22)` device pixels while the X11 controls were
+  `(1636,434,132,44)`: off-target and too large for the native titlebar. Dock
+  fullscreen overlap also mixed GTK logical monitor geometry with i3 device
+  rectangles on a nonzero-origin monitor. Baseline:
+  `/var/tmp/ooonana-device-scale-baseline-20261019.45xQXwcB` (Ubuntu).
+- GTK reports monitor geometry in application pixels, and its integer scale
+  maps to device pixels: primary [geometry documentation](https://docs.gtk.org/gdk3/method.Monitor.get_geometry.html)
+  and [scale-factor documentation](https://docs.gtk.org/gdk3/method.Monitor.get_scale_factor.html).
+  Third-party controls now convert raw i3 coordinates/size and scale their
+  compact CSS/icon budgets to fit that native titlebar. Whole-application-pixel
+  border quantization is explicitly budgeted. Unchanged targets avoid repeated
+  restyling; changed scale recomputes geometry. Dock converts only its overlap
+  rectangle, not its existing GTK rendering/placement coordinates. No additional
+  polling or production scale/font setting.
+- Four final real-display cases pass: dark/light × device scale1/2, normal100%
+  text, physical1280×800. Final2× X11 popup is `(818,216,66,22)` against the
+  target `(818,217,22)`, within one device pixel of GTK integer placement.
+  Actual pointer clicks hit Minimize/Close, specific-session restoration
+  remaps controls, and fullscreen entry/exit hides/restores dock. Fullscreen
+  itself is invoked through the actual action helper, not claimed as a button
+  click. Final captures/results:
+  `/var/tmp/ooonana-device-scale-final-20261019.Cvs0vF8n`.
+- The offset-monitor guard uses actual measured device/application ratio but
+  derived geometry: not physical multi-monitor, mixed-DPI or hotplug proof.
+  `tests/test-window-control-scale.py` additionally guards negative coordinates,
+  the66-device-pixel row budget, dynamic scale changes and unchanged-target
+  remapping without importing GTK; wired directly into both CIs/native test.
+  New harness device-scale opt-in accepts only1/2 and defaults to1.
+- Intermediate70px-wide controls from fractional-border quantization failed
+  confirmation and were corrected, not counted as passing. Those logs/captures
+  remain diagnostic history. Native/rootfs/package-factory regressions, existing
+  shared native controls and actual2× dock-edge tests pass both themes:
+  `/var/tmp/ooonana-device-scale-regress-20261019.gWaRhwEH`. Signed package
+  publication/native WSL refresh are in progress. Existing normal desktop capture remains applicable;
+  2× fixture is not a new default. No physical device, release ISO, model, audio
+  or history operation. Remaining ledger rows and whole-OS goal stay open.

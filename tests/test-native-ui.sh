@@ -36,6 +36,7 @@ PYTHONPYCACHEPREFIX="$tmp/pycache" "$PYTHON" -m py_compile "$UI_DIR"/*.py
 PYTHONPYCACHEPREFIX="$tmp/pycache" "$PYTHON" -m py_compile "$ROOT/packages/ooonana/usr/bin/ooonana-admin-askpass"
 assert_contains "$(<"$ROOT/packages/ooonana/usr/bin/ooonana-admin-askpass")" 'entry.get_accessible().set_name("Account password")'
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-dock-visibility.py"
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-window-control-scale.py"
 
 common="$(<"$UI_DIR/common.py")"
 settings="$(<"$UI_DIR/settings_app.py")"
