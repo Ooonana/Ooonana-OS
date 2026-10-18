@@ -1065,3 +1065,36 @@ Supersedes pending-publication notes for installer/presentation changes above.
   Source publication/installed WSL refresh pending; broader review stays active.
 
 ![Both diagnostics retained after status redraw, private PTY](assets/ooonana-console-warnings-20261018.png)
+
+## Published checkpoint after Batches 17-18
+
+Supersedes pending-publication notes immediately above. Whole-OS review remains active.
+
+- Source `9930c089d562f2dc670f35b348e6d3a8b4d08b09` pushed to both remotes;
+  [GitHub regression](https://github.com/Ooonana/Ooonana-OS/actions/runs/39091329011)
+  and [GitLab smoke](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2959538917)
+  pass. Core archive contains current shared theme and both branding PNGs.
+- Signed 654-package/612-node generation
+  `1a0c0a9b91244d6e105e2c0aeeec8468240903218f4f112d529a9d8ae8284ba6`
+  verifies exact clean source manifest, v3.24 base, no bundled models, all 1302
+  checksums and trust pins. Publisher verifies before/after staging and promotes
+  only completed generation. Prior `5eaba3fa…` SHA256SUMS stays
+  `7370ebcdd14a1d7bd3ceb198f2626b3c9ea6432f5856ad3604cca8a5f90d428b`.
+- Native snapshot `/var/lib/ooonana/candidate-boot-ui-20261018.gcCsxf1K` passed
+  signature/key verification before separate core/runtime dry-runs, transactions,
+  file verification and explicit health hooks. Installed installer, console
+  helper, shared theme and PNG hashes exactly match source. OpenVINO installed
+  metadata checksum unchanged; no runtime/model work. Actual UID1000 GTK/CSS and
+  Geany query pass; default metadata cache resolves new local cloud snapshot.
+  Adapter refreshed after install, without starting/restarting GUI or WSL.
+  Logs: `/var/tmp/ooonana-boot-ui-sync-20261018.HndY06Nd` in Ooonana.
+- Removed only Ubuntu package-build duplicate after all 658 files matched
+  retained generation: 784,431 logical bytes, regenerable. No source bytecode,
+  partial files or leftover F: publication staging found in scoped scan. All
+  screenshots/logs, generations/checkpoints, models, keys, ISO/resume files and
+  WSL disks retained. Ubuntu manifest proof:
+  `/var/tmp/ooonana-boot-ui-publication-20261018.5EHMoWzN`.
+- No actual disk install, host power operation, sound, model download or release
+  ISO build. No stable promotion or trust enrollment. Remaining coverage ledger,
+  especially third-party dialogs, live session/display/input and physical boot,
+  is not marked complete by this checkpoint.

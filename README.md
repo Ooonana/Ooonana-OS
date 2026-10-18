@@ -121,8 +121,10 @@ was built; broader UI/session/device gates remain open.
 Installed GRUB now shares live branding and preserves custom boot fonts, with
 readable fallback if assets are missing. Console status redraw keeps warning
 lines visible; normal desktop/serial ordering and reduced motion are checked.
-Private EFI/PTY and source regressions pass; this follow-up awaits signed repo/
-WSL refresh. Default sizes unchanged. No physical boot/shutdown is certified.
+Private EFI/PTY and source regressions pass; signed repo/installed WSL refresh
+verified, with exact source hashes and health checks. Both source CIs pass;
+adapter refreshed without restart. Default sizes unchanged. No physical boot/
+shutdown is certified; broader UI review remains active.
 [Full scope, current evidence and remaining UI work](docs/ui-whole-os-review.md).
 
 October 15 CI follow-up: Alpine smoke environment lacked `findmnt`, required by

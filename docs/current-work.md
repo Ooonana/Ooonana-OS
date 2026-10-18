@@ -9,9 +9,14 @@ and fallback at 640×480/1280×800 pass; kernel args/default/timeout unchanged.
 Console status no longer overwrites consecutive warning lines. Normal desktop
 console ordering allows existing pulse; serial/ambiguous/motion-off remain plain.
 No new waits/workers; shutdown error feedback stops before recovery message.
-Writer/native/backend/rootfs/ISO-fixture/initramfs regressions pass. Signed
-candidate and installed WSL refresh for these changes pending; whole-OS review
-remains active. No real install, sound, model, power or release ISO operation.
+Writer/native/backend/rootfs/ISO-fixture/initramfs regressions pass. Source
+`9930c08` and both CIs pass. Signed 654-package generation
+`1a0c0a9b91244d6e105e2c0aeeec8468240903218f4f112d529a9d8ae8284ba6`
+and native Ooonana WSL refresh verified: signature, all 1302 checksums, clean
+manifest, health hooks, exact installed hashes, user GTK/query and default cloud
+cache. Adapter refreshed without restart. Redundant package copy removed after
+658 matching hashes (784,431 bytes); history retained. Whole-OS review remains
+active. No real install, sound, model, power or release ISO operation.
 [Evidence](ui-whole-os-review.md#batch-17-consistent-installed-boot-branding).
 
 ## October 18 installer publication and minimal GRUB
