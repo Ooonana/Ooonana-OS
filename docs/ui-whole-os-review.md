@@ -1550,3 +1550,38 @@ Supersedes Batch 23's source-pending note. Whole-OS review remains active.
   Source batch awaits clean commit and signed/native refresh. Dock edge/session,
   other app paths and remaining ledger/manual gates remain open. No ISO, sound,
   models, real credentials, physical device or user-history operation.
+
+![Actual private read-only Settings recovery, Paper appearance, normal100% text](assets/ooonana-settings-storage-20261018.png)
+
+## Published checkpoint after Batch 24
+
+Supersedes Batch 24's publication-pending note. Whole-OS review stays active.
+
+- Source `2ff2506a243991f508bcddbc1d7e7329e824fd3a` includes runtime changes
+  `c37b623` and an LF-only rule for private sudo policy fixtures. Both CIs pass:
+  [GitHub 39122080915](https://github.com/Ooonana/Ooonana-OS/actions/runs/39122080915),
+  [GitLab 2960139429](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2960139429).
+- Signed local `CURRENT`:
+  `49c469cb08b65e99ca9056edee0882a848449f96a291a9bbb0f87d60b094e2eb`.
+  SHA256SUMS digest:
+  `db282fd6cc8fdd64ccb1aca538698a83560ccc014593e0d81556a5b248b1962d`.
+  Full signature/pinned key and all1302 checksums verified, clean300-source-file
+  manifest, supportedv3.24 base, no bundled models, 654 packages/612 dependency
+  nodes. Previous generation's SHA256SUMS remains
+  `e2560db45d215f7dfce6837fb815f225c175af2eddb4278ecb33eabaebe5b842`.
+- Native snapshot `/var/lib/ooonana/candidate-admin-dialog-20261018.b0u5Gndo`
+  reuses643 matching immutable archives and copies659 other entries. Full
+  signature/checksum verification precedes core/runtime dry-runs, reinstalls,
+  verification and explicit health hooks; all pass. Default cloud metadata
+  resolves654 packages/two sources. Local adapter regenerated without restart.
+- Installed shared UI SHA256:
+  `8d8bb9c7b0fce7ee57566ea12fc3be6a464f3966ac45d58835fbaf68aaae1824`;
+  askpass `0c2eef85c5ebfe2bbbc9921920d92009a788c2409d6f218f65ab787ac96a1472`.
+  Both match source exactly; actual UID1000 import/syntax checks pass.
+  OpenVINO installed metadata and `/etc/wsl.conf` unchanged. Native logs:
+  `/var/tmp/ooonana-admin-dialog-sync-20261018.1kdZQ9HR`.
+- One normal100% Paper recovery capture added above. Desktop source visuals
+  are unchanged; existing README desktop capture remains current. Earlier
+  failed fixtures/captures remain diagnostic history. No denied cleanup retry,
+  private-key upload, models, audio or ISO operation. Stable0.9.9 and deferred
+  promotion/enrollment unchanged. Remaining ledger rows stay open.

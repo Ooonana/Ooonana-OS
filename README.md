@@ -26,6 +26,13 @@ and compact/desktop sizes. Signed candidate and native Ooonana WSL are updated;
 relaunch apps for changed code. [Checks and remaining limits](docs/ui-whole-os-review.md#published-checkpoint-after-batch-23).
 No release ISO built; an old ISO/resume cannot acquire these runtime changes.
 
+October 18 administration/recovery follow-up labels the password field and
+keeps error dialogs inside small displays at enlarged text sizes. Real private
+sudo cancellation/retry and Settings save/reopen/read-only recovery pass;
+successful privileged package transactions still need separate verification.
+Signed candidate and Ooonana WSL refreshed; typography/default scale unchanged.
+[Normal-size capture, tests and limits](docs/ui-whole-os-review.md#batch-24-administration-and-settings-storage).
+
 Stable core 0.9.9 desktop refresh adds unboxed dock hover feedback, slimmer panel, open Appearance groups, blue globe browser icon and canonical wallpaper fitting. Component previews use isolated test windows, not physical USB boot.
 
 Latest October 14: installed **Ooonana WSL is now 0.10.0** after user-authorized

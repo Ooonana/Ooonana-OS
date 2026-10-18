@@ -1,5 +1,18 @@
 # Current work - 2026-10-18
 
+## October 18 administration/dialog publication and WSL refresh
+
+Source `2ff2506` passes both CIs; signed candidate generation is
+`49c469cb08b65e99ca9056edee0882a848449f96a291a9bbb0f87d60b094e2eb`.
+All 1302 checksums, pinned signature, clean 300-file source manifest and
+654-package/612-node closure verified. Native core/runtime dry-run, reinstall,
+verification and health checks pass; installed shared UI/askpass bytes match
+source, UID1000 imports pass. Default metadata and local adapter refreshed,
+without restarting GUI/WSL. OpenVINO metadata, boot config and history preserved.
+No ISO, audio or model operation. Broader review, including dock edges and
+installed-session/physical/manual gates, remains active.
+[Checkpoint and evidence](ui-whole-os-review.md#published-checkpoint-after-batch-24).
+
 ## October 18 administration and actual Settings storage review
 
 Real password prompt lacked an accessible field name; added Account password
@@ -11,7 +24,7 @@ transaction or real credentials. Actual Settings 0600 writes, reopen, read-only
 failure rollback and retry also pass six variants. That path exposed scaled
 short error dialogs crossing screen edges; shared dialogs now use GTK-compatible
 font metrics and existing scrollable diagnostics when text would be too tall.
-Current source batch awaits signed publication/WSL refresh; broader review stays
+Signed publication/WSL refresh are completed above; broader review stays
 active. [Evidence and remaining limits](ui-whole-os-review.md#batch-24-administration-and-settings-storage).
 
 ## October 18 notification publication and native refresh
