@@ -34,7 +34,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Shared dialogs / menus / tooltips | Short/unbroken and long diagnostic text fit; secret input labelled/focused, password spaces retained, Cancel verified | Remaining file pickers, menus, escape/return and scaled text |
 | Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Nemo requires WSL/Xvfb full-redraw/redirection adaptation | Qt/Firefox current-source integrated rerun, menu/dialog variants, actual physical compositor and live WSLg |
 | Window manager | Native/XTerm modifier drag/resize, all number/move workspace keys, cycling, click focus, tile/tab/stack, resize mode, fullscreen, exact-session restore and unfocused close pass in private compositor | Real WSLg/physical compositor, multi-display and complete session lifecycle transitions |
-| GRUB: live / audio submenu | Most recent mascot patch has 640×480 and 1280×800 real EFI captures | Compare current output; installed/minimal boot menus remain separate review targets |
+| GRUB: live / audio submenu | Live mascot/menu fixtures; fresh minimal/installed EFI at 640×480 and 1280×800. Minimal invisible entries repaired; selected/normal pixels verified. Installed text fallback and audio submenu readable | Installed branded-theme enhancement, physical BIOS/UEFI, font fallback and serial-only recovery |
 | Boot / shutdown / reboot / persistent setup | Most recent wordmark/prompt source and PTY captures | Error/serial/reduced motion, install paths and real framebuffer handoff; physical USB tests separate |
 | Bootable PDF UI | Previous source/VM fixtures; browser viewer requires manual check | Viewer rendering, keyboard/Backspace, focus, responsive controls and perceived command delay |
 | Accessibility / input / displays / session | Initial accessible controls and theme captures only | Text scale, keyboard/focus, clipboard, Korean composition, WSLg input, multi-monitor/DPI/hotplug, login/lock/logout/suspend/resume |
@@ -956,3 +956,56 @@ Supersedes Batch 13 pending-publication notes. Whole-OS review remains active.
   installed reboot remain separate gates. GUI source `6263ec9` is pushed to both
   remotes; [GitHub checks pass](https://github.com/Ooonana/Ooonana-OS/actions/runs/39089217414).
   Signed candidate and installed WSL refresh for Batches 14–15 remain pending.
+
+## Published checkpoint after Batches 14-15
+
+Supersedes pending-publication notes for installer/presentation changes above.
+
+- Source `806606627db790eddf2a504fbb1e7cacb5a82de7` is on both remotes;
+  [GitHub](https://github.com/Ooonana/Ooonana-OS/actions/runs/39089480931) and
+  [GitLab](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2959504799) pass.
+- Signed local generation
+  `5eaba3fa8900ea4c10ee9a21b9f932df80d8a44828d025ffe2f536eb2ef53ec8`
+  has 654 packages/612 dependency nodes, clean exact source manifest, v3.24
+  userland and no bundled models. Native release gate/all 1302 checksums pass;
+  publisher re-verifies before promotion. Prior `6515c1e6…` SHA256SUMS remains
+  `3842d516802db4886e029518cd4c2725eda6d720773848612ab1f27c35d0147b`.
+- Native snapshot `/var/lib/ooonana/candidate-installer-ui-20261018.gwiXK7io`
+  uses fast native hardlink staging, not a second large F: transfer. Exact
+  current public key pins/signature verified before separate runtime/core
+  dry-runs, reinstalls, verification and explicit health hooks; backups retained.
+  Theme/YAD/wizard installed bytes exactly match source. OpenVINO installed
+  metadata checksum is unchanged; no engine/model work was performed.
+- Actual UID1000 GTK imports/CSS and Geany query pass. Cloud source points to
+  new native snapshot; default metadata update passes (654 packages/two sources).
+  A stricter all-source probe refused unsigned packaged builtin metadata;
+  normal policy was not changed/weakened, and cloud retains its pinned key.
+  Adapter refreshed after installation without launching/restarting GUI. Logs:
+  `/var/tmp/ooonana-installer-ui-sync-20261018.EmYLoNQ5` in Ooonana.
+- Removed only redundant Ubuntu package-build copy after all 658 files matched
+  retained signed generation: 779,948 logical bytes, regenerable artifacts.
+  No F: staging copy was needed. Source bytecode scan found no removable output;
+  screenshots/logs, signed generations, rollback history, models, keys, ISO and
+  WSL disks retained. No global restart, audio playback or ISO build.
+
+## Batch 16: Minimal and installed GRUB evidence
+
+- Extended existing EFI-only renderer with minimal/installed variants. Installed
+  case extracts pure config writers, never sources/runs installer. Kernel files
+  are harmless placeholders and never booted; no ISO or disk installer is built.
+- Baseline minimal theme left menu item colors unspecified: actual EFI showed
+  nearly black ordinary and selected text against black. Set explicit readable
+  graphite/paper-text roles, amber selection, 16px Unifont rows and clear key
+  hints. Boot arguments, installer defaults and countdown behavior unchanged.
+  No larger font or additional boot animation introduced.
+- Actual 640×480/1280×800 minimal captures pass normal/selected role-pixel checks,
+  plus generated-config regression. Installed menu/audio submenu at both sizes
+  are readable in existing text fallback. That is not a polished installed theme
+  or physical boot certification; branded installed menu remains open.
+- Ubuntu baseline: `/var/tmp/ooonana-grub-ui-other-20261018.xtaZP1RU`.
+  Confirmation: `/var/tmp/ooonana-grub-ui-minimal-verified-20261018.RiMlxkj6`.
+  This minimal-ISO builder change does not alter installed WSL/core payload;
+  previous signed runtime checkpoint remains exact source `8066066`. Future
+  fresh minimal builds use this source; whole-OS review stays active.
+
+![Minimal boot menu, actual private EFI at 640×480](assets/ooonana-grub-minimal-20261018.png)

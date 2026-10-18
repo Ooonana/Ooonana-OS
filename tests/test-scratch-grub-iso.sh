@@ -121,12 +121,16 @@ assert_contains "$normal_cfg" "console=ttyS0 console=tty0"
 assert_contains "$normal_cfg" "terminal_input console serial"
 assert_contains "$normal_cfg" "terminal_output console serial"
 theme="$(<"$tmp/build/scratch-grub-iso-tree/boot/grub/theme.txt")"
-assert_contains "$theme" 'title-color: "#ffb21a"'
-assert_contains "$theme" 'message-color: "#ffb21a"'
+assert_contains "$theme" 'title-color: "#f5f5f7"'
+assert_contains "$theme" 'message-color: "#f5f5f7"'
+assert_contains "$theme" 'desktop-color: "#101317"'
+assert_contains "$theme" 'item_color = "#b4bdc8"'
+assert_contains "$theme" 'selected_item_color = "#ffb21a"'
+assert_contains "$theme" 'ARROWS select   ENTER start   ESC back'
 assert_contains "$theme" "+ progress_bar"
 assert_contains "$theme" 'id = "__timeout__"'
 assert_contains "$theme" 'fg_color = "#ffb21a"'
-assert_contains "$theme" 'bg_color = "#050505"'
+assert_contains "$theme" 'bg_color = "#272d36"'
 assert_contains "$theme" "+ boot_menu"
 [[ "$theme" != *"selected-item-color"* ]] || fail "GRUB theme has invalid selected item color"
 [[ "$theme" != *"selected-item-background-color"* ]] || fail "GRUB theme has invalid selected item background"

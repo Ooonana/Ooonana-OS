@@ -16,11 +16,14 @@ ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("output", type=Path)
 parser.add_argument("--geometry", choices=("640x480", "1280x800"), help="Focused geometry regression")
+parser.add_argument("--variant", choices=("full", "minimal", "installed"), default="full")
 args = parser.parse_args()
 work = args.output.resolve()
 assert str(work).startswith("/var/tmp/ooonana-grub-ui-") and not work.exists()
 work.mkdir(mode=0o755)
-source = (ROOT / "scripts/build-full-i3-iso.sh").read_text()
+source = (ROOT / {"full": "scripts/build-full-i3-iso.sh",
+                  "minimal": "scripts/build-scratch-grub-iso.sh",
+                  "installed": "packages/ooonana/usr/sbin/ooonana-install"}[args.variant]).read_text()
 starts = list(re.finditer(r"^\w+\(\) \{", source, re.MULTILINE))
 
 def function(name):
@@ -36,8 +39,20 @@ source "$ROOT/scripts/lib/common.sh"
 ISO_TREE={shlex.quote(str(base))}
 KERNEL={shlex.quote(str(dummy))}
 INITRAMFS="$KERNEL"; LIVE_INITRAMFS="$KERNEL"; LIVE_ROOTFS_IMAGE="$KERNEL"
-SMOKE=0; LIVE_SMOKE=0; INSTALL_TARGET=auto; DISK_IMAGE_STAGED=unused
-''' + "\n".join(function(name) for name in ("write_grub_config", "write_rufus_note", "file_size_bytes", "check_iso_mode_file_sizes", "stage_iso_tree")) + "\nstage_iso_tree\n"
+SMOKE=0; GUI_SMOKE=0; LIVE_SMOKE=0; INSTALL=1; INSTALL_TARGET=auto; DISK_IMAGE_STAGED=unused
+DISK_IMAGE=""; ROOTFS_IMAGE="$KERNEL"
+'''
+if args.variant == "installed":
+    # Extract pure config writers only. Never source/execute the installer.
+    script += 'run_cmd() { "$@"; }\n' + "\n".join(function(name) for name in ("kernel_append", "write_grub_config"))
+    script += '''
+mkdir -p "$ISO_TREE/usr/share/ooonana" "$ISO_TREE/boot"
+install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt" "$ISO_TREE/usr/share/ooonana/grub-logo.txt"
+install -m 0644 "$KERNEL" "$ISO_TREE/boot/vmlinuz"
+write_grub_config "$ISO_TREE" PARTUUID=FIXTURE_NEVER_BOOT
+'''
+else:
+    script += "\n".join(function(name) for name in ("write_grub_config", "write_rufus_note", "file_size_bytes", "check_iso_mode_file_sizes", "stage_iso_tree")) + "\nstage_iso_tree\n"
 stage = subprocess.run(["bash", "-c", script], text=True, capture_output=True)
 assert stage.returncode == 0, stage.stderr
 fonts = base / "boot/grub/fonts"
@@ -57,7 +72,9 @@ for geometry in (args.geometry,) if args.geometry else ("640x480", "1280x800"):
     binary.parent.mkdir(parents=True)
     embedded = ["boot/grub/grub.cfg=" + str(bootstrap), "boot/grub/main.cfg=" + str(config)]
     for filename in ("theme.txt", "background.png", "boot-mark.png", "ooonana-logo.txt", "fonts/unicode.pf2"):
-        embedded.append("boot/grub/" + filename + "=" + str(volume / "boot/grub" / filename))
+        asset = volume / "boot/grub" / filename
+        if asset.is_file():
+            embedded.append("boot/grub/" + filename + "=" + str(asset))
     subprocess.run(["grub-mkstandalone", "-O", "x86_64-efi", "-o", str(binary), *embedded], check=True, timeout=45)
     variables = case / "OVMF_VARS.fd"
     shutil.copyfile("/usr/share/OVMF/OVMF_VARS_4M.fd", variables)
@@ -102,15 +119,26 @@ for geometry in (args.geometry,) if args.geometry else ("640x480", "1280x800"):
             command("screendump", {"filename": str(ppm)})
             with Image.open(ppm) as picture:
                 assert picture.size == tuple(map(int, geometry.split("x"))), picture.size
+                if args.variant == "minimal":
+                    # Both selected and ordinary entries must actually render
+                    # with readable roles, not merely appear in theme source.
+                    width, height = picture.size
+                    menu = picture.convert("RGB").crop((int(width * .16), int(height * .32),
+                                                        int(width * .84), int(height * .70)))
+                    pixels = list(menu.getdata())
+                    for role in ((180, 189, 200), (255, 178, 26)):
+                        assert sum(pixel == role for pixel in pixels) >= 40, (name, geometry, role)
                 picture.save(case / (name + ".png"))
             results.append(str(case / (name + ".png")))
         capture("menu")
-        for _ in range(4):
+        for _ in range(4 if args.variant == "full" else 1):
             command("human-monitor-command", {"command-line": "sendkey down"})
             time.sleep(0.15)
-        command("human-monitor-command", {"command-line": "sendkey ret"})
+        if args.variant != "minimal":
+            # Only enter known submenu; never enter a kernel/menu boot entry.
+            command("human-monitor-command", {"command-line": "sendkey ret"})
         time.sleep(1)
-        capture("audio-submenu")
+        capture("install-entry" if args.variant == "minimal" else "audio-submenu")
         command("quit")
         process.wait(timeout=5)
     finally:

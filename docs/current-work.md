@@ -1,5 +1,20 @@
 # Current work - 2026-10-18
 
+## October 18 installer publication and minimal GRUB
+
+Installer/presentation source `8066066` passed both CIs and is published as signed
+654-package generation `5eaba3fa8900ea4c10ee9a21b9f932df80d8a44828d025ffe2f536eb2ef53ec8`.
+All 1302 checksums, trust pins, source manifest and prior-generation immutability
+verified. Native Ooonana WSL runtime/core dry-runs, transactions, health hooks,
+exact helper hashes, user GTK/CSS/query and default metadata refresh pass. Adapter
+refreshed without restart. Temporary package copy removed after all 658 files
+matched retained generation (779,948 bytes); history/models/keys/ISO remain.
+New real EFI review found invisible minimal-GRUB entries; explicit readable
+colors/key hints now pass both 640×480 and 1280×800 role-pixel checks. Installed
+text fallback is readable; branded installed menu remains a separate improvement.
+No larger defaults: desktop stays 100%/10pt. No audio, model or ISO operation.
+[Evidence and remaining work](ui-whole-os-review.md#published-checkpoint-after-batches-14-15).
+
 ## October 18 terminal installer follow-up
 
 Private shell/PTY baseline reproduced password trimming/extra newline, reboot
@@ -10,7 +25,7 @@ through orderly `bunana --restart` only; EOF, stay and unknown input do not rebo
 Failure remains visible. Removed pretend completed phase counters before work;
 waiting text points to actual log. Seven isolated shell/PTY regressions and
 full native/rootfs checks pass; no real installer or power command executed.
-Source/candidate publication follows installer GUI checkpoint. Whole-OS review
+Source/candidate publication is verified above. Whole-OS review
 and live/device gates remain open. Default text stays 100%/10pt.
 
 ## October 17 installer and preference follow-up
@@ -22,8 +37,8 @@ all 16 semantic fields, including password spaces and `|`; malformed form output
 cannot shift targets. Theme apply retains user font/DPI/icon/unknown settings
 and bridges reduced motion to GTK/XSettings. Eight private-file regressions,
 full native/rootfs/backend checks and both-theme actual YAD fixtures pass.
-No real installation, disk enumeration, audio, model or ISO work. Source awaits
-signed candidate/installed WSL refresh; previous verified checkpoint below stays.
+No real installation, disk enumeration, audio, model or ISO work. Signed
+candidate/installed WSL refresh for this follow-up is verified above.
 [Evidence and remaining gates](ui-whole-os-review.md#batch-14-installer-fit-and-retained-presentation-preferences).
 
 ## October 17 Setup form and review follow-up

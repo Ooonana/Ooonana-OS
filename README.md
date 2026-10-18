@@ -108,12 +108,16 @@ build. Whole-OS review remains active.
 Installer follow-up fits small/scaled forms and review, keeps disk details
 scrollable, preserves password delimiters and defaults final approval to Cancel.
 Theme changes retain saved font/DPI and respect reduced motion. **Default UI
-stays 100% with 10pt body; 200% is QA only.** Source tests pass; signed package
-and installed WSL refresh for this follow-up remain pending.
+stays 100% with 10pt body; 200% is QA only.** Signed package publication and
+installed WSL refresh for this follow-up are verified; both source CIs pass.
 Terminal installer follow-up preserves exact passwords/TTY state, avoids reboot
 on EOF/typos and uses orderly restart only. Waiting text no longer pretends every
 installation phase already ran. Private shell/PTY checks pass; no real power or
 installation operation was performed.
+Minimal GRUB follow-up fixes nearly invisible menu entries with explicit readable
+roles and clearer key hints; actual 640×480/1280×800 EFI checks pass. Installed
+menu remains readable text fallback, not a newly branded graphical menu. No ISO
+was built; broader UI/session/device gates remain open.
 [Full scope, current evidence and remaining UI work](docs/ui-whole-os-review.md).
 
 October 15 CI follow-up: Alpine smoke environment lacked `findmnt`, required by
