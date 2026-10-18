@@ -1,5 +1,21 @@
 # Current work - 2026-10-18
 
+## October 18 Qt picker and multilingual panel details
+
+Real Qt font/image pickers pass 640×600/1024×768, dark/light: focused floating
+dialogs, correct settings parent, bounds, Escape, reopen, exact owned-image path
+and outer Cancel retention. No Qt restyling or user-profile changes needed.
+Panel review then found missing Korean/CJK glyphs despite installed fonts, clipped
+right controls at 760px and silent AI drift at middle-width thresholds. Added
+shipped Noto fallback, responsive Wi-Fi budgets, compact 760–999px status priority
+and tighter gaps below 1280px. Font sizes and opaque Graphite identity unchanged.
+Actual accent-pixel centering guards now catch drift that Polybar logs missed.
+Wide-label/100%/999+ sample checks cover 640/760/900/1000/1024/1100/1280px in both
+app appearances; native/rootfs/package-factory checks pass. Four completed owned
+Qt overlays removed; captures/logs/history retained. README desktop capture is
+current. New runtime changes await signed candidate/installed WSL refresh.
+[Evidence and remaining work](ui-whole-os-review.md#batch-22-qt-pickers-and-wide-label-panel-details).
+
 ## October 18 Qt placement publication and installed refresh
 
 Runtime source `5c48b59` passes both CIs and is signed/published as generation

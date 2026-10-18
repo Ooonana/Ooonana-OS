@@ -12,6 +12,9 @@ desktop_config = (root / "branding/i3/config").read_text()
 assert 'for_window [window_role="^GtkFileChooserDialog$"] floating enable, resize set 80 ppt 70 ppt, move position center' in desktop_config
 assert 'for_window [window_type="dialog"] floating enable\n' in desktop_config
 assert 'for_window [window_type="dialog"] floating enable, resize' not in desktop_config
+builder = (root / "scripts/build-full-i3-rootfs.sh").read_text()
+assert 'font-3 = "Noto Sans CJK KR:size=10;2"' in builder
+assert 'font-4 = "Noto Sans CJK KR:size=11;2"' in builder
 assert "packages/ooonana/etc/environment text eol=lf" in (root / ".gitattributes").read_text()
 assert b"\r" not in (root / "packages/ooonana/etc/environment").read_bytes(), "PAM retains CR in Python UTF8 setting"
 sys.path.insert(0, str(root / "packages/ooonana/usr/lib/ooonana"))

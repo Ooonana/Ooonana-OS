@@ -13,7 +13,7 @@ text_scale="${OOONANA_GUI_TEXT_SCALE:-1.25}"
 case "$text_scale" in 1.0|1.25|1.5|2.0) ;; *) printf 'Unsupported native text scale: %s\n' "$text_scale" >&2; exit 2 ;; esac
 case "$theme" in dark|light) ;; *) printf 'Unsupported test appearance: %s\n' "$theme" >&2; exit 2 ;; esac
 case "$geometry" in
-  640x600|1024x768|1280x800|1600x900) ;;
+  640x600|760x600|900x600|1000x600|1024x768|1100x600|1280x800|1600x900) ;;
   *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
 esac
 case "$only" in
@@ -230,7 +230,9 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   probe notifications-runtime python3 /source/tests/check-notifications-runtime.py --output /qa/notifications.png
   probe window-controls-runtime python3 /source/tests/check-window-controls-runtime.py --own-i3
   probe dock-ui python3 /source/tests/check-dock-ui.py /qa/dock.png
-  probe panel-ui python3 /source/tests/check-panel-ui.py /qa/panel.png --rootfs / --long-wifi --desktop-overview --appearance-output /qa/appearance.png
+  panel_options=()
+  if [ "${OOONANA_PANEL_WIDE_LABELS:-0}" = 1 ]; then panel_options+=(--wide-labels); fi
+  probe panel-ui python3 /source/tests/check-panel-ui.py /qa/panel.png --rootfs / --long-wifi --desktop-overview --appearance-output /qa/appearance.png "${panel_options[@]}"
   probe portal-ui python3 /source/tests/check-portal-ui.py /qa/portal.png
   for app in geany nemo chromium qterminal; do
     compositor_options=(--compositor)
@@ -241,7 +243,9 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
     elif [ "$app" = chromium ] && [ "${OOONANA_BROWSER_NO_SHADER_CACHE:-0}" = 1 ]; then
       probe "$app-frame" python3 /source/tests/check-third-party-frames.py "$app" "/qa/$app.png" --disable-shader-cache "${compositor_options[@]}"
     elif [ "$app" = qterminal ] && [ "${OOONANA_QT_DETAILS:-0}" = 1 ]; then
-      probe "$app-frame" python3 /source/tests/check-third-party-frames.py "$app" "/qa/$app.png" --qt-details "${compositor_options[@]}"
+      qt_options=(--qt-details)
+      if [ "${OOONANA_QT_PICKERS:-0}" = 1 ]; then qt_options+=(--qt-pickers); fi
+      probe "$app-frame" python3 /source/tests/check-third-party-frames.py "$app" "/qa/$app.png" "${qt_options[@]}" "${compositor_options[@]}"
     else
       probe "$app-frame" python3 /source/tests/check-third-party-frames.py "$app" "/qa/$app.png" "${compositor_options[@]}"
     fi

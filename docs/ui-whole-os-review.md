@@ -16,7 +16,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | --- | --- | --- |
 | Control proportions | Shared/native GTK 10pt typography and chat actions measured; targeted 100/125/200% scaling; Task Manager headers/values follow text metrics | Other app-specific Qt controls, panel/card/dock content proportions; no blind blanket shrink |
 | Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; current source inventory | Fresh composited desktop, cursor hotspot/scale, icon consistency and selection states |
-| Panel / music / AI / notifications / tray | Source Polybar/wallpaper/dock at 640×600 and 1280×800; long Wi-Fi/media sample, no overlap/missing glyphs | Real empty/playing/paused media transitions, expanded notification integration and middle widths |
+| Panel / music / AI / notifications / tray | Actual source Polybar/wallpaper/dock; wide CJK labels and full counters at 640/760/900/1000/1024/1100/1280px; missing-glyph and actual AI-centering checks, bounded Wi-Fi labels and compact right controls | Real empty/playing/paused media transitions, expanded notification/service integration and physical/live-session states |
 | Dock | Centered icons, bounded previews/tooltips, compact grouping, 44px targets and unchanged hover focus; follow-up action/keyboard checks below | Edge placement and actual session/display integration |
 | Native Launcher | Long names bounded with full tooltips; visible no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard pass | Real application launch and installed keyboard/IME integration |
 | Wi-Fi / Bluetooth | Managed lists/hidden/personal/TLS/PIN forms; advanced fields, bounded certificate pickers, inline validation, progress/reduced motion, service gating, duplicate/closed refusal and safe Reset/Remove pass both themes through 200% text | Actual installed authentication, advanced network activation, physical reconnect/pairing and changed-adapter integration |
@@ -32,7 +32,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Native AI / model UI | Generic native chat compact layout, bounded headings, no-match search, draft attachment, safe Delete, status failure/stale/closed callbacks and streaming/copy/cancel fixtures pass | Real cloud-provider session, long-running transcript navigation; OpenVINO GUI/runtime/offline checks deferred by user October 16 |
 | Installer GUI / text wizard | Real font-metric 100/200% form/review/blocked fit 640×600 both themes; all 16 fields keyboard-walked, exact disk/password mapping and safe Cancel checked; disk details scroll inside form | Actual privileged preview/log lifecycle, text wizard and physical storage summary/install; bare UI fixtures never install |
 | Shared dialogs / menus / tooltips | Short/unbroken and long diagnostic text fit; secret input labelled/focused, password spaces retained, Cancel verified | Remaining file pickers, menus, escape/return and scaled text |
-| Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Qt6/QTerminal dark/light, density, six Preferences pages, initial small-screen placement and exit actions pass. Firefox dark QA scoped onboarding, portal open/cancel, exact URL/rendered-content read and window actions pass. Local WSL canonical runtime installed; guard/selection regressions pass | Qt font/background/portal pickers and other Qt apps; Firefox light/scaling/installed-session integration, actual physical compositor and live WSLg |
+| Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Qt6/QTerminal dark/light, density, six Preferences pages, initial small-screen placement, nested font/portal image picker cancel/select and exit actions pass. Firefox dark QA scoped onboarding, portal open/cancel, exact URL/rendered-content read and window actions pass. Local WSL canonical runtime installed; guard/selection regressions pass | Other Qt apps and scaled picker variants; Firefox light/scaling/installed-session integration, actual physical compositor and live WSLg |
 | Window manager | Native/XTerm modifier drag/resize, all number/move workspace keys, cycling, click focus, tile/tab/stack, resize mode, fullscreen, exact-session restore and unfocused close pass in private compositor | Real WSLg/physical compositor, multi-display and complete session lifecycle transitions |
 | GRUB: live / audio submenu | Shared live/installed branding, compact audio labels; actual EFI 640×480/1280×800, missing-font/mark fallback and unchanged kernel arguments checked. Minimal contrast repaired | Physical BIOS/UEFI, corrupted-media/runtime graphics failure and actual installed boot |
 | Boot / shutdown / reboot / persistent setup | Private PTY boot/save/setup; consecutive warning retention, normal console ordering, serial/ambiguous/motion-off/small-console and exact existing waits pass | Real framebuffer/kernel-message handoff, physical shutdown/recovery and complete persistent-setup interaction |
@@ -1346,3 +1346,52 @@ Supersedes Batch 21's pending-publication note. Whole-OS review stays active.
   test performed. Existing ISO cannot acquire this runtime patch via resume;
   user needs a fresh build from this candidate. Actual WSLg/browser integration,
   Qt picker variants and remaining ledger gates are not certified by this batch.
+
+## Batch 22: Qt pickers and wide-label panel details
+
+- Actual Qt6/QTerminal font chooser and GTK portal image picker pass 640×600 and
+  1024×768, both appearances, normal100% text. Both are floating/focused, fully
+  bounded and transient to the settings window. Escape returns focus to settings;
+  image picker reopens and selects a private PNG with spaces in its name. Private
+  clipboard confirms the exact pending path; outer Cancel does not persist it.
+  Six category navigation and normal window/exit actions remain passing.
+  No picker restyling was needed. Upstream [font dialog](https://github.com/lxqt/qterminal/blob/2.4.0/src/forms/fontdialog.ui)
+  and [image selection](https://github.com/lxqt/qterminal/blob/2.4.0/src/propertiesdialog.cpp)
+  informed the scoped QA. This does not certify Korean IME/Windows clipboard.
+  Evidence: `/var/tmp/ooonana-qt-picker-baseline-20261018.vy31P9Vh` (Ubuntu).
+- Panel's existing font list dropped Korean/Japanese/Chinese status characters
+  even though `font-noto-cjk` is already bundled. Added the actual shipped Noto
+  Sans CJK KR family after existing Latin/icon faces; existing text/icon sizes and
+  font indices stay intact. No new font dependency or download.
+- Correctly rendered wide labels exposed clipped right controls at 760px and AI
+  displacement at middle thresholds. A new 760–999px layout prioritizes battery,
+  Wi-Fi, notifications, settings, clock and power; RAM/audio details remain in
+  existing controls/apps. Wi-Fi name budgets narrow below 1280px; normal native
+  Wi-Fi app still provides full names. Reduced global gaps below 1280px keep
+  middle-width full status groups/window controls without shrinking typography.
+- QA now captures broken panels before asserting. Missing-glyph checks alone
+  were inadequate: Polybar silently shifted its supposedly fixed-center group.
+  An actual accent-glyph pixel check requires AI within5px of screen center.
+  Final observed optical centers differ by2.5–3.5px; all right actions remain
+  visible. High-count/100% status and CJK samples are explicit fixtures, not live
+  hardware readings or proof of media backend transitions.
+- Coverage spans 640/760/900/1000/1024/1100/1280px, both native app appearances.
+  Graphite panel/dock framing stays the existing default across app themes; no
+  pretend Paper panel or unrequested palette replacement. Medium-width baseline:
+  `/var/tmp/ooonana-panel-middle-baseline-20261018.PJ2lOgPO`; rendered font baseline
+  `/var/tmp/ooonana-panel-middle-fonts-20261018.7UNdcfA9`. Final evidence combines
+  `/var/tmp/ooonana-panel-wide-confirm-20261018.ODYkdPh6` (640/760/900),
+  `/var/tmp/ooonana-panel-wide-final-20261018.igsYYALU` (1000/1024/1280), and
+  `/var/tmp/ooonana-panel-threshold-final-20261018.SsNoUJ5y` (1100).
+  New README normal-sample capture:
+  `/var/tmp/ooonana-desktop-current-20261018.pjDDHZ9q`.
+- Geometry boundary and supervisor propagation tests cover the new Wi-Fi budget;
+  native UI, rootfs and package-factory regressions pass. Four completed owned
+  Qt QA overlays removed after exact-path/unmounted checks (448,416 KiB logical);
+  captures/logs/history retained. No Windows compaction/free-space claim.
+- This source runtime batch awaits signed candidate and installed WSL refresh.
+  No audio playback, model download, release ISO or physical device operation.
+  Live media/session/notification integration and broader ledger remain open.
+
+![Compact 760px panel with explicit wide-label/high-counter samples](assets/ooonana-panel-cjk-small-20261018.png)
+![Actual Qt-owned portal image picker, light appearance](assets/ooonana-qt-image-picker-20261018.png)

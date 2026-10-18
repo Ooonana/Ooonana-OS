@@ -49,12 +49,16 @@ def dock_geometry():
 
 
 def panel_layout(width):
+    """Reserve centered AI space even with double-width names and full counters."""
     if width < 760:
-        return ("workspaces media", "memory battery notifications controls power", 0, 10)
+        return ("workspaces media", "memory battery notifications controls power", 0, 10, 10)
+    if width < 1000:
+        return ("workspaces media", "battery wifi notifications controls date power", 0, 10, 10)
     if width < 1100:
-        return ("brand workspaces media", "memory audio battery wifi notifications controls date power", 0, 14)
+        return ("brand workspaces media", "memory audio battery wifi notifications controls date power", 0, 14, 8)
     return ("brand workspaces win-close win-min win-full media",
-            "memory audio battery wifi notifications controls date power", 1, 18)
+            "memory audio battery wifi notifications controls date power", 0 if width < 1280 else 1,
+            18, 8 if width < 1280 else 14)
 
 
 def panel_geometry():
@@ -66,8 +70,8 @@ def panel_geometry():
         width = int(selected["rect"]["width"])
     except (OSError, ValueError, KeyError, IndexError, TypeError, subprocess.SubprocessError):
         pass
-    left, right, gap, media = panel_layout(width)
-    print(f"OOONANA_PANEL_LEFT='{left}'\nOOONANA_PANEL_RIGHT='{right}'\nOOONANA_PANEL_GAP={gap}\nOOONANA_MEDIA_MAX_CHARS={media}")
+    left, right, gap, media, wifi = panel_layout(width)
+    print(f"OOONANA_PANEL_LEFT='{left}'\nOOONANA_PANEL_RIGHT='{right}'\nOOONANA_PANEL_GAP={gap}\nOOONANA_MEDIA_MAX_CHARS={media}\nOOONANA_WIFI_MAX_CHARS={wifi}")
 
 
 def tree():

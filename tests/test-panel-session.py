@@ -38,7 +38,8 @@ import json, os, signal, sys, time
 def record(event):
     with open(os.environ["FIXTURE_EVENTS"], "a") as stream:
         stream.write(json.dumps(dict(event=event, pid=os.getpid(), display=os.environ["DISPLAY"],
-                                    bar=sys.argv[-1], left=os.environ.get("OOONANA_PANEL_LEFT"))) + "\\n")
+                                    bar=sys.argv[-1], left=os.environ.get("OOONANA_PANEL_LEFT"),
+                                    wifi=os.environ.get("OOONANA_WIFI_MAX_CHARS"))) + "\\n")
 def stop(*_):
     record("stop")
     raise SystemExit(0)
@@ -52,7 +53,7 @@ while True:
     geometry.write_text(f"#!{sys.executable}\n" + '''
 import sys
 print("OOONANA_DOCK_WIDTH=524\\nOOONANA_DOCK_OFFSET=378" if sys.argv[-1] == "--dock-geometry"
-      else "OOONANA_PANEL_LEFT='workspaces media'\\nOOONANA_PANEL_RIGHT='memory power'\\nOOONANA_PANEL_GAP=0\\nOOONANA_MEDIA_MAX_CHARS=10")
+      else "OOONANA_PANEL_LEFT='workspaces media'\\nOOONANA_PANEL_RIGHT='memory power'\\nOOONANA_PANEL_GAP=0\\nOOONANA_MEDIA_MAX_CHARS=10\\nOOONANA_WIFI_MAX_CHARS=10")
 ''')
     geometry.chmod(0o755)
     environment = {**os.environ, "PATH": str(binary), "FIXTURE_EVENTS": str(events),
@@ -82,6 +83,7 @@ print("OOONANA_DOCK_WIDTH=524\\nOOONANA_DOCK_OFFSET=378" if sys.argv[-1] == "--d
         assert len(started(":qa-second", "ooonana")) == 1
         assert len(started(":qa-second", "ooonana-dock")) == 1
         assert all(row["left"] == "workspaces media" for row in started(":qa-first", "ooonana"))
+        assert all(row["wifi"] == "10" for row in started(":qa-first", "ooonana"))
         first_starts = started(":qa-first", "ooonana") + started(":qa-first", "ooonana-dock")
         assert all(any(row["event"] == "stop" and row["pid"] == start["pid"] for row in records())
                    for start in first_starts[:1])

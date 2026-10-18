@@ -15,9 +15,9 @@ Ooonana OS is a custom Linux distribution built from scratch around its own boot
 
 Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Linux, BusyBox, GRUB, i3, and other open-source components. Ooonana package factory currently imports selected Alpine package payloads into Ooonana `.pkg` repositories while native packages replace them over time.
 
-![Candidate desktop with centered dock icons, compact opaque panel, left music and centered AI](docs/assets/ooonana-desktop-details-20261013.png)
+![Candidate desktop with centered dock icons, opaque panel, left music and centered AI](docs/assets/ooonana-desktop-details-20261018.png)
 
-October 13 core 0.10.0 candidate captured with real GTK/i3/Polybar on a private, network-isolated X11 display. Panel status uses sample data, including a deliberately long Wi-Fi label; wallpaper/dock are source assets. Font Awesome 7 mapping restores missing/distorted panel controls and status icons. Quieter status colors, compact spacing, clearer dock focus/previews and consistent button states preserve the existing opaque theme. [Polish evidence and limits](docs/frontend-polish-20261013.md). No audio played. Physical USB visuals require a fresh image. Earlier stable/WSL captures remain in `docs/assets/`.
+October 18 core 0.10.0 candidate captured with real GTK/i3/Polybar on a private, network-isolated X11 display. Panel status uses sample data, including a deliberately long Wi-Fi label; wallpaper/dock are source assets. Shipped CJK font fallback restores Korean/Japanese/Chinese labels. Responsive status budgets keep AI centered and right controls visible on narrow/middle widths without changing text size. Graphite desktop framing and Paper native-app appearance remain the existing theme choices. [Current evidence and limits](docs/ui-whole-os-review.md#batch-22-qt-pickers-and-wide-label-panel-details). No audio played. Physical USB visuals require a fresh image. Earlier captures remain in `docs/assets/`.
 
 Stable core 0.9.9 desktop refresh adds unboxed dock hover feedback, slimmer panel, open Appearance groups, blue globe browser icon and canonical wallpaper fitting. Component previews use isolated test windows, not physical USB boot.
 

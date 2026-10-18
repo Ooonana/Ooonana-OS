@@ -31,6 +31,7 @@ parser.add_argument("--gpu", action="store_true", help="Leave normal GPU selecti
 parser.add_argument("--url", default="about:blank", help="Private browser probe page")
 parser.add_argument("--file-dialog", action="store_true", help="Real Open dialog: cancel and open an owned fixture")
 parser.add_argument("--qt-details", action="store_true", help="Real Qt Session menu and settings dialog; cancel without applying preferences")
+parser.add_argument("--qt-pickers", action="store_true", help="Private Qt font/image picker cancel and owned-image selection")
 parser.add_argument("--inspect-firefox-first-run", action="store_true",
                     help="QA-only: expand diagnostic choices and capture; never accept Terms")
 parser.add_argument("--accept-firefox-qa-terms", action="store_true",
@@ -44,6 +45,8 @@ if args.file_dialog and args.app not in ("geany", "firefox"):
     parser.error("--file-dialog requires geany or firefox")
 if args.qt_details and args.app != "qterminal":
     parser.error("--qt-details requires qterminal")
+if args.qt_pickers and not args.qt_details:
+    parser.error("--qt-pickers requires --qt-details")
 if (args.inspect_firefox_first_run or args.accept_firefox_qa_terms) and args.app != "firefox":
     parser.error("First-run QA options require firefox")
 if args.inspect_firefox_first_run and args.accept_firefox_qa_terms:
@@ -423,6 +426,73 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
             assert rectangle["x"] >= 0 and rectangle["y"] >= 0, "Qt settings opens above/left of display"
             assert rectangle["x"] + rectangle["width"] <= root.get_width(), "Qt settings wider than display"
             assert rectangle["y"] + rectangle["height"] <= root.get_height(), "Qt settings below display"
+            if args.qt_pickers:
+                def qt_child(title):
+                    def visit(item):
+                        if item.get("window") and item.get("name") == title:
+                            return item
+                        for child in item.get("nodes", []) + item.get("floating_nodes", []):
+                            found = visit(child)
+                            if found:
+                                return found
+                        return None
+                    return visit(i3_events.request(i3_events.socket_path(), 4))
+
+                def qt_child_open(title, suffix, offset):
+                    subprocess.run(["xdotool", "mousemove", "--sync",
+                        str(rectangle["x"] + rectangle["width"] - 62),
+                        str(rectangle["y"] + dialog["deco_rect"]["height"] + offset), "click", "1"],
+                        env=environment, check=True)
+                    try:
+                        wait(lambda: (child := qt_child(title)) and child["focused"])
+                    except AssertionError:
+                        qt_capture(suffix + "-failure")
+                        args.output.with_name(args.output.stem + suffix + "-failure.json").write_text(
+                            json.dumps(i3_events.request(i3_events.socket_path(), 4), indent=2))
+                        raise
+                    qt_capture(suffix)
+                    child = qt_child(title)
+                    args.output.with_name(args.output.stem + suffix + ".json").write_text(json.dumps(child, indent=2))
+                    bounds = child["rect"]
+                    assert child["window_properties"].get("transient_for") == dialog["window"], title + " lost settings parent"
+                    assert child["floating"] in ("auto_on", "user_on"), title
+                    assert bounds["x"] >= 0 and bounds["y"] >= 0, title + " clips titlebar"
+                    assert bounds["x"] + bounds["width"] <= root.get_width(), title + " clips width"
+                    assert bounds["y"] + bounds["height"] <= root.get_height(), title + " clips actions"
+                    return child
+
+                font_title = "Select Terminal Font"
+                qt_child_open(font_title, "-font-picker", 32)
+                qt_key("Escape")
+                wait(lambda: qt_child(font_title) is None)
+                wait(lambda: qt_settings()["focused"])
+                image_title = "Choose a background image"
+                qt_child_open(image_title, "-image-picker", 354)
+                qt_key("Escape")
+                wait(lambda: qt_child(image_title) is None)
+                wait(lambda: qt_settings()["focused"])
+                owned_image = fixture / "private background image.png"
+                shutil.copyfile(ROOT / "branding/boot-mark.png", owned_image)
+                qt_child_open(image_title, "-image-picker-reopened", 354)
+                qt_key("ctrl+l", "ctrl+a")
+                subprocess.run(["xdotool", "type", "--clearmodifiers", "--", str(owned_image)],
+                               env=environment, check=True)
+                qt_key("Return")
+                try:
+                    wait(lambda: qt_child(image_title) is None)
+                except AssertionError:
+                    qt_capture("-image-selection-failure")
+                    raise
+                wait(lambda: qt_settings()["focused"])
+                subprocess.run(["xdotool", "mousemove", "--sync",
+                    str(rectangle["x"] + rectangle["width"] - 180),
+                    str(rectangle["y"] + dialog["deco_rect"]["height"] + 354), "click", "1"],
+                    env=environment, check=True)
+                qt_key("ctrl+a", "ctrl+c")
+                selected = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).wait_for_text()
+                assert selected == str(owned_image), "Qt pending image field differs from selected owned file"
+                qt_capture("-image-pending")
+                print("QT_PICKERS_OK font parent/cancel, image cancel/reopen/select, exact private pending path", flush=True)
             # Focus the observed native category list; arrows must change pages
             # without editing settings, activating Apply or touching user files.
             subprocess.run(["xdotool", "mousemove", "--sync", str(rectangle["x"] + 45),
@@ -444,6 +514,10 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
             qt_key("Escape")
             wait(lambda: qt_settings() is None)
             assert find_client() is not None, "Settings Cancel closed terminal"
+            if args.qt_pickers:
+                preferences = fixture / "config/qterminal.org/qterminal.ini"
+                assert str(owned_image) not in preferences.read_text(), "Settings Cancel persisted pending image"
+                print("QT_PICKER_OUTER_CANCEL_OK pending image not applied", flush=True)
             print("QT_SETTINGS_CANCEL_OK actual Session/Preferences, focused/bounded modal, six category captures, Escape", flush=True)
         if args.inspect_firefox_first_run or args.accept_firefox_qa_terms:
             # This explicit inspection mode is limited to the observed private

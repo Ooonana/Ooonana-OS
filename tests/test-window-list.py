@@ -11,6 +11,18 @@ loader = SourceFileLoader("window_list", str(root / "packages/ooonana/usr/bin/oo
 module = module_from_spec(spec_from_loader(loader.name, loader))
 loader.exec_module(module)
 
+for width in (640, 759, 760, 900, 999, 1000, 1099, 1100, 1279, 1280, 1920):
+    left, right, gap, media, wifi = module.panel_layout(width)
+    assert 'media' in left and all(item in right.split() for item in ('battery', 'notifications', 'controls', 'power'))
+    assert media <= 18 and wifi <= 14
+    if 760 <= width < 1000:
+        assert left == 'workspaces media' and 'date' in right and 'wifi' in right
+        assert 'memory' not in right and 'audio' not in right and wifi == 10
+    if width < 1000:
+        assert wifi == 10
+    elif width < 1280:
+        assert wifi == 8 and gap == 0
+
 
 def window(identifier, name, **kwargs):
     return dict(id=identifier, window=identifier, name=name, **kwargs)
