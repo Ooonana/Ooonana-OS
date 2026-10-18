@@ -1395,3 +1395,38 @@ Supersedes Batch 21's pending-publication note. Whole-OS review stays active.
 
 ![Compact 760px panel with explicit wide-label/high-counter samples](assets/ooonana-panel-cjk-small-20261018.png)
 ![Actual Qt-owned portal image picker, light appearance](assets/ooonana-qt-image-picker-20261018.png)
+
+## Published checkpoint after Batch 22
+
+Supersedes Batch 22's source-pending note. Whole-OS review remains active.
+
+- Runtime source `55c25b0f27a25dd98a643377fe4e7fc5e4044345` passes GitHub
+  [39118144999](https://github.com/Ooonana/Ooonana-OS/actions/runs/39118144999)
+  and GitLab [2960068445](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2960068445).
+- Signed local `CURRENT`:
+  `0d8e862e06fa7e8bc068fea77308ed4119a78af728e034a4953f32b1ce5b800d`.
+  SHA256SUMS digest:
+  `82fc7560d5ec2ec3755e5211e1f8a43cf8039bf646619cacf595ef5e683ab12d`.
+  All 1302 checksums, signature/pinned public key, clean 300-source-file manifest,
+  supported v3.24 base, model-free declaration and 654-package/612-node closure
+  verified. Prior generation's SHA256SUMS remains
+  `f8116be9fb56442867085a30ba14576310a36ca74db9c25252113e0f04210ac0`.
+- Native snapshot:
+  `/var/lib/ooonana/candidate-panel-detail-20261018.6sdXSDEc`.
+  Reuses 643 unchanged immutable archives, copies 659 other entries. Full
+  signature/checksum verification precedes separate core/runtime dry-runs,
+  reinstall, file verification and explicit health hooks; all pass. Installed
+  source window-list/supervisor bytes and signed-archive Polybar configuration
+  match exactly. UID1000 actual imports confirm 760/1024/1100/1280 budgets.
+- Native installed hashes: window-list
+  `ca8a5b4c14de451e6cd6b7ad23532fdce2d1fe6a284e71c3b244ab634d565fc6`;
+  supervisor `c5eaece669ee2f9ebd07f1e284764d7a2be9ef30e4154b967d0728f319e6cb42`;
+  Polybar config `82e5f71efe227b4b4687ea6a3cce0596d89689721afa580b623cf8c568201610`.
+  OpenVINO installed metadata and boot configuration unchanged. Default cloud
+  source points to new native snapshot, resolving 654 packages/two sources.
+  Logs: `/var/tmp/ooonana-panel-detail-sync-20261018.y0eB4Yqr` (Ooonana).
+- Canonical WSL adapter regenerated, not restarted. Relaunch desktop/apps for
+  updated code/configuration. Private signing key stays local; stable channel
+  remains 0.9.9 and enrollment/major promotion deferred. No release ISO built,
+  model downloaded, sound played or physical storage/power operation performed.
+  Live media/session/device and other ledger gates remain separate work.

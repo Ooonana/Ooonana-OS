@@ -1,5 +1,20 @@
 # Current work - 2026-10-18
 
+## October 18 multilingual panel publication and WSL refresh
+
+Runtime source `55c25b0` passes both CIs and is signed/published as generation
+`0d8e862e06fa7e8bc068fea77308ed4119a78af728e034a4953f32b1ce5b800d`.
+Clean 300-source-file manifest, all 1302 checksums, signature/trust pin and
+654-package/612-node closure verified. Prior generation unchanged. Native WSL
+snapshot reuses 643 immutable archives; core/runtime dry-run, reinstall, verify
+and health checks pass after full verification. Installed window-list/supervisor
+match source and Polybar config matches signed archive. UID1000 imports/checks
+all responsive budgets. Default cloud metadata updated, 654 packages/two sources.
+Canonical local adapter refreshed without GUI/WSL restart. OpenVINO metadata,
+boot configuration, history/models/keys and rollback checkpoints retained.
+No ISO, sound or physical device operation. Broader review remains active.
+[Publication evidence and limits](ui-whole-os-review.md#published-checkpoint-after-batch-22).
+
 ## October 18 Qt picker and multilingual panel details
 
 Real Qt font/image pickers pass 640×600/1024×768, dark/light: focused floating
@@ -13,7 +28,7 @@ Actual accent-pixel centering guards now catch drift that Polybar logs missed.
 Wide-label/100%/999+ sample checks cover 640/760/900/1000/1024/1100/1280px in both
 app appearances; native/rootfs/package-factory checks pass. Four completed owned
 Qt overlays removed; captures/logs/history retained. README desktop capture is
-current. New runtime changes await signed candidate/installed WSL refresh.
+current. Signed candidate/installed WSL refresh is completed above.
 [Evidence and remaining work](ui-whole-os-review.md#batch-22-qt-pickers-and-wide-label-panel-details).
 
 ## October 18 Qt placement publication and installed refresh
