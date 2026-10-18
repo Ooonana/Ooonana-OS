@@ -110,6 +110,10 @@ scrollable, preserves password delimiters and defaults final approval to Cancel.
 Theme changes retain saved font/DPI and respect reduced motion. **Default UI
 stays 100% with 10pt body; 200% is QA only.** Source tests pass; signed package
 and installed WSL refresh for this follow-up remain pending.
+Terminal installer follow-up preserves exact passwords/TTY state, avoids reboot
+on EOF/typos and uses orderly restart only. Waiting text no longer pretends every
+installation phase already ran. Private shell/PTY checks pass; no real power or
+installation operation was performed.
 [Full scope, current evidence and remaining UI work](docs/ui-whole-os-review.md).
 
 October 15 CI follow-up: Alpine smoke environment lacked `findmnt`, required by

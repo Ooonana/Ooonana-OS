@@ -269,6 +269,7 @@ PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-ai-ui-status.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-notifications.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-gui-preferences.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-desktop-theme-preferences.py"
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-installer-wizard-ui.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-cursor-theme.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-signal-map.py"
 

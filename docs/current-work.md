@@ -1,4 +1,17 @@
-# Current work - 2026-10-17
+# Current work - 2026-10-18
+
+## October 18 terminal installer follow-up
+
+Private shell/PTY baseline reproduced password trimming/extra newline, reboot
+on closed input/unknown text and force/poweroff fallback. Hidden entry now
+preserves exact spaces/backslashes, reports EOF failure and restores original
+terminal state, including interruption. Completion accepts explicit Enter/reboot
+through orderly `bunana --restart` only; EOF, stay and unknown input do not reboot.
+Failure remains visible. Removed pretend completed phase counters before work;
+waiting text points to actual log. Seven isolated shell/PTY regressions and
+full native/rootfs checks pass; no real installer or power command executed.
+Source/candidate publication follows installer GUI checkpoint. Whole-OS review
+and live/device gates remain open. Default text stays 100%/10pt.
 
 ## October 17 installer and preference follow-up
 

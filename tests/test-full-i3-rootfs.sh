@@ -56,7 +56,7 @@ assert_contains "$script_src" "mkfontscale"
 assert_contains "$script_src" "fc-cache -r /usr/share/fonts"
 assert_contains "$script_src" "OOONANA_SKIP_INTEL_FIRMWARE"
 assert_contains "$script_src" "no route"
-assert_contains "$script_src" "sync 2>/dev/null || true"
+assert_contains "$script_src" "bunana --restart"
 assert_contains "$firmware_script_src" 'OOONANA_FIRMWARE_DOWNLOAD_TIMEOUT:-30'
 assert_contains "$firmware_script_src" 'OOONANA_FIRMWARE_DOWNLOAD_TRIES:-3'
 assert_contains "$patch_src" 'rcS|/etc/init.d/rcS|0100755'
@@ -1058,6 +1058,9 @@ assert_contains "$install_wizard" "Progress log"
 assert_contains "$install_wizard" "OOONANA_INSTALL_WIZARD_FAIL"
 assert_contains "$install_wizard" "Fallback shell"
 assert_contains "$install_wizard" "Press Enter to reboot"
+assert_contains "$install_wizard" "Input closed; reboot skipped."
+assert_not_contains "$install_wizard" "reboot -f"
+assert_not_contains "$install_wizard" "poweroff -f"
 assert_contains "$install_wizard" "--password-stdin"
 assert_contains "$install_wizard" "--cloud-repo"
 assert_contains "$install_wizard" "OOONANA_INSTALL_ALLOW_ROOT_TARGET"

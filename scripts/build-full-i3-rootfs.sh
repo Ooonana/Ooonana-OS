@@ -3541,14 +3541,23 @@ screen() {
 read_hidden() {
   prompt="$1"
   printf '%s' "$prompt" >&2
-  if command -v stty >/dev/null 2>&1; then
-    stty -echo 2>/dev/null || true
-    read -r answer || answer=""
-    stty echo 2>/dev/null || true
-    printf '\n'
-  else
-    read -r answer || answer=""
+  saved_tty="$(stty -g 2>/dev/null || true)"
+  restore_hidden_tty() {
+    [ -z "$saved_tty" ] || stty "$saved_tty" 2>/dev/null || true
+  }
+  if [ -n "$saved_tty" ]; then
+    trap 'restore_hidden_tty' 0
+    trap 'exit 129' 1
+    trap 'exit 130' 2
+    trap 'exit 143' 15
+    stty -echo 2>/dev/null || return 1
   fi
+  read_status=0
+  IFS= read -r answer || read_status=1
+  restore_hidden_tty
+  trap - 0 1 2 15
+  printf '\n' >&2
+  [ "$read_status" -eq 0 ] || return 1
   printf '%s\n' "$answer"
 }
 
@@ -3634,12 +3643,9 @@ run_installer() {
   printf 'Theme: %s\n' "$THEME"
   printf 'Package repo: %s\n' "${CLOUD_REPO:-none}"
   printf 'Progress log: %s\n\n' "$LOG_FILE"
-  printf '[1/6] format target\n'
-  printf '[2/6] copy Ooonana files\n'
-  printf '[3/6] write user, hostname, theme\n'
-  printf '[4/6] write package repo source\n'
-  printf '[5/6] write fstab/install marker\n'
-  printf '[6/6] finish\n\n'
+  printf 'Starting installation. This may take several minutes.\n'
+  printf 'Detailed output is written to the progress log above.\n'
+  printf 'Keep this session open; wait for the completion result.\n\n'
   if [ -n "$PASSWORD_VALUE" ]; then
     if printf '%s\n' "$PASSWORD_VALUE" | "$@" >"$LOG_FILE" 2>&1; then
       cat "$LOG_FILE"
@@ -3659,14 +3665,21 @@ run_installer() {
 
 finish_prompt() {
   [ "$YES" -eq 0 ] || return 0
-  printf '\nInstall complete. Press Enter to reboot, type shell to close: '
-  read -r answer || answer=""
+  printf '\nInstall complete. Press Enter to reboot, type stay to keep this session: '
+  if ! IFS= read -r answer; then
+    printf '\nInput closed; reboot skipped.\n' >&2
+    return 0
+  fi
   case "$answer" in
-    shell|SHELL|no|NO|n|N) return 0 ;;
-    *)
-      sync 2>/dev/null || true
-      reboot -f 2>/dev/null || poweroff -f 2>/dev/null || true
+    ""|reboot|REBOOT)
+      if bunana --restart; then
+        return 0
+      fi
+      printf 'Reboot failed. Session remains open; retry from Power menu or terminal.\n' >&2
+      return 1
       ;;
+    stay|STAY|shell|SHELL|no|NO|n|N) return 0 ;;
+    *) printf 'Reboot skipped; no recognized reboot request.\n' >&2 ;;
   esac
 }
 

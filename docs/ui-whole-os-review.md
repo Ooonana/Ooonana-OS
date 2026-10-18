@@ -933,3 +933,26 @@ Supersedes Batch 13 pending-publication notes. Whole-OS review remains active.
   active; real installation, text wizard and live session gates remain open.
 
 ![Installer at normal 100% text on private 640×600 display](assets/ooonana-installer-details-20261017.png)
+
+## Batch 15: Terminal installer input and completion
+
+- Isolated baseline reproduced secret trimming plus an injected leading newline,
+  forced reboot/poweroff on EOF or unknown input, and ignored reboot failure.
+  Tests extract only individual functions, mock every power command and never
+  execute installer/device enumeration. These findings are not a hardware test.
+- Hidden password entry now uses exact line input, sends prompt/newline only
+  to terminal output and restores saved TTY state, rather than blindly enabling
+  echo. EOF fails safely. Actual private PTY tests cover native Backspace, spaces,
+  no password echo and state restoration after SIGTERM to the owned test session.
+- Completion distinguishes explicit Enter/reboot from EOF/stay/typos. Only the
+  existing orderly privileged `bunana --restart` path is used; no forced reboot
+  or fallback poweroff. Restart failure remains visible/nonzero. Waiting copy
+  points to the real log instead of printing all six supposed phases before
+  installation begins. No new animation or text enlargement was added.
+- Seven focused shell/PTY regressions pass, plus native source and full-rootfs
+  generation regression. Generated-wizard assertions now require safe completion
+  and reject force flags, rather than requiring the retired standalone sync.
+  Full interactive text-wizard/install lifecycle, actual log streaming and real
+  installed reboot remain separate gates. GUI source `6263ec9` is pushed to both
+  remotes; [GitHub checks pass](https://github.com/Ooonana/Ooonana-OS/actions/runs/39089217414).
+  Signed candidate and installed WSL refresh for Batches 14–15 remain pending.
