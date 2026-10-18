@@ -26,6 +26,7 @@ packages/ooonana/usr/lib/ooonana/repo/*.pkg text eol=lf
 *.env text eol=lf
 *.js text eol=lf
 *.repo text eol=lf
+*.sudoers text eol=lf
 *.tsv text eol=lf
 packages/ooonana/usr/share/applications/*.desktop text eol=lf
 packages/ooonana/usr/lib/ooonana/repo/index.tsv text eol=lf

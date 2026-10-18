@@ -11,7 +11,7 @@ transaction or real credentials. Actual Settings 0600 writes, reopen, read-only
 failure rollback and retry also pass six variants. That path exposed scaled
 short error dialogs crossing screen edges; shared dialogs now use GTK-compatible
 font metrics and existing scrollable diagnostics when text would be too tall.
-Current source batch awaits commit/publication/WSL refresh; broader review stays
+Current source batch awaits signed publication/WSL refresh; broader review stays
 active. [Evidence and remaining limits](ui-whole-os-review.md#batch-24-administration-and-settings-storage).
 
 ## October 18 notification publication and native refresh
