@@ -240,6 +240,8 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
       probe "$app-frame" python3 /source/tests/check-third-party-frames.py "$app" "/qa/$app.png" --file-dialog "${compositor_options[@]}"
     elif [ "$app" = chromium ] && [ "${OOONANA_BROWSER_NO_SHADER_CACHE:-0}" = 1 ]; then
       probe "$app-frame" python3 /source/tests/check-third-party-frames.py "$app" "/qa/$app.png" --disable-shader-cache "${compositor_options[@]}"
+    elif [ "$app" = qterminal ] && [ "${OOONANA_QT_DETAILS:-0}" = 1 ]; then
+      probe "$app-frame" python3 /source/tests/check-third-party-frames.py "$app" "/qa/$app.png" --qt-details "${compositor_options[@]}"
     else
       probe "$app-frame" python3 /source/tests/check-third-party-frames.py "$app" "/qa/$app.png" "${compositor_options[@]}"
     fi

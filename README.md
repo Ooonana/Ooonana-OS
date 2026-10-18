@@ -62,8 +62,13 @@ smaller type/margins and no oversized lone tab; existing Qt preferences remain.
 Actual isolated Qt6 controls and exit confirmation pass both appearances.
 F: returned; this Qt follow-up is now signed/published locally and verified in
 Ooonana WSL. Relaunch GUI for changed code; no GUI restart or ISO build performed.
-Firefox's isolated first-run/picker/window flow now passes. WSL nested runtime
-compatibility and the remaining whole-OS integration checks stay open.
+Firefox's isolated first-run/picker/window flow now passes. Local WSL canonical
+document runtime correction is installed and passes guards/selection checks;
+actual installed browser/WSLg integration stays open. Qt Preferences' clipped
+small-screen titlebar now has a one-time initial bounds correction, without
+resizing native controls or fighting later user movement. Six settings pages,
+Cancel and window actions pass 640×600/1024×768 in both appearances. This newest
+placement patch awaits signed runtime publication; broader review stays active.
 [Qt evidence, screenshots and remaining review](docs/ui-whole-os-review.md#batch-19-qt-appearance-and-first-run-proportions).
 Follow-up adds default-Cancel package change previews and readable Health
 snapshots with exact raw/copy access and honest service/memory warnings. Compact

@@ -65,6 +65,7 @@ ci-smoke:
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-native-wrapper-modes.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-userland-migration.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-desktop-backend-polish.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-initial-dialog-placement.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-editor-polish.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-chart-layout.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-health-summary.py

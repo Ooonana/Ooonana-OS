@@ -32,7 +32,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Native AI / model UI | Generic native chat compact layout, bounded headings, no-match search, draft attachment, safe Delete, status failure/stale/closed callbacks and streaming/copy/cancel fixtures pass | Real cloud-provider session, long-running transcript navigation; OpenVINO GUI/runtime/offline checks deferred by user October 16 |
 | Installer GUI / text wizard | Real font-metric 100/200% form/review/blocked fit 640×600 both themes; all 16 fields keyboard-walked, exact disk/password mapping and safe Cancel checked; disk details scroll inside form | Actual privileged preview/log lifecycle, text wizard and physical storage summary/install; bare UI fixtures never install |
 | Shared dialogs / menus / tooltips | Short/unbroken and long diagnostic text fit; secret input labelled/focused, password spaces retained, Cancel verified | Remaining file pickers, menus, escape/return and scaled text |
-| Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Qt6/QTerminal dark/light, opaque palettes, density and exit actions pass. Firefox dark QA scoped onboarding, portal open/cancel, exact URL/rendered-content read and window actions pass. Local WSL canonical runtime installed; guard/selection regressions pass | Qt menu/preferences/picker variants; Firefox light/scaling/installed-session integration, actual physical compositor and live WSLg |
+| Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Qt6/QTerminal dark/light, density, six Preferences pages, initial small-screen placement and exit actions pass. Firefox dark QA scoped onboarding, portal open/cancel, exact URL/rendered-content read and window actions pass. Local WSL canonical runtime installed; guard/selection regressions pass | Qt font/background/portal pickers and other Qt apps; Firefox light/scaling/installed-session integration, actual physical compositor and live WSLg |
 | Window manager | Native/XTerm modifier drag/resize, all number/move workspace keys, cycling, click focus, tile/tab/stack, resize mode, fullscreen, exact-session restore and unfocused close pass in private compositor | Real WSLg/physical compositor, multi-display and complete session lifecycle transitions |
 | GRUB: live / audio submenu | Shared live/installed branding, compact audio labels; actual EFI 640×480/1280×800, missing-font/mark fallback and unchanged kernel arguments checked. Minimal contrast repaired | Physical BIOS/UEFI, corrupted-media/runtime graphics failure and actual installed boot |
 | Boot / shutdown / reboot / persistent setup | Private PTY boot/save/setup; consecutive warning retention, normal console ordering, serial/ambiguous/motion-off/small-console and exact existing waits pass | Real framebuffer/kernel-message handoff, physical shutdown/recovery and complete persistent-setup interaction |
@@ -1262,3 +1262,44 @@ operation performed. Stable promotion and signing enrollment remain deferred.
   actual installed Firefox/WSLg picker and input remain separate integration
   gates. Whole-OS review stays active, with Qt variants and other ledger rows
   still open. No release ISO built or physical storage/power test performed.
+
+## Batch 21: Qt settings placement and categories
+
+- Actual QTerminal 2.4.0 Preferences at 640×600 opened at y=-13 with its titlebar
+  clipped in both appearances. Qt's subsequent positioning defeated a plain i3
+  map-centering rule; removed that ineffective experiment rather than shipping it.
+- Existing event-driven window-controls service now applies one delayed bounds
+  correction only to newly observed, floating QTerminal dialogs that fit their
+  output but open outside it. No size, font, widget stylesheet or native dialog
+  content changes. Existing windows at service startup and later user geometry
+  are not continuously clamped; changed/hidden/closed/fullscreen/oversized cases
+  are refused. Output origins, including negative coordinates, are respected.
+- Pure guard/callback tests cover scope, bounds, negative outputs, changed user
+  geometry and closed/restarted sessions. Both CI workflows include the test.
+  Native UI, rootfs, package-factory and existing decoration regressions pass.
+- Opt-in `OOONANA_QT_DETAILS=1` private QA opens the observed native Session menu
+  and Preferences, walks all six categories by keyboard, checks complete modal
+  bounds, preserves deliberate later off-edge movement, restores it and cancels.
+  Actual minimize/restore/fullscreen/move and exit cancel/confirm still pass at
+  640×600 and 1024×768, dark and light, normal100% text. Native Alt-letter behavior
+  and duplicate menu mnemonics required correcting QA navigation, not remapping
+  user shortcuts. Upstream [menu](https://github.com/lxqt/qterminal/blob/2.4.0/src/forms/qterminal.ui)
+  and [settings implementation](https://github.com/lxqt/qterminal/blob/2.4.0/src/propertiesdialog.cpp)
+  were checked; settings rejection may remember private dialog size but does not
+  apply edited options. No actual user profile is used.
+- Baseline `/var/tmp/ooonana-qt-small-settings-20261018.lcWkSA5e`; final complete
+  matrix `/var/tmp/ooonana-qt-placement-final-20261018.gv2JJQsd` (Ubuntu). Captures
+  show actual Qt pages, not mocks. WSL full redraw remains a QA adaptation, not
+  physical compositor/hardware certification. Font/background/portal pickers,
+  other Qt applications and broader ledger integration gates remain open.
+- Removed 17 completed owned QA overlays after exact-path and unmounted checks:
+  1,905,788 KiB logical. Captures/logs/history retained; no Windows free-space or
+  disk-compaction claim. Previously policy-blocked F: staging is untouched.
+- This runtime source patch awaits signed candidate/installed WSL refresh.
+  Local runtime adapter commit `fe50d7c` is pushed to both remotes and passes
+  GitHub [39100755659](https://github.com/Ooonana/Ooonana-OS/actions/runs/39100755659)
+  and GitLab [2959738246](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2959738246).
+  No release ISO, audio playback, model download or physical power/storage test.
+
+![Qt Preferences complete titlebar/actions at 640×600, dark](assets/ooonana-qt-settings-small-dark-20261018.png)
+![Qt Preferences complete titlebar/actions at 640×600, light](assets/ooonana-qt-settings-small-light-20261018.png)

@@ -30,6 +30,7 @@ parser.add_argument("--disable-shader-cache", action="store_true", help="QA-only
 parser.add_argument("--gpu", action="store_true", help="Leave normal GPU selection enabled (device availability remains environment-dependent)")
 parser.add_argument("--url", default="about:blank", help="Private browser probe page")
 parser.add_argument("--file-dialog", action="store_true", help="Real Open dialog: cancel and open an owned fixture")
+parser.add_argument("--qt-details", action="store_true", help="Real Qt Session menu and settings dialog; cancel without applying preferences")
 parser.add_argument("--inspect-firefox-first-run", action="store_true",
                     help="QA-only: expand diagnostic choices and capture; never accept Terms")
 parser.add_argument("--accept-firefox-qa-terms", action="store_true",
@@ -41,6 +42,8 @@ if args.no_use_damage and not args.compositor:
     parser.error("--no-use-damage requires --compositor")
 if args.file_dialog and args.app not in ("geany", "firefox"):
     parser.error("--file-dialog requires geany or firefox")
+if args.qt_details and args.app != "qterminal":
+    parser.error("--qt-details requires qterminal")
 if (args.inspect_firefox_first_run or args.accept_firefox_qa_terms) and args.app != "firefox":
     parser.error("First-run QA options require firefox")
 if args.inspect_firefox_first_run and args.accept_firefox_qa_terms:
@@ -367,6 +370,81 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
         identifier = node["id"]
         if not args.csd:
             wait(lambda: identifier in manager.controls)
+        if args.qt_details:
+            def qt_settings():
+                def visit(item):
+                    if item.get("window") and item.get("name") == "Terminal settings":
+                        return item
+                    for child in item.get("nodes", []) + item.get("floating_nodes", []):
+                        found = visit(child)
+                        if found:
+                            return found
+                    return None
+                return visit(i3_events.request(i3_events.socket_path(), 4))
+
+            def qt_key(*values):
+                subprocess.run(["xdotool", "key", "--clearmodifiers", *values], env=environment, check=True)
+
+            def qt_capture(suffix):
+                for _ in range(20):
+                    drain()
+                    time.sleep(0.03)
+                Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(
+                    str(args.output.with_name(args.output.stem + suffix + ".png")), "png", [], [])
+
+            subprocess.run(["i3-msg", f"[con_id={identifier}] focus"], check=True, capture_output=True)
+            # QTerminal intentionally sends Alt-letter combinations to shells.
+            # Open its observed native Session menu without changing that pref.
+            rectangle = find_client()["rect"]
+            subprocess.run(["xdotool", "mousemove", "--sync", str(rectangle["x"] + 30),
+                            str(rectangle["y"] + node["deco_rect"]["height"] + 10), "click", "1"],
+                           env=environment, check=True)
+            qt_capture("-session-menu")
+            # Observed English/100% native menu: duplicate P accelerators and
+            # separator navigation differ from ordinary GTK menu assumptions.
+            # Refuse uncalibrated variants instead of blind shortcut retries.
+            assert (root.get_width(), root.get_height()) in ((1024, 768), (640, 600))
+            assert os.environ.get("OOONANA_GUI_TEXT_SCALE") == "1.0"
+            subprocess.run(["xdotool", "mousemove", "--sync", str(rectangle["x"] + 90),
+                            str(rectangle["y"] + node["deco_rect"]["height"] + 120), "click", "1"],
+                           env=environment, check=True)
+            try:
+                dialog = wait(qt_settings)
+            except AssertionError:
+                qt_capture("-settings-failure")
+                args.output.with_name(args.output.stem + "-settings-failure.json").write_text(
+                    json.dumps(i3_events.request(i3_events.socket_path(), 4), indent=2))
+                raise
+            assert dialog["focused"] and dialog["floating"] in ("auto_on", "user_on")
+            qt_capture("-settings-appearance")
+            dialog = qt_settings()
+            args.output.with_name(args.output.stem + "-settings.json").write_text(json.dumps(dialog, indent=2))
+            rectangle = dialog["rect"]
+            assert rectangle["x"] >= 0 and rectangle["y"] >= 0, "Qt settings opens above/left of display"
+            assert rectangle["x"] + rectangle["width"] <= root.get_width(), "Qt settings wider than display"
+            assert rectangle["y"] + rectangle["height"] <= root.get_height(), "Qt settings below display"
+            # Focus the observed native category list; arrows must change pages
+            # without editing settings, activating Apply or touching user files.
+            subprocess.run(["xdotool", "mousemove", "--sync", str(rectangle["x"] + 45),
+                            str(rectangle["y"] + dialog["deco_rect"]["height"] + 19), "click", "1"],
+                           env=environment, check=True)
+            qt_key("Home")
+            for page in ("window", "behavior", "shortcuts", "dropdown", "bookmarks"):
+                qt_key("Down")
+                qt_capture("-settings-" + page)
+            moved_y = root.get_height() - rectangle["height"] + 6
+            subprocess.run(["i3-msg", f"[con_id={dialog['id']}] move absolute position {rectangle['x']} px {moved_y} px"],
+                           env=environment, check=True, capture_output=True)
+            for _ in range(15):
+                drain()
+                time.sleep(0.03)
+            assert qt_settings()["rect"]["y"] == moved_y, "Initial placement correction fought later user movement"
+            subprocess.run(["i3-msg", f"[con_id={dialog['id']}] move absolute position {rectangle['x']} px {rectangle['y']} px"],
+                           env=environment, check=True, capture_output=True)
+            qt_key("Escape")
+            wait(lambda: qt_settings() is None)
+            assert find_client() is not None, "Settings Cancel closed terminal"
+            print("QT_SETTINGS_CANCEL_OK actual Session/Preferences, focused/bounded modal, six category captures, Escape", flush=True)
         if args.inspect_firefox_first_run or args.accept_firefox_qa_terms:
             # This explicit inspection mode is limited to the observed private
             # 1024x768 Firefox QA surface. Refuse drift instead of blind input.

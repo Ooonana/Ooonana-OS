@@ -16,6 +16,35 @@ from common import Gdk, GLib, Gtk, window_control_icon, run_async
 WIDTH = 66
 
 
+def initial_dialog_targets(tree, visible):
+    """Only the observed Qt settings placement fault; never resize native UI."""
+    result = {}
+
+    def visit(node, output=None, workspace=None):
+        if node.get("type") == "output":
+            output = node.get("rect")
+        if node.get("type") == "workspace":
+            workspace = node.get("name")
+        properties = node.get("window_properties") or {}
+        if (output and node.get("window") and workspace in visible
+                and str(properties.get("class", "")).lower() == "qterminal"
+                and node.get("window_type") == "dialog"
+                and node.get("floating") in ("auto_on", "user_on")
+                and not node.get("fullscreen_mode")):
+            rect = node.get("rect") or {}
+            x, y, width, height = (rect.get(key, 0) for key in ("x", "y", "width", "height"))
+            if 0 < width <= output.get("width", 0) and 0 < height <= output.get("height", 0):
+                left, top = output.get("x", 0), output.get("y", 0)
+                target = (max(left, min(x, left + output["width"] - width)),
+                          max(top, min(y, top + output["height"] - height)))
+                if target != (x, y):
+                    result[node["id"]] = (target, (x, y, width, height))
+        for child in node.get("nodes", []) + node.get("floating_nodes", []):
+            visit(child, output, workspace)
+    visit(tree)
+    return result
+
+
 def decoration_targets(tree, visible):
     result = {}
 
@@ -180,6 +209,7 @@ class Manager:
     def __init__(self):
         self.controls = {}
         self.own_windows = set()
+        self.placement_seen = None
         provider = Gtk.CssProvider()
         provider.load_from_data(CSS)
         Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_USER + 1)
@@ -239,6 +269,25 @@ class Manager:
         for window in self.controls.values():
             window.destroy()
         self.controls.clear()
+        self.placement_seen = None
+        return False
+
+    def place_initial_dialog(self, identifier, original):
+        # Qt can reposition after i3's map rule. One deferred correction only;
+        # changed geometry, closed windows and later user moves are left alone.
+        if self.placement_seen is None or identifier not in self.placement_seen:
+            return False
+        try:
+            path = i3_events.socket_path()
+            tree = i3_events.request(path, 4)
+            visible = {item["name"] for item in i3_events.request(path, 1) if item.get("visible")}
+            candidate = initial_dialog_targets(tree, visible).get(identifier)
+            if candidate and candidate[1] == original:
+                x, y = candidate[0]
+                run_async(["i3-msg", f"[con_id={int(identifier)}] move absolute position {int(x)} px {int(y)} px"],
+                          lambda *_: None)
+        except (OSError, ValueError, EOFError):
+            pass
         return False
 
     def refresh(self):
@@ -249,12 +298,20 @@ class Manager:
             visible = {workspace["name"] for workspace in i3_events.request(path, 1) if workspace.get("visible")}
             targets = decoration_targets(tree, visible)
             focused = set()
+            live = set()
             def visit(node):
+                if node.get("window"):
+                    live.add(node["id"])
                 if node.get("window") and node.get("focused"):
                     focused.add(node["id"])
                 for child in node.get("nodes", []) + node.get("floating_nodes", []):
                     visit(child)
             visit(tree)
+            if self.placement_seen is not None:
+                for identifier, (_position, original) in initial_dialog_targets(tree, visible).items():
+                    if identifier not in self.placement_seen:
+                        GLib.timeout_add(120, self.place_initial_dialog, identifier, original)
+            self.placement_seen = live
         except (OSError, ValueError, EOFError):
             return self.clear()
         for identifier in set(self.controls) - set(targets):

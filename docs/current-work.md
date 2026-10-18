@@ -1,5 +1,19 @@
 # Current work - 2026-10-18
 
+## October 18 Qt settings placement and full category review
+
+Actual 640×600 QTerminal Preferences reproduced y=-13, clipping its titlebar.
+An i3 map-centering rule alone did not fix Qt's later positioning; removed that
+ineffective attempt. Existing window-controls service now corrects only newly
+observed off-output QTerminal dialogs, once after settling. Native sizes/styles
+stay unchanged. Changed geometry, hidden/closed/fullscreen/oversized windows and
+service-start existing windows are left alone; no repeated positioning policy.
+Pure guards plus real six-page dark/light review, bounds/Cancel, later user moves
+and minimize/restore/fullscreen/move/exit pass 640×600 and 1024×768. Native UI,
+rootfs and package-factory regressions pass. New runtime patch awaits signed
+publication/installed WSL refresh; WSL-local runtime fix below is already live.
+[Evidence and scope](ui-whole-os-review.md#batch-21-qt-settings-placement-and-categories).
+
 ## October 18 local WSL document-runtime correction
 
 Local desktop adapter now uses canonical `/run/user/UID`, prepared through its
