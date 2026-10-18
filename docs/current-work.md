@@ -1,5 +1,19 @@
 # Current work - 2026-10-19
 
+## October 19 dock publication and native WSL refresh
+
+Source `519de7d` passes both CIs; signed candidate generation is
+`10514cb56d6b0ae8d73edd5465a2caa323e3e6c1564fb0232c20f0bd50841d6d`.
+Clean 300-source-file manifest, pinned signature, all1302 checksums and
+654-package/612-node closure verified. Native core/runtime dry-run, reinstall,
+verify and health hooks pass; installed dock bytes match source, UID1000 import
+passes. Default source metadata and local WSL adapter refreshed, without
+restarting GUI/WSL. History, prior generations, boot config and OpenVINO metadata
+retained. Two completed QA overlays removed (5512KiB logical); captures/logs stay.
+No Windows compaction/free-space claim, models, audio or ISO build. Broader UI
+review, actual scaling/session/display/manual gates remain open.
+[Checkpoint](ui-whole-os-review.md#published-checkpoint-after-batch-25).
+
 ## October 19 dock edge/fullscreen review
 
 Real edge probes found dock covering fullscreen content. Existing i3 tree events
@@ -10,7 +24,7 @@ polling, resizing or idle-auto-hide policy. Eight dark/light variants pass real
 tooltips, four-corner menus, centering, 44px targets and fullscreen/workspace
 restoration: 640×600 normal/200%, 1024×768 normal, 320px dock-only stress.
 Pure guards plus native/rootfs/package and both-theme multi-session/action/
-keyboard regressions pass. Source awaits signed publication/WSL refresh.
+keyboard regressions pass. Signed publication/WSL refresh are completed above.
 [Evidence and limits](ui-whole-os-review.md#batch-25-dock-edges-and-fullscreen).
 
 ## October 18 administration/dialog publication and WSL refresh

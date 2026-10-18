@@ -1628,3 +1628,40 @@ Supersedes Batch 24's publication-pending note. Whole-OS review stays active.
   open. No release ISO, sound, model, user-history or physical device operation.
 
 ![Actual normal100% dock preview, owned terminal samples; opaque framing unchanged](assets/ooonana-dock-edge-preview-20261018.png)
+
+## Published checkpoint after Batch 25
+
+Supersedes Batch 25's publication-pending note. Whole-OS review remains active.
+
+- Runtime source `519de7d65a32fd3b7ecdbe01f192e3804ddec78f` passes both CIs,
+  including the newly wired pure fullscreen guard:
+  [GitHub 39169362495](https://github.com/Ooonana/Ooonana-OS/actions/runs/39169362495),
+  [GitLab 2960918801](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2960918801).
+- Signed local `CURRENT`:
+  `10514cb56d6b0ae8d73edd5465a2caa323e3e6c1564fb0232c20f0bd50841d6d`.
+  SHA256SUMS digest:
+  `1c19f6fc91b906452cf373aef5eb446eb83018b97681a8c5a61e4612c0bfe553`.
+  Full signature/trust pin and all1302 checksums verified before/during atomic
+  publication; clean300-source-file manifest, supportedv3.24 base, no models,
+  654 packages/612 dependency nodes. Prior generation's SHA256SUMS remains
+  `db282fd6cc8fdd64ccb1aca538698a83560ccc014593e0d81556a5b248b1962d`.
+- Native snapshot:
+  `/var/lib/ooonana/candidate-dock-fullscreen-20261019.qu9lqHlv`.
+  Reuses643 matching immutable archives and copies659 other entries. Full
+  signature/checksum verification precedes separate runtime/core dry-runs,
+  reinstall, file verification and explicit health hooks; all pass. Actual
+  UID1000 dock import/pure call pass; installed SHA256 matches source:
+  `60f16b2abf87069626393526a05bfa6f2ca12e6519da798e741577fac2f5fdf6`.
+  Default cloud metadata resolves654 packages/two sources. Native logs:
+  `/var/tmp/ooonana-dock-fullscreen-sync-20261019.m1w9FdSF`.
+- Local adapter regenerated without GUI/WSL restart. Relaunch desktop for new
+  dock code. OpenVINO installed metadata and `/etc/wsl.conf` unchanged. No
+  model, audio, physical device or ISO operation; signing key remains local and
+  stable0.9.9/promotion deferral unchanged. Normal desktop capture remains valid.
+- Both completed action-test overlays removed after exact-path/unmounted checks
+  (5512KiB logical). Captures/logs/history and release generations/checkpoints
+  retained. No Windows-space/compaction claim or denied cleanup retry.
+- Normal Gdk scaling plus enlarged-font checks do not certify application/device
+  coordinate alignment under `GDK_SCALE=2`, physical mixed DPI/hotplug, live WSLg
+  or every installed-session transition. Those and other ledger rows remain
+  open; edge tests are not whole-OS completion.

@@ -33,6 +33,13 @@ successful privileged package transactions still need separate verification.
 Signed candidate and Ooonana WSL refreshed; typography/default scale unchanged.
 [Normal-size capture, tests and limits](docs/ui-whole-os-review.md#batch-24-administration-and-settings-storage).
 
+October 19 dock follow-up removes fullscreen-content overlap and restores dock
+visibility without focus theft when switching workspace or leaving fullscreen.
+Real edge tooltips/menus and multi-session keyboard actions pass; normal dock
+height, icons, framing and default text scale stay unchanged. Signed candidate
+and Ooonana WSL refreshed; relaunch GUI for new dock code. No ISO built.
+[Preview, fullscreen checks and remaining display limits](docs/ui-whole-os-review.md#published-checkpoint-after-batch-25).
+
 Stable core 0.9.9 desktop refresh adds unboxed dock hover feedback, slimmer panel, open Appearance groups, blue globe browser icon and canonical wallpaper fitting. Component previews use isolated test windows, not physical USB boot.
 
 Latest October 14: installed **Ooonana WSL is now 0.10.0** after user-authorized
