@@ -34,6 +34,18 @@ with tempfile.TemporaryDirectory() as directory:
     assert not state.archive_path.exists()
     assert not state.merge([message], True)[0]["archived"]
     assert stat.S_IMODE(state.archive_path.stat().st_mode) == 0o600
+    from unittest.mock import patch
+    with patch.object(notification_utils, "write_json", side_effect=PermissionError("owned fixture storage denied")) as writer:
+        preview = state.snapshot([changed], True)
+        assert len(preview) == 2 and not preview[0]["archived"] and preview[1]["archived"]
+        writer.assert_not_called()
+        try:
+            state.merge([changed], True)
+        except PermissionError:
+            pass
+        else:
+            raise AssertionError("Archive write failure not reported")
+        assert state.snapshot([changed], True) == preview
     assert state.merge([], True)[0]["archived"]
     state.forget(message)
     assert not state.merge([], True)

@@ -130,15 +130,22 @@ class NotificationState:
             result.append({"id": value["id"], "timestamp": value["timestamp"], "app": value["app"][:128], "summary": value["summary"][:256], "body": value["body"][:4096]})
         return result
 
-    def merge(self, live, remember):
+    def snapshot(self, live, remember):
+        """Read-only view remains available when saving presentation state fails."""
         live = live[:80]
         if not remember:
             return [{**record, "archived": False} for record in live]
         keys = {record_key(record) for record in live}
         previous = [record for record in self.archive() if record_key(record) not in keys]
         merged = (live + previous)[:80]
-        write_json(self.archive_path, merged)
         return [{**record, "archived": record_key(record) not in keys} for record in merged]
+
+    def merge(self, live, remember):
+        records = self.snapshot(live, remember)
+        if remember:
+            write_json(self.archive_path, [{key: value for key, value in record.items() if key != "archived"}
+                                           for record in records])
+        return records
 
     def forget(self, record):
         key = record_key(record)

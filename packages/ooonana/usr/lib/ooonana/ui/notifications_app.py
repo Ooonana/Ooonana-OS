@@ -18,11 +18,15 @@ class NotificationsWindow(Gtk.Window):
         self.action_pending = False
         self.action_error = ""
         self.action_detail = ""
+        self.storage_error = ""
+        self.storage_detail = ""
         self.pause_known = False
         self.render_signature = None
         self.render_version = 0
+        self.render_allocation_handler = 0
         self.remove_buttons = []
         self.age_labels = []
+        self.message_controls = {}
         self.expanded_messages = set()
         self.records = []
         self.state = NotificationState()
@@ -68,6 +72,9 @@ class NotificationsWindow(Gtk.Window):
 
     def on_destroy(self, *_args):
         self.closed = True
+        if self.render_allocation_handler:
+            self.list.disconnect(self.render_allocation_handler)
+            self.render_allocation_handler = 0
         if self.timer_id:
             GLib.source_remove(self.timer_id)
             self.timer_id = 0
@@ -104,12 +111,20 @@ class NotificationsWindow(Gtk.Window):
             text, paused = result
             live = parse_history(text) if rc == 0 else []
             self.service_available = rc == 0
+            self.storage_error = self.storage_detail = ""
             try:
                 self.records = self.state.merge(live, self.remember.get_active())
-                if self.is_active():
+            except OSError as exc:
+                self.records = self.state.snapshot(live, self.remember.get_active())
+                self.storage_error = "History not saved"
+                self.storage_detail = str(exc)
+            if self.is_active():
+                try:
                     self.state.mark_read(live)
-            except OSError:
-                self.records = [{**record, "archived": False} for record in live]
+                except OSError as exc:
+                    if not self.storage_error:
+                        self.storage_error = "Read status not saved"
+                    self.storage_detail += ("\n" if self.storage_detail else "") + str(exc)
             self.pause_known = isinstance(paused, bool)
             if self.pause_known:
                 self.pause.handler_block(self.pause_handler)
@@ -119,11 +134,13 @@ class NotificationsWindow(Gtk.Window):
             count = len(self.records)
             summary = (f"{count} {'message' if count == 1 else 'messages'}" if rc == 0 else
                        "Saved history · service unavailable" if self.records else "Service unavailable")
-            self.status.set_text(summary + (" · " + self.action_error if self.action_error else ""))
-            self.status.set_tooltip_text(self.action_detail or self.status.get_text())
+            error = self.action_error or self.storage_error
+            self.status.set_text(error + " · " + summary if error else summary)
+            self.status.set_tooltip_text("\n\n".join(value for value in
+                (summary, self.action_detail, self.storage_detail) if value))
             context = self.status.get_style_context()
             context.remove_class("status-bad")
-            if self.action_error or rc != 0:
+            if error or rc != 0:
                 context.add_class("status-bad")
             preserve_focus = focus_before if self.get_focus() is focus_loading else None
             self.render_records(preserve_focus)
@@ -150,12 +167,20 @@ class NotificationsWindow(Gtk.Window):
             return
         self.render_signature = signature
         self.render_version += 1
+        if self.render_allocation_handler:
+            self.list.disconnect(self.render_allocation_handler)
+            self.render_allocation_handler = 0
         version = self.render_version
         previous_focus = preserve_focus or self.get_focus()
-        focus_key = next((record_key(item) for control, item in self.remove_buttons if control is previous_focus), None)
+        focus_token = next((token for token, control in self.message_controls.items() if control is previous_focus), None)
+        def reading_anchor(control):
+            return control.get_label_widget() if isinstance(control, Gtk.Expander) else control
+        old_anchor = reading_anchor(previous_focus) if focus_token else None
+        anchor_offset = old_anchor.translate_coordinates(self.scroll, 0, 0) if old_anchor else None
         previous_scroll = self.scroll.get_vadjustment().get_value()
         self.remove_buttons = []
         self.age_labels = []
+        self.message_controls = {}
         for child in self.list.get_children():
             child.destroy()
         if not self.records:
@@ -180,19 +205,34 @@ class NotificationsWindow(Gtk.Window):
             for record in records:
                 self.add_notification(record)
         self.expanded_messages.intersection_update(record_key(item) for item in self.records)
-        self.list.show_all()
-
         def restore():
             if self.closed or self.render_version != version:
                 return False
             adjustment = self.scroll.get_vadjustment()
             adjustment.set_value(min(previous_scroll, max(0, adjustment.get_upper() - adjustment.get_page_size())))
-            if focus_key:
-                control = next((control for control, item in self.remove_buttons if record_key(item) == focus_key),
-                               self.remove_buttons[0][0] if self.remove_buttons else self.refresh_button)
+            if focus_token and self.get_focus() is focus_after_render:
+                control = self.message_controls.get(focus_token)
+                if control is None or not control.get_mapped():
+                    control = self.message_controls.get((focus_token[0], "remove"))
+                if control is None:
+                    control = self.remove_buttons[0][0] if self.remove_buttons else self.refresh_button
+                anchor = reading_anchor(control)
+                position = anchor.translate_coordinates(self.scroll, 0, 0)
+                if anchor_offset is not None and position is not None:
+                    adjustment.set_value(adjustment.get_value() + position[1] - anchor_offset[1])
                 control.grab_focus()
             return False
-        GLib.idle_add(restore)
+
+        def allocated(_list, _allocation):
+            # New rows must have real allocations before translating reading
+            # coordinates; an immediate idle can otherwise see (-1, -1).
+            if self.render_allocation_handler:
+                self.list.disconnect(self.render_allocation_handler)
+                self.render_allocation_handler = 0
+            GLib.idle_add(restore)
+        self.render_allocation_handler = self.list.connect_after("size-allocate", allocated)
+        self.list.show_all()
+        focus_after_render = self.get_focus()
 
     def add_notification(self, record):
         widget = card(record["summary"])
@@ -215,6 +255,7 @@ class NotificationsWindow(Gtk.Window):
         self.age_labels.append((age_label, record))
         remove = button("Remove", "edit-delete-symbolic", lambda *_: self.remove_record(record))
         self.remove_buttons.append((remove, record))
+        self.message_controls[(record_key(record), "remove")] = remove
         info.pack_end(remove, False, False, 0)
         info.pack_end(age_label, False, False, 0)
         widget.pack_start(info, False, False, 0)
@@ -227,12 +268,16 @@ class NotificationsWindow(Gtk.Window):
             body.set_lines(2)
             body.set_ellipsize(Pango.EllipsizeMode.END)
             body.set_selectable(True)
+            self.message_controls[(record_key(record), "body")] = body
             widget.pack_start(body, False, False, 0)
             if long_body:
                 key = record_key(record)
                 expander = Gtk.Expander(label="Show full message")
+                expander.get_accessible().set_name("Full message: " + record["summary"])
                 full_text = label(record["body"])
                 full_text.set_selectable(True)
+                self.message_controls[(key, "details")] = expander
+                self.message_controls[(key, "full-body")] = full_text
                 expander.add(full_text)
                 body.set_no_show_all(True)
                 def expanded(control, _property, preview=body, identity=key):
@@ -281,9 +326,10 @@ class NotificationsWindow(Gtk.Window):
         if record.get("archived"):
             try:
                 self.state.forget(record)
-            except OSError:
-                self.status.set_text("Could not remove saved message")
+            except OSError as exc:
+                self.show_action_error("Could not remove saved message", str(exc))
                 return
+            self.action_error = self.action_detail = ""
             self.refresh()
         else:
             self.perform(["history-rm", str(record["id"])], record)
@@ -291,15 +337,22 @@ class NotificationsWindow(Gtk.Window):
     def pause_changed(self, widget):
         self.perform(["set-paused", "true" if widget.get_active() else "false"])
 
+    def show_action_error(self, message, detail):
+        self.action_error, self.action_detail = message, detail
+        self.status.set_text(message)
+        self.status.set_tooltip_text(detail or message)
+        self.status.get_style_context().add_class("status-bad")
+
     def perform(self, arguments, removed_record=None):
         if self.closed or self.action_pending or self.refreshing:
             return
         if arguments[0] == "history-clear" and not self.service_available:
             try:
                 self.state.clear_saved()
-            except OSError:
-                self.status.set_text("Could not clear saved history")
+            except OSError as exc:
+                self.show_action_error("Could not clear saved history", str(exc))
                 return
+            self.action_error = self.action_detail = ""
             self.refresh()
             return
         self.action_pending = True
@@ -312,13 +365,13 @@ class NotificationsWindow(Gtk.Window):
                 if rc == 0 and removed_record:
                     try:
                         self.state.forget(removed_record)
-                    except OSError:
-                        self.status.set_text("Could not remove saved message")
+                    except OSError as exc:
+                        self.show_action_error("Could not remove saved message", str(exc))
                 if rc == 0 and arguments[0] == "history-clear":
                     try:
                         self.state.clear_saved()
-                    except OSError:
-                        self.status.set_text("Could not clear saved history")
+                    except OSError as exc:
+                        self.show_action_error("Could not clear saved history", str(exc))
                 if rc != 0:
                     self.action_error = "Action failed"
                     self.action_detail = output or "Notification action failed. Refresh, then retry."

@@ -1,5 +1,18 @@
 # Current work - 2026-10-18
 
+## October 18 notification reading and storage recovery
+
+Actual private Dunst/GTK lifecycle checks reproduced lost keyboard focus and
+reading position after new arrivals, plus saved rows disappearing when read-state
+writes failed. Center now restores semantic focus/reading position after GTK
+allocation, keeps readable live/archive history on storage failures and presents
+persistent save/remove errors with retry recovery. No text/control enlargement.
+Four normal100% dark/light, 640×600/1024×768 checks pass, including explicit
+service restart refresh, DND reset, reused notification IDs and clear-all.
+Only owned private history is used; sound is suppressed in QA, not production.
+Source batch awaits signed publication and native WSL refresh; broader review
+remains active. [Evidence and limits](ui-whole-os-review.md#batch-23-notification-reading-and-storage-recovery).
+
 ## October 18 multilingual panel publication and WSL refresh
 
 Runtime source `55c25b0` passes both CIs and is signed/published as generation

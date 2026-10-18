@@ -24,7 +24,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Setup | Compact/200% scrolling and stacked labels; focused inline validation, secret-preserving drafts, full source/routing review, default Back, reduced motion, pending/reentrant and closed-parent refusal checked both themes | Complete installed privileged setup/persistence and actual authentication/network failures; CLI backend preflight is not certified by UI validation |
 | Sound / brightness / music | Verified readiness, selected-identity audio/backlight commands, unknown/empty/permission states, persistent inline retry, serialized actions, preserved drafts, stale-poll/closed refusal; keyboard and both themes through 200% text pass silent fixtures | Actual installed route/mute/volume and playback semantics, changed-device integration and real hardware; no sound playback |
 | Power | Native default-Cancel, duplicate refusal, error/retry, failed lock refusal pass with mocked commands | Actual isolated lock/logout/suspend and unavailable capabilities |
-| Notifications | Private real Dunst history/DND/remove/clear; long grouped messages/full expansion, unchanged refresh focus, failure persistence, unavailable/unknown DND and privacy UI checks | Archived/live mixtures under service restarts, changed-record keyboard/scroll integration, actual session notifications |
+| Notifications | Private real Dunst history/DND/remove/clear; changed-record nested keyboard focus/visible reading anchor; live/archive storage fault and retry, explicit restart/DND refresh, reused IDs and privacy checks, both themes/sizes | Actual installed-session notifications, timed service recovery and integrated panel/session behavior |
 | Packages | Default-Cancel install/remove/upgrade preview; failed/empty plans cannot apply; mutating close guard and parent-dialog lifecycle pass | Actual privileged transaction/authentication UX on disposable installation |
 | Health / Updates | Readable snapshot, exact raw/copy, honest attention/malformed states; metadata Cancel/approved admin dispatch pass | Actual installed-session service/repository failures and authentication UX |
 | Wi-Fi / Bluetooth signal maps | 658×750 overflow fixed; populated/empty/light/dark native candidate render, bounded labels, full-name tooltips and accessibility checks pass | Real data refresh/focus integration and physical radio/session behavior |
@@ -1430,3 +1430,42 @@ Supersedes Batch 22's source-pending note. Whole-OS review remains active.
   remains 0.9.9 and enrollment/major promotion deferred. No release ISO built,
   model downloaded, sound played or physical storage/power operation performed.
   Live media/session/device and other ledger gates remain separate work.
+
+## Batch 23: notification reading and storage recovery
+
+- Actual isolated UID1000 Dunst/GTK baseline reproduced lost Expander keyboard
+  focus after new arrivals and readable saved rows disappearing on read-state
+  write failure. A tightened check then reproduced an off-screen reading header
+  despite restored logical focus. Center now restores semantic nested focus and
+  viewport reading position only after real GTK allocation. Existing size,
+  typography, grouping and expanded-message state stay intact.
+- Read-only notification snapshots separate presentation from persistence.
+  Archive/read-mark failures preserve readable live and saved records, with
+  visible save warnings and full diagnostic tooltips. Failed saved removals stay
+  visible across Refresh; repairing owned fixture permissions and retrying
+  clears the error. Existing unchanged-JSON write deduplication was retained,
+  not mistaken for a missing failure: permission QA forces an actual new record.
+- Real private service stop/start, explicit Refresh and DND reset pass. Reused
+  notification IDs do not let removing an old saved message delete a new live
+  one. Mixed saved/live history and Clear all pass. Periodic refresh is disabled
+  only in this test instance to avoid service autoactivation racing the owned
+  restart; this is not proof of automatic timed service recovery.
+- QA refuses an existing notification owner/window manager and uses temporary
+  configuration/state, a private bus/display and its own Dunst/i3 processes.
+  All notifications set the standard
+  [suppress-sound hint](https://specifications.freedesktop.org/notification/latest/hints.html);
+  the fixture also refuses active notification scripts. Production audio stays
+  enabled. No real user history, model, physical device or release ISO touched.
+- Final four variants (640×600 and 1024×768, dark/light, normal100% text) report
+  `NOTIFICATION_LIFECYCLE_RESULTS []` and `NOTIFICATION_LIFECYCLE_OK` under
+  `/var/tmp/ooonana-notification-layout-20261018.Oi01qzVp` (Ubuntu). Final dark
+  desktop reading-anchor and Paper compact removal-failure captures inspected.
+  Initial baseline and intermediate functional failures remain diagnostic
+  history, not passing evidence. Source regression logs:
+  `/var/tmp/ooonana-notification-regress-final-20261018.r9cmSnty`.
+  Final wireless/notification GTK regression, preference/model tests, native UI,
+  full-rootfs fixture and package factory pass; source log terminates with
+  `NOTIFICATION_FINAL_SOURCE_REGRESSIONS_OK`.
+- Source runtime changes await clean commit, signed local generation and native
+  WSL refresh. Installed-session notifications, automatic recovery, other ledger
+  rows, live WSLg and physical/PDF manual gates remain open.
