@@ -1705,3 +1705,46 @@ Supersedes Batch 25's publication-pending note. Whole-OS review remains active.
   publication/native WSL refresh are in progress. Existing normal desktop capture remains applicable;
   2× fixture is not a new default. No physical device, release ISO, model, audio
   or history operation. Remaining ledger rows and whole-OS goal stay open.
+
+## Published checkpoint after Batch 26
+
+Supersedes Batch 26's publication-pending note. Whole-OS review remains active.
+
+- Runtime source `32a900a78d051c0478f702dabcc299e41eaa6b9d` passes both CIs:
+  [GitHub 39170843380](https://github.com/Ooonana/Ooonana-OS/actions/runs/39170843380),
+  [GitLab 2960945776](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2960945776).
+  Both directly run the new display-free control-scale guard. The initial GitLab
+  authenticated status query was unauthorized; public pipeline status succeeds.
+- Signed local `CURRENT`:
+  `32e04e40a81312cc13e732ab853d282c876b7192f743866e0137793de92cc73d`.
+  SHA256SUMS digest:
+  `0f662b3dd2eda057b8d492a373018b5e1957e964a51375c3d6c26685718fa6f5`.
+  Signature/trust pin and all1302 checksums verified before/during publication;
+  654 packages/612 dependency nodes. Clean300-source-file manifest records
+  supportedv3.24, no models, source digest
+  `6a82e292a99942f2939cfb1019897320123f2219d21b3d3033f199940b86238f`.
+  Prior generation's SHA256SUMS remains
+  `1c19f6fc91b906452cf373aef5eb446eb83018b97681a8c5a61e4612c0bfe553`.
+- Native snapshot:
+  `/var/lib/ooonana/candidate-device-scale-20261019.ZZVHAA6k`.
+  Reuses643 matching immutable archives and copies659 other entries. Native F
+  mount is enforced read-only inside the sync process because idle WSL drops
+  its earlier mount; no move/restart of either WSL distro. Full signature and
+  all1302 checksums pass before separate runtime/core dry-runs, reinstall,
+  verification and explicit health hooks; all pass. Installed hashes match
+  source exactly: dock
+  `fa5ff77aa38fbdfc45a2482115e52c5490e83f1c0f79a4443fb7d1a00a4c66e1`,
+  controls `1549b02db68246f3c01dd101f809b8311ff9fd2f2fe98253c74ce0ccd71fc80e`.
+  Logs: `/var/tmp/ooonana-device-scale-sync-20261019.lbKy40U1`.
+- Default metadata resolves654 packages/two sources and local adapter is
+  regenerated without GUI restart. Actual UID1000 imports and display-free
+  helper call pass. That noninteractive WSLg context emits
+  `gdk_seat_get_keyboard: GDK_IS_SEAT` warning; import success is not proof of
+  interactive WSLg keyboard/seat/session health. Those checks remain open.
+  `/etc/wsl.conf` and OpenVINO installed metadata hashes are unchanged.
+- Signed generation, prior generations/checkpoints, QA captures/logs, user
+  history and local private key retained. No release ISO, models, sound playback
+  or physical device test. Existing normal desktop capture is still applicable;
+  default scale/typography unchanged. Stable promotion/enrollment remain
+  deferred. Relaunch desktop for current code; use a fresh build rather than
+  resuming an older ISO when the user chooses to build.

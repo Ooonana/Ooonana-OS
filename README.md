@@ -44,8 +44,9 @@ October 19 device-scale follow-up keeps third-party window controls inside their
 native i3 titlebar at actual 1×/2× device scaling and fixes offset-monitor
 fullscreen hit testing. Four real dark/light cases pass, including physical
 Minimize/Close clicks. Default text size and normal control proportions stay
-unchanged. Source changes await signed-package/WSL refresh; no ISO built.
-[Checks and physical-display limits](docs/ui-whole-os-review.md#batch-26-device-scale-coordinate-alignment).
+unchanged. Signed candidate and native Ooonana WSL refreshed; relaunch desktop
+for changed code. No ISO built.
+[Checks and physical-display limits](docs/ui-whole-os-review.md#published-checkpoint-after-batch-26).
 
 Stable core 0.9.9 desktop refresh adds unboxed dock hover feedback, slimmer panel, open Appearance groups, blue globe browser icon and canonical wallpaper fitting. Component previews use isolated test windows, not physical USB boot.
 

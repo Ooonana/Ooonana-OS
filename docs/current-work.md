@@ -1,5 +1,18 @@
 # Current work - 2026-10-19
 
+## October 19 device-scale publication and native refresh
+
+Runtime source `32a900a` passes GitHub/GitLab CI and is signed/published as
+generation `32e04e40a81312cc13e732ab853d282c876b7192f743866e0137793de92cc73d`.
+All1302 checksums, signature/trust pin, clean300-source-file manifest and
+654-package/612-node closure verified. Native core/runtime dry-run, reinstall,
+verification and health hooks pass; installed dock/controls bytes match source.
+Default metadata and local WSL adapter refreshed without GUI/WSL restart;
+OpenVINO metadata, boot config and history preserved. UID1000 imports/functions
+pass; noninteractive WSLg emitted a seat warning, so actual WSLg input remains
+unverified. No release ISO, audio or model operation. Whole-OS review stays
+active. [Checkpoint](ui-whole-os-review.md#published-checkpoint-after-batch-26).
+
 ## October 19 actual device-scale alignment
 
 Real `GDK_SCALE=2` exposed third-party controls displaced/doubled beyond their
@@ -10,7 +23,7 @@ titlebar bounds and fullscreen restoration. Default typography stays unchanged;
 2× is an isolated test, not a new default. Pure scale/negative-origin/remap
 guards run in both CIs. Native/rootfs source regressions pass; broader
 package-factory, shared native controls and actual2× dock-edge regressions also
-pass both themes. Signed publication and native WSL refresh remain in progress.
+pass both themes. Signed publication/native refresh are completed above.
 [Evidence and limits](ui-whole-os-review.md#batch-26-device-scale-coordinate-alignment).
 
 ## October 19 dock publication and native WSL refresh
