@@ -32,7 +32,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Native AI / model UI | Generic native chat compact layout, bounded headings, no-match search, draft attachment, safe Delete, status failure/stale/closed callbacks and streaming/copy/cancel fixtures pass | Real cloud-provider session, long-running transcript navigation; OpenVINO GUI/runtime/offline checks deferred by user October 16 |
 | Installer GUI / text wizard | Real font-metric 100/200% form/review/blocked fit 640×600 both themes; all 16 fields keyboard-walked, exact disk/password mapping and safe Cancel checked; disk details scroll inside form | Actual privileged preview/log lifecycle, text wizard and physical storage summary/install; bare UI fixtures never install |
 | Shared dialogs / menus / tooltips | Short/unbroken and long diagnostic text fit; secret input labelled/focused, password spaces retained, Cancel verified | Remaining file pickers, menus, escape/return and scaled text |
-| Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Nemo requires WSL/Xvfb full-redraw/redirection adaptation | Qt/Firefox current-source integrated rerun, menu/dialog variants, actual physical compositor and live WSLg |
+| Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Current Qt6/QTerminal dark/light, opaque palettes, first-run density and exit-confirmation actions pass. Nemo/Qt require WSL/Xvfb full-redraw/redirection adaptation | Qt menu/preferences/file-picker variants; Firefox first-run Terms and picker, actual physical compositor and live WSLg |
 | Window manager | Native/XTerm modifier drag/resize, all number/move workspace keys, cycling, click focus, tile/tab/stack, resize mode, fullscreen, exact-session restore and unfocused close pass in private compositor | Real WSLg/physical compositor, multi-display and complete session lifecycle transitions |
 | GRUB: live / audio submenu | Shared live/installed branding, compact audio labels; actual EFI 640×480/1280×800, missing-font/mark fallback and unchanged kernel arguments checked. Minimal contrast repaired | Physical BIOS/UEFI, corrupted-media/runtime graphics failure and actual installed boot |
 | Boot / shutdown / reboot / persistent setup | Private PTY boot/save/setup; consecutive warning retention, normal console ordering, serial/ambiguous/motion-off/small-console and exact existing waits pass | Real framebuffer/kernel-message handoff, physical shutdown/recovery and complete persistent-setup interaction |
@@ -1098,3 +1098,55 @@ Supersedes pending-publication notes immediately above. Whole-OS review remains 
   ISO build. No stable promotion or trust enrollment. Remaining coverage ledger,
   especially third-party dialogs, live session/display/input and physical boot,
   is not marked complete by this checkpoint.
+
+## Batch 19: Qt appearance and first-run proportions
+
+- Baseline actual Qt6/QTerminal at 1024×768 showed light menus/confirmation in
+  dark mode, a fixed 500px single tab and 12pt terminal default. Both appearances
+  were inspected; initial light exit-dialog paint stalled under XDamage. IPC
+  success alone was not counted as painted UI success.
+- Selected appearance now reaches GSettings/Settings portal. Qt's packaged
+  `xdgdesktopportal` plugin is selected only when present and no custom
+  `QT_QPA_PLATFORMTHEME` exists. User override is shell-quoted, never evaluated
+  unescaped. Existing widgets/styles, fonts/DPI and custom platform themes stay.
+  This follows upstream [Qt portal color-scheme handling](https://github.com/qt/qtbase/blob/6.11/src/plugins/platformthemes/xdgdesktopportal/qxdgdesktopportaltheme.cpp)
+  and the [GTK portal's GSettings source](https://github.com/flatpak/xdg-desktop-portal-gtk/blob/main/src/settings.c),
+  rather than trying to theme Qt using GTK CSS.
+- Fresh QTerminal configurations use opaque Graphite/Paper palettes, 11pt
+  monospace, 6px text margin, hidden single-tab strip and natural multi-tab
+  widths. No saved configuration is changed, including on theme toggles.
+  Linked file/directory refusal, exclusive concurrent-safe creation, mode 0600,
+  temporary cleanup, safe override export and readable normal ANSI colors have
+  thirteen combined preference/palette regression tests. No global scale
+  increase, Qt stylesheet, extra runtime dependency or default sound added.
+- One confirmation batch, both appearances at normal 100%/1024×768, uses the
+  existing private WSL/Xvfb full-redraw/redirection adaptation, not a physical
+  compositor change. Both actual minimize/restore, fullscreen/restore, movement,
+  close, bounded/focused exit dialog, Escape cancel and explicit confirmation
+  pass. Source staging includes the exact current two palettes; retained lower
+  candidate and installed Ooonana WSL are not modified.
+- Baseline: `/var/tmp/ooonana-qt-ui-baseline-20261018.jlEkuXfa`.
+  Confirmation: `/var/tmp/ooonana-qt-ui-confirm-20261018.fc0Qe9aY`.
+  Native, rootfs and package-factory regressions pass, including exact palette
+  bytes in built rootfs and core archive. Logs:
+  `/var/tmp/ooonana-qt-{native,rootfs,factory}-regression-20261018.log`.
+- Trusted cached repository signature, exact pinned key and all checksums pass
+  before use. No runtime/model download. Firefox reuses only the existing
+  disposable QA Flatpak home; fresh isolated profile has diagnostic preferences
+  off. Real UID1000 renderer seccomp=2/no-new-privs=1 and painted frame pass.
+  First-run Terms still blocks Ctrl+O: picker remains unverified, no Terms
+  accepted in this batch. Fresh capture/log:
+  `/var/tmp/ooonana-firefox-ui-20261018.I9z01qzx`.
+- Windows currently sees Realtek reader but no SD disk/F:. No formatting,
+  repair, letter reassignment, media writes, Ooonana WSL startup or host/WSL
+  restart. Cached/source work continues; signed repository publication and
+  installed WSL refresh of this batch await media availability. Prior generation
+  is preserved, not assumed accessible/healthy. No release ISO built.
+- Removed only this batch's five completed, unmounted disposable package
+  overlays: 432,846,104 logical bytes (about 413 MiB), regenerable from retained
+  verified cache. Screenshots, logs, cached repo/rootfs, Firefox QA home, user
+  history/models/keys, generations and WSL disks retained. This does not claim
+  immediate Windows free-space gain or a WSL disk compaction.
+
+![Qt dark exit confirmation, actual private candidate](assets/ooonana-qt-dark-20261018.png)
+![Qt light exit confirmation, actual private candidate](assets/ooonana-qt-light-20261018.png)

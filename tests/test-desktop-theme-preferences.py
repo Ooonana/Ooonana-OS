@@ -11,6 +11,7 @@ import unittest
 
 SOURCE = (Path(__file__).resolve().parents[1] / "scripts/build-full-i3-rootfs.sh").read_text()
 MERGE = SOURCE.split("<<'PY_GTK_SETTINGS'\n", 1)[1].split("\nPY_GTK_SETTINGS", 1)[0]
+QT_DEFAULTS = SOURCE.split("<<'PY_QTERMINAL_DEFAULTS'\n", 1)[1].split("\nPY_QTERMINAL_DEFAULTS", 1)[0]
 
 
 class ThemePreferences(unittest.TestCase):
@@ -116,6 +117,85 @@ class ThemePreferences(unittest.TestCase):
                    "    if _count == 2: raise OSError('fixture disk full')\n"
                    "    return _fsync(fd)\nos.fsync = _fail_second\n", success=False)
         self.assertEqual(before, (self.ini.read_bytes(), self.xconfig.read_bytes()))
+
+
+class QtPreferences(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory(prefix="ooonana-qt-theme-test-")
+        self.addCleanup(self.temporary.cleanup)
+        self.base = Path(self.temporary.name)
+        self.directory = self.base / "qterminal.org"
+        self.path = self.directory / "qterminal.ini"
+
+    def seed(self, theme="dark"):
+        subprocess.run([sys.executable, "-c", QT_DEFAULTS, str(self.base), theme], check=True, timeout=5)
+        self.assertFalse(list(self.base.rglob(".qterminal.ini.*")))
+
+    def test_compact_opaque_defaults_both_themes(self):
+        for theme in ("dark", "light"):
+            self.seed(theme)
+            parser = configparser.ConfigParser()
+            parser.read(self.path)
+            values = parser["General"]
+            self.assertEqual(values["colorScheme"], "Ooonana" + theme.title())
+            self.assertTrue(values.getboolean("HideTabBarWithOneTab"))
+            self.assertFalse(values.getboolean("FixedTabWidth"))
+            self.assertEqual(values.getint("TerminalTransparency"), 0)
+            self.assertEqual(values.getint("fontSize"), 11)
+            self.assertEqual(stat.S_IMODE(self.path.stat().st_mode), 0o600)
+            self.path.unlink()
+
+    def test_existing_preferences_untouched_even_on_theme_change(self):
+        self.seed()
+        self.path.write_text("# personal\n[General]\ncolorScheme=Custom\nfontSize=17\n")
+        before = self.path.read_bytes()
+        self.seed("light")
+        self.assertEqual(self.path.read_bytes(), before)
+
+    @unittest.skipIf(sys.platform == "win32", "unprivileged Windows symlinks unavailable")
+    def test_linked_files_and_directories_untouched(self):
+        target = self.base / "personal.ini"
+        target.write_text("personal")
+        self.directory.mkdir()
+        self.path.symlink_to(target)
+        self.seed()
+        self.assertEqual(target.read_text(), "personal")
+        self.assertTrue(self.path.is_symlink())
+        self.path.unlink()
+        self.directory.rmdir()
+        owned = self.base / "managed"
+        owned.mkdir()
+        self.directory.symlink_to(owned, target_is_directory=True)
+        self.seed()
+        self.assertFalse(list(owned.iterdir()))
+
+    def test_qt_export_quotes_custom_platform_theme(self):
+        start = SOURCE.index("      python3 -c 'import os, shlex;")
+        command = SOURCE[start:].splitlines()[0].strip()
+        custom = "custom; printf bad > /never-created"
+        import os
+        import shlex
+        if sys.platform == "win32":
+            self.skipTest("POSIX shell export")
+        result = subprocess.check_output(["sh", "-c", command], text=True,
+                                         env={**os.environ, "QT_QPA_PLATFORMTHEME": custom})
+        self.assertEqual(shlex.split(result.strip())[1], "QT_QPA_PLATFORMTHEME=" + custom)
+
+    def test_shipped_palettes_opaque_and_readable(self):
+        root = Path(__file__).resolve().parents[1]
+        for theme in ("Dark", "Light"):
+            palette = configparser.ConfigParser()
+            palette.read(root / f"packages/ooonana/usr/share/qtermwidget6/color-schemes/Ooonana{theme}.colorscheme")
+            self.assertEqual(palette["General"].getfloat("Opacity"), 1)
+            self.assertEqual(palette["General"]["Wallpaper"], "")
+            def luminance(role):
+                channels = [int(value) / 255 for value in palette[role]["Color"].split(",")]
+                linear = [value / 12.92 if value <= .04045 else ((value + .055) / 1.055) ** 2.4 for value in channels]
+                return sum(value * weight for value, weight in zip(linear, (.2126, .7152, .0722)))
+            background = luminance("Background")
+            for role in ("Foreground", "Color1", "Color2", "Color3", "Color4", "Color5", "Color6"):
+                foreground = luminance(role)
+                self.assertGreaterEqual((max(foreground, background) + .05) / (min(foreground, background) + .05), 4.5)
 
 
 if __name__ == "__main__":

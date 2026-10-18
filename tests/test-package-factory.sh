@@ -415,6 +415,10 @@ tar -tzf "$core_runtime_archive" | grep './usr/bin/strings' >/dev/null || fail "
 tar -tzf "$core_runtime_archive" | grep './usr/bin/hsetroot' >/dev/null || fail "core runtime missing wallpaper renderer"
 tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-wallpaper' >/dev/null || fail "core runtime missing wallpaper settings"
 tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-theme-env' >/dev/null || fail "core runtime missing desktop theme helper"
+for appearance in Dark Light; do
+  palette="usr/share/qtermwidget6/color-schemes/Ooonana$appearance.colorscheme"
+  tar -xOzf "$core_runtime_archive" "./$palette" | cmp -s "$ROOT/packages/ooonana/$palette" - || fail "core Qt terminal palette differs from source"
+done
 tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-wifi-panel' >/dev/null || fail "core runtime missing generated Wi-Fi helper"
 tar -tzf "$core_runtime_archive" | grep './etc/ooonana/polybar.ini' >/dev/null || fail "core runtime missing generated panel config"
 tar -tzf "$core_runtime_archive" | grep './etc/i3/config' >/dev/null || fail "core runtime missing updated i3 config"

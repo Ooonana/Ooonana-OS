@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import shlex
 import signal
 import shutil
 import subprocess
@@ -144,6 +145,12 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
     os.environ["PATH"] = environment["PATH"]
     subprocess.run([str(helper_directory / "ooonana-theme-env"), "apply"], env=environment,
                    stdout=log, stderr=log, check=True, timeout=20)
+    # Launch Qt with the same safe theme selection the real session exports.
+    theme_environment = subprocess.check_output([str(helper_directory / "ooonana-theme-env"), "env"],
+                                              env=environment, text=True, timeout=10)
+    for line in theme_environment.splitlines():
+        if line.startswith("export QT_QPA_PLATFORMTHEME="):
+            environment["QT_QPA_PLATFORMTHEME"] = shlex.split(line.split("=", 1)[1])[0]
     if args.app == "geany":
         schemes = fixture / "config/geany/colorschemes"
         schemes.mkdir(parents=True)

@@ -93,6 +93,10 @@ if [[ -n "${OOONANA_GUI_REPO:-}" ]]; then
       OOONANA_REPO_VERIFY_KEY="$SOURCE/packages/ooonana/etc/ooonana/trusted-keys/repository-20261002.pub" \
       OOONANA_SOURCES_DIR="$storage/overlay/empty-sources" \
       sh "$SOURCE/packages/ooonana/usr/bin/ooonana" install qterminal >"$output/qt-install.log" 2>&1
+    for appearance in Dark Light; do
+      install -D -m 0644 "$SOURCE/packages/ooonana/usr/share/qtermwidget6/color-schemes/Ooonana$appearance.colorscheme" \
+        "$rootfs/usr/share/qtermwidget6/color-schemes/Ooonana$appearance.colorscheme"
+    done
   fi
   if [[ "$only" == all || "$only" == dock-ui ]]; then
     # Old preserved QA roots may have rofi common data without X11 executable.

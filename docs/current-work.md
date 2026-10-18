@@ -1,5 +1,28 @@
 # Current work - 2026-10-18
 
+## October 18 Qt appearance and removable-storage interruption
+
+Real cached Qt6/QTerminal review found light menus/dialogs in dark mode and a
+500px single tab. Theme application now bridges the selected appearance to
+GSettings/Settings portal and selects Qt's existing portal plugin only when no
+custom platform theme is set. No global Qt stylesheet or scale override added.
+New terminal profiles use opaque Graphite/Paper, 11pt monospace, small margin,
+hidden single-tab strip and natural multi-tab widths. Existing Qt preferences
+and linked configurations stay untouched. Both 1024×768 appearances and actual
+minimize/restore/fullscreen/move/exit-cancel/confirm pass on private Xvfb with
+the existing WSL full-redraw adaptation. Thirteen preference/palette tests and
+native/rootfs/package-factory regressions pass, including exact palette bytes
+in built rootfs and core archive. No sound, models or release ISO operation.
+
+Firefox rerun reuses the existing disposable QA Flatpak installation, with no
+download/network or user-profile access. Real UID1000 renderer sandbox remains
+active; first-run Terms still intercepts Open, so picker is not certified.
+Windows detects the Realtek card reader but no SD disk/F: drive. No formatting,
+repair or media writes attempted. New source is not yet signed/published to F:
+or installed into Ooonana WSL; previous verified generation remains historical
+checkpoint, not confirmation that the missing card is healthy.
+[Qt captures, precise evidence and remaining work](ui-whole-os-review.md#batch-19-qt-appearance-and-first-run-proportions).
+
 ## October 18 installed branding and console diagnostics
 
 Installed GRUB now shares live branding, stages its target font under Ooonana's

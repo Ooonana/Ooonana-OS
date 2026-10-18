@@ -43,6 +43,7 @@ configs/kernel/*.fragment text eol=lf
 *.css text eol=lf
 *.html text eol=lf
 *.theme text eol=lf
+*.colorscheme text eol=lf
 *.awk text eol=lf
 *.png binary
 *.pdf binary

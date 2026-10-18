@@ -259,6 +259,10 @@ cmp -s "$ROOT/packages/ooonana/usr/share/ooonana/grub.theme" "$rootfs/usr/share/
 [[ -x "$rootfs/usr/bin/ooonana-i3-installer-session" ]] || fail "missing i3 installer session"
 [[ -x "$rootfs/usr/bin/ooonana-i3-smoke-session" ]] || fail "missing GUI smoke session"
 [[ -x "$rootfs/usr/bin/ooonana-theme-env" ]] || fail "missing theme helper"
+for appearance in Dark Light; do
+  palette="usr/share/qtermwidget6/color-schemes/Ooonana$appearance.colorscheme"
+  cmp -s "$ROOT/packages/ooonana/$palette" "$rootfs/$palette" || fail "missing current Qt terminal palette"
+done
 [[ -x "$rootfs/usr/bin/bunana" ]] || fail "missing bunana command"
 [[ -x "$rootfs/usr/bin/oonana" ]] || fail "missing oonana game"
 [[ -x "$rootfs/usr/lib/ooonana/oonana_game.py" ]] || fail "missing Python oonana game"

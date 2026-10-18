@@ -56,6 +56,13 @@ Batches 1–3 are now in the signed local candidate repository and installed
 Ooonana WSL; both core/runtime verification checks pass. Relaunch GUI to use
 new app code. Existing ISO is unchanged; broader review remains active.
 This is not a claim that every installer, app, display or session path is done.
+October 18 Qt follow-up: selected dark/light appearance now reaches the Settings
+portal and Qt dialogs. Fresh QTerminal profiles get opaque Graphite/Paper,
+smaller type/margins and no oversized lone tab; existing Qt preferences remain.
+Actual isolated Qt6 controls and exit confirmation pass both appearances.
+F: is currently not detected, so this source follow-up awaits signed repository
+publication and Ooonana WSL sync; do not rebuild against the older package set.
+[Qt evidence, screenshots and remaining review](docs/ui-whole-os-review.md#batch-19-qt-appearance-and-first-run-proportions).
 Follow-up adds default-Cancel package change previews and readable Health
 snapshots with exact raw/copy access and honest service/memory warnings. Compact
 dock overflow now tracks visible pins; `Super+Ctrl+D` opens keyboard dock actions.

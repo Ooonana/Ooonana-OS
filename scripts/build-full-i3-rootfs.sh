@@ -316,6 +316,13 @@ load_theme() {
   [ "$XCURSOR_SIZE" -ge 16 ] && [ "$XCURSOR_SIZE" -le 96 ] || XCURSOR_SIZE=19
   GTK_THEME="$OOONANA_GTK_THEME"
   GDK_BACKEND="${GDK_BACKEND:-x11}"
+  # Use Qt's shipped portal bridge, not a replacement widget stylesheet.
+  # Explicit qt6ct/KDE/custom platform themes remain user-owned.
+  if [ -z "${QT_QPA_PLATFORMTHEME:-}" ] &&
+     [ -f /usr/lib/qt6/plugins/platformthemes/libqxdgdesktopportal.so ]; then
+    QT_QPA_PLATFORMTHEME=xdgdesktopportal
+    export QT_QPA_PLATFORMTHEME
+  fi
   export OOONANA_THEME OOONANA_BG OOONANA_FG OOONANA_CURSOR OOONANA_PANEL OOONANA_PANEL_ALT OOONANA_BORDER OOONANA_MUTED OOONANA_ENTRY OOONANA_HOVER OOONANA_GTK_THEME OOONANA_GTK_DARK XCURSOR_THEME XCURSOR_SIZE GTK_THEME GDK_BACKEND
 }
 
@@ -345,6 +352,10 @@ case "${1:-env}" in
     printf 'OOONANA_GTK_DARK="%s"\n' "$OOONANA_GTK_DARK"
     printf 'GTK_THEME="%s"\n' "$OOONANA_GTK_THEME"
     printf 'GDK_BACKEND="x11"\n'
+    if [ -n "${QT_QPA_PLATFORMTHEME:-}" ]; then
+      # Do not interpolate an arbitrary user override into shell code.
+      python3 -c 'import os, shlex; print("export QT_QPA_PLATFORMTHEME=" + shlex.quote(os.environ["QT_QPA_PLATFORMTHEME"]))'
+    fi
     printf 'export OOONANA_THEME OOONANA_BG OOONANA_FG OOONANA_CURSOR OOONANA_GTK_THEME OOONANA_GTK_DARK XCURSOR_THEME XCURSOR_SIZE GTK_THEME GDK_BACKEND\n'
     ;;
   apply)
@@ -465,6 +476,44 @@ finally:
     for _path, temporary in prepared:
         temporary.unlink(missing_ok=True)
 PY_GTK_SETTINGS
+    # The Settings portal reads GSettings, not GTK_THEME/settings.ini. Without
+    # this bridge Qt/Flatpak dialogs stay light inside an otherwise dark session.
+    if [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] && command -v gsettings >/dev/null 2>&1; then
+      case "$OOONANA_THEME" in light) portal_scheme=prefer-light ;; *) portal_scheme=prefer-dark ;; esac
+      if [ "$(gsettings writable org.gnome.desktop.interface color-scheme 2>/dev/null || true)" = true ]; then
+        gsettings set org.gnome.desktop.interface color-scheme "$portal_scheme" ||
+          printf '%s\n' 'Theme: desktop color preference unavailable; GTK appearance still applied.' >&2
+      fi
+    fi
+    if command -v qterminal >/dev/null 2>&1; then
+      python3 - "$config_home" "$OOONANA_THEME" <<'PY_QTERMINAL_DEFAULTS'
+import os
+from pathlib import Path
+import sys
+import tempfile
+
+base, theme = sys.argv[1:]
+directory = Path(base) / "qterminal.org"
+path = directory / "qterminal.ini"
+# First-run defaults only. Never rewrite saved Qt preferences or linked files.
+if not directory.is_symlink() and not path.exists() and not path.is_symlink():
+    directory.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary = tempfile.mkstemp(prefix=".qterminal.ini.", dir=directory)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as output:
+            output.write("[General]\ncolorScheme=Ooonana" + ("Light" if theme == "light" else "Dark") +
+                         "\nfontFamily=Monospace\nfontSize=11\nHideTabBarWithOneTab=true\n"
+                         "FixedTabWidth=false\nTerminalMargin=6\nTerminalTransparency=0\n")
+            output.flush()
+            os.fsync(output.fileno())
+        try:
+            os.link(temporary, path)  # No overwrite, including concurrent first launch.
+        except FileExistsError:
+            pass
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+PY_QTERMINAL_DEFAULTS
+    fi
     cat >"$config_home/gtk-3.0/gtk.css" <<CSS
 @define-color ooonana_bg $OOONANA_BG;
 @define-color ooonana_fg $OOONANA_FG;
