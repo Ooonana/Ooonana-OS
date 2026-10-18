@@ -31,7 +31,11 @@ assert_contains "$builder" "--swap-part"
 assert_contains "$builder" "--swap-size-mib"
 assert_contains "$builder" 'default_target=""'
 assert_contains "$builder" 'preview_ok=0'
-assert_contains "$builder" '--form --scroll --focus-field=1'
+assert_contains "$builder" '--form --scroll --focus-field=2 --selectable-labels'
+assert_contains "$builder" '--field "$disk_field:LBL"'
+assert_contains "$builder" 'cut -d"$separator" -f"$(($1 + 1))"'
+assert_contains "$builder" '--default-button=1'
+assert_contains "$builder" 'mktemp -d "${TMPDIR:-/tmp}/ooonana-installer-gui.XXXXXXXX"'
 assert_contains "$builder" '--button=Cancel:1 --button="Review installation":0'
 assert_contains "$builder" '--width="$review_width" --height="$review_height"'
 assert_contains "$builder" 'Ooonana Install Blocked'

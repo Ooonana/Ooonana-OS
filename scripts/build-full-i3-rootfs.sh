@@ -350,27 +350,121 @@ case "${1:-env}" in
   apply)
     config_home="${XDG_CONFIG_HOME:-${HOME:-/root}/.config}"
     mkdir -p "$config_home/gtk-3.0"
-    cat >"$config_home/gtk-3.0/settings.ini" <<SETTINGS
-[Settings]
-gtk-theme-name=Adwaita
-gtk-application-prefer-dark-theme=$OOONANA_GTK_DARK
-gtk-icon-theme-name=Adwaita
-gtk-cursor-theme-name=$XCURSOR_THEME
-gtk-cursor-theme-size=$XCURSOR_SIZE
-gtk-font-name=Sans 10
-gtk-button-images=1
-gtk-menu-images=1
-gtk-decoration-layout=menu:minimize,maximize,close
-SETTINGS
     mkdir -p "$config_home/ooonana"
     case "$OOONANA_THEME" in light) xsettings_theme=Adwaita ;; *) xsettings_theme=Adwaita-dark ;; esac
-    cat >"$config_home/ooonana/xsettingsd.conf" <<XSETTINGS
-Net/ThemeName "$xsettings_theme"
-Net/IconThemeName "Adwaita"
-Gtk/FontName "Sans 10"
-Gtk/CursorThemeName "$XCURSOR_THEME"
-Gtk/CursorThemeSize $XCURSOR_SIZE
-XSETTINGS
+    # Merge presentation-owned values; retain user fonts, DPI and unknown keys.
+    python3 - "$config_home" "$OOONANA_GTK_DARK" "$xsettings_theme" "$XCURSOR_THEME" "$XCURSOR_SIZE" <<'PY_GTK_SETTINGS'
+import configparser
+import json
+import os
+from pathlib import Path
+import re
+import shlex
+import stat
+import sys
+import tempfile
+
+base, dark, theme, cursor, size = sys.argv[1:]
+ini = Path(base) / "gtk-3.0/settings.ini"
+xconfig = Path(base) / "ooonana/xsettingsd.conf"
+if ini.is_symlink() or xconfig.is_symlink():
+    raise SystemExit("Theme: linked settings retained; update their managed target manually.")
+original = ini.read_text(encoding="utf-8") if ini.exists() else ""
+xoriginal = xconfig.read_text(encoding="utf-8") if xconfig.exists() else ""
+parser = configparser.RawConfigParser(strict=False, delimiters=("=",))
+try:
+    parser.read_string(original)
+except configparser.Error:
+    raise SystemExit("Theme: invalid GTK settings retained; repair settings.ini before retrying.")
+if not parser.has_section("Settings"):
+    parser.add_section("Settings")
+preferences = parser["Settings"]
+xvalues = {}
+for line in xoriginal.splitlines():
+    try:
+        parts = shlex.split(line, comments=True)
+        if len(parts) == 2:
+            xvalues[parts[0]] = parts[1]
+    except ValueError:
+        continue
+updates = {"gtk-theme-name": "Adwaita", "gtk-application-prefer-dark-theme": dark,
+           "gtk-cursor-theme-name": cursor, "gtk-cursor-theme-size": size}
+defaults = {"gtk-font-name": xvalues.get("Gtk/FontName", "Sans 10"),
+            "gtk-icon-theme-name": xvalues.get("Net/IconThemeName", "Adwaita"),
+            "gtk-button-images": "1", "gtk-menu-images": "1",
+            "gtk-decoration-layout": "menu:minimize,maximize,close"}
+updates.update({key: value for key, value in defaults.items() if key not in preferences})
+font = preferences.get("gtk-font-name", defaults["gtk-font-name"])
+icons = preferences.get("gtk-icon-theme-name", defaults["gtk-icon-theme-name"])
+if any(not text or any(not char.isprintable() for char in text) for text in (font, icons)):
+    raise SystemExit("Theme: invalid font/icon preference retained; no settings replaced.")
+xupdates = {"Net/ThemeName": json.dumps(theme), "Net/IconThemeName": json.dumps(icons, ensure_ascii=False),
+            "Gtk/FontName": json.dumps(font, ensure_ascii=False),
+            "Gtk/CursorThemeName": json.dumps(cursor), "Gtk/CursorThemeSize": str(int(size))}
+# Ooonana's reduced-motion choice also applies to third-party GTK dialogs.
+# Missing/invalid UI preferences must not overwrite an independent GTK choice.
+try:
+    ui_path = Path(base) / "ooonana/ui.json"
+    with ui_path.open(encoding="utf-8") as stream:
+        ui = json.loads(stream.read(4097))
+    reduced = ui.get("reduce_motion") if isinstance(ui, dict) else None
+except (OSError, ValueError, RecursionError):
+    reduced = None
+if isinstance(reduced, bool):
+    updates["gtk-enable-animations"] = "false" if reduced else "true"
+    xupdates["Gtk/EnableAnimations"] = "0" if reduced else "1"
+if "gtk-xft-dpi" in preferences:
+    try:
+        dpi = int(preferences["gtk-xft-dpi"])
+        if dpi != -1 and not 1024 <= dpi <= 4_194_304:
+            raise ValueError()
+    except ValueError:
+        raise SystemExit("Theme: invalid DPI preference retained; no settings replaced.")
+    xupdates["Xft/DPI"] = str(dpi)
+
+# Edit only owned/missing keys, preserving comments, other sections and values.
+lines, seen, in_settings, found = [], set(), False, False
+for line in original.splitlines(keepends=True):
+    section = re.match(r"^\s*\[([^]]+)\]", line)
+    if section:
+        if in_settings:
+            lines.extend(f"{key}={value}\n" for key, value in updates.items() if key not in seen)
+        in_settings = section.group(1) == "Settings"
+        found |= in_settings
+    key = line.split("=", 1)[0].strip().lower() if in_settings and "=" in line and not line.lstrip().startswith(("#", ";")) else None
+    if key in updates:
+        lines.append(f"{key}={updates[key]}\n")
+        seen.add(key)
+    else:
+        lines.append(line)
+if not found:
+    lines.append("\n[Settings]\n")
+if in_settings or not found:
+    if lines and not lines[-1].endswith("\n"):
+        lines[-1] += "\n"
+    lines.extend(f"{key}={value}\n" for key, value in updates.items() if key not in seen)
+xlines = [line for line in xoriginal.splitlines(keepends=True)
+          if not line.strip() or line.lstrip().startswith("#") or line.split()[0] not in xupdates]
+if xlines and not xlines[-1].endswith("\n"):
+    xlines[-1] += "\n"
+xlines.extend(f"{key} {value}\n" for key, value in xupdates.items())
+prepared = []
+try:
+    for path, text in ((ini, "".join(lines)), (xconfig, "".join(xlines))):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, temporary = tempfile.mkstemp(prefix="." + path.name + ".", dir=path.parent)
+        prepared.append((path, Path(temporary)))
+        with os.fdopen(descriptor, "w", encoding="utf-8") as output:
+            os.fchmod(output.fileno(), stat.S_IMODE(path.stat().st_mode) if path.exists() else 0o644)
+            output.write(text)
+            output.flush()
+            os.fsync(output.fileno())
+    for path, temporary in prepared:
+        os.replace(temporary, path)
+finally:
+    for _path, temporary in prepared:
+        temporary.unlink(missing_ok=True)
+PY_GTK_SETTINGS
     cat >"$config_home/gtk-3.0/gtk.css" <<CSS
 @define-color ooonana_bg $OOONANA_BG;
 @define-color ooonana_fg $OOONANA_FG;
@@ -3113,7 +3207,7 @@ if [ -z "${DISPLAY:-}" ] || ! command -v yad >/dev/null 2>&1; then
 fi
 
 default_target=""
-disk_summary="$(lsblk -dn -o PATH,SIZE,MODEL,TRAN 2>/dev/null | head -n 8 || true)"
+disk_summary="$(lsblk -dn -o PATH,SIZE,MODEL,TRAN 2>/dev/null || true)"
 [ -n "$disk_summary" ] || disk_summary="Disk list unavailable; run lsblk in a terminal."
 
 parent_disk() {
@@ -3146,9 +3240,23 @@ form_height=680
 review_width=860
 review_height=560
 # Match the primary monitor's usable area, including desktop panel reservations.
-geometry="$(python3 -c 'import gi; gi.require_version("Gdk", "3.0"); from gi.repository import Gdk; d=Gdk.Display.get_default(); m=(d.get_primary_monitor() or d.get_monitor(0)) if d else None; r=m.get_workarea() if m else None; print(r.width, r.height) if r else None' 2>/dev/null || true)"
-screen_width="${geometry%% *}"
-screen_height="${geometry#* }"
+geometry="$(python3 - <<'PY_INSTALL_GEOMETRY' 2>/dev/null || true
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+from gi.repository import Gdk, Gtk
+display = Gdk.Display.get_default()
+monitor = (display.get_primary_monitor() or display.get_monitor(0)) if display else None
+if monitor:
+    area = monitor.get_workarea()
+    glyph = Gtk.Label(label="M").get_layout().get_pixel_size()[0]
+    print(area.width, area.height, max(1, glyph))
+PY_INSTALL_GEOMETRY
+)"
+screen_width=0; screen_height=0; glyph_width=16
+IFS=' ' read -r screen_width screen_height glyph_width <<GEOMETRY
+$geometry
+GEOMETRY
 case "$screen_width:$screen_height" in
   *[!0-9:]*|:*|*:) ;;
   *)
@@ -3160,19 +3268,26 @@ case "$screen_width:$screen_height" in
     fi
     ;;
 esac
+case "$glyph_width" in ""|*[!0-9]*|0) glyph_width=16 ;; esac
+form_text_width="$(((form_width - 64) / glyph_width))"
+review_text_width="$(((review_width - 64) / glyph_width))"
+[ "$form_text_width" -le 50 ] || form_text_width=50
+[ "$form_text_width" -ge 12 ] || form_text_width=12
+[ "$review_text_width" -le 50 ] || review_text_width=50
+[ "$review_text_width" -ge 12 ] || review_text_width=12
+# Read-only disk details belong inside the scrolling form. Escape YAD's field
+# syntax after wrapping, so model names cannot become tooltips/field types.
+disk_field="$(printf '%s' "$disk_summary" | python3 -c 'import sys,textwrap; width=int(sys.argv[1]); text="Detected disks:\n"+"\n".join(textwrap.fill(line,width=width) for line in sys.stdin.read().splitlines()); print(text.replace("\\", "\\\\").replace("!", "\\041").replace(":", "\\072"))' "$form_text_width")"
+separator="$(printf '\037')"
 
 form="$(yad --center --title "Install Ooonana OS" --width="$form_width" --height="$form_height" \
-  --window-icon=ooonana-installer --borders=16 --text-width=50 \
-  --text "Erase mode deletes target disk contents.
-Custom mode uses explicitly selected partitions.
-Check target carefully; leave unrelated USB/SD unselected.
-
-Detected disks:
-$disk_summary" \
-  --form --scroll --focus-field=1 --separator='|' \
+  --window-icon=ooonana-installer --borders=16 --text-width="$form_text_width" --no-markup \
+  --text "Erase disk deletes all target data. Custom partitions uses only selected partitions. Verify target before continuing." \
+  --form --scroll --focus-field=2 --selectable-labels --separator="$separator" \
   --button=Cancel:1 --button="Review installation":0 \
-  --field "Mode:CB" "erase-disk!custom-existing-partitions" \
-  --field "Target disk or root partition" "$default_target" \
+  --field "$disk_field:LBL" "" \
+  --field "_Mode:CB" "Erase disk!Custom partitions" \
+  --field "Target disk/root" "$default_target" \
   --field "Home partition" "" \
   --field "Swap partition" "" \
   --field "EFI partition" "" \
@@ -3186,14 +3301,25 @@ $disk_summary" \
   --field "Theme:CB" "dark!light" \
   --field "Cloud repo" "https://ooonana.gitlab.io/ooonana-repo" \
   --field "Source root" "/" \
-  --field "Disk swap MiB (erase mode; 0 disables)" "0" 2>/dev/null || true)"
+  --field "Erase swap MiB!Erase mode only; 0 disables disk swap" "0" 2>/dev/null || true)"
 [ -n "$form" ] || exit 0
+# One read-only prefix + 16 values, each followed by YAD's separator. Refuse
+# embedded control separators rather than silently shifting disk/password data.
+if [ "${form#"$separator"}" = "$form" ] ||
+  [ "$(printf '%s' "$form" | tr -cd '\037' | wc -c | tr -d ' ')" != 17 ]; then
+  yad --center --title "Install Ooonana OS" --text "Form data could not be read safely. Remove control characters and retry."
+  exit 1
+fi
 
 field() {
-  printf '%s' "$form" | cut -d'|' -f"$1"
+  printf '%s' "$form" | cut -d"$separator" -f"$(($1 + 1))"
 }
 
-mode="$(field 1)"
+case "$(field 1)" in
+  "Erase disk") mode=erase-disk ;;
+  "Custom partitions") mode=custom-existing-partitions ;;
+  *) exit 1 ;;
+esac
 target="$(field 2)"
 home_part="$(field 3)"
 swap_part="$(field 4)"
@@ -3249,8 +3375,7 @@ if [ "$(id -u 2>/dev/null || echo 1)" != "0" ]; then
   set -- ooonana-run-admin "$@"
 fi
 
-tmp_dir="${TMPDIR:-/tmp}/ooonana-installer-gui.$$"
-mkdir -p "$tmp_dir"
+tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/ooonana-installer-gui.XXXXXXXX")"
 preview="$tmp_dir/preview.txt"
 log="$tmp_dir/install.log"
 status_file="$tmp_dir/status"
@@ -3263,15 +3388,16 @@ else
 fi
 if [ "$preview_ok" -ne 1 ]; then
   yad --center --title "Ooonana Install Blocked" --width="$review_width" --height="$review_height" \
-    --text-info --filename="$preview" --button=Close:0 2>/dev/null || true
+    --window-icon=ooonana-installer --text-info --wrap --filename="$preview" --button=Close:0 2>/dev/null || true
   exit 1
 fi
 
 yad --center --title "Ooonana Install Preview" --width="$review_width" --height="$review_height" \
-  --window-icon=ooonana-installer --text-width=50 \
+  --window-icon=ooonana-installer --text-width="$review_text_width" \
+  --default-button=1 \
   --text "Final review. Installation changes only listed target/partitions. Verify sizes and format flags below before continuing." \
-  --text-info --filename="$preview" \
-  --button=Cancel:1 --button="Install selected target":0 2>/dev/null || exit 0
+  --text-info --wrap --filename="$preview" \
+  --button=Cancel:1 --button="Install target":0 2>/dev/null || exit 0
 
 : >"$log"
 (
@@ -3287,13 +3413,15 @@ yad --center --title "Ooonana Install Preview" --width="$review_width" --height=
 pid="$!"
 
 yad --center --title "Ooonana Install Log" --width="$review_width" --height="$review_height" \
-  --text-info --tail --filename="$log" --button=Close:0 2>/dev/null || true
+  --window-icon=ooonana-installer --text-width="$review_text_width" \
+  --text "Installation continues if this log closes. Wait for completion before rebooting." \
+  --text-info --wrap --tail --filename="$log" --button="Hide log":0 2>/dev/null || true
 wait "$pid" 2>/dev/null || true
 status="$(cat "$status_file" 2>/dev/null || echo 1)"
 if [ "$status" = "0" ]; then
   yad --center --title "Ooonana OS" --text "Install complete. Reboot when ready." 2>/dev/null || true
 else
-  if yad --center --title "Ooonana Install Failed" --text "Install failed. Open fallback shell?" --button=No:1 --button=Shell:0 2>/dev/null; then
+  if yad --center --title "Ooonana Install Failed" --default-button=1 --text "Install failed. Open fallback shell?" --button=No:1 --button=Shell:0 2>/dev/null; then
     exec ooonana-theme-env xterm -e /bin/sh -l
   fi
 fi

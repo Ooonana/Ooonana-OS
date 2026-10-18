@@ -568,7 +568,7 @@ assert_contains "$theme_helper" "feh --bg-max"
 assert_contains "$theme_helper" '-e /bin/sh -l'
 assert_contains "$theme_helper" 'exec xterm -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR"'
 assert_contains "$theme_helper" 'GTK_THEME="%s"'
-assert_contains "$theme_helper" 'gtk-application-prefer-dark-theme=$OOONANA_GTK_DARK'
+assert_contains "$theme_helper" '"gtk-application-prefer-dark-theme": dark'
 assert_contains "$theme_helper" 'PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"'
 assert_not_contains "$theme_helper" 'XTERM_FONT_ARGS="-fa monospace -fs 10"'
 assert_not_contains "$theme_helper" '$XTERM_FONT_ARGS -bg "$OOONANA_BG" -fg "$OOONANA_FG"'

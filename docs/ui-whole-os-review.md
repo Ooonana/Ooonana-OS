@@ -30,7 +30,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Wi-Fi / Bluetooth signal maps | 658×750 overflow fixed; populated/empty/light/dark native candidate render, bounded labels, full-name tooltips and accessibility checks pass | Real data refresh/focus integration and physical radio/session behavior |
 | Task Manager | Real owned process termination regression; crowded metrics, compact navigation, keyboard/copy, filter counts, stable refresh/selection, PID reuse and parent-close confirmation checked; unavailable counters never show stale graphs | Actual hardware/GPU readings, large real /proc sampling latency and installed-session shortcut launch |
 | Native AI / model UI | Generic native chat compact layout, bounded headings, no-match search, draft attachment, safe Delete, status failure/stale/closed callbacks and streaming/copy/cancel fixtures pass | Real cloud-provider session, long-running transcript navigation; OpenVINO GUI/runtime/offline checks deferred by user October 16 |
-| Installer GUI / text wizard | 720×724 form overflow fixed; real themed YAD form fits 640×600 and 1280×800, scrollable fields/visible Cancel + Review; no install executed | Keyboard through all fields, preview/log/blocked UI, text wizard and actual storage summary; no physical install |
+| Installer GUI / text wizard | Real font-metric 100/200% form/review/blocked fit 640×600 both themes; all 16 fields keyboard-walked, exact disk/password mapping and safe Cancel checked; disk details scroll inside form | Actual privileged preview/log lifecycle, text wizard and physical storage summary/install; bare UI fixtures never install |
 | Shared dialogs / menus / tooltips | Short/unbroken and long diagnostic text fit; secret input labelled/focused, password spaces retained, Cancel verified | Remaining file pickers, menus, escape/return and scaled text |
 | Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Nemo requires WSL/Xvfb full-redraw/redirection adaptation | Qt/Firefox current-source integrated rerun, menu/dialog variants, actual physical compositor and live WSLg |
 | Window manager | Native/XTerm modifier drag/resize, all number/move workspace keys, cycling, click focus, tile/tab/stack, resize mode, fullscreen, exact-session restore and unfocused close pass in private compositor | Real WSLg/physical compositor, multi-display and complete session lifecycle transitions |
@@ -888,3 +888,48 @@ Supersedes Batch 13 pending-publication notes. Whole-OS review remains active.
   verified publication; generation, source, evidence and native snapshots stay.
   No key upload/enrollment, stable promotion, model download, playback, physical
   disk operation or ISO build. Live Windows/WSLg/input/display gates remain.
+
+## Batch 14: Installer fit and retained presentation preferences
+
+- 200% means an isolated accessibility stress fixture, not a new shipped scale.
+  Default body remains 10pt at 100%; no global font/control enlargement.
+  Impeccable guided bounded layout/interaction repair; UI Styling and UI/UX Pro
+  Max guided keyboard focus, proportional controls and reduced-motion handling,
+  adapted to existing GTK/YAD rather than adding a web framework.
+- Probe now checks effective rendered font pixels, not just a requested DPI.
+  An earlier nominal 200% fixture was actually 96 DPI/17px. Corrected private
+  GDK font override produces 192 DPI/32px and exposed real overflow. GTK/GDK
+  versions are explicitly selected before measuring monitor workarea/glyphs.
+- Installer wraps warning/review text by measured font, uses shorter meaningful
+  labels and keeps all detected disk details in a selectable scrolling row.
+  No automatic target is selected. Review buttons remain visible on small
+  screens; Cancel is explicit default. Enter in read-only review does not
+  approve installation, Escape cancels. Log copy now explains hiding does not
+  cancel work; fallback shell defaults No. Log directories use private mktemp.
+- Read-only row is deliberately excluded from semantic field numbering. A
+  counted control separator replaces pipe splitting, preserving a password
+  containing `|` plus leading/trailing spaces; malformed output is refused
+  before backend dispatch. Long/punctuated disk labels remain literal display
+  data, not YAD field/tooltips markup. No real device was enumerated in QA.
+- Theme apply now merges its own presentation keys while retaining saved font,
+  DPI, icon choice, unknown settings/comments/sections and file modes. GTK and
+  XSettings get matching retained font/DPI. Invalid settings or linked targets
+  are retained with a non-secret diagnostic. Both outputs are prepared/fsynced
+  before individual replacement; this is not an atomic two-file transaction.
+  Existing reduced-motion preference also reaches third-party GTK animation
+  settings on theme apply. Existing 180ms color feedback stays; no entrance
+  choreography, transparency or idle animation loop was introduced.
+- Eight private-file regressions pass: defaults/idempotency, preference/mode
+  preservation, XSettings defaults, duplicate keys, reduced motion, invalid
+  settings, links and preparation failure with temp cleanup. Full native source,
+  full-rootfs generation and backend service/setup regressions pass.
+- Actual owned UID1000 GTK/YAD/i3 at 640×600 passes both appearances at 100/200%:
+  form bounds, all 16 field values, password spaces/pipe, final review/blocked
+  bounds and keyboard cancellation. No install/dry-run/admin/disk command is
+  executed. Evidence in Ubuntu:
+  `/var/tmp/ooonana-installer-confirmed-20261017.ufLf1fgk`.
+  Source changes still await signed candidate publication and installed WSL
+  refresh; Batch 13 remains last published checkpoint. Whole-OS review stays
+  active; real installation, text wizard and live session gates remain open.
+
+![Installer at normal 100% text on private 640×600 display](assets/ooonana-installer-details-20261017.png)

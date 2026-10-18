@@ -1,5 +1,18 @@
 # Current work - 2026-10-17
 
+## October 17 installer and preference follow-up
+
+Installer form/review now fit actual 200% font metrics on 640×600, with readable
+scrolling disk details, compact labels and explicit default Cancel. Default UI
+remains 100%/10pt; 200% captures are stress tests only. Keyboard checks preserve
+all 16 semantic fields, including password spaces and `|`; malformed form output
+cannot shift targets. Theme apply retains user font/DPI/icon/unknown settings
+and bridges reduced motion to GTK/XSettings. Eight private-file regressions,
+full native/rootfs/backend checks and both-theme actual YAD fixtures pass.
+No real installation, disk enumeration, audio, model or ISO work. Source awaits
+signed candidate/installed WSL refresh; previous verified checkpoint below stays.
+[Evidence and remaining gates](ui-whole-os-review.md#batch-14-installer-fit-and-retained-presentation-preferences).
+
 ## October 17 Setup form and review follow-up
 
 Reproduced 200% form/review overflow, invalid-field focus loss and stale review

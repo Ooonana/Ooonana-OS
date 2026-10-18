@@ -105,6 +105,11 @@ Private keyboard/form/lifecycle checks pass dark/light through 200% text.
 Setup refresh is now signed/published and verified in Ooonana WSL; both remotes
 and source CI are updated. Relaunch apps for changes; no forced restart or ISO
 build. Whole-OS review remains active.
+Installer follow-up fits small/scaled forms and review, keeps disk details
+scrollable, preserves password delimiters and defaults final approval to Cancel.
+Theme changes retain saved font/DPI and respect reduced motion. **Default UI
+stays 100% with 10pt body; 200% is QA only.** Source tests pass; signed package
+and installed WSL refresh for this follow-up remain pending.
 [Full scope, current evidence and remaining UI work](docs/ui-whole-os-review.md).
 
 October 15 CI follow-up: Alpine smoke environment lacked `findmnt`, required by
