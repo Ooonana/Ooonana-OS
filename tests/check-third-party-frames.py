@@ -11,6 +11,8 @@ import subprocess
 import sys
 import tempfile
 import time
+from urllib.parse import unquote, urlsplit
+from gi.repository import Gio, GLib
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "packages/ooonana/usr/lib/ooonana/ui"))
@@ -28,11 +30,23 @@ parser.add_argument("--disable-shader-cache", action="store_true", help="QA-only
 parser.add_argument("--gpu", action="store_true", help="Leave normal GPU selection enabled (device availability remains environment-dependent)")
 parser.add_argument("--url", default="about:blank", help="Private browser probe page")
 parser.add_argument("--file-dialog", action="store_true", help="Real Open dialog: cancel and open an owned fixture")
+parser.add_argument("--inspect-firefox-first-run", action="store_true",
+                    help="QA-only: expand diagnostic choices and capture; never accept Terms")
+parser.add_argument("--accept-firefox-qa-terms", action="store_true",
+                    help="Explicit human-authorized disposable QA consent only; turn diagnostics off first")
+parser.add_argument("--wait-for-file-trace", action="store_true",
+                    help="Private QA only: wait for host's read-only syscall tracer before selecting file")
 args = parser.parse_args()
 if args.no_use_damage and not args.compositor:
     parser.error("--no-use-damage requires --compositor")
 if args.file_dialog and args.app not in ("geany", "firefox"):
     parser.error("--file-dialog requires geany or firefox")
+if (args.inspect_firefox_first_run or args.accept_firefox_qa_terms) and args.app != "firefox":
+    parser.error("First-run QA options require firefox")
+if args.inspect_firefox_first_run and args.accept_firefox_qa_terms:
+    parser.error("Choose inspection or explicit QA consent, not both")
+if args.wait_for_file_trace and (args.app != "firefox" or not args.file_dialog):
+    parser.error("File tracing requires Firefox picker probe")
 if os.environ.get("OOONANA_GUI_TEST_DISPLAY") != "1":
     raise SystemExit("Explicit isolated display required")
 if args.app == "firefox" and os.getuid() != 1000:
@@ -101,6 +115,7 @@ def browser_process_diagnostics():
             elif "chrom" not in status.get("Name", "").lower():
                 continue
             states.append({"pid": int(process.name), "ppid": status.get("PPid", "").strip(),
+                           "uid": status.get("Uid", "").strip(), "gid": status.get("Gid", "").strip(),
                            "seccomp": status.get("Seccomp", "").strip(),
                            "no_new_privs": status.get("NoNewPrivs", "").strip(), "arguments": arguments})
         except OSError:
@@ -119,6 +134,46 @@ def ready_browser_sandboxes():
                for group in states.values() for state in group):
         return None
     return states
+
+
+def document_diagnostics(owned_file, environment):
+    """Read only the document selected in this private test, never grant access."""
+    bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+    def call(method, signature=None, values=()):
+        return bus.call_sync("org.freedesktop.portal.Documents", "/org/freedesktop/portal/documents",
+            "org.freedesktop.portal.Documents", method,
+            GLib.Variant(signature, values) if signature else None, None,
+            Gio.DBusCallFlags.NONE, 5000, None).unpack()
+    documents = call("List", "(s)", ("org.mozilla.firefox",))[0]
+    mountpoint = Path(os.fsdecode(bytes(call("GetMountPoint")[0]).rstrip(b"\0")))
+    matches = [ident for ident, path in documents.items()
+               if os.fsdecode(bytes(path).rstrip(b"\0")) == str(owned_file)]
+    print("CURRENT_DOCUMENT_IDS", matches, "MOUNTPOINT", str(mountpoint), flush=True)
+    for ident in matches:
+        path, permissions = call("Info", "(s)", (ident,))
+        print("CURRENT_DOCUMENT_INFO", os.fsdecode(bytes(path).rstrip(b"\0")), permissions, flush=True)
+        for base in (mountpoint, mountpoint / "by-app/org.mozilla.firefox"):
+            path = base / ident / owned_file.name
+            try:
+                value = path.stat()
+                print("DOCUMENT_VIEW", str(path), oct(value.st_mode), value.st_uid,
+                      os.access(path, os.R_OK), path.read_bytes() == owned_file.read_bytes(), flush=True)
+            except OSError as error:
+                print("DOCUMENT_VIEW_ERROR", str(path), str(error), flush=True)
+        instances = subprocess.run(["flatpak", "ps", "--columns=instance,application,pid"],
+                                   capture_output=True, text=True, env=environment, timeout=5)
+        print("FLATPAK_INSTANCES", instances.stdout, instances.stderr, flush=True)
+        for row in instances.stdout.splitlines():
+            fields = row.split()
+            if len(fields) != 3 or fields[1] != "org.mozilla.firefox" or not fields[0].isdigit():
+                continue
+            paths = [f"/run/user/1000/doc/{ident}/{owned_file.name}",
+                     f"/run/flatpak/doc/{ident}/{owned_file.name}"]
+            result = subprocess.run(["flatpak", "enter", fields[0], "/bin/sh", "-c",
+                'id; for item do printf "SANDBOX_DOCUMENT %s " "$item"; '
+                'if test -r "$item"; then head -c 64 "$item"; else ls -ld "$item"; fi; done',
+                "document-probe", *paths], capture_output=True, text=True, env=environment, timeout=5)
+            print("SANDBOX_DOCUMENT_PROBE", result.returncode, result.stdout, result.stderr, flush=True)
 
 
 args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -166,6 +221,9 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
                      "--disable-gpu", "about:blank"],
     }[args.app]
     if args.app == "firefox":
+        if args.file_dialog:
+            environment.setdefault("MOZ_LOG", "Widget:5")
+            environment.setdefault("MOZ_SANDBOX_LOGGING", "1")
         # Owned QA profile only: no production onboarding/terms acceptance or
         # diagnostic-data submission. Flatpak persists .mozilla at this path.
         profile_name = "ooonana-qa-" + fixture.name
@@ -298,6 +356,8 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
         record = {"app": args.app, "csd": args.csd, "compositor": args.compositor, "full_redraw": args.no_use_damage,
                   "deco": node["deco_rect"], "rect": node["rect"],
                   "properties": properties, "controls": {str(k): list(v.get_size()) for k, v in manager.controls.items()}}
+        if args.app == "firefox":
+            record["qa_profile"] = profile.name
         args.output.with_suffix(".json").write_text(json.dumps(record, indent=2) + "\n")
         print(json.dumps(record), flush=True)
         assert node["rect"]["y"] >= 0, "Client titlebar opened above display"
@@ -307,6 +367,60 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
         identifier = node["id"]
         if not args.csd:
             wait(lambda: identifier in manager.controls)
+        if args.inspect_firefox_first_run or args.accept_firefox_qa_terms:
+            # This explicit inspection mode is limited to the observed private
+            # 1024x768 Firefox QA surface. Refuse drift instead of blind input.
+            assert root.get_width() == 1024 and root.get_height() == 768
+            def terms_visible():
+                pixels = Gdk.pixbuf_get_from_window(root, 460, 388, 104, 36)
+                if pixels is None:
+                    return False
+                data, stride, channels = pixels.get_pixels(), pixels.get_rowstride(), pixels.get_n_channels()
+                return sum(all(abs(data[y * stride + x * channels + channel] - value) < 12
+                               for channel, value in enumerate((183, 158, 255)))
+                           for y in range(pixels.get_height()) for x in range(pixels.get_width())) > 1000
+            wait(terms_visible)
+            Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(
+                str(args.output.with_name(args.output.stem + "-terms-initial.png")), "png", [], [])
+            subprocess.run(["xdotool", "mousemove", "--sync", "512", "552", "click", "1"],
+                           env=environment, check=True)
+            for _ in range(25):
+                drain()
+                time.sleep(0.03)
+            Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(
+                str(args.output.with_name(args.output.stem + "-terms-diagnostics.png")), "png", [], [])
+            if args.inspect_firefox_first_run:
+                print("FIREFOX_FIRST_RUN_INSPECT_ONLY: diagnostic choices captured; no consent/picker claim", flush=True)
+                raise SystemExit(3)
+            # Consent was delegated by the human for disposable QA only. Never
+            # skip onboarding via a preference or enable diagnostics on consent.
+            assert profile.name == "ooonana-qa-" + fixture.name
+            assert profile.parent == Path.home() / ".var/app/org.mozilla.firefox/.mozilla"
+            interfaces = {line.split(":", 1)[0].strip() for line in Path("/proc/net/dev").read_text().splitlines()
+                          if ":" in line}
+            assert interfaces <= {"lo"}, "QA consent requires an isolated network"
+            def diagnostic_fill():
+                pixels = Gdk.pixbuf_get_from_window(root, 303, 596, 12, 12)
+                assert pixels is not None
+                data, stride, channels = pixels.get_pixels(), pixels.get_rowstride(), pixels.get_n_channels()
+                return sum(all(abs(data[y * stride + x * channels + channel] - value) < 12
+                               for channel, value in enumerate((183, 158, 255)))
+                           for y in range(12) for x in range(12))
+            assert diagnostic_fill() > 60, "Unrecognized diagnostic checkbox state; no consent"
+            subprocess.run(["xdotool", "mousemove", "--sync", "309", "602", "click", "1"],
+                           env=environment, check=True)
+            wait(lambda: terms_visible() and diagnostic_fill() < 10)
+            Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(
+                str(args.output.with_name(args.output.stem + "-terms-diagnostics-off.png")), "png", [], [])
+            subprocess.run(["xdotool", "mousemove", "--sync", "512", "406", "click", "1"],
+                           env=environment, check=True)
+            # Button hover/pressed color is not proof the modal has closed.
+            # Wait for the observed private-page surface at all three points.
+            def private_page_ready():
+                return all(tuple(Gdk.pixbuf_get_from_window(root, x, y, 1, 1).get_pixels()[:3]) == (28, 27, 34)
+                           for x, y in ((260, 180), (300, 200), (760, 200)))
+            wait(private_page_ready)
+            print("FIREFOX_QA_TERMS_ACCEPTED: disposable profile, visibly unchecked diagnostics, private network", flush=True)
         if args.file_dialog:
             def dialog_node():
                 def visit(item):
@@ -327,9 +441,20 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
                 subprocess.run(["xdotool", "key", "--clearmodifiers", value], env=environment, check=True)
 
             subprocess.run(["i3-msg", f"[con_id={identifier}] focus"], check=True, capture_output=True)
-            key("ctrl+o")
+            next_open = [0.0]
+            def request_open_dialog():
+                current = dialog_node()
+                if current:
+                    return current
+                # A cold browser can finish onboarding before its chrome
+                # shortcuts are connected. Repeat only the non-mutating Open
+                # request, and never send input once the chooser exists.
+                if time.monotonic() >= next_open[0]:
+                    key("ctrl+o")
+                    next_open[0] = time.monotonic() + 1.0
+                return None
             try:
-                dialog = wait(dialog_node)
+                dialog = wait(request_open_dialog)
             except AssertionError:
                 tree = i3_events.request(i3_events.socket_path(), 4)
                 args.output.with_name(args.output.stem + "-dialog-failure.json").write_text(json.dumps(tree, indent=2))
@@ -364,6 +489,9 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
             key("ctrl+a")
             subprocess.run(["xdotool", "type", "--clearmodifiers", "--", str(owned_file)],
                            env=environment, check=True)
+            if args.wait_for_file_trace:
+                print("FILE_TRACE_READY", flush=True)
+                wait(lambda: Path("/qa/trace-ready").is_dir())
             key("Return")
             for _ in range(20):
                 drain()
@@ -371,9 +499,63 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
             if dialog_node() is not None:
                 Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(
                     str(args.output.with_name(args.output.stem + "-file-dialog-after-input.png")), "png", [], [])
-                key("alt+o")
+                # GTK portal uses "Select"; Geany's own dialog uses "Open".
+                key("alt+s" if args.app == "firefox" else "alt+o")
             wait(lambda: dialog_node() is None)
-            wait(lambda: "file-dialog.txt" in find_client().get("name", ""))
+            try:
+                if args.app == "firefox":
+                    clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+                    next_copy, selected_uri = [0.0], [None]
+                    def document_loaded():
+                        if time.monotonic() < next_copy[0]:
+                            return False
+                        next_copy[0] = time.monotonic() + 1.0
+                        key("ctrl+l")
+                        key("ctrl+c")
+                        uri = clipboard.wait_for_text() or ""
+                        parsed = urlsplit(uri)
+                        if (parsed.scheme != "file" or parsed.netloc or "/doc/" not in parsed.path
+                                or Path(unquote(parsed.path)).name != owned_file.name):
+                            return False
+                        rectangle = find_client()["rect"]
+                        subprocess.run(["xdotool", "mousemove", "--sync",
+                            str(rectangle["x"] + 40), str(rectangle["y"] + 122), "click", "1"],
+                            env=environment, check=True)
+                        key("ctrl+a")
+                        key("ctrl+c")
+                        content = clipboard.wait_for_text() or ""
+                        if content.strip() != owned_file.read_text().strip():
+                            return False
+                        selected_uri[0] = uri
+                        return True
+                    # Private Firefox intentionally keeps a generic WM title.
+                    # Verify actual browser URL and rendered document selection.
+                    wait(document_loaded)
+                    wait(ready_browser_sandboxes)
+                    print("FIREFOX_DOCUMENT_UI_OK", selected_uri[0], "private X11 clipboard/content", flush=True)
+                    Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(
+                        str(args.output.with_name(args.output.stem + "-file-opened.png")), "png", [], [])
+                else:
+                    wait(lambda: "file-dialog.txt" in find_client().get("name", ""))
+            except AssertionError:
+                args.output.with_name(args.output.stem + "-open-failure.json").write_text(
+                    json.dumps(i3_events.request(i3_events.socket_path(), 4), indent=2))
+                Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(
+                    str(args.output.with_name(args.output.stem + "-open-failure.png")), "png", [], [])
+                if args.app == "firefox":
+                    try:
+                        print("PORTAL_MOUNTS", [line for line in Path("/proc/self/mountinfo").read_text().splitlines()
+                            if "fuse.portal" in line], flush=True)
+                        print("OWNED_FILE_ACCESS", oct(owned_file.stat().st_mode), owned_file.stat().st_uid,
+                              os.access(owned_file, os.R_OK), flush=True)
+                        document_diagnostics(owned_file, environment)
+                        processes = [{key: row[key] for key in ("pid", "ppid", "uid", "gid", "seccomp", "no_new_privs")}
+                                     for row in browser_process_diagnostics()
+                                     if row["arguments"].startswith("/app/lib/firefox/firefox")]
+                        print("BROWSER_FILE_FAILURE_PROCESSES", json.dumps(processes), flush=True)
+                    except Exception as error:
+                        print("PORTAL_DIAGNOSTIC_FAILED", type(error).__name__, str(error), flush=True)
+                raise
             assert owned_file.read_text() == "Ooonana private file-picker check\n"
             print(f"PASS real {args.app} file picker: floating, focused, bounded, cancel, open private file", flush=True)
         if identifier in manager.controls:

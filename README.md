@@ -60,8 +60,10 @@ October 18 Qt follow-up: selected dark/light appearance now reaches the Settings
 portal and Qt dialogs. Fresh QTerminal profiles get opaque Graphite/Paper,
 smaller type/margins and no oversized lone tab; existing Qt preferences remain.
 Actual isolated Qt6 controls and exit confirmation pass both appearances.
-F: is currently not detected, so this source follow-up awaits signed repository
-publication and Ooonana WSL sync; do not rebuild against the older package set.
+F: returned; this Qt follow-up is now signed/published locally and verified in
+Ooonana WSL. Relaunch GUI for changed code; no GUI restart or ISO build performed.
+Firefox's isolated first-run/picker/window flow now passes. WSL nested runtime
+compatibility and the remaining whole-OS integration checks stay open.
 [Qt evidence, screenshots and remaining review](docs/ui-whole-os-review.md#batch-19-qt-appearance-and-first-run-proportions).
 Follow-up adds default-Cancel package change previews and readable Health
 snapshots with exact raw/copy access and honest service/memory warnings. Compact

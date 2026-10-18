@@ -4,6 +4,9 @@
 set -euo pipefail
 SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 only="${OOONANA_GUI_ONLY:-all}"
+gui_runtime=/home/ooonana/runtime
+# Model the real Linux session's per-user runtime for document-portal fidelity.
+if [[ "$only" == firefox-frame ]]; then gui_runtime=/run/user/1000; fi
 geometry="${OOONANA_GUI_GEOMETRY:-1280x800}"
 theme="${OOONANA_GUI_THEME:-dark}"
 text_scale="${OOONANA_GUI_TEXT_SCALE:-1.25}"
@@ -159,26 +162,26 @@ mount -t devpts -o newinstance,ptmxmode=0666 devpts "$rootfs/dev/pts"
 ln -s pts/ptmx "$rootfs/dev/ptmx"
 chown 1000:1000 "$rootfs/home/ooonana" "$output"
 if [[ "$only" == firefox-frame && -z "${OOONANA_FIREFOX_REUSE_HOME:-}" ]]; then
-  mkdir -p "$rootfs/home/ooonana/runtime"
-  chown 1000:1000 "$rootfs/home/ooonana/runtime"
-  chmod 0700 "$rootfs/home/ooonana/runtime"
+  mkdir -p "$rootfs$gui_runtime"
+  chown 1000:1000 "$rootfs$gui_runtime"
+  chmod 0700 "$rootfs$gui_runtime"
   timeout --kill-after=5 1200 chroot --userspec=1000:1000 "$rootfs" \
     /usr/bin/env -i HOME=/home/ooonana USER=ooonana LOGNAME=ooonana \
-    PATH=/usr/bin:/bin:/usr/sbin:/sbin XDG_RUNTIME_DIR=/home/ooonana/runtime \
+    PATH=/usr/bin:/bin:/usr/sbin:/sbin XDG_RUNTIME_DIR="$gui_runtime" \
     OOONANA_FIREFOX_DOWNLOAD=1 PYTHONDONTWRITEBYTECODE=1 \
     /usr/bin/dbus-run-session -- python3 /source/tests/probe-firefox-install.py \
     >"$output/firefox-install-update.log" 2>&1
 fi
 # Host Xvfb and candidate use the same private filesystem socket, no TCP.
 mount --bind "$rootfs/tmp" /tmp
-export rootfs output only theme text_scale
+export rootfs output only theme text_scale gui_runtime
 # Keep namespace init as Bash. Xvfb will not send its readiness signal to PID 1.
 # shellcheck disable=SC2016 # Child shell expands exported paths/display.
 unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp" bash -c '
   set -eu
-  mkdir -p "$rootfs/home/ooonana/runtime"
-  chown 1000:1000 "$rootfs/home/ooonana/runtime"
-  chmod 0700 "$rootfs/home/ooonana/runtime"
+  mkdir -p "$rootfs$gui_runtime"
+  chown 1000:1000 "$rootfs$gui_runtime"
+  chmod 0700 "$rootfs$gui_runtime"
   cp "$XAUTHORITY" "$rootfs/home/ooonana/.Xauthority"
   chown 1000:1000 "$rootfs/home/ooonana/.Xauthority"
   chmod 0600 "$rootfs/home/ooonana/.Xauthority"
@@ -195,7 +198,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
     if timeout --kill-after=5 120 "${launch[@]}" \
       /usr/bin/env -i HOME=/home/ooonana USER=ooonana LOGNAME=ooonana \
       PATH=/usr/bin:/bin:/usr/sbin:/sbin DISPLAY="$DISPLAY" \
-      XAUTHORITY=/home/ooonana/.Xauthority XDG_RUNTIME_DIR=/home/ooonana/runtime \
+      XAUTHORITY=/home/ooonana/.Xauthority XDG_RUNTIME_DIR="$gui_runtime" \
       XDG_CURRENT_DESKTOP=Ooonana:i3 XDG_SESSION_DESKTOP=ooonana DESKTOP_SESSION=ooonana \
       PYTHONDONTWRITEBYTECODE=1 OOONANA_GUI_TEST_DISPLAY=1 OOONANA_NOTIFICATION_TEST_SESSION=1 GDK_BACKEND=x11 \
       GTK_THEME="Adwaita:$theme" OOONANA_THEME="$theme" OOONANA_GUI_TEXT_SCALE="$text_scale" NO_AT_BRIDGE=1 \
@@ -242,10 +245,20 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
     fi
   done
   if [ "$only" = firefox-frame ]; then
+    first_run_options=()
+    case "${OOONANA_FIREFOX_QA_FIRST_RUN:-}" in
+      "") ;;
+      inspect) first_run_options+=(--inspect-firefox-first-run) ;;
+      accept) first_run_options+=(--accept-firefox-qa-terms) ;;
+      *) printf "Unsupported QA first-run mode\n" >&2; exit 2 ;;
+    esac
+    if [ "${OOONANA_FIREFOX_QA_TRACE:-0}" = 1 ]; then first_run_options+=(--wait-for-file-trace); fi
+    firefox_compositor=(--compositor)
+    if [ "${OOONANA_GUI_COMPOSITOR_NO_DAMAGE:-0}" = 1 ]; then firefox_compositor+=(--no-use-damage); fi
     if [ "${OOONANA_FIREFOX_PICKER:-1}" = 0 ]; then
-      probe firefox-frame python3 /source/tests/check-third-party-frames.py firefox /qa/firefox.png --compositor
+      probe firefox-frame python3 /source/tests/check-third-party-frames.py firefox /qa/firefox.png "${firefox_compositor[@]}" "${first_run_options[@]}"
     else
-      probe firefox-frame python3 /source/tests/check-third-party-frames.py firefox /qa/firefox.png --compositor --file-dialog
+      probe firefox-frame python3 /source/tests/check-third-party-frames.py firefox /qa/firefox.png "${firefox_compositor[@]}" --file-dialog "${first_run_options[@]}"
     fi
   fi
   exit "$failure"

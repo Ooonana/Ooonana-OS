@@ -32,7 +32,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Native AI / model UI | Generic native chat compact layout, bounded headings, no-match search, draft attachment, safe Delete, status failure/stale/closed callbacks and streaming/copy/cancel fixtures pass | Real cloud-provider session, long-running transcript navigation; OpenVINO GUI/runtime/offline checks deferred by user October 16 |
 | Installer GUI / text wizard | Real font-metric 100/200% form/review/blocked fit 640×600 both themes; all 16 fields keyboard-walked, exact disk/password mapping and safe Cancel checked; disk details scroll inside form | Actual privileged preview/log lifecycle, text wizard and physical storage summary/install; bare UI fixtures never install |
 | Shared dialogs / menus / tooltips | Short/unbroken and long diagnostic text fit; secret input labelled/focused, password spaces retained, Cancel verified | Remaining file pickers, menus, escape/return and scaled text |
-| Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Current Qt6/QTerminal dark/light, opaque palettes, first-run density and exit-confirmation actions pass. Nemo/Qt require WSL/Xvfb full-redraw/redirection adaptation | Qt menu/preferences/file-picker variants; Firefox first-run Terms and picker, actual physical compositor and live WSLg |
+| Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Qt6/QTerminal dark/light, opaque palettes, density and exit actions pass. Firefox dark QA scoped onboarding, portal open/cancel, exact URL/rendered-content read and window actions pass | Qt menu/preferences/picker variants; WSL nested runtime correction; Firefox light/scaling/session integration, actual physical compositor and live WSLg |
 | Window manager | Native/XTerm modifier drag/resize, all number/move workspace keys, cycling, click focus, tile/tab/stack, resize mode, fullscreen, exact-session restore and unfocused close pass in private compositor | Real WSLg/physical compositor, multi-display and complete session lifecycle transitions |
 | GRUB: live / audio submenu | Shared live/installed branding, compact audio labels; actual EFI 640×480/1280×800, missing-font/mark fallback and unchanged kernel arguments checked. Minimal contrast repaired | Physical BIOS/UEFI, corrupted-media/runtime graphics failure and actual installed boot |
 | Boot / shutdown / reboot / persistent setup | Private PTY boot/save/setup; consecutive warning retention, normal console ordering, serial/ambiguous/motion-off/small-console and exact existing waits pass | Real framebuffer/kernel-message handoff, physical shutdown/recovery and complete persistent-setup interaction |
@@ -1150,3 +1150,88 @@ Supersedes pending-publication notes immediately above. Whole-OS review remains 
 
 ![Qt dark exit confirmation, actual private candidate](assets/ooonana-qt-dark-20261018.png)
 ![Qt light exit confirmation, actual private candidate](assets/ooonana-qt-light-20261018.png)
+
+## Published checkpoint after Batch 19
+
+Supersedes Batch 19's F:-unavailable/publication-pending notes. Whole-OS goal
+remains active; no general SD-card health or hardware certification implied.
+
+- Runtime source `f30dc7cf082de46f10a178e15811880d098b36e1` passes
+  [GitHub regression](https://github.com/Ooonana/Ooonana-OS/actions/runs/39096763946)
+  and [GitLab smoke](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2959663303).
+  Signed local generation:
+  `4245766927382e2806c6891ee027acd37d6e2761e4331ed3458a2b7946797454`.
+  Clean source manifest records 299 source files, v3.24 base and no bundled
+  models. All 1302 checksum entries, signature/trust pin and 654-package/612-node
+  dependency closure pass. Prior `1a0c0a9b…` SHA256SUMS remains
+  `cb03326f21e1e42add0b3ee5e0a71f10642176abb449d3112def20dfa70bdde5`.
+- Native Ooonana snapshot:
+  `/var/lib/ooonana/candidate-qt-ui-20261018.oR1CSwmD`.
+  Logs: `/var/tmp/ooonana-qt-ui-sync-20261018.A3bFKYC7`.
+  All checksums/signature verified before sequential core/runtime dry-runs,
+  reinstalls, file verification and explicit health hooks. Exact installed
+  helper/palette hashes pass; OpenVINO installed metadata stays unchanged.
+  A post-install comparison command lacked `cmp`; continuation used SHA256
+  against the already verified install, without rerunning transactions.
+  Default cloud metadata now uses this retained native snapshot (654 packages,
+  two sources). Adapter refreshed without GUI/WSL restart or disk relocation.
+- Actual UID1000 imports/parses installed GTK/control CSS in both appearances;
+  fresh private GTK settings remain Sans 10. Nonroot Geany metadata query passes.
+  `/var/tmp/ooonana-qt-user-20261018.Q1V4887U` (Ooonana). This is not an
+  interactive WSLg mouse/keyboard or real display check.
+- Firefox QA inspection discovered its diagnostic checkbox remained checked
+  despite seeded diagnostic prefs. New opt-in QA flow visibly unchecks it
+  before explicit Continue; no preference-based Terms bypass. Human's earlier
+  disposable-profile-only consent applies; actual user profile/defaults remain
+  untouched, network is isolated, renderer seccomp=2/no-new-privs=1 persists.
+  Initial/expanded/off captures and consent log:
+  `/var/tmp/ooonana-firefox-qa-consent-20261018.UHHFV6AX` (Ubuntu).
+- Actual portal is floating/focused/bounded at 1024×768 and Escape cancels.
+  Its action is Select, not Geany's Open; corrected QA mnemonic. Home-runtime
+  baseline selection showed Firefox's read-permission error. Documents portal lists the exact owned
+  fixture with read/write permissions; native root/by-app FUSE views and
+  `flatpak enter` reads succeed. Namespace entry is diagnostic, not proof of the
+  browser's seccomp-restricted operation. Canonical `/run/user/1000` resolves
+  the actual read error: diagnostic screenshots already show a loaded document,
+  but the old filename-in-WM-title assertion falsely failed private Firefox.
+  This distinction was established by inspecting rendered evidence, not by
+  accepting an earlier narrow failing proxy as the product result.
+  Diagnostic evidence: `/var/tmp/ooonana-firefox-documents-20261018.MCWnzVQd`.
+  Upstream [FileChooser](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.FileChooser.html)
+  and [Documents](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Documents.html)
+  contracts guide read-only diagnostics; no filesystem-wide permission grant or
+  disabled sandbox used.
+- One scoped read-only `access` trace on the owned Firefox parent confirms
+  selected FUSE file `R_OK = 0`. No filter or privilege setting changed. Trace:
+  `/var/tmp/ooonana-firefox-access-trace-20261018.WS2qTWKN/access.trace`.
+  Final **untraced** confirmation uses actual browser URL and selected rendered
+  content via the private X11 clipboard instead of altering privacy/title prefs.
+  Scoped Terms consent with diagnostics visibly off, focused/bounded picker,
+  Escape cancel, selected-file read and actual minimize/restore/fullscreen/move/
+  close all pass at 1024×768 dark/100%. Renderer filtering/no-new-privs checked
+  before and after file selection. Full redraw mirrors the existing WSL-only
+  adaptation; no physical GPU/Windows clipboard certification implied.
+  `/var/tmp/ooonana-firefox-picker-confirm-20261018.Oo7uatCV`.
+  Geany picker/window and native-source regression also pass:
+  `/var/tmp/ooonana-geany-picker-regression-20261018.ZZhp1kak`.
+- QA now waits for actual onboarding dismissal, not Continue's hover color,
+  and repeats only the non-mutating Open request during cold shortcut setup.
+  Installed nested WSL launcher still sets a home-based runtime; `/run/user`
+  is transient and UID1000 runtime is absent after cold startup. A safe local
+  adapter/startup-preparation correction is the next required implementation;
+  do not claim installed WSL Firefox picker is fixed by the isolated result.
+- Confirmed F: staging duplicate has exactly 1305 expected files, no unexpected
+  files/reparse children and manifest identical to retained generation. Removal
+  rejected by execution policy before any action, so no deletion claimed or
+  alternate deletion route attempted. Regenerable Ubuntu package copy also
+  retained; logs/history, all generations/checkpoints, models, keys and disks stay.
+  If desired, remove only the verified staging duplicate manually in PowerShell:
+
+  ```powershell
+  Remove-Item -LiteralPath 'F:\Ooonana\ooonana-os\build\qt-publish-stage-20261018-a9825212' -Recurse -Force
+  ```
+
+No release ISO built, sound played, model downloaded or physical storage/power
+operation performed. Stable promotion and signing enrollment remain deferred.
+
+![Untraced Firefox opens exact portal-selected fixture, private candidate](assets/ooonana-firefox-picker-20261018.png)

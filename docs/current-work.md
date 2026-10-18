@@ -1,5 +1,30 @@
 # Current work - 2026-10-18
 
+## October 18 Qt publication and Firefox first-run follow-up
+
+Qt source `f30dc7c` passes both CIs and is now signed/published as generation
+`4245766927382e2806c6891ee027acd37d6e2761e4331ed3458a2b7946797454`.
+Exact clean source manifest (299 files), all 1302 checksums, signature/trust pin,
+654 packages/612 dependency nodes and prior-generation immutability pass.
+Native Ooonana WSL core/runtime dry-runs, reinstalls, verification/health hooks,
+exact helper/palette hashes and UID1000 GTK/CSS/default-font/query checks pass.
+Default metadata points to the new native snapshot; adapter refreshed without
+GUI/WSL restart. Existing OpenVINO metadata unchanged; no models/audio/ISO work.
+
+Firefox QA now visibly expands first-run diagnostics, unchecks its opt-in and
+accepts Terms only in the human-authorized disposable profile, on an isolated
+network. Home-based runtime reproduced a selected-file permission error.
+Canonical `/run/user/1000` resolves it; earlier apparent failures then proved to
+be a QA assumption about private-window titles. Untraced real picker open/cancel,
+exact portal URL plus rendered-content clipboard read and native window actions
+now pass. Full redraw mirrors the existing WSL adaptation; no browser sandbox
+disabled or broad access granted. Installed nested WSL launcher still uses the
+home runtime; its local adapter/startup preparation remains the next fix.
+
+F: staging duplicate is verified against retained generation but cleanup was
+blocked by execution policy; retained, with exact manual command in the ledger.
+[Publication, first-run evidence and limits](ui-whole-os-review.md#published-checkpoint-after-batch-19).
+
 ## October 18 Qt appearance and removable-storage interruption
 
 Real cached Qt6/QTerminal review found light menus/dialogs in dark mode and a
