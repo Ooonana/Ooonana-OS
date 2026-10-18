@@ -18,7 +18,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; current source inventory | Fresh composited desktop, cursor hotspot/scale, icon consistency and selection states |
 | Panel / music / AI / notifications / tray | Actual source Polybar/wallpaper/dock; wide CJK labels and full counters at 640/760/900/1000/1024/1100/1280px; missing-glyph and actual AI-centering checks, bounded Wi-Fi labels and compact right controls | Real empty/playing/paused media transitions, expanded notification/service integration and physical/live-session states |
 | Dock | Actual Gdk edge placement, tooltips/four-corner menus, 44px targets, fullscreen/workspace visibility and focus restoration pass; actual 1×/2× device coordinate checks; centered icons, compact grouping, preview and action checks below | Actual installed-session/display integration, physical mixed DPI/hotplug; multi-output visibility currently pure/derived guards |
-| Native Launcher | Long names bounded with full tooltips; visible no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard pass | Real application launch and installed keyboard/IME integration |
+| Native Launcher | Long names/tooltips, no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard; real managed display fit, desktop-entry discovery and physical Return launch/focus to XTerm/native Settings pass | Preferred-wrapper variants, actual installed-session keyboard/IME and desktop integration |
 | Wi-Fi / Bluetooth | Managed lists/hidden/personal/TLS/PIN forms; advanced fields, bounded certificate pickers, inline validation, progress/reduced motion, service gating, duplicate/closed refusal and safe Reset/Remove pass both themes through 200% text | Actual installed authentication, advanced network activation, physical reconnect/pairing and changed-adapter integration |
 | Settings: all six pages | Compact page picker, bounded/selectable sources, managed dialogs, repair/update retry; actual private 0600 preference writes, reopen, read-only rollback and retry through 200% text | Actual installed-session theme/wallpaper/authentication paths, other external file/device failures |
 | Setup | Compact/200% scrolling and stacked labels; focused inline validation, secret-preserving drafts, full source/routing review, default Back, reduced motion, pending/reentrant and closed-parent refusal checked both themes | Complete installed privileged setup/persistence and actual authentication/network failures; CLI backend preflight is not certified by UI validation |
@@ -1748,3 +1748,40 @@ Supersedes Batch 26's publication-pending note. Whole-OS review remains active.
   default scale/typography unchanged. Stable promotion/enrollment remain
   deferred. Relaunch desktop for current code; use a fresh build rather than
   resuming an older ISO when the user chooses to build.
+
+## Batch 27: managed Spotlight and real app handoff
+
+- Earlier catalog/keyboard fixtures did not prove Spotlight size under real i3
+  mapping. New owned-session probe discovered i3 forcing760×520 on640×600,
+  moving the frame tox=-60 and clipping left window controls/search/icon.
+  Both themes failed actual output bounds despite successful app launches.
+  Baseline: `/var/tmp/ooonana-launcher-session-baseline-20261019.GfJt0UPh`.
+  Actual compact dark/light captures inspected before editing.
+- Removed only `resize set 760 520` from Spotlight's i3 rule. Existing GTK
+  display-aware defaults now control initial dimensions; floating/border-none/
+  centering, normal760×520 app request, typography, palette and control sizes
+  remain. No percentage-based enlargement, new timer or blanket shrink.
+  Native source regression refuses reintroducing a fixed resize on this rule.
+- Four real final cases pass: dark/light ×640×600/1280×800, normal100% text.
+  Compact mapped frame is `(27,66,586,442)` and fits; desktop770×586 includes
+  GTK's CSD around its unchanged client request. Capture inspected in both
+  themes, with all left controls visible. Final/regression directory:
+  `/var/tmp/ooonana-launcher-session-final-20261019.gVJRPdYp`.
+- Tests create one owned user `.desktop` entry and enumerate it through actual
+  `Gio.AppInfo.get_all()`. Actual X11 Return launches XTerm, dismisses Spotlight,
+  and hands off i3 focus. Shipped `ooonana-settings.desktop` then launches real
+  native Settings through its current wrappers; process UID and command line
+  confirm native GTK, not a fallback/log window. Both owned apps close normally.
+  No monkey-patched launch, fabricated process or externally installed app.
+- Harness read-only-binds current Settings UI/wrappers rather than executing
+  stale cached candidate code. Private HOME/runtime, PID/mount/network/display
+  namespaces remain isolated. Captured sample entry is QA content, not a new
+  shipped app. Glycin emits its private-chroot sandbox warning; neither image
+  sandbox nor physical compositor/WSLg input is certified by this test, and no
+  production sandbox was disabled.
+- Native/branding/rootfs/package-factory regressions pass; signed package/native
+  refresh remain pending. Preferred-wrapper variants, installed
+  keyboard/IME, other apps/session/physical/manual ledger rows stay open. No
+  release ISO, sound playback, model or physical-device operation.
+
+![Actual compact Paper Spotlight at normal100%; owned sample entry and no clipped controls](assets/ooonana-spotlight-fit-20261019.png)

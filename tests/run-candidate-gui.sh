@@ -20,7 +20,7 @@ case "$geometry" in
   *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
 esac
 case "$only" in
-  all|setup-details-ui|controls-details-ui|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|notification-lifecycle|window-controls-runtime|dock-ui|dock-edges-ui|device-scale-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
+  all|setup-details-ui|controls-details-ui|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|launcher-session-ui|notifications-runtime|notification-lifecycle|window-controls-runtime|dock-ui|dock-edges-ui|device-scale-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -196,6 +196,24 @@ if [[ "$only" == all || "$only" == admin-prompt-ui ]]; then
   mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-admin-askpass"
   admin_policy=1
 fi
+if [[ "$only" == all || "$only" == launcher-session-ui ]]; then
+  # Subprocess handoff must use current UI/wrappers, not cached candidate bytes.
+  if [[ "$only" != all ]]; then
+    mount --bind "$SOURCE/packages/ooonana/usr/lib/ooonana/ui" "$rootfs/usr/lib/ooonana/ui"
+    mount -o remount,bind,ro "$rootfs/usr/lib/ooonana/ui"
+  fi
+  awk -v marker='"$ROOTFS/usr/bin/ooonana-settings"' '
+    index($0, marker) { capture=1; next }
+    capture && $0 == "EOF" { exit }
+    capture { print }
+  ' "$SOURCE/scripts/build-full-i3-rootfs.sh" >"$rootfs/run/ooonana-qa-settings"
+  [[ -s "$rootfs/run/ooonana-qa-settings" ]]
+  chmod 0755 "$rootfs/run/ooonana-qa-settings"
+  mount --bind "$rootfs/run/ooonana-qa-settings" "$rootfs/usr/bin/ooonana-settings"
+  mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-settings"
+  mount --bind "$SOURCE/packages/ooonana/usr/bin/ooonana-settings-launch" "$rootfs/usr/bin/ooonana-settings-launch"
+  mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-settings-launch"
+fi
 if [[ "$only" == firefox-frame && -z "${OOONANA_FIREFOX_REUSE_HOME:-}" ]]; then
   mkdir -p "$rootfs$gui_runtime"
   chown 1000:1000 "$rootfs$gui_runtime"
@@ -262,6 +280,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   probe ai-details-ui python3 /source/tests/check-ai-details-ui.py /qa/ai-details
   probe task-details-ui python3 /source/tests/check-task-details-ui.py /qa/task-details
   probe workspace-ui python3 /source/tests/check-workspace-ui.py /qa/workspaces
+  probe launcher-session-ui python3 /source/tests/check-launcher-session-ui.py /qa/launcher-session
   probe wireless-details-ui python3 /source/tests/check-wireless-details-ui.py /qa/wireless-details
   probe controls-details-ui python3 /source/tests/check-controls-details-ui.py /qa/controls-details
   probe setup-details-ui python3 /source/tests/check-setup-details-ui.py /qa/setup-details

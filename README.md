@@ -48,6 +48,13 @@ unchanged. Signed candidate and native Ooonana WSL refreshed; relaunch desktop
 for changed code. No ISO built.
 [Checks and physical-display limits](docs/ui-whole-os-review.md#published-checkpoint-after-batch-26).
 
+October 19 Spotlight follow-up removes i3's forced760px size, which clipped
+window controls on640px screens. Display-aware GTK sizing now survives actual
+window-manager mapping; normal app defaults remain unchanged. Real keyboard
+launch/discovery/focus handoff to terminal and native Settings pass four
+dark/light compact/desktop cases. Signed publication/WSL refresh pending.
+[Normal-size capture and exact limits](docs/ui-whole-os-review.md#batch-27-managed-spotlight-and-real-app-handoff).
+
 Stable core 0.9.9 desktop refresh adds unboxed dock hover feedback, slimmer panel, open Appearance groups, blue globe browser icon and canonical wallpaper fitting. Component previews use isolated test windows, not physical USB boot.
 
 Latest October 14: installed **Ooonana WSL is now 0.10.0** after user-authorized

@@ -27,7 +27,8 @@ for_window [window_role="^GtkFileChooserDialog$"] floating enable, resize set 80
 for_window [window_role="pop-up"] floating enable
 # Native client-side headers override generic dialog decorations.
 for_window [class="^OoonanaApp$"] floating enable, border none, move position center
-for_window [class="^OoonanaSpotlight$"] floating enable, border none, resize set 760 520, move position center
+# Spotlight's GTK request already fits the monitor; fixed pixels clip small outputs.
+for_window [class="^OoonanaSpotlight$"] floating enable, border none, move position center
 for_window [class="^OonanaGame$"] fullscreen enable
 
 exec_always --no-startup-id ooonana-theme-env apply

@@ -228,6 +228,9 @@ assert_contains "$launcher" "Gio.AppInfo.get_all"
 assert_contains "$launcher" "Ooonana Spotlight"
 assert_contains "$launcher" "Search applications"
 assert_contains "$launcher" "OoonanaSpotlight"
+spotlight_rule="$(grep 'class="^OoonanaSpotlight$"' "$ROOT/branding/i3/config")"
+assert_contains "$spotlight_rule" 'floating enable'
+assert_not_contains "$spotlight_rule" 'resize set'
 assert_contains "$launcher" "Gdk.KEY_Down"
 assert_contains "$launcher" "PREFERRED_COMMANDS"
 assert_contains "$launcher" '"chromium.desktop": ["ooonana-browser"]'
