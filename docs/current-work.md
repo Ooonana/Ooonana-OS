@@ -1,4 +1,17 @@
-# Current work - 2026-10-18
+# Current work - 2026-10-19
+
+## October 19 dock edge/fullscreen review
+
+Real edge probes found dock covering fullscreen content. Existing i3 tree events
+now hide it only for visible fullscreen containers covering its monitor, and
+restore it without focus theft. Inactive workspaces, hidden tabs, scratchpad and
+other outputs do not incorrectly hide it; global fullscreen is handled. No new
+polling, resizing or idle-auto-hide policy. Eight dark/light variants pass real
+tooltips, four-corner menus, centering, 44px targets and fullscreen/workspace
+restoration: 640×600 normal/200%, 1024×768 normal, 320px dock-only stress.
+Pure guards plus native/rootfs/package and both-theme multi-session/action/
+keyboard regressions pass. Source awaits signed publication/WSL refresh.
+[Evidence and limits](ui-whole-os-review.md#batch-25-dock-edges-and-fullscreen).
 
 ## October 18 administration/dialog publication and WSL refresh
 

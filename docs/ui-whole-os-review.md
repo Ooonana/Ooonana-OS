@@ -17,7 +17,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Control proportions | Shared/native GTK 10pt typography and chat actions measured; targeted 100/125/200% scaling; Task Manager headers/values follow text metrics | Other app-specific Qt controls, panel/card/dock content proportions; no blind blanket shrink |
 | Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; current source inventory | Fresh composited desktop, cursor hotspot/scale, icon consistency and selection states |
 | Panel / music / AI / notifications / tray | Actual source Polybar/wallpaper/dock; wide CJK labels and full counters at 640/760/900/1000/1024/1100/1280px; missing-glyph and actual AI-centering checks, bounded Wi-Fi labels and compact right controls | Real empty/playing/paused media transitions, expanded notification/service integration and physical/live-session states |
-| Dock | Centered icons, bounded previews/tooltips, compact grouping, 44px targets and unchanged hover focus; follow-up action/keyboard checks below | Edge placement and actual session/display integration |
+| Dock | Actual Gdk edge placement, tooltips/four-corner menus, 44px targets, fullscreen/workspace visibility and focus restoration pass; centered icons, compact grouping, preview and action checks below | Actual installed-session/display integration, physical mixed DPI/hotplug; multi-output visibility currently pure guards |
 | Native Launcher | Long names bounded with full tooltips; visible no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard pass | Real application launch and installed keyboard/IME integration |
 | Wi-Fi / Bluetooth | Managed lists/hidden/personal/TLS/PIN forms; advanced fields, bounded certificate pickers, inline validation, progress/reduced motion, service gating, duplicate/closed refusal and safe Reset/Remove pass both themes through 200% text | Actual installed authentication, advanced network activation, physical reconnect/pairing and changed-adapter integration |
 | Settings: all six pages | Compact page picker, bounded/selectable sources, managed dialogs, repair/update retry; actual private 0600 preference writes, reopen, read-only rollback and retry through 200% text | Actual installed-session theme/wallpaper/authentication paths, other external file/device failures |
@@ -1585,3 +1585,46 @@ Supersedes Batch 24's publication-pending note. Whole-OS review stays active.
   failed fixtures/captures remain diagnostic history. No denied cleanup retry,
   private-key upload, models, audio or ISO operation. Stable0.9.9 and deferred
   promotion/enrollment unchanged. Remaining ledger rows stay open.
+
+## Batch 25: dock edges and fullscreen
+
+- New actual-display probe exercises mapped native GTK tooltips and action menus
+  at all four screen corners, optical centering/bottom clearance, real44px
+  targets and unchanged focused client. Initial bounds checks passed, but
+  inspection of the actual fullscreen capture showed the override-redirect dock
+  covering content. That baseline did not assert fullscreen hiding; its passing
+  bounds markers were never proof of correct fullscreen behavior.
+- Dock now uses the existing event-delivered i3 tree, with no additional query,
+  timer or background service. It follows each output's visible workspace focus
+  order and visible tabs, ignores i3's workspace-level fullscreen flag and
+  scratchpad, and checks fullscreen container overlap with the dock monitor.
+  Output-local fullscreen does not hide another output's dock; active global
+  fullscreen does. Semantics follow the primary
+  [i3 IPC tree documentation](https://i3wm.org/docs/ipc.html#_tree_reply).
+  Normal size, icon alignment, opaque Graphite framing, motion and actions stay
+  unchanged. No idle auto-hide or bottom-edge reveal policy added.
+- Actual fullscreen entry now removes dock pixels; leaving fullscreen restores
+  it without stealing client focus. Switching to another workspace restores it
+  despite the inactive fullscreen client; returning hides it again. Pure guards
+  additionally cover negative/touching output coordinates, multiple outputs,
+  global fullscreen, floating containers, scratchpad and hidden tabs. Both CIs
+  directly run the new display-free guard test.
+- Eight final cases pass: 640×600 normal100% and200% text, 1024×768 normal100%,
+  and320×600 normal100%, both native app appearances. 320px is a compact-dock
+  stress case only; the harness refuses that geometry for other app probes.
+  Baseline: `/var/tmp/ooonana-dock-edges-baseline-20261018.NLCWGnl4`.
+  Final: `/var/tmp/ooonana-dock-fullscreen-final-20261018.RUOjfxQv` (Ubuntu).
+  Actual clean fullscreen and normal100% preview captures inspected. Fixture
+  XTerm titles are ASCII to avoid conflating XTerm locale/title encoding with
+  dock layout; no new Korean/IME claim. No restyling was needed for edge menus
+  or tooltips. Existing Graphite dock framing stays across both app themes.
+- Native/rootfs/package source regressions pass under
+  `/var/tmp/ooonana-dock-visibility-regress-20261018.eUWMf8XE`.
+  Existing multi-session/action/keyboard regressions use a verified signed
+  supplemental repository in private overlays:
+  `/var/tmp/ooonana-dock-actions-regress-20261019.JdiLJJEs`.
+  Source batch awaits signed generation and native WSL refresh. Physical display
+  hotplug/mixed DPI, installed-session behavior and remaining ledger gates stay
+  open. No release ISO, sound, model, user-history or physical device operation.
+
+![Actual normal100% dock preview, owned terminal samples; opaque framing unchanged](assets/ooonana-dock-edge-preview-20261018.png)

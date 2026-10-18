@@ -45,6 +45,35 @@ tooltip { background: #1b1f26; color: #f5f5f7; border: 1px solid #414957; border
 """
 
 
+def fullscreen_on_monitor(tree, area):
+    """Visible i3 fullscreen clients only; workspace mode=1 is not a client."""
+    def visit(node):
+        if node.get("name") in ("__i3", "__i3_scratch"):
+            return False
+        mode = node.get("fullscreen_mode", 0)
+        if mode and node.get("type") in ("con", "floating_con"):
+            rect = node.get("rect") or {}
+            if mode == 2 or (rect.get("x", 0) < area.x + area.width
+                    and area.x < rect.get("x", 0) + rect.get("width", 0)
+                    and rect.get("y", 0) < area.y + area.height
+                    and area.y < rect.get("y", 0) + rect.get("height", 0)):
+                return True
+        tiled, floating = node.get("nodes", []), node.get("floating_nodes", [])
+        workspaces = [child for child in tiled if child.get("type") == "workspace"]
+        if node.get("name") == "content" and workspaces:
+            # Each output's content focus order identifies its visible workspace,
+            # including an output which does not currently own keyboard focus.
+            selected = next((child for identifier in node.get("focus", []) for child in workspaces
+                             if child.get("id") == identifier), None)
+            tiled = [selected] if selected else []
+        elif node.get("layout") in ("tabbed", "stacked") and tiled:
+            selected = next((child for identifier in node.get("focus", []) for child in tiled
+                             if child.get("id") == identifier), tiled[0])
+            tiled = [selected]
+        return any(visit(child) for child in tiled + floating)
+    return visit(tree)
+
+
 def preview_image(node, hidden=False):
     """Mapped X11 windows only; bounded capture, no disk cache or unminimizing."""
     if hidden or not node or not node.get("window"):
@@ -238,8 +267,11 @@ class Dock(Gtk.Window):
             if any(item[2] for item in matches):
                 status += " · Focused"
             control.get_accessible().set_description(status)
-        self.show_all()
-        self.position()
+        if fullscreen_on_monitor(self.snapshot, area):
+            self.hide()
+        else:
+            self.show_all()
+            self.position()
         return False
 
     def matches(self, key):
