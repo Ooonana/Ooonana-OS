@@ -32,7 +32,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Native AI / model UI | Generic native chat compact layout, bounded headings, no-match search, draft attachment, safe Delete, status failure/stale/closed callbacks and streaming/copy/cancel fixtures pass | Real cloud-provider session, long-running transcript navigation; OpenVINO GUI/runtime/offline checks deferred by user October 16 |
 | Installer GUI / text wizard | Real font-metric 100/200% form/review/blocked fit 640×600 both themes; all 16 fields keyboard-walked, exact disk/password mapping and safe Cancel checked; disk details scroll inside form | Actual privileged preview/log lifecycle, text wizard and physical storage summary/install; bare UI fixtures never install |
 | Shared dialogs / menus / tooltips | Short/unbroken and long diagnostic text fit; secret input labelled/focused, password spaces retained, Cancel verified | Remaining file pickers, menus, escape/return and scaled text |
-| Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Qt6/QTerminal dark/light, opaque palettes, density and exit actions pass. Firefox dark QA scoped onboarding, portal open/cancel, exact URL/rendered-content read and window actions pass | Qt menu/preferences/picker variants; WSL nested runtime correction; Firefox light/scaling/session integration, actual physical compositor and live WSLg |
+| Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Qt6/QTerminal dark/light, opaque palettes, density and exit actions pass. Firefox dark QA scoped onboarding, portal open/cancel, exact URL/rendered-content read and window actions pass. Local WSL canonical runtime installed; guard/selection regressions pass | Qt menu/preferences/picker variants; Firefox light/scaling/installed-session integration, actual physical compositor and live WSLg |
 | Window manager | Native/XTerm modifier drag/resize, all number/move workspace keys, cycling, click focus, tile/tab/stack, resize mode, fullscreen, exact-session restore and unfocused close pass in private compositor | Real WSLg/physical compositor, multi-display and complete session lifecycle transitions |
 | GRUB: live / audio submenu | Shared live/installed branding, compact audio labels; actual EFI 640×480/1280×800, missing-font/mark fallback and unchanged kernel arguments checked. Minimal contrast repaired | Physical BIOS/UEFI, corrupted-media/runtime graphics failure and actual installed boot |
 | Boot / shutdown / reboot / persistent setup | Private PTY boot/save/setup; consecutive warning retention, normal console ordering, serial/ambiguous/motion-off/small-console and exact existing waits pass | Real framebuffer/kernel-message handoff, physical shutdown/recovery and complete persistent-setup interaction |
@@ -1235,3 +1235,30 @@ No release ISO built, sound played, model downloaded or physical storage/power
 operation performed. Stable promotion and signing enrollment remain deferred.
 
 ![Untraced Firefox opens exact portal-selected fixture, private candidate](assets/ooonana-firefox-picker-20261018.png)
+
+## Batch 20: local WSL document runtime
+
+- Corrected the installed-session precursor identified above: local adapter
+  derives canonical `/run/user/UID` selection and prepares it inside the existing
+  privileged socket-namespace setup before dropping to the desktop user.
+  A missing runtime now also triggers that existing setup path. No new boot
+  command, system service, daemon, broad `keepenv` or packaged-launcher change.
+- Embedded guards validate numeric identities, safe parent ownership/modes and
+  nonlinked directory types. Final runtime is user-owned mode0700. Unknown
+  owners, symlinks and writable parents are refused without taking them over.
+  Existing same-owner runtime contents survive mode correction and repeat runs.
+- When changing runtime, clear only inherited `DBUS_SESSION_BUS_ADDRESS` and
+  `OOONANA_DBUS_SESSION`; canonical inherited bus state stays unchanged.
+  Production audio remains enabled; no audio settings changed or playback run.
+- Actual generated selection block, missing/valid/wrong-owner/linked/unsafe
+  runtime cases and retained sentinel contents pass under Ubuntu root and
+  Ooonana UID1000 BusyBox. `bash tests/test-wsl-distro.sh` also passes.
+- Adapter installed with `sh scripts/install-wsl-desktop-adapter.sh`. Actual
+  `/run/user/1000` is `1000:1000 700`; packaged `/usr/bin/start-ooonana-i3` and
+  `/etc/wsl.conf` hashes unchanged. No desktop/WSL restart or model operation.
+  This is a WSL-local correction, not an additional package/ISO payload patch;
+  signed Qt runtime generation above remains current.
+- Isolated Firefox portal URL/content proof above supports canonical runtime;
+  actual installed Firefox/WSLg picker and input remain separate integration
+  gates. Whole-OS review stays active, with Qt variants and other ledger rows
+  still open. No release ISO built or physical storage/power test performed.

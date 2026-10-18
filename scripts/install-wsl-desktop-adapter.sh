@@ -16,19 +16,52 @@ trap 'rm -f -- "$work/launcher" "$work/picom" "$work/compositor.conf"; rmdir -- 
 trap 'exit 130' INT
 trap 'exit 143' TERM
 # Derive from installed version instead of maintaining a forked launcher.
-awk '
+runtime_library="$(dirname "$0")/lib/wsl-runtime.sh"
+[ -f "$runtime_library" ] || { echo 'WSL adapter: runtime guards missing' >&2; exit 1; }
+awk -v library="$runtime_library" '
+  NR == 1 {
+    print
+    while ((getline line < library) > 0) { print line; library_lines++ }
+    close(library)
+    next
+  }
   /\/usr\/bin\/start-ooonana-i3/ {
     calls += gsub(/\/usr\/bin\/start-ooonana-i3/, "/usr/local/bin/start-ooonana-i3")
   }
   /\[ "\$tries" -le 50 \]/ {
     waits += sub(/-le 50/, "-le 600")
   }
+  /unknown desktop user/ {
+    print
+    print "    ooonana_wsl_prepare_runtime \"$(id -u \"$SESSION_USER\")\" \"$(id -g \"$SESSION_USER\")\" || return 1"
+    prepare++; next
+  }
+  /stat -c %a \/tmp\/\.X11-unix/ && /!= 1777/ {
+    print "    { [ \"$(stat -c %a /tmp/.X11-unix 2>/dev/null || true)\" != 1777 ] ||"
+    print "      ! ooonana_wsl_runtime_ready \"$(id -u)\"; }; then"
+    readiness++; next
+  }
+  /^  if \[ "\$\{OOONANA_WSL_SOCKET_READY:-0\}" = 1 \]; then$/ {
+    print "  if is_wsl_session; then"
+    select_runtime++; next
+  }
+  /XDG_RUNTIME_DIR=.*ooonana\/wsl-runtime/ {
+    print "    ooonana_wsl_runtime_ready \"$(id -u)\" || { echo \"WSL runtime not prepared; relaunch through the WSL socket setup\" >&2; return 1; }"
+    print "    if [ \"${XDG_RUNTIME_DIR:-}\" != \"/run/user/$(id -u)\" ]; then"
+    print "      unset DBUS_SESSION_BUS_ADDRESS OOONANA_DBUS_SESSION"
+    print "    fi"
+    print "    XDG_RUNTIME_DIR=\"/run/user/$(id -u)\""
+    if ((getline line) <= 0 || line !~ /mkdir -p "\$XDG_RUNTIME_DIR"/) exit 1
+    if ((getline line) <= 0 || line !~ /chmod 0700 "\$XDG_RUNTIME_DIR"/) exit 1
+    runtime++; next
+  }
   { print }
   /^run_nested_i3\(\) \{$/ {
     print "  export GDK_BACKEND=x11 QT_QPA_PLATFORM=xcb"
     backends++
   }
-  END { if (calls != 3 || waits != 1 || backends != 1) exit 1 }
+  END { if (calls != 3 || waits != 1 || backends != 1 || !library_lines || prepare != 1 ||
+            readiness != 1 || select_runtime != 1 || runtime != 1) exit 1 }
 ' "$source_helper" >"$work/launcher" || {
   echo 'WSL adapter: unknown launcher layout; existing override retained' >&2; exit 1;
 }

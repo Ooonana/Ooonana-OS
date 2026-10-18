@@ -1,5 +1,19 @@
 # Current work - 2026-10-18
 
+## October 18 local WSL document-runtime correction
+
+Local desktop adapter now uses canonical `/run/user/UID`, prepared through its
+existing privileged socket setup. No boot command, daemon, broad environment
+preservation or ISO-payload change added. Parent/type/owner/mode guards refuse
+unsafe paths; existing same-owner contents survive permission correction.
+Switching from the home runtime resets inherited bus address/marker only.
+Root Ubuntu and nonroot Ooonana BusyBox fixtures, exact generated runtime
+selection and full WSL-distro regressions pass. Adapter installed in Ooonana;
+actual runtime is UID/GID1000, mode0700. Packaged launcher and `/etc/wsl.conf`
+hashes unchanged. No GUI/WSL restart, sound, model or ISO operation. Actual
+installed Firefox/WSLg interaction still needs its separate session check.
+[Scope and evidence](ui-whole-os-review.md#batch-20-local-wsl-document-runtime).
+
 ## October 18 Qt publication and Firefox first-run follow-up
 
 Qt source `f30dc7c` passes both CIs and is now signed/published as generation
@@ -18,8 +32,8 @@ Canonical `/run/user/1000` resolves it; earlier apparent failures then proved to
 be a QA assumption about private-window titles. Untraced real picker open/cancel,
 exact portal URL plus rendered-content clipboard read and native window actions
 now pass. Full redraw mirrors the existing WSL adaptation; no browser sandbox
-disabled or broad access granted. Installed nested WSL launcher still uses the
-home runtime; its local adapter/startup preparation remains the next fix.
+disabled or broad access granted. Installed nested WSL runtime correction was
+the next fix at this checkpoint; Batch 20 above records its implementation.
 
 F: staging duplicate is verified against retained generation but cleanup was
 blocked by execution policy; retained, with exact manual command in the ledger.

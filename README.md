@@ -507,8 +507,12 @@ Desktop workspace/window shortcuts:
 - `Super+M`: minimize; dock actions restore specific sessions. `Alt+F4`: close.
 
 Current local WSL installation uses an independently installed adapter for cold
-F: reads (60-second bounded Xephyr wait, nested X11/XCB). Packaged launcher and
-physical ISO are unchanged. Normal audio-enabled PowerShell launch:
+F: reads (60-second bounded Xephyr wait, nested X11/XCB). Existing privileged
+socket setup prepares private `/run/user/UID` for document-portal file access;
+unsafe paths/owners are refused. Changing from the old home runtime drops only
+the inherited session-bus address so the desktop starts its matching bus.
+Packaged launcher, boot configuration and physical ISO are unchanged.
+Normal audio-enabled PowerShell launch:
 
 ```powershell
 wsl -d Ooonana --exec /usr/local/bin/start-ooonana-i3 --nested
@@ -517,7 +521,7 @@ wsl -d Ooonana --exec /usr/local/bin/start-ooonana-i3 --nested
 Regenerate adapter after compatible WSL package updates as root with
 `sh scripts/install-wsl-desktop-adapter.sh`; unknown future launcher layout
 refuses rather than overwriting the working override. Current WSL candidate
-packages use a signed native snapshot under `/var/lib/ooonana/candidate-repo-0.10`,
+packages use a signed native snapshot under `/var/lib/ooonana/`,
 not the still-0.9.9 stable cloud channel. No removable-drive mount is needed.
 
 ## Ooonana Command
