@@ -17,7 +17,7 @@ case "$geometry" in
   *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
 esac
 case "$only" in
-  all|setup-details-ui|controls-details-ui|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|notification-lifecycle|window-controls-runtime|dock-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
+  all|setup-details-ui|controls-details-ui|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|notifications-runtime|notification-lifecycle|window-controls-runtime|dock-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -161,6 +161,38 @@ ln -s /proc/self/fd/2 "$rootfs/dev/stderr"
 mount -t devpts -o newinstance,ptmxmode=0666 devpts "$rootfs/dev/pts"
 ln -s pts/ptmx "$rootfs/dev/ptmx"
 chown 1000:1000 "$rootfs/home/ooonana" "$output"
+admin_policy=0
+if [[ "$only" == all || "$only" == admin-prompt-ui ]]; then
+  # Only private mounts: cached/system sudo policy and askpass stay unchanged.
+  [[ -f "$rootfs/etc/sudoers" && -d "$rootfs/etc/sudoers.d" && -f "$rootfs/usr/bin/ooonana-admin-askpass" ]]
+  install -m 0440 "$SOURCE/tests/fixtures/admin-prompt.sudoers" "$rootfs/run/ooonana-qa-sudoers"
+  mount --bind "$rootfs/run/ooonana-qa-sudoers" "$rootfs/etc/sudoers"
+  mount -o remount,bind,ro "$rootfs/etc/sudoers"
+  cmp -s "$SOURCE/tests/fixtures/admin-prompt.sudoers" "$rootfs/etc/sudoers"
+  mount -t tmpfs -o size=1m tmpfs "$rootfs/etc/sudoers.d"
+  # Live-media doas rules can independently authorize the same harmless check.
+  # Require the sudo prompt here rather than accidentally testing that fallback.
+  if [[ -f "$rootfs/etc/doas.conf" ]]; then
+    install -m 0400 /dev/null "$rootfs/run/ooonana-qa-doas"
+    mount --bind "$rootfs/run/ooonana-qa-doas" "$rootfs/etc/doas.conf"
+    mount -o remount,bind,ro "$rootfs/etc/doas.conf"
+  fi
+  if [[ -d "$rootfs/etc/doas.d" ]]; then mount -t tmpfs -o size=1m tmpfs "$rootfs/etc/doas.d"; fi
+  awk -v marker='"$ROOTFS/usr/bin/ooonana-run-admin"' '
+    index($0, marker) { capture=1; next }
+    capture && $0 == "EOF" { exit }
+    capture { print }
+  ' "$SOURCE/scripts/build-full-i3-rootfs.sh" > "$rootfs/run/ooonana-qa-run-admin"
+  [[ -s "$rootfs/run/ooonana-qa-run-admin" ]]
+  chmod 0755 "$rootfs/run/ooonana-qa-run-admin"
+  mount --bind "$rootfs/run/ooonana-qa-run-admin" "$rootfs/usr/bin/ooonana-run-admin"
+  mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-run-admin"
+  mount --bind "$SOURCE/packages/ooonana/usr/lib/ooonana/ui" "$rootfs/usr/lib/ooonana/ui"
+  mount -o remount,bind,ro "$rootfs/usr/lib/ooonana/ui"
+  mount --bind "$SOURCE/packages/ooonana/usr/bin/ooonana-admin-askpass" "$rootfs/usr/bin/ooonana-admin-askpass"
+  mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-admin-askpass"
+  admin_policy=1
+fi
 if [[ "$only" == firefox-frame && -z "${OOONANA_FIREFOX_REUSE_HOME:-}" ]]; then
   mkdir -p "$rootfs$gui_runtime"
   chown 1000:1000 "$rootfs$gui_runtime"
@@ -174,7 +206,7 @@ if [[ "$only" == firefox-frame && -z "${OOONANA_FIREFOX_REUSE_HOME:-}" ]]; then
 fi
 # Host Xvfb and candidate use the same private filesystem socket, no TCP.
 mount --bind "$rootfs/tmp" /tmp
-export rootfs output only theme text_scale gui_runtime
+export rootfs output only theme text_scale gui_runtime admin_policy
 # Keep namespace init as Bash. Xvfb will not send its readiness signal to PID 1.
 # shellcheck disable=SC2016 # Child shell expands exported paths/display.
 unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp" bash -c '
@@ -201,6 +233,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
       XAUTHORITY=/home/ooonana/.Xauthority XDG_RUNTIME_DIR="$gui_runtime" \
       XDG_CURRENT_DESKTOP=Ooonana:i3 XDG_SESSION_DESKTOP=ooonana DESKTOP_SESSION=ooonana \
       PYTHONDONTWRITEBYTECODE=1 OOONANA_GUI_TEST_DISPLAY=1 OOONANA_NOTIFICATION_TEST_SESSION=1 GDK_BACKEND=x11 \
+      OOONANA_GUI_TEST_ADMIN_POLICY="$admin_policy" \
       GTK_THEME="Adwaita:$theme" OOONANA_THEME="$theme" OOONANA_GUI_TEXT_SCALE="$text_scale" NO_AT_BRIDGE=1 \
       /usr/bin/dbus-run-session -- "$@" >"$output/$name.log" 2>&1; then
       printf "PASS %s\n" "$name"
@@ -217,9 +250,11 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   probe ui-content-runtime python3 /source/tests/check-ui-content-runtime.py /qa/content
   probe wireless-notification-ui python3 /source/tests/check-wireless-notification-ui.py /qa/wireless-notification
   probe package-health-ui python3 /source/tests/check-package-health-ui.py /qa/package-health
+  probe admin-prompt-ui python3 /source/tests/check-admin-prompt-ui.py /qa/admin-prompt
   probe installer-ui python3 /source/tests/check-installer-ui.py /qa/installer
   probe settings-power-ui python3 /source/tests/check-settings-power-ui.py
   probe settings-details-ui python3 /source/tests/check-settings-details-ui.py /qa/settings-details
+  probe settings-storage-ui python3 /source/tests/check-settings-storage-ui.py /qa/settings-storage
   probe ai-details-ui python3 /source/tests/check-ai-details-ui.py /qa/ai-details
   probe task-details-ui python3 /source/tests/check-task-details-ui.py /qa/task-details
   probe workspace-ui python3 /source/tests/check-workspace-ui.py /qa/workspaces

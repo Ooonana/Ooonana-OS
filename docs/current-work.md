@@ -1,5 +1,19 @@
 # Current work - 2026-10-18
 
+## October 18 administration and actual Settings storage review
+
+Real password prompt lacked an accessible field name; added Account password
+without changing its size. Six private dark/light, compact/desktop/200% checks
+cover Escape, close, Enter, blank rejection and secret-pipe-only output. Actual
+sudo/askpass cancellation now reaches Packages/Health, restores controls and
+supports retry; private policy permits only harmless `/bin/true`, no package
+transaction or real credentials. Actual Settings 0600 writes, reopen, read-only
+failure rollback and retry also pass six variants. That path exposed scaled
+short error dialogs crossing screen edges; shared dialogs now use GTK-compatible
+font metrics and existing scrollable diagnostics when text would be too tall.
+Current source batch awaits commit/publication/WSL refresh; broader review stays
+active. [Evidence and remaining limits](ui-whole-os-review.md#batch-24-administration-and-settings-storage).
+
 ## October 18 notification publication and native refresh
 
 Runtime source `9aa2ac7` passes GitHub/GitLab CI and is signed/published as

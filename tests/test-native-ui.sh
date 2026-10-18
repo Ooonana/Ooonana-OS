@@ -33,6 +33,8 @@ for app in signal_map setup_app settings_app wifi_app bluetooth_app packages_app
 done
 
 PYTHONPYCACHEPREFIX="$tmp/pycache" "$PYTHON" -m py_compile "$UI_DIR"/*.py
+PYTHONPYCACHEPREFIX="$tmp/pycache" "$PYTHON" -m py_compile "$ROOT/packages/ooonana/usr/bin/ooonana-admin-askpass"
+assert_contains "$(<"$ROOT/packages/ooonana/usr/bin/ooonana-admin-askpass")" 'entry.get_accessible().set_name("Account password")'
 
 common="$(<"$UI_DIR/common.py")"
 settings="$(<"$UI_DIR/settings_app.py")"

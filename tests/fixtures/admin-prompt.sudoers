@@ -1,0 +1,6 @@
+# Owned mount-namespace GUI fixture only; never install on user systems.
+Defaults timestamp_timeout=0
+Defaults passwd_tries=1
+Defaults lecture=never
+root ALL=(ALL:ALL) ALL
+ooonana ALL=(root) PASSWD: /bin/true

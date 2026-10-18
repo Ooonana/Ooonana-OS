@@ -20,18 +20,18 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Dock | Centered icons, bounded previews/tooltips, compact grouping, 44px targets and unchanged hover focus; follow-up action/keyboard checks below | Edge placement and actual session/display integration |
 | Native Launcher | Long names bounded with full tooltips; visible no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard pass | Real application launch and installed keyboard/IME integration |
 | Wi-Fi / Bluetooth | Managed lists/hidden/personal/TLS/PIN forms; advanced fields, bounded certificate pickers, inline validation, progress/reduced motion, service gating, duplicate/closed refusal and safe Reset/Remove pass both themes through 200% text | Actual installed authentication, advanced network activation, physical reconnect/pairing and changed-adapter integration |
-| Settings: all six pages | Compact page picker, bounded/selectable source values, visible keyboard focus, managed wallpaper/log dialogs, repair/update retry and motion rollback; 100/125/200% text checks below | Real installed-session preference/authentication paths and external file/device failures |
+| Settings: all six pages | Compact page picker, bounded/selectable sources, managed dialogs, repair/update retry; actual private 0600 preference writes, reopen, read-only rollback and retry through 200% text | Actual installed-session theme/wallpaper/authentication paths, other external file/device failures |
 | Setup | Compact/200% scrolling and stacked labels; focused inline validation, secret-preserving drafts, full source/routing review, default Back, reduced motion, pending/reentrant and closed-parent refusal checked both themes | Complete installed privileged setup/persistence and actual authentication/network failures; CLI backend preflight is not certified by UI validation |
 | Sound / brightness / music | Verified readiness, selected-identity audio/backlight commands, unknown/empty/permission states, persistent inline retry, serialized actions, preserved drafts, stale-poll/closed refusal; keyboard and both themes through 200% text pass silent fixtures | Actual installed route/mute/volume and playback semantics, changed-device integration and real hardware; no sound playback |
 | Power | Native default-Cancel, duplicate refusal, error/retry, failed lock refusal pass with mocked commands | Actual isolated lock/logout/suspend and unavailable capabilities |
 | Notifications | Private real Dunst history/DND/remove/clear; changed-record nested keyboard focus/visible reading anchor; live/archive storage fault and retry, explicit restart/DND refresh, reused IDs and privacy checks, both themes/sizes | Actual installed-session notifications, timed service recovery and integrated panel/session behavior |
-| Packages | Default-Cancel install/remove/upgrade preview; failed/empty plans cannot apply; mutating close guard and parent-dialog lifecycle pass | Actual privileged transaction/authentication UX on disposable installation |
-| Health / Updates | Readable snapshot, exact raw/copy, honest attention/malformed states; metadata Cancel/approved admin dispatch pass | Actual installed-session service/repository failures and authentication UX |
+| Packages | Default-Cancel preview, failed/empty plan refusal, mutating close guard; actual sudo/askpass cancellation/retry restores controls under private harmless-command policy | Actual privileged package transactions and successful authentication on disposable installation |
+| Health / Updates | Readable snapshot/raw/copy, honest attention/malformed states; actual isolated report and sudo/askpass cancellation restore controls | Actual installed-session service/repository failures, successful authentication and metadata transactions |
 | Wi-Fi / Bluetooth signal maps | 658×750 overflow fixed; populated/empty/light/dark native candidate render, bounded labels, full-name tooltips and accessibility checks pass | Real data refresh/focus integration and physical radio/session behavior |
 | Task Manager | Real owned process termination regression; crowded metrics, compact navigation, keyboard/copy, filter counts, stable refresh/selection, PID reuse and parent-close confirmation checked; unavailable counters never show stale graphs | Actual hardware/GPU readings, large real /proc sampling latency and installed-session shortcut launch |
 | Native AI / model UI | Generic native chat compact layout, bounded headings, no-match search, draft attachment, safe Delete, status failure/stale/closed callbacks and streaming/copy/cancel fixtures pass | Real cloud-provider session, long-running transcript navigation; OpenVINO GUI/runtime/offline checks deferred by user October 16 |
 | Installer GUI / text wizard | Real font-metric 100/200% form/review/blocked fit 640×600 both themes; all 16 fields keyboard-walked, exact disk/password mapping and safe Cancel checked; disk details scroll inside form | Actual privileged preview/log lifecycle, text wizard and physical storage summary/install; bare UI fixtures never install |
-| Shared dialogs / menus / tooltips | Short/unbroken and long diagnostic text fit; secret input labelled/focused, password spaces retained, Cancel verified | Remaining file pickers, menus, escape/return and scaled text |
+| Shared dialogs / menus / tooltips | Font-metric-bounded short errors and scrollable diagnostics; actual Settings storage faults through 200%; real askpass labelled/focused, Escape/close/blank/Enter and pipe-only secrets checked | Remaining file pickers/menus and installed-session integration |
 | Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Qt6/QTerminal dark/light, density, six Preferences pages, initial small-screen placement, nested font/portal image picker cancel/select and exit actions pass. Firefox dark QA scoped onboarding, portal open/cancel, exact URL/rendered-content read and window actions pass. Local WSL canonical runtime installed; guard/selection regressions pass | Other Qt apps and scaled picker variants; Firefox light/scaling/installed-session integration, actual physical compositor and live WSLg |
 | Window manager | Native/XTerm modifier drag/resize, all number/move workspace keys, cycling, click focus, tile/tab/stack, resize mode, fullscreen, exact-session restore and unfocused close pass in private compositor | Real WSLg/physical compositor, multi-display and complete session lifecycle transitions |
 | GRUB: live / audio submenu | Shared live/installed branding, compact audio labels; actual EFI 640×480/1280×800, missing-font/mark fallback and unchanged kernel arguments checked. Minimal contrast repaired | Physical BIOS/UEFI, corrupted-media/runtime graphics failure and actual installed boot |
@@ -1504,3 +1504,49 @@ Supersedes Batch 23's source-pending note. Whole-OS review remains active.
   downloaded or physical device/power operation performed. Captures, logs,
   prior generations and checkpoints retained; unrelated denied cleanup not
   retried. Other ledger rows and actual session/manual gates remain open.
+
+## Batch 24: administration and Settings storage
+
+- Actual askpass component baseline found an unlabelled password field. Added
+  the explicit accessible name `Account password`; no font/control enlargement.
+  Real dialog Escape/window close and blank Enter emit no secret; deliberate
+  fixture acceptance preserves leading/trailing spaces in the output pipe only.
+  Captures occur before entering fake data; no real credentials used or logged.
+- New isolated admin route executes the real common helper, generated launcher,
+  sudo and askpass. Private read-only sudo policy permits only `/bin/true` and
+  requires authentication; private empty doas policy prevents the live-media
+  passwordless fallback. No password is entered on this route. Packages and
+  Health show actual cancellation failure, restore controls and allow retry.
+  This proves cancellation/error plumbing, not successful privileged package
+  transactions. Production policies and cached rootfs files remain unchanged.
+- Exact source UI/askpass/current generated helper are read-only bind-mounted
+  only inside the owned mount/PID/network/display namespace. Driver fixes retain
+  root-only sudoers permissions, restore `sys.path` after component execution,
+  account for header/window title differences and test both privilege backends.
+  Intermediate fixture failures remain diagnostics, not product bugs or passes.
+- Admin final evidence:
+  `/var/tmp/ooonana-admin-selector-final-20261018.WXrX6MOA` (Ubuntu). All six
+  variants pass: 640×600 normal100% and 200%, 1024×768 normal100%, both themes.
+  Actual post-cancel Health output and prompt captures inspected. Existing
+  Glycin warnings remain visible; no host security setting or sandbox changed.
+- Real Settings preference writes create mode0600 files. Destroy/reopen retains
+  selection; chmod0500 on the owned parent reproduces an actual save failure.
+  UI restores the saved choice, retains file bytes, shows a parented error,
+  then persists a successful retry after permission recovery. No command or
+  preference-write mock is used; only the temporary fixture is modified.
+- This path found short native error dialogs at 641–642px on a 640px display
+  with 200% text. Width now uses the same maximum character/digit metric as
+  [GtkLabel](https://github.com/GNOME/gtk/blob/gtk-3-24/gtk/gtklabel.c), plus
+  the current work area. Excessively tall short messages reuse existing
+  scrollable diagnostics; that path now uses shared CSD-aware dialog fitting.
+  Normal typography stays unchanged. Short-error, unbroken580-character and
+  long-diagnostic checks pass both appearances/sizes/scales, six variants under
+  `/var/tmp/ooonana-settings-dialog-final-20261018.jaZdaBC1` (Ubuntu).
+- Native/rootfs/package and shared-content/catalog regressions are recorded
+  under `/var/tmp/ooonana-admin-settings-regress-20261018.vRIVu6Iw`.
+  Source regressions pass; all 25 native pages at 640×600 in both themes,
+  shared-content/dialog and package/health interaction probes pass. Cached
+  doas policy/mode remain intact and private policy mounts/files disappear.
+  Source batch awaits clean commit and signed/native refresh. Dock edge/session,
+  other app paths and remaining ledger/manual gates remain open. No ISO, sound,
+  models, real credentials, physical device or user-history operation.

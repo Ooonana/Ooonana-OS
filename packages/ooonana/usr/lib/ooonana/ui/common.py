@@ -601,27 +601,41 @@ def message_dialog(parent, title, text, kind=Gtk.MessageType.INFO):
             text=title,
         )
         dialog.format_secondary_text(text)
+        display = Gdk.Display.get_default()
+        monitor = display.get_monitor_at_window(parent.get_window()) if display and parent and parent.get_window() else None
+        if display:
+            monitor = monitor or display.get_primary_monitor() or display.get_monitor(0)
+        # GTK's fixed 64-character natural width can exceed a small monitor at
+        # large text scales. Preserve normal density; wrap to the real budget.
+        text_budget = max(1, monitor.get_workarea().width - 160) if monitor else None
+        text_height = 0
         for child in dialog.get_message_area().get_children():
             if isinstance(child, Gtk.Label):
+                child.set_line_wrap(True)
                 child.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
-                child.set_max_width_chars(64)
-        return dialog
+                metrics = child.get_pango_context().get_metrics(None, None)
+                # GtkLabel budgets characters by the larger char/digit metric.
+                char_width = max(1, metrics.get_approximate_char_width() / Pango.SCALE,
+                                 metrics.get_approximate_digit_width() / Pango.SCALE)
+                child.set_max_width_chars(min(64, max(1, int(text_budget / char_width))) if text_budget else 64)
+                if text_budget:
+                    measured = child.get_layout().copy()
+                    measured.set_width(int(text_budget * Pango.SCALE))
+                    measured.set_wrap(Pango.WrapMode.WORD_CHAR)
+                    text_height += measured.get_pixel_size()[1]
+        if not monitor or text_height + 160 <= monitor.get_workarea().height:
+            fit_dialog(dialog, -1)
+            return dialog
+        # A short character count can still be tall at large text sizes. Reuse
+        # the existing scrollable diagnostics view rather than clip its actions.
+        dialog.destroy()
 
     dialog = Gtk.Dialog(title=title, transient_for=parent, modal=True)
     header(dialog, title, "", "dialog-information-symbolic")
     dialog.set_resizable(True)
     dialog.add_button("Close", Gtk.ResponseType.CLOSE)
     dialog.set_default_response(Gtk.ResponseType.CLOSE)
-    width, height = 760, 520
-    display = Gdk.Display.get_default()
-    if display:
-        monitor = display.get_monitor_at_window(parent.get_window()) if parent and parent.get_window() else None
-        monitor = monitor or display.get_primary_monitor() or display.get_monitor(0)
-        if monitor:
-            workarea = monitor.get_workarea()
-            width = max(1, min(width, workarea.width - 64))
-            height = max(1, min(height, workarea.height - 64))
-    dialog.set_default_size(width, height)
+    fit_dialog(dialog, 760, 520)
 
     area = dialog.get_content_area()
     area.set_border_width(16)
