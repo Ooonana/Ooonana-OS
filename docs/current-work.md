@@ -1,5 +1,19 @@
 # Current work - 2026-10-18
 
+## October 18 installed branding and console diagnostics
+
+Installed GRUB now shares live branding, stages its target font under Ooonana's
+own filename and preserves existing custom boot font. Compact audio labels fit;
+missing assets keep console/serial fallback. Actual private EFI main/submenus
+and fallback at 640×480/1280×800 pass; kernel args/default/timeout unchanged.
+Console status no longer overwrites consecutive warning lines. Normal desktop
+console ordering allows existing pulse; serial/ambiguous/motion-off remain plain.
+No new waits/workers; shutdown error feedback stops before recovery message.
+Writer/native/backend/rootfs/ISO-fixture/initramfs regressions pass. Signed
+candidate and installed WSL refresh for these changes pending; whole-OS review
+remains active. No real install, sound, model, power or release ISO operation.
+[Evidence](ui-whole-os-review.md#batch-17-consistent-installed-boot-branding).
+
 ## October 18 installer publication and minimal GRUB
 
 Installer/presentation source `8066066` passed both CIs and is published as signed

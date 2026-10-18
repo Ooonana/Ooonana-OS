@@ -8,8 +8,30 @@ ooonana_console_begin() {
   ooonana_ui_device=/dev/tty1
   ooonana_ui_cmdline="$(cat /proc/cmdline 2>/dev/null || true)"
   case " ${ooonana_ui_cmdline} " in
-    *' ooonana.motion=off '*|*' console=ttyS'*|*' console=hvc'*|*' console=ttyAMA'*) return 0 ;;
+    *' ooonana.motion=off '*) return 0 ;;
   esac
+  # One console per type: last console= selects primary console. Desktop GRUB
+  # keeps serial first, tty0 last. Ambiguous/custom lists stay plain text.
+  ooonana_ui_console=default
+  ooonana_ui_console_types=' '
+  for ooonana_ui_argument in $ooonana_ui_cmdline; do
+    case "$ooonana_ui_argument" in
+      console=*)
+        ooonana_ui_console=${ooonana_ui_argument#console=}
+        ooonana_ui_console=${ooonana_ui_console%%,*}
+        case "$ooonana_ui_console" in
+          tty0|tty1) ooonana_ui_console_type=virtual ;;
+          ttyS[0-9]*) ooonana_ui_console_type=serial ;;
+          *) return 0 ;;
+        esac
+        case "$ooonana_ui_console_types" in
+          *" $ooonana_ui_console_type "*) return 0 ;;
+        esac
+        ooonana_ui_console_types="$ooonana_ui_console_types$ooonana_ui_console_type "
+        ;;
+    esac
+  done
+  case "$ooonana_ui_console" in default|tty0|tty1) ;; *) return 0 ;; esac
   [ "${OOONANA_CONSOLE_MOTION:-on}" != off ] || return 0
   [ -c "$ooonana_ui_device" ] && [ -w "$ooonana_ui_device" ] || return 0
   ooonana_ui_dimensions="$(stty size <"$ooonana_ui_device" 2>/dev/null || true)"
@@ -24,6 +46,8 @@ ooonana_console_begin() {
     printf '\033]P3ffb21a\033[2J\033[%s;1H\033[1;33m' "$ooonana_ui_row"
     ooonana_console_center 'Ooonana OS'
     printf '\033[0m'
+    # Reserve status rows once. Subsequent redraws preserve warning position.
+    printf '\033[%s;1H' "$((ooonana_ui_row + 6))"
   } >"$ooonana_ui_device" 2>/dev/null || return 0
   ooonana_ui_row=$((ooonana_ui_row + 3))
   ooonana_ui_animated=1
@@ -44,12 +68,12 @@ ooonana_console_frame() {
     *) ooonana_ui_pulse='. . o' ;;
   esac
   {
-    printf '\033[%s;1H\033[2K\033[1;33m' "$ooonana_ui_row"
+    printf '\0337\033[%s;1H\033[2K\033[1;33m' "$ooonana_ui_row"
     ooonana_console_center "$ooonana_ui_pulse"
     printf '\033[2K\033[0m'
     ooonana_console_center "$ooonana_ui_label"
-    # Leave ordinary warnings below the status, not over its text.
-    printf '\n'
+    # Restore diagnostic cursor/attributes; never rewind existing warnings.
+    printf '\0338'
   } >"$ooonana_ui_device" 2>/dev/null || true
   ooonana_ui_frame=$(((ooonana_ui_frame + 1) % 3))
 }
@@ -76,8 +100,8 @@ ooonana_console_wait() {
 ooonana_console_end() {
   if [ "${ooonana_ui_animated:-0}" = 1 ] &&
      [ -c "$ooonana_ui_device" ] && [ -w "$ooonana_ui_device" ]; then
-    printf '\033[%s;1H\033[2K\033[0m\033[%s;1H' \
-      "$ooonana_ui_row" "$((ooonana_ui_row + 3))" >"$ooonana_ui_device" 2>/dev/null || true
+    printf '\0337\033[%s;1H\033[2K\033[%s;1H\033[2K\033[0m\0338' \
+      "$ooonana_ui_row" "$((ooonana_ui_row + 1))" >"$ooonana_ui_device" 2>/dev/null || true
   fi
   ooonana_ui_animated=0
   return 0

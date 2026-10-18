@@ -34,8 +34,8 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Shared dialogs / menus / tooltips | Short/unbroken and long diagnostic text fit; secret input labelled/focused, password spaces retained, Cancel verified | Remaining file pickers, menus, escape/return and scaled text |
 | Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Nemo requires WSL/Xvfb full-redraw/redirection adaptation | Qt/Firefox current-source integrated rerun, menu/dialog variants, actual physical compositor and live WSLg |
 | Window manager | Native/XTerm modifier drag/resize, all number/move workspace keys, cycling, click focus, tile/tab/stack, resize mode, fullscreen, exact-session restore and unfocused close pass in private compositor | Real WSLg/physical compositor, multi-display and complete session lifecycle transitions |
-| GRUB: live / audio submenu | Live mascot/menu fixtures; fresh minimal/installed EFI at 640×480 and 1280×800. Minimal invisible entries repaired; selected/normal pixels verified. Installed text fallback and audio submenu readable | Installed branded-theme enhancement, physical BIOS/UEFI, font fallback and serial-only recovery |
-| Boot / shutdown / reboot / persistent setup | Most recent wordmark/prompt source and PTY captures | Error/serial/reduced motion, install paths and real framebuffer handoff; physical USB tests separate |
+| GRUB: live / audio submenu | Shared live/installed branding, compact audio labels; actual EFI 640×480/1280×800, missing-font/mark fallback and unchanged kernel arguments checked. Minimal contrast repaired | Physical BIOS/UEFI, corrupted-media/runtime graphics failure and actual installed boot |
+| Boot / shutdown / reboot / persistent setup | Private PTY boot/save/setup; consecutive warning retention, normal console ordering, serial/ambiguous/motion-off/small-console and exact existing waits pass | Real framebuffer/kernel-message handoff, physical shutdown/recovery and complete persistent-setup interaction |
 | Bootable PDF UI | Previous source/VM fixtures; browser viewer requires manual check | Viewer rendering, keyboard/Backspace, focus, responsive controls and perceived command delay |
 | Accessibility / input / displays / session | Initial accessible controls and theme captures only | Text scale, keyboard/focus, clipboard, Korean composition, WSLg input, multi-monitor/DPI/hotplug, login/lock/logout/suspend/resume |
 
@@ -1009,3 +1009,59 @@ Supersedes pending-publication notes for installer/presentation changes above.
   fresh minimal builds use this source; whole-OS review stays active.
 
 ![Minimal boot menu, actual private EFI at 640×480](assets/ooonana-grub-minimal-20261018.png)
+
+## Batch 17: Consistent installed boot branding
+
+- Installed root previously wrote an unused minimal theme and always displayed
+  generic GRUB. It now stages the same canonical `grub.theme`, official mark and
+  background as live media, with readable compact audio labels. Shared asset
+  replaces the old inline live-theme duplicate; existing live layout unchanged.
+- Rootfs and core package explicitly include branding PNGs. Installed full-i3
+  already has GRUB's 2.14 `Unifont Regular 16`; no new package/font download.
+  Installer copies that target-owned font to `fonts/ooonana.pf2`, leaving custom
+  `fonts/unicode.pf2` untouched. Text size stays 16px in GRUB; desktop stays 10pt.
+- Graphical theme requires all target assets plus font and successful font load/
+  graphics setup. Missing font/mark keeps readable console/serial menu. No boot
+  entry/default/timeout/kernel argument change; no installer/disk/power operation
+  executed during QA. Four writer regressions cover completeness, missing assets,
+  custom font retention and exact normal/audio kernel arguments.
+- Actual private EFI main/audio menu captures pass 640×480 and 1280×800, with
+  selected/normal role pixels verified. Missing font and mark fallback pass both
+  sizes. Renderer now gives VGA explicit preferred size: relying only on GRUB's
+  gfxmode falsely assumed text fallback changed firmware framebuffer mode.
+  Live main/audio regression passes both sizes. Tests use host GRUB 2.12/OVMF,
+  not a physical installed GRUB 2.14 boot certification.
+- Ubuntu evidence: `/var/tmp/ooonana-grub-ui-installed-confirm-20261018.o9aczJ2P`
+  (complete); `/var/tmp/ooonana-grub-ui-installed-recovery-20261018.FjjNHddn`
+  (fallback/live); `/var/tmp/ooonana-grub-ui-owned-font-20261018.9785yGQ7`
+  (final namespaced-font main/audio and missing-font recovery).
+- Installer, full-ISO fixture, rootfs/branding, native UI and backend/initramfs
+  regressions pass. Source still awaits signed package/WSL refresh for this batch.
+
+![Installed boot branding, private EFI at 640×480](assets/ooonana-installed-grub-20261018.png)
+
+## Batch 18: Console motion and visible warnings
+
+- Baseline private PTY showed second warning overwriting first. Status redraws
+  now save/restore cursor and attributes instead of rewinding diagnostic output;
+  end clears both status rows without moving warning position. A held live
+  shutdown ends cosmetic feedback before showing failure/recovery text. Storage,
+  stop-writer ordering, waits and fail-closed shutdown loop remain unchanged.
+- Previous any-serial-argument check suppressed animation on ordinary desktop
+  boots (`ttyS0` first, `tty0` last). Now standard one-console-per-type ordering
+  is handled; serial-last, unknown/duplicate console types, motion-off and small/
+  unavailable VT stay plain text. This follows the documented normal ordering;
+  duplicate types are deliberately treated as ambiguous, not guessed.
+  [Kernel console ordering](https://docs.kernel.org/admin-guide/serial-console.html).
+- No worker, trap, input read, disk write or artificial waiting added to the
+  console helper. Existing pulse only runs during existing waits. Real private
+  xterm/PTY confirmation shows both fixture warnings visible; shell/BusyBox
+  tests cover console/motion/geometry gates, cursor preservation, exact waits and
+  disappearing-device refusal. Backend and live-initramfs regressions pass.
+- Ubuntu baseline `/var/tmp/ooonana-console-ui-baseline-20261018.RQjYveQB` and
+  confirmation `/var/tmp/ooonana-console-ui-confirm-20261018.usBkpv6G` retain
+  boot/closing/save/warnings/persistence-prompt captures. These are not physical
+  framebuffer, asynchronous kernel-printk or power-loss certification.
+  Source publication/installed WSL refresh pending; broader review stays active.
+
+![Both diagnostics retained after status redraw, private PTY](assets/ooonana-console-warnings-20261018.png)

@@ -7,6 +7,9 @@ export PATH
 # Never let PID1 proceed to poweroff after incomplete cleanup.
 shutdown_failed() {
   [ "$1" = 0 ] && return 0
+  if command -v ooonana_console_end >/dev/null 2>&1; then
+    ooonana_console_end || true
+  fi
   echo OOONANA_SHUTDOWN_CLEANUP_FAILED >&2 || true
   # PID1 waits for this action, not its rescue child. Never exec/return here:
   # closing a rescue shell must not release init into low-level poweroff.

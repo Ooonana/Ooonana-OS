@@ -90,6 +90,8 @@ install -m 0644 "$ROOT/branding/i3/config" "$staging/etc/i3/config"
 install -m 0644 "$ROOT/branding/i3/config" "$staging/etc/i3/config.keycodes"
 install -D -m 0644 "$ROOT/branding/desktop-0.9.svg" "$staging/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.svg"
 install -D -m 0644 "$ROOT/branding/desktop-0.9.png" "$staging/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png"
+install -D -m 0644 "$ROOT/branding/boot-mark.png" "$staging/usr/share/ooonana/boot-mark.png"
+install -D -m 0644 "$ROOT/branding/grub-background.png" "$staging/usr/share/ooonana/grub-background.png"
 for helper in \
   ooonana-theme-env ooonana-open ooonana-apps ooonana-run-admin \
   ooonana-browser ooonana-files ooonana-hardware-reprobe \

@@ -33,6 +33,12 @@ ooonana_console_wait 2
 ooonana_console_stage 'Saving changes'
 printf saved >{shlex.quote(str(work / 'state'))}
 sleep 3
+printf 'Storage warning one: fixture only, no disk action\\n' >/dev/tty
+ooonana_console_frame
+printf 'Storage warning two: fixture only, no disk action\\n' >/dev/tty
+ooonana_console_frame
+printf warnings >{shlex.quote(str(work / 'state'))}
+sleep 3
 ooonana_console_end
 ooonana_console_begin
 ooonana_console_stage 'Preparing writable session'
@@ -53,7 +59,7 @@ sleep 3
 process = subprocess.Popen(["xterm", "-geometry", "80x25+0+0", "-fa", "DejaVu Sans Mono", "-fs", "12",
                             "-bg", "#101317", "-fg", "#f5f5f7", "-e", "sh", str(fixture)])
 try:
-    for state in ("boot", "shutdown", "saved", "setup"):
+    for state in ("boot", "shutdown", "saved", "warnings", "setup"):
         deadline = time.monotonic() + 10
         while not (work / "state").exists() or (work / "state").read_text() != state:
             assert process.poll() is None and time.monotonic() < deadline, state

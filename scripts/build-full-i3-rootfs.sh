@@ -4373,6 +4373,8 @@ EOF
 }
 
 install_branding() {
+  install -D -m 0644 "$ROOT/branding/boot-mark.png" "$ROOTFS/usr/share/ooonana/boot-mark.png"
+  install -D -m 0644 "$ROOT/branding/grub-background.png" "$ROOTFS/usr/share/ooonana/grub-background.png"
   install -D -m 0644 "$ROOT/branding/logo.svg" "$ROOTFS/usr/share/ooonana/logo.svg"
   install -D -m 0644 "$ROOT/branding/logo.png" "$ROOTFS/usr/share/ooonana/logo.png"
   install -D -m 0644 "$ROOT/branding/wallpaper.svg" "$ROOTFS/usr/share/ooonana/wallpapers/ooonana-wallpaper.svg"

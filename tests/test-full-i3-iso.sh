@@ -54,7 +54,7 @@ assert_contains "$script_src" "if terminal_output gfxterm serial; then"
 assert_contains "$script_src" "terminal_output console serial"
 assert_contains "$script_src" "set gfxpayload=keep"
 assert_contains "$script_src" "set theme=/boot/grub/theme.txt"
-assert_contains "$script_src" 'text = "Starting in %d s"'
+assert_contains "$script_src" '$ROOT/packages/ooonana/usr/share/ooonana/grub.theme'
 assert_contains "$script_src" "ooonana_boot_hint"
 assert_not_contains "$script_src" "[#####-----]"
 verifier_src="$(<"$ROOT/scripts/verify-rufus-iso.sh")"
@@ -156,6 +156,7 @@ if command -v grub-script-check >/dev/null 2>&1; then
   grub-script-check "$tmp/build/full-i3-iso-tree/boot/grub/grub.cfg" || fail "invalid GRUB config"
 fi
 theme="$(<"$tmp/build/full-i3-iso-tree/boot/grub/theme.txt")"
+cmp -s "$ROOT/packages/ooonana/usr/share/ooonana/grub.theme" "$tmp/build/full-i3-iso-tree/boot/grub/theme.txt" || fail 'live GRUB differs from shared installed theme'
 assert_contains "$theme" '+ label'
 assert_contains "$theme" 'id = "__timeout__"'
 assert_contains "$theme" 'desktop-image: "/boot/grub/background.png"'

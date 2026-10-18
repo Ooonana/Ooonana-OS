@@ -31,6 +31,12 @@ with tempfile.TemporaryDirectory(prefix="ooonana-console-test-") as temporary:
             ("off", "ooonana.live=1", "25 80", False),
             ("on", "ooonana.motion=off", "25 80", False),
             ("on", "console=ttyS0,115200 ooonana.live=1", "25 80", False),
+            ("on", "console=ttyS0,115200 console=tty0", "25 80", True),
+            ("on", "console=tty0 console=ttyS0,115200", "25 80", False),
+            ("on", "console=ttyS0 console=ttyS1 console=tty0", "25 80", False),
+            ("on", "console=tty0 console=tty1", "25 80", False),
+            ("on", "console=ttyUSB0", "25 80", False),
+            ("on", "console=", "25 80", False),
             ("on", "ooonana.live=1 console=hvc0", "25 80", False),
             ("on", "console=ttyAMA0", "25 80", False),
             ("on", "ooonana.live=1", "0 0", False),
@@ -74,6 +80,8 @@ ooonana_console_frame
             frames.append(device.read_text())
         assert len(set(frames)) == 3
         assert all("\x1b[2J" not in frame and "Saving changes" in frame for frame in frames)
+        assert all(frame.startswith("\x1b7") and frame.endswith("\x1b8") for frame in frames), \
+            "Status redraw must restore diagnostic cursor, not rewind warning output"
 
     # A disappearing /dev must never turn drawing into regular-file writes.
     strict = work / "strict-helper.sh"

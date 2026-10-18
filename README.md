@@ -118,6 +118,11 @@ Minimal GRUB follow-up fixes nearly invisible menu entries with explicit readabl
 roles and clearer key hints; actual 640×480/1280×800 EFI checks pass. Installed
 menu remains readable text fallback, not a newly branded graphical menu. No ISO
 was built; broader UI/session/device gates remain open.
+Installed GRUB now shares live branding and preserves custom boot fonts, with
+readable fallback if assets are missing. Console status redraw keeps warning
+lines visible; normal desktop/serial ordering and reduced motion are checked.
+Private EFI/PTY and source regressions pass; this follow-up awaits signed repo/
+WSL refresh. Default sizes unchanged. No physical boot/shutdown is certified.
 [Full scope, current evidence and remaining UI work](docs/ui-whole-os-review.md).
 
 October 15 CI follow-up: Alpine smoke environment lacked `findmnt`, required by

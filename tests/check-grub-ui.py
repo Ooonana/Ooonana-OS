@@ -17,6 +17,8 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("output", type=Path)
 parser.add_argument("--geometry", choices=("640x480", "1280x800"), help="Focused geometry regression")
 parser.add_argument("--variant", choices=("full", "minimal", "installed"), default="full")
+parser.add_argument("--installed-fallback", choices=("missing-font", "missing-mark"),
+                    help="Installed-menu recovery fixture; no real installation")
 args = parser.parse_args()
 work = args.output.resolve()
 assert str(work).startswith("/var/tmp/ooonana-grub-ui-") and not work.exists()
@@ -48,16 +50,25 @@ if args.variant == "installed":
     script += '''
 mkdir -p "$ISO_TREE/usr/share/ooonana" "$ISO_TREE/boot"
 install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt" "$ISO_TREE/usr/share/ooonana/grub-logo.txt"
+install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/grub.theme" "$ISO_TREE/usr/share/ooonana/grub.theme"
+install -m 0644 "$ROOT/branding/boot-mark.png" "$ISO_TREE/usr/share/ooonana/boot-mark.png"
+install -m 0644 "$ROOT/branding/grub-background.png" "$ISO_TREE/usr/share/ooonana/grub-background.png"
 install -m 0644 "$KERNEL" "$ISO_TREE/boot/vmlinuz"
-write_grub_config "$ISO_TREE" PARTUUID=FIXTURE_NEVER_BOOT
 '''
+    if args.installed_fallback != "missing-font":
+        script += 'install -D -m 0644 /usr/share/grub/unicode.pf2 "$ISO_TREE/usr/share/grub/unicode.pf2"\n'
+    if args.installed_fallback == "missing-mark":
+        # Only this newly created fixture asset is omitted.
+        script += 'rm "$ISO_TREE/usr/share/ooonana/boot-mark.png"\n'
+    script += 'write_grub_config "$ISO_TREE" PARTUUID=FIXTURE_NEVER_BOOT\n'
 else:
     script += "\n".join(function(name) for name in ("write_grub_config", "write_rufus_note", "file_size_bytes", "check_iso_mode_file_sizes", "stage_iso_tree")) + "\nstage_iso_tree\n"
 stage = subprocess.run(["bash", "-c", script], text=True, capture_output=True)
 assert stage.returncode == 0, stage.stderr
 fonts = base / "boot/grub/fonts"
-fonts.mkdir()
-shutil.copyfile("/usr/share/grub/unicode.pf2", fonts / "unicode.pf2")
+if args.variant != "installed":
+    fonts.mkdir()
+    shutil.copyfile("/usr/share/grub/unicode.pf2", fonts / "unicode.pf2")
 results = []
 for geometry in (args.geometry,) if args.geometry else ("640x480", "1280x800"):
     case = work / geometry
@@ -71,7 +82,7 @@ for geometry in (args.geometry,) if args.geometry else ("640x480", "1280x800"):
     binary = volume / "EFI/BOOT/BOOTX64.EFI"
     binary.parent.mkdir(parents=True)
     embedded = ["boot/grub/grub.cfg=" + str(bootstrap), "boot/grub/main.cfg=" + str(config)]
-    for filename in ("theme.txt", "background.png", "boot-mark.png", "ooonana-logo.txt", "fonts/unicode.pf2"):
+    for filename in ("theme.txt", "background.png", "boot-mark.png", "ooonana-logo.txt", "fonts/unicode.pf2", "fonts/ooonana.pf2"):
         asset = volume / "boot/grub" / filename
         if asset.is_file():
             embedded.append("boot/grub/" + filename + "=" + str(asset))
@@ -80,7 +91,9 @@ for geometry in (args.geometry,) if args.geometry else ("640x480", "1280x800"):
     shutil.copyfile("/usr/share/OVMF/OVMF_VARS_4M.fd", variables)
     qmp = case / "qmp.sock"
     log = (case / "qemu.log").open("w")
+    width, height = geometry.split("x")
     process = subprocess.Popen(["qemu-system-x86_64", "-accel", "tcg", "-m", "192", "-display", "none",
+        "-vga", "none", "-device", f"VGA,xres={width},yres={height}",
         "-nic", "none", "-audiodev", "none,id=silent", "-no-reboot", "-monitor", "none",
         "-drive", "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd",
         "-drive", "if=pflash,format=raw,file=" + str(variables),
@@ -126,6 +139,12 @@ for geometry in (args.geometry,) if args.geometry else ("640x480", "1280x800"):
                     menu = picture.convert("RGB").crop((int(width * .16), int(height * .32),
                                                         int(width * .84), int(height * .70)))
                     pixels = list(menu.getdata())
+                    for role in ((180, 189, 200), (255, 178, 26)):
+                        assert sum(pixel == role for pixel in pixels) >= 40, (name, geometry, role)
+                elif args.variant == "installed" and not args.installed_fallback:
+                    width, height = picture.size
+                    pixels = list(picture.convert("RGB").crop((int(width * .16),
+                        int(height * .11) + 168, int(width * .84), int(height * .78))).getdata())
                     for role in ((180, 189, 200), (255, 178, 26)):
                         assert sum(pixel == role for pixel in pixels) >= 40, (name, geometry, role)
                 picture.save(case / (name + ".png"))
