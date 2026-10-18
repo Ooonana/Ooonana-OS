@@ -1303,3 +1303,46 @@ operation performed. Stable promotion and signing enrollment remain deferred.
 
 ![Qt Preferences complete titlebar/actions at 640×600, dark](assets/ooonana-qt-settings-small-dark-20261018.png)
 ![Qt Preferences complete titlebar/actions at 640×600, light](assets/ooonana-qt-settings-small-light-20261018.png)
+
+## Published checkpoint after Batches 20–21
+
+Supersedes Batch 21's pending-publication note. Whole-OS review stays active.
+
+- Runtime source `5c48b593c18dc1dee220c11f0567936000a0aa53`; GitHub
+  [39101690490](https://github.com/Ooonana/Ooonana-OS/actions/runs/39101690490)
+  and GitLab [2959754329](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2959754329)
+  both pass, including new placement tests.
+- Signed local candidate `CURRENT`:
+  `5a66c5817a8a9fd0672c86378b18daf876b61ecef0a12fa504ab6a19e485b4c9`.
+  SHA256SUMS digest:
+  `f8116be9fb56442867085a30ba14576310a36ca74db9c25252113e0f04210ac0`.
+  Signature/pinned public key and all 1302 checksums verified before and during
+  atomic promotion; 654 packages/612 dependency nodes pass. Exact clean source
+  manifest has 300 files, supported v3.24 base and no bundled models.
+  Previous generation SHA256SUMS remains
+  `9f7a6d421433494793a6c081784c4438079bb0ba0687e31db2f4f199ee500f3b`.
+- Native Ooonana snapshot:
+  `/var/lib/ooonana/candidate-qt-placement-20261018.DcvmDt9C`.
+  Reuses 643 matching immutable native archives; copies 659 other entries.
+  Full signature/1302-checksum verification precedes separate runtime/core
+  dry-runs, reinstall, file verification and explicit health hooks; all pass.
+  Installed window-controls SHA256:
+  `c70c1533fa34b12129e557e98748d00c3a001ef7e3f1cf9437d65a7b1f8819fa`.
+  OpenVINO installed metadata unchanged. Default cloud source points to new
+  snapshot; default update resolves 654 packages from two sources and core info
+  selects cloud. Backup checkpoints and previous source config retained.
+  Logs: `/var/tmp/ooonana-qt-placement-sync-20261018.gDHUZcGQ` (Ooonana).
+- Local adapter regenerated after package installation; canonical runtime guard
+  extracted from the installed helper also prepares UID/GID1000 mode0700 after
+  cold startup. `/run` is transient: directory absence before launch is expected,
+  not a reason to add a boot daemon. Existing privileged socket setup prepares
+  it on launch. No GUI/WSL restart or boot-config rewrite.
+- Four final completed QA overlays removed after exact-path/unmounted checks
+  (448,416 KiB logical), in addition to 17 earlier. All captures/logs/history
+  remain. No immediate Windows-space gain or compaction asserted. New small
+  build-only package copy and F: publication staging are retained; earlier
+  policy-blocked staging was not retried through another deletion method.
+- No release ISO built, audio played, model downloaded or physical power/storage
+  test performed. Existing ISO cannot acquire this runtime patch via resume;
+  user needs a fresh build from this candidate. Actual WSLg/browser integration,
+  Qt picker variants and remaining ledger gates are not certified by this batch.

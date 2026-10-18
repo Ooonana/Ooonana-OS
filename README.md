@@ -68,7 +68,8 @@ actual installed browser/WSLg integration stays open. Qt Preferences' clipped
 small-screen titlebar now has a one-time initial bounds correction, without
 resizing native controls or fighting later user movement. Six settings pages,
 Cancel and window actions pass 640×600/1024×768 in both appearances. This newest
-placement patch awaits signed runtime publication; broader review stays active.
+placement patch is signed/published locally and verified in Ooonana WSL;
+relaunch desktop/apps for changed code. Broader review stays active.
 [Qt evidence, screenshots and remaining review](docs/ui-whole-os-review.md#batch-19-qt-appearance-and-first-run-proportions).
 Follow-up adds default-Cancel package change previews and readable Health
 snapshots with exact raw/copy access and honest service/memory warnings. Compact

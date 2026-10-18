@@ -1,5 +1,21 @@
 # Current work - 2026-10-18
 
+## October 18 Qt placement publication and installed refresh
+
+Runtime source `5c48b59` passes both CIs and is signed/published as generation
+`5a66c5817a8a9fd0672c86378b18daf876b61ecef0a12fa504ab6a19e485b4c9`.
+Clean 300-source-file manifest, 654 packages/612 dependency nodes, all 1302
+checksums and signature/trust pin verified. Previous generation manifest stays
+unchanged. Native WSL snapshot reuses 643 immutable archives; full verification
+precedes separate core/runtime dry-runs, reinstall, file verification and health
+checks. Installed window-controls hash exactly matches source; OpenVINO metadata
+unchanged. Default cloud source now resolves new native snapshot, 654 packages
+from two sources. Canonical local adapter refreshed without GUI/WSL restart;
+installed guards also recreate transient `/run/user/1000` mode0700 correctly.
+Four final QA overlays removed, in addition to 17 earlier; captures/logs/history
+retained. No compaction/free-space claim, models, sound or ISO operation.
+[Publication evidence and remaining gates](ui-whole-os-review.md#published-checkpoint-after-batches-20-21).
+
 ## October 18 Qt settings placement and full category review
 
 Actual 640×600 QTerminal Preferences reproduced y=-13, clipping its titlebar.
@@ -10,8 +26,8 @@ stay unchanged. Changed geometry, hidden/closed/fullscreen/oversized windows and
 service-start existing windows are left alone; no repeated positioning policy.
 Pure guards plus real six-page dark/light review, bounds/Cancel, later user moves
 and minimize/restore/fullscreen/move/exit pass 640×600 and 1024×768. Native UI,
-rootfs and package-factory regressions pass. New runtime patch awaits signed
-publication/installed WSL refresh; WSL-local runtime fix below is already live.
+rootfs and package-factory regressions pass. Publication/installed WSL refresh
+is completed above; WSL-local runtime fix below is also live.
 [Evidence and scope](ui-whole-os-review.md#batch-21-qt-settings-placement-and-categories).
 
 ## October 18 local WSL document-runtime correction
