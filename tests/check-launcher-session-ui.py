@@ -132,7 +132,7 @@ with tempfile.TemporaryDirectory(prefix="ooonana-launcher-session-") as temporar
             launcher = None
         print("LAUNCHER_SESSION_RESULTS", json.dumps(findings), flush=True)
         assert not findings, "; ".join(findings)
-        print("LAUNCHER_SESSION_UI_OK real discovery, physical Return, native/third-party launch and focus", flush=True)
+        print("LAUNCHER_SESSION_UI_OK real discovery, X11 Return, native/third-party launch and focus", flush=True)
     finally:
         if launcher is not None:
             launcher.destroy()

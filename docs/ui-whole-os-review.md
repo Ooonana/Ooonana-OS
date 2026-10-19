@@ -18,7 +18,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; current source inventory | Fresh composited desktop, cursor hotspot/scale, icon consistency and selection states |
 | Panel / music / AI / notifications / tray | Actual source Polybar/wallpaper/dock; wide CJK labels and full counters at 640/760/900/1000/1024/1100/1280px; missing-glyph and actual AI-centering checks, bounded Wi-Fi labels and compact right controls | Real empty/playing/paused media transitions, expanded notification/service integration and physical/live-session states |
 | Dock | Actual Gdk edge placement, tooltips/four-corner menus, 44px targets, fullscreen/workspace visibility and focus restoration pass; actual 1×/2× device coordinate checks; centered icons, compact grouping, preview and action checks below | Actual installed-session/display integration, physical mixed DPI/hotplug; multi-output visibility currently pure/derived guards |
-| Native Launcher | Long names/tooltips, no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard; real managed display fit, desktop-entry discovery and physical Return launch/focus to XTerm/native Settings pass | Preferred-wrapper variants, actual installed-session keyboard/IME and desktop integration |
+| Native Launcher | Long names/tooltips, no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard; real managed display fit, desktop-entry discovery and X11 Return launch/focus to XTerm/native Settings pass | Preferred-wrapper variants, actual installed-session keyboard/IME and desktop integration |
 | Wi-Fi / Bluetooth | Managed lists/hidden/personal/TLS/PIN forms; advanced fields, bounded certificate pickers, inline validation, progress/reduced motion, service gating, duplicate/closed refusal and safe Reset/Remove pass both themes through 200% text | Actual installed authentication, advanced network activation, physical reconnect/pairing and changed-adapter integration |
 | Settings: all six pages | Compact page picker, bounded/selectable sources, managed dialogs, repair/update retry; actual private 0600 preference writes, reopen, read-only rollback and retry through 200% text | Actual installed-session theme/wallpaper/authentication paths, other external file/device failures |
 | Setup | Compact/200% scrolling and stacked labels; focused inline validation, secret-preserving drafts, full source/routing review, default Back, reduced motion, pending/reentrant and closed-parent refusal checked both themes | Complete installed privileged setup/persistence and actual authentication/network failures; CLI backend preflight is not certified by UI validation |
@@ -33,7 +33,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Installer GUI / text wizard | Real font-metric 100/200% form/review/blocked fit 640×600 both themes; all 16 fields keyboard-walked, exact disk/password mapping and safe Cancel checked; disk details scroll inside form | Actual privileged preview/log lifecycle, text wizard and physical storage summary/install; bare UI fixtures never install |
 | Shared dialogs / menus / tooltips | Font-metric-bounded short errors and scrollable diagnostics; actual Settings storage faults through 200%; real askpass labelled/focused, Escape/close/blank/Enter and pipe-only secrets checked | Remaining file pickers/menus and installed-session integration |
 | Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Qt6/QTerminal dark/light, density, six Preferences pages, initial small-screen placement, nested font/portal image picker cancel/select and exit actions pass. Firefox dark QA scoped onboarding, portal open/cancel, exact URL/rendered-content read and window actions pass. Local WSL canonical runtime installed; guard/selection regressions pass | Other Qt apps and scaled picker variants; Firefox light/scaling/installed-session integration, actual physical compositor and live WSLg |
-| Window manager | Native/XTerm modifier drag/resize, all number/move workspace keys, cycling, click focus, tile/tab/stack, resize mode, fullscreen, exact-session restore and unfocused close pass in private compositor; actual 1×/2× third-party titlebar alignment and physical Minimize/Close clicks pass | Real WSLg/physical compositor, multi-display and complete session lifecycle transitions |
+| Window manager | Native/XTerm modifier drag/resize, all number/move workspace keys, cycling, click focus, tile/tab/stack, resize mode, fullscreen, exact-session restore and unfocused close pass in private compositor; actual 1×/2× third-party titlebar alignment and X11 Minimize/Close clicks pass | Real WSLg/physical compositor, multi-display and complete session lifecycle transitions |
 | GRUB: live / audio submenu | Shared live/installed branding, compact audio labels; actual EFI 640×480/1280×800, missing-font/mark fallback and unchanged kernel arguments checked. Minimal contrast repaired | Physical BIOS/UEFI, corrupted-media/runtime graphics failure and actual installed boot |
 | Boot / shutdown / reboot / persistent setup | Private PTY boot/save/setup; consecutive warning retention, normal console ordering, serial/ambiguous/motion-off/small-console and exact existing waits pass | Real framebuffer/kernel-message handoff, physical shutdown/recovery and complete persistent-setup interaction |
 | Bootable PDF UI | Previous source/VM fixtures; browser viewer requires manual check | Viewer rendering, keyboard/Backspace, focus, responsive controls and perceived command delay |
@@ -1684,7 +1684,7 @@ Supersedes Batch 25's publication-pending note. Whole-OS review remains active.
   rectangle, not its existing GTK rendering/placement coordinates. No additional
   polling or production scale/font setting.
 - Four final real-display cases pass: dark/light × device scale1/2, normal100%
-  text, physical1280×800. Final2× X11 popup is `(818,216,66,22)` against the
+  text, device1280×800. Final2× X11 popup is `(818,216,66,22)` against the
   target `(818,217,22)`, within one device pixel of GTK integer placement.
   Actual pointer clicks hit Minimize/Close, specific-session restoration
   remaps controls, and fullscreen entry/exit hides/restores dock. Fullscreen
@@ -1785,3 +1785,45 @@ Supersedes Batch 26's publication-pending note. Whole-OS review remains active.
   release ISO, sound playback, model or physical-device operation.
 
 ![Actual compact Paper Spotlight at normal100%; owned sample entry and no clipped controls](assets/ooonana-spotlight-fit-20261019.png)
+
+## Published checkpoint after Batch 27
+
+Supersedes Batch 27's publication-pending note. Whole-OS review stays active.
+
+- Runtime source `d499391b0081ff234ddb54125fa9f523983ed950` passes both CIs:
+  [GitHub 39172242204](https://github.com/Ooonana/Ooonana-OS/actions/runs/39172242204),
+  [GitLab 2960978910](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2960978910).
+- Signed local `CURRENT`:
+  `967ddd097a907cc4bb4075280c470198dc90dd8a45561a4c8bb2b4df217bac56`.
+  SHA256SUMS digest:
+  `6ca51b8c099bf42995e6f94c1b10c9da3ce91b926957d27aac94fe179f54c87e`.
+  Pinned signature and all1302 checksums pass before/during atomic publication;
+  clean300-source-file manifest, supportedv3.24 base, no bundled models,
+  654 packages/612 dependency nodes. Source digest:
+  `6ed14786db7ac73e47ddf0d54ce0976f1eb118e205d122b891e40ec5e116bf8c`.
+  Previous generation's manifest remains
+  `0f662b3dd2eda057b8d492a373018b5e1957e964a51375c3d6c26685718fa6f5`.
+- Native snapshot:
+  `/var/lib/ooonana/candidate-launcher-fit-20261019.mB8UIGdn`.
+  F mounted read-only inside sync; signature/full checksums pass before using
+  643 matching immutable archive hardlinks and659 copies. Both core/runtime
+  dry-runs, reinstall, file verification and explicit health hooks pass.
+  Installed `/etc/i3/config` and `config.keycodes` both match source:
+  `c1128e84238c08a8eb85a9346f008e2af47edaec17fbcdb565372f2f83993414`.
+  No user-level i3 override was present or rewritten; UID1000 `i3 -C` passes.
+  Logs: `/var/tmp/ooonana-launcher-fit-sync-20261019.THFBdt5U`.
+- Default metadata resolves654 packages/two sources. Local adapter refreshed;
+  OpenVINO installed metadata and `/etc/wsl.conf` hashes unchanged. No forced
+  GUI/WSL restart, physical test, models, sound playback or release ISO build.
+  Prior generations/checkpoints, user history, captures/logs and private signing
+  key retained. Stable promotion/enrollment remain deferred.
+- Relaunch manually for current rules (close old nested desktop when ready):
+
+  ```powershell
+  wsl -d Ooonana --exec /usr/local/bin/start-ooonana-i3 --nested
+  ```
+
+  This is a launch command, not proof of WSLg mouse/keyboard/IME/clipboard health.
+  The private probe injects actual X11 key events, not physical keyboard input.
+  Remaining ledger rows stay open. A fresh ISO build, not an old resume, is
+  required to carry these changed rules onto USB.

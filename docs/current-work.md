@@ -1,15 +1,28 @@
 # Current work - 2026-10-19
 
+## October 19 Spotlight publication and native refresh
+
+Runtime source `d499391` passes both CIs; signed generation is
+`967ddd097a907cc4bb4075280c470198dc90dd8a45561a4c8bb2b4df217bac56`.
+Pinned signature, all1302 checksums, clean300-source-file manifest and
+654-package/612-node closure verified. Native core/runtime dry-run, reinstall,
+verify and health hooks pass; both installed i3 configs match source and UID1000
+`i3 -C` passes. Default metadata and local adapter refreshed without GUI/WSL
+restart. OpenVINO metadata, WSL boot config, history and prior generations retained.
+No user i3 overrides were present/changed. Actual WSLg input remains a separate
+manual check; no release ISO, models or audio operation.
+[Checkpoint and GUI command](ui-whole-os-review.md#published-checkpoint-after-batch-27).
+
 ## October 19 managed Spotlight and real app handoff
 
 Actual i3 exposed a760px rule overriding Spotlight's display-aware GTK size;
 640px screens clipped left controls atx=-60. Removed only forced resize, keeping
 floating/border/centering and native defaults. Four dark/light,640/1280px cases
-now pass actual desktop-entry discovery, physical Return, real XTerm/native
+now pass actual desktop-entry discovery, X11 Return, real XTerm/native
 Settings processes, launch dismissal, focus handoff and owned-window close.
 Compact frame is586×442 within640×600. Current Settings source/wrappers are
 read-only-bound in private QA; no mock launch success. Native/branding/rootfs/
-package-factory regressions pass; signed publication and WSL refresh pending.
+package-factory regressions pass; publication/native refresh completed above.
 [Evidence and remaining gates](ui-whole-os-review.md#batch-27-managed-spotlight-and-real-app-handoff).
 
 ## October 19 device-scale publication and native refresh

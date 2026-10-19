@@ -42,8 +42,8 @@ and Ooonana WSL refreshed; relaunch GUI for new dock code. No ISO built.
 
 October 19 device-scale follow-up keeps third-party window controls inside their
 native i3 titlebar at actual 1×/2× device scaling and fixes offset-monitor
-fullscreen hit testing. Four real dark/light cases pass, including physical
-Minimize/Close clicks. Default text size and normal control proportions stay
+fullscreen hit testing. Four real dark/light cases pass, including actual
+Minimize/Close X11 clicks. Default text size and normal control proportions stay
 unchanged. Signed candidate and native Ooonana WSL refreshed; relaunch desktop
 for changed code. No ISO built.
 [Checks and physical-display limits](docs/ui-whole-os-review.md#published-checkpoint-after-batch-26).
@@ -52,8 +52,9 @@ October 19 Spotlight follow-up removes i3's forced760px size, which clipped
 window controls on640px screens. Display-aware GTK sizing now survives actual
 window-manager mapping; normal app defaults remain unchanged. Real keyboard
 launch/discovery/focus handoff to terminal and native Settings pass four
-dark/light compact/desktop cases. Signed publication/WSL refresh pending.
-[Normal-size capture and exact limits](docs/ui-whole-os-review.md#batch-27-managed-spotlight-and-real-app-handoff).
+dark/light compact/desktop cases. Signed candidate and native WSL refreshed;
+relaunch desktop for changed rules. No ISO built.
+[Normal-size capture and exact limits](docs/ui-whole-os-review.md#published-checkpoint-after-batch-27).
 
 Stable core 0.9.9 desktop refresh adds unboxed dock hover feedback, slimmer panel, open Appearance groups, blue globe browser icon and canonical wallpaper fitting. Component previews use isolated test windows, not physical USB boot.
 
