@@ -15,8 +15,9 @@ for width in (640, 759, 760, 900, 999, 1000, 1099, 1100, 1279, 1280, 1920):
     left, right, gap, media, wifi = module.panel_layout(width)
     assert 'media' in left and all(item in right.split() for item in ('battery', 'notifications', 'controls', 'power'))
     assert media <= 18 and wifi <= 14
+    assert 'task-view' in left.split() and 'workspaces' not in left.split()
     if 760 <= width < 1000:
-        assert left == 'workspaces media' and 'date' in right and 'wifi' in right
+        assert left == 'task-view media' and 'date' in right and 'wifi' in right
         assert 'memory' not in right and 'audio' not in right and wifi == 10
     if width < 1000:
         assert wifi == 10
@@ -194,4 +195,39 @@ assert "%{A1:bad:}" not in module.bar(module.windows())
 assert "ooonana-window-list --focus 5" in module.dock(module.windows())
 tree["nodes"].append(window(7, "Spreadsheet"))
 assert " +1 " in module.dock(module.windows())
+
+# Task View keeps desktop names as one quoted IPC argument and never restores
+# a window from a stale chooser snapshot. Failed/cancelled selections do nothing.
+desktops = [dict(name="1", num=1, focused=True),
+            dict(name='2: 한글; "notes"', num=2, focused=False),
+            dict(name="bad\nname", num=3), None]
+module.subprocess.check_output = lambda *_args, **_kwargs: module.json.dumps(desktops)
+selection = "0"
+module.task_view(items)
+assert commands[-1] == ["i3-msg", "[con_id=3] focus"]
+selection = "1"
+module.sys.argv = ["ooonana-window-list", "--task-view"]
+module.main()
+assert commands[-1] == ["i3-msg", "[con_id=4] scratchpad show; [con_id=4] focus"]
+selection = "3"
+module.task_view(items)
+assert commands[-1] == ["i3-msg", 'workspace "2: 한글; \\"notes\\""']
+selection = "4"
+module.task_view(items)
+assert commands[-1] == ["i3-msg", "workspace number 4"]
+assert "Desktop · 1" in menu_inputs[-1] and "New desktop" in menu_inputs[-1]
+assert "bad\nname" not in menu_inputs[-1]
+selection = "0"
+before = len(commands)
+module.task_view([(9999, "Closed window", False, False, "xterm")])
+assert all(command[0] != "i3-msg" for command in commands[before:])
+for selection, returncode in (("0", 1), ("9999", 0)):
+    before = len(commands)
+    module.task_view(items)
+    assert all(command[0] != "i3-msg" for command in commands[before:])
+returncode = 0
+module.subprocess.check_output = lambda *_args, **_kwargs: "not JSON"
+selection = "0"
+module.task_view([])
+assert commands[-1] == ["i3-msg", "workspace number 1"]
 print("ok window-list")

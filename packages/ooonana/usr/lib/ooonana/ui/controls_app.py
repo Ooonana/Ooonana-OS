@@ -88,6 +88,13 @@ def control_body(window, width, height):
     root.set_focus_vadjustment(scroll.get_vadjustment())
     root.set_focus_hadjustment(scroll.get_hadjustment())
     window.add(scroll)
+    # header() already bounds the request for this display. Do not grow it
+    # back across the panel/dock while attaching the scrollable body.
+    bounded_width, bounded_height = window.get_default_size()
+    if bounded_width > 0:
+        width = min(width, bounded_width)
+    if bounded_height > 0:
+        height = min(height, bounded_height)
     fit_dialog(window, width, height)
     return root
 
@@ -717,7 +724,10 @@ class MediaWindow(Gtk.Window):
 
     @staticmethod
     def collect_state():
-        current_rc, current = run(["mpc", "--format", "%artist%\t%title%\t%file%", "current"], timeout=5)
+        # run() trims whitespace. A literal prefix protects leading empty tag
+        # columns, otherwise an untagged filename becomes the artist field.
+        current_rc, current = run(["mpc", "--format", "OOONANA\t%artist%\t%title%\t%file%", "current"], timeout=5, utf8=True)
+        current = current.removeprefix("OOONANA\t")
         status_rc, status = run(["mpc", "status"], timeout=5)
         volume_rc, volume = run(["mpc", "volume"], timeout=5)
         if status_rc != 0:

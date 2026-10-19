@@ -1,5 +1,20 @@
 # Current work - 2026-10-19
 
+## October 19 Task View and actual media integration
+
+Panel numbers replaced by one compact overlapping-window Task View icon.
+Existing window chooser now includes desktop switching/creation and exact
+minimized-session restore; `Mod+Ctrl+Tab` opens it, existing workspace keys stay.
+Real small-screen captures exposed clipped chooser height/unreadable inherited
+colors; bounded rows and explicit child colors repair those defects, with
+Paper/Graphite preference support. Actual private MPD/null-output checks also
+found/fixed empty-tag parsing, Korean metadata encoding and Music growing back
+over the panel. Parser-facing command locale stays unchanged. Real Dunst's
+unchanged five-second timer recovers after service loss/restart and DND changes,
+without a click/focus refresh. Publication/native refresh pending this batch;
+broader review stays active. No audible sound, models or release ISO.
+[Evidence](ui-whole-os-review.md#batch-28-task-view-media-and-periodic-notification-recovery).
+
 ## October 19 Spotlight publication and native refresh
 
 Runtime source `d499391` passes both CIs; signed generation is

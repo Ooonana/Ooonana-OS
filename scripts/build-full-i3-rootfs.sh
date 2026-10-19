@@ -2742,7 +2742,7 @@ font-0 = "DejaVu Sans:size=10;2"
 font-1 = "Font Awesome 7 Free Solid:size=10;2"
 font-2 = "Font Awesome 7 Brands:size=10;2"
 font-3 = "Noto Sans CJK KR:size=10;2"
-modules-left = ${env:OOONANA_PANEL_LEFT:brand workspaces win-close win-min win-full media}
+modules-left = ${env:OOONANA_PANEL_LEFT:brand task-view win-close win-min win-full media}
 modules-center = ai
 modules-right = ${env:OOONANA_PANEL_RIGHT:memory audio battery wifi notifications controls date power}
 tray-position = none
@@ -2915,24 +2915,12 @@ type = custom/text
 content = Ooonana OS
 content-foreground = ${colors.accent}
 
-[module/workspaces]
-type = internal/i3
-format = <label-state>
-label-focused = %name%
-label-focused-foreground = ${colors.accent}
-label-focused-background = #303640
-label-focused-padding = 2
-label-unfocused = %name%
-label-unfocused-foreground = ${colors.accent}
-label-unfocused-background = ${colors.background-alt}
-label-unfocused-padding = 2
-label-visible = %name%
-label-visible-foreground = ${colors.foreground}
-label-visible-padding = 2
-label-urgent = %name%
-label-urgent-foreground = ${colors.background}
-label-urgent-background = ${colors.urgent}
-label-urgent-padding = 2
+[module/task-view]
+type = custom/text
+content = %{T2}%{T-}
+content-foreground = ${colors.foreground}
+content-padding = 1
+click-left = ooonana-window-list --task-view
 
 [module/title]
 type = internal/xwindow
@@ -3088,6 +3076,8 @@ configuration {
   alternate-normal-background: #171b21;
   urgent: #3b2324;
   font: "Sans 11";
+  background-color: @background;
+  text-color: @foreground;
 }
 window {
   width: 52%;
@@ -3186,7 +3176,8 @@ element selected.urgent {
 element-icon {
   size: 20px;
 }
-element-text {
+element-text, element-icon, prompt, textbox-prompt-colon, entry {
+  background-color: inherit;
   text-color: inherit;
 }
 scrollbar {

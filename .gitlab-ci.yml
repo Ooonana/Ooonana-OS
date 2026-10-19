@@ -68,6 +68,7 @@ ci-smoke:
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-initial-dialog-placement.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-dock-visibility.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-window-control-scale.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-media-metadata.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-editor-polish.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-chart-layout.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-health-summary.py

@@ -352,6 +352,7 @@ usage_ui_help() {
 Full i3 UI:
   Mod+Enter     terminal
   Mod+d         app launcher
+  Mod+Ctrl+Tab  Task View (windows and desktops)
   Mod+Shift+F   Nemo file manager
   Mod+Shift+W   Chromium browser
   Mod+N         Wi-Fi settings

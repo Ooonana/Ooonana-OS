@@ -46,6 +46,7 @@ exec --no-startup-id sh -c '[ "${OOONANA_NO_AUDIO:-0}" = 1 ] || { command -v ooo
 bindsym $mod+Return exec ooonana-theme-env xterm
 bindsym $mod+d exec ooonana-apps
 bindsym $mod+Control+d exec ooonana-window-list --dock-menu
+bindsym $mod+Control+Tab exec ooonana-window-list --task-view
 bindsym $mod+Shift+d exec sh -c 'command -v rofi >/dev/null 2>&1 && rofi -show drun -theme /etc/ooonana/rofi.rasi || dmenu_run'
 bindsym $mod+Shift+f exec ooonana-files
 bindsym $mod+Shift+w exec ooonana-browser

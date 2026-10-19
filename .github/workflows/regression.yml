@@ -65,6 +65,7 @@ jobs:
           python3 -B tests/test-initial-dialog-placement.py
           python3 -B tests/test-dock-visibility.py
           python3 -B tests/test-window-control-scale.py
+          python3 -B tests/test-media-metadata.py
           python3 -B tests/test-editor-polish.py
           python3 -B tests/test-chart-layout.py
           python3 -B tests/test-health-summary.py

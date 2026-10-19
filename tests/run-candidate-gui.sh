@@ -20,7 +20,7 @@ case "$geometry" in
   *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
 esac
 case "$only" in
-  all|setup-details-ui|controls-details-ui|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|launcher-session-ui|notifications-runtime|notification-lifecycle|window-controls-runtime|dock-ui|dock-edges-ui|device-scale-ui|panel-ui|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
+  all|setup-details-ui|controls-details-ui|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|launcher-session-ui|notifications-runtime|notification-lifecycle|notification-auto-recovery|window-controls-runtime|dock-ui|dock-edges-ui|device-scale-ui|panel-ui|panel-media-runtime|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -214,6 +214,23 @@ if [[ "$only" == all || "$only" == launcher-session-ui ]]; then
   mount --bind "$SOURCE/packages/ooonana/usr/bin/ooonana-settings-launch" "$rootfs/usr/bin/ooonana-settings-launch"
   mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-settings-launch"
 fi
+if [[ "$only" == all || "$only" == panel-media-runtime ]]; then
+  for helper in ooonana-media-control ooonana-media-status; do
+    mount --bind "$SOURCE/packages/ooonana/usr/bin/$helper" "$rootfs/usr/bin/$helper"
+    mount -o remount,bind,ro "$rootfs/usr/bin/$helper"
+  done
+fi
+if [[ "$only" == all || "$only" == dock-ui ]]; then
+  # Real chooser must use current shipped theme, never preserved cached bytes.
+  awk -v marker='"$ROOTFS/etc/ooonana/rofi.rasi"' '
+    index($0, marker) { capture=1; next }
+    capture && $0 == "EOF" { exit }
+    capture { print }
+  ' "$SOURCE/scripts/build-full-i3-rootfs.sh" >"$rootfs/run/ooonana-qa-rofi.rasi"
+  [[ -s "$rootfs/run/ooonana-qa-rofi.rasi" ]]
+  mount --bind "$rootfs/run/ooonana-qa-rofi.rasi" "$rootfs/etc/ooonana/rofi.rasi"
+  mount -o remount,bind,ro "$rootfs/etc/ooonana/rofi.rasi"
+fi
 if [[ "$only" == firefox-frame && -z "${OOONANA_FIREFOX_REUSE_HOME:-}" ]]; then
   mkdir -p "$rootfs$gui_runtime"
   chown 1000:1000 "$rootfs$gui_runtime"
@@ -248,16 +265,21 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
       # namespace root, retaining host UID1000 and every browser sandbox.
       launch=(bash "$rootfs/source/tests/run-firefox-mount-root.sh" "$rootfs")
     fi
+    session=(/usr/bin/dbus-run-session)
+    if [ "$name" = notification-auto-recovery ]; then
+      session+=(--config-file=/source/tests/fixtures/session-no-activation.conf)
+    fi
     if timeout --kill-after=5 120 "${launch[@]}" \
       /usr/bin/env -i HOME=/home/ooonana USER=ooonana LOGNAME=ooonana \
       PATH=/usr/bin:/bin:/usr/sbin:/sbin DISPLAY="$DISPLAY" \
+      LANG=C.UTF-8 LC_CTYPE=C.UTF-8 \
       XAUTHORITY=/home/ooonana/.Xauthority XDG_RUNTIME_DIR="$gui_runtime" \
       XDG_CURRENT_DESKTOP=Ooonana:i3 XDG_SESSION_DESKTOP=ooonana DESKTOP_SESSION=ooonana \
       PYTHONDONTWRITEBYTECODE=1 OOONANA_GUI_TEST_DISPLAY=1 OOONANA_NOTIFICATION_TEST_SESSION=1 GDK_BACKEND=x11 \
       OOONANA_GUI_TEST_ADMIN_POLICY="$admin_policy" \
       GTK_THEME="Adwaita:$theme" OOONANA_THEME="$theme" OOONANA_GUI_TEXT_SCALE="$text_scale" NO_AT_BRIDGE=1 \
       GDK_SCALE="$device_scale" \
-      /usr/bin/dbus-run-session -- "$@" >"$output/$name.log" 2>&1; then
+      "${session[@]}" -- "$@" >"$output/$name.log" 2>&1; then
       printf "PASS %s\n" "$name"
     else
       printf "FAIL %s (exit %s; log retained)\n" "$name" "$?"
@@ -287,6 +309,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   probe control-density-ui python3 /source/tests/check-control-density-ui.py /qa/density
   probe notifications-runtime python3 /source/tests/check-notifications-runtime.py --output /qa/notifications.png
   probe notification-lifecycle python3 /source/tests/check-notification-lifecycle.py /qa/notification-lifecycle
+  probe notification-auto-recovery python3 /source/tests/check-notification-auto-recovery.py /qa/notification-auto
   probe window-controls-runtime python3 /source/tests/check-window-controls-runtime.py --own-i3
   probe dock-ui python3 /source/tests/check-dock-ui.py /qa/dock.png
   probe dock-edges-ui python3 /source/tests/check-dock-edges-ui.py /qa/dock-edges
@@ -294,6 +317,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   panel_options=()
   if [ "${OOONANA_PANEL_WIDE_LABELS:-0}" = 1 ]; then panel_options+=(--wide-labels); fi
   probe panel-ui python3 /source/tests/check-panel-ui.py /qa/panel.png --rootfs / --long-wifi --desktop-overview --appearance-output /qa/appearance.png "${panel_options[@]}"
+  probe panel-media-runtime python3 /source/tests/check-panel-media-runtime.py /qa/media-runtime
   probe portal-ui python3 /source/tests/check-portal-ui.py /qa/portal.png
   for app in geany nemo chromium qterminal; do
     compositor_options=(--compositor)

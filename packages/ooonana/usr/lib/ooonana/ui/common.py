@@ -488,13 +488,16 @@ def admin_command(argv):
     return [helper, *argv] if helper else list(argv)
 
 
-def run(argv, admin=False, timeout=15, env=None, input_text=None):
+def run(argv, admin=False, timeout=15, env=None, input_text=None, utf8=False):
     command = admin_command(argv) if admin else list(argv)
     command_env = os.environ.copy()
     if env:
         command_env.update(env)
     command_env["LC_ALL"] = "C"
     command_env["LANG"] = "C"
+    if utf8:
+        # Human metadata needs UTF-8; parser-facing commands keep C by default.
+        command_env["LC_ALL"] = command_env["LANG"] = "C.UTF-8"
     try:
         owns_session = True
         try:

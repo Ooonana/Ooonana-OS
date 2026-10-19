@@ -37,6 +37,7 @@ PYTHONPYCACHEPREFIX="$tmp/pycache" "$PYTHON" -m py_compile "$ROOT/packages/ooona
 assert_contains "$(<"$ROOT/packages/ooonana/usr/bin/ooonana-admin-askpass")" 'entry.get_accessible().set_name("Account password")'
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-dock-visibility.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-window-control-scale.py"
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-media-metadata.py"
 
 common="$(<"$UI_DIR/common.py")"
 settings="$(<"$UI_DIR/settings_app.py")"
@@ -251,6 +252,8 @@ assert_contains "$window_list" 'scratchpad show'
 assert_contains "$window_list" 'hidden_count'
 assert_contains "$window_list" '"--close-menu"'
 assert_contains "$window_list" '"--actions"'
+assert_contains "$window_list" '"--task-view"'
+assert_contains "$i3_config" 'bindsym $mod+Control+Tab exec ooonana-window-list --task-view'
 assert_contains "$window_list" 'f"[con_id={item[0]}] kill"'
 full_builder="$(<"$ROOT/scripts/build-full-i3-rootfs.sh")"
 assert_contains "$full_builder" 'ROOTFS/usr/bin/ooonana-process-kill'

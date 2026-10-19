@@ -16,7 +16,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | --- | --- | --- |
 | Control proportions | Shared/native GTK 10pt typography and chat actions measured; targeted 100/125/200% scaling; Task Manager headers/values follow text metrics | Other app-specific Qt controls, panel/card/dock content proportions; no blind blanket shrink |
 | Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; current source inventory | Fresh composited desktop, cursor hotspot/scale, icon consistency and selection states |
-| Panel / music / AI / notifications / tray | Actual source Polybar/wallpaper/dock; wide CJK labels and full counters at 640/760/900/1000/1024/1100/1280px; missing-glyph and actual AI-centering checks, bounded Wi-Fi labels and compact right controls | Real empty/playing/paused media transitions, expanded notification/service integration and physical/live-session states |
+| Panel / music / AI / notifications / tray | Actual source Polybar/wallpaper/dock; wide CJK labels and full counters at 640/760/900/1000/1024/1100/1280px; missing-glyph and actual AI-centering checks; compact Task View; actual private MPD empty/play/pause/volume/next/stop/loss/recovery | Actual installed tray/service integration and physical/live-session states; null-output QA does not prove hardware audio |
 | Dock | Actual Gdk edge placement, tooltips/four-corner menus, 44px targets, fullscreen/workspace visibility and focus restoration pass; actual 1×/2× device coordinate checks; centered icons, compact grouping, preview and action checks below | Actual installed-session/display integration, physical mixed DPI/hotplug; multi-output visibility currently pure/derived guards |
 | Native Launcher | Long names/tooltips, no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard; real managed display fit, desktop-entry discovery and X11 Return launch/focus to XTerm/native Settings pass | Preferred-wrapper variants, actual installed-session keyboard/IME and desktop integration |
 | Wi-Fi / Bluetooth | Managed lists/hidden/personal/TLS/PIN forms; advanced fields, bounded certificate pickers, inline validation, progress/reduced motion, service gating, duplicate/closed refusal and safe Reset/Remove pass both themes through 200% text | Actual installed authentication, advanced network activation, physical reconnect/pairing and changed-adapter integration |
@@ -24,7 +24,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Setup | Compact/200% scrolling and stacked labels; focused inline validation, secret-preserving drafts, full source/routing review, default Back, reduced motion, pending/reentrant and closed-parent refusal checked both themes | Complete installed privileged setup/persistence and actual authentication/network failures; CLI backend preflight is not certified by UI validation |
 | Sound / brightness / music | Verified readiness, selected-identity audio/backlight commands, unknown/empty/permission states, persistent inline retry, serialized actions, preserved drafts, stale-poll/closed refusal; keyboard and both themes through 200% text pass silent fixtures | Actual installed route/mute/volume and playback semantics, changed-device integration and real hardware; no sound playback |
 | Power | Native default-Cancel, duplicate refusal, error/retry, failed lock refusal pass with mocked commands | Actual isolated lock/logout/suspend and unavailable capabilities |
-| Notifications | Private real Dunst history/DND/remove/clear; changed-record nested keyboard focus/visible reading anchor; live/archive storage fault and retry, explicit restart/DND refresh, reused IDs and privacy checks, both themes/sizes | Actual installed-session notifications, timed service recovery and integrated panel/session behavior |
+| Notifications | Private real Dunst history/DND/remove/clear; changed-record nested keyboard focus/visible reading anchor; storage fault/retry; unchanged five-second timer DND/loss/restart recovery without focus/manual refresh; reused IDs and privacy checks | Actual installed-session notifications and integrated panel/session behavior |
 | Packages | Default-Cancel preview, failed/empty plan refusal, mutating close guard; actual sudo/askpass cancellation/retry restores controls under private harmless-command policy | Actual privileged package transactions and successful authentication on disposable installation |
 | Health / Updates | Readable snapshot/raw/copy, honest attention/malformed states; actual isolated report and sudo/askpass cancellation restore controls | Actual installed-session service/repository failures, successful authentication and metadata transactions |
 | Wi-Fi / Bluetooth signal maps | 658×750 overflow fixed; populated/empty/light/dark native candidate render, bounded labels, full-name tooltips and accessibility checks pass | Real data refresh/focus integration and physical radio/session behavior |
@@ -1827,3 +1827,55 @@ Supersedes Batch 27's publication-pending note. Whole-OS review stays active.
   The private probe injects actual X11 key events, not physical keyboard input.
   Remaining ledger rows stay open. A fresh ISO build, not an old resume, is
   required to carry these changed rules onto USB.
+
+## Batch 28: Task View, media and periodic notification recovery
+
+- User-requested Task View replaces numeric panel workspaces at every responsive
+  width with the existing Font Awesome overlapping-window pictogram. Click or
+  `Mod+Ctrl+Tab` opens a searchable windows/desktops chooser, including hidden
+  sessions, desktop switching and New desktop. Existing numbered/move/cycling
+  bindings remain. This is a compact Ooonana switcher, not a claim of Windows
+  11's full thumbnail-overview implementation.
+- First actual 640px chooser captures revealed an offscreen fixed-height list
+  and default white child backgrounds. Task View now uses at most six dynamic
+  rows; inherited child backgrounds/text are explicit. Shared chooser supports
+  Paper/Graphite preferences without changing font defaults or copying Windows
+  assets. Actual X11 shortcut, Escape, search/Enter, exact minimized-client
+  restoration, New desktop and return to an occupied desktop pass in both
+  themes at640×600 and1280×800. Bounds asserted before capture. Pure tests cover
+  safely quoted desktop names, closed targets, cancellation and unavailable IPC.
+  Evidence: `/var/tmp/ooonana-task-view-confirm-20261019.5xhcKUB0`.
+  Earlier functional captures and a failed QA-only geometry-check placement are
+  retained for diagnostics; the latter was corrected before confirmation.
+- Four actual source Polybar captures, both themes and640/1280px, pass missing
+  glyph, long CJK/full-counter, AI center and overlap checks. Status values are
+  samples; new icon uses shipped FA7, not a Unicode substitute. Evidence:
+  `/var/tmp/ooonana-task-view-20261019.Uxbjm7C7`. Task View selection uses real
+  rofi/i3 processes; panel click routing is source-asserted, not a human click.
+- Real private MPD/mpc exposed stripped empty tag columns, ASCII-converted
+  Korean metadata and shared body sizing overriding the display-aware header.
+  Added a metadata prefix, narrowly opt-in UTF-8 command locale, and retained
+  bounded body size. Parser commands still default to C. Actual Music and panel
+  watcher cover empty/play/pause/volume/next/stop, daemon loss and restart;
+  filename fallback/CJK text and compact panel clearance pass both themes and
+  sizes. MPD has exactly one null output, verified enabled before play; fixtures
+  are silent and no Pulse/ALSA/PipeWire or audio device is available to QA.
+  Evidence: `/var/tmp/ooonana-media-runtime-confirm-20261019.RkITgJCE` and stable
+  light1280 rerun `/var/tmp/ooonana-media-final-regress-20261019.hePlbcP7`.
+  A prior confirmation's final wrapper exited after its already-passing UI
+  assertions when the harness was edited while running; the unchanged-harness
+  rerun passes. Shared control200% text checks pass both themes; production
+  text/cursor scale stays unchanged.
+- Real Dunst, private non-activating session bus and unchanged five-second
+  Notifications timer cover DND change, loss, restart, retained history and new
+  expired Korean message with reused ID. No manual refresh/focus event; focus
+  count remains unchanged. Observed recovery intervals4.73–4.97seconds. Both
+  compact themes pass; destroying the center removes its timer. No production
+  notification behavior changed. Evidence:
+  `/var/tmp/ooonana-notification-auto-baseline-20261019.kSi9VQRx`.
+- Private chroot emits Glycin sandbox warnings; no production sandbox disabled.
+  Hardware/audio routing, actual WSLg input, full session lifecycle and the
+  rest of the coverage ledger remain open. OpenVINO, signing enrollment/stable
+  promotion stay deferred. Publication/native refresh pending; no release ISO.
+
+![Actual compact Paper Task View; owned fixture window, no Windows assets](assets/ooonana-task-view-20261019.png)

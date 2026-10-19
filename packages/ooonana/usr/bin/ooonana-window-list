@@ -51,12 +51,12 @@ def dock_geometry():
 def panel_layout(width):
     """Reserve centered AI space even with double-width names and full counters."""
     if width < 760:
-        return ("workspaces media", "memory battery notifications controls power", 0, 10, 10)
+        return ("task-view media", "memory battery notifications controls power", 0, 10, 10)
     if width < 1000:
-        return ("workspaces media", "battery wifi notifications controls date power", 0, 10, 10)
+        return ("task-view media", "battery wifi notifications controls date power", 0, 10, 10)
     if width < 1100:
-        return ("brand workspaces media", "memory audio battery wifi notifications controls date power", 0, 14, 8)
-    return ("brand workspaces win-close win-min win-full media",
+        return ("brand task-view media", "memory audio battery wifi notifications controls date power", 0, 14, 8)
+    return ("brand task-view win-close win-min win-full media",
             "memory audio battery wifi notifications controls date power", 0 if width < 1280 else 1,
             18, 8 if width < 1280 else 14)
 
@@ -292,7 +292,7 @@ def focus(item):
     subprocess.run(["i3-msg", "; ".join(commands)], check=False)
 
 
-def choose(items, prompt):
+def choose(items, prompt, compact=False):
     if not items:
         return None
     choices = [
@@ -304,6 +304,23 @@ def choose(items, prompt):
         theme = Path("/etc/ooonana/rofi.rasi")
         if theme.is_file():
             command.extend(["-theme", str(theme)])
+        styles = []
+        appearance = os.environ.get("OOONANA_THEME", "dark")
+        try:
+            saved = (Path.home() / ".config/ooonana/theme").read_text(encoding="utf-8").strip()
+            if saved in ("light", "dark"):
+                appearance = saved
+        except (OSError, ValueError):
+            pass
+        if appearance == "light":
+            styles.append("* { background: #ffffff; background-alt: #e9edf1; foreground: #1b1f26; "
+                          "accent: #805600; muted: #55616e; selected-normal-background: #e9edf1; "
+                          "selected-normal-foreground: #1b1f26; alternate-normal-background: #f5f5f7; }")
+        if compact:
+            styles.append('listview { lines: 6; fixed-height: false; } '
+                          'entry { placeholder: "Search windows or desktops"; }')
+        if styles:
+            command.extend(["-theme-str", " ".join(styles)])
         result = subprocess.run(
             command,
             input="\n".join(choices) + "\n",
@@ -329,6 +346,43 @@ def menu(items, close=False):
         subprocess.run(["i3-msg", f"[con_id={item[0]}] kill"], check=False)
     else:
         focus(item)
+
+
+def task_view(items):
+    """One compact overview for existing windows, desktops and a new desktop."""
+    try:
+        desktops = json.loads(subprocess.check_output(
+            ["i3-msg", "-t", "get_workspaces"], text=True, timeout=3))
+        if not isinstance(desktops, list):
+            desktops = []
+    except (OSError, ValueError, subprocess.SubprocessError):
+        desktops = []
+    entries = [("window", item, item[1], item[2], item[3]) for item in items]
+    for desktop in desktops:
+        if not isinstance(desktop, dict):
+            continue
+        name = desktop.get("name")
+        if not isinstance(name, str) or not name or not all(ch.isprintable() for ch in name):
+            continue
+        entries.append(("desktop", name, "Desktop · " + name, bool(desktop.get("focused")), False))
+    used = {desktop.get("num") for desktop in desktops if isinstance(desktop, dict)
+            and type(desktop.get("num")) is int and desktop["num"] > 0}
+    number = next(value for value in range(1, len(used) + 2) if value not in used)
+    entries.append(("new", number, "New desktop", False, False))
+    rows = [(index, entry[2], entry[3], entry[4], "") for index, entry in enumerate(entries)]
+    selected = choose(rows, "Task View", compact=True)
+    if selected is None:
+        return
+    kind, target, *_ = entries[selected[0]]
+    if kind == "window":
+        # Refresh after the chooser: closed windows must not become stale targets.
+        current = next((item for item in windows() if item[0] == target[0]), None)
+        if current:
+            focus(current)
+    elif kind == "desktop":
+        subprocess.run(["i3-msg", "workspace " + json.dumps(target, ensure_ascii=False)], check=False)
+    else:
+        subprocess.run(["i3-msg", f"workspace number {target}"], check=False)
 
 
 def actions_menu(items, con_id=None, keyboard=False):
@@ -404,6 +458,9 @@ def main():
         panel_geometry()
         return
     items = windows()
+    if len(sys.argv) == 2 and sys.argv[1] == "--task-view":
+        task_view(items)
+        return
     if len(sys.argv) == 4 and sys.argv[1] == "--window-action":
         try:
             identifier = int(sys.argv[3])

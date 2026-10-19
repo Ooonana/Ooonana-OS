@@ -48,6 +48,10 @@ with tempfile.TemporaryDirectory(prefix="ooonana-panel-ui-") as temporary:
     text = builder.split('"$ROOTFS/etc/ooonana/polybar.ini" <<\'EOF\'\n', 1)[1].split("\nEOF", 1)[0]
     configuration = configparser.RawConfigParser(strict=False)
     configuration.read_string(text)
+    assert "module/workspaces" not in configuration.sections()
+    task_view = configuration["module/task-view"]
+    assert task_view["type"] == "custom/text" and task_view["content-padding"] == "1"
+    assert task_view["click-left"] == "ooonana-window-list --task-view"
     samples = {
         "media": "%{T2}%{T-} " + "Sample track title for layout"[:limit],
         "memory": "RAM 42%", "wifi": " Connected",

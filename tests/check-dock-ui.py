@@ -170,7 +170,7 @@ with tempfile.TemporaryDirectory() as temporary:
             drain()
             time.sleep(0.02)
         assert next(item[0] for item in windows.windows(i3_events.request(path, 4)) if item[2]) == before
-        assert windows.panel_layout(640)[0] == "workspaces media"
+        assert windows.panel_layout(640)[0] == "task-view media"
         assert windows.panel_layout(1024)[2] == 0 and windows.panel_layout(1280)[2] == 1
 
         def current():
@@ -241,6 +241,50 @@ with tempfile.TemporaryDirectory() as temporary:
         subprocess.run(["xdotool", "key", "--clearmodifiers", "End", "Return"], check=True)
         wait(lambda: by_title("Ooonana Music") is None)
         assert by_title("Preview fixture")[0] == primary[0]
+
+        # Task View uses real rofi/X11 input and restores the exact hidden client.
+        def task_view(query=None, shortcut=False):
+            if shortcut:
+                subprocess.run(["xdotool", "key", "--clearmodifiers", "super+ctrl+Tab"], check=True)
+                process = None
+            else:
+                process = subprocess.Popen([sys.executable, cli, "--task-view"], env=environment)
+                owned.append(process)
+            wait(lambda: visible_class("Rofi"))
+            if shortcut:
+                canvas = Gdk.get_default_root_window()
+                identifiers = subprocess.check_output(["xdotool", "search", "--onlyvisible", "--class", "Rofi"], text=True).split()
+                geometry = dict(line.split("=", 1) for line in subprocess.check_output(
+                    ["xdotool", "getwindowgeometry", "--shell", identifiers[-1]], text=True).splitlines() if "=" in line)
+                x, y, width, height = (int(geometry[key]) for key in ("X", "Y", "WIDTH", "HEIGHT"))
+                assert x >= 0 and y >= 0 and x + width <= canvas.get_width() and y + height <= canvas.get_height(), geometry
+                Gdk.pixbuf_get_from_window(canvas, 0, 0, canvas.get_width(), canvas.get_height()).savev(
+                    "/qa/task-view-overview.png", "png", [], [])
+            if query is not None:
+                subprocess.run(["xdotool", "type", "--clearmodifiers", "--", query], check=True)
+                drain()
+                time.sleep(.2)
+            if query == "Preview fixture":
+                canvas = Gdk.get_default_root_window()
+                Gdk.pixbuf_get_from_window(canvas, 0, 0, canvas.get_width(), canvas.get_height()).savev(
+                    "/qa/task-view.png", "png", [], [])
+            subprocess.run(["xdotool", "key", "--clearmodifiers", "Escape" if query is None else "Return"], check=True)
+            wait(lambda: not visible_class("Rofi"))
+            if process:
+                wait(lambda: process.poll() is not None)
+                assert process.returncode == 0
+        task_view(shortcut=True)
+        assert by_title("Preview fixture")[0] == primary[0]
+        windows.window_action(by_title("Preview fixture"), "minimize")
+        wait(lambda: by_title("Preview fixture")[3])
+        task_view("Preview fixture")
+        wait(lambda: by_title("Preview fixture")[2] and not by_title("Preview fixture")[3])
+        assert by_title("Preview fixture")[0] == primary[0]
+        task_view("New desktop")
+        wait(lambda: any(item["focused"] and item["num"] == 2 for item in i3_events.request(path, 1)))
+        task_view("Desktop · 1")
+        wait(lambda: any(item["focused"] and item["num"] == 1 for item in i3_events.request(path, 1)))
+        assert by_title("Preview fixture")[0] == primary[0]
         if len(sys.argv) > 1:
             for _ in range(20):
                 drain()
@@ -248,7 +292,7 @@ with tempfile.TemporaryDirectory() as temporary:
             window = Gdk.get_default_root_window()
             image = Gdk.pixbuf_get_from_window(window, 0, 0, window.get_width(), window.get_height())
             image.savev(sys.argv[1], "png", [], [])
-        print(f"DOCK_UI_OK {size.width}x{size.height}; centered icons; compact Other restore; multi-session actions; native keyboard close; hover focus unchanged")
+        print(f"DOCK_UI_OK {size.width}x{size.height}; centered icons; compact Other restore; multi-session actions; native keyboard close; Task View cancel/exact restore/new desktop/switch; hover focus unchanged")
     finally:
         if dock:
             dock.stopped = True
