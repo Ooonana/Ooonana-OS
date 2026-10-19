@@ -42,6 +42,7 @@ jobs:
           python3 -B tests/test-cli-query-fast.py
           python3 -B tests/test-browser-policy.py
           python3 -B tests/test-window-list.py
+          python3 -B tests/test-desktop-session-cwd.py
           python3 -B tests/test-wallpaper-selection.py
           python3 -B tests/test-firefox-package.py
           bash tests/test-backend-policy.sh

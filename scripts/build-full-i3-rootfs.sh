@@ -3955,6 +3955,13 @@ if [ "${1:-}" = "--user-session" ]; then
   shift
 fi
 
+# A desktop is not a terminal invocation: app/picker defaults must start in the
+# desktop user's home, not an inherited mount, build folder or filesystem root.
+if [ -z "${HOME:-}" ] || ! CDPATH= cd -- "$HOME"; then
+  echo "ooonana-i3-session: desktop home unavailable; check HOME and directory permissions" >&2
+  exit 1
+fi
+
 export XDG_CURRENT_DESKTOP=Ooonana:i3
 export XDG_SESSION_DESKTOP=ooonana
 export DESKTOP_SESSION=ooonana

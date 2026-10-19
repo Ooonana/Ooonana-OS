@@ -471,6 +471,8 @@ assert_contains "$i3_session" "setup.log"
 assert_contains "$i3_session" '/bin/busybox su -m -s /bin/sh'
 assert_contains "$i3_session" 'XDG_RUNTIME_DIR="/run/user/$desktop_uid"'
 assert_contains "$i3_session" "--user-session"
+assert_contains "$i3_session" 'CDPATH= cd -- "$HOME"'
+assert_contains "$i3_session" 'desktop home unavailable'
 assert_contains "$i3_session" "ooonana-audio-start"
 assert_contains "$i3_session" 'export LANG="${LANG:-C.UTF-8}"'
 assert_contains "$i3_session" 'source_authority="${XAUTHORITY:-${HOME:-/root}/.Xauthority}"'

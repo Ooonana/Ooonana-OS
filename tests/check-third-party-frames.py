@@ -57,6 +57,8 @@ if os.environ.get("OOONANA_GUI_TEST_DISPLAY") != "1":
     raise SystemExit("Explicit isolated display required")
 if args.app == "firefox" and os.getuid() != 1000:
     raise SystemExit("Firefox probe requires real nonroot desktop UID1000")
+if args.app == "qterminal":
+    assert Path.cwd() == Path.home(), "Real desktop session prefix did not establish Home cwd"
 if subprocess.run(["i3-msg", "-t", "get_tree"], capture_output=True).returncode == 0:
     raise SystemExit("Refusing display with existing window manager")
 
@@ -362,6 +364,9 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
         record = {"app": args.app, "csd": args.csd, "compositor": args.compositor, "full_redraw": args.no_use_damage,
                   "deco": node["deco_rect"], "rect": node["rect"],
                   "properties": properties, "controls": {str(k): list(v.get_size()) for k, v in manager.controls.items()}}
+        if args.app == "qterminal":
+            record["qt_scale"] = environment.get("QT_SCALE_FACTOR", "1")
+            record["session_cwd"] = str(Path.cwd())
         if args.app == "firefox":
             record["qa_profile"] = profile.name
         args.output.with_suffix(".json").write_text(json.dumps(record, indent=2) + "\n")
@@ -399,17 +404,19 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
             # QTerminal intentionally sends Alt-letter combinations to shells.
             # Open its observed native Session menu without changing that pref.
             rectangle = find_client()["rect"]
-            subprocess.run(["xdotool", "mousemove", "--sync", str(rectangle["x"] + 30),
-                            str(rectangle["y"] + node["deco_rect"]["height"] + 10), "click", "1"],
+            qt_scale = float(environment.get("QT_SCALE_FACTOR", "1"))
+            subprocess.run(["xdotool", "mousemove", "--sync", str(rectangle["x"] + round(30 * qt_scale)),
+                            str(rectangle["y"] + node["deco_rect"]["height"] + round(10 * qt_scale)), "click", "1"],
                            env=environment, check=True)
             qt_capture("-session-menu")
-            # Observed English/100% native menu: duplicate P accelerators and
-            # separator navigation differ from ordinary GTK menu assumptions.
-            # Refuse uncalibrated variants instead of blind shortcut retries.
-            assert (root.get_width(), root.get_height()) in ((1024, 768), (640, 600))
+            # Observed 1x/2x menus place Preferences at this scaled row center.
+            # QMenu ignores End here; End/Up would select Quit, not Preferences.
+            # Refuse uncalibrated variants rather than issuing blind retries.
+            assert (root.get_width(), root.get_height()) in ((1024, 768), (640, 600), (1280, 800), (1600, 900))
             assert os.environ.get("OOONANA_GUI_TEXT_SCALE") == "1.0"
-            subprocess.run(["xdotool", "mousemove", "--sync", str(rectangle["x"] + 90),
-                            str(rectangle["y"] + node["deco_rect"]["height"] + 120), "click", "1"],
+            assert qt_scale in (1, 2)
+            subprocess.run(["xdotool", "mousemove", "--sync", str(rectangle["x"] + round(90 * qt_scale)),
+                            str(rectangle["y"] + node["deco_rect"]["height"] + round(120 * qt_scale)), "click", "1"],
                            env=environment, check=True)
             try:
                 dialog = wait(qt_settings)
@@ -439,10 +446,13 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
                     return visit(i3_events.request(i3_events.socket_path(), 4))
 
                 def qt_child_open(title, suffix, offset):
-                    subprocess.run(["xdotool", "mousemove", "--sync",
-                        str(rectangle["x"] + rectangle["width"] - 62),
-                        str(rectangle["y"] + dialog["deco_rect"]["height"] + offset), "click", "1"],
-                        env=environment, check=True)
+                    if offset is None:
+                        qt_key("space")
+                    else:
+                        subprocess.run(["xdotool", "mousemove", "--sync",
+                            str(rectangle["x"] + rectangle["width"] - round(62 * qt_scale)),
+                            str(rectangle["y"] + dialog["deco_rect"]["height"] + round(offset * qt_scale)), "click", "1"],
+                            env=environment, check=True)
                     try:
                         wait(lambda: (child := qt_child(title)) and child["focused"])
                     except AssertionError:
@@ -467,13 +477,21 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
                 wait(lambda: qt_child(font_title) is None)
                 wait(lambda: qt_settings()["focused"])
                 image_title = "Choose a background image"
-                qt_child_open(image_title, "-image-picker", 354)
+                image_offset = 354
+                if qt_scale == 2:
+                    # Real Appearance focus chain: Change font, five combos,
+                    # five checkboxes, transparency, path, Select. Native Tab
+                    # scrolling must reveal Select; never click offscreen rows.
+                    qt_key(*(["Tab"] * 13))
+                    qt_capture("-image-control-focus")
+                    image_offset = None
+                qt_child_open(image_title, "-image-picker", image_offset)
                 qt_key("Escape")
                 wait(lambda: qt_child(image_title) is None)
                 wait(lambda: qt_settings()["focused"])
                 owned_image = fixture / "private background image.png"
                 shutil.copyfile(ROOT / "branding/boot-mark.png", owned_image)
-                qt_child_open(image_title, "-image-picker-reopened", 354)
+                qt_child_open(image_title, "-image-picker-reopened", image_offset)
                 qt_key("ctrl+l", "ctrl+a")
                 subprocess.run(["xdotool", "type", "--clearmodifiers", "--", str(owned_image)],
                                env=environment, check=True)
@@ -484,19 +502,36 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
                     qt_capture("-image-selection-failure")
                     raise
                 wait(lambda: qt_settings()["focused"])
-                subprocess.run(["xdotool", "mousemove", "--sync",
-                    str(rectangle["x"] + rectangle["width"] - 180),
-                    str(rectangle["y"] + dialog["deco_rect"]["height"] + 354), "click", "1"],
-                    env=environment, check=True)
+                if qt_scale == 2:
+                    # Select regained focus; preceding tab stop is the path.
+                    qt_key("shift+Tab")
+                else:
+                    subprocess.run(["xdotool", "mousemove", "--sync",
+                        str(rectangle["x"] + rectangle["width"] - 180),
+                        str(rectangle["y"] + dialog["deco_rect"]["height"] + 354), "click", "1"],
+                        env=environment, check=True)
                 qt_key("ctrl+a", "ctrl+c")
                 selected = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).wait_for_text()
-                assert selected == str(owned_image), "Qt pending image field differs from selected owned file"
                 qt_capture("-image-pending")
+                assert selected == str(owned_image), "Qt pending image field differs from selected owned file: " + repr(selected)
+                pending = qt_settings()
+                args.output.with_name(args.output.stem + "-image-pending.json").write_text(json.dumps(pending, indent=2))
+                bounds = pending["rect"]
+                assert bounds["x"] >= 0 and bounds["y"] >= 0, "Qt image return clips titlebar"
+                assert bounds["x"] + bounds["width"] <= root.get_width(), "Qt image return grows past display width"
+                assert bounds["y"] + bounds["height"] <= root.get_height(), "Qt image return grows below display"
+                if qt_scale == 2:
+                    qt_key("Tab")
+                    qt_capture("-image-select-refocused")
+                    qt_child_open(image_title, "-image-after-long-path", None)
+                    qt_key("Escape")
+                    wait(lambda: qt_child(image_title) is None)
+                    wait(lambda: qt_settings()["focused"])
                 print("QT_PICKERS_OK font parent/cancel, image cancel/reopen/select, exact private pending path", flush=True)
             # Focus the observed native category list; arrows must change pages
             # without editing settings, activating Apply or touching user files.
-            subprocess.run(["xdotool", "mousemove", "--sync", str(rectangle["x"] + 45),
-                            str(rectangle["y"] + dialog["deco_rect"]["height"] + 19), "click", "1"],
+            subprocess.run(["xdotool", "mousemove", "--sync", str(rectangle["x"] + round(45 * qt_scale)),
+                            str(rectangle["y"] + dialog["deco_rect"]["height"] + round(19 * qt_scale)), "click", "1"],
                            env=environment, check=True)
             qt_key("Home")
             for page in ("window", "behavior", "shortcuts", "dropdown", "bookmarks"):

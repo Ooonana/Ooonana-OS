@@ -11,6 +11,8 @@ geometry="${OOONANA_GUI_GEOMETRY:-1280x800}"
 theme="${OOONANA_GUI_THEME:-dark}"
 text_scale="${OOONANA_GUI_TEXT_SCALE:-1.25}"
 device_scale="${OOONANA_GUI_DEVICE_SCALE:-1}"
+qt_scale="${OOONANA_GUI_QT_SCALE:-1}"
+case "$qt_scale" in 1|1.25|1.5|2) ;; *) printf 'Unsupported Qt test scale: %s\n' "$qt_scale" >&2; exit 2 ;; esac
 case "$device_scale" in 1|2) ;; *) printf 'Unsupported device scale: %s\n' "$device_scale" >&2; exit 2 ;; esac
 case "$text_scale" in 1.0|1.25|1.5|2.0) ;; *) printf 'Unsupported native text scale: %s\n' "$text_scale" >&2; exit 2 ;; esac
 case "$theme" in dark|light) ;; *) printf 'Unsupported test appearance: %s\n' "$theme" >&2; exit 2 ;; esac
@@ -231,6 +233,17 @@ if [[ "$only" == all || "$only" == dock-ui ]]; then
   mount --bind "$rootfs/run/ooonana-qa-rofi.rasi" "$rootfs/etc/ooonana/rofi.rasi"
   mount -o remount,bind,ro "$rootfs/etc/ooonana/rofi.rasi"
 fi
+if [[ "$only" == all || "$only" == qterminal-frame ]]; then
+  # Exercise the real source session prefix before its bus/theme/daemon setup;
+  # the GUI probe owns the subsequent WM. Never fake cwd via a test-only cd.
+  awk -v marker='"$ROOTFS/usr/bin/ooonana-i3-session"' '
+    index($0, marker) { capture=1; next }
+    capture && /^export XDG_CURRENT_DESKTOP=/ { finished=1; exit }
+    capture { print }
+    END { if (!capture || !finished) exit 1; print "exec \"$@\"" }
+  ' "$SOURCE/scripts/build-full-i3-rootfs.sh" >"$rootfs/run/ooonana-qa-session-prefix"
+  chmod 0555 "$rootfs/run/ooonana-qa-session-prefix"
+fi
 if [[ "$only" == firefox-frame && -z "${OOONANA_FIREFOX_REUSE_HOME:-}" ]]; then
   mkdir -p "$rootfs$gui_runtime"
   chown 1000:1000 "$rootfs$gui_runtime"
@@ -244,7 +257,7 @@ if [[ "$only" == firefox-frame && -z "${OOONANA_FIREFOX_REUSE_HOME:-}" ]]; then
 fi
 # Host Xvfb and candidate use the same private filesystem socket, no TCP.
 mount --bind "$rootfs/tmp" /tmp
-export rootfs output only theme text_scale device_scale gui_runtime admin_policy
+export rootfs output only theme text_scale device_scale qt_scale gui_runtime admin_policy
 # Keep namespace init as Bash. Xvfb will not send its readiness signal to PID 1.
 # shellcheck disable=SC2016 # Child shell expands exported paths/display.
 unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp" bash -c '
@@ -269,6 +282,9 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
     if [ "$name" = notification-auto-recovery ]; then
       session+=(--config-file=/source/tests/fixtures/session-no-activation.conf)
     fi
+    if [ "$name" = qterminal-frame ]; then
+      session=(/bin/sh /run/ooonana-qa-session-prefix "${session[@]}")
+    fi
     if timeout --kill-after=5 120 "${launch[@]}" \
       /usr/bin/env -i HOME=/home/ooonana USER=ooonana LOGNAME=ooonana \
       PATH=/usr/bin:/bin:/usr/sbin:/sbin DISPLAY="$DISPLAY" \
@@ -278,7 +294,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
       PYTHONDONTWRITEBYTECODE=1 OOONANA_GUI_TEST_DISPLAY=1 OOONANA_NOTIFICATION_TEST_SESSION=1 GDK_BACKEND=x11 \
       OOONANA_GUI_TEST_ADMIN_POLICY="$admin_policy" \
       GTK_THEME="Adwaita:$theme" OOONANA_THEME="$theme" OOONANA_GUI_TEXT_SCALE="$text_scale" NO_AT_BRIDGE=1 \
-      GDK_SCALE="$device_scale" \
+      GDK_SCALE="$device_scale" QT_SCALE_FACTOR="$qt_scale" \
       "${session[@]}" -- "$@" >"$output/$name.log" 2>&1; then
       printf "PASS %s\n" "$name"
     else

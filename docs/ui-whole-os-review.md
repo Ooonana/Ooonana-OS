@@ -32,7 +32,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Native AI / model UI | Generic native chat compact layout, bounded headings, no-match search, draft attachment, safe Delete, status failure/stale/closed callbacks and streaming/copy/cancel fixtures pass | Real cloud-provider session, long-running transcript navigation; OpenVINO GUI/runtime/offline checks deferred by user October 16 |
 | Installer GUI / text wizard | Real font-metric 100/200% form/review/blocked fit 640×600 both themes; all 16 fields keyboard-walked, exact disk/password mapping and safe Cancel checked; disk details scroll inside form | Actual privileged preview/log lifecycle, text wizard and physical storage summary/install; bare UI fixtures never install |
 | Shared dialogs / menus / tooltips | Font-metric-bounded short errors and scrollable diagnostics; actual Settings storage faults through 200%; real askpass labelled/focused, Escape/close/blank/Enter and pipe-only secrets checked | Remaining file pickers/menus and installed-session integration |
-| Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Qt6/QTerminal dark/light, density, six Preferences pages, initial small-screen placement, nested font/portal image picker cancel/select and exit actions pass. Firefox dark QA scoped onboarding, portal open/cancel, exact URL/rendered-content read and window actions pass. Local WSL canonical runtime installed; guard/selection regressions pass | Other Qt apps and scaled picker variants; Firefox light/scaling/installed-session integration, actual physical compositor and live WSLg |
+| Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Qt6/QTerminal dark/light100%/200% per-app scaling, six Preferences pages, font/portal image picker focus, cancel/select/reopen, post-return bounds and exact pending path pass. Real source session prefix establishes Home cwd. Firefox dark QA onboarding, portal open/cancel, exact rendered-content read and window actions pass | Other Qt apps, whole-desktop/mixed-DPI portal scaling; Firefox light/scaling/installed-session integration, actual physical compositor and live WSLg |
 | Window manager | Native/XTerm modifier drag/resize, all number/move workspace keys, cycling, click focus, tile/tab/stack, resize mode, fullscreen, exact-session restore and unfocused close pass in private compositor; actual 1×/2× third-party titlebar alignment and X11 Minimize/Close clicks pass | Real WSLg/physical compositor, multi-display and complete session lifecycle transitions |
 | GRUB: live / audio submenu | Shared live/installed branding, compact audio labels; actual EFI 640×480/1280×800, missing-font/mark fallback and unchanged kernel arguments checked. Minimal contrast repaired | Physical BIOS/UEFI, corrupted-media/runtime graphics failure and actual installed boot |
 | Boot / shutdown / reboot / persistent setup | Private PTY boot/save/setup; consecutive warning retention, normal console ordering, serial/ambiguous/motion-off/small-console and exact existing waits pass | Real framebuffer/kernel-message handoff, physical shutdown/recovery and complete persistent-setup interaction |
@@ -1922,3 +1922,50 @@ Supersedes this batch's publication-pending note. Whole-OS review stays active.
 
   Actual WSLg mouse/keyboard/IME/clipboard remains a manual gate. Fresh ISO build,
   not an old resume, is needed to put these runtime changes on USB.
+
+## Batch 29: scaled Qt pickers and session Home defaults
+
+- Added explicit, validated **QA-only** Qt scale factor, default1. Actual
+  Qt6/QTerminal100% at640×600 and200% at1280×800 pass both appearances. Native
+  settings, six category pages, font chooser and GTK portal image chooser remain
+  usable. Qt200% is per-app stress with GTK portal at desktop100%, not evidence
+  of physical mixed-DPI or a production scale change. Normal window/exit actions
+  also pass with scaled content. No Qt stylesheet or platform override added.
+- Picker tests now use scaled observed menu/font targets and actual keyboard
+  focus traversal to reach an offscreen image Select control. Native scrolling
+  reveals it; cancel/reopen/select, exact private path with spaces, post-return
+  parent bounds and keyboard refocus/reopen after a long path pass. Outer Cancel
+  leaves the user's pending image unapplied. [Upstream form/focus order](https://github.com/lxqt/qterminal/blob/2.4.0/src/forms/propertiesdialog.ui)
+  informed the fixture. A QMenu End/Up driver selected Quit rather than
+  Preferences; corrected using captured menu evidence, not a product patch.
+  A subsequent old unscaled field click was another driver fault, also corrected.
+  Their failed logs/screens remain for diagnostics.
+- Apparent clipping in a pending-path screenshot did not prove window overflow.
+  Post-return geometry stays bounded; Tab refocus reveals Select and can reopen
+  the real chooser. No unproven resize workaround introduced. Evidence:
+  `/var/tmp/ooonana-qt-scale-confirm-20261019.f5wGsxRk` (four cases) and
+  `/var/tmp/ooonana-qt-return-confirm-20261019.dNHX9sSa` (both200% themes).
+- Actual installed BusyBox user handoff preserved `/` and `/tmp` as cwd even
+  with `HOME=/home/ooonana`; source session had no Home transition. This affected
+  desktop app/default picker locations. Session now enters quoted Home before
+  bus/theme/app startup; unavailable Home fails with clear diagnostic rather
+  than launching in an unrelated directory. Explicit app paths/workdirs and
+  saved preferences remain untouched. Seven baseline failures become passing
+  tests for normal/spaced/Korean/literal-shell-character Home, missing/unset/
+  empty/file targets and quiet CDPATH handling.
+- Qt integration executes the actual source session prefix as real UID1000,
+  before its private bus/WM, not a fake test-only cd. It asserts/records
+  `/home/ooonana` cwd. Actual picker opens Home, while QTerminal's explicit shell
+  workdir still points to the owned fixture. Final matrix:
+  `/var/tmp/ooonana-qt-home-final-20261019.PMqShSiF`.
+- Native/rootfs/WSL/package-factory regressions pass. Source-only working-directory
+  test runs in both CIs. Native/logical scale defaults, audio, models, cursor,
+  sandbox policy and kernel unchanged. Actual WSLg input, other Qt apps,
+  installed authentication, whole-desktop/mixed-DPI, physical and remaining
+  ledger gates stay open. Signed publication/native refresh pending this batch.
+- Completed private Qt overlays are removed only after terminal probe exit and
+  exact path/no-mount checks. Captures, logs, source caches, history and existing
+  package/ISO generations stay. Logical ext4 reclaim is not a claim of immediate
+  Windows free-space gain or VHD compaction. No denied cleanup retried.
+
+![Normal100% private Qt session; portal image picker starts in Home](assets/ooonana-qt-home-picker-20261019.png)

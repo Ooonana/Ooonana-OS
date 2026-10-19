@@ -1,5 +1,18 @@
 # Current work - 2026-10-19
 
+## October 19 Qt scaling, pickers and desktop Home defaults
+
+Actual Qt-only100%/200% probes pass both themes: six Preferences pages, font
+chooser, image select/cancel/reopen, keyboard scrolling, exact pending path,
+post-picker bounds and outer Cancel. GTK portal stays at desktop100%; this is
+not physical mixed-DPI evidence or a new default. A real session defect was
+reproduced: BusyBox user handoff preserved `/`/launch cwd despite correct HOME.
+Desktop session now enters Home before bus/app startup, or refuses with clear
+error if unavailable. Actual source prefix runs as UID1000 in Qt QA; picker
+now opens Home. Explicit terminal workdir remains. Native/rootfs/WSL/package
+regressions and final Qt matrix pass; publication/native refresh pending.
+[Evidence and limits](ui-whole-os-review.md#batch-29-scaled-qt-pickers-and-session-home-defaults).
+
 ## October 19 Task View and actual media integration
 
 Panel numbers replaced by one compact overlapping-window Task View icon.

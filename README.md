@@ -19,6 +19,12 @@ Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Li
 
 October 19 core 0.10.0 candidate captured with real GTK/i3/Polybar on a private, network-isolated X11 display. Panel status uses sample data, including deliberately long CJK labels; wallpaper/dock are source assets. One overlapping-window Task View icon replaces panel workspace numbers. Click it or press `Mod+Ctrl+Tab` to search running/minimized windows, switch desktops or create a desktop. Number/move workspace shortcuts stay unchanged. The compact switcher follows dark/light preferences; no Windows code/assets are copied. [Current evidence and limits](docs/ui-whole-os-review.md#batch-28-task-view-media-and-periodic-notification-recovery). No audio-device playback. Physical USB visuals require a fresh image. Earlier captures remain in `docs/assets/`.
 
+Desktop sessions now enter the user's Home before launching apps/services,
+instead of inheriting a build folder, Windows mount or filesystem root. Missing
+Home stops startup with a clear error. Explicit app workdirs remain unchanged.
+[Qt scaling/picker and Home-default checks](docs/ui-whole-os-review.md#batch-29-scaled-qt-pickers-and-session-home-defaults)
+cover normal defaults plus isolated200% Qt stress; no global scale increase.
+
 October 18 notification follow-up preserves keyboard reading position when new
 messages arrive and keeps saved history visible during storage failures, with
 persistent error/retry feedback. Actual private Dunst checks pass both themes
