@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Own Xvfb/i3 fixture only. No user's windows, models or sound."""
 import os
+import json
 import shutil
 from pathlib import Path
 from types import SimpleNamespace
@@ -11,10 +12,10 @@ import time
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / "packages/ooonana/usr/lib/ooonana/ui"))
-import dock_app
-from dock_app import Dock, Gdk, Gtk, HOVER_MARGIN, preview_image, windows
-from common import apply_theme
-from ui_preferences import save_preferences
+from dock_app import Dock, Gdk, GdkX11, Gtk, preview_image, windows
+from common import apply_theme, header
+from dock_model import PinStore
+from gi.repository import Gio
 import i3_events
 
 def drain():
@@ -46,6 +47,7 @@ with tempfile.TemporaryDirectory() as temporary:
     wm = subprocess.Popen(["i3", "-c", str(config)], env=environment, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     terminal, dock = None, None
     owned = []
+    native = []
     terminal_log = tempfile.TemporaryFile()
     try:
         def connected():
@@ -63,6 +65,7 @@ with tempfile.TemporaryDirectory() as temporary:
             return any(item[1] == "Preview fixture" for item in windows.windows(i3_events.request(path, 4)))
         wait(terminal_ready)
         Gtk.IconTheme.get_default().append_search_path(str(root / "packages/ooonana/usr/share/icons/hicolor/scalable/apps"))
+        Gtk.Settings.get_default().set_property("gtk-xft-dpi", int(96 * 1024 * float(os.environ.get("OOONANA_GUI_TEXT_SCALE", "1.0"))))
         apply_theme()
         dock = Dock(subscribe=False)
         dock.snapshot = i3_events.request(path, 4)
@@ -88,15 +91,15 @@ with tempfile.TemporaryDirectory() as temporary:
         assert button.get_style_context().has_class("active")
         assert button.get_accessible().get_description() == "1 window · Focused"
         assert dock.buttons["apps"][0].get_accessible().get_description() == "Not running"
-        saved = dock.items
-        dock.items = [(item[0], "Very long title " * 8, False, True, *item[4:]),
+        saved = dock.groups["terminal"]
+        dock.groups["terminal"] = [(item[0], "Very long title " * 8, False, True, *item[4:]),
                       (item[0], "Second minimized session", False, True, *item[4:])]
         minimized = dock.tooltip_content("terminal")
         assert not any(isinstance(child, Gtk.Image) for child in minimized.get_children())
         assert all(label.get_ellipsize() for label in minimized.get_children()[1:])
         assert minimized.get_preferred_width().natural_width <= 300
         assert minimized.get_children()[0].get_children()[1].get_text() == "2 windows"
-        dock.items = saved
+        dock.groups["terminal"] = saved
         image = dock.buttons['terminal'][2]
         size = dock.get_size()
         assert 56 <= size.height <= 64, size
@@ -112,29 +115,16 @@ with tempfile.TemporaryDirectory() as temporary:
         centered_icons(dock)
         assert dock.get_size() == size
         marker.set_text('•')
-        dock.hover(button, None, 'terminal', True)
-        wait(lambda: not dock.hover_states)
-        assert image.get_margin_top() == 0 and image.get_margin_bottom() == 2 * HOVER_MARGIN
+        # Flat dock never lifts/scales icons or changes frame size on hover.
+        assert image.get_margin_top() == image.get_margin_bottom() == 0
         assert dock.get_size() == size
-        with tempfile.TemporaryDirectory() as preference_home:
-            original = os.environ.get('XDG_CONFIG_HOME')
-            os.environ['XDG_CONFIG_HOME'] = preference_home
-            try:
-                save_preferences(reduce_motion=True)
-                dock.hover(button, None, 'terminal', True)
-                wait(lambda: not dock.hover_states)
-                assert image.get_margin_top() == image.get_margin_bottom() == HOVER_MARGIN
-            finally:
-                if original is None:
-                    os.environ.pop('XDG_CONFIG_HOME')
-                else:
-                    os.environ['XDG_CONFIG_HOME'] = original
-        # Include an unpinned client: reserved "other" slot must also fit.
+        # Many unpinned apps: overflow appears only when real space runs out.
         geometry = dock.monitor_geometry
         snapshot = dock.snapshot
-        extra = dict(id=987654, window=987654, name="Compact unpinned fixture",
-                     window_properties={"class": "QAOther"}, nodes=[], floating_nodes=[])
-        dock.snapshot = {**snapshot, "nodes": [*snapshot.get("nodes", []), extra]}
+        extras = [dict(id=987654 + index, window=987654 + index, name=f"Compact unpinned fixture {index}",
+                       window_properties={"class": f"QAOther{index}"}, nodes=[], floating_nodes=[])
+                  for index in range(12)]
+        dock.snapshot = {**snapshot, "nodes": [*snapshot.get("nodes", []), *extras]}
         for width in (320, 480):
             dock.monitor_geometry = lambda width=width: SimpleNamespace(x=0, y=0, width=width, height=768)
             dock.geometry_state = None
@@ -143,16 +133,13 @@ with tempfile.TemporaryDirectory() as temporary:
                  all(control.get_allocated_width() >= 44 and control.get_allocated_height() >= 44
                      for control, _dot, _image in dock.buttons.values()))
             assert "other" in dock.buttons
-            submitted = []
-            real_async = dock_app.run_async
-            dock_app.run_async = lambda command, *_args, **_kwargs: submitted.append(command)
-            try:
-                dock.open("other")
-                dock.press(None, SimpleNamespace(button=3), "other")
-            finally:
-                dock_app.run_async = real_async
-            for command in submitted:
-                assert command[-2:] == ["--visible-pins", ",".join(key for key in dock.buttons if key != "other")]
+            assert len(dock.matches("other")) == sum(len(dock.groups.get(key, [])) for key in dock.overflow)
+            overflow_menu = dock.context_menu("other")
+            assert {getattr(row, "ooonana_app", None) for row in overflow_menu.get_children()} - {None} == {
+                key for key in dock.overflow if not dock.groups.get(key)}
+            assert len([row for row in overflow_menu.get_children() if isinstance(row, Gtk.MenuItem)
+                        and (row.get_accessible().get_name() or "").startswith("Compact unpinned fixture")]) == len(dock.matches("other"))
+            overflow_menu.destroy()
             centered_icons(dock)
             assert all(control.get_allocated_width() >= 44 and control.get_allocated_height() >= 44
                        for control, _dot, _image in dock.buttons.values())
@@ -162,6 +149,7 @@ with tempfile.TemporaryDirectory() as temporary:
         dock.refresh()
         wait(lambda: dock.get_size() == size)
         button = dock.buttons["terminal"][0]
+        image = dock.buttons["terminal"][2]
         coordinates = button.translate_coordinates(dock, 0, 0)
         x, y = coordinates[-2:]
         origin = dock.get_position()
@@ -170,6 +158,8 @@ with tempfile.TemporaryDirectory() as temporary:
             drain()
             time.sleep(0.02)
         assert next(item[0] for item in windows.windows(i3_events.request(path, 4)) if item[2]) == before
+        assert image.get_margin_top() == image.get_margin_bottom() == 0
+        centered_icons(dock)
         assert windows.panel_layout(640)[0] == "task-view media"
         assert windows.panel_layout(1024)[2] == 0 and windows.panel_layout(1280)[2] == 1
 
@@ -191,6 +181,106 @@ with tempfile.TemporaryDirectory() as temporary:
         finally:
             windows.choose = real_choose
         wait(lambda: by_title("Secondary fixture")[2])
+        def sync_dock():
+            dock.snapshot = i3_events.request(path, 4)
+            dock.refresh()
+            wait(lambda: all(control.get_allocated_width() >= 44 for control, *_ in dock.buttons.values()))
+        # Real app click uses MRU without a middle-screen chooser. One restore,
+        # not every minimized sibling, and clicking focused app never hides it.
+        sync_dock()
+        windows.focus(primary)
+        wait(lambda: by_title("Preview fixture")[2])
+        sync_dock()
+        for entry in (primary, selected):
+            windows.window_action(entry, "minimize")
+        wait(lambda: by_title("Preview fixture")[3] and by_title("Secondary fixture")[3])
+        sync_dock()
+        dock.open("terminal")
+        wait(lambda: by_title("Preview fixture")[2] and not by_title("Preview fixture")[3])
+        assert by_title("Secondary fixture")[3]
+        sync_dock()
+        dock.open("terminal")
+        wait(lambda: by_title("Preview fixture")[2])
+        assert by_title("Secondary fixture")[3]
+
+        def native_group_menu(key="terminal"):
+            sync_dock()
+            control = dock.buttons[key][0]
+            point = control.translate_coordinates(dock, 0, 0)
+            origin = dock.get_position()
+            scale = dock.get_scale_factor()
+            subprocess.run(["xdotool", "mousemove", "--sync",
+                            str((origin[0] + point[0] + control.get_allocated_width() // 2) * scale),
+                            str((origin[1] + point[1] + control.get_allocated_height() // 2) * scale), "click", "3"], check=True)
+            wait(lambda: dock.menu is not None and dock.menu.get_visible())
+            root_window = Gdk.get_default_root_window()
+            rect = dock.menu.get_toplevel().get_window().get_frame_extents()
+            assert 0 <= rect.x and rect.x + rect.width <= root_window.get_width(), rect
+            assert 0 <= rect.y and rect.y + rect.height <= root_window.get_height(), rect
+
+        def activate_menu(name):
+            rows = [row for row in dock.menu.get_children() if row.get_sensitive() and not isinstance(row, Gtk.SeparatorMenuItem)]
+            index = next(index for index, row in enumerate(rows) if row.get_accessible().get_name() == name)
+            subprocess.run(["xdotool", "key", "--clearmodifiers", "Home", *(["Down"] * index), "Return"], check=True)
+
+        def drag_icon(source, target):
+            sync_dock()
+            events = []
+            for signal in ("drag-begin", "drag-data-get", "drag-end"):
+                dock.buttons[source][0].connect(signal, lambda _widget, *args, signal=signal: events.append(signal))
+            dock.buttons[target][0].connect("drag-data-received", lambda *_: events.append("drag-data-received"))
+            def center(key):
+                control = dock.buttons[key][0]
+                point = control.translate_coordinates(dock, 0, 0)
+                origin = dock.get_position()
+                scale = dock.get_scale_factor()
+                return [str((origin[0] + point[0] + control.get_allocated_width() // 2) * scale),
+                        str((origin[1] + point[1] + control.get_allocated_height() // 2) * scale)]
+            start, end = center(source), center(target)
+            middle = [str(int(start[0]) + (12 if int(end[0]) >= int(start[0]) else -12)), start[1]]
+            gesture = subprocess.Popen(["xdotool", "mousemove", "--sync", *start, "mousedown", "1", "sleep", ".4",
+                                        "mousemove", "--sync", *middle, "sleep", ".2",
+                                        "mousemove", "--sync", *end, "sleep", ".4", "mouseup", "1"])
+            wait(lambda: gesture.poll() is not None and dock.drag_key is None)
+            for _ in range(20):
+                drain()
+                time.sleep(.02)
+            assert gesture.returncode == 0
+            print('DOCK_DRAG_EVENTS', source, target, events, flush=True)
+            assert 'drag-begin' in events and 'drag-end' in events, (source, target, start, end, events)
+            centered_icons(dock)
+
+        native_group_menu()
+        canvas = Gdk.get_default_root_window()
+        Gdk.pixbuf_get_from_window(canvas, 0, 0, canvas.get_width(), canvas.get_height()).savev("/qa/dock-app-windows.png", "png", [], [])
+        # First direct window row is focused primary, next is hidden secondary.
+        subprocess.run(["xdotool", "key", "--clearmodifiers", "Home", "Down", "Return"], check=True)
+        wait(lambda: by_title("Secondary fixture")[2] and not by_title("Secondary fixture")[3])
+        wait(lambda: dock.menu is None)
+        assert not by_title("Preview fixture")[3]
+        native_group_menu()
+        # Flat app menu actions explicitly name the target; no nested submenu.
+        assert not any(row.get_submenu() for row in dock.menu.get_children())
+        subprocess.run(["xdotool", "key", "--clearmodifiers", "Home", "Down", "Down", "Down", "Return"], check=True)
+        wait(lambda: by_title("Secondary fixture")[3])
+        wait(lambda: dock.menu is None)
+        assert not by_title("Preview fixture")[3]
+        sync_dock()
+        dock.open("terminal")
+        wait(lambda: by_title("Preview fixture")[2])
+        assert by_title("Secondary fixture")[3], "Visible session must win over hidden sibling"
+        native_group_menu()
+        app_menu = dock.menu
+        # Per-window keyboard context does not focus/restore another session.
+        subprocess.run(["xdotool", "key", "--clearmodifiers", "Home", "Down", "shift+F10"], check=True)
+        wait(lambda: dock.menu is not None and dock.menu is not app_menu and dock.menu.get_visible())
+        assert by_title("Secondary fixture")[3] and by_title("Preview fixture")[2]
+        assert not any(row.get_submenu() for row in dock.menu.get_children())
+        canvas = Gdk.get_default_root_window()
+        Gdk.pixbuf_get_from_window(canvas, 0, 0, canvas.get_width(), canvas.get_height()).savev("/qa/dock-window-actions.png", "png", [], [])
+        subprocess.run(["xdotool", "key", "--clearmodifiers", "Escape"], check=True)
+        wait(lambda: dock.menu is None)
+        assert by_title("Secondary fixture")[3]
         windows.window_action(selected, "minimize")
         wait(lambda: by_title("Secondary fixture")[3])
         windows.dock_open([by_title("Secondary fixture")], "terminal")
@@ -202,6 +292,132 @@ with tempfile.TemporaryDirectory() as temporary:
         windows.window_action(by_title("Secondary fixture"), "close")
         wait(lambda: by_title("Secondary fixture") is None)
         assert by_title("Preview fixture")[0] == primary[0]
+
+        # Actual shared native headers/roles, a transient Gtk dialog and an app
+        # title change. These are owned fixtures, not real Settings operations.
+        settings = Gtk.Window(title="Ooonana Settings")
+        header(settings, "Settings")
+        settings.add(Gtk.Label(label="Owned native Settings header fixture"))
+        packages = Gtk.Window(title="Ooonana Packages")
+        header(packages, "Packages")
+        packages.add(Gtk.Label(label="Owned native Packages header fixture"))
+        chooser = Gtk.Dialog(title="Owned transient chooser", transient_for=settings)
+        chooser.get_content_area().add(Gtk.Label(label="Owned transient relationship fixture"))
+        native.extend([settings, packages, chooser])
+        for window in native:
+            window.show_all()
+        def native_item(window):
+            xid = GdkX11.X11Window.get_xid(window.get_window())
+            snapshot = i3_events.request(path, 4)
+            con = next((node["id"] for node, _hidden in windows.leaves(snapshot) if node.get("window") == xid), None)
+            return next((item for item in windows.windows(snapshot) if item[0] == con), None)
+        try:
+            wait(lambda: all(native_item(window) for window in native))
+        except AssertionError:
+            Path('/qa/native-groups-timeout.json').write_text(json.dumps(i3_events.request(path, 4), indent=2))
+            canvas = Gdk.get_default_root_window()
+            Gdk.pixbuf_get_from_window(canvas, 0, 0, canvas.get_width(), canvas.get_height()).savev('/qa/native-groups-timeout.png', 'png', [], [])
+            raise
+        settings_item, packages_item, chooser_item = map(native_item, native)
+        print('NATIVE_DOCK_IDENTITIES', json.dumps([settings_item, packages_item, chooser_item]), flush=True)
+        sync_dock()
+        assert {entry[0] for entry in dock.matches("ooonana-settings")} == {settings_item[0], chooser_item[0]}
+        assert {entry[0] for entry in dock.matches("ooonana-packages")} == {packages_item[0]}
+        settings.set_title("Owned renamed Settings window")
+        wait(lambda: native_item(settings)[1] != settings_item[1])
+        sync_dock()
+        assert {entry[0] for entry in dock.matches("ooonana-settings")} == {settings_item[0], chooser_item[0]}
+        canvas = Gdk.get_default_root_window()
+        Gdk.pixbuf_get_from_window(canvas, 0, 0, canvas.get_width(), canvas.get_height()).savev("/qa/dock-app-groups.png", "png", [], [])
+        for window in reversed(native):
+            window.destroy()
+        native.clear()
+        wait(lambda: not any(entry[0] in {settings_item[0], packages_item[0], chooser_item[0]} for entry in current()))
+        sync_dock()
+
+        # Real Gio declared New window action launches only another owned XTerm.
+        app_dir = Path.home() / ".local/share/applications"
+        app_dir.mkdir(parents=True, exist_ok=True)
+        desktop = app_dir / "ooonana-qa-dock-action.desktop"
+        desktop.write_text('[Desktop Entry]\nType=Application\nName=Owned dock action\n'
+                           'Exec=/usr/bin/xterm -class QADockAction -title "Owned action first" -e sleep 120\nStartupWMClass=QADockAction\nIcon=utilities-terminal\nActions=new-window;\n'
+                           '[Desktop Action new-window]\nName=New window\n'
+                           'Exec=/usr/bin/xterm -class QADockAction -title "Owned action second" -e sleep 120\n')
+        wait(lambda: any(app.get_id() == desktop.name for app in Gio.AppInfo.get_all()))
+        app = next(app for app in Gio.AppInfo.get_all() if app.get_id() == desktop.name)
+        assert app and app.list_actions() == ["new-window"]
+        dock.catalog_changed()
+        action_client = subprocess.Popen(["xterm", "-class", "QADockAction", "-title", "Owned action first", "-e", "sleep", "120"], env=environment)
+        owned.append(action_client)
+        wait(lambda: by_title("Owned action first"))
+        native_group_menu("class:qadockaction")
+        activate_menu("New window")
+        wait(lambda: by_title("Owned action second"))
+        sync_dock()
+        assert len(dock.matches("class:qadockaction")) == 2 and "class:qadockaction" in dock.buttons
+        native_group_menu("class:qadockaction")
+        activate_menu("Pin to dock")
+        wait(lambda: any(record["key"] == "class:qadockaction" for record in dock.pins.records))
+        saved_path = dock.pins.path
+        assert PinStore(saved_path, []).records == dock.pins.records
+        saved = saved_path.read_text()
+        assert "Owned action" not in saved and "window:" not in saved
+        drag_icon("class:qadockaction", "terminal")
+        assert dock.pins.records[0]["key"] == "class:qadockaction", "Actual held drag must reorder pinned apps"
+        assert PinStore(saved_path, []).records == dock.pins.records
+        for title in ("Owned action first", "Owned action second"):
+            windows.window_action(by_title(title), "close")
+        wait(lambda: by_title("Owned action first") is None and by_title("Owned action second") is None)
+        sync_dock()
+        assert "class:qadockaction" in dock.buttons and not dock.matches("class:qadockaction")
+        dock.open("class:qadockaction")
+        wait(lambda: by_title("Owned action first"))
+        native_group_menu("class:qadockaction")
+        activate_menu("Unpin from dock")
+        wait(lambda: not any(record["key"] == "class:qadockaction" for record in dock.pins.records))
+        assert by_title("Owned action first"), "Unpin must never close running app"
+        sync_dock()
+        pinned_keys = {record["key"] for record in dock.pins.records}
+        assert all(list(dock.buttons).index(key) < list(dock.buttons).index("class:qadockaction") for key in pinned_keys if key in dock.buttons)
+        another = subprocess.Popen(["xterm", "-class", "QADockSecond", "-title", "Owned unpinned other", "-e", "sleep", "120"], env=environment)
+        owned.append(another)
+        wait(lambda: by_title("Owned unpinned other"))
+        sync_dock()
+        drag_icon("class:qadocksecond", "class:qadockaction")
+        assert list(dock.buttons).index("class:qadocksecond") < list(dock.buttons).index("class:qadockaction")
+        before_cross = list(dock.pins.records)
+        drag_icon("terminal", "class:qadockaction")
+        assert dock.pins.records == before_cross, "Dragging across sections must not silently pin/unpin"
+        native_group_menu("class:qadocksecond")
+        activate_menu("Move right")
+        wait(lambda: list(dock.buttons).index("class:qadockaction") < list(dock.buttons).index("class:qadocksecond"))
+        restored = Dock(subscribe=False)
+        assert restored.pins.records == dock.pins.records and restored.pins.order == dock.pins.order
+        restored.destroy()
+        # Real UID1000 permission refusal must retain old layout and allow retry.
+        readonly = Path(temporary) / "readonly-pins"
+        readonly.mkdir(mode=0o555)
+        dock.pins.path = readonly / "dock.json"
+        before_failure = list(dock.pins.records)
+        native_group_menu("class:qadockaction")
+        activate_menu("Pin to dock")
+        wait(lambda: bool(dock.pins.error) and dock.menu is not None)
+        assert dock.pins.records == before_failure and not dock.pins.path.exists()
+        subprocess.run(["xdotool", "key", "--clearmodifiers", "Escape"], check=True)
+        wait(lambda: dock.menu is None)
+        dock.pins.path = saved_path
+        native_group_menu("class:qadockaction")
+        activate_menu("Pin to dock")
+        wait(lambda: any(record["key"] == "class:qadockaction" for record in dock.pins.records))
+        assert not dock.pins.error
+        native_group_menu("class:qadockaction")
+        activate_menu("Unpin from dock")
+        wait(lambda: not any(record["key"] == "class:qadockaction" for record in dock.pins.records))
+        for title in ("Owned action first", "Owned unpinned other"):
+            windows.window_action(by_title(title), "close")
+        wait(lambda: by_title("Owned action first") is None and by_title("Owned unpinned other") is None)
+        sync_dock()
+        assert "class:qadockaction" not in dock.buttons and "class:qadocksecond" not in dock.buttons
 
         # Real compact Other restore, then complete native keyboard menu path.
         assert shutil.which("rofi"), "Keyboard dock fixture requires real rofi (use signed candidate overlay)"
@@ -292,7 +508,7 @@ with tempfile.TemporaryDirectory() as temporary:
             window = Gdk.get_default_root_window()
             image = Gdk.pixbuf_get_from_window(window, 0, 0, window.get_width(), window.get_height())
             image.savev(sys.argv[1], "png", [], [])
-        print(f"DOCK_UI_OK {size.width}x{size.height}; centered icons; compact Other restore; multi-session actions; native keyboard close; Task View cancel/exact restore/new desktop/switch; hover focus unchanged")
+        print(f"DOCK_UI_OK {size.width}x{size.height}; flat centered icons; idle/running overflow; exact MRU restore; direct window actions; pin/unpin/relaunch/reload; real held-drag reorder/separate sections; readonly save retry; native keyboard close; Task View; hover focus unchanged")
     finally:
         if dock:
             dock.stopped = True
@@ -300,6 +516,8 @@ with tempfile.TemporaryDirectory() as temporary:
         if terminal and terminal.poll() is None:
             terminal.terminate()
             terminal.wait(timeout=5)
+        for window in reversed(native):
+            window.destroy()
         for process in owned:
             if process.poll() is None:
                 process.terminate()

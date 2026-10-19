@@ -124,6 +124,23 @@ with tempfile.TemporaryDirectory(prefix="ooonana-dock-edges-") as temporary:
             capture("tooltip-" + key)
         pointer.warp(dock.get_screen(), 1, 1)
         settle(0.6)
+        if "other" in dock.buttons:
+            dock.open("other")
+            wait(lambda: dock.menu is not None and dock.menu.get_visible(), "More apps menu unavailable")
+            bounded(dock.menu.get_toplevel().get_window(), "more-apps")
+            idle = [row for row in dock.menu.get_children() if getattr(row, "ooonana_app", None)]
+            check(bool(idle), "Compact More apps lost idle pinned launchers")
+            capture("more-apps")
+            parent_menu = dock.menu
+            subprocess.run(["xdotool", "key", "--clearmodifiers", "Home", "shift+F10"], check=True)
+            wait(lambda: dock.menu is not None and dock.menu is not parent_menu and dock.menu.get_visible(),
+                 "Hidden pinned app options unavailable")
+            bounded(dock.menu.get_toplevel().get_window(), "hidden-pin-options")
+            check(any(row.get_accessible().get_name() == "Unpin from dock" and row.get_sensitive()
+                      for row in dock.menu.get_children()), "Hidden idle pin cannot be unpinned")
+            capture("hidden-pin-options")
+            subprocess.run(["xdotool", "key", "--clearmodifiers", "Escape"], check=True)
+            wait(lambda: dock.menu is None, "Hidden pin options did not cancel")
         canvas = Gdk.get_default_root_window()
         corners = ((1, 1), (canvas.get_width() - 2, 1),
                    (1, canvas.get_height() - 2), (canvas.get_width() - 2, canvas.get_height() - 2))

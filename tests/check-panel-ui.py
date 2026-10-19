@@ -154,6 +154,12 @@ with tempfile.TemporaryDirectory(prefix="ooonana-panel-ui-") as temporary:
                     while Gtk.events_pending():
                         Gtk.main_iteration_do(False)
                     time.sleep(0.025)
+                dock.snapshot = i3_events.request(i3_events.socket_path(), 4)
+                dock.refresh()
+                for _ in range(12):
+                    while Gtk.events_pending():
+                        Gtk.main_iteration_do(False)
+                    time.sleep(0.025)
                 pixels = Gdk.pixbuf_get_from_window(screen, 0, 0, screen.get_width(), screen.get_height())
                 pixels.savev(str(args.appearance_output), 'png', [], [])
         print(f"PANEL_UI_OK {width}px sample state: {args.output}")

@@ -2742,7 +2742,7 @@ font-0 = "DejaVu Sans:size=10;2"
 font-1 = "Font Awesome 7 Free Solid:size=10;2"
 font-2 = "Font Awesome 7 Brands:size=10;2"
 font-3 = "Noto Sans CJK KR:size=10;2"
-modules-left = ${env:OOONANA_PANEL_LEFT:brand task-view win-close win-min win-full media}
+modules-left = ${env:OOONANA_PANEL_LEFT:brand task-view media}
 modules-center = ai
 modules-right = ${env:OOONANA_PANEL_RIGHT:memory audio battery wifi notifications controls date power}
 tray-position = none

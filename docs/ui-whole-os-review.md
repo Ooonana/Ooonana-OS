@@ -2033,3 +2033,58 @@ queued dock work avoids another subsequent rebuild:
 ```powershell
 & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10'
 ```
+
+## Batch 30: flat dock, app groups and persistent pins
+
+- Impeccable refinement preserves opaque Graphite/Paper identity and normal
+  typography. Removed raised/gradient icon tiles, hover lifting and top-panel
+  window controls. Normal dock stays60px high,32px icons,44px-or-larger targets,
+  centered indicators and12px bottom clearance.200% is isolated text stress,
+  not shipped default. Top panel has no active-window title/window list.
+- Dock groups actual windows by app, keeping preferred default launchers
+  separate from Firefox/other apps. Stable native roles distinguish Settings,
+  Packages and other native apps; transient dialogs follow actual parents.
+  Click raises one focused/most-recent visible session, or one exact minimized
+  session; siblings stay minimized. Hover never steals focus.
+- Native right-click menu exposes window rows and direct Show/Minimize/
+  Enter-or-Exit fullscreen/Close. Right-click a window row or Shift+F10 targets
+  that exact window. XID guard refuses stale/reused container IDs. New window
+  appears only for a declared desktop-entry action, not invented CLI flags.
+- Pin/Unpin works for installed launchers. Pinned apps stay left, unpinned
+  running apps right, separated visually; Apps utility stays fixed far left.
+  Unpin never closes windows. Closed pins remain and relaunch via desktop ID.
+  Hold/move/release reorders within either section; cross-section drag does not
+  silently pin/unpin. Move left/right supplies keyboard alternative. Atomic
+  `~/.config/ooonana/dock.json` saves validated app IDs/order only, no commands,
+  titles, PIDs or window history. Corrupt preferences stay retained/refuse
+  overwrite; read-only save fails visibly and keeps prior layout. Missing apps
+  expose reinstall/unpin recovery. Small-screen More apps retains idle pins,
+  including keyboard-accessible Unpin, rather than silently dropping launchers.
+- Pure model and native/rootfs/package-factory/panel-session regressions pass;
+  pure model runs in both CIs. Real GTK/i3 uses owned XTerms, native header
+  fixtures, registered desktop-entry action and actual X11 input. Four cases:
+  dark1280×800100%, light640×600100%, dark640×600200%, light1280×800200%.
+  Actual GTK drag signals, section ordering/rejection, pin/relaunch/reload,
+  readonly failure/retry, transient grouping, MRU restore and legacy keyboard
+  window actions pass. Fullscreen restore and actual tooltips/hidden-pin
+  options pass at320×600200%; normal panels at640/1280 and actual2× device
+  controls pass. Evidence:
+  `/var/tmp/ooonana-dock-pins-confirm-20261019.CyYUue2J`.
+  Source regressions:
+  `/var/tmp/ooonana-dock-pins-regress-20261019.ClfVP1Qp`.
+- Earlier failures were retained: compact overflow test assumed every pin had
+  running windows; updated for intentional idle-pin reachability. Edge retry
+  created required output directory; panel-session test is Python, not shell.
+  These driver errors did not weaken runtime requirements. Enlarged-text
+  tooltip overflow was fixed with actual Pango width budgeting.
+- README uses latest normal100% private desktop capture. Panel values are
+  illustrative; no physical hardware/tray authentication claim. No model
+  download, audio playback, forced GUI restart or release ISO. Publication/
+  native refresh pending. Whole-OS ledger remains open: actual WSLg input,
+  preferred launcher wrappers, privileged package/auth flows, other Qt/Firefox
+  integration, physical/mixed-DPI/session/USB tests and Chromium PDF viewer.
+  OpenVINO and signing enrollment/stable promotion remain deferred.
+
+![Normal100% flat dock and panel, private GTK/i3/Polybar sample state](assets/ooonana-flat-pinned-dock-20261019.png)
+
+![Normal100% direct grouped window actions, light compact display](assets/ooonana-flat-dock-menu-20261019.png)

@@ -1,5 +1,26 @@
 # Current work - 2026-10-19
 
+## October 19 flat dock, app groups and saved pins
+
+Flat opaque dock now keeps pinned apps left and unpinned running apps right,
+with section divider. Pin/Unpin never closes windows. Hold-drag reorders within
+either section; explicit Pin/Unpin changes section. Keyboard Move left/right
+also works. Atomic per-user `dock.json` saves app IDs/order only, never window
+titles/PIDs/history. Failed saves retain old layout and expose recovery text.
+Closed pins remain launchable; compact More apps retains overflow idle pins.
+Direct grouped window rows/actions restore exactly one session; native dialogs
+follow actual parent, different native apps and Firefox/Chromium stay distinct.
+Top panel no longer has window controls/title/list; Task View stays.
+
+Four real GTK/i3 dark/light normal100% and200% text-stress cases pass actual
+Pin/Unpin, held mouse drag, rejected cross-section drop, reload, closed-pin
+relaunch, minimize/restore, readonly failure/retry and keyboard window actions.
+Actual320px overflow/hidden-pin options, edge tooltips, both panel sizes/themes
+and2× device-scale controls also pass. Default60px dock/32px icons and global
+100% scale remain. Native/rootfs/package-factory/panel-session regressions pass.
+Publication/native refresh pending; no ISO built. Broader UI ledger stays open.
+[Evidence and limits](ui-whole-os-review.md#batch-30-flat-dock-app-groups-and-persistent-pins).
+
 ## October 19 Qt scaling, pickers and desktop Home defaults
 
 Actual Qt-only100%/200% probes pass both themes: six Preferences pages, font
@@ -17,10 +38,8 @@ file verification, health hooks and installed UID1000 Home startup pass. Default
 metadata/WSL adapter refreshed without GUI restart; OpenVINO/WSL config retained.
 [Evidence and limits](ui-whole-os-review.md#batch-29-scaled-qt-pickers-and-session-home-defaults).
 
-Next requested direction, not implemented: flat dock without raised tiles,
-app-grouped running/minimized windows and better direct right-click actions.
-All window entries belong in dock; do not add active-window title/list to top
-panel. User requested finishing existing work first. Whole UI ledger stays open.
+Follow-up dock direction is implemented/tested above; Home checkpoint below
+does not yet contain those later changes. Whole UI ledger stays open.
 
 Cleanup:45 inactive private QA overlays removed after exact-path, no-process,
 no-symlink and all-process mount checks (434204KiB logical, regenerable). Captures,

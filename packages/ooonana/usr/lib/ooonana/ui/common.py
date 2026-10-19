@@ -362,6 +362,7 @@ def header(window, title, subtitle="", icon_name="preferences-system-symbolic"):
     app_title = title if title in app_icons else window.get_title()
     if app_title in app_icons:
         window.set_icon_name("ooonana-" + app_icons[app_title])
+        window.set_role(app_title.casefold().replace(" ", "-"))
     display = Gdk.Display.get_default()
     monitor = (display.get_primary_monitor() or display.get_monitor(0)) if display else None
     if monitor:

@@ -15,9 +15,9 @@ Ooonana OS is a custom Linux distribution built from scratch around its own boot
 
 Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Linux, BusyBox, GRUB, i3, and other open-source components. Ooonana package factory currently imports selected Alpine package payloads into Ooonana `.pkg` repositories while native packages replace them over time.
 
-![Candidate desktop with compact Task View icon, centered dock, left music and centered AI](docs/assets/ooonana-task-view-desktop-20261019.png)
+![Candidate desktop with flat centered dock, Task View, left music and centered AI](docs/assets/ooonana-flat-pinned-dock-20261019.png)
 
-October 19 core 0.10.0 candidate captured with real GTK/i3/Polybar on a private, network-isolated X11 display. Panel status uses sample data, including deliberately long CJK labels; wallpaper/dock are source assets. One overlapping-window Task View icon replaces panel workspace numbers. Click it or press `Mod+Ctrl+Tab` to search running/minimized windows, switch desktops or create a desktop. Number/move workspace shortcuts stay unchanged. The compact switcher follows dark/light preferences; no Windows code/assets are copied. [Current evidence and limits](docs/ui-whole-os-review.md#batch-28-task-view-media-and-periodic-notification-recovery). No audio-device playback. Physical USB visuals require a fresh image. Earlier captures remain in `docs/assets/`.
+October 19 core 0.10.0 candidate captured at normal100% with real GTK/i3/Polybar on a private, network-isolated X11 display. Panel status uses sample data, including deliberately long CJK labels; wallpaper/dock are source assets. Flat dock groups windows by app: pinned apps left, running unpinned apps right. Right-click Pin/Unpin; hold-drag to reorder within either section, or use Move left/right. Pins/order survive restart; unpinning never closes windows. Apps launcher stays fixed at far left. All window entries/actions live in dock, not top panel. Task View (`Mod+Ctrl+Tab`) still switches windows/desktops. [Behavior, compact-screen checks and limits](docs/ui-whole-os-review.md#batch-30-flat-dock-app-groups-and-persistent-pins). No audio-device playback. Physical USB visuals require a fresh image. Earlier captures remain in `docs/assets/`.
 
 Desktop sessions now enter the user's Home before launching apps/services,
 instead of inheriting a build folder, Windows mount or filesystem root. Missing
@@ -26,7 +26,7 @@ Home stops startup with a clear error. Explicit app workdirs remain unchanged.
 cover normal defaults plus isolated200% Qt stress; no global scale increase.
 Signed candidate and native Ooonana WSL now include this fix; package/file/health
 checks and installed UID1000 Home startup pass. No GUI restart or ISO build.
-[Publication receipt and remaining dock direction](docs/ui-whole-os-review.md#published-checkpoint-after-batch-29).
+[Home-default publication receipt](docs/ui-whole-os-review.md#published-checkpoint-after-batch-29).
 
 October 18 notification follow-up preserves keyboard reading position when new
 messages arrive and keeps saved history visible during storage failures, with
@@ -459,7 +459,7 @@ Working now:
 - Full-i3 live boot never formats internal disks. GRUB boot UUID and same-parent checks restrict writable overlays to the boot USB. Normal live uses a cleared temporary overlay there, with RAM fallback when no matching storage exists. Persistent live keeps its separate saved overlay; failed/missing storage stops in recovery instead of silently discarding changes. Only the confirmed installer target can be partitioned or formatted.
 - Full-i3 runs the desktop as the unprivileged `ooonana` user (UID 1000). Administrative commands use a validated wheel-only `doas` policy.
 - Full-i3 mounts `/run` and `/dev/shm` before desktop services, maps `/var/run` to `/run`, starts system D-Bus first, then starts NetworkManager and BlueZ. This runtime order supports Chromium, Wi-Fi, Bluetooth, and desktop applets from live USB and installed systems.
-- Full-i3 ships an Ooonana i3 desktop: solid rounded top panel with music status, RAM gauge, workspaces, and minimize/fullscreen/close controls; centered opaque app dock with pinned icons, running dots, restore-on-click, and right-click window actions; Spotlight-style launcher; opaque rounded GTK windows; dunst notifications; Chromium, Nemo, and editor/media shortcuts. Focus changes on click, not cursor hover. Notes is the default wallpaper again; the graphite wallpaper remains selectable. Fit mode preserves aspect ratio rather than stretching.
+- Full-i3 ships an Ooonana i3 desktop: solid rounded top panel with music status, RAM gauge and compact Task View; centered flat opaque app dock with persistent left-side pins, right-side running apps, drag ordering, running dots and direct window actions; Spotlight-style launcher; opaque rounded GTK windows; dunst notifications; Chromium, Nemo, and editor/media shortcuts. Window actions belong in dock/titlebars, not top panel. Focus changes on click, not cursor hover. Notes is the default wallpaper again; the graphite wallpaper remains selectable. Fit mode preserves aspect ratio rather than stretching.
 - Added Windows cursor conversion is the default for this machine's Ooonana builds (21px, original proportions/hotspot). Public builds use the separately drawn OoonanaTailless fallback (19px); third-party cursor-pack files remain private and are not redistributed.
 - Setup, Settings, Wi-Fi, Bluetooth, Packages, AI, Task Manager, controls, and application launcher are native GTK3 apps with shared graphite/orange design and short slide transitions. Picom keeps windows opaque; shadows and fades are disabled. Panel status scripts degrade cleanly when a VM has no battery, radio, audio, or backlight hardware.
 - Wi-Fi groups repeated school/campus access points by exact SSID, shows real security instead of treating missing metadata as open, retries secured BSSIDs during roaming, and supports WPA/WPA2/WPA3 Personal, OWE, WEP, and 802.1X enterprise identity/password/CA/client-certificate profiles. Wi-Fi and Bluetooth include an RSSI proximity map. Optional `3D mode` launches RuView when its CSI point-cloud runtime is installed; normal laptop adapters remain RSSI-only.
@@ -1046,7 +1046,7 @@ Mod+Shift+U  ranger file manager
 
 `ooonana-settings` opens native Ooonana Control Center. Overview shows session, network, Bluetooth, package source, and available RAM/swap. Appearance controls theme and wallpaper; other pages expose hardware, apps, and system tools. Wallpaper choices are fit, fill/crop, center, stretch, and tile. It can open display/audio/Wi-Fi/Bluetooth tools, package manager, AI, Chromium, Nemo, terminal, screenshots, and system logs. Terminal help remains fallback when GTK is missing.
 
-Ooonana Task Manager shows searchable/sortable processes and CPU, GPU, RAM, disk, network, storage, temperature, and fan readings. GPU and fan counters say unavailable when drivers or hardware do not expose them. End Task requires confirmation and can terminate only your own process. Native GTK apps have close, minimize-to-scratchpad, and fullscreen buttons; top-panel controls and dock window actions cover third-party windows.
+Ooonana Task Manager shows searchable/sortable processes and CPU, GPU, RAM, disk, network, storage, temperature, and fan readings. GPU and fan counters say unavailable when drivers or hardware do not expose them. End Task requires confirmation and can terminate only your own process. Native GTK apps have close, minimize-to-scratchpad, and fullscreen buttons; titlebar controls and dock window actions cover third-party windows.
 
 Persistent live USB:
 

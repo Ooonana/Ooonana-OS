@@ -16,6 +16,7 @@ for width in (640, 759, 760, 900, 999, 1000, 1099, 1100, 1279, 1280, 1920):
     assert 'media' in left and all(item in right.split() for item in ('battery', 'notifications', 'controls', 'power'))
     assert media <= 18 and wifi <= 14
     assert 'task-view' in left.split() and 'workspaces' not in left.split()
+    assert not (set(left.split()) & {'windows', 'title', 'win-close', 'win-min', 'win-full'})
     if 760 <= width < 1000:
         assert left == 'task-view media' and 'date' in right and 'wifi' in right
         assert 'memory' not in right and 'audio' not in right and wifi == 10
@@ -115,6 +116,13 @@ assert commands[-1] == ["i3-msg", "[con_id=3] move scratchpad"]
 module.sys.argv = ["ooonana-window-list", "--window-action", "show", "4"]
 module.main()
 assert commands[-1] == ["i3-msg", "[con_id=4] scratchpad show; [con_id=4] focus"]
+before = len(commands)
+module.sys.argv = ["ooonana-window-list", "--window-action", "close", "4", "--expect-xid", "9999"]
+module.main()
+assert len(commands) == before, "Stale/reused container must never close a different X11 window"
+module.sys.argv[-1] = "4"
+module.main()
+assert commands[-1] == ["i3-msg", "[con_id=4] kill"]
 module.sys.argv = ["ooonana-window-list", "--window-action", "close", "invalid"]
 before = len(commands)
 module.main()
