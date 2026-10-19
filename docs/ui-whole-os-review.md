@@ -1879,3 +1879,46 @@ Supersedes Batch 27's publication-pending note. Whole-OS review stays active.
   promotion stay deferred. Publication/native refresh pending; no release ISO.
 
 ![Actual compact Paper Task View; owned fixture window, no Windows assets](assets/ooonana-task-view-20261019.png)
+
+## Published checkpoint after Batch 28
+
+Supersedes this batch's publication-pending note. Whole-OS review stays active.
+
+- Runtime source `5395853e1fc83689289f59d172e26bce56382a10` passes
+  [GitHub 39197785522](https://github.com/Ooonana/Ooonana-OS/actions/runs/39197785522)
+  and [GitLab 2961533344](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2961533344).
+  Native/branding/rootfs/package-factory and panel-session regressions pass.
+- Signed local generation:
+  `ea616da2e3aa29602afdc8d26e21bbf4b418ae2ec8452cd020908155ac43f2d1`.
+  SHA256SUMS digest:
+  `486688fbe4327117c70ca558a2ad677f55fb06a563f878f1e5b16675107a8596`.
+  Pinned signature/all1302 checksums, clean300-source-file manifest and
+  654-package/612-node closure verified. Source digest:
+  `36742f6c05ad629a6874821b3fd86c36fe06695b3602b39f5ee550e22bacff07`.
+  Previous generation's SHA256SUMS remains
+  `6ca51b8c099bf42995e6f94c1b10c9da3ce91b926957d27aac94fe179f54c87e`.
+  An interrupted staging helper was resumed/verified before atomic promotion;
+  no incomplete generation became CURRENT.
+- Native snapshot:
+  `/var/lib/ooonana/candidate-task-view-media-20261019.nWfFQQYr`.
+  F mounted read-only for full signature/checksum verification;643 matching
+  archive hardlinks/659 copies. Core/runtime dry-run, reinstall, file verification
+  and both explicit health hooks pass. Installed common/controls/helper match
+  source; both i3 configs match SHA256
+  `4e400a15ce0589e14434822755ecf0d9ec682acf87f6ed6c203ea6626eab9d23`.
+  The finish helper lacked `cmp`; resumed comparisons use available SHA256,
+  without repeating or bypassing transactions. UID1000 i3 syntax and installed
+  rofi/i3-msg availability pass. Logs:
+  `/var/tmp/ooonana-task-view-media-sync-20261019.xMFlXnia`.
+- Default metadata resolves654 packages/two sources; local adapter refreshed.
+  OpenVINO installed metadata and WSL boot config hashes unchanged. No forced
+  GUI/WSL restart, audio-device playback, models or release ISO. Signing key
+  remains local; enrollment/stable promotion and remaining ledger rows deferred.
+- Close the old nested GUI manually when ready, then launch updated rules:
+
+  ```powershell
+  wsl -d Ooonana --exec /usr/local/bin/start-ooonana-i3 --nested
+  ```
+
+  Actual WSLg mouse/keyboard/IME/clipboard remains a manual gate. Fresh ISO build,
+  not an old resume, is needed to put these runtime changes on USB.

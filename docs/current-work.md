@@ -11,9 +11,12 @@ Paper/Graphite preference support. Actual private MPD/null-output checks also
 found/fixed empty-tag parsing, Korean metadata encoding and Music growing back
 over the panel. Parser-facing command locale stays unchanged. Real Dunst's
 unchanged five-second timer recovers after service loss/restart and DND changes,
-without a click/focus refresh. Publication/native refresh pending this batch;
-broader review stays active. No audible sound, models or release ISO.
-[Evidence](ui-whole-os-review.md#batch-28-task-view-media-and-periodic-notification-recovery).
+without a click/focus refresh. Runtime source `5395853` passes both CIs; signed
+generation `ea616da2e3aa29602afdc8d26e21bbf4b418ae2ec8452cd020908155ac43f2d1`
+is published and installed in Ooonana WSL. Core/runtime verification and health
+hooks pass; installed UI/helper/i3 bytes match source. Default metadata/adapter
+refreshed without GUI/WSL restart. Broader review stays active. No audible sound,
+models or release ISO. [Checkpoint and GUI command](ui-whole-os-review.md#published-checkpoint-after-batch-28).
 
 ## October 19 Spotlight publication and native refresh
 
