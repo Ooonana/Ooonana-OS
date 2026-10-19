@@ -24,6 +24,9 @@ instead of inheriting a build folder, Windows mount or filesystem root. Missing
 Home stops startup with a clear error. Explicit app workdirs remain unchanged.
 [Qt scaling/picker and Home-default checks](docs/ui-whole-os-review.md#batch-29-scaled-qt-pickers-and-session-home-defaults)
 cover normal defaults plus isolated200% Qt stress; no global scale increase.
+Signed candidate and native Ooonana WSL now include this fix; package/file/health
+checks and installed UID1000 Home startup pass. No GUI restart or ISO build.
+[Publication receipt and remaining dock direction](docs/ui-whole-os-review.md#published-checkpoint-after-batch-29).
 
 October 18 notification follow-up preserves keyboard reading position when new
 messages arrive and keeps saved history visible during storage failures, with

@@ -1969,3 +1969,67 @@ Supersedes this batch's publication-pending note. Whole-OS review stays active.
   Windows free-space gain or VHD compaction. No denied cleanup retried.
 
 ![Normal100% private Qt session; portal image picker starts in Home](assets/ooonana-qt-home-picker-20261019.png)
+
+## Published checkpoint after Batch 29
+
+Supersedes publication-pending note above. New dock direction remains queued,
+not implemented: user requested finishing existing work first.
+
+- Runtime source `f8402a76c007923222fd60e087c36b148ee0f816` passes
+  [GitHub 39218797636](https://github.com/Ooonana/Ooonana-OS/actions/runs/39218797636)
+  and [GitLab 2962086647](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2962086647).
+- Signed local generation:
+  `0c5889376f3bf6a88291ed60e5a7f80d6cb79ce33e31977d0010767d12ecc895`.
+  SHA256SUMS digest:
+  `7e66655bc558116d75d6120bca9bc431691bb2bb981ddd9f6bf55a721d763b70`.
+  All1302 checksums/signature/trust pin verified before/during atomic publication;
+  clean300-source-file manifest,654-package/612-node closure, v3.24 base, no
+  bundled models. Source digest:
+  `c37811c47f50eb660262116fa65ac153fc1d0125bc5333e8bfd8ae97e94e6d66`.
+  Previous generation SHA256SUMS stays
+  `486688fbe4327117c70ca558a2ad677f55fb06a563f878f1e5b16675107a8596`.
+- Native snapshot:
+  `/var/lib/ooonana/candidate-session-home-20261019.sIpnTvc4`.
+  F mounted read-only;1302 checksums/signature verified there and in local
+  snapshot (643 immutable archive hardlinks,662 copies including trust files).
+  Separate core/runtime dry-runs, reinstall transactions, installed-file
+  verification and both health hooks pass. Update backups retained.
+- Installed session SHA256:
+  `4e2362d3aaa38cb411336881e1691f8fa9e49613df72b9a5b98b6c469c713d4d`.
+  Exact generated source matches; real installed prefix as UID1000 from `/`
+  reaches `/home/ooonana`, stopping before bus/theme/app/audio startup. Both i3
+  configs match source; UID1000 `i3 -C` passes. Adapter and default654-package/
+  two-source metadata refreshed. Logs:
+  `/var/tmp/ooonana-session-home-sync-20261019.CTEsyfgZ`.
+- OpenVINO installed metadata and `/etc/wsl.conf` hashes unchanged. No forced
+  GUI/WSL restart, model download, hardware audio playback or release ISO.
+  Signing key remains local; enrollment/stable promotion still deferred.
+- Cleanup removed45 inactive private GUI overlays after exact-path, no-symlink,
+  no-active-harness and all-process mount checks:434204KiB logical (~424MiB).
+  These test copies are regenerable; captures/logs, Firefox QA homes, caches,
+  history and package/ISO generations remain. Receipt:
+  `/var/tmp/ooonana-cleanup-20261019.KfO0FPGs`. Windows deletion command was
+  rejected before execution; no C:/F: files were removed and no workaround
+  attempted. Remaining22 `.pyc` files (~961kB) are under the vendored OpenVINO
+  source cache; two other discovered Python cache directories are empty. Newly
+  completed duplicate stage remains:
+  `F:\Ooonana\ooonana-os\build\session-home-stage-20261019-f8402a7-l3oz_4qg`.
+  Earlier denied Qt publication-stage cleanup was not retried. Ext4 reclaim
+  does not certify immediate Windows free-space gain or VHD compaction.
+- Next dock brief: flat, opaque surface; running/minimized app windows in dock,
+  improved direct right-click actions and grouping. No active title/window list
+  added to top panel. Existing dock visual/behavior unchanged this batch. Broader
+  ledger, actual WSLg input, physical/mixed-DPI/USB and PDF viewer gates stay open.
+
+Close old nested GUI manually when ready; launch updated session:
+
+```powershell
+wsl -d Ooonana --exec /usr/local/bin/start-ooonana-i3 --nested
+```
+
+Fresh ISO build is needed for runtime changes, never an old resume. Waiting for
+queued dock work avoids another subsequent rebuild:
+
+```powershell
+& 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10'
+```

@@ -10,8 +10,25 @@ reproduced: BusyBox user handoff preserved `/`/launch cwd despite correct HOME.
 Desktop session now enters Home before bus/app startup, or refuses with clear
 error if unavailable. Actual source prefix runs as UID1000 in Qt QA; picker
 now opens Home. Explicit terminal workdir remains. Native/rootfs/WSL/package
-regressions and final Qt matrix pass; publication/native refresh pending.
+regressions and final Qt matrix pass. Runtime source `f8402a7` passes both CIs;
+signed generation `0c5889376f3bf6a88291ed60e5a7f80d6cb79ce33e31977d0010767d12ecc895`
+is published and installed in Ooonana WSL. All1302 checksums, package transactions,
+file verification, health hooks and installed UID1000 Home startup pass. Default
+metadata/WSL adapter refreshed without GUI restart; OpenVINO/WSL config retained.
 [Evidence and limits](ui-whole-os-review.md#batch-29-scaled-qt-pickers-and-session-home-defaults).
+
+Next requested direction, not implemented: flat dock without raised tiles,
+app-grouped running/minimized windows and better direct right-click actions.
+All window entries belong in dock; do not add active-window title/list to top
+panel. User requested finishing existing work first. Whole UI ledger stays open.
+
+Cleanup:45 inactive private QA overlays removed after exact-path, no-process,
+no-symlink and all-process mount checks (434204KiB logical, regenerable). Captures,
+logs, Firefox QA homes, source caches, history, checkpoints and ISO assets retained.
+Receipt: `/var/tmp/ooonana-cleanup-20261019.KfO0FPGs`. Windows cleanup was rejected
+before execution:22 bytecode files (~961kB) and completed duplicate F publication
+stage remain. No retry/workaround used; no C:/F: deletion occurred. Logical ext4
+reclaim does not imply immediate Windows free-space gain or VHD compaction.
 
 ## October 19 Task View and actual media integration
 
