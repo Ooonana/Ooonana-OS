@@ -1,4 +1,4 @@
-# Current work - 2026-10-19
+# Current work - 2026-10-20
 
 ## October 19 flat dock, app groups and saved pins
 
@@ -18,7 +18,14 @@ relaunch, minimize/restore, readonly failure/retry and keyboard window actions.
 Actual320px overflow/hidden-pin options, edge tooltips, both panel sizes/themes
 and2× device-scale controls also pass. Default60px dock/32px icons and global
 100% scale remain. Native/rootfs/package-factory/panel-session regressions pass.
-Publication/native refresh pending; no ISO built. Broader UI ledger stays open.
+Runtime source `5a39c8c` passes both CIs and is signed/published as generation
+`26bb8cf5f3ff10af9a104ac78886f32fe3f4fad280dd7644a7a956345be87942`.
+Ooonana WSL core/runtime, adapter and default metadata refreshed; all1302
+checksums, signatures, package/file/health checks and UID1000 import/i3 checks
+pass. Installed UI bytes match source. No GUI restart or ISO build. OpenVINO,
+boot config, history and prior generations retained.15 inactive private test
+overlays removed (41340KiB logical); captures/logs stay. Windows duplicate-stage
+cleanup blocked, not retried. Broader UI ledger stays open.
 [Evidence and limits](ui-whole-os-review.md#batch-30-flat-dock-app-groups-and-persistent-pins).
 
 ## October 19 Qt scaling, pickers and desktop Home defaults

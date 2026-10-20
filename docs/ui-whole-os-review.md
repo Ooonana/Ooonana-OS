@@ -17,7 +17,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Control proportions | Shared/native GTK 10pt typography and chat actions measured; targeted 100/125/200% scaling; Task Manager headers/values follow text metrics | Other app-specific Qt controls, panel/card/dock content proportions; no blind blanket shrink |
 | Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; current source inventory | Fresh composited desktop, cursor hotspot/scale, icon consistency and selection states |
 | Panel / music / AI / notifications / tray | Actual source Polybar/wallpaper/dock; wide CJK labels and full counters at 640/760/900/1000/1024/1100/1280px; missing-glyph and actual AI-centering checks; compact Task View; actual private MPD empty/play/pause/volume/next/stop/loss/recovery | Actual installed tray/service integration and physical/live-session states; null-output QA does not prove hardware audio |
-| Dock | Actual Gdk edge placement, tooltips/four-corner menus, 44px targets, fullscreen/workspace visibility and focus restoration pass; actual 1×/2× device coordinate checks; centered icons, compact grouping, preview and action checks below | Actual installed-session/display integration, physical mixed DPI/hotplug; multi-output visibility currently pure/derived guards |
+| Dock | Flat centered icons; actual app/transient grouping, exact MRU restore, direct actions, Pin/Unpin, real held-drag reorder within left-pinned/right-running sections, saved layout/relaunch and readonly retry pass both themes normal/200% text; overflow idle-pin options, edge tooltips and actual 1×/2× device checks pass; signed candidate/native bytes synchronized | Actual installed interactive-session/display integration, physical mixed DPI/hotplug; multi-output visibility currently pure/derived guards |
 | Native Launcher | Long names/tooltips, no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard; real managed display fit, desktop-entry discovery and X11 Return launch/focus to XTerm/native Settings pass | Preferred-wrapper variants, actual installed-session keyboard/IME and desktop integration |
 | Wi-Fi / Bluetooth | Managed lists/hidden/personal/TLS/PIN forms; advanced fields, bounded certificate pickers, inline validation, progress/reduced motion, service gating, duplicate/closed refusal and safe Reset/Remove pass both themes through 200% text | Actual installed authentication, advanced network activation, physical reconnect/pairing and changed-adapter integration |
 | Settings: all six pages | Compact page picker, bounded/selectable sources, managed dialogs, repair/update retry; actual private 0600 preference writes, reopen, read-only rollback and retry through 200% text | Actual installed-session theme/wallpaper/authentication paths, other external file/device failures |
@@ -2088,3 +2088,59 @@ queued dock work avoids another subsequent rebuild:
 ![Normal100% flat dock and panel, private GTK/i3/Polybar sample state](assets/ooonana-flat-pinned-dock-20261019.png)
 
 ![Normal100% direct grouped window actions, light compact display](assets/ooonana-flat-dock-menu-20261019.png)
+
+## Published checkpoint after Batch 30
+
+Supersedes publication-pending notes above. Whole-OS review remains active.
+
+- Runtime source `5a39c8cddb5d5941e335a226422eea921496eaaa` passes
+  [GitHub39258579926](https://github.com/Ooonana/Ooonana-OS/actions/runs/39258579926)
+  and [GitLab2963317461](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2963317461).
+  Signed generation:
+  `26bb8cf5f3ff10af9a104ac78886f32fe3f4fad280dd7644a7a956345be87942`.
+  SHA256SUMS digest:
+  `282fecba4eacefc237cfdfb47ab9b724e5d6ba0f20106619c7543bd7731397d3`.
+  Full old/new signature/checksum verification,301-source-file clean manifest,
+  654-package/612-node closure and atomic publication pass. Source digest:
+  `c2d7ff1cf819b628ce640dc4608d460158f053f3f35883fb9aadb131b88bbcb4`.
+  v3.24 base unchanged; models not bundled. Old generation/checksums retained.
+- Native snapshot:
+  `/var/lib/ooonana/candidate-flat-pins-20261019.Bxv6AKJz`.
+  Read-only F generation and local snapshot each pass all1302 checksums and
+  trusted signature;643 immutable archive links/662 copies. Separate runtime/
+  core dry-run, reinstall, file verification and health hooks pass; rollback
+  backups kept. Five changed UI/helper files match current source byte-for-byte.
+  Installed dock SHA256:
+  `1a3c0a59517e35ed2b776b9ee1237e421fc9b08aa5c9d24675793d8c5e5b0337`.
+  New panel configuration installed; UID1000 dock/model imports and `i3 -C`
+  pass. WSL-local adapter and default654-package/two-source metadata refreshed.
+  Logs: `/var/tmp/ooonana-flat-pins-sync-20261019.yd10VJ9t`.
+- OpenVINO metadata and `/etc/wsl.conf` hashes unchanged. No forced GUI/WSL
+  restart, model download, audio-device playback or release ISO. Actual human
+  WSLg input/session and remaining ledger gates stay unverified, not certified
+  by package synchronization. Signing key stays local; no stable promotion.
+-15 completed private QA overlays removed only after exact-path/no-symlink,
+  no-active-harness and all-process mount checks:41340KiB logical (~40MiB).
+  Receipt: `/var/tmp/ooonana-flat-pins-cleanup-20261019.Hdk64QGw`.
+  Screenshots/logs/history/models/checkpoints/ISO assets retained. Logical
+  ext4 reclaim is not immediate Windows free space or VHD compaction.
+- Newly completed duplicate F publication stage deletion was blocked before
+  execution, not retried through another route. Previous denied Windows
+  cleanup remains untouched. Optional exact manual cleanup for this new stage
+  only (published generation is separate and remains):
+
+```powershell
+Remove-Item -LiteralPath 'F:\Ooonana\ooonana-os\build\flat-pins-stage-20261019-5a39c8c-8rx2iy5j' -Recurse -Force
+```
+
+Close old nested GUI manually when ready; launch updated session:
+
+```powershell
+wsl -d Ooonana --exec /usr/local/bin/start-ooonana-i3 --nested
+```
+
+Fresh ISO command, user-run only; never resume an old image for new UI code:
+
+```powershell
+& 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10'
+```
