@@ -318,7 +318,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   done
   probe native-app-catalog python3 /source/tests/check-native-app-catalog.py
   probe ui-details-runtime python3 /source/tests/check-ui-details-runtime.py /qa/details
-  probe ui-content-runtime python3 /source/tests/check-ui-content-runtime.py /qa/content
+  probe ui-content-runtime python3 /source/tests/check-ui-content-runtime.py /qa/content --text-scale "$text_scale"
   probe wireless-notification-ui python3 /source/tests/check-wireless-notification-ui.py /qa/wireless-notification
   probe package-health-ui python3 /source/tests/check-package-health-ui.py /qa/package-health
   probe admin-prompt-ui python3 /source/tests/check-admin-prompt-ui.py /qa/admin-prompt

@@ -15,10 +15,17 @@ immediately; exact/prefix app names rank before description matches. Empty
 query preserves catalog order; Unicode/no-match behavior stays.
 
 Four real GTK/i3 wrapper cases pass terminal, Geany palette, Nemo Home, focus,
-window bounds and later user geometry. Normal compact both themes, normal
-desktop and enlarged-text light desktop pass; shared long/no-match/error
-content and device-control regressions pass. Pure guards run in both CIs.
-Publication/native refresh pending; whole-OS review remains active.
+window bounds and later user geometry. Final Impeccable review caught missing
+QA scaling application; corrected launcher/shared-content fixtures now record
+actual192DPI/200% parent text and pass compact dark/desktop light cases. External
+app/whole-desktop scaling is not inferred. Normal defaults stay100%. Both CIs
+pass; signed generation `26407e012bd145c98b543d03621a7d563e6eb2e947c19e9517086687c2e8ca31`
+published and installed in Ooonana WSL. Full signed checksums, separate runtime/
+core transactions, verification/health and UID1000 imports/i3 checks pass.
+Installed launcher/window-controls/dock bytes match source. Adapter/default
+metadata refreshed without GUI restart; OpenVINO/boot config retained.
+Whole-OS review remains active. Next requested: unify third-party titlebar
+button size/placement with native controls, with fresh Impeccable review.
 [Evidence](ui-whole-os-review.md#batch-31-preferred-launchers-search-selection-and-default-app-fit).
 
 ## October 19 flat dock, app groups and saved pins

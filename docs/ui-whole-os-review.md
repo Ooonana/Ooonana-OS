@@ -2170,12 +2170,19 @@ Fresh ISO command, user-run only; never resume an old image for new UI code:
   preserves native-first catalog order. No application removed/hidden just
   for a misleading description match. Unicode and no-match recovery preserved.
 - Pure selection/ranking and initial placement guards pass and run in both
-  CIs. Real final matrix passes dark640×600100%, light640×600100%,
-  dark1280×800100%, light1280×800200% text stress. New editor/files frames fit
-  output plus panel/dock clearances; subsequent real user resize/move is not
-  reset. Shared long-name/no-match/rejection paths pass dark compact200% and
-  light desktop100%; device-controls/native/rootfs regressions pass. Enlarged
-  text remains QA only. Evidence:
+  CIs. Real wrapper/default-fit matrix passes dark/light compact and desktop
+  cases. New editor/files frames fit output plus panel/dock clearances;
+  subsequent real user resize/move is not reset. Device-controls/native/rootfs
+  regressions pass. Initial environment-only enlarged-text labels were not
+  sufficient evidence: final Impeccable review caught missing launcher DPI
+  application and missing shared-content CLI forwarding. Those QA fixtures
+  now apply/record actual196608 Xft DPI (192DPI/200% text). Corrected dark640
+  and light1280 launcher plus shared-content cases pass with visible enlarged
+  labels and no clipping; long/no-match/rejection/recovery still work. This
+  scales tested parent GTK widgets, not external app processes or whole desktop.
+  Normal production defaults remain100%. Corrected evidence:
+  `/var/tmp/ooonana-launcher-true-text-scale-20261020.B2QfrRL8`.
+  Normal wrapper/default-fit evidence:
   `/var/tmp/ooonana-launcher-files-fit-final-20261020.fCfqlMOS`.
   Earlier baseline/diagnostic/confirmation captures and logs retained under
   `/var/tmp/ooonana-launcher-wrappers-20261020.zbOUtJDo`,
@@ -2190,3 +2197,57 @@ Fresh ISO command, user-run only; never resume an old image for new UI code:
 ![Normal100% Geany fits640×600 without clipped titlebar/menus](assets/ooonana-geany-launch-fit-20261020.png)
 
 ![Normal100% Files launch fits panel/dock clearances](assets/ooonana-files-launch-fit-20261020.png)
+
+## Impeccable review after Batch 31
+
+- Reviewed actual final normal-size dock/menu, Geany and Files captures, plus
+  corrected actual200% Spotlight/shared-content captures, against source.
+  Flat opaque identity, centered dock icons, pin/run divider, normal text/icon
+  proportions, keyboard focus/selection, right-click targeting, fit clearances
+  and no-clipping states checked. No extra cosmetic resize loop or transparency.
+- User-requested pin/drag behavior remains covered by actual mouse gestures,
+  saved layout/relaunch and failure/retry checks from Batch30. New source does
+  not alter dock bytes. This is not certification of live WSLg, physical
+  compositor/mixed-DPI, every external app or remaining whole-OS ledger.
+- Runtime source `11a51a74000317d1d54771167e614e2d44a20b2a` passes
+  [GitHub39395479651, attempt2](https://github.com/Ooonana/Ooonana-OS/actions/runs/39395479651)
+  and [GitLab2966641963](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2966641963).
+  First GitHub attempt hit Python's nine-second outer watchdog in existing
+  PDF VM fixture; same source passes locally and unchanged CI retry. No PDF
+  runtime, internal timeout, benchmark or rate-hook assertion weakened.
+- Signed/published generation:
+  `26407e012bd145c98b543d03621a7d563e6eb2e947c19e9517086687c2e8ca31`.
+  SHA256SUMS:
+  `665fde1f8097da8aa2c0bee658169773ce4fa2efc99568784ae018998715d1ea`.
+  Full old/new signed-file verification,301-file clean source manifest,
+  654-package/612-node closure and atomic promotion pass. Source digest:
+  `d91378db765f2411f4505731ae61a0c7579637ee14924876aa92c94f1a8a4f77`.
+  Earlier generation unchanged; no bundled models, stable promotion or new
+  signing enrollment. Native refresh remains pending until receipt below.
+- QA-only scaling corrections change no runtime payload. Newly completed
+  duplicate stage retained; Windows cleanup was already blocked, not retried.
+  Optional exact manual cleanup, after immutable publication completed:
+
+```powershell
+Remove-Item -LiteralPath 'F:\Ooonana\ooonana-os\build\launch-fit-stage-20261020-11a51a7-yy0nbqt5' -Recurse -Force
+```
+
+### Batch 31 native receipt
+
+Supersedes native-refresh-pending notes above. Snapshot:
+`/var/lib/ooonana/candidate-launch-fit-20261020.dTIFgty8`.
+Read-only F and native copy each verify all1302 checksums/trusted signature;
+643 immutable archive links/662 copies. Separate runtime/core dry-run,
+reinstall, file verification and health hooks pass; backups remain. Installed
+launcher/window-controls/dock match source. Launcher SHA256:
+`41b18289821d3e75c76a90d884e50e8f147bbbf890f098bea85d7d47b2aea01a`.
+Controls SHA256:
+`77f9c3b25ac4bf546670924cb2bbc6bf0f6c5a6ab3f58dc234cb2374933a2682`.
+UID1000 imports and `i3 -C` pass. WSL-local adapter/default654-package/two-source
+metadata refreshed; OpenVINO installed metadata and boot config unchanged.
+Logs: `/var/tmp/ooonana-launch-fit-sync-20261020.7SyQ5XUk`.
+No GUI/WSL restart, audible playback, model downloads or ISO build. F build
+launcher still resolves canonical C source, not a second scattered checkout.
+QA scaling corrections affect tests only;301-file runtime source digest remains
+identical to signed manifest. Next user request is third-party/native control
+size/placement parity; that new patch is not included in this checkpoint.

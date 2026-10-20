@@ -20,11 +20,12 @@ from gi.repository import Gio
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("output", type=Path)
 parser.add_argument("--baseline", action="store_true", help="Capture findings before a repair")
-parser.add_argument("--text-scale", type=float, choices=(1.0, 1.25, 1.5), default=1.0)
+parser.add_argument("--text-scale", type=float, choices=(1.0, 1.25, 1.5, 2.0), default=1.0)
 args = parser.parse_args()
 args.output.mkdir(parents=True, exist_ok=True)
 apply_theme()
 Gtk.Settings.get_default().set_property("gtk-xft-dpi", round(96 * 1024 * args.text_scale))
+print("CONTENT_TEST_XFT_DPI", Gtk.Settings.get_default().get_property("gtk-xft-dpi"), flush=True)
 Gtk.main_quit = lambda *_args: None
 failures = []
 

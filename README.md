@@ -27,7 +27,8 @@ nested desktop manually when ready, then relaunch. No ISO built.
 October20 follow-up fixes Spotlight's delayed selection reset and ranks exact
 app names before description-only matches. Newly opened Geany/Files windows
 fit small-screen panel/dock clearance without changing already-fitting defaults
-or later user resizing. Real themed-wrapper checks pass both appearances;
+or later user resizing. Signed candidate/Ooonana WSL include these fixes.
+Real themed-wrapper checks pass both appearances;
 [checks and current publication state](docs/ui-whole-os-review.md#batch-31-preferred-launchers-search-selection-and-default-app-fit).
 
 Desktop sessions now enter the user's Home before launching apps/services,

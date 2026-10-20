@@ -74,6 +74,8 @@ def capture(name):
 
 
 apply_theme()
+Gtk.Settings.get_default().set_property("gtk-xft-dpi", round(96 * 1024 * float(os.environ.get("OOONANA_GUI_TEXT_SCALE", "1.0"))))
+print("LAUNCHER_TEST_XFT_DPI", Gtk.Settings.get_default().get_property("gtk-xft-dpi"), flush=True)
 subprocess.run(["ooonana-theme-env", "apply"], check=True, capture_output=True, timeout=20)
 schemes = Path.home() / ".config/geany/colorschemes"
 schemes.mkdir(parents=True)
