@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import Gdk, GLib, Gtk, Pango, apply_theme, header, icon, label, launch, message  # noqa: E402
+from common import Gdk, Gtk, Pango, apply_theme, header, icon, label, launch, message  # noqa: E402
 from gi.repository import Gio  # noqa: E402
 
 
@@ -52,7 +52,7 @@ class LauncherWindow(Gtk.Window):
         self.search = Gtk.SearchEntry()
         self.search.set_placeholder_text("Search applications")
         self.search.get_style_context().add_class("spotlight-search")
-        self.search.connect("search-changed", self.search_changed)
+        self.search.connect("changed", self.search_changed)
         self.search.connect("activate", self.launch_selected)
         self.search.connect("key-press-event", self.search_key)
         search_box.pack_start(self.search, True, True, 0)
@@ -63,6 +63,7 @@ class LauncherWindow(Gtk.Window):
         self.results.set_selection_mode(Gtk.SelectionMode.SINGLE)
         self.results.set_activate_on_single_click(True)
         self.results.set_filter_func(self.filter_row)
+        self.results.set_sort_func(self.sort_rows)
         self.results.connect("row-activated", self.activate_row)
         self.result_scroll = Gtk.ScrolledWindow()
         self.result_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
@@ -102,6 +103,8 @@ class LauncherWindow(Gtk.Window):
         description = app.get_description() or app.get_executable() or "Application"
         row = Gtk.ListBoxRow()
         row.app = app
+        row.search_name = name.casefold()
+        row.default_order = len(self.results.get_children())
         row.search_text = f"{name} {description} {app.get_executable() or ''}".casefold()
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
         gicon = app.get_icon()
@@ -157,9 +160,20 @@ class LauncherWindow(Gtk.Window):
     def visible_rows(self):
         return [row for row in self.results.get_children() if row.get_child_visible()]
 
+    def sort_rows(self, left, right):
+        query = self.search.get_text().strip().casefold()
+        def score(row):
+            name = row.search_name
+            rank = (0 if name == query else 1 if name.startswith(query) else
+                    2 if any(word.startswith(query) for word in name.split()) else
+                    3 if query in name else 4) if query else 0
+            return rank, row.default_order
+        return (score(left) > score(right)) - (score(left) < score(right))
+
     def search_changed(self, *_args):
         self.results.invalidate_filter()
-        GLib.idle_add(self.select_first)
+        self.results.invalidate_sort()
+        self.select_first()
 
     def select_first(self):
         rows = self.visible_rows()

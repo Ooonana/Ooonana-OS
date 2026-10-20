@@ -37,6 +37,7 @@ PYTHONPYCACHEPREFIX="$tmp/pycache" "$PYTHON" -m py_compile "$ROOT/packages/ooona
 assert_contains "$(<"$ROOT/packages/ooonana/usr/bin/ooonana-admin-askpass")" 'entry.get_accessible().set_name("Account password")'
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-dock-visibility.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-dock-model.py"
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-launcher-search.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-window-control-scale.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-media-metadata.py"
 

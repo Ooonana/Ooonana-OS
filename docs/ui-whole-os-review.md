@@ -18,7 +18,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; current source inventory | Fresh composited desktop, cursor hotspot/scale, icon consistency and selection states |
 | Panel / music / AI / notifications / tray | Actual source Polybar/wallpaper/dock; wide CJK labels and full counters at 640/760/900/1000/1024/1100/1280px; missing-glyph and actual AI-centering checks; compact Task View; actual private MPD empty/play/pause/volume/next/stop/loss/recovery | Actual installed tray/service integration and physical/live-session states; null-output QA does not prove hardware audio |
 | Dock | Flat centered icons; actual app/transient grouping, exact MRU restore, direct actions, Pin/Unpin, real held-drag reorder within left-pinned/right-running sections, saved layout/relaunch and readonly retry pass both themes normal/200% text; overflow idle-pin options, edge tooltips and actual 1×/2× device checks pass; signed candidate/native bytes synchronized | Actual installed interactive-session/display integration, physical mixed DPI/hotplug; multi-output visibility currently pure/derived guards |
-| Native Launcher | Long names/tooltips, no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard; real managed display fit, desktop-entry discovery and X11 Return launch/focus to XTerm/native Settings pass | Preferred-wrapper variants, actual installed-session keyboard/IME and desktop integration |
+| Native Launcher | Long names/tooltips, no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard; real desktop-entry/Return/focus handoff to native Settings and preferred themed terminal/editor/files pass; immediate filter/selection and exact-name ranking repair observed wrong-app launch | Browser/hardware-wrapper variants, actual installed-session keyboard/IME and desktop integration |
 | Wi-Fi / Bluetooth | Managed lists/hidden/personal/TLS/PIN forms; advanced fields, bounded certificate pickers, inline validation, progress/reduced motion, service gating, duplicate/closed refusal and safe Reset/Remove pass both themes through 200% text | Actual installed authentication, advanced network activation, physical reconnect/pairing and changed-adapter integration |
 | Settings: all six pages | Compact page picker, bounded/selectable sources, managed dialogs, repair/update retry; actual private 0600 preference writes, reopen, read-only rollback and retry through 200% text | Actual installed-session theme/wallpaper/authentication paths, other external file/device failures |
 | Setup | Compact/200% scrolling and stacked labels; focused inline validation, secret-preserving drafts, full source/routing review, default Back, reduced motion, pending/reentrant and closed-parent refusal checked both themes | Complete installed privileged setup/persistence and actual authentication/network failures; CLI backend preflight is not certified by UI validation |
@@ -2119,7 +2119,7 @@ Supersedes publication-pending notes above. Whole-OS review remains active.
   restart, model download, audio-device playback or release ISO. Actual human
   WSLg input/session and remaining ledger gates stay unverified, not certified
   by package synchronization. Signing key stays local; no stable promotion.
--15 completed private QA overlays removed only after exact-path/no-symlink,
+- 15 completed private QA overlays removed only after exact-path/no-symlink,
   no-active-harness and all-process mount checks:41340KiB logical (~40MiB).
   Receipt: `/var/tmp/ooonana-flat-pins-cleanup-20261019.Hdk64QGw`.
   Screenshots/logs/history/models/checkpoints/ISO assets retained. Logical
@@ -2144,3 +2144,49 @@ Fresh ISO command, user-run only; never resume an old image for new UI code:
 ```powershell
 & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10'
 ```
+
+## Batch 31: preferred launchers, search selection and default app fit
+
+- Expanded real Spotlight integration to installed `xterm.desktop`,
+  `geany.desktop` and `nemo.desktop`, alongside owned desktop entry/native
+  Settings. Current source wrappers/UI are read-only-bound in private candidate
+  namespace, not trusted from old cache. Theme application and Geany schemes
+  affect private QA Home only. Actual X11 Return, owned UID/process command,
+  focus and close verified. Geany uses chosen scheme/Monospace11; Nemo targets
+  Home. No audio/network/browser/model operation.
+- Normal640×600 baseline exposed902×623 Geany at(-131,-24), clipping native
+  menus/titlebar. Nemo's normal height also covered reserved panel/dock region.
+  Source window-controls manager now fits only newly observed floating normal
+  Geany/Nemo frames to shipped usable clearances when needed. No global
+  constraints, stylesheet scaling or forced enlargement of fitting defaults.
+  One deferred correction revalidates unchanged geometry and actual XID;
+  user move/resize, hidden/tiled/fullscreen/native/dialog/closed/reused windows
+  remain untouched. Existing Qt-dialog-only reposition logic stays unchanged.
+- Baseline Files selection opened Wi-Fi, not Nemo. Retained client/process
+  evidence shows `wifi_app.py`: deferred search selected first description
+  match (`profiles`) after explicit row choice. Search now filters, ranks and
+  selects synchronously on text change, before Return/idle. Exact app name,
+  prefix, word and name substring outrank description matches; empty query
+  preserves native-first catalog order. No application removed/hidden just
+  for a misleading description match. Unicode and no-match recovery preserved.
+- Pure selection/ranking and initial placement guards pass and run in both
+  CIs. Real final matrix passes dark640×600100%, light640×600100%,
+  dark1280×800100%, light1280×800200% text stress. New editor/files frames fit
+  output plus panel/dock clearances; subsequent real user resize/move is not
+  reset. Shared long-name/no-match/rejection paths pass dark compact200% and
+  light desktop100%; device-controls/native/rootfs regressions pass. Enlarged
+  text remains QA only. Evidence:
+  `/var/tmp/ooonana-launcher-files-fit-final-20261020.fCfqlMOS`.
+  Earlier baseline/diagnostic/confirmation captures and logs retained under
+  `/var/tmp/ooonana-launcher-wrappers-20261020.zbOUtJDo`,
+  `/var/tmp/ooonana-launcher-wrapper-diagnose-20261020.7dIcpyLZ` and
+  `/var/tmp/ooonana-launcher-fit-confirm-20261020.I3wFmYq1`.
+- Impeccable pass preserves normal10pt/native controls,11pt editor text,
+  opaque surfaces and existing layout identity. Fresh screenshots below are
+  normal100%, not200% default. Browser/hardware-wrapper variants, actual
+  WSLg/IME, physical/mixed-DPI/tray/session/USB and other ledger gates remain.
+  Publication/native refresh pending; no ISO built. OpenVINO stays deferred.
+
+![Normal100% Geany fits640×600 without clipped titlebar/menus](assets/ooonana-geany-launch-fit-20261020.png)
+
+![Normal100% Files launch fits panel/dock clearances](assets/ooonana-files-launch-fit-20261020.png)

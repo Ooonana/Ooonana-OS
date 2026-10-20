@@ -1,5 +1,26 @@
 # Current work - 2026-10-20
 
+## October 20 Spotlight selection and default app fit
+
+Real preferred-wrapper checks found Geany opening902×623 on640×600, clipping
+menus/titlebar. Nemo's default height also overlapped panel/dock clearance.
+Newly mapped floating Geany/Nemo frames now fit usable output only when needed;
+already-fitting defaults and later user resize/move stay untouched. Native apps,
+dialogs, tiled/fullscreen/hidden windows and reused/closed IDs are excluded.
+No blanket font scaling or forced new desktop-wide app size.
+
+Actual Files launch instead opened Wi-Fi: delayed search reset selected row,
+and `profiles` outranked exact `Files`. Filtering/ranking/selection now finish
+immediately; exact/prefix app names rank before description matches. Empty
+query preserves catalog order; Unicode/no-match behavior stays.
+
+Four real GTK/i3 wrapper cases pass terminal, Geany palette, Nemo Home, focus,
+window bounds and later user geometry. Normal compact both themes, normal
+desktop and enlarged-text light desktop pass; shared long/no-match/error
+content and device-control regressions pass. Pure guards run in both CIs.
+Publication/native refresh pending; whole-OS review remains active.
+[Evidence](ui-whole-os-review.md#batch-31-preferred-launchers-search-selection-and-default-app-fit).
+
 ## October 19 flat dock, app groups and saved pins
 
 Flat opaque dock now keeps pinned apps left and unpinned running apps right,

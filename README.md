@@ -24,6 +24,12 @@ both CIs, signed repository, installed files and health checks pass. Close old
 nested desktop manually when ready, then relaunch. No ISO built.
 [Publication receipt, GUI/build and manual cleanup commands](docs/ui-whole-os-review.md#published-checkpoint-after-batch-30).
 
+October20 follow-up fixes Spotlight's delayed selection reset and ranks exact
+app names before description-only matches. Newly opened Geany/Files windows
+fit small-screen panel/dock clearance without changing already-fitting defaults
+or later user resizing. Real themed-wrapper checks pass both appearances;
+[checks and current publication state](docs/ui-whole-os-review.md#batch-31-preferred-launchers-search-selection-and-default-app-fit).
+
 Desktop sessions now enter the user's Home before launching apps/services,
 instead of inheriting a build folder, Windows mount or filesystem root. Missing
 Home stops startup with a clear error. Explicit app workdirs remain unchanged.

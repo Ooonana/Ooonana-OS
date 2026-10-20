@@ -215,6 +215,17 @@ if [[ "$only" == all || "$only" == launcher-session-ui ]]; then
   mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-settings"
   mount --bind "$SOURCE/packages/ooonana/usr/bin/ooonana-settings-launch" "$rootfs/usr/bin/ooonana-settings-launch"
   mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-settings-launch"
+  for helper in ooonana-theme-env ooonana-editor ooonana-files; do
+    awk -v marker="\"\$ROOTFS/usr/bin/$helper\"" '
+      index($0, marker) { capture=1; next }
+      capture && $0 == "EOF" { exit }
+      capture { print }
+    ' "$SOURCE/scripts/build-full-i3-rootfs.sh" >"$rootfs/run/ooonana-qa-$helper"
+    [[ -s "$rootfs/run/ooonana-qa-$helper" ]]
+    chmod 0755 "$rootfs/run/ooonana-qa-$helper"
+    mount --bind "$rootfs/run/ooonana-qa-$helper" "$rootfs/usr/bin/$helper"
+    mount -o remount,bind,ro "$rootfs/usr/bin/$helper"
+  done
 fi
 if [[ "$only" == all || "$only" == panel-media-runtime ]]; then
   for helper in ooonana-media-control ooonana-media-status; do

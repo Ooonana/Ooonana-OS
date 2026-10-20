@@ -16,6 +16,39 @@ from common import Gdk, GLib, Gtk, window_control_icon, run_async
 WIDTH = 66
 
 
+def initial_app_targets(tree, visible):
+    """Fit new editor/files frames; preserve fitting defaults and later user moves."""
+    result = {}
+    def visit(node, output=None, workspace=None):
+        if node.get("type") == "output":
+            output = node.get("rect")
+        if node.get("type") == "workspace":
+            workspace = node.get("name")
+        properties = node.get("window_properties") or {}
+        if (output and node.get("window") and workspace in visible
+                and str(properties.get("class", "")).casefold() in ("geany", "nemo")
+                and node.get("window_type") == "normal"
+                and node.get("floating") in ("auto_on", "user_on")
+                and not node.get("fullscreen_mode")):
+            rect = node.get("rect") or {}
+            x, y, width, height = (rect.get(key, 0) for key in ("x", "y", "width", "height"))
+            # Same usable clearances as shipped i3 gaps: panel/dock stay usable.
+            available_width, available_height = output.get("width", 0) - 24, output.get("height", 0) - 142
+            if min(width, height, available_width, available_height) > 0:
+                new_width, new_height = min(width, available_width), min(height, available_height)
+                left, top = output.get("x", 0) + 12, output.get("y", 0) + 58
+                new_x = max(left, min(x, left + available_width - new_width))
+                new_y = max(top, min(y, top + available_height - new_height))
+                if (new_x, new_y, new_width, new_height) != (x, y, width, height):
+                    # i3 floating resize sets the complete frame, not just client.
+                    result[node["id"]] = ((new_x, new_y, new_width, new_height),
+                                         (x, y, width, height), node["window"])
+        for child in node.get("nodes", []) + node.get("floating_nodes", []):
+            visit(child, output, workspace)
+    visit(tree)
+    return result
+
+
 def initial_dialog_targets(tree, visible):
     """Only the observed Qt settings placement fault; never resize native UI."""
     result = {}
@@ -310,6 +343,23 @@ class Manager:
             pass
         return False
 
+    def fit_initial_app(self, identifier, original, xid):
+        if self.placement_seen is None or identifier not in self.placement_seen:
+            return False
+        try:
+            path = i3_events.socket_path()
+            tree = i3_events.request(path, 4)
+            visible = {item["name"] for item in i3_events.request(path, 1) if item.get("visible")}
+            candidate = initial_app_targets(tree, visible).get(identifier)
+            if candidate and candidate[1:] == (original, xid):
+                x, y, width, height = candidate[0]
+                criterion = f"[con_id={int(identifier)} id={int(xid)}]"
+                run_async(["i3-msg", f"{criterion} resize set {width} px {height} px; "
+                           f"{criterion} move absolute position {x} px {y} px"], lambda *_: None)
+        except (OSError, ValueError, EOFError):
+            pass
+        return False
+
     def refresh(self):
         self.pending = False
         try:
@@ -331,6 +381,9 @@ class Manager:
                 for identifier, (_position, original) in initial_dialog_targets(tree, visible).items():
                     if identifier not in self.placement_seen:
                         GLib.timeout_add(120, self.place_initial_dialog, identifier, original)
+                for identifier, (_position, original, xid) in initial_app_targets(tree, visible).items():
+                    if identifier not in self.placement_seen:
+                        GLib.timeout_add(120, self.fit_initial_app, identifier, original, xid)
             self.placement_seen = live
         except (OSError, ValueError, EOFError):
             return self.clear()
