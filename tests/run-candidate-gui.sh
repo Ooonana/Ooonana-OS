@@ -11,6 +11,7 @@ geometry="${OOONANA_GUI_GEOMETRY:-1280x800}"
 theme="${OOONANA_GUI_THEME:-dark}"
 text_scale="${OOONANA_GUI_TEXT_SCALE:-1.25}"
 device_scale="${OOONANA_GUI_DEVICE_SCALE:-1}"
+i3_candidate="${OOONANA_GUI_I3_CANDIDATE:-}"
 qt_scale="${OOONANA_GUI_QT_SCALE:-1}"
 case "$qt_scale" in 1|1.25|1.5|2) ;; *) printf 'Unsupported Qt test scale: %s\n' "$qt_scale" >&2; exit 2 ;; esac
 case "$device_scale" in 1|2) ;; *) printf 'Unsupported device scale: %s\n' "$device_scale" >&2; exit 2 ;; esac
@@ -22,7 +23,7 @@ case "$geometry" in
   *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
 esac
 case "$only" in
-  all|setup-details-ui|controls-details-ui|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|launcher-session-ui|notifications-runtime|notification-lifecycle|notification-auto-recovery|window-controls-runtime|dock-ui|dock-edges-ui|device-scale-ui|panel-ui|panel-media-runtime|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
+  all|setup-details-ui|controls-details-ui|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|launcher-session-ui|notifications-runtime|notification-lifecycle|notification-auto-recovery|window-controls-runtime|dock-ui|dock-edges-ui|device-scale-ui|csd-controls-ui|panel-ui|panel-media-runtime|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -33,6 +34,12 @@ if [[ "${1:-}" != --worker ]]; then
   [[ "$rootfs" == /var/tmp/* && "$output" == /var/tmp/* && "$rootfs" != "$output" ]] || exit 2
   grep -qx 'ID=ooonana' "$rootfs/etc/os-release"
   grep -qx 'OOONANA_USERLAND_BASE="alpine-v3.24"' "$rootfs/etc/os-release"
+  if [[ -n "$i3_candidate" ]]; then
+    i3_candidate="$(realpath "$i3_candidate")"
+    [[ "$i3_candidate" == /mnt/winf/Ooonana/ooonana-os/qa-i3-controls-*/out/i3 && -f "$i3_candidate" && -x "$i3_candidate" ]] || exit 2
+    [[ "${OOONANA_GUI_I3_SHA256:-}" =~ ^[a-f0-9]{64}$ && "$(sha256sum "$i3_candidate" | awk '{print $1}')" == "$OOONANA_GUI_I3_SHA256" ]] || exit 2
+    export OOONANA_GUI_I3_CANDIDATE="$i3_candidate"
+  fi
   [[ -x "$rootfs/usr/bin/python3" && -d "$rootfs/source" && -d "$rootfs/qa" ]] || exit 2
   if [[ -n "${OOONANA_GUI_REPO:-}" ]]; then
     OOONANA_GUI_REPO="$(realpath "$OOONANA_GUI_REPO")"
@@ -128,8 +135,16 @@ if [[ -n "${OOONANA_GUI_REPO:-}" ]]; then
   chmod 1777 "$rootfs/var/tmp"
 fi
 # Private mounts vanish on namespace exit; candidate bytes/home remain intact.
+if [[ -n "$i3_candidate" ]]; then
+  mount --bind "$i3_candidate" "$rootfs/usr/bin/i3"
+  mount -o remount,bind,ro "$rootfs/usr/bin/i3"
+fi
 mount --bind "$SOURCE" "$rootfs/source"
 mount -o remount,bind,ro "$rootfs/source"
+# Overlay actions must use this source protocol (including expected XIDs), not
+# the preserved root's older helper. Private bind leaves cache bytes unchanged.
+mount --bind "$SOURCE/packages/ooonana/usr/bin/ooonana-window-list" "$rootfs/usr/bin/ooonana-window-list"
+mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-window-list"
 mount --bind "$output" "$rootfs/qa"
 chromium_defaults="$(cat "$rootfs/etc/chromium/chromium.conf")"
 mount -t tmpfs -o size=1m tmpfs "$rootfs/etc/chromium"
@@ -268,7 +283,7 @@ if [[ "$only" == firefox-frame && -z "${OOONANA_FIREFOX_REUSE_HOME:-}" ]]; then
 fi
 # Host Xvfb and candidate use the same private filesystem socket, no TCP.
 mount --bind "$rootfs/tmp" /tmp
-export rootfs output only theme text_scale device_scale qt_scale gui_runtime admin_policy
+export rootfs output only theme text_scale device_scale qt_scale gui_runtime admin_policy i3_candidate
 # Keep namespace init as Bash. Xvfb will not send its readiness signal to PID 1.
 # shellcheck disable=SC2016 # Child shell expands exported paths/display.
 unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp" bash -c '
@@ -306,6 +321,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
       OOONANA_GUI_TEST_ADMIN_POLICY="$admin_policy" \
       GTK_THEME="Adwaita:$theme" OOONANA_THEME="$theme" OOONANA_GUI_TEXT_SCALE="$text_scale" NO_AT_BRIDGE=1 \
       GDK_SCALE="$device_scale" QT_SCALE_FACTOR="$qt_scale" \
+      OOONANA_WINDOW_CONTROLS="${i3_candidate:+left}" \
       "${session[@]}" -- "$@" >"$output/$name.log" 2>&1; then
       printf "PASS %s\n" "$name"
     else
@@ -341,6 +357,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   probe dock-ui python3 /source/tests/check-dock-ui.py /qa/dock.png
   probe dock-edges-ui python3 /source/tests/check-dock-edges-ui.py /qa/dock-edges
   probe device-scale-ui python3 /source/tests/check-device-scale-ui.py /qa/device-scale
+  probe csd-controls-ui python3 /source/tests/check-csd-controls-ui.py /qa/csd-controls
   panel_options=()
   if [ "${OOONANA_PANEL_WIDE_LABELS:-0}" = 1 ]; then panel_options+=(--wide-labels); fi
   probe panel-ui python3 /source/tests/check-panel-ui.py /qa/panel.png --rootfs / --long-wifi --desktop-overview --appearance-output /qa/appearance.png "${panel_options[@]}"

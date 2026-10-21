@@ -2251,3 +2251,130 @@ launcher still resolves canonical C source, not a second scattered checkout.
 QA scaling corrections affect tests only;301-file runtime source digest remains
 identical to signed manifest. Next user request is third-party/native control
 size/placement parity; that new patch is not included in this checkpoint.
+
+## Batch 32: native and third-party control parity
+
+Status: source/native-WM candidate validated; signing, publication and installed
+WSL refresh pending. Previous published generation remains unchanged. Whole-OS
+scope is not complete. OpenVINO and stable promotion/signing enrollment remain
+deferred; no models, audible playback, GUI restart or ISO build.
+
+- Actual baseline measured native24px/left14px/glyph12 versus third-party
+  16px/right/glyph10; at2× native controls scaled while i3 decoration stayed22px.
+  Unsupported `titlebar_padding` is not inserted into i3 config.
+- Opt-in, pinned i3 4.24 source patch reserves32px per device scale for header
+  height and108px per scale before captions. It keeps existing title font,
+  does not double-apply already-HiDPI Xft resolution, and leaves native CSD
+  undecorated. Narrow tabs retain captions/dock access rather than overlapping
+  another tab with buttons. No window-manager replacement or larger native app
+  header/content sizing.
+- Manager negotiates capability from the **running** WM once per connection,
+  not an upgraded binary on disk. New24px left controls use native colours,
+ 12px icons,5px gaps and14px inset. Older running WM retains fitting legacy
+  controls until user relaunches desktop. Actions check both container and XID.
+- GTK-owned headers use matching24px controls and left-side default, keeping
+  explicit custom layouts; only former Ooonana default migrates. Layout follows
+  [GTK's native setting](https://docs.gtk.org/gtk3/property.Settings.gtk-decoration-layout.html).
+  Native GTK decoration spacing and app-owned header content remain native.
+  Opt-in WM maps client minimize to exact scratchpad session and maximize to
+  output fullscreen, handling paired GTK axis requests once. Legacy WM behavior
+  stays unchanged when opted out. Compatibility normal-state acknowledgement
+  remains; client is hidden/restored using existing scratchpad semantics.
+- Both dark/light, actual1×/2× device suites pass24/48px diameter,12/24px glyph,
+  14/28px left placement, real pointer minimize/fullscreen/close and dock restore.
+  Private GTK CSD suites pass matching diameter/inset, no duplicate titlebar,
+  pointer minimize/fullscreen/close and Alt+F10 restore. Pixel sampling now
+  verifies visible screen fills, not just backing pixmaps. Final glyph check
+  compares contrast-weighted silhouettes, not a hard antialiasing cutoff.
+- Real Geany+Open picker, Nemo, Chromium sandbox/actions, Qt6/QTerminal's six
+  Preferences pages, Escape and exit Cancel/confirm pass with candidate i3.
+  Native controls and actual workspace keys/drag/resize/focus/tabs/stacking,
+  fullscreen, exact minimized restore and unfocused close pass. Old preserved
+  QA helper lacked new expected-XID protocol; private source helper bind fixes
+  fixture, without changing preserved cache or weakening assertion.
+- Pure C metrics, UTF-8/exact-source/no-partial/double-patch guards, running-WM
+  cache/scale/XID tests, GTK preference preservation/migration, initial placement,
+  repository/ISO guards and package factory pass. Both CIs include new pure i3
+  source/provenance regression. Release preflight now refuses upstream-only or
+  stale native i3 inputs instead of silently shipping different controls.
+
+Native source/build provenance:
+
+- Official4.24 archive SHA256:
+  `5baefd0e5e78f1bafb7ac85deea42bcd3cbfe65f1279aa96f7e49661637ac981`.
+  Detached signature verified with isolated public key fingerprint
+  `424E14D703E7C6D43D9D6F364E7160ED4AC8EE1D`. No client trust enrollment.
+- Owned F workspace: `F:\Ooonana\ooonana-os\qa-i3-controls-20261020-4a5c2779`.
+  Separate sparse ext4 **build image**, not WSL distro disk. Signed upstream
+  build tools installed only there; compile network disabled, no block devices
+  exposed. Exact dependency versions and source/header hashes recorded in
+  `out/build-manifest.json`; raw build logs retained.
+- Binary SHA256:
+  `f11014782a9100af7b81b98459cf7165d27db4fe6f91fb1ea00de9aec46ac307`.
+  Package `i3wm4.24-r0.ooonana1`, archive SHA256:
+  `556069b1b4eeb9b17e0f0c7d027a851964c31d29a8f035b65a7fb7e65e3a312a`.
+  Pinned original payload/tools retained; only WM executable replaced, plus
+  source patch/header/provenance documentation. Existing ABI dependencies stay.
+- Factory accepts `--i3-controls-binary PATH` after verified isolated build;
+  `build-i3-controls-package.py` refuses changed upstream payload, stale inputs,
+  wrong musl executable, existing output and published-generation mutation.
+  Rebuild uses same pinned archives/bootstrap and recorded dependencies; newer
+  toolchain/dependency revisions require review, not a bit-reproducibility claim.
+
+QA receipts:
+
+- Controls/CSD matrix: `/var/tmp/ooonana-controls-confirm-20261022.sVXmrpj7`.
+- Apps: `/var/tmp/ooonana-controls-app-regress-20261022.givzhrwS`.
+- Current-protocol workspace confirmation:
+  `/var/tmp/ooonana-controls-workspace-confirm-20261022.vBV4Kgym`.
+- Visible CSD fills: `/var/tmp/ooonana-csd-visible-confirm-20261022.3TD32qD3`.
+- Glyph diagnostics: `/var/tmp/ooonana-csd-glyph-confirm-20261022.g307TQbm`
+  and `/var/tmp/ooonana-csd-glyph-settled-20261022.pIimDwBz`. Hard100-channel
+  cutoff gave0.698 despite matching glyph geometry; weighted shape similarity
+  is0.955 versus0.249 for original wrong square. Check now requires0.95
+  similarity and bounded weighted ink area. One physical pixel of edge filtering
+  removes GtkImage/background-image antialiasing bias; an actual replacement
+  square glyph is independently rejected before restoring the correct icon.
+
+Final CSD confirmation: `/var/tmp/ooonana-header-confirm-20261022.146DJmSU`.
+Both appearances at1×/2× verify actual pointer actions, rendered glyph geometry
+and wrong-square negative control. No production icon/font change was made to
+satisfy rasterization differences.
+
+Remaining: CI publication/native receipt;
+actual WSLg/physical compositor, mixed DPI/hotplug, other app-owned headers,
+Firefox-specific theme variants and whole-OS ledger. Theme-aware third-party
+outer chrome remains a separate review item; preserving current WM palette
+does not certify every application's full light/dark content/header styling.
+
+## Batch 33: compact native titlebars
+
+![Actual Sound UI with compact native titlebar](assets/ooonana-compact-native-header-20261022.png)
+
+Capture uses silent fixture devices on private1280×800 X11, normal100% text;
+not physical hardware certification.
+
+User identified excessive height around native controls/title text. Shared
+GTK header now removes inherited minimum height, uses4px vertical padding and
+reserves a subtitle row only when supplied. Header action buttons no longer
+add Adwaita's extra vertical margins. Useful subtitles, title text, controls,
+content and all actions remain; no forced font reduction or fixed-height cap.
+
+Actual GTK measurements in both themes:
+
+- Normal100%:32px title-only,42px with subtitle, including Refresh action.
+- Accessibility200% text:40px title-only,72px subtitle; no vertical clipping.
+- Controls remain24px, glyphs12px; title/body10pt remains unchanged.
+
+Impeccable review inspected native100% dark/light and enlarged text captures,
+then real Sound UI. That inspection caught header-action margins, fixed in the
+same bounded pass. Final confirmation:
+`/var/tmp/ooonana-header-confirm-20261022.146DJmSU`.
+Silent Sound/Brightness/Music states and keyboard checks, plus actual native
+minimize/fullscreen/close, pass. No hardware commands or sound playback.
+Density regressions now measure real header allocation, title/subtitle text,
+button diameter/centering, unchanged typography and user text scaling.
+
+Source candidate only until publication/native receipt is recorded. Older
+installed/released images do not acquire these changes automatically. Broader
+UI ledger, physical/WSLg checks and deferred OpenVINO remain open.

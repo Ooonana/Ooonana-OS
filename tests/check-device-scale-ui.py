@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "packages/ooonana/usr/lib/ooonana/ui"))
-from common import Gdk, Gtk, apply_theme
+from common import Gdk, Gtk, apply_theme, header
 from gi.repository import GdkX11
 from dock_app import Dock, fullscreen_on_monitor, windows
 from window_controls import Manager, WIDTH
@@ -66,7 +66,7 @@ with tempfile.TemporaryDirectory(prefix="ooonana-device-scale-") as temporary:
     config.write_text("\n".join(line for line in (ROOT / "branding/i3/config").read_text().splitlines()
                                if not line.startswith("exec")) + "\n")
     wm = subprocess.Popen(["i3", "-c", str(config)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    terminal = dock = manager = None
+    terminal = dock = manager = native = None
     try:
         wait(lambda: subprocess.run(["i3-msg", "-t", "get_tree"], capture_output=True).returncode == 0,
              "Owned window manager unavailable")
@@ -87,9 +87,54 @@ with tempfile.TemporaryDirectory(prefix="ooonana-device-scale-") as temporary:
         print("DEVICE_SCALE_CONTROLS", scale, "i3", target, "X11", actual, flush=True)
         check(abs(actual[0] - target[0]) < scale and abs(actual[1] - target[1]) < scale,
               "Third-party controls use device coordinates as application coordinates")
-        check(actual[2] <= WIDTH + scale and actual[3] <= target[2] + scale,
+        expected_width = 82 * manager.control_scale if manager.control_scale else WIDTH
+        check(actual[2] <= expected_width + scale and actual[3] <= target[2] + scale,
               "Third-party controls grow beyond native titlebar")
         capture("controls")
+        native = Gtk.Window(title="Ooonana native control reference")
+        native.set_default_size(300, 160)
+        header(native, "Native")
+        native.add(Gtk.Label(label="Native control reference"))
+        native.show_all()
+        native_xid = GdkX11.X11Window.get_xid(native.get_window())
+        wait(lambda: any(node.get("window") == native_xid for node, _ in windows.leaves(i3_events.request(socket, 4))),
+             "Native reference not managed")
+        physical = next(item["rect"] for item in i3_events.request(socket, 3) if item.get("active"))
+        node = next(node for node, _ in windows.leaves(i3_events.request(socket, 4)) if node.get("id") == selected[0])
+        right = physical["x"] + physical["width"] - node["rect"]["width"] - 12
+        subprocess.run(["i3-msg", f"[id={native_xid}] move absolute position 12 px 58 px; [con_id={selected[0]}] move absolute position {right} px 58 px"],
+                       check=True, capture_output=True)
+        settle()
+        manager.refresh()
+        settle()
+        def descendants(widget):
+            yield widget
+            if isinstance(widget, Gtk.Container):
+                for child in widget.get_children():
+                    yield from descendants(child)
+        reference = next(widget for widget in descendants(native.get_titlebar())
+                         if widget.get_name() == "ooonana-window-close")
+        popup = manager.controls[selected[0]]
+        third = popup.get_child().get_children()[0]
+        native_point = reference.translate_coordinates(native, 0, 0)
+        third_point = third.translate_coordinates(popup, 0, 0)
+        actual = geometry(popup)
+        node = next(node for node, _ in windows.leaves(i3_events.request(socket, 4)) if node.get("id") == selected[0])
+        parity = {"scale": scale,
+                  "native_size": [reference.get_allocated_width() * scale, reference.get_allocated_height() * scale],
+                  "third_size": [third.get_allocated_width() * scale, third.get_allocated_height() * scale],
+                  "native_left": native_point[0] * scale,
+                  "third_left": actual[0] + third_point[0] * scale - node["rect"]["x"],
+                  "native_icon": reference.get_image().get_pixel_size() * scale,
+                  "third_icon": third.get_image().get_pixel_size() * scale,
+                  "deco_height": node["deco_rect"]["height"]}
+        print("TITLEBAR_PARITY", json.dumps(parity), "wm_scale", manager.control_scale, flush=True)
+        if os.environ.get("OOONANA_WINDOW_CONTROLS") == "left":
+            check(manager.control_scale == scale, "Running candidate WM did not negotiate device scale")
+            check(parity["native_size"] == parity["third_size"], "Native/third-party control diameters differ")
+            check(parity["native_icon"] == parity["third_icon"], "Native/third-party glyph sizes differ")
+            check(parity["native_left"] == parity["third_left"], "Native/third-party left inset differs")
+        capture("native-third-controls")
         dock = Dock(subscribe=False)
         dock.snapshot = i3_events.request(socket, 4)
         dock.refresh()
@@ -124,7 +169,10 @@ with tempfile.TemporaryDirectory(prefix="ooonana-device-scale-") as temporary:
         windows.focus(hidden)
         wait(lambda: selected[0] in manager.controls and manager.controls[selected[0]].get_visible(), "Scaled controls did not restore")
         settle()
-        windows.window_action(selected, "fullscreen")
+        click("Toggle fullscreen")
+        wait(lambda: next(node for node, _ in windows.leaves(i3_events.request(socket, 4))
+                          if node.get("id") == selected[0]).get("fullscreen_mode"),
+             "Actual scaled Fullscreen click missed titlebar control")
         settle()
         dock.snapshot = i3_events.request(socket, 4)
         dock.refresh()
@@ -147,6 +195,8 @@ with tempfile.TemporaryDirectory(prefix="ooonana-device-scale-") as temporary:
             dock.destroy()
         if manager is not None:
             manager.clear()
+        if native is not None:
+            native.destroy()
         if terminal is not None and terminal.poll() is None:
             terminal.terminate()
             terminal.wait(timeout=4)

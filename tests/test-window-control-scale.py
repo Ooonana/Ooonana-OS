@@ -20,6 +20,7 @@ class Fixture:
     def __init__(self, scale):
         self.scale = scale
         self.last_position = self.last_scale = None
+        self.last_control_scale = 0
         self.updates = 0
         self.shown = 0
         self.scale_provider = SimpleNamespace(load_from_data=self.css)
@@ -73,4 +74,67 @@ for scale in (1, 2):
     fixture.position(target)
     assert fixture.last_scale == 3 - scale and fixture.updates == updates + 1
 
-print("WINDOW_CONTROL_SCALE_OK 1x/2x, negative origins, titlebar budget, scale changes and remap")
+for scale in (1, 2, 4):
+    fixture = Fixture(scale)
+    target = (-1279, -799, 32 * scale)
+    fixture.position(target, scale)
+    assert fixture.size == (82, 32) and fixture.spacing == 5 and fixture.left == fixture.right == 0
+    assert fixture.style["min-width"] + 2 * fixture.style["border-width"] == 24
+    assert fixture.icon == 12
+    fixture.position(target, 0)
+    assert fixture.last_control_scale == 0 and fixture.icon * scale <= 10
+
+capability = next(node for node in source.body if isinstance(node, ast.FunctionDef) and node.name == "native_control_scale")
+exec(compile(ast.Module(body=[capability], type_ignores=[]), "control-capability-fixture", "exec"), namespace)
+negotiate = namespace["native_control_scale"]
+for reply in (None, [], {}, {"ooonana_control_api": True, "ooonana_control_scale": 1},
+              {"ooonana_control_api": 2, "ooonana_control_scale": 1},
+              {"ooonana_control_api": 1, "ooonana_control_scale": True},
+              {"ooonana_control_api": 1, "ooonana_control_scale": 0},
+              {"ooonana_control_api": 1, "ooonana_control_scale": 5}):
+    assert negotiate(reply) == 0, reply
+for scale in (1, 2, 4):
+    assert negotiate({"ooonana_control_api": 1, "ooonana_control_scale": scale}) == scale
+
+geometry = next(node for node in source.body if isinstance(node, ast.FunctionDef) and node.name == "decoration_targets")
+exec(compile(ast.Module(body=[geometry], type_ignores=[]), "native-decoration-fixture", "exec"), namespace)
+for scale in (1, 2, 4):
+    node = {"id": 42, "window": 101, "rect": {"x": -1280, "y": 58},
+            "deco_rect": {"x": 0, "y": 0, "width": 500, "height": 32 * scale}}
+    tree = {"nodes": [{"type": "workspace", "name": "1", "nodes": [node]}]}
+    assert namespace["decoration_targets"](tree, {"1"}, scale) == {42: (-1280 + 14 * scale, 58, 32 * scale)}
+    node["deco_rect"]["width"] = 96 * scale - 1
+    assert namespace["decoration_targets"](tree, {"1"}, scale) == {}, "Narrow tab must not overlap neighbour"
+    node["deco_rect"].update(width=500, height=22)
+    assert namespace["decoration_targets"](tree, {"1"}, scale) == {}, "Never clip native controls into old WM frame"
+
+manager = next(node for node in source.body if isinstance(node, ast.ClassDef) and node.name == "Manager")
+methods = [node for node in manager.body if isinstance(node, ast.FunctionDef) and node.name in ("refresh", "clear")]
+exec(compile(ast.Module(body=methods, type_ignores=[]), "wm-capability-cache-fixture", "exec"), namespace)
+requests = []
+socket_name = ["first"]
+def request(path, kind):
+    requests.append((path, kind))
+    return ({"ooonana_control_api": 1, "ooonana_control_scale": 2} if kind == 7 else {} if kind == 4 else [])
+namespace.update(i3_events=SimpleNamespace(socket_path=lambda: socket_name[0], request=request),
+                 initial_dialog_targets=lambda *_: {}, initial_app_targets=lambda *_: {})
+owner = SimpleNamespace(controls={}, placement_seen=None, capability_path=None, control_scale=0)
+owner.clear = lambda: namespace["clear"](owner)
+for _ in range(2):
+    namespace["refresh"](owner)
+assert requests.count(("first", 7)) == 1 and owner.control_scale == 2
+owner.clear()
+namespace["refresh"](owner)
+assert requests.count(("first", 7)) == 2
+socket_name[0] = "replacement"
+namespace["refresh"](owner)
+assert requests.count(("replacement", 7)) == 1
+activate = next(node for node in controls.body if isinstance(node, ast.FunctionDef) and node.name == "activate")
+exec(compile(ast.Module(body=[activate], type_ignores=[]), "control-action-xid-fixture", "exec"), namespace)
+actions = []
+namespace["run_async"] = lambda command, _done: actions.append(command)
+namespace["activate"](SimpleNamespace(identifier=42, target_xid=101), "close")
+assert actions == [["ooonana-window-list", "--window-action", "close", "42", "--expect-xid", "101"]]
+namespace["activate"](SimpleNamespace(identifier=42, target_xid=None), "close")
+assert len(actions) == 1
+print("WINDOW_CONTROL_SCALE_OK legacy/native, 1x/2x/4x, origins, capability guards, scale changes and remap")

@@ -94,7 +94,7 @@ def targets(manager):
     manager.refresh()
     settle()
     visible = {item["name"] for item in request("get_workspaces") if item["visible"]}
-    expected = decoration_targets(request("get_tree"), visible)
+    expected = decoration_targets(request("get_tree"), visible, manager.control_scale)
     check(set(manager.controls) == set(expected), "Overlay targets disagree with visible clients")
     for identifier, rect in expected.items():
         check(manager.controls[identifier].last_position == rect, "Overlay position lags final client geometry")

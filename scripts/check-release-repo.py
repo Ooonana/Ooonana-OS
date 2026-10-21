@@ -8,6 +8,7 @@ from pathlib import Path, PurePosixPath
 import re
 import shlex
 import subprocess
+import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
 IDENTIFIER = re.compile(r"[A-Za-z0-9_.+-]+")
@@ -43,7 +44,32 @@ def safe_file(repo, relative):
     return target
 
 
-def validate(repo, profile, key=None, expected_core=None):
+def validate_native_controls(repo, package):
+    if "native-controls-v1" not in package.get("COMPONENTS", "").split():
+        raise ValueError("i3wm lacks native controls; build/repack verified i3 controls candidate")
+    archive = safe_file(repo, package.get("ARCHIVE", ""))
+    if hashlib.sha256(archive.read_bytes()).hexdigest() != package.get("SHA256"):
+        raise ValueError("i3wm native archive checksum mismatch")
+    with tarfile.open(archive) as bundle:
+        members = {item.name.removeprefix("./"): item for item in bundle}
+        def read(name, limit):
+            item = members.get(name)
+            if item is None or not item.isfile() or item.size > limit:
+                raise ValueError("i3wm native provenance/payload missing or oversized: " + name)
+            return bundle.extractfile(item).read(limit + 1)
+        binary = read("usr/bin/i3", 16 * 1024 * 1024)
+        manifest = json.loads(read("usr/share/doc/i3/ooonana-controls/build-manifest.json", 65536))
+    pins = json.loads((ROOT / "packages/i3wm/source-pins.json").read_text())
+    if (not isinstance(manifest, dict) or not binary.startswith(b"\x7fELF") or manifest.get("control_api") != 1
+            or manifest.get("source") != pins or manifest.get("binary_sha256") != hashlib.sha256(binary).hexdigest()):
+        raise ValueError("i3wm native binary/source provenance differs")
+    inputs = manifest.get("inputs")
+    for name in ("scripts/patch-i3-controls.py", "packages/i3wm/ooonana_controls.h"):
+        if not isinstance(inputs, dict) or inputs.get(name) != hashlib.sha256((ROOT / name).read_bytes()).hexdigest():
+            raise ValueError("i3wm native build inputs stale: " + name)
+
+
+def validate(repo, profile, key=None, expected_core=None, require_native_controls=False):
     if (repo / "CURRENT").is_file():
         generation = (repo / "CURRENT").read_text().strip()
         if not re.fullmatch(r"[0-9a-f]{64}", generation):
@@ -132,6 +158,8 @@ def validate(repo, profile, key=None, expected_core=None):
             raise ValueError(f"Full-i3 install closure missing: {name}")
     for target in ("ooonana-core", "openvino-chat"):
         closure(target)
+    if require_native_controls:
+        validate_native_controls(repo, packages.get("i3wm", {}))
     return repo, len(packages), len(visited)
 
 
@@ -141,9 +169,10 @@ if __name__ == "__main__":
     parser.add_argument("--profile", type=Path, default=ROOT / "configs/packages/full-i3.list")
     parser.add_argument("--public-key", type=Path)
     parser.add_argument("--core-version")
+    parser.add_argument("--require-native-controls", action="store_true")
     args = parser.parse_args()
     try:
-        repo, count, closure_count = validate(args.repo, args.profile, args.public_key, args.core_version)
-    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+        repo, count, closure_count = validate(args.repo, args.profile, args.public_key, args.core_version, args.require_native_controls)
+    except (OSError, ValueError, tarfile.TarError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"FAIL: release repository: {error}\n")
     print(f"OOONANA_RELEASE_REPO_OK {count} packages; {closure_count} dependency nodes; {repo}")

@@ -403,14 +403,18 @@ updates = {"gtk-theme-name": "Adwaita", "gtk-application-prefer-dark-theme": dar
 defaults = {"gtk-font-name": xvalues.get("Gtk/FontName", "Sans 10"),
             "gtk-icon-theme-name": xvalues.get("Net/IconThemeName", "Adwaita"),
             "gtk-button-images": "1", "gtk-menu-images": "1",
-            "gtk-decoration-layout": "menu:minimize,maximize,close"}
+            "gtk-decoration-layout": "close,minimize,maximize:menu"}
 updates.update({key: value for key, value in defaults.items() if key not in preferences})
+if preferences.get("gtk-decoration-layout") == "menu:minimize,maximize,close":
+    # Migrate our former default, never an independent custom button layout.
+    updates["gtk-decoration-layout"] = defaults["gtk-decoration-layout"]
 font = preferences.get("gtk-font-name", defaults["gtk-font-name"])
 icons = preferences.get("gtk-icon-theme-name", defaults["gtk-icon-theme-name"])
 if any(not text or any(not char.isprintable() for char in text) for text in (font, icons)):
     raise SystemExit("Theme: invalid font/icon preference retained; no settings replaced.")
 xupdates = {"Net/ThemeName": json.dumps(theme), "Net/IconThemeName": json.dumps(icons, ensure_ascii=False),
             "Gtk/FontName": json.dumps(font, ensure_ascii=False),
+            "Gtk/DecorationLayout": json.dumps(updates.get("gtk-decoration-layout", preferences.get("gtk-decoration-layout"))),
             "Gtk/CursorThemeName": json.dumps(cursor), "Gtk/CursorThemeSize": str(int(size))}
 # Ooonana's reduced-motion choice also applies to third-party GTK dialogs.
 # Missing/invalid UI preferences must not overwrite an independent GTK choice.
@@ -544,6 +548,19 @@ button.destructive-action:hover { background: #523033; color: #ffd4cf; border-co
 button.destructive-action:active { background: #2f1c1d; color: #ffd4cf; border-color: #b36161; }
 button:disabled { background: @ooonana_panel; color: #78828f; border-color: @ooonana_border; }
 button.suggested-action:disabled { background: #403624; color: #a5987f; border-color: #544733; }
+/* GTK client-owned headers keep their own behavior, sharing native 24px controls. */
+headerbar button.titlebutton { min-width: 16px; min-height: 16px; padding: 3px; margin: 0; border-radius: 99px; border: 1px solid #242830; color: #101317; box-shadow: none; }
+headerbar button.titlebutton.close { background: #ff736b; }
+headerbar button.titlebutton.minimize { background: #ffd16c; }
+headerbar button.titlebutton.maximize { background: #7fd6a0; }
+headerbar button.titlebutton:hover { border-color: #f5f5f7; }
+headerbar button.titlebutton.close:active { background: #e65c55; }
+headerbar button.titlebutton.minimize:active { background: #e6b955; }
+headerbar button.titlebutton.maximize:active { background: #67b985; }
+headerbar button.titlebutton image { -gtk-icon-transform: scale(0.75); }
+/* GtkImage owns its icon name; paint the shared fullscreen glyph on button. */
+headerbar button.titlebutton.maximize, headerbar button.titlebutton.maximize:hover, headerbar button.titlebutton.maximize:active { background-image: -gtk-icontheme("view-fullscreen-symbolic"); background-size: 12px 12px; background-position: center; background-repeat: no-repeat; }
+headerbar button.titlebutton.maximize image { opacity: 0; }
 /* Toolbars are compact work surfaces, not rows of primary-action cards. */
 toolbar { background: @ooonana_panel; padding: 3px 6px; border-bottom: 1px solid @ooonana_border; }
 toolbar button { background: @ooonana_panel; border: 0; border-radius: 6px; min-width: 20px; min-height: 20px; padding: 3px 4px; box-shadow: none; }
@@ -642,7 +659,7 @@ gtk-cursor-theme-size=19
 gtk-font-name=Sans 10
 gtk-button-images=1
 gtk-menu-images=1
-gtk-decoration-layout=menu:minimize,maximize,close
+gtk-decoration-layout=close,minimize,maximize:menu
 EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/root/.config/gtk-3.0/settings.ini" <<'EOF'
@@ -655,6 +672,7 @@ gtk-cursor-theme-size=19
 gtk-font-name=Sans 10
 gtk-button-images=1
 gtk-menu-images=1
+gtk-decoration-layout=close,minimize,maximize:menu
 EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/root/.config/gtk-3.0/gtk.css" <<'EOF'
@@ -3965,6 +3983,7 @@ fi
 export XDG_CURRENT_DESKTOP=Ooonana:i3
 export XDG_SESSION_DESKTOP=ooonana
 export DESKTOP_SESSION=ooonana
+export OOONANA_WINDOW_CONTROLS="${OOONANA_WINDOW_CONTROLS:-left}"
 
 if [ -z "${OOONANA_DBUS_SESSION:-}" ] &&
   [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] &&
@@ -4004,6 +4023,7 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-i3-installer-session" <<'EOF'
 #!/bin/sh
 set -eu
+export OOONANA_WINDOW_CONTROLS="${OOONANA_WINDOW_CONTROLS:-left}"
 
 if [ -z "${OOONANA_DBUS_SESSION:-}" ] &&
   [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] &&

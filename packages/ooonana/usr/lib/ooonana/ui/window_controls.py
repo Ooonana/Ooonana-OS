@@ -11,9 +11,17 @@ import time
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import i3_events
-from common import Gdk, GLib, Gtk, window_control_icon, run_async
+from common import Gdk, GLib, Gtk, WINDOW_CONTROL_CSS, window_control_icon, run_async
 
 WIDTH = 66
+
+
+def native_control_scale(version):
+    """Negotiate with the running WM, never an upgraded binary on disk."""
+    if not isinstance(version, dict) or type(version.get("ooonana_control_api")) is not int:
+        return 0
+    scale = version.get("ooonana_control_scale")
+    return scale if version["ooonana_control_api"] == 1 and type(scale) is int and 1 <= scale <= 4 else 0
 
 
 def initial_app_targets(tree, visible):
@@ -78,8 +86,10 @@ def initial_dialog_targets(tree, visible):
     return result
 
 
-def decoration_targets(tree, visible):
+def decoration_targets(tree, visible, native_scale=0):
     result = {}
+    row_width = 82 * native_scale if native_scale else WIDTH
+    inset = 14 * native_scale
 
     def fullscreen(node, global_only=False):
         # i3 workspaces themselves report fullscreen_mode=1 even in normal layout.
@@ -94,7 +104,7 @@ def decoration_targets(tree, visible):
     global_exclusive = fullscreen(tree, global_only=True)
 
     def overlaps(rectangle, x, y, height):
-        return (rectangle.get("x", 0) < x + WIDTH and x < rectangle.get("x", 0) + rectangle.get("width", 0)
+        return (rectangle.get("x", 0) < x + row_width and x < rectangle.get("x", 0) + rectangle.get("width", 0)
                 and rectangle.get("y", 0) < y + height and y < rectangle.get("y", 0) + rectangle.get("height", 0))
 
     def visit(node, workspace=None, exclusive=None, occluders=()):
@@ -106,8 +116,10 @@ def decoration_targets(tree, visible):
         deco, rect = node.get("deco_rect") or {}, node.get("rect") or {}
         if node.get("window") and workspace in visible and not node.get("fullscreen_mode") and exclusive is None and not klass.startswith(("ooonana", "oonana", "polybar")):
             height, width = deco.get("height", 0), deco.get("width", 0)
-            if 16 <= height <= 64 and width >= WIDTH:
-                x = rect.get("x", 0) + deco.get("x", 0) + width - WIDTH
+            minimum_height = 32 * native_scale if native_scale else 16
+            if minimum_height <= height <= max(64, minimum_height) and width >= row_width + inset:
+                offset = inset if native_scale else width - WIDTH
+                x = rect.get("x", 0) + deco.get("x", 0) + offset
                 y = rect.get("y", 0) + deco.get("y", 0)
                 if not any(overlaps(front, x, y, height) for front in occluders):
                     result[node["id"]] = (x, y, height)
@@ -133,15 +145,7 @@ def decoration_targets(tree, visible):
 CSS = b"""
 .third-party-controls { background: #1b1f26; border: none; box-shadow: none; }
 .third-party-controls.inactive { background: #101317; }
-.third-party-controls button { min-width: 14px; min-height: 14px; padding: 0; margin: 0; border-radius: 99px; border: 1px solid #242830; color: #101317; box-shadow: none; }
-.third-party-controls .close { background: #ff736b; }
-.third-party-controls .minimize { background: #ffd16c; }
-.third-party-controls .fullscreen { background: #7fd6a0; }
-.third-party-controls button:hover { border-color: #ffffff; }
-.third-party-controls .close:active { background: #e65c55; }
-.third-party-controls .minimize:active { background: #e6b955; }
-.third-party-controls .fullscreen:active { background: #67b985; }
-"""
+""" + WINDOW_CONTROL_CSS
 
 
 class Controls(Gtk.Window):
@@ -155,6 +159,8 @@ class Controls(Gtk.Window):
         self.identifier = identifier
         self.last_position = None
         self.last_scale = None
+        self.last_control_scale = 0
+        self.target_xid = None
         self.scale_provider = Gtk.CssProvider()
         self.connect("realize", self.register, owner)
         self.connect("destroy", self.unregister, owner)
@@ -180,7 +186,8 @@ class Controls(Gtk.Window):
             image.set_pixel_size(10)
             control.set_image(image)
             control.set_can_focus(False)
-            control.get_style_context().add_class(action)
+            control.get_style_context().add_class("window-control")
+            control.get_style_context().add_class(action + "-control")
             control.get_style_context().add_provider(self.scale_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER + 1)
             control.set_tooltip_text(title)
             control.get_accessible().set_name(title)
@@ -230,31 +237,36 @@ class Controls(Gtk.Window):
         owner.own_windows.discard(self.xid)
 
     def activate(self, action):
-        run_async(["ooonana-window-list", "--window-action", action, str(self.identifier)], lambda *_: None)
+        if self.target_xid:
+            run_async(["ooonana-window-list", "--window-action", action, str(self.identifier),
+                       "--expect-xid", str(self.target_xid)], lambda *_: None)
 
-    def position(self, target):
+    def position(self, target, native_scale=0):
         scale = max(1, self.get_scale_factor())
-        if self.last_position != target or self.last_scale != scale:
+        if self.last_position != target or self.last_scale != scale or self.last_control_scale != native_scale:
             x, y, height = target
             # i3 targets are X11 device pixels; GTK placement and CSS use
             # application pixels. Match the native titlebar, not GDK_SCALE.
             # GTK quantizes CSS borders to whole application pixels. Budget
             # their actual width, or three buttons exceed the 66-device-pixel row.
             border = math.ceil(1 / scale)
-            minimum = max(1, 16 / scale - 2 * border)
+            size = 24 * native_scale if native_scale else 16
+            width = 82 * native_scale if native_scale else WIDTH
+            minimum = max(1, size / scale - 2 * border)
             self.scale_provider.load_from_data((
-                "button { min-width: %gpx; min-height: %gpx; border-width: %gpx; }"
+                "button { min-width: %gpx; min-height: %gpx; border-width: %gpx; padding: 0; }"
                 % (minimum, minimum, border)).encode())
             row = self.get_child()
-            row.set_spacing(max(1, 5 // scale))
-            row.set_margin_left(max(1, 4 // scale))
-            row.set_margin_right(max(1, 4 // scale))
+            row.set_spacing(max(1, 5 * max(1, native_scale) // scale))
+            row.set_margin_left(0 if native_scale else max(1, 4 // scale))
+            row.set_margin_right(0 if native_scale else max(1, 4 // scale))
             for button in row.get_children():
-                button.get_image().set_pixel_size(max(1, 10 // scale))
-            self.set_size_request(math.ceil(WIDTH / scale), math.ceil(height / scale))
+                button.get_image().set_pixel_size(max(1, (12 * native_scale if native_scale else 10) // scale))
+            self.set_size_request(math.ceil(width / scale), math.ceil(height / scale))
             self.move(x // scale, y // scale)
             self.last_position = target
             self.last_scale = scale
+            self.last_control_scale = native_scale
         self.show_all()
 
 
@@ -263,6 +275,8 @@ class Manager:
         self.controls = {}
         self.own_windows = set()
         self.placement_seen = None
+        self.control_scale = 0
+        self.capability_path = None
         provider = Gtk.CssProvider()
         provider.load_from_data(CSS)
         Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_USER + 1)
@@ -314,6 +328,7 @@ class Manager:
             try:
                 for _tree in i3_events.trees():
                     GLib.idle_add(self.schedule)
+                GLib.idle_add(self.clear)
             except (OSError, ValueError, EOFError):
                 GLib.idle_add(self.clear)
                 time.sleep(2)
@@ -323,6 +338,8 @@ class Manager:
             window.destroy()
         self.controls.clear()
         self.placement_seen = None
+        self.control_scale = 0
+        self.capability_path = None
         return False
 
     def place_initial_dialog(self, identifier, original):
@@ -364,14 +381,19 @@ class Manager:
         self.pending = False
         try:
             path = i3_events.socket_path()
+            if path != self.capability_path:
+                self.control_scale = native_control_scale(i3_events.request(path, 7))
+                self.capability_path = path
             tree = i3_events.request(path, 4)
             visible = {workspace["name"] for workspace in i3_events.request(path, 1) if workspace.get("visible")}
-            targets = decoration_targets(tree, visible)
+            targets = decoration_targets(tree, visible, self.control_scale)
             focused = set()
             live = set()
+            live_xids = {}
             def visit(node):
                 if node.get("window"):
                     live.add(node["id"])
+                    live_xids[node["id"]] = node["window"]
                 if node.get("window") and node.get("focused"):
                     focused.add(node["id"])
                 for child in node.get("nodes", []) + node.get("floating_nodes", []):
@@ -392,9 +414,10 @@ class Manager:
         for identifier, target in targets.items():
             if identifier not in self.controls:
                 self.controls[identifier] = Controls(identifier, self)
+            self.controls[identifier].target_xid = live_xids[identifier]
             style = self.controls[identifier].get_style_context()
             (style.remove_class if identifier in focused else style.add_class)("inactive")
-            self.controls[identifier].position(target)
+            self.controls[identifier].position(target, self.control_scale)
             self.controls[identifier].get_window().raise_()
         return False
 

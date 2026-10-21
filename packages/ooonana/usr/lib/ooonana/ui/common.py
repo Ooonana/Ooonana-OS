@@ -27,9 +27,10 @@ menuitem { padding: 9px 12px; border-radius: 7px; }
 menuitem:hover { background: #303640; color: #ffb21a; }
 tooltip { background: #1b1f26; color: #f5f5f7; border: 1px solid #414957; border-radius: 12px; padding: 6px; }
 tooltip label { color: #f5f5f7; }
-headerbar { background: #1b1f26; color: #ffb21a; border-bottom: 1px solid #343b46; border-radius: 14px 14px 0 0; padding: 5px 10px; }
+headerbar { background: #1b1f26; color: #ffb21a; border-bottom: 1px solid #343b46; border-radius: 14px 14px 0 0; min-height: 0; padding: 4px 10px; }
 headerbar .title { font-weight: 700; color: #ffb21a; }
 headerbar .subtitle { color: #b4bdc8; opacity: 1; }
+headerbar button { margin-top: 0; margin-bottom: 0; }
 .window-control { min-width: 16px; min-height: 16px; padding: 3px; margin: 0; border-radius: 99px; }
 .close-control:hover { background: #b83832; color: #ffffff; border-color: #e85b52; }
 .hero { background: #1b1f26; border-bottom: 1px solid #343b46; }
@@ -381,6 +382,9 @@ def header(window, title, subtitle="", icon_name="preferences-system-symbolic"):
     bar.set_show_close_button(False)
     bar.set_decoration_layout("")
     bar.set_title(title)
+    # GTK otherwise reserves a second title line even without a subtitle.
+    # Let real content, controls and user text scaling determine header height.
+    bar.set_has_subtitle(bool(subtitle))
     bar.set_subtitle(subtitle)
 
     def minimize(_widget):

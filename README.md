@@ -31,6 +31,12 @@ or later user resizing. Signed candidate/Ooonana WSL include these fixes.
 Real themed-wrapper checks pass both appearances;
 [checks and current publication state](docs/ui-whole-os-review.md#batch-31-preferred-launchers-search-selection-and-default-app-fit).
 
+October22 source candidate compacts native titlebars:32px title-only/42px with
+subtitle at normal text, retaining24px controls and unchanged font sizes.
+Useful subtitles and larger accessibility text still get content-driven room.
+Third-party controls now have a pinned native i3 candidate with matching left
+placement/diameter. [Review and publication status](docs/ui-whole-os-review.md#batch-32-native-and-third-party-control-parity).
+
 Desktop sessions now enter the user's Home before launching apps/services,
 instead of inheriting a build folder, Windows mount or filesystem root. Missing
 Home stops startup with a clear error. Explicit app workdirs remain unchanged.

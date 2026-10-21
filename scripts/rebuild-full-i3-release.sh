@@ -317,7 +317,7 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
   esac
   source_core_version="$("$ROOT/packages/ooonana/usr/bin/ooonana" version | awk '{print $2}')"
   python3 "$ROOT/scripts/check-release-repo.py" --repo "$REPO" \
-    --profile "$ROOT/configs/packages/full-i3.list" --core-version "$source_core_version" \
+    --profile "$ROOT/configs/packages/full-i3.list" --core-version "$source_core_version" --require-native-controls \
     --public-key "$ROOT/packages/ooonana/etc/ooonana/trusted-keys/repository-20261002.pub"
 
   FIRMWARE_SCRIPT="$ROOT/scripts/install-intel-wireless-firmware.sh"
@@ -341,7 +341,7 @@ else
   verify_iso_resume_inputs
   source_core_version="$("$ROOT/packages/ooonana/usr/bin/ooonana" version | awk '{print $2}')"
   python3 "$ROOT/scripts/check-release-repo.py" --repo "$REPO" \
-    --profile "$ROOT/configs/packages/full-i3.list" --core-version "$source_core_version" \
+    --profile "$ROOT/configs/packages/full-i3.list" --core-version "$source_core_version" --require-native-controls \
     --public-key "$ROOT/packages/ooonana/etc/ooonana/trusted-keys/repository-20261002.pub"
   if [[ -s "$STAGED_ISO" ]]; then
     VERIFY_ISO="$STAGED_ISO"

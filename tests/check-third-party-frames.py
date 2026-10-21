@@ -334,7 +334,7 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
             Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(str(failed), "png", [], [])
             details = []
             for control in manager.controls.values():
-                local_pixels = Gdk.pixbuf_get_from_window(control.get_window(), 0, 0, WIDTH, control.get_size().height)
+                local_pixels = Gdk.pixbuf_get_from_window(control.get_window(), 0, 0, control.get_size().width, control.get_size().height)
                 if local_pixels is not None:
                     local_pixels.savev(str(args.output.with_name(args.output.stem + "-LOCAL.png")), "png", [], [])
                 for button in control.get_child().get_children():
@@ -763,7 +763,7 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
             assert all(result["success"] for result in json.loads(moved)), moved
             node = find_client()
             rect, deco = node["rect"], node["deco_rect"]
-            expected = (rect["x"] + deco["x"] + deco["width"] - WIDTH,
+            expected = (rect["x"] + deco["x"] + (14 * manager.control_scale if manager.control_scale else deco["width"] - WIDTH),
                         rect["y"] + deco["y"], deco["height"])
             wait(lambda: manager.controls[identifier].last_position == expected)
             control = manager.controls[identifier]

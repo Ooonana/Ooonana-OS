@@ -1,4 +1,35 @@
-# Current work - 2026-10-20
+# Current work - 2026-10-22
+
+## October 22 native/third-party window controls
+
+Locally built i3 4.24 candidate gives third-party frames real titlebar room,
+left caption clearance and native24px controls/12px glyphs. Running-WM IPC
+negotiation protects mixed live upgrades; an old running WM keeps compatible
+legacy controls until user relaunches desktop. Native header content stays;
+unused GTK minimum/subtitle space and header-action margins are removed.
+GTK client-owned headers receive matching default placement/diameter; custom
+layouts remain. Opt-in backend handles their minimize/fullscreen requests,
+including exact dock restore. No duplicate CSD titlebar or caption overlap.
+
+Actual1×/2× controls and both themes pass pointer actions; real Geany/file
+picker, Nemo, Chromium sandbox/actions, Qt Preferences/exit dialog and native
+controls pass. Workspace drag/resize, focus, tiling/tabs/stacking, number/move
+keys, fullscreen and targeted restore/close pass. Impeccable screenshot review
+adds visibly painted controls and rendered fullscreen-glyph comparison,
+not just mapped widgets. Normal defaults remain100%.
+
+Pinned upstream signature/source, isolated musl build, native package and
+provenance gate pass. Source/build artifacts stay on F; no WSL disk move,
+OpenVINO change, sound playback or ISO. Signing/publication and native WSL
+refresh still pending for this new patch; earlier published checkpoint below
+does not include it. Whole-OS ledger remains active.
+[Evidence and limitations](ui-whole-os-review.md#batch-32-native-and-third-party-control-parity).
+
+Native header density now measures32px title-only/42px with subtitle at normal
+100% text, retaining24px controls/12px glyphs and10pt typography. Real subtitles
+remain;200% text grows headers naturally instead of clipping. Dark/light GTK
+density and real silent control checks cover action buttons as well as plain
+headers. [Header review](ui-whole-os-review.md#batch-33-compact-native-titlebars).
 
 ## October 20 Spotlight selection and default app fit
 

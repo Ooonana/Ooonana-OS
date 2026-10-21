@@ -42,9 +42,19 @@ class ThemePreferences(unittest.TestCase):
         self.merge()
         self.assertEqual(self.settings()["gtk-font-name"], "Sans 10")
         self.assertEqual(self.settings()["gtk-cursor-theme-size"], "19")
+        self.assertEqual(self.settings()["gtk-decoration-layout"], "close,minimize,maximize:menu")
+        self.assertIn('Gtk/DecorationLayout "close,minimize,maximize:menu"', self.xconfig.read_text())
         before = (self.ini.read_bytes(), self.xconfig.read_bytes())
         self.merge()
         self.assertEqual(before, (self.ini.read_bytes(), self.xconfig.read_bytes()))
+
+    def test_old_default_layout_migrates_custom_layout_stays(self):
+        for layout, expected in (("menu:minimize,maximize,close", "close,minimize,maximize:menu"),
+                                 ("close:menu", "close:menu")):
+            self.ini.write_text("[Settings]\ngtk-decoration-layout=" + layout + "\n")
+            self.merge()
+            self.assertEqual(self.settings()["gtk-decoration-layout"], expected)
+            self.assertIn("Gtk/DecorationLayout " + json.dumps(expected), self.xconfig.read_text())
 
     def test_preserve_preferences_comments_sections_modes(self):
         self.ini.write_text("# retain comment\n[Settings]\ngtk-font-name=Serif 11\n"

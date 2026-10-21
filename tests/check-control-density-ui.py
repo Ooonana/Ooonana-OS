@@ -43,7 +43,8 @@ if args.mode == "native":
     apply_theme()
 window = Gtk.Window(title="Ooonana control proportions")
 window.set_default_size(560, 340)
-header(window, "Control proportions", "Unchanged text · desktop sizing")
+bar = header(window, "Control proportions", "Unchanged text · desktop sizing")
+bar.pack_end(button("Refresh", "view-refresh-symbolic"))
 grid = Gtk.Grid(column_spacing=16, row_spacing=12)
 grid.set_border_width(16)
 window.add(grid)
@@ -65,6 +66,50 @@ while time.monotonic() < deadline:
         Gtk.main_iteration_do(False)
     time.sleep(0.005)
 report, failures = {}, []
+
+
+def descendants(widget):
+    yield widget
+    if isinstance(widget, Gtk.Container):
+        children = []
+        widget.forall(children.append)
+        for child in children:
+            yield from descendants(child)
+
+
+def measure_header(bar, subtitle):
+    title_height = bar.create_pango_layout(bar.get_title()).get_pixel_size()[1]
+    subtitle_height = 0
+    for widget in descendants(bar):
+        if isinstance(widget, Gtk.Label) and widget.get_visible() and widget.get_text():
+            text_height = widget.get_layout().get_pixel_size()[1]
+            if widget.get_style_context().has_class("title"):
+                title_height = text_height
+            elif widget.get_style_context().has_class("subtitle"):
+                subtitle_height = text_height
+            if widget.get_allocated_height() < text_height:
+                failures.append("clipped header text")
+    controls = [widget for widget in descendants(bar) if widget.get_name() == "ooonana-window-close"]
+    control = controls[0]
+    height = bar.get_allocated_height()
+    needed = max(24, title_height + (subtitle_height if subtitle else 0))
+    if bar.get_has_subtitle() != bool(subtitle):
+        failures.append("unused subtitle reservation")
+    if not needed + 8 <= height <= needed + 12:
+        failures.append("header has excessive or insufficient vertical padding")
+    if (control.get_allocated_width(), control.get_allocated_height()) != (24, 24):
+        failures.append("header changed window control diameter")
+    point = control.translate_coordinates(bar, 0, 0)
+    if abs(point[1] + 12 - height / 2) > 1:
+        failures.append("header controls not vertically centered")
+    metrics = dict(height=height, title_height=title_height, subtitle_height=subtitle_height,
+                   subtitle_reserved=bar.get_has_subtitle(), controls=24, text_scale=scale)
+    print("NATIVE_HEADER " + json.dumps(metrics), flush=True)
+    return metrics
+
+
+if args.mode == "native":
+    report["header_subtitle"] = measure_header(bar, True)
 for name, widget in widgets.items():
     text_height = widget.create_pango_layout("Example value").get_pixel_size()[1]
     height = widget.get_allocated_height()
@@ -87,7 +132,7 @@ if args.mode == "native":
     # Heading refinements must not shrink body copy or defeat user DPI.
     specimen = Gtk.Window(title="Ooonana typography")
     specimen.set_default_size(560, 420)
-    header(specimen, "Typography", "Compact headings · unchanged body text")
+    title_bar = header(specimen, "Typography")
     content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
     content.set_border_width(16)
     specimen.add(content)
@@ -118,6 +163,8 @@ if args.mode == "native":
             failures.append(f"{role} expected {expected[role]}pt, got {size}pt")
     if Gtk.Settings.get_default().get_property("gtk-xft-dpi") != int(96 * 1024 * scale):
         failures.append("typography changed accessibility DPI")
+    report["header_title_only"] = measure_header(title_bar, False)
+    (args.output / "native.json").write_text(json.dumps(report, indent=2) + "\n")
     Gdk.pixbuf_get_from_window(screen, 0, 0, screen.get_width(), screen.get_height()).savev(
         str(args.output / "typography.png"), "png", [], [])
     print("TYPOGRAPHY_ROLES " + json.dumps(sizes), flush=True)
