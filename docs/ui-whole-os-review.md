@@ -2254,8 +2254,8 @@ size/placement parity; that new patch is not included in this checkpoint.
 
 ## Batch 32: native and third-party control parity
 
-Status: source/native-WM candidate validated; signing, publication and installed
-WSL refresh pending. Previous published generation remains unchanged. Whole-OS
+Status: source/native-WM candidate validated, signed/published and installed
+in Ooonana WSL; receipt below. Previous generation retained unchanged. Whole-OS
 scope is not complete. OpenVINO and stable promotion/signing enrollment remain
 deferred; no models, audible playback, GUI restart or ISO build.
 
@@ -2341,7 +2341,7 @@ Both appearances at1×/2× verify actual pointer actions, rendered glyph geometr
 and wrong-square negative control. No production icon/font change was made to
 satisfy rasterization differences.
 
-Remaining: CI publication/native receipt;
+Remaining:
 actual WSLg/physical compositor, mixed DPI/hotplug, other app-owned headers,
 Firefox-specific theme variants and whole-OS ledger. Theme-aware third-party
 outer chrome remains a separate review item; preserving current WM palette
@@ -2375,6 +2375,69 @@ minimize/fullscreen/close, pass. No hardware commands or sound playback.
 Density regressions now measure real header allocation, title/subtitle text,
 button diameter/centering, unchanged typography and user text scaling.
 
-Source candidate only until publication/native receipt is recorded. Older
-installed/released images do not acquire these changes automatically. Broader
-UI ledger, physical/WSLg checks and deferred OpenVINO remain open.
+Publication/native receipt below covers this shared header patch too. Older
+released images do not acquire these changes automatically. Broader UI ledger,
+physical/WSLg checks and deferred OpenVINO remain open.
+
+### Published checkpoint after Batches 32–33
+
+- Source `75923c555790630480c7d53186868feecca9b9f1` passes
+  [GitHub regression](https://github.com/Ooonana/Ooonana-OS/actions/runs/39686608905)
+  and [GitLab smoke](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2974082513).
+  Both remotes pushed on candidate branch; no stable promotion.
+- Atomic signed generation:
+  `720239ac278222d731c34a423e0e7908d37bcbc8eac5025d60585b0556c7f926`.
+  SHA256SUMS digest:
+  `d292ba22749cbec35e604afb19e06241613926bcaa20c861899c39024e453f6e`.
+  Clean306-file source manifest pins75923c5, digest
+  `f45ce503ce589684e79f2c784a66e2c50608d1c35329d5c8e21f5bc924f6d006`.
+  Native-control provenance/signature gate,654 packages/612 dependency nodes
+  and all1302 signed checksum entries pass; no models bundled.
+  Old26407e0 generation checksum manifest unchanged.
+- Ooonana WSL verified local snapshot:
+  `/var/lib/ooonana/candidate-native-controls-20261022.yzez35dY`.
+ 642 immutable archives hardlinked,660 files copied; full signed checksum
+  verification passes. Native i3 upgrade and separate runtime/core reinstall
+  transactions preserve checkpoints and pass file/health checks. UID1000
+  imports and opt-in i3 config validation pass. One import-probe shell quoting
+  error was corrected separately; no package transaction repeated.
+- Native hashes match source/built candidate: i3
+  `f11014782a9100af7b81b98459cf7165d27db4fe6f91fb1ea00de9aec46ac307`,
+  shared header
+  `662b310c74f09bf95971b5c7b0a673321ece241fe811406b2a50215b59cd2532`,
+  window controller
+  `acd80e7e275fa0b9c717f6476455843bf9d79f4ae1394aad9f7e6d2adf31b355`.
+- Default builtin repository had stale i3 metadata despite temporary-source
+  refresh. WSL-local CURRENT now atomically selects the verified native
+  snapshot through its generation link; old root metadata remains intact.
+  Default metadata refresh resolves654 packages/two sources and actually
+  reports i3 `4.24-r0.ooonana1`. No duplicate1GiB archive copy or package-owned
+  config replacement. Local adapter refreshed.
+  Logs: `/var/tmp/ooonana-native-controls-sync-20261022.4KRaDqjI`.
+- OpenVINO installed metadata, trusted public key and `/etc/wsl.conf` hashes
+  unchanged. Private key remains local; enrollment deferred. No sound,
+  GUI/WSL restart, WSL disk move or ISO build. Core remains0.10.0 candidate.
+
+Manually close old nested desktop when ready; launch:
+
+```powershell
+wsl -d Ooonana --exec /usr/local/bin/start-ooonana-i3 --nested
+```
+
+Fresh ISO build, user-owned; no old resume:
+
+```powershell
+& 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10'
+```
+
+### October 22 cleanup limit
+
+One confirmed owned incomplete3GiB logical build image remains. Exact file was
+checked as regular, not loop-attached, with no active formatter. Automated
+deletion was policy-blocked and was not retried through another shell/tool.
+Successful build image, source, binary, package, logs and history stay intact.
+Manual PowerShell command, only if this incomplete file still exists:
+
+```powershell
+Remove-Item -LiteralPath 'F:\Ooonana\ooonana-os\qa-i3-controls-20261020-4a5c2779\build-root.ext4.interrupted-before-mount' -Force
+```

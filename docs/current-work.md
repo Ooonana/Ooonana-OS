@@ -20,9 +20,11 @@ not just mapped widgets. Normal defaults remain100%.
 
 Pinned upstream signature/source, isolated musl build, native package and
 provenance gate pass. Source/build artifacts stay on F; no WSL disk move,
-OpenVINO change, sound playback or ISO. Signing/publication and native WSL
-refresh still pending for this new patch; earlier published checkpoint below
-does not include it. Whole-OS ledger remains active.
+OpenVINO change, sound playback or ISO. Source75923c5 passes both CIs; signed
+generation720239ac278222d731c34a423e0e7908d37bcbc8eac5025d60585b0556c7f926
+published and installed in Ooonana WSL. New apps use compact headers; new
+desktop session uses updated i3 controls. No restart forced. Whole-OS ledger
+remains active; earlier checkpoints below remain historical.
 [Evidence and limitations](ui-whole-os-review.md#batch-32-native-and-third-party-control-parity).
 
 Native header density now measures32px title-only/42px with subtitle at normal
