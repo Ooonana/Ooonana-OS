@@ -572,7 +572,12 @@ PY_QTERMINAL_DEFAULTS
 @define-color ooonana_hover $OOONANA_HOVER;
 @define-color ooonana_text_accent $OOONANA_TEXT_ACCENT;
 window, dialog, .background { background-color: @ooonana_bg; color: @ooonana_fg; }
-window.background, dialog.background, messagedialog.background { border-radius: 14px; }
+/* i3 owns SSD outer corners; rounding the client again cuts the header join. */
+window.background, dialog.background, messagedialog.background { border-radius: 0; }
+window.csd, window.solid-csd { border-radius: 14px; }
+window.maximized, window.fullscreen,
+window.maximized decoration, window.fullscreen decoration,
+window.maximized headerbar, window.fullscreen headerbar { border-radius: 0; }
 decoration { background: @ooonana_bg; border: 1px solid @ooonana_border; border-radius: 14px; box-shadow: none; }
 menu { background: @ooonana_panel; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 10px; padding: 6px; }
 menuitem:hover { background: @ooonana_panel_alt; color: @ooonana_text_accent; }
@@ -733,7 +738,12 @@ EOF
 @define-color ooonana_text_accent #ffb21a;
 @define-color ooonana_muted #b4bdc8;
 window, dialog, .background { background-color: @ooonana_bg; color: @ooonana_fg; }
-window.background, dialog.background, messagedialog.background { border-radius: 14px; }
+/* i3 owns SSD outer corners; rounding the client again cuts the header join. */
+window.background, dialog.background, messagedialog.background { border-radius: 0; }
+window.csd, window.solid-csd { border-radius: 14px; }
+window.maximized, window.fullscreen,
+window.maximized decoration, window.fullscreen decoration,
+window.maximized headerbar, window.fullscreen headerbar { border-radius: 0; }
 decoration { background: @ooonana_bg; border: 1px solid @ooonana_border; border-radius: 14px; box-shadow: none; }
 headerbar { background: @ooonana_panel; color: @ooonana_fg; border-bottom: 1px solid @ooonana_border; border-radius: 14px 14px 0 0; }
 headerbar .subtitle { color: @ooonana_muted; opacity: 1; }

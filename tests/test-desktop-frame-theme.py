@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Frame palette/resource ownership and color-only IPC; no display needed."""
 import importlib.util
+import ast
 import os
 from pathlib import Path
 import re
@@ -30,6 +31,19 @@ class Server:
 
 
 class FrameTheme(unittest.TestCase):
+    def test_owned_styles_round_client_owned_outer_frames_not_ssd_join(self):
+        builder = (ROOT / "scripts/build-full-i3-rootfs.sh").read_text()
+        module = ast.parse((ROOT / "packages/ooonana/usr/lib/ooonana/ui/common.py").read_text())
+        native = ast.literal_eval(next(node.value for node in module.body
+            if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "CSS" for target in node.targets))).decode()
+        rules = ("window.background, dialog.background, messagedialog.background { border-radius: 0; }",
+                 "window.csd, window.solid-csd { border-radius: 14px; }",
+                 "window.maximized headerbar, window.fullscreen headerbar { border-radius: 0; }")
+        for rule in rules:
+            self.assertEqual(builder.count(rule), 2, "Generated and fallback styles must agree")
+            self.assertIn(rule, native)
+        self.assertIn("corner-radius = 14;", builder, "Compositor still owns outer SSD corners")
+
     def test_merge_retains_unowned_comments_and_continuations(self):
         source = (b'! custom resource\r\nXft.dpi: 144\r\ncustom.value: long\\\n'
                   b'ooonana.i3.focused.text: continuation-not-a-key\n'

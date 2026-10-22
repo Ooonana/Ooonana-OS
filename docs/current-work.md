@@ -6,18 +6,36 @@ User direction: finish the current frame-theme batch first. Do not update
 installed WSL, publish packages or advance release pointers until stable-ready.
 Current OS/core remains **0.10.0 candidate**, not a promoted stable release.
 
-1. **Current batch: complete in isolated QA.** Native color-only frame updates,
-   resource ownership, readable Paper/Graphite and honest Settings feedback.
-   Candidate binary/package retained, not installed or published.
-2. **Next UI batches: still open.** Already-open-app appearance, third-party
-   client/frame corner joins, lock/sign-in/unlock, then remaining whole-OS UI
-   ledger. Do not call the entire UI goal complete from this frame fixture.
+1. **Completed source batches.** Native color-only frame updates, resource
+   ownership, readable Paper/Graphite, honest Settings feedback and flat
+   third-party client/header joins. Candidate artifacts remain unpublished.
+2. **Next UI batch: lock/sign-in/unlock.** Then already-open-app appearance and
+   the remaining whole-OS UI ledger. Preserve real authentication; no live lock
+   operation during isolated review. These fixtures do not complete the goal.
 3. **Deferred release integration.** Remote CI, fresh core/runtime/native package
    set, signed generation, final closure checks, WSL sync and updated release
    screenshots/docs. No private-key upload; OpenVINO stays deferred.
 4. **Release gates.** User builds fresh ISO after integration; actual PDF/WSLg,
    physical hardware and disposable persistence/upgrade checks stay required.
    Trust enrollment and stable-channel promotion need their deferred decision.
+
+## Completed source batch: client/frame corner joins
+
+Impeccable review found GTK rounding its client surface beneath i3's already
+rounded outer frame, leaving cut-outs below Geany/Nemo titlebars. Managed
+session CSS, root fallback CSS and native GTK now distinguish frame ownership:
+plain clients are square at the join; CSD/solid-CSD keep14px outer rounding;
+maximized/fullscreen bodies, decorations and headers are square. Compositor
+rounding,24px controls, positions, colors and normal text scale are unchanged.
+
+Real Geany/Nemo join pixels pass both palettes at1×/2×. Four foreign/native
+CSD theme/device cases pass corner rendering, negative old-rule control,
+control metrics/actions, square fullscreen and rounded restore. Native UI,
+rootfs factory, editor/theme units and native provenance regressions pass.
+Evidence: [Batch37](ui-whole-os-review.md#batch-37-clientframe-corner-joins-source-qa-complete-not-published).
+
+No installed WSL update, remote push, signing, package publication or ISO build.
+Next is lock/sign-in/unlock detail review, not stable promotion.
 
 ## Completed source batch: Paper third-party frame palette
 
@@ -42,8 +60,8 @@ Unpublished `i3wm 4.24-r0.ooonana2` package passes exact source/binary provenanc
 Nested Xrender's known Nemo partial-paint fault reproduced; extra waiting did
 not fix it. Existing QA full-redraw/redirection adaptation gives painted menus,
 sidebar and folders in both palettes/scales. Physical compositor policy is
-unchanged; this is not physical GPU certification. Client/frame corner joins
-remain a separate UI review item.
+unchanged; this is not physical GPU certification. The client/frame corner
+defect is now repaired in Batch37 above; installed/physical review stays open.
 
 No new generation, WSL update, installed-session restart, sound, model work or ISO build.
 F CURRENT remains verified4bf64022 Batch35. **Hold final ISO build** until

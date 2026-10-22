@@ -22,7 +22,12 @@ from gi.repository import Gdk, GLib, Gtk, Pango, PangoCairo  # noqa: E402
 CSS = b"""
 * { font-family: Sans; font-size: 10pt; }
 window, dialog, .background { background: #101317; color: #f5f5f7; }
-window.background, dialog.background, messagedialog.background { border-radius: 14px; }
+/* Round client-owned outer frames, not the body beneath an i3 titlebar. */
+window.background, dialog.background, messagedialog.background { border-radius: 0; }
+window.csd, window.solid-csd { border-radius: 14px; }
+window.maximized, window.fullscreen,
+window.maximized decoration, window.fullscreen decoration,
+window.maximized headerbar, window.fullscreen headerbar { border-radius: 0; }
 decoration { background: #101317; border: 1px solid #343b46; border-radius: 14px; box-shadow: none; }
 menu { background: #1b1f26; color: #f5f5f7; border: 1px solid #343b46; border-radius: 10px; padding: 6px; }
 menuitem { padding: 9px 12px; border-radius: 7px; }

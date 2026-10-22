@@ -1020,7 +1020,8 @@ assert_contains "$picom_cfg" "class_g = 'OoonanaWindowControls'"
 assert_contains "$i3_config" 'set_from_resource $of_bg ooonana.i3.focused.background #1b1f26'
 assert_contains "$i3_config" 'client.focused $of_bg $of_bg $of_text $of_indicator $of_bg'
 gtk_css="$(<"$rootfs/root/.config/gtk-3.0/gtk.css")"
-assert_contains "$gtk_css" "window.background, dialog.background, messagedialog.background { border-radius: 14px; }"
+assert_contains "$gtk_css" "window.background, dialog.background, messagedialog.background { border-radius: 0; }"
+assert_contains "$gtk_css" "window.csd, window.solid-csd { border-radius: 14px; }"
 assert_not_contains "$picom_cfg" 'backend = "xrender"'
 
 dunst_cfg="$(<"$rootfs/etc/ooonana/dunstrc")"

@@ -198,6 +198,24 @@ with tempfile.TemporaryDirectory(prefix="ooonana-frame-theme-") as temporary:
                 settle(1)
                 node, _ = next(iter(leaves(klass).values()))
                 assert node.get("focused") and frame_color(node) == expected, (selected, klass, frame_color(node))
+                if args.no_use_damage:
+                    def joined_client():
+                        root = Gdk.get_default_root_window()
+                        scale = root.get_scale_factor()
+                        rect, client = node["rect"], node["window_rect"]
+                        left, top = rect["x"] + client["x"], rect["y"] + client["y"]
+                        y = (top + 2 * scale) // scale
+                        colors = []
+                        for x in (left + 2 * scale, left + client["width"] // 2,
+                                  left + client["width"] - 3 * scale):
+                            pixel = Gdk.pixbuf_get_from_window(root, x // scale, y, 1, 1)
+                            if pixel is None:
+                                return False
+                            colors.append(tuple(pixel.get_pixels()[:3]))
+                        return (colors[1] != (0, 0, 0) and
+                                all(max(abs(a - b) for a, b in zip(color, colors[1])) <= 8 for color in (colors[0], colors[2])))
+                    wait(joined_client, "Client top corners cut away below i3 frame " + selected + " " + klass)
+                    print("FRAME_CLIENT_JOIN_OK", selected, klass, "scale", manager.control_scale, flush=True)
                 if klass == "Nemo" and args.no_use_damage:
                     def menu_painted():
                         root = Gdk.get_default_root_window()

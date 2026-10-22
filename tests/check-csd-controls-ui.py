@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Real GTK CSD buttons, generated session theme, private i3/X11 only."""
 import json
+import cairo
 import math
 import os
 from pathlib import Path
@@ -58,6 +59,15 @@ def descendants(widget):
             yield from descendants(child)
 
 
+def corner_alpha(widget):
+    """Render real GTK-computed background; independent of screenshot AA/DPI."""
+    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 48, 48)
+    Gtk.render_background(widget.get_style_context(), cairo.Context(surface), 0, 0, 48, 48)
+    surface.flush()
+    pixels, stride = surface.get_data(), surface.get_stride()
+    return tuple(pixels[y * stride + x * 4 + 3] for x, y in ((2, 2), (45, 2), (2, 45), (45, 45)))
+
+
 apply_theme()
 assert subprocess.run(["i3-msg", "-t", "get_tree"], capture_output=True).returncode != 0
 with tempfile.TemporaryDirectory(prefix="ooonana-csd-wm-") as temporary:
@@ -80,6 +90,19 @@ with tempfile.TemporaryDirectory(prefix="ooonana-csd-wm-") as temporary:
         header(native, "Native")
         native.add(Gtk.Label(label="Ooonana native header"))
         native.show_all()
+        plain = Gtk.Window()
+        try:
+            assert not any(plain.get_style_context().has_class(name) for name in ("csd", "solid-csd"))
+            assert corner_alpha(plain) == (255,) * 4, "SSD client still rounds beneath WM header"
+            # Negative control reproduces the old globally rounded client.
+            old_rounding = Gtk.CssProvider()
+            old_rounding.load_from_data(b"window.background { border-radius: 14px; }")
+            plain.get_style_context().add_provider(old_rounding, Gtk.STYLE_PROVIDER_PRIORITY_USER + 10)
+            assert max(corner_alpha(plain)) < 10, "Corner check accepts old nested rounding"
+            plain.get_style_context().remove_provider(old_rounding)
+            assert corner_alpha(plain) == (255,) * 4
+        finally:
+            plain.destroy()
         fxid = GdkX11.X11Window.get_xid(foreign.get_window())
         nxid = GdkX11.X11Window.get_xid(native.get_window())
         def state():
@@ -92,6 +115,11 @@ with tempfile.TemporaryDirectory(prefix="ooonana-csd-wm-") as temporary:
         manager = Manager()
         manager.refresh()
         settle(.25)
+        for window in (foreign, native):
+            corners = corner_alpha(window)
+            print("CSD_CORNER_STATE", window.get_title(), window.get_style_context().list_classes(), corners, flush=True)
+            assert max(corners) < 10, "Client-owned outer rounding lost"
+        print("CORNER_OWNERSHIP_OK square SSD client; rounded foreign/native CSD; old global rule rejected", flush=True)
         candidates = [widget for widget in descendants(foreign.get_titlebar()) if isinstance(widget, Gtk.Button)]
         print("CSD_BUTTON_CLASSES", [widget.get_style_context().list_classes() for widget in candidates], flush=True)
         buttons = {role: next(widget for widget in candidates if widget.get_style_context().has_class(role))
@@ -203,12 +231,28 @@ with tempfile.TemporaryDirectory(prefix="ooonana-csd-wm-") as temporary:
             settle(.2)
             click("maximize")
             wait(lambda: state()[fxid].get("fullscreen_mode"), "CSD Fullscreen request ignored/double-toggled")
+            wait(lambda: foreign.get_style_context().has_class("fullscreen"), "GTK fullscreen state absent")
+            assert corner_alpha(foreign) == (255,) * 4, "Fullscreen retains rounded cut-outs"
             subprocess.run(["xdotool", "key", "--clearmodifiers", "alt+F10"], check=True)
             wait(lambda: not state()[fxid].get("fullscreen_mode"), "CSD Fullscreen keyboard restore failed")
             settle(.2)
+            assert max(corner_alpha(foreign)) < 10, "Restored CSD outer rounding lost"
             click("close")
             wait(lambda: fxid not in state(), "CSD Close click failed")
             assert nxid in state(), "CSD action touched another window"
+            native_fullscreen.clicked()
+            wait(lambda: state()[nxid].get("fullscreen_mode") and native.get_style_context().has_class("fullscreen"),
+                 "Native fullscreen state absent")
+            assert corner_alpha(native) == (255,) * 4, "Native fullscreen body retains cut-outs"
+            assert corner_alpha(native.get_titlebar()) == (255,) * 4, "Native fullscreen header retains cut-outs"
+            settle(.2)
+            Gdk.pixbuf_get_from_window(display, 0, 0, display.get_width(), display.get_height()).savev(
+                str(output / "native-fullscreen.png"), "png", [], [])
+            native_fullscreen.clicked()
+            wait(lambda: not state()[nxid].get("fullscreen_mode") and not native.get_style_context().has_class("fullscreen"),
+                 "Native fullscreen restore failed")
+            assert max(corner_alpha(native)) < 10, "Restored native outer rounding lost"
+            print("NATIVE_CORNER_STATE_OK rounded floating; square fullscreen body/header; rounded restore", flush=True)
         print("CSD_CONTROLS_UI_OK generated GTK settings/style, native diameter/left inset, no duplicate frame; opt-in real actions", flush=True)
     finally:
         if manager is not None:

@@ -15,7 +15,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Surface / paths | Current evidence | Work still required |
 | --- | --- | --- |
 | Control proportions | Shared/native GTK 10pt typography and chat actions measured; targeted 100/125/200% scaling; Task Manager headers/values follow text metrics | Other app-specific Qt controls, panel/card/dock content proportions; no blind blanket shrink |
-| Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; real private theme toggles and new native/Geany/Nemo launches both ways at100/200% text; saved preference supersedes automatic exports, explicit/custom choices preserved | Paper third-party outer frames, already-open-app retheming, installed/live desktop, cursor hotspot/scale and remaining icon/selection states |
+| Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; real private theme toggles and new native/Geany/Nemo launches both ways at100/200% text; saved preference supersedes automatic exports; source Paper/Graphite frame IPC and client/header joins pass1×/2×; explicit/custom choices preserved | Already-open-app retheming, installed/live desktop, physical compositor, cursor hotspot/scale and remaining icon/selection states |
 | Panel / music / AI / notifications / tray | Actual source Polybar/wallpaper/dock; wide CJK labels and full counters at 640/760/900/1000/1024/1100/1280px; missing-glyph and actual AI-centering checks; compact Task View; actual private MPD empty/play/pause/volume/next/stop/loss/recovery | Actual installed tray/service integration and physical/live-session states; null-output QA does not prove hardware audio |
 | Dock | Flat centered icons; actual app/transient grouping, exact MRU restore, direct actions, Pin/Unpin, real held-drag reorder within left-pinned/right-running sections, saved layout/relaunch and readonly retry pass both themes normal/200% text; overflow idle-pin options, edge tooltips and actual 1×/2× device checks pass; signed candidate/native bytes synchronized | Actual installed interactive-session/display integration, physical mixed DPI/hotplug; multi-output visibility currently pure/derived guards |
 | Native Launcher | Long names/tooltips, no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard; real desktop-entry/Return/focus handoff to native Settings and preferred themed terminal/editor/files pass; immediate filter/selection and exact-name ranking repair observed wrong-app launch | Browser/hardware-wrapper variants, actual installed-session keyboard/IME and desktop integration |
@@ -2034,6 +2034,57 @@ queued dock work avoids another subsequent rebuild:
 ```powershell
 & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10'
 ```
+
+## Batch 37: client/frame corner joins (source QA complete, not published)
+
+Starting checkpoint: local source `f5d2291`; no deployment in this batch.
+Impeccable inspection of the current real Nemo/Geany captures showed a second
+rounded top edge immediately below the i3 titlebar. The global GTK background
+rule was rounding client content independently of the WM's outer frame.
+
+- Managed session CSS, root fallback CSS and native CSS now give plain client
+  surfaces radius0. Client-owned `.csd`/`.solid-csd` windows retain14px outer
+  corners; maximized/fullscreen bodies, decoration nodes and headerbars are
+  square. i3/picom still own server-decorated outer corners. Native controls
+  stay24px with unchanged placement, palette, normal10pt text and behavior.
+  This follows the [GTK window CSS-node contract](https://docs.gtk.org/gtk3/class.Window.html#css-nodes),
+  not per-app name guessing or replacement decorations.
+- Real Geany/Nemo under the current native WM pass top-left/center/top-right
+  join-pixel comparisons in dark/light at1×/2×:
+  `/var/tmp/ooonana-corner-joins-20261023.kOF7rGuH/{device1,device2}`.
+  This also reruns the frame protocol and runtime-state preservation checks.
+  The documented nested-Xrender full-redraw/redirection adaptation is explicit;
+  no physical compositor setting is changed or hardware proof claimed.
+- Real GTK-computed Cairo background rendering proves opaque square SSD client
+  corners and rounded foreign/native CSD corners. A higher-priority old global
+  rounding rule deliberately fails the same check, then removal restores it.
+  Initial foreign windows can be tiled/maximized; floating is established
+  before asserting the rounded state instead of misclassifying correct square
+  maximized rendering as a defect.
+- Four dark/light1×/2× CSD/native cases pass:
+  `/var/tmp/ooonana-corner-native-state-20261023.fQr2G1Lu`.
+  Same24px diameter/14px inset, shared glyph/negative glyph checks, exact
+  minimize/restore/fullscreen/restore/close actions and retained sibling pass.
+  Both foreign and native fullscreen become square; restoring returns rounded
+  corners. Native fullscreen header CSS also renders square, and actual
+  fullscreen capture contains no corner gaps. No power or lock action runs.
+- Ten pure frame/style units, seven theme-selection units, native UI suite,
+  rootfs factory, editor preference/argv tests and native build/provenance
+  guards pass. Rootfs/native static checks now assert ownership-specific
+  rounding rather than requiring the defective global14px rule.
+
+Impeccable visual review confirms straight client/header joins and preserved
+outer rounding at normal and2× scale. App-owned header heights and existing
+editor profiles are not forced into another app's layout/preferences. Installed
+WSLg/physical GPU behavior, already-open-app retheming and the rest of the
+whole-OS ledger stay open. Next isolated batch is lock/sign-in/unlock detail
+review, retaining actual authentication and avoiding live locking.
+
+No WSL update, remote push, signing, package publication, pointer promotion,
+model work, audio playback or ISO build. Final release integration stays
+deferred by user direction; OS/core remains0.10.0 candidate.
+
+![Private normal-scale Paper Nemo: square client/titlebar join, rounded outer frame](assets/ooonana-paper-window-join-20261023.png)
 
 ## Batch 36: Paper third-party frames (source QA complete, not published)
 
