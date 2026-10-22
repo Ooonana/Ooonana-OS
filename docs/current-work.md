@@ -11,15 +11,54 @@ Current OS/core remains **0.10.0 candidate**, not a promoted stable release.
    third-party client/header joins. Candidate artifacts remain unpublished.
 2. **Active priority: theme consistency.** User requested already-open apps,
    remaining icons, wallpaper and cursor shape/size/hotspot before lockscreen.
-   Native live refresh/dock parity now pass; third-party live retheming and
-   installed/physical appearance checks remain open. Lock/sign-in/unlock stays
-   queued; preserve real authentication and never live-lock during isolated QA.
+   Native live refresh/dock parity and held-open GTK/Geany/Nemo now pass;
+   browser/Qt live appearance and installed/physical checks remain open.
+   Lock/sign-in/unlock then panel stay next, in that order; preserve real
+   authentication and never live-lock during isolated QA.
 3. **Deferred release integration.** Remote CI, fresh core/runtime/native package
    set, signed generation, final closure checks, WSL sync and updated release
    screenshots/docs. No private-key upload; OpenVINO stays deferred.
 4. **Release gates.** User builds fresh ISO after integration; actual PDF/WSLg,
    physical hardware and disposable persistence/upgrade checks stay required.
    Trust enrollment and stable-channel promotion need their deferred decision.
+
+## Source checkpoint: display-owned GTK live appearance
+
+New source sessions no longer export an automatic GTK_THEME process pin.
+Explicit Ooonana pins/custom GTK themes remain; preferred-app launchers still
+retain PATH/argv. Named OoonanaGraphite/Paper GTK themes replace repeated global
+CSS rewrites. Their shared styles retain compact controls and square SSD joins.
+Inactive-window specificity and explicit dark-variant fallback were corrected
+after real paint tests found Adwaita colors despite the changed theme name.
+
+The previous optional xsettingsd startup had no package in the release seed.
+A small GIO/Xlib Xsettings owner now broadcasts complete preference sets with
+directory-event debounce, bounded strict parsing and real server timestamps.
+Selection check/claim stays under one server grab. Another manager is never
+replaced/signalled; ownership transfer stops our bridge. No PID-file authority,
+extra polling, WM reload/restart or app restart. No extra APK dependency.
+
+Only byte-exact former generated user CSS is retired, with a private backup;
+custom edits, links, hardlinks and conflicting backups remain. Concurrent edits
+are refused. Older already-running processes retain their original GTK_THEME/
+user provider: one voluntary reopen is required, reported after migration.
+This patch cannot rewrite another process's environment or certify old-session
+in-place retheming. Existing Geany editor schemes intentionally remain chosen.
+
+Real held-open GTK/Geany/Nemo source tests pass both palettes at1×/2×,
+including exact computed/mapped colors, same XIDs/geometry/focus/workspaces,
+DPI, editor preservation, Reduce Motion, atomic invalid-config retention/recovery,
+duplicate refusal and real foreign ownership transfer. Original/new-app theme
+flow passes100/200% text; native live Power/dock regression, six protocol/CSS
+ownership units, theme/frame/preferences/editor, branding/native UI and factory
+rootfs suites pass. [Evidence/limits](ui-whole-os-review.md#batch-39-display-owned-live-gtk-appearance-source-checkpoint).
+
+Next requested surfaces: lock/sign-in/unlock (clock/date, restrained branding,
+spacing, password/error feedback, Caps Lock/input language, focus, scale and
+wake) with real authentication unchanged; then panel installed tray/services,
+left music, AI, notifications/counters, long labels and narrow-screen spacing.
+These requested surfaces are **not complete** from this theme-only checkpoint.
+No installed WSL update, remote push, signing, publication or ISO build.
 
 ## Source checkpoint: live native appearance and Paper dock
 
@@ -45,8 +84,8 @@ cursor frames/aliases/hotspots pass; local default personal cursor remains21px,
 hotspot(2,6), with proportional importer scaling. No cursor regeneration or
 resize. These static checks do not certify physical pointer appearance.
 
-**Remaining in this requested theme pass:** existing third-party GTK/browser/Qt
-appearance, per-display xsettings reload handoff, real wallpaper/cursor/icon
+**Remaining in this requested theme pass:** browser/Qt live appearance beyond
+the held-open GTK proof above, real wallpaper/cursor/icon
 session and physical hotspot/scaling checks. Do not call theme consistency or
 whole-OS UI complete from the native fixture. No WSL update, remote push,
 signing, publication or ISO build; release integration remains deferred.

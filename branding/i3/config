@@ -35,7 +35,7 @@ exec_always --no-startup-id ooonana-theme-env apply
 exec --no-startup-id xsetroot -name "Ooonana OS" -cursor_name left_ptr
 exec --no-startup-id sh -c 'if command -v picom >/dev/null 2>&1; then if [ "${OOONANA_WSL_SOCKET_READY:-0}" = 1 ]; then picom --backend xrender --config /etc/ooonana/picom.conf; else picom --backend glx --config /etc/ooonana/picom.conf || exec picom --backend xrender --config /etc/ooonana/picom.conf; fi; fi &'
 exec --no-startup-id sh -c 'command -v dunst >/dev/null 2>&1 && dunst -config /etc/ooonana/dunstrc &'
-exec --no-startup-id sh -c 'command -v xsettingsd >/dev/null 2>&1 && xsettingsd -c "${XDG_CONFIG_HOME:-$HOME/.config}/ooonana/xsettingsd.conf" &'
+exec_always --no-startup-id ooonana-xsettings
 exec_always --no-startup-id ooonana-panel-start
 exec_always --no-startup-id ooonana-window-controls
 exec --no-startup-id ooonana-storage-watch

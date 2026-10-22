@@ -35,7 +35,7 @@ def resolved_theme():
 def refresh_gtk_theme():
     """Refresh owned GTK selection before toolkit initialization; retain custom themes."""
     selected = resolved_theme()
-    if selected and os.environ.get("GTK_THEME", "") in ("", "Adwaita", "Adwaita:dark", "Adwaita-dark"):
+    if selected and os.environ.get("GTK_THEME", "") in ("", "Adwaita", "Adwaita:dark", "Adwaita-dark", "OoonanaGraphite", "OoonanaPaper"):
         os.environ["GTK_THEME"] = "Adwaita" + (":dark" if selected == "dark" else "")
         return selected
     return None

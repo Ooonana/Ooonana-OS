@@ -329,6 +329,8 @@ assert_contains "$(<"$rootfs/etc/gtk-3.0/settings.ini")" "gtk-decoration-layout=
 [[ -f "$rootfs/etc/ooonana/picom.conf" ]] || fail "missing picom config"
 [[ -f "$rootfs/etc/ooonana/dunstrc" ]] || fail "missing dunst config"
 [[ -f "$rootfs/etc/ooonana/xsettingsd.conf" ]] || fail "missing xsettingsd config"
+[[ -x "$rootfs/usr/bin/ooonana-xsettings" ]] || fail "missing live Xsettings bridge"
+[[ -f "$rootfs/usr/lib/ooonana/xsettings_session.py" && -f "$rootfs/usr/lib/ooonana/legacy_gtk_style.py" ]] || fail "missing live theme modules"
 [[ -f "$rootfs/etc/gtk-3.0/settings.ini" ]] || fail "missing GTK system settings"
 [[ -f "$rootfs/root/.config/gtk-3.0/settings.ini" ]] || fail "missing GTK root settings"
 [[ -f "$rootfs/root/.config/gtk-3.0/gtk.css" ]] || fail "missing GTK root CSS"
@@ -521,7 +523,7 @@ assert_contains "$i3_config" "picom --backend xrender --config /etc/ooonana/pico
 assert_contains "$i3_config" "--backend glx"
 assert_contains "$i3_config" "--backend xrender"
 assert_contains "$i3_config" "dunst -config /etc/ooonana/dunstrc"
-assert_contains "$i3_config" '/ooonana/xsettingsd.conf'
+assert_contains "$i3_config" 'ooonana-xsettings'
 assert_contains "$i3_config" "[ -S /run/dbus/system_bus_socket ] && nm-applet --indicator"
 assert_contains "$i3_config" "ls /sys/class/bluetooth/hci*"
 assert_contains "$i3_config" "then blueman-applet"
@@ -588,8 +590,9 @@ assert_contains "$yad_wrapper" "ooonana-theme-env env"
 assert_contains "$yad_wrapper" "--window-icon=/usr/share/ooonana/logo.png"
 
 assert_contains "$(<"$rootfs/etc/gtk-3.0/settings.ini")" "gtk-application-prefer-dark-theme=true"
-assert_contains "$(<"$rootfs/root/.config/gtk-3.0/gtk.css")" "button { background: @ooonana_panel_alt"
-assert_contains "$(<"$rootfs/root/.config/gtk-3.0/gtk.css")" "headerbar"
+assert_contains "$(<"$rootfs/usr/share/themes/Ooonana/gtk-3.0/common.css")" "button { background: @ooonana_panel_alt"
+assert_contains "$(<"$rootfs/usr/share/themes/Ooonana/gtk-3.0/common.css")" "headerbar"
+assert_contains "$(<"$rootfs/root/.config/gtk-3.0/gtk.css")" "named GTK themes"
 network_manager_config="$(<"$rootfs/etc/NetworkManager/NetworkManager.conf")"
 assert_contains "$network_manager_config" "wifi.scan-rand-mac-address=no"
 assert_contains "$network_manager_config" "match-device=type:wifi"
@@ -1019,7 +1022,7 @@ assert_contains "$picom_cfg" "rounded-corners-exclude"
 assert_contains "$picom_cfg" "class_g = 'OoonanaWindowControls'"
 assert_contains "$i3_config" 'set_from_resource $of_bg ooonana.i3.focused.background #1b1f26'
 assert_contains "$i3_config" 'client.focused $of_bg $of_bg $of_text $of_indicator $of_bg'
-gtk_css="$(<"$rootfs/root/.config/gtk-3.0/gtk.css")"
+gtk_css="$(<"$rootfs/usr/share/themes/Ooonana/gtk-3.0/common.css")"
 assert_contains "$gtk_css" "window.background, dialog.background, messagedialog.background { border-radius: 0; }"
 assert_contains "$gtk_css" "window.csd, window.solid-csd { border-radius: 14px; }"
 assert_not_contains "$picom_cfg" 'backend = "xrender"'

@@ -1,0 +1,13 @@
+/* Managed named theme: Xsettings changes repaint existing GTK clients. */
+@import url("resource:///org/gtk/libgtk/theme/Adwaita/gtk-contained-dark.css");
+@define-color ooonana_bg #101317;
+@define-color ooonana_fg #f5f5f7;
+@define-color ooonana_accent #ffb21a;
+@define-color ooonana_panel #1b1f26;
+@define-color ooonana_panel_alt #272d36;
+@define-color ooonana_border #46505c;
+@define-color ooonana_muted #b4bdc8;
+@define-color ooonana_entry #15191f;
+@define-color ooonana_hover #39414b;
+@define-color ooonana_text_accent #ffb21a;
+@import url("../../Ooonana/gtk-3.0/common.css");

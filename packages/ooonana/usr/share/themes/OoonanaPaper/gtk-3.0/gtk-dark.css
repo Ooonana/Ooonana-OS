@@ -1,0 +1,2 @@
+/* Application dark preference must not discard explicit Paper theme. */
+@import url("gtk.css");

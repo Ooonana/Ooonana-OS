@@ -58,13 +58,14 @@ with tempfile.TemporaryDirectory(prefix="ooonana-editor-polish-") as temporary:
     assert parser["geany"]["color_scheme"] == "ooonana-light.conf"
     assert toolbar.read_bytes() == custom_toolbar
 
-assert source.count("toolbar button { background: @ooonana_panel; border: 0;") == 2
-assert "toolbar button:focus { outline: 2px solid @ooonana_text_accent;" in source
-assert source.count("toolbar entry { min-height: 20px;") == 2
+style = (root / "packages/ooonana/usr/share/themes/Ooonana/gtk-3.0/common.css").read_text()
+assert style.count("toolbar button { background: @ooonana_panel; border: 0;") == 1
+assert "toolbar button:focus { outline: 2px solid @ooonana_text_accent;" in style
+assert style.count("toolbar entry { min-height: 20px;") == 1
 for state in ("button:active", "button.suggested-action:hover", "button.suggested-action:active",
               "button.destructive-action:hover", "button.destructive-action:active"):
-    assert source.count(state + " {") == 2, state
-assert source.count("headerbar .subtitle { color: @ooonana_muted; opacity: 1; }") == 2
+    assert style.count(state + " {") == 1, state
+assert style.count("headerbar .subtitle { color: @ooonana_muted; opacity: 1; }") == 1
 
 def luminance(color):
     channels = [int(color[i:i + 2], 16) / 255 for i in (1, 3, 5)]

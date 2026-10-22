@@ -91,11 +91,16 @@ try:
         # deliberately keeps stale dark values through both later toggles.
         inherited = dict(initial)
         for line in subprocess.check_output(["ooonana-theme-env", "env"], env=initial, text=True).splitlines():
+            if line == "unset GTK_THEME":
+                inherited.pop("GTK_THEME", None)
+                continue
             if line.startswith("export "):
                 continue
             key, value = line.split("=", 1)
             inherited[key] = shlex.split(value)[0]
         assert inherited["OOONANA_THEME_INHERITED"] == "dark"
+        assert "GTK_THEME" not in inherited
+        inherited["GTK_THEME"] = "Adwaita:dark"  # Also model an older desktop parent.
         for selected in ("light", "dark"):
             result = subprocess.run(["ooonana-theme-env", "toggle"], env=inherited, capture_output=True, text=True, check=True, timeout=25)
             (output / (selected + "-apply.log")).write_text(result.stdout + result.stderr)
@@ -115,7 +120,7 @@ try:
                 item = next(item for item in clients() if item.get("window_properties", {}).get("class", "").lower() == command)
                 pid = int(subprocess.check_output(["xdotool", "getwindowpid", str(item["window"])], text=True))
                 process_env = dict(pair.split(b"=", 1) for pair in Path("/proc/%d/environ" % pid).read_bytes().split(b"\0") if b"=" in pair)
-                assert process_env[b"GTK_THEME"].decode() == "Adwaita" + (":dark" if selected == "dark" else ""), process_env.get(b"GTK_THEME")
+                assert b"GTK_THEME" not in process_env, process_env.get(b"GTK_THEME")
                 # X11 MapNotify can precede first application paint. A mapped
                 # Nemo frame alone previously captured wallpaper, not its UI.
                 time.sleep(1)

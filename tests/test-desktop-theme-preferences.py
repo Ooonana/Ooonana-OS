@@ -26,7 +26,7 @@ class ThemePreferences(unittest.TestCase):
 
     def merge(self, prefix="", success=True):
         result = subprocess.run([sys.executable, "-c", prefix + MERGE, str(self.base),
-                                 "true", "Adwaita-dark", "OoonanaTailless", "19"],
+                                 "true", "OoonanaGraphite", "OoonanaTailless", "19"],
                                 text=True, capture_output=True, timeout=5)
         self.assertEqual(result.returncode == 0, success, result.stderr)
         self.assertFalse(list(self.base.rglob(".settings.ini.*")))
@@ -88,7 +88,7 @@ class ThemePreferences(unittest.TestCase):
         self.ini.write_text("[Settings]\ngtk-font-name=Sans 9\ngtk-font-name=Serif 12")
         self.merge()
         self.assertEqual(self.settings()["gtk-font-name"], "Serif 12")
-        self.assertEqual(self.settings()["gtk-theme-name"], "Adwaita")
+        self.assertEqual(self.settings()["gtk-theme-name"], "OoonanaGraphite")
 
     def test_reduced_motion_bridge(self):
         ui = self.base / "ooonana/ui.json"

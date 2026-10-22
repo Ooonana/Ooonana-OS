@@ -55,7 +55,7 @@ class ThemeSelection(unittest.TestCase):
             native, shell = self.select(OOONANA_THEME=inherited, OOONANA_THEME_INHERITED=inherited)
             self.assertEqual(native, saved)
             self.assertEqual(shell["OOONANA_THEME_INHERITED"], saved)
-            self.assertEqual(shell["GTK_THEME"], "Adwaita" + (":dark" if saved == "dark" else ""))
+            self.assertNotIn("GTK_THEME", shell)  # Automatic apps follow live Xsettings.
 
     def test_explicit_legacy_and_changed_values_still_override(self):
         self.user.write_text("light\n")
@@ -121,7 +121,7 @@ class ThemeSelection(unittest.TestCase):
             marker = '"$ROOTFS/usr/bin/ooonana-' + app + '" <<\'EOF\'\n'
             launcher = self.base / app
             launcher.write_text(SOURCE.split(marker, 1)[1].split("\nEOF", 1)[0])
-            for gtk, expected in (("Adwaita:dark", "Adwaita"), ("Custom theme's dark", "Custom theme's dark")):
+            for gtk, expected in (("Adwaita:dark", None), ("Custom theme's dark", "Custom theme's dark")):
                 subprocess.run(["sh", str(launcher), argument], env=dict(inherited, GTK_THEME=gtk),
                                check=True, capture_output=True, text=True, timeout=10)
                 actual = json.loads(trace.read_text())

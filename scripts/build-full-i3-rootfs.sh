@@ -245,6 +245,8 @@ EOF
 }
 
 write_theme_helpers() {
+  mkdir -p "$ROOTFS/usr/share/themes"
+  cp -a "$ROOT/packages/ooonana/usr/share/themes/." "$ROOTFS/usr/share/themes/"
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-theme-env" <<'EOF'
 #!/bin/sh
 set -eu
@@ -331,7 +333,16 @@ load_theme() {
   case "$XCURSOR_THEME" in ""|*[!A-Za-z0-9._-]*) XCURSOR_THEME=OoonanaTailless ;; esac
   case "$XCURSOR_SIZE" in ""|*[!0-9]*) XCURSOR_SIZE=19 ;; esac
   [ "$XCURSOR_SIZE" -ge 16 ] && [ "$XCURSOR_SIZE" -le 96 ] || XCURSOR_SIZE=19
-  GTK_THEME="$OOONANA_GTK_THEME"
+  # GTK_THEME is a process pin, not a live desktop preference. Preserve custom
+  # themes and explicit Ooonana pins; automatic clients follow Xsettings.
+  case "$client_gtk_theme" in
+    ""|Adwaita|Adwaita:dark|Adwaita-dark|OoonanaGraphite|OoonanaPaper)
+      if [ "$explicit" = 1 ]; then
+        case "$OOONANA_THEME" in light) GTK_THEME=OoonanaPaper ;; *) GTK_THEME=OoonanaGraphite ;; esac
+        export GTK_THEME
+      else unset GTK_THEME; fi
+      ;;
+  esac
   GDK_BACKEND="${GDK_BACKEND:-x11}"
   # Use Qt's shipped portal bridge, not a replacement widget stylesheet.
   # Explicit qt6ct/KDE/custom platform themes remain user-owned.
@@ -386,13 +397,11 @@ case "${1:-env}" in
     printf 'XCURSOR_SIZE="%s"\n' "$XCURSOR_SIZE"
     printf 'OOONANA_GTK_THEME="%s"\n' "$OOONANA_GTK_THEME"
     printf 'OOONANA_GTK_DARK="%s"\n' "$OOONANA_GTK_DARK"
-    if [ "${1:-env}" = env ]; then
-      printf 'GTK_THEME="%s"\n' "$OOONANA_GTK_THEME"
-    else
-      case "$client_gtk_theme" in
-        ""|Adwaita|Adwaita:dark|Adwaita-dark) printf 'GTK_THEME="%s"\n' "$OOONANA_GTK_THEME" ;;
-      esac
-    fi
+    case "$client_gtk_theme" in
+      ""|Adwaita|Adwaita:dark|Adwaita-dark|OoonanaGraphite|OoonanaPaper)
+        if [ "$explicit" = 1 ]; then printf 'GTK_THEME="%s"\n' "$GTK_THEME"
+        else printf 'unset GTK_THEME\n'; fi ;;
+    esac
     printf 'GDK_BACKEND="x11"\n'
     if [ -n "${QT_QPA_PLATFORMTHEME:-}" ]; then
       # Do not interpolate an arbitrary user override into shell code.
@@ -404,7 +413,7 @@ case "${1:-env}" in
     config_home="${XDG_CONFIG_HOME:-${HOME:-/root}/.config}"
     mkdir -p "$config_home/gtk-3.0"
     mkdir -p "$config_home/ooonana"
-    case "$OOONANA_THEME" in light) xsettings_theme=Adwaita ;; *) xsettings_theme=Adwaita-dark ;; esac
+    case "$OOONANA_THEME" in light) xsettings_theme=OoonanaPaper ;; *) xsettings_theme=OoonanaGraphite ;; esac
     # Merge presentation-owned values; retain user fonts, DPI and unknown keys.
     python3 - "$config_home" "$OOONANA_GTK_DARK" "$xsettings_theme" "$XCURSOR_THEME" "$XCURSOR_SIZE" <<'PY_GTK_SETTINGS'
 import configparser
@@ -440,7 +449,7 @@ for line in xoriginal.splitlines():
             xvalues[parts[0]] = parts[1]
     except ValueError:
         continue
-updates = {"gtk-theme-name": "Adwaita", "gtk-application-prefer-dark-theme": dark,
+updates = {"gtk-theme-name": theme, "gtk-application-prefer-dark-theme": dark,
            "gtk-cursor-theme-name": cursor, "gtk-cursor-theme-size": size}
 defaults = {"gtk-font-name": xvalues.get("Gtk/FontName", "Sans 10"),
             "gtk-icon-theme-name": xvalues.get("Net/IconThemeName", "Adwaita"),
@@ -560,75 +569,8 @@ if not directory.is_symlink() and not path.exists() and not path.is_symlink():
         Path(temporary).unlink(missing_ok=True)
 PY_QTERMINAL_DEFAULTS
     fi
-    cat >"$config_home/gtk-3.0/gtk.css" <<CSS
-@define-color ooonana_bg $OOONANA_BG;
-@define-color ooonana_fg $OOONANA_FG;
-@define-color ooonana_accent #ffb21a;
-@define-color ooonana_panel $OOONANA_PANEL;
-@define-color ooonana_panel_alt $OOONANA_PANEL_ALT;
-@define-color ooonana_border $OOONANA_BORDER;
-@define-color ooonana_muted $OOONANA_MUTED;
-@define-color ooonana_entry $OOONANA_ENTRY;
-@define-color ooonana_hover $OOONANA_HOVER;
-@define-color ooonana_text_accent $OOONANA_TEXT_ACCENT;
-window, dialog, .background { background-color: @ooonana_bg; color: @ooonana_fg; }
-/* i3 owns SSD outer corners; rounding the client again cuts the header join. */
-window.background, dialog.background, messagedialog.background { border-radius: 0; }
-window.csd, window.solid-csd { border-radius: 14px; }
-window.maximized, window.fullscreen,
-window.maximized decoration, window.fullscreen decoration,
-window.maximized headerbar, window.fullscreen headerbar { border-radius: 0; }
-decoration { background: @ooonana_bg; border: 1px solid @ooonana_border; border-radius: 14px; box-shadow: none; }
-menu { background: @ooonana_panel; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 10px; padding: 6px; }
-menuitem:hover { background: @ooonana_panel_alt; color: @ooonana_text_accent; }
-headerbar { background: @ooonana_panel; color: @ooonana_fg; border-bottom: 1px solid @ooonana_border; border-radius: 14px 14px 0 0; padding: 5px 10px; }
-headerbar .title { font-weight: bold; }
-headerbar .subtitle { color: @ooonana_muted; opacity: 1; }
-button { background: @ooonana_panel_alt; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 10px; min-height: 20px; padding: 5px 10px; transition: background-color 180ms ease-out; }
-button:hover { background: @ooonana_hover; border-color: @ooonana_accent; }
-button:active { background: @ooonana_entry; border-color: @ooonana_accent; }
-button:checked, button.suggested-action { background: @ooonana_accent; color: #101317; border-color: @ooonana_accent; }
-button.suggested-action:hover { background: #ffca5c; border-color: #ffca5c; }
-button.suggested-action:active { background: #eaa21a; border-color: #eaa21a; }
-button.destructive-action { background: #3b2324; color: #ffaaa3; border-color: #8a4749; }
-button.destructive-action:hover { background: #523033; color: #ffd4cf; border-color: #b36161; }
-button.destructive-action:active { background: #2f1c1d; color: #ffd4cf; border-color: #b36161; }
-button:disabled { background: @ooonana_panel; color: #78828f; border-color: @ooonana_border; }
-button.suggested-action:disabled { background: #403624; color: #a5987f; border-color: #544733; }
-/* GTK client-owned headers keep their own behavior, sharing native 24px controls. */
-headerbar button.titlebutton { min-width: 16px; min-height: 16px; padding: 3px; margin: 0; border-radius: 99px; border: 1px solid #242830; color: #101317; box-shadow: none; }
-headerbar button.titlebutton.close { background: #ff736b; }
-headerbar button.titlebutton.minimize { background: #ffd16c; }
-headerbar button.titlebutton.maximize { background: #7fd6a0; }
-headerbar button.titlebutton:hover { border-color: #f5f5f7; }
-headerbar button.titlebutton.close:active { background: #e65c55; }
-headerbar button.titlebutton.minimize:active { background: #e6b955; }
-headerbar button.titlebutton.maximize:active { background: #67b985; }
-headerbar button.titlebutton image { -gtk-icon-transform: scale(0.75); }
-/* GtkImage owns its icon name; paint the shared fullscreen glyph on button. */
-headerbar button.titlebutton.maximize, headerbar button.titlebutton.maximize:hover, headerbar button.titlebutton.maximize:active { background-image: -gtk-icontheme("view-fullscreen-symbolic"); background-size: 12px 12px; background-position: center; background-repeat: no-repeat; }
-headerbar button.titlebutton.maximize image { opacity: 0; }
-/* Toolbars are compact work surfaces, not rows of primary-action cards. */
-toolbar { background: @ooonana_panel; padding: 3px 6px; border-bottom: 1px solid @ooonana_border; }
-toolbar button { background: @ooonana_panel; border: 0; border-radius: 6px; min-width: 20px; min-height: 20px; padding: 3px 4px; box-shadow: none; }
-toolbar button:hover, toolbar button:checked { background: @ooonana_hover; color: @ooonana_fg; }
-toolbar button:focus { outline: 2px solid @ooonana_text_accent; outline-offset: -2px; }
-toolbar entry { min-height: 20px; padding: 3px 6px; border-radius: 6px; }
-toolbar separator { margin: 3px 5px; background: @ooonana_border; }
-notebook tab button { min-width: 16px; min-height: 16px; padding: 2px; border: 0; border-radius: 5px; }
-entry, textview, treeview, list { background: @ooonana_entry; color: @ooonana_fg; border-color: @ooonana_border; }
-entry { min-height: 20px; padding: 5px 8px; border-radius: 10px; }
-treeview header button { background: @ooonana_panel_alt; color: @ooonana_text_accent; }
-treeview:selected, row:selected { background: @ooonana_panel_alt; color: @ooonana_fg; }
-notebook header { background: @ooonana_panel; }
-notebook tab { padding: 8px 14px; }
-notebook tab:checked { color: @ooonana_text_accent; border-bottom: 2px solid @ooonana_accent; }
-scale highlight { background: @ooonana_accent; }
-scale trough { background: @ooonana_panel_alt; min-height: 6px; border-radius: 6px; }
-scrollbar slider { background: @ooonana_border; border-radius: 6px; min-width: 7px; min-height: 7px; }
-scrollbar slider:hover { background: @ooonana_accent; }
-tooltip { background: @ooonana_panel; color: @ooonana_fg; border: 1px solid @ooonana_accent; border-radius: 10px; }
-CSS
+    # Named theme replacement, not user CSS rewrite, repaints existing clients.
+    python3 /usr/lib/ooonana/legacy_gtk_style.py "$config_home"
     if [ -n "${DISPLAY:-}" ] && [ -f /usr/lib/ooonana/desktop_theme.py ]; then
       python3 /usr/lib/ooonana/desktop_theme.py "$OOONANA_THEME"
     fi
@@ -702,7 +644,7 @@ EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/gtk-3.0/settings.ini" <<'EOF'
 [Settings]
-gtk-theme-name=Adwaita
+gtk-theme-name=OoonanaGraphite
 gtk-application-prefer-dark-theme=true
 gtk-icon-theme-name=Adwaita
 gtk-cursor-theme-name=OoonanaTailless
@@ -715,7 +657,7 @@ EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/root/.config/gtk-3.0/settings.ini" <<'EOF'
 [Settings]
-gtk-theme-name=Adwaita
+gtk-theme-name=OoonanaGraphite
 gtk-application-prefer-dark-theme=true
 gtk-icon-theme-name=Adwaita
 gtk-cursor-theme-name=OoonanaTailless
@@ -727,48 +669,7 @@ gtk-decoration-layout=close,minimize,maximize:menu
 EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/root/.config/gtk-3.0/gtk.css" <<'EOF'
-@define-color ooonana_bg #101317;
-@define-color ooonana_fg #f5f5f7;
-@define-color ooonana_accent #ffb21a;
-@define-color ooonana_panel #1b1f26;
-@define-color ooonana_panel_alt #272d36;
-@define-color ooonana_border #46505c;
-@define-color ooonana_entry #15191f;
-@define-color ooonana_hover #39414b;
-@define-color ooonana_text_accent #ffb21a;
-@define-color ooonana_muted #b4bdc8;
-window, dialog, .background { background-color: @ooonana_bg; color: @ooonana_fg; }
-/* i3 owns SSD outer corners; rounding the client again cuts the header join. */
-window.background, dialog.background, messagedialog.background { border-radius: 0; }
-window.csd, window.solid-csd { border-radius: 14px; }
-window.maximized, window.fullscreen,
-window.maximized decoration, window.fullscreen decoration,
-window.maximized headerbar, window.fullscreen headerbar { border-radius: 0; }
-decoration { background: @ooonana_bg; border: 1px solid @ooonana_border; border-radius: 14px; box-shadow: none; }
-headerbar { background: @ooonana_panel; color: @ooonana_fg; border-bottom: 1px solid @ooonana_border; border-radius: 14px 14px 0 0; }
-headerbar .subtitle { color: @ooonana_muted; opacity: 1; }
-button { background: @ooonana_panel_alt; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 10px; min-height: 20px; padding: 5px 10px; transition: background-color 180ms ease-out; }
-button:hover { background: #39414b; border-color: @ooonana_accent; }
-button:active { background: #15191f; border-color: @ooonana_accent; }
-button:checked, button.suggested-action { background: @ooonana_accent; color: #101317; }
-button.suggested-action:hover { background: #ffca5c; border-color: #ffca5c; }
-button.suggested-action:active { background: #eaa21a; border-color: #eaa21a; }
-button.destructive-action { background: #3b2324; color: #ffaaa3; border-color: #8a4749; }
-button.destructive-action:hover { background: #523033; color: #ffd4cf; border-color: #b36161; }
-button.destructive-action:active { background: #2f1c1d; color: #ffd4cf; border-color: #b36161; }
-button:disabled { background: @ooonana_panel; color: #78828f; border-color: @ooonana_border; }
-button.suggested-action:disabled { background: #403624; color: #a5987f; border-color: #544733; }
-toolbar { background: @ooonana_panel; padding: 3px 6px; border-bottom: 1px solid @ooonana_border; }
-toolbar button { background: @ooonana_panel; border: 0; border-radius: 6px; min-width: 20px; min-height: 20px; padding: 3px 4px; box-shadow: none; }
-toolbar button:hover, toolbar button:checked { background: @ooonana_hover; color: @ooonana_fg; }
-toolbar button:focus { outline: 2px solid @ooonana_text_accent; outline-offset: -2px; }
-toolbar entry { min-height: 20px; padding: 3px 6px; border-radius: 6px; }
-toolbar separator { margin: 3px 5px; background: @ooonana_border; }
-notebook tab button { min-width: 16px; min-height: 16px; padding: 2px; border: 0; border-radius: 5px; }
-entry, textview, treeview, list { background: @ooonana_entry; color: @ooonana_fg; border-color: @ooonana_border; }
-entry { min-height: 20px; padding: 5px 8px; border-radius: 10px; }
-treeview:selected, row:selected { background: @ooonana_panel_alt; color: @ooonana_fg; }
-scale highlight { background: @ooonana_accent; }
+/* Ooonana appearance now follows named GTK themes; custom CSS belongs here. */
 EOF
 }
 
@@ -2783,7 +2684,7 @@ AutoEnable = true
 EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/xsettingsd.conf" <<'EOF'
-Net/ThemeName "Adwaita-dark"
+Net/ThemeName "OoonanaGraphite"
 Net/IconThemeName "Adwaita"
 Gtk/FontName "Sans 10"
 Gtk/CursorThemeName "OoonanaTailless"
@@ -4574,12 +4475,16 @@ install_current_backend_checks() {
     "$ROOTFS/usr/lib/ooonana/panel_session.py"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/desktop_theme.py" \
     "$ROOTFS/usr/lib/ooonana/desktop_theme.py"
+  for file in xsettings_session.py legacy_gtk_style.py; do
+    install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/$file" \
+      "$ROOTFS/usr/lib/ooonana/$file"
+  done
   for file in chat_store.py common.py memory_status.py notification_utils.py task_manager_app.py theme_watch.py ui_preferences.py window_controls.py; do
     install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ui/$file" \
       "$ROOTFS/usr/lib/ooonana/ui/$file"
   done
   install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana" "$ROOTFS/usr/bin/ooonana"
-  for file in ooonana-window-list ooonana-panel-start ooonana-media-status; do
+  for file in ooonana-window-list ooonana-panel-start ooonana-media-status ooonana-xsettings; do
     install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/$file" "$ROOTFS/usr/bin/$file"
   done
   [[ -f "$app/APP-MANIFEST.sha256" ]] || return 0

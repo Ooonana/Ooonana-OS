@@ -23,7 +23,7 @@ case "$geometry" in
   *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
 esac
 case "$only" in
-  all|setup-details-ui|controls-details-ui|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|theme-flow-ui|frame-theme-ui|live-theme-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|launcher-session-ui|notifications-runtime|notification-lifecycle|notification-auto-recovery|window-controls-runtime|dock-ui|dock-edges-ui|device-scale-ui|csd-controls-ui|panel-ui|panel-media-runtime|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
+  all|setup-details-ui|controls-details-ui|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|theme-flow-ui|frame-theme-ui|live-theme-ui|external-theme-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|launcher-session-ui|notifications-runtime|notification-lifecycle|notification-auto-recovery|window-controls-runtime|dock-ui|dock-edges-ui|device-scale-ui|csd-controls-ui|panel-ui|panel-media-runtime|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -213,13 +213,15 @@ if [[ "$only" == all || "$only" == admin-prompt-ui ]]; then
   mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-admin-askpass"
   admin_policy=1
 fi
-if [[ "$only" == frame-theme-ui || "$only" == live-theme-ui ]]; then
+if [[ "$only" == frame-theme-ui || "$only" == live-theme-ui || "$only" == external-theme-ui || "$only" == theme-flow-ui ]]; then
   # New frame helper must be exercised from source, including subprocess imports.
   # This probe performs no package operations against the source-only repo dir.
   mount --bind "$SOURCE/packages/ooonana/usr/lib/ooonana" "$rootfs/usr/lib/ooonana"
   mount -o remount,bind,ro "$rootfs/usr/lib/ooonana"
 fi
-if [[ "$only" == all || "$only" == launcher-session-ui || "$only" == theme-flow-ui || "$only" == frame-theme-ui ]]; then
+mount --bind "$SOURCE/packages/ooonana/usr/share/themes" "$rootfs/usr/share/themes"
+mount -o remount,bind,ro "$rootfs/usr/share/themes"
+if [[ "$only" == all || "$only" == launcher-session-ui || "$only" == theme-flow-ui || "$only" == frame-theme-ui || "$only" == external-theme-ui ]]; then
   # Subprocess handoff must use current UI/wrappers, not cached candidate bytes.
   if [[ "$only" != all ]]; then
     mount --bind "$SOURCE/packages/ooonana/usr/lib/ooonana/ui" "$rootfs/usr/lib/ooonana/ui"
@@ -349,6 +351,9 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   probe theme-flow-ui python3 /source/tests/check-theme-flow-ui.py /qa/theme-flow
   if [ "$only" = live-theme-ui ]; then
     probe live-theme-ui python3 /source/tests/check-live-theme-ui.py /qa/live-theme
+  fi
+  if [ "$only" = external-theme-ui ]; then
+    probe external-theme-ui python3 /source/tests/check-external-theme-ui.py /qa/external-theme
   fi
   # Version-matched candidate/source-only bind is explicit opt-in. Do not make
   # the preserved legacy-WM all suite fail for lacking the new native API.

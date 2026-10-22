@@ -15,7 +15,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Surface / paths | Current evidence | Work still required |
 | --- | --- | --- |
 | Control proportions | Shared/native GTK 10pt typography and chat actions measured; targeted 100/125/200% scaling; Task Manager headers/values follow text metrics | Other app-specific Qt controls, panel/card/dock content proportions; no blind blanket shrink |
-| Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; real private theme toggles and new native/Geany/Nemo launches both ways at100/200% text; source frame IPC/joins pass1×/2×; same native Power/dock live retheme and explicit pins pass1×/2×; icon/logo/cursor metadata and wallpaper preservation tests pass | Already-open third-party retheming/xsettings handoff, installed/live desktop, physical compositor, physical cursor shape/hotspot/scale and remaining icon/selection states |
+| Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; real private theme toggles/new launches at100/200% text; source frame IPC/joins pass1×/2×; same native Power/dock and held GTK/Geany/Nemo live retheme pass1×/2×; strict display-owned Xsettings ownership/transfer and CSS migration units; icon/logo/cursor metadata and wallpaper preservation tests pass | Browser/Qt live retheming, voluntary one-time reopen for older process pins/providers, installed/live desktop, physical compositor/cursor hotspot/scale and remaining icon/selection states |
 | Panel / music / AI / notifications / tray | Actual source Polybar/wallpaper/dock; wide CJK labels and full counters at 640/760/900/1000/1024/1100/1280px; missing-glyph and actual AI-centering checks; compact Task View; actual private MPD empty/play/pause/volume/next/stop/loss/recovery | Actual installed tray/service integration and physical/live-session states; null-output QA does not prove hardware audio |
 | Dock | Flat centered icons; actual app/transient grouping, exact MRU restore, direct actions, Pin/Unpin, real held-drag reorder within left-pinned/right-running sections, saved layout/relaunch and readonly retry pass both themes normal/200% text; overflow idle-pin options, edge tooltips and actual 1×/2× device checks pass; signed candidate/native bytes synchronized | Actual installed interactive-session/display integration, physical mixed DPI/hotplug; multi-output visibility currently pure/derived guards |
 | Native Launcher | Long names/tooltips, no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard; real desktop-entry/Return/focus handoff to native Settings and preferred themed terminal/editor/files pass; immediate filter/selection and exact-name ranking repair observed wrong-app launch | Browser/hardware-wrapper variants, actual installed-session keyboard/IME and desktop integration |
@@ -49,6 +49,53 @@ October 17 updated Computer Use runtime was retried through its documented
 app input. No Windows automation workaround or security setting change used.
 
 ## Current batch evidence
+
+### Batch 39: display-owned live GTK appearance source checkpoint
+
+Impeccable refinement preserves Graphite/Paper and control dimensions. GTK
+theme variants now carry the existing shared client styles, rather than a
+palette frozen in the user's global CSS. Application-owned editor colors stay
+unchanged; older automatic GTK_THEME pins need one voluntary app reopen.
+Exact former CSS migrates with backup, never arbitrary custom edits/links.
+
+The source session's new Xsettings owner uses existing Python/GIO/Xlib only.
+Missing optional xsettingsd was an actual integration gap, not a running
+installed daemon failure. It atomically claims only vacant display selections,
+publishes complete bounded int/string/color sets and real X timestamps, follows
+atomic config moves without idle polling and exits when another owner takes
+over. No saved PIDs, killall, app/WM restart or GTK injection.
+Protocol authority: [Xsettings specification](https://specifications.freedesktop.org/xsettings/latest/);
+process-pin semantics: [GTK runtime environment](https://docs.gtk.org/gtk3/running.html#environment-variables).
+
+Final source/real controls capture checks:
+`/var/tmp/ooonana-external-confirm-20261023.p9vbIy4Y/{device1,device2}`.
+Preceding handoff/state receipts:
+`/var/tmp/ooonana-theme-handoff-20261023.Rzwy1r4O/external-theme-ui-{1,2}-1.0`;
+`/var/tmp/ooonana-external-reviewed-20261023.1pbJObCz/{device1,device2}`.
+Actual held Geany/Nemo/GTK worker XIDs survive both palette changes. Checks
+cover client pixels, geometry/focus/workspaces/fullscreen state, DPI, unchanged
+Geany settings, reduced motion, duplicate-manager refusal, malformed atomic
+replacement/recovery and foreign selection transfer without reclaiming it.
+
+New-app theme100/200% and native live Power/dock regressions:
+`/var/tmp/ooonana-theme-handoff-regression-20261023.KYmA4oqH`.
+Six protocol/CSS ownership units plus existing selection/preferences/frame/
+editor/branding/native-UI/factory-rootfs suites pass. Exact legacy CSS hashes
+were independently verified against the prior committed generated palettes.
+
+Functional preflight faults remained evidence, not passes: the GTK probe first
+selected Gdk4 accidentally; old cached theme-flow QA lacked the new backend;
+initial named-theme paint retained Adwaita inactive colors. Version selection,
+explicit source bind and theme specificity/variant loading now corrected.
+Fixtures now seed the source editor schemes and let real titlebar overlays
+paint before captures. No production control dimensions changed. Nested Xrender
+uses the already documented private full-redraw/redirection adaptation only.
+
+Limits: not browser/Qt live-theme certification; no physical/mixed-DPI/WSLg
+appearance or real user profile proof. Old running processes retain their
+original env/provider until voluntarily reopened. This does not certify the
+newly requested lock/sign-in/wake or installed panel/tray/service paths.
+No WSL update, publication, remote push, signing, models, sound or ISO build.
 
 - Clean starting source: `f5fb618`.
 - Private QA root: `/var/tmp/ooonana-whole-ui-20261015.n7zRUus3`.

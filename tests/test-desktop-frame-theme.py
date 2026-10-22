@@ -40,7 +40,8 @@ class FrameTheme(unittest.TestCase):
                  "window.csd, window.solid-csd { border-radius: 14px; }",
                  "window.maximized headerbar, window.fullscreen headerbar { border-radius: 0; }")
         for rule in rules:
-            self.assertEqual(builder.count(rule), 2, "Generated and fallback styles must agree")
+            style = (ROOT / "packages/ooonana/usr/share/themes/Ooonana/gtk-3.0/common.css").read_text()
+            self.assertIn(rule, style, "Named GTK theme keeps frame ownership")
             self.assertIn(rule, native)
         self.assertIn("corner-radius = 14;", builder, "Compositor still owns outer SSD corners")
 
