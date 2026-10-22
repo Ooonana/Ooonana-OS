@@ -1,5 +1,24 @@
 # Current work - 2026-10-22
 
+## October 22 saved appearance and new-app consistency
+
+Theme selection/toggle no longer loses saved Paper mode to automatic dark
+session exports. Native GTK and preferred browser/files/editor refresh owned
+theme values; explicit/custom choices, PATH/argv and existing Geany colors
+remain. Real private GTK/Geany/Nemo toggles pass both ways at100/200% text;
+four Settings/Power regression cases also pass. Lock/sign-in/unlock details
+remain queued, preserving real authentication and avoiding live lock tests.
+
+Sourcec0be613 passes GitHub/GitLab. Signed generation4bf64022 published on F
+and installed in Ooonana WSL; all1302 checksums, health checks, headless imports,
+i3 config and installed nonroot theme selection pass. Default metadata refresh
+finds654 packages/two sources. Previous generation/checkpoints retained;
+boot config, trusted key and OpenVINO metadata unchanged. No restart/ISO.
+[Full evidence and remaining limits](ui-whole-os-review.md#batch-35-saved-appearance-versus-inherited-session-values).
+
+Next: Paper third-party outer frames and already-open-app theme behavior, then
+lockscreen visual detail review. Whole-OS goal and live/physical gates stay open.
+
 ## October 22 compact Power actions and keyboard safety
 
 Power no longer uses170×70 tiles or a redundant question heading. Actions
@@ -18,12 +37,9 @@ published and installed in Ooonana WSL; file/health checks pass. No restart/ISO.
 Whole goal active; earlier checkpoints below remain historical.
 [Evidence](ui-whole-os-review.md#batch-34-compact-power-and-safe-keyboard-defaults).
 
-Theme inheritance repair now distinguishes automatic session exports from
-explicit overrides. Real private nonroot toggles both ways, native GTK and
-Geany/Nemo launches pass at100/200% text; custom themes/PATH/argv and existing
-editor colors stay untouched. Linked/read-only preference writes fail safely.
-This follow-up is source-only pending publication/sync. Paper third-party outer
-frame review and manual relaunch of pre-fix desktop sessions remain required.
+The theme inheritance defect found after this checkpoint is repaired and
+published in Batch35 above. Paper third-party outer frame review and manual
+relaunch of pre-fix desktop sessions remain required.
 
 User added lock/sign-in/unlock visual detail review: clock/date, branding,
 spacing, password/error feedback, Caps Lock/input layout, keyboard focus,

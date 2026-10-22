@@ -2559,8 +2559,8 @@ policy and existing Geany color preferences are retained.
   recolored/restarted; pre-marker sessions need manual relaunch. Existing-app
   live retheming and the whole-OS coverage ledger remain open.
 - Both CI definitions include the new pure selection test. Publication and
-  installed WSL sync are pending for this source batch; previous signed321e5115
-  generation and installed checkpoint remain valid until then.
+  installed WSL sync completed below; previous signed321e5115 generation and
+  installed checkpoint remain retained.
 - Four Settings/Power regression cases pass both appearances at100/200% real
   text on640×600, including completion/rollback and safe Enter/Escape actions:
   `/var/tmp/ooonana-theme-settings-20261022.OLgLCozf`.
@@ -2569,3 +2569,50 @@ No power/lock operation, sound playback, OpenVINO/model change, disk move or ISO
 build. Lock/sign-in/unlock detail review remains explicitly queued above.
 
 ![New native Power window follows saved Paper mode despite stale dark session values, normal100% text](assets/ooonana-paper-theme-inheritance-20261022.png)
+
+### Published checkpoint after Batch 35
+
+- Source `c0be61353974dc8d09baf4d0f833f66971f46f9f` passes
+  [GitHub regression](https://github.com/Ooonana/Ooonana-OS/actions/runs/39721660000)
+  and [GitLab smoke](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2974808938).
+  Both remotes pushed on the candidate branch; stable promotion stays deferred.
+- Signed F generation:
+  `4bf64022f11e74d5b8d24ada04d2eebc703d8f1431045e7683343bdf5f243a2e`.
+  SHA256SUMS digest:
+  `a2bc36edaffe1bc6699afc06da2db6be1adfc4ea68983cea6d5c7a450480fac8`.
+  Clean306-file source manifest pinsc0be613, source digest
+  `809d7e4016af78778c49811845908488d463af320ad3b26e0086c3a37e7d11f3`.
+  Full checksum/signature, native-control provenance and654-package/612-node
+  release closure pass. Old321e5115 manifest digest remains unchanged.
+- Native snapshot `/var/lib/ooonana/candidate-theme-ui-20261022.tLHUBsmP`:
+  643 immutable archive links/659 copies; all1302 signed entries verified.
+  Separate runtime/core plans, reinstall transactions and verify/health checks
+  pass with rollback checkpoints retained. Adapter/default signed generation
+  pointer advanced; default metadata refresh finds654 packages/two sources.
+- Installed hashes match source: common.py
+  `8f452d92ebb5cf4fd23bc00ca62a99522445326e1881ffe6a9418d70880851c1`,
+  ui_preferences.py
+  `198ad6e3b8ed9e8e928f698cfe64f61665446844e0ce287612c34f7a1b947ed0`,
+  settings_app.py
+  `bd4e0800d1b3a2ab1821909131acd57b67bd4b4371304600ec8cdd97954f3701`.
+  Installed helper isdf3eaeca3a74dee1bd4fb42bdfbc67ff2d638df524da91d3571905cc22362d40;
+  existing native-control i3 binary hash remainsf11014782a9100af7b81b98459cf7165d27db4fe6f91fb1ea00de9aec46ac307.
+- UID1000 explicit headless imports/i3 config checks pass. An additional real
+  installed helper/common probe uses only private temporary preferences and
+  confirms saved Paper beats inherited dark, including GTK base selection.
+  Logs: `/var/tmp/ooonana-theme-ui-sync-20261022.0RT4NnKr`.
+- Boot config, public trusted key and OpenVINO installed metadata hashes are
+  unchanged. No sound, lock/power action, GUI/WSL restart, disk move or ISO build.
+  Private key stays local; no signing enrollment or stable promotion performed.
+
+For the installed WSL GUI, relaunch manually when ready:
+
+```powershell
+wsl -d Ooonana --exec /usr/local/bin/start-ooonana-i3 --nested
+```
+
+Fresh ISO build (user-run only; old resume image predates this patch):
+
+```powershell
+& 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10'
+```
