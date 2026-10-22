@@ -23,7 +23,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Settings: all six pages | Compact page picker, bounded/selectable sources, managed dialogs, repair/update retry; actual private 0600 preference writes, reopen, read-only rollback and retry through 200% text | Actual installed-session theme/wallpaper/authentication paths, other external file/device failures |
 | Setup | Compact/200% scrolling and stacked labels; focused inline validation, secret-preserving drafts, full source/routing review, default Back, reduced motion, pending/reentrant and closed-parent refusal checked both themes | Complete installed privileged setup/persistence and actual authentication/network failures; CLI backend preflight is not certified by UI validation |
 | Sound / brightness / music | Verified readiness, selected-identity audio/backlight commands, unknown/empty/permission states, persistent inline retry, serialized actions, preserved drafts, stale-poll/closed refusal; keyboard and both themes through 200% text pass silent fixtures | Actual installed route/mute/volume and playback semantics, changed-device integration and real hardware; no sound playback |
-| Power | Native default-Cancel, duplicate refusal, error/retry, failed lock refusal pass with mocked commands | Actual isolated lock/logout/suspend and unavailable capabilities |
+| Power | Compact40px actions/44px at real200% text; natural-height window; Enter Cancel/Escape; visibly mapped native confirmation; duplicate refusal, error/retry, failed lock and late-callback refusal pass under private i3 in both themes | Actual lock/logout/power actions, unavailable capabilities and installed-session integration remain unverified; no real power command executed |
 | Notifications | Private real Dunst history/DND/remove/clear; changed-record nested keyboard focus/visible reading anchor; storage fault/retry; unchanged five-second timer DND/loss/restart recovery without focus/manual refresh; reused IDs and privacy checks | Actual installed-session notifications and integrated panel/session behavior |
 | Packages | Default-Cancel preview, failed/empty plan refusal, mutating close guard; actual sudo/askpass cancellation/retry restores controls under private harmless-command policy | Actual privileged package transactions and successful authentication on disposable installation |
 | Health / Updates | Readable snapshot/raw/copy, honest attention/malformed states; actual isolated report and sudo/askpass cancellation restore controls | Actual installed-session service/repository failures, successful authentication and metadata transactions |
@@ -2441,3 +2441,43 @@ Manual PowerShell command, only if this incomplete file still exists:
 ```powershell
 Remove-Item -LiteralPath 'F:\Ooonana\ooonana-os\qa-i3-controls-20261020-4a5c2779\build-root.ext4.interrupted-before-mount' -Force
 ```
+
+## Batch 34: compact Power and safe keyboard defaults
+
+![Compact Power menu, actual private i3](assets/ooonana-compact-power-20261022.png)
+
+Normal100% on640×600. All power/session backends are mocked; capture is not a
+real shutdown or lock test.
+
+- Replaced fixed170×70 tiles with content-width columns and40px minimum rows.
+  Actual200% text naturally grows rows to44px;10pt text and native24px window
+  controls remain unchanged. Natural-height menu removes unused vertical space
+  and duplicate question heading; all six actions remain in familiar3×2 order.
+- Cancel receives initial focus/default. Actual Return closes without a
+  request; Escape also closes. During a submitted request, label becomes Close
+  and tooltip explains it is not cancellation. Duplicate actions stay disabled,
+  failure restores controls/Cancel and closed-parent callbacks create no UI.
+- Logout/reboot/shutdown warnings retain exact commands, unsaved-work warning
+  and default Cancel. Shared native header and bounded dialog placement now
+  match first-party chrome. Explicit show-all is essential: a titlebar object
+  alone did not paint. Final fixture asserts mapped header, not just existence.
+- QA repair: Settings deliberately changes theme, previously making subsequent
+  Power captures light even in a dark case. Fixture restores requested theme
+  and now sets actual98304/196608 Xft DPI. Earlier screenshots are not retroactive
+  proof of dark/200% Power behavior. New cases use private UID1000 i3 with current
+  native-control binary, real Return/Escape input and mocked command queues.
+- Final Power confirmation, dark/light100/200% at640×600:
+  `/var/tmp/ooonana-power-visible-confirm-20261022.iDhClXqm`.
+  Initial/WM receipts and25-page catalog per theme:
+  `/var/tmp/ooonana-power-wm-20261022.irMbeOhf`.
+  Catalog proves initial bounds/accessibility only, not every app workflow.
+  Native source regression suite passes. No audio, actual power operation,
+  OpenVINO setup/models, desktop restart or ISO build.
+
+![Power confirmation at200% accessibility text, not default scale](assets/ooonana-power-confirmation-text-stress-20261022.png)
+
+Impeccable bounded review preserves opaque Graphite/Paper identity. Remaining
+whole-OS ledger is unchanged: Paper third-party outer frames/theme inheritance,
+installed tray/authentication, external app variants, physical/WSLg/multi-output
+input/session checks, PDF viewer and deferred OpenVINO. Publication/native
+receipt for this follow-up remains pending; prior signed checkpoint is intact.

@@ -1,5 +1,21 @@
 # Current work - 2026-10-22
 
+## October 22 compact Power actions and keyboard safety
+
+Power no longer uses170×70 tiles or a redundant question heading. Actions
+measure40px normally/44px at real200% text; window height follows content.
+Enter initially activates Cancel; Escape closes menu. Pending requests show
+Close rather than suggesting cancellation. Native confirmation header now
+actually maps, keeps default Cancel and remains bounded on640×600.
+
+Four dark/light100/200% private i3 cases pass keyboard/error/late-callback
+checks without executing power/lock commands.25 native pages per appearance
+also pass compact bounds. Impeccable review corrected confirmation visibility;
+QA now restores requested theme after Settings and sets real text DPI.
+Signed packaging/native sync pending for this follow-up; Batches32–33 below
+remain latest installed checkpoint until receipt changes. Whole goal active.
+[Evidence](ui-whole-os-review.md#batch-34-compact-power-and-safe-keyboard-defaults).
+
 ## October 22 native/third-party window controls
 
 Locally built i3 4.24 candidate gives third-party frames real titlebar room,

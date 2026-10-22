@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Private native state transitions. Every power/theme command is mocked."""
 import argparse
+import atexit
 import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import time
@@ -11,6 +13,7 @@ if os.environ.get("OOONANA_GUI_TEST_DISPLAY") != "1" or os.getuid() == 0:
     raise SystemExit("Dedicated nonroot test display required")
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--output-dir", type=Path, default=Path("/qa"))
+parser.add_argument("--own-i3", action="store_true")
 args = parser.parse_args()
 args.output_dir.mkdir(parents=True, exist_ok=True)
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,6 +21,27 @@ sys.path.insert(0, str(ROOT / "packages/ooonana/usr/lib/ooonana/ui"))
 import settings_app as settings
 import controls_app as controls
 from common import Gdk, GLib, Gtk, apply_theme
+
+requested_theme = os.environ.get("OOONANA_THEME", "dark")
+text_scale = float(os.environ.get("OOONANA_GUI_TEXT_SCALE", "1.0"))
+Gtk.Settings.get_default().set_property("gtk-xft-dpi", round(96 * 1024 * text_scale))
+
+if args.own_i3:
+    fixture = tempfile.TemporaryDirectory(prefix="ooonana-power-wm-")
+    config = Path(fixture.name) / "i3.conf"
+    config.write_text("\n".join(line for line in (ROOT / "branding/i3/config").read_text().splitlines()
+                               if not line.startswith("exec")) + "\n")
+    wm = subprocess.Popen(["i3", "-c", str(config)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    def cleanup_wm():
+        if wm.poll() is None:
+            wm.terminate()
+            wm.wait(timeout=5)
+        fixture.cleanup()
+    atexit.register(cleanup_wm)
+    deadline = time.monotonic() + 8
+    while subprocess.run(["i3-msg", "-t", "get_tree"], capture_output=True).returncode:
+        assert time.monotonic() < deadline, "Private Power WM unavailable"
+        time.sleep(.03)
 
 def drain():
     for _ in range(8):
@@ -106,12 +130,34 @@ with tempfile.TemporaryDirectory() as temporary:
     late(0, "")
     assert window.closed
 
+    # Settings intentionally selected light above; restore the actual QA case.
+    os.environ["OOONANA_THEME"] = requested_theme
+    apply_theme()
     power = controls.PowerWindow()
     power.show_all()
+    assert power.get_default_widget() is power.cancel_button
+    assert power.get_focus() is power.cancel_button
+    power.get_window().focus(Gdk.CURRENT_TIME)
+    drain()
+    subprocess.run(["xdotool", "key", "--clearmodifiers", "Return"], check=True)
+    drain()
+    assert power.closed and not jobs, "Default Enter submitted a power action"
+
+    power = controls.PowerWindow()
+    power.show_all()
+    capture(power, "power-ready")
+    for widget in power.actions:
+        height = widget.get_allocated_height()
+        text_height = widget.create_pango_layout(widget.get_label()).get_pixel_size()[1]
+        assert max(40, text_height + 8) <= height <= max(44, text_height + 16), (widget.get_label(), height, text_height)
+    print("POWER_METRICS", requested_theme, "text-scale", text_scale,
+          "dpi", Gtk.Settings.get_default().get_property("gtk-xft-dpi"),
+          "action-heights", [widget.get_allocated_height() for widget in power.actions], flush=True)
     def response(value, screenshot=False):
         def respond():
             dialog = next(item for item in Gtk.Window.list_toplevels() if isinstance(item, Gtk.MessageDialog))
             assert dialog.get_default_widget() is dialog.get_widget_for_response(Gtk.ResponseType.CANCEL)
+            assert dialog.get_titlebar() and dialog.get_titlebar().get_mapped(), "Power confirmation chrome did not paint"
             if screenshot:
                 capture(dialog, "power-logout-review")
             dialog.response(value)
@@ -127,15 +173,27 @@ with tempfile.TemporaryDirectory() as temporary:
         power.confirm(action)
         power.restart_i3()
         assert len(jobs) == 1 and power.pending
+        assert power.cancel_button.get_label() == "Close"
         command, done = jobs.pop()
         assert command == expected
         done(1, "Isolated rejection")
         assert not power.pending and "failed" in power.status.get_text()
+        assert power.cancel_button.get_label() == "Cancel"
     power.lock()
     command, done = jobs.pop()
     assert command == ["i3lock"]
     done(127, "Lock unavailable")
     assert not jobs, "Failed lock fell back to display blanking"
     capture(power, "power-failure")
-    power.destroy()
-print("SETTINGS_POWER_UI_OK completion/rollback/explicit theme; async memory/stale callbacks; wallpaper; safe Cancel; power errors; lock refusal")
+    power.restart_i3()
+    assert len(jobs) == 1 and power.pending
+    _, late = jobs.pop()
+    power.get_window().focus(Gdk.CURRENT_TIME)
+    drain()
+    subprocess.run(["xdotool", "key", "--clearmodifiers", "Escape"], check=True)
+    drain()
+    assert power.closed and not jobs, "Escape submitted another power action"
+    before = len(messages)
+    late(1, "Late fixture failure")
+    assert not jobs and len(messages) == before, "Closed power menu created late UI"
+print("SETTINGS_POWER_UI_OK completion/rollback/explicit theme; async memory/stale callbacks; wallpaper; compact power/real DPI; Enter Cancel/Escape; power errors; lock refusal")

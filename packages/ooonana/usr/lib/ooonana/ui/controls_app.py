@@ -5,6 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (  # noqa: E402
+    Gdk,
     GLib,
     Gtk,
     Pango,
@@ -841,14 +842,13 @@ class PowerWindow(Gtk.Window):
         self.pending = False
         self.closed = False
         self.actions = []
-        self.set_default_size(620, 320)
+        self.set_default_size(500, -1)
         self.set_position(Gtk.WindowPosition.CENTER)
         header(self, "Power", "Session and computer", "system-shutdown-symbolic")
-        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-        root.set_border_width(22)
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        root.set_border_width(16)
         self.add(root)
-        root.pack_start(label("What should Ooonana do?", "page-title"), False, False, 0)
-        grid = Gtk.Grid(column_spacing=12, row_spacing=12)
+        grid = Gtk.Grid(column_spacing=8, row_spacing=8)
         grid.set_column_homogeneous(True)
         actions = [
             ("Lock", "system-lock-screen-symbolic", self.lock, None),
@@ -860,13 +860,27 @@ class PowerWindow(Gtk.Window):
         ]
         for index, (title, icon_name, callback, style) in enumerate(actions):
             widget = button(title, icon_name, callback, style)
-            widget.set_size_request(170, 70)
+            widget.set_size_request(-1, 40)
+            widget.set_halign(Gtk.Align.FILL)
+            widget.set_hexpand(True)
             self.actions.append(widget)
             grid.attach(widget, index % 3, index // 3, 1, 1)
-        root.pack_start(grid, True, True, 0)
+        root.pack_start(grid, False, False, 0)
         self.status = label("", "muted")
         root.pack_start(self.status, False, False, 0)
+        self.cancel_button = self.actions[-1]
+        self.cancel_button.set_can_default(True)
+        self.set_default(self.cancel_button)
+        self.set_focus(self.cancel_button)
+        self.cancel_button.set_tooltip_text("Close this menu without submitting an action.")
+        self.connect("key-press-event", self.key_pressed)
         self.connect("destroy", self.on_destroy)
+
+    def key_pressed(self, _widget, event):
+        if event.keyval == Gdk.KEY_Escape:
+            self.destroy()
+            return True
+        return False
 
     def on_destroy(self, *_args):
         self.closed = True
@@ -879,6 +893,8 @@ class PowerWindow(Gtk.Window):
         self.pending = True
         for widget in self.actions[:-1]:
             widget.set_sensitive(False)
+        self.cancel_button.set_label("Close")
+        self.cancel_button.set_tooltip_text("Close this menu; the submitted request is not cancelled.")
         self.status.set_text(title + " requested...")
         def done(rc, output):
             if self.closed:
@@ -886,6 +902,8 @@ class PowerWindow(Gtk.Window):
             self.pending = False
             for widget in self.actions[:-1]:
                 widget.set_sensitive(True)
+            self.cancel_button.set_label("Cancel")
+            self.cancel_button.set_tooltip_text("Close this menu without submitting an action.")
             self.status.set_text(title + (" failed." if rc else " requested."))
             if rc:
                 message(self, title + " failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)
@@ -914,9 +932,13 @@ class PowerWindow(Gtk.Window):
             buttons=Gtk.ButtonsType.NONE,
             text=f"{title} Ooonana OS?",
         )
+        header(dialog, title, "", "system-shutdown-symbolic")
         dialog.format_secondary_text("Unsaved work will be lost.")
         dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL, title, Gtk.ResponseType.OK)
         dialog.set_default_response(Gtk.ResponseType.CANCEL)
+        dialog.set_destroy_with_parent(True)
+        fit_dialog(dialog, 420)
+        dialog.show_all()
         accepted = dialog.run() == Gtk.ResponseType.OK
         dialog.destroy()
         if accepted:

@@ -339,7 +339,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   probe package-health-ui python3 /source/tests/check-package-health-ui.py /qa/package-health
   probe admin-prompt-ui python3 /source/tests/check-admin-prompt-ui.py /qa/admin-prompt
   probe installer-ui python3 /source/tests/check-installer-ui.py /qa/installer
-  probe settings-power-ui python3 /source/tests/check-settings-power-ui.py
+  probe settings-power-ui python3 /source/tests/check-settings-power-ui.py --own-i3
   probe settings-details-ui python3 /source/tests/check-settings-details-ui.py /qa/settings-details
   probe settings-storage-ui python3 /source/tests/check-settings-storage-ui.py /qa/settings-storage
   probe ai-details-ui python3 /source/tests/check-ai-details-ui.py /qa/ai-details
