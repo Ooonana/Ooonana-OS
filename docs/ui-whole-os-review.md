@@ -15,7 +15,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Surface / paths | Current evidence | Work still required |
 | --- | --- | --- |
 | Control proportions | Shared/native GTK 10pt typography and chat actions measured; targeted 100/125/200% scaling; Task Manager headers/values follow text metrics | Other app-specific Qt controls, panel/card/dock content proportions; no blind blanket shrink |
-| Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; current source inventory | Fresh composited desktop, cursor hotspot/scale, icon consistency and selection states |
+| Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; real private theme toggles and new native/Geany/Nemo launches both ways at100/200% text; saved preference supersedes automatic exports, explicit/custom choices preserved | Paper third-party outer frames, already-open-app retheming, installed/live desktop, cursor hotspot/scale and remaining icon/selection states |
 | Panel / music / AI / notifications / tray | Actual source Polybar/wallpaper/dock; wide CJK labels and full counters at 640/760/900/1000/1024/1100/1280px; missing-glyph and actual AI-centering checks; compact Task View; actual private MPD empty/play/pause/volume/next/stop/loss/recovery | Actual installed tray/service integration and physical/live-session states; null-output QA does not prove hardware audio |
 | Dock | Flat centered icons; actual app/transient grouping, exact MRU restore, direct actions, Pin/Unpin, real held-drag reorder within left-pinned/right-running sections, saved layout/relaunch and readonly retry pass both themes normal/200% text; overflow idle-pin options, edge tooltips and actual 1×/2× device checks pass; signed candidate/native bytes synchronized | Actual installed interactive-session/display integration, physical mixed DPI/hotplug; multi-output visibility currently pure/derived guards |
 | Native Launcher | Long names/tooltips, no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard; real desktop-entry/Return/focus handoff to native Settings and preferred themed terminal/editor/files pass; immediate filter/selection and exact-name ranking repair observed wrong-app launch | Browser/hardware-wrapper variants, actual installed-session keyboard/IME and desktop integration |
@@ -37,6 +37,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | GRUB: live / audio submenu | Shared live/installed branding, compact audio labels; actual EFI 640×480/1280×800, missing-font/mark fallback and unchanged kernel arguments checked. Minimal contrast repaired | Physical BIOS/UEFI, corrupted-media/runtime graphics failure and actual installed boot |
 | Boot / shutdown / reboot / persistent setup | Private PTY boot/save/setup; consecutive warning retention, normal console ordering, serial/ambiguous/motion-off/small-console and exact existing waits pass | Real framebuffer/kernel-message handoff, physical shutdown/recovery and complete persistent-setup interaction |
 | Bootable PDF UI | Previous source/VM fixtures; browser viewer requires manual check | Viewer rendering, keyboard/Backspace, focus, responsive controls and perceived command delay |
+| Lock screen / sign-in / unlock | Added explicitly to visual-detail review October22; current Power uses existing i3lock authentication | Restrained clock/date and branding, opaque background, proportions/spacing, password/error feedback, Caps Lock/input-layout indicator, keyboard focus, scaling, multiple displays and wake/unlock states; retain real authentication, never substitute blanking or a decorative password form; live locking requires a separate safe test |
 | Accessibility / input / displays / session | Initial accessible controls and theme captures only | Text scale, keyboard/focus, clipboard, Korean composition, WSLg input, multi-monitor/DPI/hotplug, login/lock/logout/suspend/resume |
 
 Windows Computer Use failed during initialization with “failed to write kernel
@@ -2520,3 +2521,51 @@ OOONANA_THEME=dark. Saving light then reloading the exact load_theme function
 produced ACTIVE=dark/SAVED=light. No installed preference changed. Theme
 inheritance/toggle/new-app consistency now has a concrete repair target, ahead
 of the broader Paper third-party frame review. Whole-OS goal stays active.
+
+## Batch 35: saved appearance versus inherited session values
+
+The reproduced ACTIVE=dark/SAVED=light defect is repaired in source. Automatic
+exports now carry `OOONANA_THEME_INHERITED`; saved user/system preferences win
+over that fallback. Legacy explicit `OOONANA_THEME` overrides remain supported;
+`OOONANA_THEME_OVERRIDE` provides an unambiguous force value even when it equals
+the inherited value. Invalid selectors never enter emitted shell code. Native
+GTK refreshes its owned base theme before toolkit initialization, not just CSS.
+
+The actual generated helper now toggles from the resolved value, clears stale
+override values before applying, honors XDG preferences and replaces its small
+theme preference atomically with0600 user/0644 system permissions. Linked/read-only destinations
+fail without false success. Preferred Chromium/Nemo/Geany wrappers use a
+PATH-preserving client environment; custom GTK themes, argv, browser sandbox
+policy and existing Geany color preferences are retained.
+
+- Seven pure shell/native selection regressions pass, including CRLF/invalid
+  input, missing final newline, private system fallback, explicit selectors,
+  XDG, atomic user/system file modes, real wrapper argument/PATH preservation
+  and custom theme ownership.
+- Real UID1000 GTK/i3 tests use private mount/PID/network/X11/bus/home state.
+  The parent deliberately retains dark session values while the real helper
+  toggles light then dark. Native Power body/base GTK selection and real Geany/
+  Nemo process environments pass at100% and actual200% text; explicit override,
+  linked preference and permission-denied failures also pass.
+  Receipts: `/var/tmp/ooonana-theme-confirm-20261022.3Ep0q1lM/{normal,text200}`.
+- Impeccable bounded review found that MapNotify preceded Nemo's first paint;
+  QA now waits for app content before capture. The confirmation captures show
+  opaque Graphite/Paper app surfaces. Geany's editor remains light after the
+  second toggle because its existing first-run light profile is user-owned;
+  this is deliberately not silently overwritten.
+- The fixture uses the preserved legacy WM to isolate theme inheritance. Its
+  thin dark third-party titlebars are not evidence of updated native-control
+  geometry or Paper outer-frame completion. No running installed desktop was
+  recolored/restarted; pre-marker sessions need manual relaunch. Existing-app
+  live retheming and the whole-OS coverage ledger remain open.
+- Both CI definitions include the new pure selection test. Publication and
+  installed WSL sync are pending for this source batch; previous signed321e5115
+  generation and installed checkpoint remain valid until then.
+- Four Settings/Power regression cases pass both appearances at100/200% real
+  text on640×600, including completion/rollback and safe Enter/Escape actions:
+  `/var/tmp/ooonana-theme-settings-20261022.OLgLCozf`.
+
+No power/lock operation, sound playback, OpenVINO/model change, disk move or ISO
+build. Lock/sign-in/unlock detail review remains explicitly queued above.
+
+![New native Power window follows saved Paper mode despite stale dark session values, normal100% text](assets/ooonana-paper-theme-inheritance-20261022.png)

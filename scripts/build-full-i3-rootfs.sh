@@ -253,14 +253,29 @@ export PATH
 export LANG="${LANG:-C.UTF-8}"
 export LC_CTYPE="${LC_CTYPE:-C.UTF-8}"
 export PYTHONUTF8=1
+client_gtk_theme="${GTK_THEME:-}"
 
 load_theme() {
-  theme="${OOONANA_THEME:-}"
-  if [ -z "$theme" ] && [ -n "${HOME:-}" ] && [ -f "$HOME/.config/ooonana/theme" ]; then
-    IFS= read -r theme <"$HOME/.config/ooonana/theme" || theme=""
-  fi
-  if [ -z "$theme" ] && [ -f /etc/ooonana/theme ]; then
-    IFS= read -r theme </etc/ooonana/theme || theme=""
+  inherited="${OOONANA_THEME_INHERITED:-}"
+  case "$inherited" in dark|light) ;; *) inherited="" ;; esac
+  theme="${OOONANA_THEME_OVERRIDE:-}"
+  explicit=1
+  case "$theme" in dark|light) ;; *)
+    theme="${OOONANA_THEME:-}"
+    case "$theme" in dark|light) ;; *) theme="" ;; esac
+    if [ -z "$theme" ] || [ "$theme" = "$inherited" ]; then explicit=0; fi
+    ;;
+  esac
+  if [ "$explicit" = 0 ]; then
+    fallback="$theme"
+    theme=""
+    for theme_file in "${XDG_CONFIG_HOME:-${HOME:-/root}/.config}/ooonana/theme" /etc/ooonana/theme; do
+      [ -f "$theme_file" ] || continue
+      candidate=""
+      IFS= read -r candidate <"$theme_file" || true
+      case "$candidate" in dark|light) theme="$candidate"; break ;; esac
+    done
+    [ -n "$theme" ] || theme="$fallback"
   fi
 
   case "$theme" in
@@ -293,6 +308,8 @@ load_theme() {
       OOONANA_GTK_DARK="true"
       ;;
   esac
+  if [ "$explicit" = 0 ]; then inherited="$OOONANA_THEME"; fi
+  OOONANA_THEME_INHERITED="$inherited"
   OOONANA_CURSOR="#ffb21a"
   cursor_config="${XDG_CONFIG_HOME:-${HOME:-/root}/.config}/ooonana"
   XCURSOR_THEME="${OOONANA_XCURSOR_THEME:-}"
@@ -323,7 +340,7 @@ load_theme() {
     QT_QPA_PLATFORMTHEME=xdgdesktopportal
     export QT_QPA_PLATFORMTHEME
   fi
-  export OOONANA_THEME OOONANA_BG OOONANA_FG OOONANA_CURSOR OOONANA_PANEL OOONANA_PANEL_ALT OOONANA_BORDER OOONANA_MUTED OOONANA_ENTRY OOONANA_HOVER OOONANA_GTK_THEME OOONANA_GTK_DARK XCURSOR_THEME XCURSOR_SIZE GTK_THEME GDK_BACKEND
+  export OOONANA_THEME OOONANA_THEME_INHERITED OOONANA_BG OOONANA_FG OOONANA_CURSOR OOONANA_PANEL OOONANA_PANEL_ALT OOONANA_BORDER OOONANA_MUTED OOONANA_ENTRY OOONANA_HOVER OOONANA_GTK_THEME OOONANA_GTK_DARK XCURSOR_THEME XCURSOR_SIZE GTK_THEME GDK_BACKEND
 }
 
 load_theme
@@ -331,18 +348,37 @@ load_theme
 write_theme() {
   new_theme="$1"
   if [ "$(id -u 2>/dev/null || echo 1)" = "0" ]; then
-    mkdir -p /etc/ooonana
-    printf '%s\n' "$new_theme" >/etc/ooonana/theme
+    theme_dir=/etc/ooonana
+    theme_mode=0644
+    theme_dir_mode=0755
   else
-    mkdir -p "${HOME:-/tmp}/.config/ooonana"
-    printf '%s\n' "$new_theme" >"${HOME:-/tmp}/.config/ooonana/theme"
+    theme_dir="${XDG_CONFIG_HOME:-${HOME:-/tmp}/.config}/ooonana"
+    theme_mode=0600
+    theme_dir_mode=0700
   fi
+  [ ! -L "$theme_dir" ] && [ ! -L "$theme_dir/theme" ] || {
+    printf '%s\n' 'Theme: linked preference retained; update its managed target manually.' >&2
+    return 1
+  }
+  (
+    umask 077
+    mkdir -p -m "$theme_dir_mode" "$theme_dir"
+    theme_temporary="$(mktemp "$theme_dir/.theme.XXXXXXXX")"
+    trap 'rm -f -- "$theme_temporary"' 0
+    printf '%s\n' "$new_theme" >"$theme_temporary"
+    chmod "$theme_mode" "$theme_temporary"
+    mv -f "$theme_temporary" "$theme_dir/theme"
+  )
 }
 
 case "${1:-env}" in
-  env)
-    printf 'PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"\n'
+  env|client-env)
+    # App refresh must not replace caller PATH or a custom GTK theme.
+    if [ "${1:-env}" = env ]; then
+      printf 'PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"\n'
+    fi
     printf 'OOONANA_THEME="%s"\n' "$OOONANA_THEME"
+    printf 'OOONANA_THEME_INHERITED="%s"\n' "$OOONANA_THEME_INHERITED"
     printf 'OOONANA_BG="%s"\n' "$OOONANA_BG"
     printf 'OOONANA_FG="%s"\n' "$OOONANA_FG"
     printf 'OOONANA_CURSOR="%s"\n' "$OOONANA_CURSOR"
@@ -350,13 +386,19 @@ case "${1:-env}" in
     printf 'XCURSOR_SIZE="%s"\n' "$XCURSOR_SIZE"
     printf 'OOONANA_GTK_THEME="%s"\n' "$OOONANA_GTK_THEME"
     printf 'OOONANA_GTK_DARK="%s"\n' "$OOONANA_GTK_DARK"
-    printf 'GTK_THEME="%s"\n' "$OOONANA_GTK_THEME"
+    if [ "${1:-env}" = env ]; then
+      printf 'GTK_THEME="%s"\n' "$OOONANA_GTK_THEME"
+    else
+      case "$client_gtk_theme" in
+        ""|Adwaita|Adwaita:dark|Adwaita-dark) printf 'GTK_THEME="%s"\n' "$OOONANA_GTK_THEME" ;;
+      esac
+    fi
     printf 'GDK_BACKEND="x11"\n'
     if [ -n "${QT_QPA_PLATFORMTHEME:-}" ]; then
       # Do not interpolate an arbitrary user override into shell code.
       python3 -c 'import os, shlex; print("export QT_QPA_PLATFORMTHEME=" + shlex.quote(os.environ["QT_QPA_PLATFORMTHEME"]))'
     fi
-    printf 'export OOONANA_THEME OOONANA_BG OOONANA_FG OOONANA_CURSOR OOONANA_GTK_THEME OOONANA_GTK_DARK XCURSOR_THEME XCURSOR_SIZE GTK_THEME GDK_BACKEND\n'
+    printf 'export OOONANA_THEME OOONANA_THEME_INHERITED OOONANA_BG OOONANA_FG OOONANA_CURSOR OOONANA_GTK_THEME OOONANA_GTK_DARK XCURSOR_THEME XCURSOR_SIZE GTK_THEME GDK_BACKEND\n'
     ;;
   apply)
     config_home="${XDG_CONFIG_HOME:-${HOME:-/root}/.config}"
@@ -618,6 +660,7 @@ CSS
       dark) write_theme light ;;
       *) write_theme dark ;;
     esac
+    unset OOONANA_THEME OOONANA_THEME_OVERRIDE
     exec "$0" apply
     ;;
   xterm)
@@ -628,7 +671,7 @@ CSS
     exec xterm -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR" "$@"
     ;;
   *)
-    echo "usage: ooonana-theme-env [env|apply|toggle|xterm]" >&2
+    echo "usage: ooonana-theme-env [env|client-env|apply|toggle|xterm]" >&2
     exit 1
     ;;
 esac
@@ -785,6 +828,9 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-browser" <<'EOF'
 #!/bin/sh
 set -eu
+if command -v ooonana-theme-env >/dev/null 2>&1; then
+  theme_env="$(ooonana-theme-env client-env)" && eval "$theme_env"
+fi
 url="${1:-about:blank}"
 case "${DBUS_SESSION_BUS_ADDRESS:-}" in
   unix:*|tcp:*) ;;
@@ -816,6 +862,9 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-files" <<'EOF'
 #!/bin/sh
 set -eu
+if command -v ooonana-theme-env >/dev/null 2>&1; then
+  theme_env="$(ooonana-theme-env client-env)" && eval "$theme_env"
+fi
 path="${1:-${HOME:-/root}}"
 if command -v nemo >/dev/null 2>&1; then
   exec nemo "$path"
@@ -2133,6 +2182,9 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-editor" <<'EOF'
 #!/bin/sh
 set -eu
+if command -v ooonana-theme-env >/dev/null 2>&1; then
+  theme_env="$(ooonana-theme-env client-env)" && eval "$theme_env"
+fi
 target="${1:-}"
 if command -v geany >/dev/null 2>&1; then
   # Seed only a new profile. Never replace an existing user's editor choices.

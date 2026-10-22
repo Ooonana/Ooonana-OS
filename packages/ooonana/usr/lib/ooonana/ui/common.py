@@ -6,7 +6,10 @@ import shutil
 import subprocess
 import threading
 from pathlib import Path
+from ui_preferences import load_preferences, refresh_gtk_theme, resolved_theme, transition_ms
 
+# GTK_THEME is read during toolkit initialization, before application CSS.
+refresh_gtk_theme()
 import gi
 
 gi.require_version("Gtk", "3.0")
@@ -14,7 +17,6 @@ gi.require_version("Gdk", "3.0")
 gi.require_version("Pango", "1.0")
 gi.require_version("PangoCairo", "1.0")
 from gi.repository import Gdk, GLib, Gtk, Pango, PangoCairo  # noqa: E402
-from ui_preferences import load_preferences, transition_ms  # noqa: E402
 
 
 CSS = b"""
@@ -166,9 +168,9 @@ separator { background: #adb7c2; }
 
 
 def light_appearance():
-    explicit = os.environ.get("OOONANA_THEME", "")
-    if explicit in ("light", "dark"):
-        return explicit == "light"
+    selected = resolved_theme()
+    if selected:
+        return selected == "light"
     override = os.environ.get("GTK_THEME", "")
     if override:
         return not override.endswith((":dark", "-dark"))
@@ -192,6 +194,7 @@ _theme_provider = None
 
 def apply_theme():
     global _theme_provider
+    managed = refresh_gtk_theme()
     if _theme_provider is None:
         _theme_provider = Gtk.CssProvider()
     _theme_provider.load_from_data(CSS + (LIGHT_CSS if light_appearance() else b""))
@@ -202,6 +205,8 @@ def apply_theme():
         )
     settings = Gtk.Settings.get_default()
     if settings:
+        if managed:
+            settings.set_property("gtk-application-prefer-dark-theme", managed == "dark")
         settings.set_property("gtk-enable-animations", not load_preferences()["reduce_motion"])
 
 

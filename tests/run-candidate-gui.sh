@@ -23,7 +23,7 @@ case "$geometry" in
   *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
 esac
 case "$only" in
-  all|setup-details-ui|controls-details-ui|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|launcher-session-ui|notifications-runtime|notification-lifecycle|notification-auto-recovery|window-controls-runtime|dock-ui|dock-edges-ui|device-scale-ui|csd-controls-ui|panel-ui|panel-media-runtime|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
+  all|setup-details-ui|controls-details-ui|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|theme-flow-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|launcher-session-ui|notifications-runtime|notification-lifecycle|notification-auto-recovery|window-controls-runtime|dock-ui|dock-edges-ui|device-scale-ui|csd-controls-ui|panel-ui|panel-media-runtime|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -213,7 +213,7 @@ if [[ "$only" == all || "$only" == admin-prompt-ui ]]; then
   mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-admin-askpass"
   admin_policy=1
 fi
-if [[ "$only" == all || "$only" == launcher-session-ui ]]; then
+if [[ "$only" == all || "$only" == launcher-session-ui || "$only" == theme-flow-ui ]]; then
   # Subprocess handoff must use current UI/wrappers, not cached candidate bytes.
   if [[ "$only" != all ]]; then
     mount --bind "$SOURCE/packages/ooonana/usr/lib/ooonana/ui" "$rootfs/usr/lib/ooonana/ui"
@@ -230,7 +230,7 @@ if [[ "$only" == all || "$only" == launcher-session-ui ]]; then
   mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-settings"
   mount --bind "$SOURCE/packages/ooonana/usr/bin/ooonana-settings-launch" "$rootfs/usr/bin/ooonana-settings-launch"
   mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-settings-launch"
-  for helper in ooonana-theme-env ooonana-editor ooonana-files; do
+  for helper in ooonana-theme-env ooonana-editor ooonana-files ooonana-browser; do
     awk -v marker="\"\$ROOTFS/usr/bin/$helper\"" '
       index($0, marker) { capture=1; next }
       capture && $0 == "EOF" { exit }
@@ -340,6 +340,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   probe admin-prompt-ui python3 /source/tests/check-admin-prompt-ui.py /qa/admin-prompt
   probe installer-ui python3 /source/tests/check-installer-ui.py /qa/installer
   probe settings-power-ui python3 /source/tests/check-settings-power-ui.py --own-i3
+  probe theme-flow-ui python3 /source/tests/check-theme-flow-ui.py /qa/theme-flow
   probe settings-details-ui python3 /source/tests/check-settings-details-ui.py /qa/settings-details
   probe settings-storage-ui python3 /source/tests/check-settings-storage-ui.py /qa/settings-storage
   probe ai-details-ui python3 /source/tests/check-ai-details-ui.py /qa/ai-details

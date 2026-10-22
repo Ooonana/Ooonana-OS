@@ -72,6 +72,7 @@ ci-smoke:
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-dock-model.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-window-control-scale.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-i3-controls.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-theme-selection.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-media-metadata.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-editor-polish.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-chart-layout.py

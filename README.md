@@ -1052,6 +1052,7 @@ OOONANA_THEME=light ooonana setup --first-boot --gui
 ```
 
 The installer persists the chosen theme in `/etc/ooonana/theme`; i3 reads it through `ooonana-theme-env` on boot. Inside i3, `Mod+Shift+T` toggles dark/light, `Mod+Shift+A` opens the Ooonana AI app through `ooonana-ai-launch`, `Mod+Shift+S` opens settings through `ooonana-settings-launch`, `Mod+Shift+O` opens the package manager app, and `Mod+Shift+I` opens the installer.
+Saved user appearance (`$XDG_CONFIG_HOME/ooonana/theme`, normally `~/.config/ooonana/theme`) takes priority over automatic session exports. Newly opened native apps and preferred browser/files/editor wrappers refresh their theme; custom GTK themes, caller PATH and existing editor color choices remain untouched. `OOONANA_THEME=light command` still overrides a different inherited value. Use `OOONANA_THEME_OVERRIDE=light command` to force a value even when it matches an inherited session value. Sessions started before this provenance fix need a normal manual desktop relaunch; installing this patch does not restart i3 or promise to recolor every already-open app. Paper-mode third-party outer frames remain under review.
 Extra i3 keys:
 
 ```text

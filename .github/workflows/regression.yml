@@ -69,6 +69,7 @@ jobs:
           python3 -B tests/test-dock-model.py
           python3 -B tests/test-window-control-scale.py
           python3 -B tests/test-i3-controls.py
+          python3 -B tests/test-theme-selection.py
           python3 -B tests/test-media-metadata.py
           python3 -B tests/test-editor-polish.py
           python3 -B tests/test-chart-layout.py

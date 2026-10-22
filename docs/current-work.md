@@ -18,10 +18,17 @@ published and installed in Ooonana WSL; file/health checks pass. No restart/ISO.
 Whole goal active; earlier checkpoints below remain historical.
 [Evidence](ui-whole-os-review.md#batch-34-compact-power-and-safe-keyboard-defaults).
 
-Next verified defect: exact theme helper, private generated preference, inherited
-OOONANA_THEME=dark gives saved light but active dark after reload. Theme
-inheritance/toggle/new-app consistency needs repair; production preferences
-were not changed by this probe. Paper third-party outer frame review remains.
+Theme inheritance repair now distinguishes automatic session exports from
+explicit overrides. Real private nonroot toggles both ways, native GTK and
+Geany/Nemo launches pass at100/200% text; custom themes/PATH/argv and existing
+editor colors stay untouched. Linked/read-only preference writes fail safely.
+This follow-up is source-only pending publication/sync. Paper third-party outer
+frame review and manual relaunch of pre-fix desktop sessions remain required.
+
+User added lock/sign-in/unlock visual detail review: clock/date, branding,
+spacing, password/error feedback, Caps Lock/input layout, keyboard focus,
+scaling and wake/multi-display states. Preserve existing authentication; no
+live lock or replacement password implementation during current theme work.
 
 ## October 22 native/third-party window controls
 

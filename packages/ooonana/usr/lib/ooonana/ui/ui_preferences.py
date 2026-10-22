@@ -12,6 +12,35 @@ def config_path():
     return Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))) / "ooonana" / "ui.json"
 
 
+def resolved_theme():
+    """Saved appearance wins over automatic session exports, not explicit pins."""
+    valid = ("dark", "light")
+    override = os.environ.get("OOONANA_THEME_OVERRIDE")
+    if override in valid:
+        return override
+    requested = os.environ.get("OOONANA_THEME")
+    if requested in valid and requested != os.environ.get("OOONANA_THEME_INHERITED"):
+        return requested
+    for path in (config_path().with_name("theme"), Path("/etc/ooonana/theme")):
+        try:
+            with path.open("rb") as stream:
+                saved = stream.readline(16).decode("ascii").rstrip("\n")
+            if saved in valid:
+                return saved
+        except (OSError, UnicodeError):
+            pass
+    return requested if requested in valid else None
+
+
+def refresh_gtk_theme():
+    """Refresh owned GTK selection before toolkit initialization; retain custom themes."""
+    selected = resolved_theme()
+    if selected and os.environ.get("GTK_THEME", "") in ("", "Adwaita", "Adwaita:dark", "Adwaita-dark"):
+        os.environ["GTK_THEME"] = "Adwaita" + (":dark" if selected == "dark" else "")
+        return selected
+    return None
+
+
 def read_json(path, fallback, limit=1_000_000):
     try:
         with path.open("r", encoding="utf-8") as stream:

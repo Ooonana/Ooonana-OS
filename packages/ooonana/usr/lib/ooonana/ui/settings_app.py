@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from ui_preferences import load_preferences, save_preferences, transition_ms
+from ui_preferences import config_path, load_preferences, resolved_theme, save_preferences, transition_ms
 from storage_health import storage_health
 from common import (  # noqa: E402
     Gdk,
@@ -622,8 +622,7 @@ class SettingsWindow(Gtk.Window):
 
     @staticmethod
     def current_theme():
-        user_theme = Path.home() / ".config/ooonana/theme"
-        return read_file(user_theme, read_file("/etc/ooonana/theme", "dark"))
+        return resolved_theme() or "dark"
 
     @staticmethod
     def current_wallpaper():
@@ -677,12 +676,13 @@ class SettingsWindow(Gtk.Window):
         selected = self.theme_combo.get_active_id() or "dark"
         if not self.appearance_busy("Applying theme..."):
             return
-        path = Path.home() / ".config/ooonana/theme"
+        path = config_path().with_name("theme")
         def task():
             previous = path.read_bytes() if path.exists() else None
             current = (selected + "\n").encode()
             self.save_theme(path, current)
-            rc, output = run(["ooonana-theme-env", "apply"], env={"OOONANA_THEME": selected}, timeout=30)
+            rc, output = run(["ooonana-theme-env", "apply"],
+                             env={"OOONANA_THEME": selected, "OOONANA_THEME_OVERRIDE": selected}, timeout=30)
             if rc and path.read_bytes() == current:
                 if previous is None:
                     path.unlink()
@@ -692,6 +692,8 @@ class SettingsWindow(Gtk.Window):
         def done(rc, output):
             if not rc and not self.closed:
                 os.environ["OOONANA_THEME"] = selected
+                os.environ["OOONANA_THEME_INHERITED"] = selected
+                os.environ.pop("OOONANA_THEME_OVERRIDE", None)
                 apply_theme()
             self.appearance_done(rc, output, "Theme")
         run_async_task(task, done)

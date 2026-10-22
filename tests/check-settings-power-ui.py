@@ -89,7 +89,7 @@ with tempfile.TemporaryDirectory() as temporary:
     task, done = jobs.pop()
     done(*task())
     assert path.read_bytes() == b"dark\n" and messages[-1] == "Theme failed"
-    assert calls[-1][1]["env"] == {"OOONANA_THEME": "light"}
+    assert calls[-1][1]["env"] == {"OOONANA_THEME": "light", "OOONANA_THEME_OVERRIDE": "light"}
     path.unlink()
     window.apply_selected_theme()
     task, done = jobs.pop()
@@ -132,6 +132,8 @@ with tempfile.TemporaryDirectory() as temporary:
 
     # Settings intentionally selected light above; restore the actual QA case.
     os.environ["OOONANA_THEME"] = requested_theme
+    os.environ["OOONANA_THEME_INHERITED"] = requested_theme
+    path.write_text(requested_theme + "\n")
     apply_theme()
     power = controls.PowerWindow()
     power.show_all()
