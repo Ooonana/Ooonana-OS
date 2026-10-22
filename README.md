@@ -39,6 +39,11 @@ placement/diameter. [Review and publication status](docs/ui-whole-os-review.md#b
 GitHub/GitLab checks pass; signed local generation and Ooonana WSL now include
 both changes. Existing apps/desktop need manual relaunch; no ISO built.
 
+Power follow-up now uses compact40px actions, safe initial Cancel/Enter and
+Escape handling, and visibly mapped native confirmation chrome. Actual private
+i3 dark/light100/200% checks pass; signed candidate/Ooonana WSL include it.
+[Power screenshots, checks and remaining UI work](docs/ui-whole-os-review.md#batch-34-compact-power-and-safe-keyboard-defaults).
+
 Desktop sessions now enter the user's Home before launching apps/services,
 instead of inheriting a build folder, Windows mount or filesystem root. Missing
 Home stops startup with a clear error. Explicit app workdirs remain unchanged.

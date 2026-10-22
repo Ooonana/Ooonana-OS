@@ -2479,5 +2479,44 @@ real shutdown or lock test.
 Impeccable bounded review preserves opaque Graphite/Paper identity. Remaining
 whole-OS ledger is unchanged: Paper third-party outer frames/theme inheritance,
 installed tray/authentication, external app variants, physical/WSLg/multi-output
-input/session checks, PDF viewer and deferred OpenVINO. Publication/native
-receipt for this follow-up remains pending; prior signed checkpoint is intact.
+input/session checks, PDF viewer and deferred OpenVINO. Prior signed checkpoints
+remain intact; this follow-up is published below.
+
+### Published checkpoint after Batch 34
+
+- Source `953758ed79ead9c165a22f890b2967b1dd130d8b` passes
+  [GitHub regression](https://github.com/Ooonana/Ooonana-OS/actions/runs/39714885036)
+  and [GitLab smoke](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2974640398).
+  Both remotes pushed on candidate branch.
+- Signed generation:
+  `321e5115a1432916f1264c1e9ecf4364d3b67dfd5afa20ba72b7d542638761a2`.
+  SHA256SUMS digest:
+  `3166de21371e49ee59abf24e0341f7f79f48e3db8b823165ae29d287ee3f1a03`.
+  Clean306-file source manifest pins953758e, source digest
+  `42d8be4bce747e4a8530cc544ad7a66d65f4529fb46ecda1de87de42ee9c5371`.
+  Full signed checksum verification, native-control provenance and654-package/
+  612-node release closure pass. Old720239ac manifest unchanged.
+- Native Ooonana WSL snapshot:
+  `/var/lib/ooonana/candidate-power-ui-20261022.IZ7xNEY1`.
+ 643 immutable archive links/659 copies; all1302 signed entries verified.
+  Runtime/core dry-run, separate reinstall transactions and verify/health checks
+  pass with rollback checkpoints retained. Installed controls_app.py hash
+  `66cf68d0d8cfb3402876852fbd961a88e7af85e3891300c911747d386f202b88`
+  matches source. i3/header bytes remain previous verified versions.
+- WSL-local adapter/default signed generation pointer advanced atomically,
+  preserving prior root metadata and generation. Default654-package/two-source
+  metadata refresh passes. UID1000 headless imports and i3 config validation
+  pass. Initial import with unattached WSLg environment emitted a seat warning;
+  explicit headless confirmation is clean, not live WSLg input certification.
+  Logs: `/var/tmp/ooonana-power-ui-sync-20261022.i5c8XCDd`.
+- Boot config, trusted key and OpenVINO installed metadata hashes unchanged.
+  No sound, power command, GUI/WSL restart, disk move or ISO build. Private
+  key local; stable promotion/enrollment and OpenVINO remain deferred.
+
+### Next reproduced UI defect
+
+Read-only source-helper probe used private generated preference and an inherited
+OOONANA_THEME=dark. Saving light then reloading the exact load_theme function
+produced ACTIVE=dark/SAVED=light. No installed preference changed. Theme
+inheritance/toggle/new-app consistency now has a concrete repair target, ahead
+of the broader Paper third-party frame review. Whole-OS goal stays active.

@@ -12,9 +12,16 @@ Four dark/light100/200% private i3 cases pass keyboard/error/late-callback
 checks without executing power/lock commands.25 native pages per appearance
 also pass compact bounds. Impeccable review corrected confirmation visibility;
 QA now restores requested theme after Settings and sets real text DPI.
-Signed packaging/native sync pending for this follow-up; Batches32–33 below
-remain latest installed checkpoint until receipt changes. Whole goal active.
+Source953758e passes both CIs. Signed generation
+321e5115a1432916f1264c1e9ecf4364d3b67dfd5afa20ba72b7d542638761a2
+published and installed in Ooonana WSL; file/health checks pass. No restart/ISO.
+Whole goal active; earlier checkpoints below remain historical.
 [Evidence](ui-whole-os-review.md#batch-34-compact-power-and-safe-keyboard-defaults).
+
+Next verified defect: exact theme helper, private generated preference, inherited
+OOONANA_THEME=dark gives saved light but active dark after reload. Theme
+inheritance/toggle/new-app consistency needs repair; production preferences
+were not changed by this probe. Paper third-party outer frame review remains.
 
 ## October 22 native/third-party window controls
 
