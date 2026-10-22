@@ -47,6 +47,8 @@ def safe_file(repo, relative):
 def validate_native_controls(repo, package):
     if "native-controls-v1" not in package.get("COMPONENTS", "").split():
         raise ValueError("i3wm lacks native controls; build/repack verified i3 controls candidate")
+    if "native-frame-theme-v1" not in package.get("COMPONENTS", "").split():
+        raise ValueError("i3wm lacks color-only frame updates; rebuild native candidate")
     archive = safe_file(repo, package.get("ARCHIVE", ""))
     if hashlib.sha256(archive.read_bytes()).hexdigest() != package.get("SHA256"):
         raise ValueError("i3wm native archive checksum mismatch")
@@ -60,7 +62,7 @@ def validate_native_controls(repo, package):
         binary = read("usr/bin/i3", 16 * 1024 * 1024)
         manifest = json.loads(read("usr/share/doc/i3/ooonana-controls/build-manifest.json", 65536))
     pins = json.loads((ROOT / "packages/i3wm/source-pins.json").read_text())
-    if (not isinstance(manifest, dict) or not binary.startswith(b"\x7fELF") or manifest.get("control_api") != 1
+    if (not isinstance(manifest, dict) or not binary.startswith(b"\x7fELF") or manifest.get("control_api") != 1 or manifest.get("frame_theme_api") != 1
             or manifest.get("source") != pins or manifest.get("binary_sha256") != hashlib.sha256(binary).hexdigest()):
         raise ValueError("i3wm native binary/source provenance differs")
     inputs = manifest.get("inputs")

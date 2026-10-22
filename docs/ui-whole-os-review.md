@@ -2035,6 +2035,89 @@ queued dock work avoids another subsequent rebuild:
 & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10'
 ```
 
+## Batch 36: Paper third-party frames (source QA complete, not published)
+
+The hard-coded Graphite i3 colors now have a draft managed X-resource palette,
+with the original dark colors as display-less configuration fallbacks. Paper
+uses opaque white/fog titlebars, readable brown focus text, muted inactive text
+and restrained urgent red. All four state text/background pairs exceed4.5:1
+in both palettes. Resource updates replace only twelve owned logical records;
+comments, unrelated values and continuations stay intact. Oversized/NUL/
+unfinished records are refused, and compare-and-swap avoids clobbering another
+resource writer. The WM socket is obtained from this display's root property,
+including i3's UTF8_STRING type, not a stale I3SOCK environment value.
+
+Private initial color proof:
+`/var/tmp/ooonana-frame-theme-fixed-20261022.eBAOGecw`.
+Composited1×/2× confirmation with real Geany/Nemo:
+`/var/tmp/ooonana-frame-theme-confirm-20261022.VQXX4uuK/{device1,device2}`.
+These prototype trials kept the same WM/client IDs, geometry, focus, workspace
+and scratchpad sessions and did not rerun startup commands. They used an
+ordinary config reload, so they are **not final runtime-state certification**.
+
+Pinned4.24 source review then identified `gaps_reapply_workspace_assignments`
+and binding-mode reset in normal reload. That approach was rejected and
+removed from the draft. The Python bridge now requires a negotiated
+`ooonana_frame_theme_api=1` and sends only `ooonana_frame_theme light|dark`.
+Current published/installed WM does not advertise that capability and safely
+retains its frames. The native implementation is now built and tested locally:
+only four color triples and decoration caches change before repaint. It never
+enters the normal command parser, reloads config or mutates workspace/binding
+configuration. Exact packet lengths reject NUL/semicolon/newline/suffix chains;
+disabled native controls advertise capability0 and refuse valid palette calls.
+The fixture additionally proves custom gaps, resize mode, fullscreen and
+modified-config-file preservation. Earlier prototype receipts are not used to
+satisfy those new gates.
+
+### October 23 isolated completion checkpoint
+
+- Candidate workspace:
+  `F:\Ooonana\ooonana-os\qa-i3-controls-20261022-frame-v1`.
+  Original candidate image/binary retained. Pinned archives and cached build
+  image were copied into a separate workspace; compilation had no network.
+  Copied-cache builds now write their own fresh dependency receipt as well.
+- Native binary SHA256:
+  `c8de2a20fed7693c177c2dd6ef478c4ecdef8abdc999a6ca521fac4bde82437f`.
+  Local unsigned/unpublished package `i3wm 4.24-r0.ooonana2`, archive SHA256
+  `3d51216ea1bf49594231595e306eea1a0a7877520654a98e37d54bb793251c52`.
+  Exact pinned upstream payload, source/input/binary provenance and strict
+  native-frame capability gate pass; no generation pointer advanced.
+- Nine frame/resource/protocol unit tests, seven theme-selection units, native
+  C metrics and patch/provenance guards pass. Adjacent window-list, editor,
+  browser, native-wrapper and release-repo tests pass. Rootfs factory verifies
+  the fresh module and corrected stale right-side GTK-decoration expectation.
+- Real UID1000, owned X11/bus/home/network tests pass both appearances at1×/2×:
+  `/var/tmp/ooonana-frame-native-20261023.YcwBulAO/{device1,device2}`.
+  Malformed commands, disabled capability, same WM/client IDs/focus/geometry,
+  workspace/scratchpad/fullscreen state, custom gaps, resize mode, modified
+  on-disk config, single autostart and unrelated X resources are checked.
+- Four dark/light100/200% Settings/Power cases on640×600, plus1×/2× workspace
+  and real CSD control actions pass:
+  `/var/tmp/ooonana-frame-regression-20261023.KhN4KbGj`.
+  Power/lock actions remain mocked; only disposable test WMs are restarted.
+- Impeccable inspection rejected the initial Nemo client-area image despite
+  passing frame IPC. Extra waiting still reproduced the previously documented
+  nested-Xrender damage/redirection fault, not a new installed-session finding.
+  Confirmation uses the existing explicit QA full-redraw/redirection adaptation:
+  `/var/tmp/ooonana-frame-full-redraw-20261023.2K9PFZuc/{device1,device2}`.
+  Both palettes/scales retain full menu/sidebar/folder paint; fixture now checks
+  menu paint in this mode. Production compositor policy stays unchanged.
+  Nested client/frame corner joins and existing editor-profile ownership are
+  not silently redesigned or called whole-app completion.
+
+User split: current source/QA batch first; no WSL sync, package publication,
+signing or stable promotion until release-ready. Remote CI and final integrated
+core/runtime/native generation are deferred, not represented by local units.
+F CURRENT remains `4bf64022f11e74d5b8d24ada04d2eebc703d8f1431045e7683343bdf5f243a2e`.
+The stricter source gate intentionally requires the new native package; hold
+final ISO build until that future integration. Private key stays local.
+
+Settings now renders `Theme:` partial-application notes inline rather than
+silently claiming full appearance success. The unchanged whole-OS ledger,
+lockscreen review and existing-app/live-session gates remain open. No new
+signed frame generation, installed update, desktop restart, sound, model work
+or ISO build performed in this draft.
+
 ## Batch 30: flat dock, app groups and persistent pins
 
 - Impeccable refinement preserves opaque Graphite/Paper identity and normal

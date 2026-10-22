@@ -100,6 +100,8 @@ with tempfile.TemporaryDirectory() as temporary:
     task, done = jobs.pop()
     done(*task())
     assert path.read_bytes() == b"light\n" and not window.appearance_pending
+    window.appearance_done(0, "Theme: window frames retained; isolated note fixture.", "Theme")
+    assert "window frames retained" in window.appearance_status.get_text(), "Partial theme note hidden"
     previous = window.status_widgets["wallpaper"].get_text()
     window.apply_wallpaper("/fixture/missing-image.jpg", "fill")
     window.apply_wallpaper("/fixture/duplicate.jpg", "fit")

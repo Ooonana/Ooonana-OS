@@ -86,9 +86,10 @@ if [[ ! -f "$mountpoint/etc/ooonana-i3-build-deps.ready" || ! -x "$mountpoint/bi
     libxkbcommon-dev pcre2-dev >"$workspace/out/build-dependencies.log" 2>&1 || {
       tail -60 "$workspace/out/build-dependencies.log"; exit 1;
     }
-  chroot "$mountpoint" /sbin/apk info -v >"$workspace/out/build-dependencies.txt"
   touch "$mountpoint/etc/ooonana-i3-build-deps.ready"
 fi
+# A copied cached image has dependencies, but its new output directory does not.
+chroot "$mountpoint" /sbin/apk info -v >"$workspace/out/build-dependencies.txt"
 inputs="$(sha256sum "$ROOT/scripts/patch-i3-controls.py" "$ROOT/packages/i3wm/ooonana_controls.h" | awk '{print $1}' | sha256sum | awk '{print $1}')"
 if [[ "$resume" == --refresh-source && -d "$mountpoint/opt/i3-4.24" && -f "$mountpoint/etc/ooonana-i3-build-inputs" && "$(cat "$mountpoint/etc/ooonana-i3-build-inputs")" != "$inputs" ]]; then
   old_inputs="$(cat "$mountpoint/etc/ooonana-i3-build-inputs")"
@@ -130,7 +131,7 @@ import sys
 root, output = map(Path, sys.argv[1:])
 inputs = {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in
           ("scripts/patch-i3-controls.py", "packages/i3wm/ooonana_controls.h")}
-manifest = {"format": 1, "control_api": 1,
+manifest = {"format": 1, "control_api": 1, "frame_theme_api": 1,
             "binary_sha256": hashlib.sha256((output / "i3").read_bytes()).hexdigest(),
             "inputs": inputs,
             "source": json.loads((root / "packages/i3wm/source-pins.json").read_text()),

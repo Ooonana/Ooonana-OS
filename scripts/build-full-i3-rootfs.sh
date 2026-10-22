@@ -624,6 +624,9 @@ scrollbar slider { background: @ooonana_border; border-radius: 6px; min-width: 7
 scrollbar slider:hover { background: @ooonana_accent; }
 tooltip { background: @ooonana_panel; color: @ooonana_fg; border: 1px solid @ooonana_accent; border-radius: 10px; }
 CSS
+    if [ -n "${DISPLAY:-}" ] && [ -f /usr/lib/ooonana/desktop_theme.py ]; then
+      python3 /usr/lib/ooonana/desktop_theme.py "$OOONANA_THEME"
+    fi
     if command -v ooonana-wallpaper >/dev/null 2>&1 && ooonana-wallpaper --apply-saved; then
       exit 0
     fi
@@ -4559,6 +4562,8 @@ install_current_backend_checks() {
     "$ROOTFS/usr/lib/ooonana/storage_health.py"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/panel_session.py" \
     "$ROOTFS/usr/lib/ooonana/panel_session.py"
+  install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/desktop_theme.py" \
+    "$ROOTFS/usr/lib/ooonana/desktop_theme.py"
   for file in chat_store.py common.py memory_status.py notification_utils.py task_manager_app.py ui_preferences.py window_controls.py; do
     install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ui/$file" \
       "$ROOTFS/usr/lib/ooonana/ui/$file"

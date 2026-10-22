@@ -668,7 +668,9 @@ class SettingsWindow(Gtk.Window):
         self.appearance_pending = False
         for widget in self.appearance_actions:
             widget.set_sensitive(True)
-        self.appearance_status.set_text(title + (" failed. Try again." if rc else " applied."))
+        notes = "\n".join(line for line in (output or "").splitlines() if line.startswith("Theme:")) if title == "Theme" else ""
+        self.appearance_status.set_text(title + (" failed. Try again." if rc else " applied.") +
+                                        ("\n" + notes if notes else ""))
         if rc:
             message(self, title + " failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)
 

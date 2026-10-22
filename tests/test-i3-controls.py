@@ -90,7 +90,7 @@ gate_spec.loader.exec_module(gate)
 with tempfile.TemporaryDirectory(prefix="ooonana-i3-provenance-") as temporary:
     repo = Path(temporary)
     binary = b"\x7fELF private non-executable fixture"
-    receipt = {"control_api": 1, "source": pins,
+    receipt = {"control_api": 1, "frame_theme_api": 1, "source": pins,
                "binary_sha256": hashlib.sha256(binary).hexdigest(),
                "inputs": {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in
                           ("scripts/patch-i3-controls.py", "packages/i3wm/ooonana_controls.h")}}
@@ -102,13 +102,13 @@ with tempfile.TemporaryDirectory(prefix="ooonana-i3-provenance-") as temporary:
                 item = tarfile.TarInfo(name)
                 item.size = len(data)
                 stream.addfile(item, io.BytesIO(data))
-        return {"COMPONENTS": "native-controls-v1", "ARCHIVE": archive.name,
+        return {"COMPONENTS": "native-controls-v1 native-frame-theme-v1", "ARCHIVE": archive.name,
                 "SHA256": hashlib.sha256(archive.read_bytes()).hexdigest()}
     valid = payload(receipt)
     gate.validate_native_controls(repo, valid)
     broken = json.loads(json.dumps(receipt))
     broken["inputs"]["scripts/patch-i3-controls.py"] = "0" * 64
-    for manifest in (None, [], {**receipt, "binary_sha256": "0" * 64}, broken):
+    for manifest in (None, [], {**receipt, "frame_theme_api": 0}, {**receipt, "binary_sha256": "0" * 64}, broken):
         metadata = payload(manifest)
         try:
             gate.validate_native_controls(repo, metadata)

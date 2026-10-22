@@ -1,4 +1,55 @@
-# Current work - 2026-10-22
+# Current work - 2026-10-23
+
+## Split work: source QA first, release integration later
+
+User direction: finish the current frame-theme batch first. Do not update
+installed WSL, publish packages or advance release pointers until stable-ready.
+Current OS/core remains **0.10.0 candidate**, not a promoted stable release.
+
+1. **Current batch: complete in isolated QA.** Native color-only frame updates,
+   resource ownership, readable Paper/Graphite and honest Settings feedback.
+   Candidate binary/package retained, not installed or published.
+2. **Next UI batches: still open.** Already-open-app appearance, third-party
+   client/frame corner joins, lock/sign-in/unlock, then remaining whole-OS UI
+   ledger. Do not call the entire UI goal complete from this frame fixture.
+3. **Deferred release integration.** Remote CI, fresh core/runtime/native package
+   set, signed generation, final closure checks, WSL sync and updated release
+   screenshots/docs. No private-key upload; OpenVINO stays deferred.
+4. **Release gates.** User builds fresh ISO after integration; actual PDF/WSLg,
+   physical hardware and disposable persistence/upgrade checks stay required.
+   Trust enrollment and stable-channel promotion need their deferred decision.
+
+## Completed source batch: Paper third-party frame palette
+
+Unpublished source work adds readable Graphite/Paper i3 frame resources,
+preserves unrelated X resources and exposes partial-theme notes in Settings.
+Private1×/2× compositor trials proved focused/inactive frame colors, current
+controls, real Geany/Nemo and unchanged window IDs/geometry/focus/workspaces/
+minimized sessions. However the first prototype used ordinary config reload;
+pinned i3 source review found that resets runtime workspace gaps/modes.
+
+That reload path is removed, not shipped. The pinned i3 bridge now negotiates
+color-only IPC; no config parsing/reload, startup rerun, binding-mode reset or
+gap reset. Real UID1000 tests pass at1×/2×, including exact malformed-byte
+refusal, disabled capability, focus/window geometry/workspaces/scratchpad,
+fullscreen, custom gaps and resize mode. Nine frame units, seven theme units,
+native metrics/provenance, rootfs factory and adjacent wrapper tests pass.
+Four Settings/Power cases plus1×/2× workspace and CSD controls regressions pass.
+
+Built candidate: `F:\Ooonana\ooonana-os\qa-i3-controls-20261022-frame-v1`.
+Binary SHA256: `c8de2a20fed7693c177c2dd6ef478c4ecdef8abdc999a6ca521fac4bde82437f`.
+Unpublished `i3wm 4.24-r0.ooonana2` package passes exact source/binary provenance.
+Nested Xrender's known Nemo partial-paint fault reproduced; extra waiting did
+not fix it. Existing QA full-redraw/redirection adaptation gives painted menus,
+sidebar and folders in both palettes/scales. Physical compositor policy is
+unchanged; this is not physical GPU certification. Client/frame corner joins
+remain a separate UI review item.
+
+No new generation, WSL update, installed-session restart, sound, model work or ISO build.
+F CURRENT remains verified4bf64022 Batch35. **Hold final ISO build** until
+deferred release integration: the new source gate requires the matching native
+frame package, which is intentionally not yet in the published generation.
+See [batch evidence](ui-whole-os-review.md#batch-36-paper-third-party-frames-source-qa-complete-not-published).
 
 ## October 22 saved appearance and new-app consistency
 

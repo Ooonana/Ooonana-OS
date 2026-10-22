@@ -36,7 +36,8 @@ def build(base, binary, out):
         raise ValueError("Upstream payload checksum mismatch")
     manifest = json.loads((binary.parent / "build-manifest.json").read_text())
     pins = json.loads((ROOT / "packages/i3wm/source-pins.json").read_text())
-    if manifest.get("source") != pins or manifest.get("control_api") != 1 or manifest.get("binary_sha256") != sha(binary):
+    if (manifest.get("source") != pins or manifest.get("control_api") != 1
+            or manifest.get("frame_theme_api") != 1 or manifest.get("binary_sha256") != sha(binary)):
         raise ValueError("Build provenance/binary mismatch")
     for name in ("scripts/patch-i3-controls.py", "packages/i3wm/ooonana_controls.h"):
         if manifest.get("inputs", {}).get(name) != sha(ROOT / name):
@@ -44,7 +45,7 @@ def build(base, binary, out):
     elf = subprocess.check_output(["readelf", "-lW", str(binary)], text=True)
     if "Requesting program interpreter: /lib/ld-musl-x86_64.so.1" not in elf:
         raise ValueError("Expected native x86_64 musl binary")
-    version = "4.24-r0.ooonana1"
+    version = "4.24-r0.ooonana2"
     relative = f"archives/i3wm-{version}.tar.gz"
     target = out / relative
     if target.exists() or target.is_symlink() or (out / "i3wm.pkg").exists():
@@ -86,8 +87,8 @@ def build(base, binary, out):
         if os.path.exists(temporary):
             os.unlink(temporary)
     package.update(VERSION=version, SHA256=sha(target), ARCHIVE=relative,
-                   COMPONENTS="apk-import alpine x86_64 native-controls-v1",
-                   NOTES="Pinned i3 4.24 payload; locally rebuilt opt-in native-sized titlebar controls")
+                   COMPONENTS="apk-import alpine x86_64 native-controls-v1 native-frame-theme-v1",
+                   NOTES="Pinned i3 4.24 payload; native-sized controls and color-only frame palette IPC")
     (out / "i3wm.pkg").write_text("".join(f"OOONANA_PKG_{key}={json.dumps(value)}\n" for key, value in package.items()))
     print("I3_CONTROLS_PACKAGE_OK", version, package["SHA256"], "; GUI/release gates still required")
 

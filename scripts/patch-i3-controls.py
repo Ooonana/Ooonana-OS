@@ -5,6 +5,56 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
+FRAME_THEME_C = r'''/* Palette-only IPC: never parse config, change gaps/modes, or restart. */
+static bool ooonana_frame_theme(ipc_client *client, const uint8_t *message, uint32_t message_size) {
+    static const char prefix[] = "ooonana_frame_theme";
+    if (message_size < sizeof(prefix) - 1 || memcmp(message, prefix, sizeof(prefix) - 1) != 0) {
+        return false;
+    }
+    const bool light = message_size == sizeof("ooonana_frame_theme light") - 1 &&
+        memcmp(message, "ooonana_frame_theme light", message_size) == 0;
+    const bool dark = message_size == sizeof("ooonana_frame_theme dark") - 1 &&
+        memcmp(message, "ooonana_frame_theme dark", message_size) == 0;
+    const bool success = ooonana_control_scale() > 0 && (light || dark);
+    if (success) {
+        /* background, text, indicator; keep frame edges blended into header. */
+        static const char *const paper[4][3] = {
+            {"#ffffff", "#805600", "#805600"},
+            {"#e9edf1", "#55616e", "#adb7c2"},
+            {"#f5f5f7", "#55616e", "#adb7c2"},
+            {"#fae9e7", "#9e2929", "#9e2929"}
+        };
+        static const char *const graphite[4][3] = {
+            {"#1b1f26", "#ffb21a", "#ffb21a"},
+            {"#101317", "#b4bdc8", "#414957"},
+            {"#171b21", "#b4bdc8", "#414957"},
+            {"#3b2324", "#ff675c", "#ff675c"}
+        };
+        const char *const (*palette)[3] = light ? paper : graphite;
+        struct Colortriple *targets[] = {&config.client.focused, &config.client.unfocused,
+            &config.client.focused_inactive, &config.client.urgent};
+        for (int i = 0; i < 4; i++) {
+            targets[i]->background = draw_util_hex_to_color(palette[i][0]);
+            targets[i]->border = targets[i]->child_border = targets[i]->background;
+            targets[i]->text = draw_util_hex_to_color(palette[i][1]);
+            targets[i]->indicator = draw_util_hex_to_color(palette[i][2]);
+        }
+        if (!config.client.got_focused_tab_title) {
+            config.client.focused_tab_title = config.client.focused_inactive;
+        }
+        Con *con;
+        TAILQ_FOREACH (con, &all_cons, all_cons) {
+            FREE(con->deco_render_params);
+        }
+        tree_render();
+    }
+    const char *reply = success ? "[{\"success\":true}]" : "[{\"success\":false,\"error\":\"Invalid or disabled Ooonana frame theme\"}]";
+    ipc_send_client_message(client, strlen(reply), I3_IPC_REPLY_TYPE_COMMAND, (const uint8_t *)reply);
+    return true;
+}
+
+'''
+
 
 def replacements():
     return {
@@ -33,7 +83,11 @@ def replacements():
             ('    ystr("human_readable");\n    ystr(i3_version);\n',
              '    ystr("human_readable");\n    ystr(i3_version);\n\n'
              '    ystr("ooonana_control_api");\n    y(integer, 1);\n'
-             '    ystr("ooonana_control_scale");\n    y(integer, ooonana_control_scale());\n'),
+             '    ystr("ooonana_control_scale");\n    y(integer, ooonana_control_scale());\n'
+             '    ystr("ooonana_frame_theme_api");\n    y(integer, ooonana_control_scale() > 0 ? 1 : 0);\n'),
+            ('IPC_HANDLER(run_command) {\n', FRAME_THEME_C +
+             'IPC_HANDLER(run_command) {\n'
+             '    if (ooonana_frame_theme(client, message, message_size)) {\n        return;\n    }\n'),
         ],
         "src/handlers.c": [
             ('#include "all.h"\n', '#include "all.h"\n#include "ooonana_controls.h"\n'),

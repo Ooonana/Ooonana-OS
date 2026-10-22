@@ -259,6 +259,7 @@ cmp -s "$ROOT/packages/ooonana/usr/share/ooonana/grub.theme" "$rootfs/usr/share/
 [[ -x "$rootfs/usr/bin/ooonana-i3-installer-session" ]] || fail "missing i3 installer session"
 [[ -x "$rootfs/usr/bin/ooonana-i3-smoke-session" ]] || fail "missing GUI smoke session"
 [[ -x "$rootfs/usr/bin/ooonana-theme-env" ]] || fail "missing theme helper"
+cmp -s "$ROOT/packages/ooonana/usr/lib/ooonana/desktop_theme.py" "$rootfs/usr/lib/ooonana/desktop_theme.py" || fail "stale/missing frame theme bridge"
 for appearance in Dark Light; do
   palette="usr/share/qtermwidget6/color-schemes/Ooonana$appearance.colorscheme"
   cmp -s "$ROOT/packages/ooonana/$palette" "$rootfs/$palette" || fail "missing current Qt terminal palette"
@@ -321,7 +322,7 @@ cmp "$ROOT/packages/ooonana/usr/bin/ooonana-window-list" "$rootfs/usr/bin/ooonan
 [[ -f "$rootfs/usr/share/ooonana/wallpapers/ooonana-notes.jpg" ]] || fail "missing Notes rootfs wallpaper"
 [[ -f "$rootfs/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png" ]] || fail "missing 0.9 rootfs wallpaper"
 [[ -x "$rootfs/usr/bin/ooonana-memory" ]] || fail "missing memory helper"
-assert_contains "$(<"$rootfs/etc/gtk-3.0/settings.ini")" "gtk-decoration-layout=menu:minimize,maximize,close"
+assert_contains "$(<"$rootfs/etc/gtk-3.0/settings.ini")" "gtk-decoration-layout=close,minimize,maximize:menu"
 [[ -f "$rootfs/etc/i3/config" ]] || fail "missing rootfs i3 config"
 [[ -f "$rootfs/etc/ooonana/polybar.ini" ]] || fail "missing polybar config"
 [[ -f "$rootfs/etc/ooonana/rofi.rasi" ]] || fail "missing rofi config"
@@ -1016,7 +1017,8 @@ assert_contains "$picom_cfg" "active-opacity = 1.0"
 assert_contains "$picom_cfg" "corner-radius = 14"
 assert_contains "$picom_cfg" "rounded-corners-exclude"
 assert_contains "$picom_cfg" "class_g = 'OoonanaWindowControls'"
-assert_contains "$i3_config" "client.focused #1b1f26 #1b1f26 #ffb21a #ffb21a #1b1f26"
+assert_contains "$i3_config" 'set_from_resource $of_bg ooonana.i3.focused.background #1b1f26'
+assert_contains "$i3_config" 'client.focused $of_bg $of_bg $of_text $of_indicator $of_bg'
 gtk_css="$(<"$rootfs/root/.config/gtk-3.0/gtk.css")"
 assert_contains "$gtk_css" "window.background, dialog.background, messagedialog.background { border-radius: 14px; }"
 assert_not_contains "$picom_cfg" 'backend = "xrender"'
