@@ -9,15 +9,47 @@ Current OS/core remains **0.10.0 candidate**, not a promoted stable release.
 1. **Completed source batches.** Native color-only frame updates, resource
    ownership, readable Paper/Graphite, honest Settings feedback and flat
    third-party client/header joins. Candidate artifacts remain unpublished.
-2. **Next UI batch: lock/sign-in/unlock.** Then already-open-app appearance and
-   the remaining whole-OS UI ledger. Preserve real authentication; no live lock
-   operation during isolated review. These fixtures do not complete the goal.
+2. **Active priority: theme consistency.** User requested already-open apps,
+   remaining icons, wallpaper and cursor shape/size/hotspot before lockscreen.
+   Native live refresh/dock parity now pass; third-party live retheming and
+   installed/physical appearance checks remain open. Lock/sign-in/unlock stays
+   queued; preserve real authentication and never live-lock during isolated QA.
 3. **Deferred release integration.** Remote CI, fresh core/runtime/native package
    set, signed generation, final closure checks, WSL sync and updated release
    screenshots/docs. No private-key upload; OpenVINO stays deferred.
 4. **Release gates.** User builds fresh ISO after integration; actual PDF/WSLg,
    physical hardware and disposable persistence/upgrade checks stay required.
    Trust enrollment and stable-channel promotion need their deferred decision.
+
+## Source checkpoint: live native appearance and Paper dock
+
+Paper color-only bridge is already compiled/provenance-checked atf5d2291;
+gaps/mode/focus/geometry/fullscreen/workspace/minimized state and malformed
+packets pass. Corner joins completed in local9e12f6b. No repeat build needed.
+
+Already-open native apps now subscribe to debounced preference-directory
+events, including atomic renames and initially missing directories. No polling,
+directory creation, process signals or desktop restart. Same CSS provider is
+reused; semantic drawing surfaces repaint and Reduce Motion updates live.
+Explicit appearance pins retain their selection. Dock now follows Paper/
+Graphite with unchanged flat geometry, pins, order, controls and app state.
+
+Real same-process/window Power+dock toggles pass dark→Paper→dark at1×/2×,
+including mapped native repaint, stable geometry/focus and explicit pin tests.
+Four dock theme/normal-or200%-text interaction cases pass using a disposable
+signed-package overlay with real rofi. Six watcher units, native UI and rootfs
+factory regressions pass. [Evidence/limits](ui-whole-os-review.md#batch-38-live-native-appearance-and-paper-dock-source-checkpoint).
+
+Icon/logo mapping and wallpaper save/failure-preservation checks pass. Public
+cursor frames/aliases/hotspots pass; local default personal cursor remains21px,
+hotspot(2,6), with proportional importer scaling. No cursor regeneration or
+resize. These static checks do not certify physical pointer appearance.
+
+**Remaining in this requested theme pass:** existing third-party GTK/browser/Qt
+appearance, per-display xsettings reload handoff, real wallpaper/cursor/icon
+session and physical hotspot/scaling checks. Do not call theme consistency or
+whole-OS UI complete from the native fixture. No WSL update, remote push,
+signing, publication or ISO build; release integration remains deferred.
 
 ## Completed source batch: client/frame corner joins
 
@@ -35,7 +67,7 @@ rootfs factory, editor/theme units and native provenance regressions pass.
 Evidence: [Batch37](ui-whole-os-review.md#batch-37-clientframe-corner-joins-source-qa-complete-not-published).
 
 No installed WSL update, remote push, signing, package publication or ISO build.
-Next is lock/sign-in/unlock detail review, not stable promotion.
+Next priority changed to theme consistency above; lockscreen remains queued.
 
 ## Completed source batch: Paper third-party frame palette
 

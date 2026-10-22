@@ -15,7 +15,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Surface / paths | Current evidence | Work still required |
 | --- | --- | --- |
 | Control proportions | Shared/native GTK 10pt typography and chat actions measured; targeted 100/125/200% scaling; Task Manager headers/values follow text metrics | Other app-specific Qt controls, panel/card/dock content proportions; no blind blanket shrink |
-| Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; real private theme toggles and new native/Geany/Nemo launches both ways at100/200% text; saved preference supersedes automatic exports; source Paper/Graphite frame IPC and client/header joins pass1×/2×; explicit/custom choices preserved | Already-open-app retheming, installed/live desktop, physical compositor, cursor hotspot/scale and remaining icon/selection states |
+| Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; real private theme toggles and new native/Geany/Nemo launches both ways at100/200% text; source frame IPC/joins pass1×/2×; same native Power/dock live retheme and explicit pins pass1×/2×; icon/logo/cursor metadata and wallpaper preservation tests pass | Already-open third-party retheming/xsettings handoff, installed/live desktop, physical compositor, physical cursor shape/hotspot/scale and remaining icon/selection states |
 | Panel / music / AI / notifications / tray | Actual source Polybar/wallpaper/dock; wide CJK labels and full counters at 640/760/900/1000/1024/1100/1280px; missing-glyph and actual AI-centering checks; compact Task View; actual private MPD empty/play/pause/volume/next/stop/loss/recovery | Actual installed tray/service integration and physical/live-session states; null-output QA does not prove hardware audio |
 | Dock | Flat centered icons; actual app/transient grouping, exact MRU restore, direct actions, Pin/Unpin, real held-drag reorder within left-pinned/right-running sections, saved layout/relaunch and readonly retry pass both themes normal/200% text; overflow idle-pin options, edge tooltips and actual 1×/2× device checks pass; signed candidate/native bytes synchronized | Actual installed interactive-session/display integration, physical mixed DPI/hotplug; multi-output visibility currently pure/derived guards |
 | Native Launcher | Long names/tooltips, no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard; real desktop-entry/Return/focus handoff to native Settings and preferred themed terminal/editor/files pass; immediate filter/selection and exact-name ranking repair observed wrong-app launch | Browser/hardware-wrapper variants, actual installed-session keyboard/IME and desktop integration |
@@ -2034,6 +2034,60 @@ queued dock work avoids another subsequent rebuild:
 ```powershell
 & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10'
 ```
+
+## Batch 38: live native appearance and Paper dock (source checkpoint)
+
+User priority after Batch37: Paper bridge if unfinished, then already-open-app
+theme consistency, remaining icons, wallpaper and cursor. Bridge was already
+compiled/verified inf5d2291; no duplicate build or new deployment required.
+This checkpoint completes the native refresh foundation, **not** all requested
+theme consistency or the whole-OS goal. Third-party live appearance remains.
+
+- Native apps now use a debounced Gio directory-event observer for user/system
+  theme and Reduce Motion preferences. Atomic renames, missing/replaced parent
+  directories, unreadable paths, unchanged signatures and cleanup are guarded.
+  No polling timer, directory write, process signalling or forced restart.
+  Existing CSS provider is reused without duplicate screen registration;
+  native drawing surfaces are invalidated to read current semantic colors.
+- Explicit per-app theme pins remain pinned. Existing custom GTK environment
+  and saved editor preferences are not rewritten by this observer. It is not
+  an external GTK/Qt process-injection or universal retheming claim.
+- Dock has an opaque Paper palette and responds to the native GTK preference
+  notification. Flat geometry, hover/action behavior, app groups/pins/order and
+  window identity stay intact. Per-dock provider/notification handlers are
+  removed on destruction. No blur, transparency or dimensional change.
+- Actual Power+dock processes/windows remain open through dark→Paper→dark;
+  PID, XID, provider identity, geometry/focus/fullscreen state and bounded
+  observer count stay unchanged. Reduced Motion changes live; explicit dark
+  pin is retained. Computed colors alone initially preceded mapped paint, so
+  QA now waits for an actual native body pixel before capture:
+  `/var/tmp/ooonana-native-live-paint-20261023.4B9ysvgI`.
+  Device2 confirmation:
+  `/var/tmp/ooonana-live-theme-regression-20261023.LAVZ8tas/device2`.
+  Native rendering passes; physical GPU and installed WSLg remain untested.
+- Four dark/light normal/200%-text dock interaction regressions pass:
+  `/var/tmp/ooonana-dock-live-regression-20261023.kPazDzTm`.
+  The first preserved QA root lacked rofi and failed at the keyboard fixture;
+  rerun uses the existing signed654-package generation through a readonly
+  private view plus disposable portal/rofi overlay. No installed distro changes.
+- Six pure observer tests, native UI/rootfs factory regressions, current icon
+  and logo mappings, saved-wallpaper success/failure preservation, public
+  cursor frame/alias/hotspot checks and personal cursor checks pass. Local
+  default cursor remains21px with21px hotspot(2,6),32px hotspot(3,9); importer
+  preserves native frames and scales smaller square canvases/hotspots together.
+  No cursor size/shape regeneration or redistribution performed.
+
+Remaining: actual existing Geany/Nemo/Chromium/Firefox/Qt retheming; safe
+display-scoped xsettings notification (current helper writes settings but has
+no explicit reload handoff); installed icon selection states and actual
+wallpaper/cursor display/hotspot/mixed-DPI checks. Reopening app fixtures are
+not accepted as already-open-app proof. Physical checks stay deferred.
+Lock/sign-in/unlock review remains queued after this priority.
+
+No WSL update, remote push, signing/enrollment, package publication, stable
+promotion, sound, model work or ISO build. OS/core remains0.10.0 candidate.
+
+![Same native Power window and flat dock after live Paper selection; private QA display](assets/ooonana-live-paper-native-dock-20261023.png)
 
 ## Batch 37: client/frame corner joins (source QA complete, not published)
 

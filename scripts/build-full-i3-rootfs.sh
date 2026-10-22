@@ -4574,7 +4574,7 @@ install_current_backend_checks() {
     "$ROOTFS/usr/lib/ooonana/panel_session.py"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/desktop_theme.py" \
     "$ROOTFS/usr/lib/ooonana/desktop_theme.py"
-  for file in chat_store.py common.py memory_status.py notification_utils.py task_manager_app.py ui_preferences.py window_controls.py; do
+  for file in chat_store.py common.py memory_status.py notification_utils.py task_manager_app.py theme_watch.py ui_preferences.py window_controls.py; do
     install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ui/$file" \
       "$ROOTFS/usr/lib/ooonana/ui/$file"
   done

@@ -6,7 +6,8 @@ import shutil
 import subprocess
 import threading
 from pathlib import Path
-from ui_preferences import load_preferences, refresh_gtk_theme, resolved_theme, transition_ms
+from ui_preferences import config_path, load_preferences, refresh_gtk_theme, resolved_theme, transition_ms
+from theme_watch import AppearanceWatch
 
 # GTK_THEME is read during toolkit initialization, before application CSS.
 refresh_gtk_theme()
@@ -16,7 +17,7 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
 gi.require_version("Pango", "1.0")
 gi.require_version("PangoCairo", "1.0")
-from gi.repository import Gdk, GLib, Gtk, Pango, PangoCairo  # noqa: E402
+from gi.repository import Gdk, Gio, GLib, Gtk, Pango, PangoCairo  # noqa: E402
 
 
 CSS = b"""
@@ -195,24 +196,38 @@ def chart_colors():
 
 
 _theme_provider = None
+_theme_screen = None
+_appearance_watch = None
 
 
 def apply_theme():
-    global _theme_provider
+    global _theme_provider, _theme_screen, _appearance_watch
     managed = refresh_gtk_theme()
     if _theme_provider is None:
         _theme_provider = Gtk.CssProvider()
     _theme_provider.load_from_data(CSS + (LIGHT_CSS if light_appearance() else b""))
     screen = Gdk.Screen.get_default()
-    if screen:
+    if screen and screen != _theme_screen:
+        if _theme_screen:
+            Gtk.StyleContext.remove_provider_for_screen(_theme_screen, _theme_provider)
         Gtk.StyleContext.add_provider_for_screen(
             screen, _theme_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
+        _theme_screen = screen
     settings = Gtk.Settings.get_default()
     if settings:
         if managed:
             settings.set_property("gtk-application-prefer-dark-theme", managed == "dark")
         settings.set_property("gtk-enable-animations", not load_preferences()["reduce_motion"])
+    paths = (config_path().with_name("theme"), config_path(), Path("/etc/ooonana/theme"))
+    if _appearance_watch is None:
+        _appearance_watch = AppearanceWatch(Gio, GLib, paths,
+            lambda: (resolved_theme(), load_preferences()["reduce_motion"]), apply_theme)
+    else:
+        _appearance_watch.set_paths(paths)
+    # Drawing areas read semantic colors while painting; preserve window state.
+    for window in Gtk.Window.list_toplevels():
+        window.queue_draw()
 
 
 def is_wsl_session():

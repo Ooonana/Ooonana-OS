@@ -13,7 +13,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import i3_events
-from common import Gdk, GLib, Gtk, Pango, apply_theme, run_async
+from common import Gdk, GLib, Gtk, Pango, apply_theme, light_appearance, run_async
 from dock_model import PinStore, app_groups, click_target, stable_key, visible_groups
 from ui_preferences import config_path
 import window_menu
@@ -43,6 +43,19 @@ CSS = b"""
 tooltip { background: #1b1f26; color: #f5f5f7; border: 1px solid #414957; border-radius: 12px; padding: 4px; }
 .dock-preview-title { font-size: 10.5pt; font-weight: 700; color: #f5f5f7; }
 .dock-preview-caption { font-size: 9.5pt; color: #b4bdc8; }
+"""
+
+LIGHT_CSS = b"""
+.ooonana-dock { background: #ffffff; border-color: #adb7c2; }
+.ooonana-dock button, .ooonana-dock button.active { background-color: #ffffff; color: #1b1f26; }
+.ooonana-dock button:hover, .ooonana-dock button.active:hover { background-color: #e9edf1; }
+.ooonana-dock button:active, .ooonana-dock button.active:active { background-color: #d8dee6; }
+.ooonana-dock button.active label { color: #805600; }
+.ooonana-dock button.drop-target { background-color: #e9edf1; outline-color: #805600; }
+.ooonana-dock label, .dock-preview-caption { color: #55616e; }
+.ooonana-dock separator { background: #adb7c2; }
+tooltip { background: #ffffff; color: #1b1f26; border-color: #adb7c2; }
+.dock-preview-title { color: #1b1f26; }
 """
 
 
@@ -114,9 +127,11 @@ class Dock(Gtk.Window):
         self.set_skip_pager_hint(True)
         self.set_type_hint(Gdk.WindowTypeHint.DOCK)
         self.get_style_context().add_class("ooonana-dock")
-        provider = Gtk.CssProvider()
-        provider.load_from_data(CSS)
-        Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_USER + 1)
+        self.theme_provider = Gtk.CssProvider()
+        self.theme_settings = Gtk.Settings.get_default()
+        self.theme_handler = self.theme_settings.connect("notify::gtk-application-prefer-dark-theme", self.refresh_theme)
+        self.refresh_theme()
+        Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), self.theme_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER + 1)
         self.row = Gtk.Box(spacing=4)
         self.row.set_border_width(5)
         self.add(self.row)
@@ -147,11 +162,17 @@ class Dock(Gtk.Window):
             GLib.source_remove(self.pending)
         self.pending = 0
         self.app_monitor.disconnect(self.app_monitor_handler)
+        self.theme_settings.disconnect(self.theme_handler)
+        Gtk.StyleContext.remove_provider_for_screen(self.get_screen(), self.theme_provider)
         if self.menu:
             self.menu.destroy()
             self.menu = None
         if Gtk.main_level():
             Gtk.main_quit()
+
+    def refresh_theme(self, *_):
+        self.theme_provider.load_from_data(CSS + (LIGHT_CSS if light_appearance() else b""))
+        self.queue_draw()
 
     def catalog_changed(self, *_):
         self.catalog = {}
