@@ -73,6 +73,7 @@ jobs:
           python3 -B tests/test-theme-watch.py
           python3 -B tests/test-xsettings-session.py
           python3 -B tests/test-lock-launch.py
+          python3 -B tests/test-i3lock-visuals.py
           python3 -B tests/test-desktop-frame-theme.py
           python3 -B tests/test-media-metadata.py
           python3 -B tests/test-editor-polish.py

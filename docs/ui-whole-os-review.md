@@ -50,6 +50,55 @@ app input. No Windows automation workaround or security setting change used.
 
 ## Current batch evidence
 
+### Batch 41: native lock presentation and live lockout guard
+
+Pinned [i3lock2.16 release](https://i3wm.org/i3lock/i3lock-2.16.tar.xz) source
+SHA256`a30a5ebead35cc78e5f337571df8c5de2bdd9141426034c74b17e4d3db15f024`.
+Private read-only build-cache/overlay compiled with networking disabled. Native
+binary SHA256`2a1df92f6e8448c33406bb1569c1d02d264710db2dac83e37e153e35b8f6d19d`.
+Opt-in renderer adds real local clock/date, restrained footer and compact
+opaque Graphite/Paper feedback; normal110px indicator replaces190px stock.
+Clock timer runs once per minute. Authentication/input main restores exactly
+to pinned source after deleting only callback/start additions; password/grab/
+PAM policy and fork-after-grab behavior remain upstream.
+
+Impeccable bounded visual batch inspected idle/input/Caps/layout/error in both
+palettes and actual2× device scaling. All four real-lock cases reject wrong
+password and accept the public disposable credential:
+`/var/tmp/ooonana-native-lock-ui-20261023.eiy3tvA4/{dark,light}-{1,2}`.
+Real minute rollover with partially typed correct password preserved draft and
+lock; completing password unlocked:
+`/var/tmp/ooonana-lock-minute-20261023.L3GAMhYG`.
+Final640×600 dark1×/Paper2× auth/preflight confirmation:
+`/var/tmp/ooonana-lock-final-20261023.iOC0ls9P`.
+No real user credentials or installed session used.
+
+Fresh live shadow is locked by default. A bounded read-only local-account guard
+now refuses locked/empty/unknown state before launching locker, reports that
+screen is not secured and directs password setup. It uses existing live sudo/
+doas authorization only, not a new privileged executable/PAM implementation.
+Private actual sudo paths prove locked/empty rejection and configured-account
+acceptance; malformed/duplicate/linked data and missing authority refuse.
+Installed mode bypasses local shadow preflight to retain custom PAM semantics.
+This is known-lockout prevention, not proof every local/remote PAM method works.
+
+Unsigned candidate package lives at
+`F:\Ooonana\ooonana-os\qa-i3lock-20261023-visual-v1\package`.
+Version2.16-r0.ooonana1; archive SHA256
+`abdd50e2e8249d6a558e320fb7c1b4aa3c263daa986139213c332f3d066b700f`.
+Actual repack comparison proves every preexisting non-executable file and
+dependency unchanged. Release gate checks native component, exact source/input
+receipt, binary/archive digests and offline compile; legacy/stale/tampered
+fixtures refuse. Six launch/readiness units, four source/provenance units and
+factory-rootfs regressions pass. Fresh Linux-PAM adaptation from Batch40 is
+still required during deferred integration.
+
+Remaining: actual installed sign-in, account expiry/custom remote PAM, lock
+after wake, real RandR/mixed-DPI/multi-monitor transitions and installed WSLg.
+No decorative sign-in form, fake authentication or frozen timestamp added.
+No real-user lock, power/sound operation, WSL update, signing/publication,
+remote push or ISO build. Panel/tray/service review remains next.
+
 ### Batch 39: display-owned live GTK appearance source checkpoint
 
 Impeccable refinement preserves Graphite/Paper and control dimensions. GTK

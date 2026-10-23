@@ -12,6 +12,7 @@ theme="${OOONANA_GUI_THEME:-dark}"
 text_scale="${OOONANA_GUI_TEXT_SCALE:-1.25}"
 device_scale="${OOONANA_GUI_DEVICE_SCALE:-1}"
 i3_candidate="${OOONANA_GUI_I3_CANDIDATE:-}"
+lock_candidate="${OOONANA_GUI_LOCK_CANDIDATE:-}"
 qt_scale="${OOONANA_GUI_QT_SCALE:-1}"
 case "$qt_scale" in 1|1.25|1.5|2) ;; *) printf 'Unsupported Qt test scale: %s\n' "$qt_scale" >&2; exit 2 ;; esac
 case "$device_scale" in 1|2) ;; *) printf 'Unsupported device scale: %s\n' "$device_scale" >&2; exit 2 ;; esac
@@ -39,6 +40,12 @@ if [[ "${1:-}" != --worker ]]; then
     [[ "$i3_candidate" == /mnt/winf/Ooonana/ooonana-os/qa-i3-controls-*/out/i3 && -f "$i3_candidate" && -x "$i3_candidate" ]] || exit 2
     [[ "${OOONANA_GUI_I3_SHA256:-}" =~ ^[a-f0-9]{64}$ && "$(sha256sum "$i3_candidate" | awk '{print $1}')" == "$OOONANA_GUI_I3_SHA256" ]] || exit 2
     export OOONANA_GUI_I3_CANDIDATE="$i3_candidate"
+  fi
+  if [[ -n "$lock_candidate" ]]; then
+    lock_candidate="$(realpath "$lock_candidate")"
+    [[ "$only" == lock-ui && "$lock_candidate" == /mnt/winf/Ooonana/ooonana-os/qa-i3lock-*/out/i3lock && -f "$lock_candidate" && -x "$lock_candidate" ]] || exit 2
+    [[ "${OOONANA_GUI_LOCK_SHA256:-}" =~ ^[a-f0-9]{64}$ && "$(sha256sum "$lock_candidate" | awk '{print $1}')" == "$OOONANA_GUI_LOCK_SHA256" ]] || exit 2
+    export OOONANA_GUI_LOCK_CANDIDATE="$lock_candidate"
   fi
   [[ -x "$rootfs/usr/bin/python3" && -d "$rootfs/source" && -d "$rootfs/qa" ]] || exit 2
   if [[ -n "${OOONANA_GUI_REPO:-}" ]]; then
@@ -139,6 +146,10 @@ if [[ -n "$i3_candidate" ]]; then
   mount --bind "$i3_candidate" "$rootfs/usr/bin/i3"
   mount -o remount,bind,ro "$rootfs/usr/bin/i3"
 fi
+if [[ -n "$lock_candidate" ]]; then
+  mount --bind "$lock_candidate" "$rootfs/usr/bin/i3lock"
+  mount -o remount,bind,ro "$rootfs/usr/bin/i3lock"
+fi
 mount --bind "$SOURCE" "$rootfs/source"
 mount -o remount,bind,ro "$rootfs/source"
 # Overlay actions must use this source protocol (including expected XIDs), not
@@ -232,6 +243,21 @@ if [[ "$only" == frame-theme-ui || "$only" == live-theme-ui || "$only" == extern
   mount --bind "$SOURCE/packages/ooonana/usr/lib/ooonana" "$rootfs/usr/lib/ooonana"
   mount -o remount,bind,ro "$rootfs/usr/lib/ooonana"
 fi
+if [[ "$only" == lock-ui ]]; then
+  # Real live sudo policy, no prompt, new privilege mechanism or real credentials.
+  # Only private tmpfs backing file changes; cached shadow stays untouched.
+  for state in locked empty ready; do
+    secret="$hash"; expected=0
+    if [[ "$state" == locked ]]; then secret='!'; expected=3; fi
+    if [[ "$state" == empty ]]; then secret=''; expected=3; fi
+    printf 'root:!:20000:0:99999:7:::\nooonana:%s:20000:0:99999:7:::\n' "$secret" >"$rootfs/run/qa-shadow"
+    result=0
+    chroot --userspec=1000:1000 "$rootfs" /usr/bin/sudo -n -- /usr/bin/python3 -I \
+      /usr/lib/ooonana/lock_readiness.py 1000 >"$output/readiness-$state.log" 2>&1 || result=$?
+    [[ "$result" == "$expected" ]] || { printf 'FAIL live readiness %s: expected=%s actual=%s\n' "$state" "$expected" "$result"; exit 1; }
+  done
+  printf 'LOCK_LIVE_READINESS_OK locked/empty refused; private configured account allowed\n'
+fi
 mount --bind "$SOURCE/packages/ooonana/usr/share/themes" "$rootfs/usr/share/themes"
 mount -o remount,bind,ro "$rootfs/usr/share/themes"
 if [[ "$only" == all || "$only" == launcher-session-ui || "$only" == theme-flow-ui || "$only" == frame-theme-ui || "$only" == external-theme-ui ]]; then
@@ -304,7 +330,7 @@ if [[ "$only" == firefox-frame && -z "${OOONANA_FIREFOX_REUSE_HOME:-}" ]]; then
 fi
 # Host Xvfb and candidate use the same private filesystem socket, no TCP.
 mount --bind "$rootfs/tmp" /tmp
-export rootfs output only theme text_scale device_scale qt_scale gui_runtime admin_policy i3_candidate
+export rootfs output only theme text_scale device_scale qt_scale gui_runtime admin_policy i3_candidate lock_candidate
 # Keep namespace init as Bash. Xvfb will not send its readiness signal to PID 1.
 # shellcheck disable=SC2016 # Child shell expands exported paths/display.
 unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp" bash -c '
@@ -369,7 +395,10 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
     probe external-theme-ui python3 /source/tests/check-external-theme-ui.py /qa/external-theme
   fi
   if [ "$only" = lock-ui ]; then
-    probe lock-ui python3 /source/tests/check-lock-ui.py /qa/lock
+    lock_options=()
+    if [ -n "$lock_candidate" ]; then lock_options+=(--require-visuals); fi
+    if [ "${OOONANA_GUI_LOCK_CLOCK_WAIT:-0}" = 1 ]; then lock_options+=(--clock-wait); fi
+    probe lock-ui python3 /source/tests/check-lock-ui.py /qa/lock "${lock_options[@]}"
   fi
   # Version-matched candidate/source-only bind is explicit opt-in. Do not make
   # the preserved legacy-WM all suite fail for lacking the new native API.

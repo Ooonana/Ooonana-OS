@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+import hashlib
 
 assert os.getuid() == 1000 and os.environ.get("OOONANA_GUI_TEST_DISPLAY") == "1"
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,15 +34,22 @@ def run(*args):
 
 
 try:
+    assert lock_screen.live_account_status() == 0, "Real noninteractive live-account preflight failed"
     with (output / "i3lock.log").open("w") as log:
         args = lock_screen.command()
         # Test owns foreground locker handle; production keeps vendor fork-after-grab.
-        process = subprocess.Popen(args + ["--nofork"], stdout=log, stderr=log)
+        process = subprocess.Popen(args + ["--nofork"], env=dict(os.environ, OOONANA_LOCK_VISUALS="1"), stdout=log, stderr=log)
         time.sleep(.5)
         assert process.poll() is None, "Private real locker failed to grab"
         expected = bytes.fromhex(args[args.index("--color") + 1])
         pixel = Gdk.pixbuf_get_from_window(root, 8, 8, 1, 1)
         assert pixel and pixel.get_pixels()[:3] == expected, "Opaque lock palette mismatch"
+        def heading():
+            sample = Gdk.pixbuf_get_from_window(root, root.get_width() // 2 - 100, 20, 200, 100)
+            return bytes(sample.get_pixels())
+        if "--require-visuals" in sys.argv:
+            text = heading()
+            assert any(text[offset:offset + 3] != expected for offset in range(0, len(text), 3)), "Clock/date header absent"
         capture("idle")
         run("xdotool", "key", "Caps_Lock")
         run("xdotool", "type", "--delay", "10", "wrong-private-qa-password")
@@ -54,11 +62,22 @@ try:
         # Wait out vendor's wrong-password input cooldown before retry.
         time.sleep(2.5)
         run("xdotool", "key", "ctrl+u")
-        run("xdotool", "type", "--delay", "10", "Ooonana-private-lock-QA-20261023")
+        credential = "Ooonana-private-lock-QA-20261023"
+        run("xdotool", "type", "--delay", "10", credential[:12])
+        if "--clock-wait" in sys.argv:
+            assert "--require-visuals" in sys.argv
+            before = hashlib.sha256(heading()).digest()
+            until = time.monotonic() + 65
+            while hashlib.sha256(heading()).digest() == before:
+                assert time.monotonic() < until, "Real minute clock failed to redraw"
+                assert process.poll() is None, "Clock timer released lock"
+                time.sleep(.2)
+            capture("minute-tick-with-draft")
+        run("xdotool", "type", "--delay", "10", credential[12:])
         run("xdotool", "key", "Return")
         assert process.wait(timeout=12) == 0, "Correct disposable password did not unlock"
     print("LOCK_UI_REAL_OK", os.environ.get("OOONANA_THEME"), "device", scale,
-          "opaque palette; actual grab/input; wrong rejection; correct unlock; vendor PAM unchanged", flush=True)
+          "opaque palette; actual grab/input; wrong rejection; correct unlock; vendor PAM unchanged; clock-wait", "--clock-wait" in sys.argv, flush=True)
 finally:
     if process is not None and process.poll() is None:
         process.terminate()

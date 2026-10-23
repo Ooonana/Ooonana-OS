@@ -76,6 +76,7 @@ ci-smoke:
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-theme-watch.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-xsettings-session.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-lock-launch.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-i3lock-visuals.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-desktop-frame-theme.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-media-metadata.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-editor-polish.py

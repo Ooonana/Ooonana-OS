@@ -85,12 +85,26 @@ locker cases pass both palettes at1×/2×: wrong password stays locked, correct
 public disposable test password unlocks. Source launcher units/import-cache/
 rootfs regressions pass. [Evidence](ui-whole-os-review.md#batch-40-real-lock-authentication-and-launch-groundwork).
 
-Clock/date, restrained branding and compact feedback still need native
-presentation work; sign-in, live-account readiness, wake and physical/multi-
-display transitions remain unverified. No frozen timestamp or decorative
-password form substitutes for a real clock or authentication. Panel review
-follows: its tray is currently disabled while network/Bluetooth applets can
-start; SNI/XEmbed/service integration needs actual isolated proof.
+Native clock/date, restrained branding and compact feedback now compile from
+pinned i3lock2.16. Authentication/input main is byte-identical after removing
+two paint-only timer additions. Graphite/Paper actual wrong/correct password,
+Caps Lock/layout and1×/2× tests pass; a real minute tick preserves the password
+draft and still unlocks correctly. Small640×600 confirmation also passes.
+
+Fresh live accounts start locked. New read-only preflight refuses locked,
+empty or unknown live credentials before any grab, and explains Setup recovery.
+It uses existing noninteractive sudo/doas, with no new setuid code or password
+logging. Installed/custom PAM stays authoritative without this local precheck.
+Real private live sudo tests pass locked/empty/configured cases. This guards
+known lockout, not every PAM/account-expiry or remote-auth failure.
+
+Unsigned candidate package2.16-r0.ooonana1 retains vendor PAM/files/dependencies;
+source/binary/input provenance and release refusal for old/stale packages pass.
+Package archive digest: `abdd50e2e8249d6a558e320fb7c1b4aa3c263daa986139213c332f3d066b700f`.
+No signed generation changed. Sign-in, real wake and physical/multi-display
+transitions remain unverified. [Evidence/limits](ui-whole-os-review.md#batch-41-native-lock-presentation-and-live-lockout-guard).
+Panel review follows: tray currently disabled while network/Bluetooth applets
+can start; SNI/XEmbed/service integration needs actual isolated proof.
 No WSL update, real user lock, signing, publication, remote push or ISO build.
 
 ## Source checkpoint: live native appearance and Paper dock

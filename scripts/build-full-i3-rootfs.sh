@@ -4475,7 +4475,7 @@ install_current_backend_checks() {
     "$ROOTFS/usr/lib/ooonana/panel_session.py"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/desktop_theme.py" \
     "$ROOTFS/usr/lib/ooonana/desktop_theme.py"
-  for file in xsettings_session.py legacy_gtk_style.py lock_screen.py; do
+  for file in xsettings_session.py legacy_gtk_style.py lock_screen.py lock_readiness.py; do
     install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/$file" \
       "$ROOTFS/usr/lib/ooonana/$file"
   done

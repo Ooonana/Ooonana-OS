@@ -15,6 +15,7 @@ SOF_REPO_URL="${OOONANA_SOF_REPO_URL:-https://dl-cdn.alpinelinux.org/alpine/$(oo
 METADATA_ONLY=0
 INDEX_REPO=1
 I3_CONTROLS_BINARY="${OOONANA_I3_CONTROLS_BINARY:-}"
+I3LOCK_BINARY="${OOONANA_I3LOCK_BINARY:-}"
 
 usage() {
   cat <<'USAGE'
@@ -31,6 +32,7 @@ Options:
   --include-openvino  Include native OpenVINO Chat in the full-i3 install profile
   --no-index          Write package metadata without rebuilding repository index
   --i3-controls-binary PATH  Repack pinned i3 with verified native-control build
+  --i3lock-binary PATH  Repack pinned locker with verified native presentation
   -h, --help          Show help
 USAGE
 }
@@ -44,6 +46,7 @@ while [[ $# -gt 0 ]]; do
     --include-openvino) INCLUDE_OPENVINO=1; shift ;;
     --no-index) INDEX_REPO=0; shift ;;
     --i3-controls-binary) I3_CONTROLS_BINARY="$2"; shift 2 ;;
+    --i3lock-binary) I3LOCK_BINARY="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) ooonana_die "unknown option: $1" ;;
   esac
@@ -172,6 +175,13 @@ main() {
       --binary "$I3_CONTROLS_BINARY" --out-dir "$work/native-i3"
     cp "$work/native-i3/archives/"* "$OUT_DIR/archives/"
     cp "$work/native-i3/i3wm.pkg" "$OUT_DIR/i3wm.pkg"
+  fi
+  if [[ -n "$I3LOCK_BINARY" ]]; then
+    mkdir "$work/native-lock"
+    python3 -B "$ROOT/scripts/build-i3lock-package.py" --base "$OUT_DIR" \
+      --binary "$I3LOCK_BINARY" --out-dir "$work/native-lock"
+    cp "$work/native-lock/archives/"* "$OUT_DIR/archives/"
+    cp "$work/native-lock/i3lock.pkg" "$OUT_DIR/i3lock.pkg"
   fi
   branding_archive="$(build_branding_archive "$work")"
   branding_sha="$(sha256sum "$OUT_DIR/$branding_archive" | awk '{print $1}')"

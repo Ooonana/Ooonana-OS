@@ -158,7 +158,7 @@ cli="${prefix%/}/usr/bin/ooonana"
 for helper in ooonana-memory ooonana-panel-start ooonana-xsettings ooonana-lock ooonana-window-list ooonana-shutdown-cleanup ooonana-storage-watch ooonana-persistence gzip; do
   [ -x "${prefix%/}/usr/bin/$helper" ] || { echo "core healthcheck: missing $helper" >&2; exit 1; }
 done
-for asset in usr/lib/ooonana/xsettings_session.py usr/lib/ooonana/legacy_gtk_style.py usr/lib/ooonana/lock_screen.py \
+for asset in usr/lib/ooonana/xsettings_session.py usr/lib/ooonana/legacy_gtk_style.py usr/lib/ooonana/lock_screen.py usr/lib/ooonana/lock_readiness.py \
   usr/share/themes/OoonanaGraphite/gtk-3.0/gtk.css \
   usr/share/themes/OoonanaPaper/gtk-3.0/gtk.css \
   usr/share/themes/Ooonana/gtk-3.0/common.css; do

@@ -71,6 +71,44 @@ def validate_native_controls(repo, package):
             raise ValueError("i3wm native build inputs stale: " + name)
 
 
+def validate_lock_manifest(manifest, binary):
+    pins = json.loads((ROOT / "packages/i3lock/source-pins.json").read_text())
+    if (not isinstance(manifest, dict) or not binary.startswith(b"\x7fELF")
+            or manifest.get("lock_visual_api") != 1 or manifest.get("source") != pins
+            or manifest.get("auth_source_unchanged") is not True
+            or manifest.get("compile_network") != "disabled"
+            or not re.fullmatch(r"[a-f0-9]{64}", str(manifest.get("auth_source_sha256", "")))
+            or manifest.get("binary_sha256") != hashlib.sha256(binary).hexdigest()):
+        raise ValueError("i3lock native authentication/source/binary provenance differs")
+    for name in ("scripts/patch-i3lock-visuals.py", "packages/i3lock/ooonana_lock_visuals.h"):
+        inputs = manifest.get("inputs")
+        if not isinstance(inputs, dict) or inputs.get(name) != hashlib.sha256((ROOT / name).read_bytes()).hexdigest():
+            raise ValueError("i3lock native build inputs stale: " + name)
+
+
+def validate_native_lock(repo, package):
+    if "native-lock-visuals-v1" not in package.get("COMPONENTS", "").split():
+        raise ValueError("i3lock lacks verified native lock presentation; rebuild candidate")
+    archive = safe_file(repo, package.get("ARCHIVE", ""))
+    if hashlib.sha256(archive.read_bytes()).hexdigest() != package.get("SHA256"):
+        raise ValueError("i3lock native archive checksum mismatch")
+    with tarfile.open(archive) as bundle:
+        names = {}
+        for item in bundle:
+            name = item.name.removeprefix("./")
+            if name in names:
+                raise ValueError("Duplicate native locker archive entry")
+            names[name] = item
+        def read(name, limit):
+            item = names.get(name)
+            if item is None or not item.isfile() or item.size > limit:
+                raise ValueError("Native locker provenance/payload missing or oversized")
+            return bundle.extractfile(item).read(limit + 1)
+        binary = read("usr/bin/i3lock", 8 * 1024 * 1024)
+        manifest = json.loads(read("usr/share/doc/i3lock/ooonana-visuals/build-manifest.json", 65536))
+    validate_lock_manifest(manifest, binary)
+
+
 def validate(repo, profile, key=None, expected_core=None, require_native_controls=False):
     if (repo / "CURRENT").is_file():
         generation = (repo / "CURRENT").read_text().strip()
@@ -162,6 +200,7 @@ def validate(repo, profile, key=None, expected_core=None, require_native_control
         closure(target)
     if require_native_controls:
         validate_native_controls(repo, packages.get("i3wm", {}))
+        validate_native_lock(repo, packages.get("i3lock", {}))
     return repo, len(packages), len(visited)
 
 
