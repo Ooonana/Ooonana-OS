@@ -16,7 +16,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | --- | --- | --- |
 | Control proportions | Shared/native GTK 10pt typography and chat actions measured; targeted 100/125/200% scaling; Task Manager headers/values follow text metrics | Other app-specific Qt controls, panel/card/dock content proportions; no blind blanket shrink |
 | Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; real private theme toggles/new launches at100/200% text; source frame IPC/joins pass1×/2×; same native Power/dock and held GTK/Geany/Nemo live retheme pass1×/2×; strict display-owned Xsettings ownership/transfer and CSS migration units; icon/logo/cursor metadata and wallpaper preservation tests pass | Browser/Qt live retheming, voluntary one-time reopen for older process pins/providers, installed/live desktop, physical compositor/cursor hotspot/scale and remaining icon/selection states |
-| Panel / music / AI / notifications / tray | Actual source Polybar/wallpaper/dock; wide CJK labels and full counters at 640/760/900/1000/1024/1100/1280px; missing-glyph and actual AI-centering checks; compact Task View; actual private MPD empty/play/pause/volume/next/stop/loss/recovery | Actual installed tray/service integration and physical/live-session states; null-output QA does not prove hardware audio |
+| Panel / music / AI / notifications / tray | Actual source Polybar/wallpaper/dock; wide CJK/full counters and actual AI-centering checks; new Graphite/Paper renders640/1000/1280px; real supervised dark→Paper→dark keeps native dock PID/XID/client state; bounded999+ native/shell counts; actual private MPD empty/play/pause/volume/next/stop/loss/recovery | Bounded XEmbed/SNI hosting and installed tray/service integration; physical/live-session states and mixed-DPI; null-output QA does not prove hardware audio |
 | Dock | Flat centered icons; actual app/transient grouping, exact MRU restore, direct actions, Pin/Unpin, real held-drag reorder within left-pinned/right-running sections, saved layout/relaunch and readonly retry pass both themes normal/200% text; overflow idle-pin options, edge tooltips and actual 1×/2× device checks pass; signed candidate/native bytes synchronized | Actual installed interactive-session/display integration, physical mixed DPI/hotplug; multi-output visibility currently pure/derived guards |
 | Native Launcher | Long names/tooltips, no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard; real desktop-entry/Return/focus handoff to native Settings and preferred themed terminal/editor/files pass; immediate filter/selection and exact-name ranking repair observed wrong-app launch | Browser/hardware-wrapper variants, actual installed-session keyboard/IME and desktop integration |
 | Wi-Fi / Bluetooth | Managed lists/hidden/personal/TLS/PIN forms; advanced fields, bounded certificate pickers, inline validation, progress/reduced motion, service gating, duplicate/closed refusal and safe Reset/Remove pass both themes through 200% text | Actual installed authentication, advanced network activation, physical reconnect/pairing and changed-adapter integration |
@@ -24,6 +24,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Setup | Compact/200% scrolling and stacked labels; focused inline validation, secret-preserving drafts, full source/routing review, default Back, reduced motion, pending/reentrant and closed-parent refusal checked both themes | Complete installed privileged setup/persistence and actual authentication/network failures; CLI backend preflight is not certified by UI validation |
 | Sound / brightness / music | Verified readiness, selected-identity audio/backlight commands, unknown/empty/permission states, persistent inline retry, serialized actions, preserved drafts, stale-poll/closed refusal; keyboard and both themes through 200% text pass silent fixtures | Actual installed route/mute/volume and playback semantics, changed-device integration and real hardware; no sound playback |
 | Power | Compact40px actions/44px at real200% text; natural-height window; Enter Cancel/Escape; visibly mapped native confirmation; duplicate refusal, error/retry, failed lock and late-callback refusal pass under private i3 in both themes | Actual lock/logout/power actions, unavailable capabilities and installed-session integration remain unverified; no real power command executed |
+| Lock / sign-in / wake | Pinned native clock/date/compact feedback; real private vendor PAM wrong/correct/Caps/layout1×/2× and640px; minute tick retains password draft; live locked/empty/unknown preflight refuses without grabbing | Actual installed sign-in, expiry/custom remote PAM, wake/physical/multi-monitor transitions and installed WSLg; private tests never lock real user |
 | Notifications | Private real Dunst history/DND/remove/clear; changed-record nested keyboard focus/visible reading anchor; storage fault/retry; unchanged five-second timer DND/loss/restart recovery without focus/manual refresh; reused IDs and privacy checks | Actual installed-session notifications and integrated panel/session behavior |
 | Packages | Default-Cancel preview, failed/empty plan refusal, mutating close guard; actual sudo/askpass cancellation/retry restores controls under private harmless-command policy | Actual privileged package transactions and successful authentication on disposable installation |
 | Health / Updates | Readable snapshot/raw/copy, honest attention/malformed states; actual isolated report and sudo/askpass cancellation restore controls | Actual installed-session service/repository failures, successful authentication and metadata transactions |
@@ -49,6 +50,53 @@ October 17 updated Computer Use runtime was retried through its documented
 app input. No Windows automation workaround or security setting change used.
 
 ## Current batch evidence
+
+### Batch 42: live panel appearance and bounded counters
+
+Source Polybar colors now use owned semantic env roles. Paper stays opaque
+white/readable brown/blue; Graphite keeps flat dark/amber. Background-alt equals
+background intentionally, preserving flat appearance. Size/fonts/positions,
+left music and centered AI remain unchanged.
+
+Supervisor follows atomic preference moves through existing GIO watcher and
+existing500ms IPC/recovery wait. No extra polling source; event bursts bounded.
+Watcher installs before first launch, fixing a reproduced startup-write race.
+Only owned Polybar refreshes; native dock handles its own style change and
+retains process/window. Missing GIO keeps explicit/manual reload fallback.
+Restart/foreign-display/process-ownership/crash-cooldown tests still pass.
+
+Actual rendered source bars, wide Korean/CJK music/SSID, RAM/audio/battery100%
+and999+ notification samples:
+`/var/tmp/ooonana-panel-confirm-20261023.YwaErvbp`.
+640/1280px both appearances and1000px Paper pass exact surface-color, icon-font,
+no-overlap and actual center-glyph checks within5px. Batched Impeccable capture
+review confirms proportions; old cached wallpaper is fixture context only,
+not certification of current installed wallpaper/cursor/frame appearance.
+
+Actual supervisor/Polybar/native dock confirmation:
+`/var/tmp/ooonana-panel-live-final-20261023.v6p7ygNP/{640x600,1280x800}`.
+Dark→Paper→dark preserves dock PID/XID and held client ID/rect/focus/fullscreen
+state; only panel child PID changes. Failed first harness used reused XID as
+relaunch proof and insufficient printf escaping; corrected to owned PID and
+real parser-safe fixture commands. These were retained failures, not passes.
+Held generic client intentionally uses legacy cached i3; not a frame-theme test.
+
+Native/minimal-shell badges now saturate as999+, reject non-ASCII/invalid
+counts and bound huge integers before parsing; shell leading zeros normalize
+before arithmetic. Source factory includes current fallback helper. Updated
+notification/panel/watcher units, native UI/branding and rootfs factory pass.
+Silent real MPD flow and Dunst service loss/recovery:
+`/var/tmp/ooonana-panel-functional-20261023.qRrvTnIu`.
+MPD uses null output only; no audio device or hardware claim.
+
+Remaining source gap: tray is disabled while i3 starts`nm-applet --indicator`.
+[NetworkManager source](https://raw.githubusercontent.com/GNOME/network-manager-applet/main/src/main.c)
+selects AppIndicator via that flag; simply adding
+[Polybar's XEmbed tray](https://polybar.readthedocs.io/en/latest/user/modules/tray.html)
+does not itself supply an indicator host or bounded overflow UX. A real
+bounded host/bridge, applet behavior/service tests and installed-session proof
+remain. No untested applet-mode switch, unbounded tray, installed configuration
+rewrite, WSL sync, signing/publication, remote push or ISO build.
 
 ### Batch 41: native lock presentation and live lockout guard
 

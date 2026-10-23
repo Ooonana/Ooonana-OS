@@ -908,7 +908,7 @@ assert_contains "$(<"$rootfs/usr/share/applications/oonana.desktop")" "Exec=ooon
 polybar_cfg="$(<"$rootfs/etc/ooonana/polybar.ini")"
 assert_contains "$polybar_cfg" "Ooonana OS"
 assert_contains "$polybar_cfg" "#ffb21a"
-assert_contains "$polybar_cfg" "background = #1b1f26"
+assert_contains "$polybar_cfg" 'background = ${env:OOONANA_BAR_BACKGROUND:#1b1f26}'
 assert_contains "$polybar_cfg" "width = 98%"
 assert_contains "$polybar_cfg" "radius = 12"
 assert_contains "$polybar_cfg" "OOONANA_PANEL_LEFT:brand task-view"

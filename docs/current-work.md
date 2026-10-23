@@ -13,8 +13,10 @@ Current OS/core remains **0.10.0 candidate**, not a promoted stable release.
    remaining icons, wallpaper and cursor shape/size/hotspot before lockscreen.
    Native live refresh/dock parity and held-open GTK/Geany/Nemo now pass;
    browser/Qt live appearance and installed/physical checks remain open.
-   Lock/sign-in/unlock is now active, then panel; preserve real authentication
-   and never lock the installed/live user session during isolated QA.
+   Native locker clock/feedback and live lockout prevention now pass private
+   real-auth tests. Panel live palettes/spacing/counters pass; tray/service
+   hosting, actual sign-in/wake and installed-session checks remain active.
+   Never lock the installed/live user session during isolated QA.
 3. **Deferred release integration.** Remote CI, fresh core/runtime/native package
    set, signed generation, final closure checks, WSL sync and updated release
    screenshots/docs. No private-key upload; OpenVINO stays deferred.
@@ -59,6 +61,32 @@ wake) with real authentication unchanged; then panel installed tray/services,
 left music, AI, notifications/counters, long labels and narrow-screen spacing.
 These requested surfaces are **not complete** from this theme-only checkpoint.
 No installed WSL update, remote push, signing, publication or ISO build.
+
+## Source checkpoint: live panel palettes and bounded counters
+
+Panel now uses owned Graphite/Paper semantic roles rather than hard-coded dark
+colors. GIO preference events reuse the supervisor's existing wait loop and
+restart only owned Polybar; native dock retains process/window and live theme
+refresh. No app/WM/session restart, extra polling timer or global process kill.
+Watcher starts before initial launch to avoid missing a fast startup change.
+
+Actual wide-label/full-counter bar renders pass both themes at640/1280px and
+Paper1000px, with AI center measured within5px and exact background pixels.
+Actual supervisor dark→Paper→dark tests at640/1280px keep same native dock
+PID/XID and held client's geometry/focus/state. Impeccable batched inspection
+confirms compact flat surfaces; no control/font/dock size changes.
+
+Notification badges now show honest999+ overflow. Native and minimal shell
+fallback bound huge/invalid counts before integer/arithmetic parsing; leading
+zeros cannot become shell octal. Existing silent MPD state flow and real Dunst
+loss/recovery pass. Factory copies latest fallback helper over cached archives.
+[Evidence/limits](ui-whole-os-review.md#batch-42-live-panel-appearance-and-bounded-counters).
+
+Tray/service work remains: source disables tray while starting indicator-mode
+NetworkManager applet; simply enabling an unbounded icon row would risk the
+center/long-label layout. No untested tray or applet-mode switch shipped.
+Installed applet/service authentication and physical integration remain open.
+No WSL update, remote push, signing/publication or ISO build.
 
 ## Active source batch: real lock authentication and launch groundwork
 

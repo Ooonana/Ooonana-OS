@@ -155,6 +155,14 @@ class NotificationState:
         self.archive_path.unlink(missing_ok=True)
 
 
+def bounded_badge_count(value):
+    # Never parse arbitrarily long integers or non-ASCII digit lookalikes.
+    if not value or not value.isascii() or not value.isdecimal():
+        return 0
+    significant = value.lstrip("0")
+    return 1000 if len(significant) > 3 else int(significant or "0")
+
+
 def notification_badge():
     def query(*arguments):
         try:
@@ -171,9 +179,8 @@ def notification_badge():
     count = NotificationState().unread(parse_history(history))
     for queue in ("displayed", "waiting"):
         value = query("count", queue)
-        if value.isdigit():
-            count += min(999, int(value))
-    return "%{T2}\uf0f3%{T-}" + (f" {min(count, 999)}" if count else "")
+        count = min(1000, count + bounded_badge_count(value))
+    return "%{T2}\uf0f3%{T-}" + (" 999+" if count > 999 else f" {count}" if count else "")
 
 
 if __name__ == "__main__":

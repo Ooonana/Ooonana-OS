@@ -21,9 +21,14 @@ total=0
 for queue in history displayed waiting; do
   count="$(dunstctl count "$queue" 2>/dev/null || true)"
   case "$count" in ''|*[!0-9]*) count=0 ;; esac
+  count="$(printf '%s' "$count" | sed 's/^0*//')"
+  case "$count" in '') count=0 ;; ????*) count=1000 ;; esac
   total=$((total + count))
+  [ "$total" -le 1000 ] || total=1000
 done
-if [ "$total" -gt 0 ]; then
+if [ "$total" -gt 999 ]; then
+  printf '%%{T2}\357\203\263%%{T-} 999+\n'
+elif [ "$total" -gt 0 ]; then
   printf '%%{T2}\357\203\263%%{T-} %s\n' "$total"
 else
   printf '%%{T2}\357\203\263%%{T-}\n'

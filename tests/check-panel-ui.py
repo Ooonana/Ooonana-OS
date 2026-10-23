@@ -19,6 +19,8 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "packages/ooonana/usr/lib/ooonana/ui"))
 from common import Gdk, Gtk
+sys.path.insert(0, str(ROOT / "packages/ooonana/usr/lib/ooonana"))
+from panel_session import palette_environment
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("output", type=Path)
@@ -85,7 +87,7 @@ with tempfile.TemporaryDirectory(prefix="ooonana-panel-ui-") as temporary:
                      f'<cachedir>{fixture}/font-cache</cachedir></fontconfig>')
     environment = {**os.environ, "FONTCONFIG_FILE": str(fonts), "OOONANA_PANEL_LEFT": left,
                    "OOONANA_PANEL_RIGHT": right, "OOONANA_PANEL_GAP": str(gap),
-                   "OOONANA_WIFI_MAX_CHARS": str(wifi_limit)}
+                   "OOONANA_WIFI_MAX_CHARS": str(wifi_limit), **palette_environment()}
     wm = subprocess.Popen(["i3", "-c", str(wm_config)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     panel = dock = settings = wallpaper = None
     try:
@@ -135,7 +137,7 @@ with tempfile.TemporaryDirectory(prefix="ooonana-panel-ui-") as temporary:
                 assert 'name=Noto Sans CJK KR' in panel_log, 'CJK fallback font not loaded'
             # Polybar can silently shift center content or clip right controls
             # without logging overlap. Check actual AI accent glyph position.
-            accent = tuple(int(configuration['colors']['accent'].strip('#')[i:i+2], 16) for i in (0, 2, 4))
+            accent = tuple(int(environment['OOONANA_BAR_ACCENT'].strip('#')[i:i+2], 16) for i in (0, 2, 4))
             data, stride, channels = pixels.get_pixels(), pixels.get_rowstride(), pixels.get_n_channels()
             columns = [x for x in range(max(0, width // 2 - 100), min(width, width // 2 + 100))
                 if any(all(abs(data[y * stride + x * channels + channel] - value) < 12
@@ -144,6 +146,8 @@ with tempfile.TemporaryDirectory(prefix="ooonana-panel-ui-") as temporary:
             visual_center = (min(columns) + max(columns)) / 2
             print(f'PANEL_AI_CENTER expected={width / 2} actual={visual_center}', flush=True)
             assert abs(visual_center - width / 2) <= 5, 'AI shifted by crowded panel groups'
+            sample = pixels.get_pixels()[12 * pixels.get_rowstride() + (width // 2) * pixels.get_n_channels():][:3]
+            assert sample == bytes.fromhex(environment['OOONANA_BAR_BACKGROUND'][1:]), 'Panel retained stale appearance'
             if args.appearance_output:
                 assert args.desktop_overview, 'Appearance capture requires isolated desktop fixture'
                 settings = SettingsWindow()

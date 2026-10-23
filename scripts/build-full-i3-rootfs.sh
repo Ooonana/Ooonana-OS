@@ -2695,14 +2695,14 @@ EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/polybar.ini" <<'EOF'
 [colors]
-background = #1b1f26
-background-alt = #1b1f26
-foreground = #f5f5f7
-accent = #ffb21a
-muted = #9ca7b6
-urgent = #3b2324
-cool = #9ec3ff
-border = #414957
+background = ${env:OOONANA_BAR_BACKGROUND:#1b1f26}
+background-alt = ${env:OOONANA_BAR_BACKGROUND:#1b1f26}
+foreground = ${env:OOONANA_BAR_FOREGROUND:#f5f5f7}
+accent = ${env:OOONANA_BAR_ACCENT:#ffb21a}
+muted = ${env:OOONANA_BAR_MUTED:#b4bdc8}
+urgent = ${env:OOONANA_BAR_URGENT:#3b2324}
+cool = ${env:OOONANA_BAR_COOL:#9ec3ff}
+border = ${env:OOONANA_BAR_BORDER:#46505c}
 
 [bar/ooonana]
 width = 98%
@@ -4484,7 +4484,7 @@ install_current_backend_checks() {
       "$ROOTFS/usr/lib/ooonana/ui/$file"
   done
   install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana" "$ROOTFS/usr/bin/ooonana"
-  for file in ooonana-window-list ooonana-panel-start ooonana-media-status ooonana-xsettings ooonana-lock; do
+  for file in ooonana-window-list ooonana-panel-start ooonana-media-status ooonana-notification-status ooonana-xsettings ooonana-lock; do
     install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/$file" "$ROOTFS/usr/bin/$file"
   done
   [[ -f "$app/APP-MANIFEST.sha256" ]] || return 0
