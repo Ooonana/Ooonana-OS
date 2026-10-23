@@ -7,6 +7,13 @@ from types import SimpleNamespace
 
 root = Path(__file__).resolve().parents[1]
 source = ast.parse((root / "packages/ooonana/usr/lib/ooonana/ui/launcher_app.py").read_text())
+preferred = ast.literal_eval(next(node.value for node in source.body if isinstance(node, ast.Assign)
+                                 and any(isinstance(target, ast.Name) and target.id == "PREFERRED_COMMANDS"
+                                         for target in node.targets)))
+assert preferred["org.pulseaudio.pavucontrol.desktop"] == preferred["pavucontrol.desktop"] == ["ooonana-audio-panel"]
+assert preferred["chromium.desktop"] == ["ooonana-browser"]
+assert preferred["nm-connection-editor.desktop"] == ["ooonana-wifi-panel"]
+assert preferred["blueman-manager.desktop"] == ["ooonana-bluetooth-panel"]
 app = next(node for node in source.body if isinstance(node, ast.ClassDef) and node.name == "LauncherWindow")
 methods = [node for node in app.body if isinstance(node, ast.FunctionDef)
            and node.name in ("sort_rows", "search_changed", "filter_row")]

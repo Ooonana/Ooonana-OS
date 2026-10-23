@@ -17,6 +17,9 @@ Current OS/core remains **0.10.0 candidate**, not a promoted stable release.
    real-auth tests. Panel palettes/spacing/counters and bounded modern indicator
    hosting now pass private real-service/menu tests. Legacy XEmbed hosting,
    actual sign-in/wake and installed-session checks remain open.
+   Latest recheck repeats real tray/service menus at200% text. Launcher browser
+   and hardware-wrapper handoffs now pass private real-session checks; current
+   PulseAudio desktop-ID routing is repaired. Installed keyboard/IME remains open.
    Never lock the installed/live user session during isolated QA.
 3. **Deferred release integration.** Remote CI, fresh core/runtime/native package
    set, signed generation, final closure checks, WSL sync and updated release
@@ -24,6 +27,39 @@ Current OS/core remains **0.10.0 candidate**, not a promoted stable release.
 4. **Release gates.** User builds fresh ISO after integration; actual PDF/WSLg,
    physical hardware and disposable persistence/upgrade checks stay required.
    Trust enrollment and stable-channel promotion need their deferred decision.
+
+## Source checkpoint: tray recheck and remaining launcher handoffs
+
+Tray recheck passes actual isolated NetworkManager/nm-applet menus, shipped
+Blueman adapter, keyboard/overflow/owner/revision cases on640×600 Paper with
+200% text. Panel recovery/ownership and responsive layout units also pass.
+No new tray/panel defect reproduced; no cosmetic changes made there.
+Receipt: `/var/tmp/ooonana-tray-review-20261023.rFJhVot9`.
+
+Next source batch found a real launcher mismatch: the installed desktop ID is
+`org.pulseaudio.pavucontrol.desktop`, while preferred routing recognized only
+older `pavucontrol.desktop`. Volume Control opened stock mixer instead of the
+intended Ooonana Sound window. Both IDs now use the existing native wrapper;
+the actual mixer remains available from Sound's More menu. No app removed.
+
+Nine real desktop-entry/keyboard Return/process-owner/focus/bounds paths pass:
+Sound, Wi-Fi, Bluetooth, Chromium, generic terminal, Settings, preferred terminal,
+Geany and Nemo. Uses existing hashed native frame candidate/source UI/wrappers;
+no installed binaries change. Both palettes pass1280×800 normal and640×600
+with launcher200% text. External subprocess text is normal in these enlarged-
+launcher cases, not certified as global200% desktop. Browser uses software
+rendering in private network/profile; no sandbox-disabling flag introduced.
+No radio/volume/pairing operation or audible test.
+
+Impeccable inspected initial failure and final launcher/browser-icon/native
+hardware states; normal font/control sizes and dock stay unchanged. Regression
+checks cover real modern/legacy desktop IDs. QA now binds the full source
+backend and current hardware wrappers, avoiding stale cached theme helpers.
+[Evidence/limits](ui-whole-os-review.md#batch-44-tray-recheck-and-launcher-hardwarebrowser-handoffs).
+
+Remaining: actual installed keyboard/IME/launcher integration, missing-app
+terminal fallbacks, browser/Qt live retheming, physical hardware and broader
+ledger. No WSL update, remote push, signing/publication, stable promotion or ISO.
 
 ## Source checkpoint: display-owned GTK live appearance
 

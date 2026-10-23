@@ -239,8 +239,8 @@ if [[ "$only" == all || "$only" == admin-prompt-ui ]]; then
   mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-admin-askpass"
   admin_policy=1
 fi
-if [[ "$only" == frame-theme-ui || "$only" == live-theme-ui || "$only" == external-theme-ui || "$only" == theme-flow-ui || "$only" == lock-ui || "$only" == panel-live-ui || "$only" == tray-ui ]]; then
-  # New frame helper must be exercised from source, including subprocess imports.
+if [[ "$only" == all || "$only" == frame-theme-ui || "$only" == live-theme-ui || "$only" == external-theme-ui || "$only" == theme-flow-ui || "$only" == lock-ui || "$only" == panel-live-ui || "$only" == tray-ui || "$only" == launcher-session-ui ]]; then
+  # Current helpers must include their source backend/subprocess imports.
   # This probe performs no package operations against the source-only repo dir.
   mount --bind "$SOURCE/packages/ooonana/usr/lib/ooonana" "$rootfs/usr/lib/ooonana"
   mount -o remount,bind,ro "$rootfs/usr/lib/ooonana"
@@ -279,7 +279,7 @@ if [[ "$only" == all || "$only" == launcher-session-ui || "$only" == theme-flow-
   mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-settings"
   mount --bind "$SOURCE/packages/ooonana/usr/bin/ooonana-settings-launch" "$rootfs/usr/bin/ooonana-settings-launch"
   mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-settings-launch"
-  for helper in ooonana-theme-env ooonana-editor ooonana-files ooonana-browser; do
+  for helper in ooonana-theme-env ooonana-editor ooonana-files ooonana-browser ooonana-audio-panel ooonana-wifi-panel ooonana-bluetooth-panel; do
     awk -v marker="\"\$ROOTFS/usr/bin/$helper\"" '
       index($0, marker) { capture=1; next }
       capture && $0 == "EOF" { exit }

@@ -18,7 +18,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; real private theme toggles/new launches at100/200% text; source frame IPC/joins pass1×/2×; same native Power/dock and held GTK/Geany/Nemo live retheme pass1×/2×; strict display-owned Xsettings ownership/transfer and CSS migration units; icon/logo/cursor metadata and wallpaper preservation tests pass | Browser/Qt live retheming, voluntary one-time reopen for older process pins/providers, installed/live desktop, physical compositor/cursor hotspot/scale and remaining icon/selection states |
 | Panel / music / AI / notifications / tray | Actual source Polybar; wide CJK/full counters/AI centering across seven widths640–1600px; supervised live palette changes preserve dock/client state; bounded999+ counts; silent private MPD recovery; bounded modern indicator host with actual isolated NM/nm-applet menu, shipped Blueman adapter, owner/revision/focus/overflow/keyboard and normal/200% text/device2 tests | Legacy XEmbed-only hosting, installed tray/service authentication/recovery and physical/mixed-DPI integration; null-output QA does not prove hardware audio |
 | Dock | Flat centered icons; actual app/transient grouping, exact MRU restore, direct actions, Pin/Unpin, real held-drag reorder within left-pinned/right-running sections, saved layout/relaunch and readonly retry pass both themes normal/200% text; overflow idle-pin options, edge tooltips and actual 1×/2× device checks pass; signed candidate/native bytes synchronized | Actual installed interactive-session/display integration, physical mixed DPI/hotplug; multi-output visibility currently pure/derived guards |
-| Native Launcher | Long names/tooltips, no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard; real desktop-entry/Return/focus handoff to native Settings and preferred themed terminal/editor/files pass; immediate filter/selection and exact-name ranking repair observed wrong-app launch | Browser/hardware-wrapper variants, actual installed-session keyboard/IME and desktop integration |
+| Native Launcher | Long names/tooltips, no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard; nine actual desktop-entry/Return/nonroot/focus/bounds handoffs including Chromium and native sound/Wi-Fi/Bluetooth pass both palettes desktop/compact; current PulseAudio desktop ID now routes correctly; synchronous filtering/exact-name ranking preserves selection | Actual installed-session keyboard/IME/desktop integration and missing-app terminal fallbacks; enlarged-launcher cases do not certify external-app/global text scaling |
 | Wi-Fi / Bluetooth | Managed lists/hidden/personal/TLS/PIN forms; advanced fields, bounded certificate pickers, inline validation, progress/reduced motion, service gating, duplicate/closed refusal and safe Reset/Remove pass both themes through 200% text | Actual installed authentication, advanced network activation, physical reconnect/pairing and changed-adapter integration |
 | Settings: all six pages | Compact page picker, bounded/selectable sources, managed dialogs, repair/update retry; actual private 0600 preference writes, reopen, read-only rollback and retry through 200% text | Actual installed-session theme/wallpaper/authentication paths, other external file/device failures |
 | Setup | Compact/200% scrolling and stacked labels; focused inline validation, secret-preserving drafts, full source/routing review, default Back, reduced motion, pending/reentrant and closed-parent refusal checked both themes | Complete installed privileged setup/persistence and actual authentication/network failures; CLI backend preflight is not certified by UI validation |
@@ -49,6 +49,56 @@ October 17 updated Computer Use runtime was retried through its documented
 app input. No Windows automation workaround or security setting change used.
 
 ## Current batch evidence
+
+### Batch 44: tray recheck and launcher hardware/browser handoffs
+
+Rechecked prior tray/panel batch without changing its visuals. Pure tray input,
+panel ownership/recovery/live palette and responsive layout tests pass. Actual
+private NetworkManager/nm-applet menu, Blueman indicator adapter, owner/revision
+checks, overflow and keyboard repeat on640×600 Paper200% text:
+`/var/tmp/ooonana-tray-review-20261023.rFJhVot9`.
+No new GTK warning/traceback in that successful tray log. Initial invocation
+used wrong QA selector and stopped before GUI; not counted as passing evidence.
+
+Next launcher review reproduced an actual preferred-route gap. Package desktop
+entry uses`org.pulseaudio.pavucontrol.desktop`, not older`pavucontrol.desktop`.
+Stock Volume Control opened; captured process/client evidence remains in
+`/var/tmp/ooonana-launcher-variants-before-20261023.gkk9ABXZ`.
+Source now maps both IDs to existing`ooonana-audio-panel`; direct stock mixer
+launch from native Sound remains available. Pure regression uses actual IDs.
+
+Expanded actual nine-path test exercises desktop discovery, keyboard Return,
+owned nonroot process, expected client, focus handoff and monitor bounds:
+native Sound/Wi-Fi/Bluetooth, Chromium, generic terminal, native Settings,
+preferred terminal, Geany and Nemo. Existing Geany theme/editor and Nemo Home/
+initial clearance/user-geometry protections still pass. Real native i3 frame
+candidate uses verified SHA256`c8de2a20fed7693c177c2dd6ef478c4ecdef8abdc999a6ca521fac4bde82437f`.
+
+Normal dark desktop:
+`/var/tmp/ooonana-launcher-variants-20261023.2BSjuP3g`.
+Paper/dark640×600 enlarged-launcher and Paper1280×800 normal matrix:
+`/var/tmp/ooonana-launcher-variants-matrix-20261023.cxoGN0Ml`.
+All four runs pass all nine paths. Launcher records actual196608 Xft DPI in
+enlarged cases; external children retain normal fonts, so this is not global
+200% text/device/mixed-DPI proof. Native hardware windows show real private
+WSL/no-device readiness, not successful physical radio/audio operation.
+Browser has private network/profile, software renderer and no`--no-sandbox`
+flag; this handoff test does not replace prior detailed sandbox checks.
+
+QA source binding now includes current backend/theme modules and hardware
+wrappers. Old partial binding failed theme Apply before opening launcher;
+that retained failure is not production/factory breakage. Another retained
+post-fix run expected constructor titles rather than actual native header
+titles; corrected fixture verifies Sound/Wi-Fi/Bluetooth. No production title
+change or WM geometry workaround was made to satisfy the probe.
+
+Impeccable initial/final batched screenshots inspect native Sound, compact
+Paper enlarged launcher, Wi-Fi/Bluetooth no-device states and owned browser
+icon. No further layout defect found; no type/control/dock size changes or
+additional cosmetic loop. Rootfs/native UI/branding and pure tray checks pass.
+No installed WSL update, real device action, audible test, remote push, signing/
+publication, pointer change, stable promotion or ISO build. Installed launcher/
+IME, missing-app fallback paths and broader ledger remain open.
 
 ### Batch 43: bounded background-app tray
 

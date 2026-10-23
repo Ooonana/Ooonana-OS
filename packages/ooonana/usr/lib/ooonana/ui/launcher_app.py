@@ -14,6 +14,7 @@ PREFERRED_COMMANDS = {
     "xterm.desktop": ["ooonana-theme-env", "xterm"],
     "uxterm.desktop": ["ooonana-theme-env", "xterm"],
     "pavucontrol.desktop": ["ooonana-audio-panel"],
+    "org.pulseaudio.pavucontrol.desktop": ["ooonana-audio-panel"],
     "blueman-manager.desktop": ["ooonana-bluetooth-panel"],
     "nm-connection-editor.desktop": ["ooonana-wifi-panel"],
 }

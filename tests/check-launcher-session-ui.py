@@ -99,7 +99,15 @@ with tempfile.TemporaryDirectory(prefix="ooonana-launcher-session-") as temporar
              "Owned i3 unavailable")
         manager = Manager()
         manager.refresh()
+        # First variant uses actual installed desktop ID, not historical alias.
+        # Readiness-only hardware windows run with no real devices/system bus.
+        os.environ['CHROMIUM_USER_FLAGS'] = ('--disable-gpu --disable-background-networking '
+                                             '--disable-component-update --password-store=basic')
         for desktop_id, query, expected_title, process_marker, name in (
+                ("org.pulseaudio.pavucontrol.desktop", None, "Sound", "controls_app.py", "preferred-sound"),
+                ("nm-connection-editor.desktop", None, "Wi-Fi", "wifi_app.py", "preferred-wifi"),
+                ("blueman-manager.desktop", None, "Bluetooth", "bluetooth_app.py", "preferred-bluetooth"),
+                ("chromium.desktop", None, None, "chromium", "preferred-browser"),
                 (entry.name, "Ooonana QA Session Launch", title, "xterm", "terminal"),
                 ("ooonana-settings.desktop", "Ooonana Settings", "Ooonana Settings", "settings_app.py", "settings"),
                 ("xterm.desktop", "XTerm", None, "xterm", "preferred-terminal"),
@@ -112,6 +120,9 @@ with tempfile.TemporaryDirectory(prefix="ooonana-launcher-session-") as temporar
             wait(lambda: launcher.get_realized(), "Launcher not realized")
             xid = GdkX11.X11Window.get_xid(launcher.get_window())
             wait(lambda: any(node["window"] == xid for node in clients()), "Launcher not managed")
+            if query is None:
+                query = next(row.app.get_display_name() for row in launcher.results.get_children()
+                             if row.app.get_id() == desktop_id)
             launcher.search.set_text(query)
             assert all(launcher.filter_row(row) for row in launcher.visible_rows()), "Search must filter before idle/Return"
             wait(lambda: any(row.app.get_id() == desktop_id for row in launcher.visible_rows()),
@@ -151,6 +162,8 @@ with tempfile.TemporaryDirectory(prefix="ooonana-launcher-session-") as temporar
             assert process.stat().st_uid == os.getuid(), "Unexpected launched process owner"
             args = (process / "cmdline").read_bytes().split(b"\0")
             assert any(process_marker.encode() in arg for arg in args), args
+            if name == "preferred-browser":
+                assert b"--no-sandbox" not in args, "QA must not disable Chromium sandbox"
             if name == "preferred-editor":
                 preferences = configparser.ConfigParser()
                 preferences.read(Path.home() / ".config/geany/geany.conf")
@@ -184,7 +197,7 @@ with tempfile.TemporaryDirectory(prefix="ooonana-launcher-session-") as temporar
             launcher = None
         print("LAUNCHER_SESSION_RESULTS", json.dumps(findings), flush=True)
         assert not findings, "; ".join(findings)
-        print("LAUNCHER_SESSION_UI_OK real discovery, X11 Return, native/third-party launch/focus, preferred terminal/editor/files and default app bounds", flush=True)
+        print("LAUNCHER_SESSION_UI_OK real discovery/Return/focus; preferred sound/wifi/bluetooth/browser/terminal/editor/files; default bounds; no device action", flush=True)
     finally:
         if launcher is not None:
             launcher.destroy()
