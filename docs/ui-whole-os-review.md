@@ -16,7 +16,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | --- | --- | --- |
 | Control proportions | Shared/native GTK 10pt typography and chat actions measured; targeted 100/125/200% scaling; Task Manager headers/values follow text metrics | Other app-specific Qt controls, panel/card/dock content proportions; no blind blanket shrink |
 | Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; real private theme toggles/new launches at100/200% text; source frame IPC/joins pass1×/2×; same native Power/dock and held GTK/Geany/Nemo live retheme pass1×/2×; strict display-owned Xsettings ownership/transfer and CSS migration units; icon/logo/cursor metadata and wallpaper preservation tests pass | Browser/Qt live retheming, voluntary one-time reopen for older process pins/providers, installed/live desktop, physical compositor/cursor hotspot/scale and remaining icon/selection states |
-| Panel / music / AI / notifications / tray | Actual source Polybar/wallpaper/dock; wide CJK/full counters and actual AI-centering checks; new Graphite/Paper renders640/1000/1280px; real supervised dark→Paper→dark keeps native dock PID/XID/client state; bounded999+ native/shell counts; actual private MPD empty/play/pause/volume/next/stop/loss/recovery | Bounded XEmbed/SNI hosting and installed tray/service integration; physical/live-session states and mixed-DPI; null-output QA does not prove hardware audio |
+| Panel / music / AI / notifications / tray | Actual source Polybar; wide CJK/full counters/AI centering across seven widths640–1600px; supervised live palette changes preserve dock/client state; bounded999+ counts; silent private MPD recovery; bounded modern indicator host with actual isolated NM/nm-applet menu, shipped Blueman adapter, owner/revision/focus/overflow/keyboard and normal/200% text/device2 tests | Legacy XEmbed-only hosting, installed tray/service authentication/recovery and physical/mixed-DPI integration; null-output QA does not prove hardware audio |
 | Dock | Flat centered icons; actual app/transient grouping, exact MRU restore, direct actions, Pin/Unpin, real held-drag reorder within left-pinned/right-running sections, saved layout/relaunch and readonly retry pass both themes normal/200% text; overflow idle-pin options, edge tooltips and actual 1×/2× device checks pass; signed candidate/native bytes synchronized | Actual installed interactive-session/display integration, physical mixed DPI/hotplug; multi-output visibility currently pure/derived guards |
 | Native Launcher | Long names/tooltips, no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard; real desktop-entry/Return/focus handoff to native Settings and preferred themed terminal/editor/files pass; immediate filter/selection and exact-name ranking repair observed wrong-app launch | Browser/hardware-wrapper variants, actual installed-session keyboard/IME and desktop integration |
 | Wi-Fi / Bluetooth | Managed lists/hidden/personal/TLS/PIN forms; advanced fields, bounded certificate pickers, inline validation, progress/reduced motion, service gating, duplicate/closed refusal and safe Reset/Remove pass both themes through 200% text | Actual installed authentication, advanced network activation, physical reconnect/pairing and changed-adapter integration |
@@ -38,7 +38,6 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | GRUB: live / audio submenu | Shared live/installed branding, compact audio labels; actual EFI 640×480/1280×800, missing-font/mark fallback and unchanged kernel arguments checked. Minimal contrast repaired | Physical BIOS/UEFI, corrupted-media/runtime graphics failure and actual installed boot |
 | Boot / shutdown / reboot / persistent setup | Private PTY boot/save/setup; consecutive warning retention, normal console ordering, serial/ambiguous/motion-off/small-console and exact existing waits pass | Real framebuffer/kernel-message handoff, physical shutdown/recovery and complete persistent-setup interaction |
 | Bootable PDF UI | Previous source/VM fixtures; browser viewer requires manual check | Viewer rendering, keyboard/Backspace, focus, responsive controls and perceived command delay |
-| Lock screen / sign-in / unlock | Shared source locker launcher; actual private i3lock/PAM wrong rejection + correct unlock pass both themes1×/2×; supported current-user helper permission repair reproduced and source packaging/factory/audit guarded; opaque palette and stock layout/failure feedback | Clock/date/branding, compact feedback, sign-in and live-account readiness, actual Caps/layout visual review, physical/multiple-display/wake/unlock integration; retain real authentication, never blanking/decorative password form; no installed live lock |
 | Accessibility / input / displays / session | Initial accessible controls and theme captures only | Text scale, keyboard/focus, clipboard, Korean composition, WSLg input, multi-monitor/DPI/hotplug, login/lock/logout/suspend/resume |
 
 Windows Computer Use failed during initialization with “failed to write kernel
@@ -50,6 +49,60 @@ October 17 updated Computer Use runtime was retried through its documented
 app input. No Windows automation workaround or security setting change used.
 
 ## Current batch evidence
+
+### Batch 43: bounded background-app tray
+
+New modern indicator watcher/host follows the
+[StatusNotifier watcher contract](https://specifications.freedesktop.org/status-notifier-item/latest/status-notifier-watcher.html)
+and [KDE item interface](https://raw.githubusercontent.com/KDE/kstatusnotifieritem/master/src/org.kde.StatusNotifierItem.xml).
+One native chevron opens a compact, opaque, close-only Background apps window.
+Status rows scroll instead of stretching the panel. Existing10pt typography,
+24px aspect-preserving icons, keyboard focus and scroll anchor remain stable.
+Escape hides the window; applet processes continue. Startup retains applet
+modes/system-bus/adapter guards and bounded readiness wait. No extra polling.
+
+Host never replaces/queues over another watcher; foreign registry adoption is
+tested. Registrations must match their caller; menu/action calls retain unique
+peer identity. Item/owner epochs, cancellables and menu revision checks reject
+stale replies/actions, including replacement of a well-known alias. Icon input
+and64-item registry/128-node/depth3 menu bounds prevent unbounded UI growth.
+App text is plain; no shell/URI launch or privilege mechanism is added.
+Disabled/check/radio/submenus retain GTK semantics. Input event is captured
+before asynchronous menu loading; final logs have no GTK warnings/tracebacks.
+
+Latest actual private bus/GTK/source panel gate:
+`/var/tmp/ooonana-tray-gate-20261023.GPj4SG0T`.
+
+- `dark-owner` and `light-owner`: actual NetworkManager/nm-applet menu inside
+  private network/mount/PID namespaces, isolated system bus/state and loopback
+  only. No connection action clicked; no host devices/credentials/DNS access.
+- Actual shipped [Blueman adapter](https://raw.githubusercontent.com/blueman-project/blueman/main/blueman/main/indicators/StatusNotifierItem.py)
+  exports its real SNI/DBusMenu implementation; only radio callbacks use public
+  fixture data. Event reaches that adapter's callback. Not a pairing test.
+- Real separate peers, caller/path rejection, foreign watcher, ownership
+  transfer/loss, menu revision, twelve-item overflow, focus/scroll preservation,
+  actual keyboard Tab/Return/Escape/reopen and singleton delegation pass.
+- Seven actual wide-label/full-counter source Polybar renders pass at
+  640/760/1000/1024/1100/1280/1600px; centered AI stays within5px. Narrow layouts
+  omit secondary status labels rather than shrink click targets or crowd AI.
+- Graphite/Paper normal/200% text confirmation:
+  `/var/tmp/ooonana-tray-confirm-20261023.prYMwJWe`.
+  Latest `device2` repeats functional checks on actual2×640×600 Paper display.
+
+Impeccable batched initial review caught excess header controls, short overflow
+viewport and top-bar overlap. One correction/confirmation inspected both
+themes/text scales and actual NM menu; cosmetic iteration stopped there.
+Earlier panel failures remain recorded under `ooonana-tray-panel*`; these are
+not passing receipts. Final seven-width gate resolves their center shift.
+Pure tray/panel/notification, factory rootfs, native UI and branding pass.
+
+Legacy XEmbed-only apps remain unsupported by this host. Installed service
+authentication, reconnection/pairing, real tray recovery and physical/mixed-DPI
+checks remain open. Cached desktop context is not fresh wallpaper/cursor/frame
+certification. No installed WSL sync, real radio/audio action, remote push,
+signing/publication or ISO build. Cleanup removed~2.73MiB disposable overlays;
+logs/history/build artifacts remain. Exact manual duplicate-cache commands and
+limits: [current work](current-work.md#confirmed-junk-cleanup---october-23).
 
 ### Batch 42: live panel appearance and bounded counters
 
@@ -89,13 +142,14 @@ Silent real MPD flow and Dunst service loss/recovery:
 `/var/tmp/ooonana-panel-functional-20261023.qRrvTnIu`.
 MPD uses null output only; no audio device or hardware claim.
 
-Remaining source gap: tray is disabled while i3 starts`nm-applet --indicator`.
+At this historical checkpoint, tray was disabled while i3 starts`nm-applet --indicator`.
 [NetworkManager source](https://raw.githubusercontent.com/GNOME/network-manager-applet/main/src/main.c)
 selects AppIndicator via that flag; simply adding
 [Polybar's XEmbed tray](https://polybar.readthedocs.io/en/latest/user/modules/tray.html)
 does not itself supply an indicator host or bounded overflow UX. A real
 bounded host/bridge, applet behavior/service tests and installed-session proof
-remain. No untested applet-mode switch, unbounded tray, installed configuration
+were still required. Batch43 supplies bounded modern hosting/private service
+proof; legacy XEmbed and installed integration remain. No untested applet-mode switch, unbounded tray, installed configuration
 rewrite, WSL sync, signing/publication, remote push or ISO build.
 
 ### Batch 41: native lock presentation and live lockout guard

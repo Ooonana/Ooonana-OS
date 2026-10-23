@@ -13,15 +13,17 @@ loader.exec_module(module)
 
 for width in (640, 759, 760, 900, 999, 1000, 1099, 1100, 1279, 1280, 1920):
     left, right, gap, media, wifi = module.panel_layout(width)
-    assert 'media' in left and all(item in right.split() for item in ('battery', 'notifications', 'controls', 'power'))
+    assert 'media' in left and all(item in right.split() for item in ('battery', 'notifications', 'tray', 'controls', 'power'))
     assert media <= 18 and wifi <= 14
     assert 'task-view' in left.split() and 'workspaces' not in left.split()
     assert not (set(left.split()) & {'windows', 'title', 'win-close', 'win-min', 'win-full'})
-    if 760 <= width < 1000:
+    if 760 <= width < 1100:
         assert left == 'task-view media' and 'date' in right and 'wifi' in right
-        assert 'memory' not in right and 'audio' not in right and wifi == 10
-    if width < 1000:
+        assert 'memory' not in right and 'audio' not in right and wifi == 6
+    if width < 760:
         assert wifi == 10
+    elif width < 1100:
+        assert wifi == 6
     elif width < 1280:
         assert wifi == 8 and gap == 0
 

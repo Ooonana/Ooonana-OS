@@ -13,6 +13,8 @@ text_scale="${OOONANA_GUI_TEXT_SCALE:-1.25}"
 device_scale="${OOONANA_GUI_DEVICE_SCALE:-1}"
 i3_candidate="${OOONANA_GUI_I3_CANDIDATE:-}"
 lock_candidate="${OOONANA_GUI_LOCK_CANDIDATE:-}"
+tray_nm="${OOONANA_TRAY_REAL_NM:-0}"
+case "$tray_nm" in 0) ;; 1) [[ "$only" == tray-ui ]] || exit 2 ;; *) exit 2 ;; esac
 qt_scale="${OOONANA_GUI_QT_SCALE:-1}"
 case "$qt_scale" in 1|1.25|1.5|2) ;; *) printf 'Unsupported Qt test scale: %s\n' "$qt_scale" >&2; exit 2 ;; esac
 case "$device_scale" in 1|2) ;; *) printf 'Unsupported device scale: %s\n' "$device_scale" >&2; exit 2 ;; esac
@@ -24,7 +26,7 @@ case "$geometry" in
   *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
 esac
 case "$only" in
-  all|setup-details-ui|controls-details-ui|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|theme-flow-ui|frame-theme-ui|live-theme-ui|external-theme-ui|lock-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|launcher-session-ui|notifications-runtime|notification-lifecycle|notification-auto-recovery|window-controls-runtime|dock-ui|dock-edges-ui|device-scale-ui|csd-controls-ui|panel-ui|panel-live-ui|panel-media-runtime|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
+  all|setup-details-ui|controls-details-ui|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|theme-flow-ui|frame-theme-ui|live-theme-ui|external-theme-ui|lock-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|launcher-session-ui|notifications-runtime|notification-lifecycle|notification-auto-recovery|window-controls-runtime|dock-ui|dock-edges-ui|device-scale-ui|csd-controls-ui|panel-ui|panel-live-ui|tray-ui|panel-media-runtime|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -237,7 +239,7 @@ if [[ "$only" == all || "$only" == admin-prompt-ui ]]; then
   mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-admin-askpass"
   admin_policy=1
 fi
-if [[ "$only" == frame-theme-ui || "$only" == live-theme-ui || "$only" == external-theme-ui || "$only" == theme-flow-ui || "$only" == lock-ui || "$only" == panel-live-ui ]]; then
+if [[ "$only" == frame-theme-ui || "$only" == live-theme-ui || "$only" == external-theme-ui || "$only" == theme-flow-ui || "$only" == lock-ui || "$only" == panel-live-ui || "$only" == tray-ui ]]; then
   # New frame helper must be exercised from source, including subprocess imports.
   # This probe performs no package operations against the source-only repo dir.
   mount --bind "$SOURCE/packages/ooonana/usr/lib/ooonana" "$rootfs/usr/lib/ooonana"
@@ -329,8 +331,32 @@ if [[ "$only" == firefox-frame && -z "${OOONANA_FIREFOX_REUSE_HOME:-}" ]]; then
     >"$output/firefox-install-update.log" 2>&1
 fi
 # Host Xvfb and candidate use the same private filesystem socket, no TCP.
+if [[ "$tray_nm" == 1 ]]; then
+  # Real applet/service, only loopback in private net NS. No host bus/devices,
+  # DNS changes, service activation, persistent NM state or user credentials.
+  mount -t sysfs -o ro,nosuid,nodev,noexec sysfs "$rootfs/sys"
+  [[ "$(ls "$rootfs/sys/class/net")" == lo ]] || { echo 'Refuse: QA network is not isolated'; exit 1; }
+  mount -t tmpfs -o size=8m,mode=0700 tmpfs "$rootfs/var/lib/NetworkManager"
+  mkdir -p "$rootfs/run/dbus" "$rootfs/run/qa-nm-config" "$rootfs/run/qa-nm-system-config"
+  install -m 0444 "$SOURCE/tests/fixtures/tray-system-bus.conf" "$rootfs/run/qa-system-bus.conf"
+  install -m 0444 "$SOURCE/tests/fixtures/tray-NetworkManager.conf" "$rootfs/run/qa-NetworkManager.conf"
+  chroot "$rootfs" /usr/bin/dbus-daemon --config-file=/run/qa-system-bus.conf --fork --nopidfile >"$output/system-bus.log" 2>&1
+  chown 1000:1000 "$rootfs/run/dbus/system_bus_socket"
+  chmod 0600 "$rootfs/run/dbus/system_bus_socket"
+  chroot "$rootfs" /usr/sbin/NetworkManager --no-daemon --log-level=WARN --config=/run/qa-NetworkManager.conf \
+    --config-dir=/run/qa-nm-config --system-config-dir=/run/qa-nm-system-config \
+    --intern-config=/run/qa-nm-intern.conf --state-file=/run/qa-nm-state >"$output/NetworkManager.log" 2>&1 &
+  nm_child=$!
+  ready=0
+  for attempt in {1..10}; do
+    if timeout 2 chroot --userspec=1000:1000 "$rootfs" /usr/bin/nmcli --wait 1 -t -f RUNNING general 2>/dev/null | grep -qx running; then ready=1; break; fi
+    kill -0 "$nm_child" || break
+    sleep .2
+  done
+  [[ "$ready" == 1 ]] || { tail -30 "$output/NetworkManager.log"; exit 1; }
+fi
 mount --bind "$rootfs/tmp" /tmp
-export rootfs output only theme text_scale device_scale qt_scale gui_runtime admin_policy i3_candidate lock_candidate
+export rootfs output only theme text_scale device_scale qt_scale gui_runtime admin_policy i3_candidate lock_candidate tray_nm
 # Keep namespace init as Bash. Xvfb will not send its readiness signal to PID 1.
 # shellcheck disable=SC2016 # Child shell expands exported paths/display.
 unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp" bash -c '
@@ -366,6 +392,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
       XDG_CURRENT_DESKTOP=Ooonana:i3 XDG_SESSION_DESKTOP=ooonana DESKTOP_SESSION=ooonana \
       PYTHONDONTWRITEBYTECODE=1 OOONANA_GUI_TEST_DISPLAY=1 OOONANA_NOTIFICATION_TEST_SESSION=1 GDK_BACKEND=x11 \
       OOONANA_GUI_TEST_ADMIN_POLICY="$admin_policy" \
+      OOONANA_TRAY_REAL_NM="$tray_nm" \
       GTK_THEME="Adwaita:$theme" OOONANA_THEME="$theme" OOONANA_GUI_TEXT_SCALE="$text_scale" NO_AT_BRIDGE=1 \
       GDK_SCALE="$device_scale" QT_SCALE_FACTOR="$qt_scale" \
       OOONANA_WINDOW_CONTROLS="${i3_candidate:+left}" \
@@ -426,6 +453,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   probe device-scale-ui python3 /source/tests/check-device-scale-ui.py /qa/device-scale
   probe csd-controls-ui python3 /source/tests/check-csd-controls-ui.py /qa/csd-controls
   panel_options=()
+  probe tray-ui python3 /source/tests/check-tray-ui.py /qa/tray
   probe panel-live-ui python3 /source/tests/check-panel-live-ui.py /qa/panel-live
   if [ "${OOONANA_PANEL_WIDE_LABELS:-0}" = 1 ]; then panel_options+=(--wide-labels); fi
   probe panel-ui python3 /source/tests/check-panel-ui.py /qa/panel.png --rootfs / --long-wifi --desktop-overview --appearance-output /qa/appearance.png "${panel_options[@]}"

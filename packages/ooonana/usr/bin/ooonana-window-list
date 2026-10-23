@@ -51,13 +51,12 @@ def dock_geometry():
 def panel_layout(width):
     """Reserve centered AI space even with double-width names and full counters."""
     if width < 760:
-        return ("task-view media", "memory battery notifications controls power", 0, 10, 10)
-    if width < 1000:
-        return ("task-view media", "battery wifi notifications controls date power", 0, 10, 10)
+        # RAM/audio details stay in Task Manager/Control Center on small panels.
+        return ("task-view media", "battery notifications tray controls power", 0, 10, 10)
     if width < 1100:
-        return ("brand task-view media", "memory audio battery wifi notifications controls date power", 0, 14, 8)
+        return ("task-view media", "battery wifi notifications tray controls date power", 0, 10, 6)
     return ("brand task-view media",
-            "memory audio battery wifi notifications controls date power", 0 if width < 1280 else 1,
+            "memory audio battery wifi notifications tray controls date power", 0 if width < 1600 else 1,
             18, 8 if width < 1280 else 14)
 
 

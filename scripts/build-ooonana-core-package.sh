@@ -155,10 +155,11 @@ cli="${prefix%/}/usr/bin/ooonana"
   echo 'core healthcheck: /var/tmp missing or unsafe permissions' >&2; exit 1;
 }
 "$cli" version | grep -q "ooonana ${OOONANA_PKG_VERSION}"
-for helper in ooonana-memory ooonana-panel-start ooonana-xsettings ooonana-lock ooonana-window-list ooonana-shutdown-cleanup ooonana-storage-watch ooonana-persistence gzip; do
+for helper in ooonana-memory ooonana-panel-start ooonana-xsettings ooonana-lock ooonana-tray ooonana-window-list ooonana-shutdown-cleanup ooonana-storage-watch ooonana-persistence gzip; do
   [ -x "${prefix%/}/usr/bin/$helper" ] || { echo "core healthcheck: missing $helper" >&2; exit 1; }
 done
 for asset in usr/lib/ooonana/xsettings_session.py usr/lib/ooonana/legacy_gtk_style.py usr/lib/ooonana/lock_screen.py usr/lib/ooonana/lock_readiness.py \
+  usr/lib/ooonana/tray_model.py usr/lib/ooonana/tray_service.py usr/lib/ooonana/ui/tray_app.py \
   usr/share/themes/OoonanaGraphite/gtk-3.0/gtk.css \
   usr/share/themes/OoonanaPaper/gtk-3.0/gtk.css \
   usr/share/themes/Ooonana/gtk-3.0/common.css; do

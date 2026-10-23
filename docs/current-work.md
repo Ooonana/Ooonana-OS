@@ -14,8 +14,9 @@ Current OS/core remains **0.10.0 candidate**, not a promoted stable release.
    Native live refresh/dock parity and held-open GTK/Geany/Nemo now pass;
    browser/Qt live appearance and installed/physical checks remain open.
    Native locker clock/feedback and live lockout prevention now pass private
-   real-auth tests. Panel live palettes/spacing/counters pass; tray/service
-   hosting, actual sign-in/wake and installed-session checks remain active.
+   real-auth tests. Panel palettes/spacing/counters and bounded modern indicator
+   hosting now pass private real-service/menu tests. Legacy XEmbed hosting,
+   actual sign-in/wake and installed-session checks remain open.
    Never lock the installed/live user session during isolated QA.
 3. **Deferred release integration.** Remote CI, fresh core/runtime/native package
    set, signed generation, final closure checks, WSL sync and updated release
@@ -55,11 +56,11 @@ flow passes100/200% text; native live Power/dock regression, six protocol/CSS
 ownership units, theme/frame/preferences/editor, branding/native UI and factory
 rootfs suites pass. [Evidence/limits](ui-whole-os-review.md#batch-39-display-owned-live-gtk-appearance-source-checkpoint).
 
-Next requested surfaces: lock/sign-in/unlock (clock/date, restrained branding,
+Following this historical theme checkpoint, requested surfaces were lock/sign-in/unlock (clock/date, restrained branding,
 spacing, password/error feedback, Caps Lock/input language, focus, scale and
 wake) with real authentication unchanged; then panel installed tray/services,
 left music, AI, notifications/counters, long labels and narrow-screen spacing.
-These requested surfaces are **not complete** from this theme-only checkpoint.
+Later lock/panel source results appear below; installed integration is not complete.
 No installed WSL update, remote push, signing, publication or ISO build.
 
 ## Source checkpoint: live panel palettes and bounded counters
@@ -82,11 +83,59 @@ zeros cannot become shell octal. Existing silent MPD state flow and real Dunst
 loss/recovery pass. Factory copies latest fallback helper over cached archives.
 [Evidence/limits](ui-whole-os-review.md#batch-42-live-panel-appearance-and-bounded-counters).
 
-Tray/service work remains: source disables tray while starting indicator-mode
-NetworkManager applet; simply enabling an unbounded icon row would risk the
-center/long-label layout. No untested tray or applet-mode switch shipped.
-Installed applet/service authentication and physical integration remain open.
+Modern indicator hosting is now source-tested in the next checkpoint. Legacy
+XEmbed, installed applet/service authentication and physical integration remain open.
 No WSL update, remote push, signing/publication or ISO build.
+
+## Source checkpoint: bounded background-app tray
+
+New session-bus StatusNotifier watcher/host gives indicator-mode NetworkManager
+and Blueman a compact, scrollable Background apps window behind one panel
+chevron. Existing applet modes and system-bus/adapter startup guards remain;
+startup waits at most five seconds for the watcher. Close/Escape hides the
+window without stopping applets. No extra polling loop, privileged action,
+command execution from menu text, inline icon crowding or global font shrink.
+
+App-owned Activate and DBusMenu actions use the original unique bus owner.
+Registration identity, owner replacement/loss, stale callbacks/menu revisions,
+foreign watcher adoption, duplicate aliases, icon sizes and menu depth/count
+are bounded/checked. Same-process singleton launcher delegates correctly.
+Overflow preserves keyboard focus/scroll; menus retain disabled/check/radio
+semantics. Legacy XEmbed-only apps remain unsupported by this source host.
+
+Real isolated NetworkManager/nm-applet menu and shipped Blueman indicator/menu
+adapter pass both themes; radios remain unavailable in private namespaces.
+Keyboard, owner-loss, overflow, normal/200% text and actual device2 scaling
+pass. Real source panel centering/long CJK labels/full counters pass seven
+widths640/760/1000/1024/1100/1280/1600. Narrow layouts prioritize controls over
+secondary RAM/audio labels; no tiny hit targets or changed dock geometry.
+Impeccable initial review plus one correction/confirmation completed.
+[Evidence/limits](ui-whole-os-review.md#batch-43-bounded-background-app-tray).
+
+Pure tray/panel/notification, factory rootfs, native UI and branding regressions
+pass. No installed WSL sync, remote push, signing/publication or ISO build.
+Actual installed service authentication, reconnect/pairing and legacy tray
+support remain open; these private fixtures do not certify physical hardware.
+
+### Confirmed junk cleanup - October 23
+
+Removed only inactive generated overlay subdirectories from two disposable
+locker build roots, after resolved-path/no-symlink/no-mount/process checks.
+Reclaimed2,863,104 allocated bytes (~2.73MiB). Diagnostic logs, native binaries,
+unsigned packages, pinned sources, history, models, keys and releases remain.
+
+Two previously tool-blocked archive caches remain. Read-only checks found644
+files in each, no reparse points/unlisted files, and every declared archive
+hash in preserved published generations. Stage metadata/hooks/history differ
+and must stay. Manual PowerShell cleanup, only these exact archive folders:
+
+```powershell
+Remove-Item -LiteralPath 'F:\Ooonana\ooonana-os\build\qt-publish-stage-20261018-a9825212\archives' -Recurse -Force
+Remove-Item -LiteralPath 'F:\Ooonana\ooonana-os\build\flat-pins-stage-20261019-5a39c8c-8rx2iy5j\archives' -Recurse -Force
+```
+
+About2.04GiB logical duplicates; hardlinks can reduce actual space reclaimed.
+Published generations preserve recovery copies. No denied deletion retried.
 
 ## Active source batch: real lock authentication and launch groundwork
 
@@ -131,8 +180,8 @@ source/binary/input provenance and release refusal for old/stale packages pass.
 Package archive digest: `abdd50e2e8249d6a558e320fb7c1b4aa3c263daa986139213c332f3d066b700f`.
 No signed generation changed. Sign-in, real wake and physical/multi-display
 transitions remain unverified. [Evidence/limits](ui-whole-os-review.md#batch-41-native-lock-presentation-and-live-lockout-guard).
-Panel review follows: tray currently disabled while network/Bluetooth applets
-can start; SNI/XEmbed/service integration needs actual isolated proof.
+Subsequent panel/modern tray source proof appears above. Installed service and
+legacy XEmbed integration remain open.
 No WSL update, real user lock, signing, publication, remote push or ISO build.
 
 ## Source checkpoint: live native appearance and Paper dock

@@ -34,6 +34,7 @@ jobs:
           python3 -B tests/test-state-io-recovery.py
           python3 -B tests/test-ai-store-safety.py
           python3 -B tests/test-panel-session.py
+          python3 -B tests/test-tray-model.py
           python3 -B tests/test-installed-wsl-update.py
           python3 -B tests/test-pdf-runtime-reuse.py
           python3 -B tests/test-native-pdf-probe.py

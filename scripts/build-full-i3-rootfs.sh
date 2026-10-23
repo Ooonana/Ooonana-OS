@@ -2728,7 +2728,7 @@ font-2 = "Font Awesome 7 Brands:size=10;2"
 font-3 = "Noto Sans CJK KR:size=10;2"
 modules-left = ${env:OOONANA_PANEL_LEFT:brand task-view media}
 modules-center = ai
-modules-right = ${env:OOONANA_PANEL_RIGHT:memory audio battery wifi notifications controls date power}
+modules-right = ${env:OOONANA_PANEL_RIGHT:memory audio battery wifi notifications tray controls date power}
 tray-position = none
 wm-restack = i3
 override-redirect = true
@@ -2841,6 +2841,14 @@ label = %output%
 label-padding = 1
 click-left = ooonana-notifications
 click-right = ooonana-notification-status --toggle
+
+[module/tray]
+type = custom/text
+content = %{T2}%{T-}
+content-foreground = ${colors.muted}
+content-padding = 1
+click-left = ooonana-tray --toggle
+click-right = ooonana-tray --toggle
 
 [module/controls]
 type = custom/text
@@ -4475,16 +4483,16 @@ install_current_backend_checks() {
     "$ROOTFS/usr/lib/ooonana/panel_session.py"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/desktop_theme.py" \
     "$ROOTFS/usr/lib/ooonana/desktop_theme.py"
-  for file in xsettings_session.py legacy_gtk_style.py lock_screen.py lock_readiness.py; do
+  for file in xsettings_session.py legacy_gtk_style.py lock_screen.py lock_readiness.py tray_model.py tray_service.py; do
     install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/$file" \
       "$ROOTFS/usr/lib/ooonana/$file"
   done
-  for file in chat_store.py common.py memory_status.py notification_utils.py task_manager_app.py theme_watch.py ui_preferences.py window_controls.py; do
+  for file in chat_store.py common.py memory_status.py notification_utils.py task_manager_app.py theme_watch.py tray_app.py ui_preferences.py window_controls.py; do
     install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ui/$file" \
       "$ROOTFS/usr/lib/ooonana/ui/$file"
   done
   install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana" "$ROOTFS/usr/bin/ooonana"
-  for file in ooonana-window-list ooonana-panel-start ooonana-media-status ooonana-notification-status ooonana-xsettings ooonana-lock; do
+  for file in ooonana-window-list ooonana-panel-start ooonana-media-status ooonana-notification-status ooonana-xsettings ooonana-lock ooonana-tray; do
     install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/$file" "$ROOTFS/usr/bin/$file"
   done
   [[ -f "$app/APP-MANIFEST.sha256" ]] || return 0

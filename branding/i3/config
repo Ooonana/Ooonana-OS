@@ -37,10 +37,11 @@ exec --no-startup-id sh -c 'if command -v picom >/dev/null 2>&1; then if [ "${OO
 exec --no-startup-id sh -c 'command -v dunst >/dev/null 2>&1 && dunst -config /etc/ooonana/dunstrc &'
 exec_always --no-startup-id ooonana-xsettings
 exec_always --no-startup-id ooonana-panel-start
+exec_always --no-startup-id ooonana-tray --background
 exec_always --no-startup-id ooonana-window-controls
 exec --no-startup-id ooonana-storage-watch
-exec --no-startup-id sh -c 'command -v nm-applet >/dev/null 2>&1 && [ -S /run/dbus/system_bus_socket ] && nm-applet --indicator &'
-exec --no-startup-id sh -c 'if command -v blueman-applet >/dev/null 2>&1 && [ -S /run/dbus/system_bus_socket ] && ls /sys/class/bluetooth/hci* >/dev/null 2>&1; then blueman-applet & fi'
+exec --no-startup-id sh -c 'if command -v nm-applet >/dev/null 2>&1 && [ -S /run/dbus/system_bus_socket ]; then ooonana-tray --wait-ready >/dev/null 2>&1 || true; nm-applet --indicator & fi'
+exec --no-startup-id sh -c 'if command -v blueman-applet >/dev/null 2>&1 && [ -S /run/dbus/system_bus_socket ] && ls /sys/class/bluetooth/hci* >/dev/null 2>&1; then ooonana-tray --wait-ready >/dev/null 2>&1 || true; blueman-applet & fi'
 exec --no-startup-id sh -c '[ "${OOONANA_NO_AUDIO:-0}" = 1 ] || { command -v ooonana-audio-start >/dev/null 2>&1 && ooonana-audio-start >/dev/null 2>&1; } || true'
 
 bindsym $mod+Return exec ooonana-theme-env xterm
