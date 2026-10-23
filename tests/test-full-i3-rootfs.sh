@@ -188,6 +188,7 @@ EOF
 make_archive_pkg branding usr/share/ooonana/pkg-branding.txt branding-installed
 make_archive_pkg fake-i3-bin usr/bin/fake-i3-bin fake-i3-installed
 make_archive_pkg dbus-daemon-launch-helper usr/libexec/dbus-daemon-launch-helper helper-installed
+make_archive_pkg linux-pam usr/sbin/unix_chkpwd pam-helper-fixture
 chmod +x "$tmp/payload-fake-i3-bin/usr/bin/fake-i3-bin" 2>/dev/null || true
 tar -C "$tmp/payload-fake-i3-bin" -czf "$repo/fake-i3-bin.tar.gz" .
 fake_i3_sha="$(sha256sum "$repo/fake-i3-bin.tar.gz" | awk '{print $1}')"
@@ -202,7 +203,7 @@ OOONANA_PKG_ID="i3"
 OOONANA_PKG_VERSION="0.1.0"
 OOONANA_PKG_KIND="profile"
 OOONANA_PKG_SUMMARY="i3 profile"
-OOONANA_PKG_DEPS="dbus-daemon-launch-helper fake-i3-bin"
+OOONANA_PKG_DEPS="dbus-daemon-launch-helper fake-i3-bin linux-pam"
 EOF
 
 cat > "$repo/full-i3.pkg" <<'EOF'
@@ -217,7 +218,7 @@ cp "$scratch/var/lib/ooonana/packages/installed/base.pkg" "$repo/base.pkg"
 "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$repo" >/dev/null
 grep -q $'^full-i3\t' "$repo/index.tsv" || fail "fixture index missing full-i3"
 grep -q '  full-i3.pkg$' "$repo/SHA256SUMS" || fail "fixture checksums missing full-i3"
-printf '%s\n' base branding dbus-daemon-launch-helper fake-i3-bin i3 full-i3 >"$tmp/full-i3.list"
+printf '%s\n' base branding dbus-daemon-launch-helper fake-i3-bin linux-pam i3 full-i3 >"$tmp/full-i3.list"
 mkdir -p "$tmp/preflight/sources" "$tmp/preflight/state" "$tmp/preflight/cache"
 OOONANA_ROOT="$tmp/preflight/root" \
   OOONANA_REPO_DIR="$repo" \
@@ -329,6 +330,7 @@ assert_contains "$(<"$rootfs/etc/gtk-3.0/settings.ini")" "gtk-decoration-layout=
 [[ -f "$rootfs/etc/ooonana/picom.conf" ]] || fail "missing picom config"
 [[ -f "$rootfs/etc/ooonana/dunstrc" ]] || fail "missing dunst config"
 [[ -f "$rootfs/etc/ooonana/xsettingsd.conf" ]] || fail "missing xsettingsd config"
+[[ "$(stat -c %a "$rootfs/usr/sbin/unix_chkpwd")" == 4755 ]] || fail "PAM helper cannot read protected shadow"
 [[ -x "$rootfs/usr/bin/ooonana-xsettings" ]] || fail "missing live Xsettings bridge"
 [[ -f "$rootfs/usr/lib/ooonana/xsettings_session.py" && -f "$rootfs/usr/lib/ooonana/legacy_gtk_style.py" ]] || fail "missing live theme modules"
 [[ -f "$rootfs/etc/gtk-3.0/settings.ini" ]] || fail "missing GTK system settings"
@@ -982,7 +984,7 @@ assert_contains "$polybar_cfg" "click-middle = brightnessctl set 50%"
 assert_contains "$polybar_cfg" "[module/power]"
 assert_contains "$polybar_cfg" "content = "
 assert_contains "$polybar_cfg" "click-left = ooonana-power-menu"
-assert_contains "$polybar_cfg" "click-right = i3lock"
+assert_contains "$polybar_cfg" "click-right = ooonana-lock"
 assert_contains "$polybar_cfg" "label = %time%"
 
 power_menu="$(<"$rootfs/usr/bin/ooonana-power-menu")"

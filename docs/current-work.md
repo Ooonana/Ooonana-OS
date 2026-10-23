@@ -13,8 +13,8 @@ Current OS/core remains **0.10.0 candidate**, not a promoted stable release.
    remaining icons, wallpaper and cursor shape/size/hotspot before lockscreen.
    Native live refresh/dock parity and held-open GTK/Geany/Nemo now pass;
    browser/Qt live appearance and installed/physical checks remain open.
-   Lock/sign-in/unlock then panel stay next, in that order; preserve real
-   authentication and never live-lock during isolated QA.
+   Lock/sign-in/unlock is now active, then panel; preserve real authentication
+   and never lock the installed/live user session during isolated QA.
 3. **Deferred release integration.** Remote CI, fresh core/runtime/native package
    set, signed generation, final closure checks, WSL sync and updated release
    screenshots/docs. No private-key upload; OpenVINO stays deferred.
@@ -59,6 +59,39 @@ wake) with real authentication unchanged; then panel installed tray/services,
 left music, AI, notifications/counters, long labels and narrow-screen spacing.
 These requested surfaces are **not complete** from this theme-only checkpoint.
 No installed WSL update, remote push, signing, publication or ISO build.
+
+## Active source batch: real lock authentication and launch groundwork
+
+Actual vendor i3lock PAM test reproduced an unlock failure, not a missing PAM
+policy: Linux-PAM1.7.1 correctly loads `/usr/lib/pam.d/base-auth`. The importer
+normalizes tar ownership to0:0, accidentally turning upstream SGID-shadow
+`unix_chkpwd` into SGID-root. It cannot read Ooonana's0600 shadow file.
+Disposable correct credential was rejected with PAM9. Supported SUID-root mode
+accepted correct credential/PAM0 and still rejected wrong credential/PAM7,
+without editing PAM policy, helper bytes, or original credentials.
+
+Source import now adapts only Linux-PAM's current-user check helper to4755,
+with version suffix`.ooonana1` and component`pam-helper-root-v1`. Old upstream-
+version caches rebuild instead of being relabelled as repaired. Fresh rootfs
+normalization and runtime audit enforce the mode/root owner. Future core health
+checks migrate only exact known2755/root:root +0600/root:root legacy layout;
+custom shadow/helper ownership or modes remain. No installed migration run.
+
+Native Power, fallback menu and panel lock action now share `ooonana-lock`:
+opaque Graphite/Paper background, current keyboard layout and failed-attempt
+feedback. No beep/debug/blanking/empty-password-policy override. Actual input
+grab and password verification remain vendor i3lock/PAM. Four private real
+locker cases pass both palettes at1×/2×: wrong password stays locked, correct
+public disposable test password unlocks. Source launcher units/import-cache/
+rootfs regressions pass. [Evidence](ui-whole-os-review.md#batch-40-real-lock-authentication-and-launch-groundwork).
+
+Clock/date, restrained branding and compact feedback still need native
+presentation work; sign-in, live-account readiness, wake and physical/multi-
+display transitions remain unverified. No frozen timestamp or decorative
+password form substitutes for a real clock or authentication. Panel review
+follows: its tray is currently disabled while network/Bluetooth applets can
+start; SNI/XEmbed/service integration needs actual isolated proof.
+No WSL update, real user lock, signing, publication, remote push or ISO build.
 
 ## Source checkpoint: live native appearance and Paper dock
 

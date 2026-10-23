@@ -185,7 +185,7 @@ with tempfile.TemporaryDirectory() as temporary:
         assert power.cancel_button.get_label() == "Cancel"
     power.lock()
     command, done = jobs.pop()
-    assert command == ["i3lock"]
+    assert command == ["ooonana-lock"]
     done(127, "Lock unavailable")
     assert not jobs, "Failed lock fell back to display blanking"
     capture(power, "power-failure")

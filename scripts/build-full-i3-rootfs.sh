@@ -2047,7 +2047,7 @@ if [ "${1:-}" = "--dry-run" ]; then
 fi
 action="$(choose)"
 case "$action" in
-  Lock) command -v i3lock >/dev/null 2>&1 && exec i3lock ;;
+  Lock) exec ooonana-lock ;;
   "Log out") command -v i3-msg >/dev/null 2>&1 && i3-msg exit >/dev/null 2>&1 || true ;;
   "Restart i3") command -v i3-msg >/dev/null 2>&1 && i3-msg restart >/dev/null 2>&1 || true ;;
   Reboot) exec bunana --restart ;;
@@ -3014,7 +3014,7 @@ content-foreground = ${colors.foreground}
 content-background = ${colors.background-alt}
 content-padding = 2
 click-left = ooonana-power-menu
-click-right = i3lock
+click-right = ooonana-lock
 
 [module/battery]
 type = custom/script
@@ -4475,7 +4475,7 @@ install_current_backend_checks() {
     "$ROOTFS/usr/lib/ooonana/panel_session.py"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/desktop_theme.py" \
     "$ROOTFS/usr/lib/ooonana/desktop_theme.py"
-  for file in xsettings_session.py legacy_gtk_style.py; do
+  for file in xsettings_session.py legacy_gtk_style.py lock_screen.py; do
     install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/$file" \
       "$ROOTFS/usr/lib/ooonana/$file"
   done
@@ -4484,7 +4484,7 @@ install_current_backend_checks() {
       "$ROOTFS/usr/lib/ooonana/ui/$file"
   done
   install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana" "$ROOTFS/usr/bin/ooonana"
-  for file in ooonana-window-list ooonana-panel-start ooonana-media-status ooonana-xsettings; do
+  for file in ooonana-window-list ooonana-panel-start ooonana-media-status ooonana-xsettings ooonana-lock; do
     install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/$file" "$ROOTFS/usr/bin/$file"
   done
   [[ -f "$app/APP-MANIFEST.sha256" ]] || return 0
@@ -4828,6 +4828,13 @@ normalize_rootfs_permissions() {
     "$ROOTFS/bin/su"; do
     [[ -f "$setuid_path" ]] && chmod 4755 "$setuid_path"
   done
+
+  # Imported APK tar owners are normalized to root. Preserve 0600 shadow;
+  # SGID-root cannot read it. Use Linux-PAM's supported SUID-root helper mode.
+  if [[ -f "$ROOTFS/usr/sbin/unix_chkpwd" && ! -L "$ROOTFS/usr/sbin/unix_chkpwd" ]]; then
+    [[ "$(id -u)" != 0 ]] || chown 0:0 "$ROOTFS/usr/sbin/unix_chkpwd"
+    chmod 4755 "$ROOTFS/usr/sbin/unix_chkpwd"
+  fi
 
   if [[ -f "$ROOTFS/usr/lib/chromium/chrome-sandbox" ]]; then
     chmod 4755 "$ROOTFS/usr/lib/chromium/chrome-sandbox"

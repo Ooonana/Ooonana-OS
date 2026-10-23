@@ -190,6 +190,9 @@ def main() -> int:
         "/etc/passwd",
         "/etc/group",
         "/etc/shadow",
+        "/usr/sbin/unix_chkpwd",
+        "/usr/lib/pam.d/base-auth",
+        "/usr/lib/security/pam_unix.so",
         "/etc/NetworkManager/NetworkManager.conf",
         "/etc/ssl/cert.pem",
         "/etc/ssl/certs/ca-certificates.crt",
@@ -242,10 +245,12 @@ def main() -> int:
         if "ooonana" not in members:
             fail(f"desktop user missing group: {group}")
 
-    for path in ("/usr/bin/doas", "/usr/bin/sudo", "/bin/su"):
+    for path in ("/usr/bin/doas", "/usr/bin/sudo", "/bin/su", "/usr/sbin/unix_chkpwd"):
         candidate = rooted(path)
         if candidate.exists() and not candidate.stat().st_mode & stat.S_ISUID:
             fail(f"setuid bit missing: {path}")
+        if path.endswith("unix_chkpwd") and candidate.exists() and candidate.stat().st_uid != 0:
+            fail("password-check helper must be owned by root")
 
     dbus_helper = rooted("/usr/libexec/dbus-daemon-launch-helper")
     if dbus_helper.exists():

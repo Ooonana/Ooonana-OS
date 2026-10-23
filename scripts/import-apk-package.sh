@@ -163,6 +163,8 @@ write_pkg_metadata() {
   local origin="$7"
   local base="${8:-}"
   local pkg_file="$OUT_DIR/$name.pkg"
+  local components="apk-import alpine $ARCH"
+  [[ "$name" != linux-pam ]] || components="$components pam-helper-root-v1"
   cat > "$pkg_file" <<EOF
 OOONANA_PKG_ID="$(shell_escape "$name")"
 OOONANA_PKG_VERSION="$(shell_escape "$version")"
@@ -171,7 +173,7 @@ OOONANA_PKG_SUMMARY="$(shell_escape "$summary")"
 OOONANA_PKG_DEPS="$(shell_escape "$deps")"
 OOONANA_PKG_ARCHIVE="$(shell_escape "$archive_rel")"
 OOONANA_PKG_SHA256="$(shell_escape "$archive_sha")"
-OOONANA_PKG_COMPONENTS="apk-import alpine $(shell_escape "$ARCH")"
+OOONANA_PKG_COMPONENTS="$(shell_escape "$components")"
 OOONANA_PKG_BASE="$(shell_escape "$base")"
 OOONANA_PKG_NOTES="Imported from Alpine package $(shell_escape "$origin")"
 EOF
@@ -203,9 +205,11 @@ reuse_cached_archive() {
 
 import_one() {
   local name="$1"
-  local version apk_arch origin summary raw_deps deps archive_name archive_rel archive_path apk_repo base branch
+  local version package_version apk_arch origin summary raw_deps deps archive_name archive_rel archive_path apk_repo base branch
   version="$(apk_field "$name" V)"
   [[ -n "$version" ]] || ooonana_die "package not found in APKINDEX: $name"
+  package_version="$version"
+  [[ "$name" != linux-pam ]] || package_version="$version.ooonana1"
   apk_repo="$(apk_field "$name" X)"
   [[ -n "$apk_repo" ]] || ooonana_die "package repo missing in APKINDEX: $name"
   base=""
@@ -229,9 +233,9 @@ import_one() {
   archive_rel="archives/$name-$version.tar.gz"
   archive_path="$OUT_DIR/$archive_rel"
   mkdir -p "$OUT_DIR/archives" "$WORK/extract-$name"
-  if reuse_cached_archive "$OUT_DIR/$name.pkg" "$archive_path" "$version" "$archive_rel"; then
+  if reuse_cached_archive "$OUT_DIR/$name.pkg" "$archive_path" "$package_version" "$archive_rel"; then
     archive_sha="$(sha256sum "$archive_path" | awk '{print $1}')"
-    write_pkg_metadata "$name" "$version" "$summary" "$deps" "$archive_rel" "$archive_sha" "$origin" "$base"
+    write_pkg_metadata "$name" "$package_version" "$summary" "$deps" "$archive_rel" "$archive_sha" "$origin" "$base"
     for dep in $deps; do
       printf '%s\n' "$dep"
     done
@@ -249,6 +253,14 @@ import_one() {
     -name '.post-*' -o \
     -name '.trigger' \
   \) -exec rm -f {} +
+  if [[ "$name" == linux-pam ]]; then
+    # Ooonana imports normalize owners/groups to root and keep shadow 0600.
+    # Upstream SGID-shadow would become SGID-root, unable to read that file.
+    # Linux-PAM supports SUID-root for its current-user-only check helper.
+    local pam_helper="$WORK/extract-$name/usr/sbin/unix_chkpwd"
+    [[ -f "$pam_helper" && ! -L "$pam_helper" ]] || ooonana_die "linux-pam password helper missing or linked"
+    chmod 4755 "$pam_helper"
+  fi
   tar \
     --sort=name \
     --mtime='UTC 1970-01-01' \
@@ -261,7 +273,7 @@ import_one() {
     . | gzip -n > "$archive_path"
   chmod a+rw "$archive_path"
   archive_sha="$(sha256sum "$archive_path" | awk '{print $1}')"
-  write_pkg_metadata "$name" "$version" "$summary" "$deps" "$archive_rel" "$archive_sha" "$origin" "$base"
+  write_pkg_metadata "$name" "$package_version" "$summary" "$deps" "$archive_rel" "$archive_sha" "$origin" "$base"
   for dep in $deps; do
     printf '%s\n' "$dep"
   done

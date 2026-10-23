@@ -911,7 +911,7 @@ class PowerWindow(Gtk.Window):
 
     def lock(self, *_args):
         # Display blanking is not authentication and must never replace a lock.
-        self.request(["i3lock"], "Lock")
+        self.request(["ooonana-lock"], "Lock")
 
     def logout(self, *_args):
         self.confirm("logout")

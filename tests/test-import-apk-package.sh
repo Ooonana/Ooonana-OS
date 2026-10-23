@@ -158,4 +158,31 @@ bash "$SCRIPT" --repo-url "file://$repo" --repo-url "file://$repo_extra" --out-d
 [[ ! -e "$out/index.tsv" ]] || fail "--no-index unexpectedly wrote index.tsv"
 [[ ! -e "$out/SHA256SUMS" ]] || fail "--no-index unexpectedly wrote SHA256SUMS"
 
+# Ownership normalization must not turn SGID-shadow into useless SGID-root.
+pam_repo="$tmp/pam-repo"
+pam_out="$tmp/pam-out"
+mkdir -p "$pam_repo" "$pam_out"
+make_fake_apk "$pam_repo/linux-pam-1.0-r0.apk" linux-pam 1.0-r0 "" "$tmp"
+mkdir -p "$tmp/pkg/usr/sbin"
+printf '#!/bin/sh\nexit 0\n' >"$tmp/pkg/usr/sbin/unix_chkpwd"
+chmod 2755 "$tmp/pkg/usr/sbin/unix_chkpwd"
+tar -C "$tmp/pkg" -czf "$pam_repo/linux-pam-1.0-r0.apk" .
+printf 'P:linux-pam\nV:1.0-r0\nA:x86_64\nD:\no:linux-pam\n\n' >"$tmp/APKINDEX"
+tar -C "$tmp" -czf "$pam_repo/APKINDEX.tar.gz" APKINDEX
+bash "$SCRIPT" --repo-url "file://$pam_repo" --out-dir "$pam_out" linux-pam
+assert_contains "$(<"$pam_out/linux-pam.pkg")" 'OOONANA_PKG_VERSION="1.0-r0.ooonana1"'
+assert_contains "$(<"$pam_out/linux-pam.pkg")" 'pam-helper-root-v1'
+python3 - "$pam_out/archives/linux-pam-1.0-r0.tar.gz" <<'PY'
+import sys, tarfile
+with tarfile.open(sys.argv[1]) as archive:
+    helper = archive.getmember('./usr/sbin/unix_chkpwd')
+    assert (helper.mode, helper.uid, helper.gid) == (0o4755, 0, 0)
+PY
+# Old same-upstream-version cache must be rebuilt, not relabelled as repaired.
+sed -i 's/1.0-r0.ooonana1/1.0-r0/' "$pam_out/linux-pam.pkg"
+bash "$SCRIPT" --repo-url "file://$pam_repo" --out-dir "$pam_out" --no-index linux-pam
+assert_contains "$(<"$pam_out/linux-pam.pkg")" 'OOONANA_PKG_VERSION="1.0-r0.ooonana1"'
+rm "$pam_repo/linux-pam-1.0-r0.apk"
+bash "$SCRIPT" --repo-url "file://$pam_repo" --out-dir "$pam_out" --no-index linux-pam
+
 printf 'ok import-apk-package\n'

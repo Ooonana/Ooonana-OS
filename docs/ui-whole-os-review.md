@@ -37,7 +37,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | GRUB: live / audio submenu | Shared live/installed branding, compact audio labels; actual EFI 640×480/1280×800, missing-font/mark fallback and unchanged kernel arguments checked. Minimal contrast repaired | Physical BIOS/UEFI, corrupted-media/runtime graphics failure and actual installed boot |
 | Boot / shutdown / reboot / persistent setup | Private PTY boot/save/setup; consecutive warning retention, normal console ordering, serial/ambiguous/motion-off/small-console and exact existing waits pass | Real framebuffer/kernel-message handoff, physical shutdown/recovery and complete persistent-setup interaction |
 | Bootable PDF UI | Previous source/VM fixtures; browser viewer requires manual check | Viewer rendering, keyboard/Backspace, focus, responsive controls and perceived command delay |
-| Lock screen / sign-in / unlock | Added explicitly to visual-detail review October22; current Power uses existing i3lock authentication | Restrained clock/date and branding, opaque background, proportions/spacing, password/error feedback, Caps Lock/input-layout indicator, keyboard focus, scaling, multiple displays and wake/unlock states; retain real authentication, never substitute blanking or a decorative password form; live locking requires a separate safe test |
+| Lock screen / sign-in / unlock | Shared source locker launcher; actual private i3lock/PAM wrong rejection + correct unlock pass both themes1×/2×; supported current-user helper permission repair reproduced and source packaging/factory/audit guarded; opaque palette and stock layout/failure feedback | Clock/date/branding, compact feedback, sign-in and live-account readiness, actual Caps/layout visual review, physical/multiple-display/wake/unlock integration; retain real authentication, never blanking/decorative password form; no installed live lock |
 | Accessibility / input / displays / session | Initial accessible controls and theme captures only | Text scale, keyboard/focus, clipboard, Korean composition, WSLg input, multi-monitor/DPI/hotplug, login/lock/logout/suspend/resume |
 
 Windows Computer Use failed during initialization with “failed to write kernel
@@ -96,6 +96,36 @@ appearance or real user profile proof. Old running processes retain their
 original env/provider until voluntarily reopened. This does not certify the
 newly requested lock/sign-in/wake or installed panel/tray/service paths.
 No WSL update, publication, remote push, signing, models, sound or ISO build.
+
+### Batch 40: real lock authentication and launch groundwork
+
+Initial absence check looked only in`/etc/pam.d`; the policy is valid at the
+Linux-PAM1.7 vendor path`/usr/lib/pam.d`. No policy-replacement patch made.
+Real fault instead: import tar`--group=0` turns upstream SGID-shadow helper
+into2755/root:root, unable to read0600 shadow. Public disposable credential
+failed/PAM9; private helper mode4755 accepted it/PAM0 and rejected wrong/PAM7.
+Original credential/helper bytes unchanged after mount namespace exit.
+Receipt: `/var/tmp/ooonana-lock-pam-20261023.fzdwD6Q3`.
+
+[Linux-PAM helper contract](https://raw.githubusercontent.com/linux-pam/linux-pam/v1.7.1/modules/pam_unix/unix_chkpwd.8.xml)
+supports SUID-root or SGID-shadow; Ooonana retains0600 shadow and uses the former.
+Importer source adds`.ooonana1`/`pam-helper-root-v1`, correct archive mode and
+old-cache invalidation. Factory normalization/runtime audit and exact-legacy
+core health migration cover old source stages; no installed changes made.
+
+New `ooonana-lock` keeps actual vendor fork-after-grab/authentication behavior,
+adds opaque per-palette background/layout/failure flags, rejects extra/debug
+arguments and reports unavailable backend without pretending screen secured.
+It does not alter beep, empty-password or unlock-indicator policy. All three
+owned launch paths route through it. Actual keyboard Caps/input, bad password,
+wait/retry and correct unlock exercised in four private cases:
+`/var/tmp/ooonana-lock-regression-20261023.WjOlPq8I/{dark,light}-{1,2}`.
+No real user credential, PAM stack, installed helper or session changed.
+
+Still active: native clock/date/branding/compact visual feedback, sign-in,
+live locked-account readiness and physical/multi-display/wake states. These
+tests are not a complete lockscreen or session certification. Panel follows;
+installed tray/services remain unproved. No WSL update/publication/ISO.
 
 - Clean starting source: `f5fb618`.
 - Private QA root: `/var/tmp/ooonana-whole-ui-20261015.n7zRUus3`.
