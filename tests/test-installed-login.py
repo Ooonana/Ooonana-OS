@@ -10,11 +10,18 @@ import subprocess
 import tempfile
 import time
 
+
+def login_prompt(transcript):
+    # PAM/syslog messages also contain "login:". Only a complete getty prompt
+    # at a terminal line boundary means the next username can be sent.
+    return re.search(rb"(?:^|[\r\n])\S+ login: ", transcript) is not None
+
+
 project = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--kernel", required=True, type=Path)
 parser.add_argument("--expired-account", action="store_true", help="Reject an expired disposable account even with correct password")
-parser.add_argument("--expired-password", action="store_true", help="Require password change before desktop entry")
+parser.add_argument("--expired-password", action="store_true", help="Complete required password change; reject old password and accept new password on next login")
 parser.add_argument("--login-rootfs", type=Path, help="Use actual candidate PAM login/runtime, not scratch BusyBox login")
 args = parser.parse_args()
 assert args.kernel.is_file()
@@ -110,13 +117,25 @@ with tempfile.TemporaryDirectory(prefix="ooonana-login-proof-") as temporary:
     process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     transcript = bytearray()
 
-    def expect(needle, timeout=35):
+    def wait_for(predicate, timeout=35):
         deadline = time.monotonic() + timeout
-        while needle.encode() not in transcript:
+        while True:
+            result = predicate()
+            if result:
+                return result
             if time.monotonic() >= deadline or process.poll() is not None:
                 raise AssertionError(bytes(transcript[-4000:]).decode(errors="replace"))
             if select.select([process.stdout], [], [], 0.2)[0]:
                 transcript.extend(os.read(process.stdout.fileno(), 8192))
+
+    def expect_one(needles, timeout=35):
+        return wait_for(lambda: next((needle for needle in needles if needle.encode() in transcript), None), timeout)
+
+    def expect(needle, timeout=35):
+        return expect_one((needle,), timeout)
+
+    def expect_login():
+        return wait_for(lambda: login_prompt(transcript))
 
     def send(text):
         transcript.clear()
@@ -124,24 +143,48 @@ with tempfile.TemporaryDirectory(prefix="ooonana-login-proof-") as temporary:
         process.stdin.flush()
 
     try:
-        expect("login:")
+        expect_login()
         send("fixture")
         expect("Password:")
         send("wrong-fixture-password")
         expect("Login incorrect")
-        expect("login:")
+        expect_login()
         send("fixture")
         expect("Password:")
         send("fixture-only-password")
         if args.expired_account:
             expect("account has expired")
-            expect("login:")
+            expect_login()
             assert b"OO_LOGIN_DESKTOP_UID=" not in transcript, "Expired account entered desktop"
             print("INSTALLED_EXPIRED_LOGIN_VM_OK - expired account rejected with correct password")
         elif args.expired_password:
             expect("password expired")
             assert b"OO_LOGIN_DESKTOP_UID=" not in transcript, "Expired password bypassed change requirement"
-            print("INSTALLED_PASSWORD_EXPIRY_VM_OK - expired password requires change before desktop")
+            new_prompts = ("New password:", "New UNIX password:")
+            prompt = expect_one(("(current) UNIX password:", "Current password:") + new_prompts)
+            if prompt not in new_prompts:
+                send("fixture-only-password")
+                expect_one(new_prompts)
+            assert b"OO_LOGIN_DESKTOP_UID=" not in transcript, "Desktop entered before new password supplied"
+            send("fixture-rotated-password-20261024")
+            expect_one(("Retype new password:", "Retype new UNIX password:"))
+            assert b"OO_LOGIN_DESKTOP_UID=" not in transcript, "Desktop entered before password confirmation"
+            send("fixture-rotated-password-20261024")
+            expect("OO_LOGIN_DESKTOP_UID=1000 HOME=/home/fixture")
+            send("exit")
+            expect_login()
+            send("fixture")
+            expect("Password:")
+            send("fixture-only-password")
+            expect("Login incorrect")
+            assert b"OO_LOGIN_DESKTOP_UID=" not in transcript, "Old password still accepted after rotation"
+            expect_login()
+            send("fixture")
+            expect("Password:")
+            send("fixture-rotated-password-20261024")
+            expect("OO_LOGIN_DESKTOP_UID=1000 HOME=/home/fixture")
+            assert b"password expired" not in transcript, "Successful rotation still leaves password expired"
+            print("INSTALLED_PASSWORD_EXPIRY_VM_OK - mandatory change completed before desktop; logout, old-password rejection and new-password login pass")
         else:
             expect("OO_LOGIN_DESKTOP_UID=1000 HOME=/home/fixture")
             print("INSTALLED_LOGIN_VM_OK - wrong password rejected; authenticated nonroot desktop entry")

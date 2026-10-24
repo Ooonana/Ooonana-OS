@@ -30,6 +30,23 @@ Current OS/core remains **0.10.0 candidate**, not a promoted stable release.
    physical hardware and disposable persistence/upgrade checks stay required.
    Trust enrollment and stable-channel promotion need their deferred decision.
 
+## Source checkpoint: complete private password rotation - October 24
+
+Persistence fixture recheck passes. Continued the unfinished authentication
+proof in the disposable kernel/PAM VM: expired password requires change before
+desktop entry; change completes, logout returns to getty, old password rejects
+and new password enters the nonroot desktop. Normal login and expired-account
+regressions also pass. No production policy or installed credentials changed.
+
+The first extended test exposed a harness race: a PAM `login:session` log line
+was mistaken for the next username prompt after logout. Complete line-boundary
+getty prompt detection fixes that false match; three dependency-free guard
+tests now run in both CI configurations. Remote CI remains deferred. Receipts
+and kernel/login/policy hashes:
+`/var/tmp/ooonana-password-rotation-confirm-20261024.nGEkY6MI`.
+Actual installed sign-in/unlock, remote providers, wake and WSLg remain open.
+This test/docs/CI-only patch does not change the ISO runtime.
+
 ## Source checkpoint: persistence regression fixture - October 24
 
 Recheck found a stale healthcheck fixture: it lacked the newer Xsettings, lock
@@ -65,7 +82,8 @@ control rejects wrong password and enters nonroot desktop on correct password.
 Expired account rejects correct password; expired password requires change
 before desktop. Final expiry/change-gate receipts:
 `/var/tmp/ooonana-session-auth-final-20261024.Ib0emMSa`.
-Full password rotation and actual installed sign-in/wake are not certified.
+Private password rotation is now confirmed by the checkpoint above; actual
+installed sign-in/wake remain unverified.
 Real private lock PAM custom deny/restoration passes with original cached
 shadow/helper/policy bytes unchanged. No login/unlock policy modified.
 Completed-probe cleanup removed only generated compiler/rootfs overlay

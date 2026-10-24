@@ -24,7 +24,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Setup | Compact/200% scrolling and stacked labels; focused inline validation, secret-preserving drafts, full source/routing review, default Back, reduced motion, pending/reentrant and closed-parent refusal checked both themes | Complete installed privileged setup/persistence and actual authentication/network failures; CLI backend preflight is not certified by UI validation |
 | Sound / brightness / music | Verified readiness, selected-identity audio/backlight commands, unknown/empty/permission states, persistent inline retry, serialized actions, preserved drafts, stale-poll/closed refusal; keyboard and both themes through 200% text pass silent fixtures | Actual installed route/mute/volume and playback semantics, changed-device integration and real hardware; no sound playback |
 | Power | Compact40px actions/44px at real200% text; natural-height window; Enter Cancel/Escape; visibly mapped native confirmation; duplicate refusal, error/retry, failed lock and late-callback refusal pass under private i3 in both themes | Actual lock/logout/power actions, unavailable capabilities and installed-session integration remain unverified; no real power command executed |
-| Lock / sign-in / wake | Pinned native clock/date/compact feedback; real private vendor PAM wrong/correct/Caps/layout1×/2× and640px; minute tick retains password draft; live locked/empty/unknown preflight refuses without grabbing | Actual installed sign-in, expiry/custom remote PAM, wake/physical/multi-monitor transitions and installed WSLg; private tests never lock real user |
+| Lock / sign-in / wake | Pinned native clock/date/compact feedback; real private vendor PAM wrong/correct/Caps/layout1×/2× and640px; minute tick retains password draft; live locked/empty/unknown preflight refuses without grabbing; actual PAM login in disposable kernel VM proves account expiry and full password rotation/logout/old-new credential checks | Actual installed sign-in, expiry/custom remote PAM, wake/physical/multi-monitor transitions and installed WSLg; private tests never lock real user |
 | Notifications | Private real Dunst history/DND/remove/clear; changed-record nested keyboard focus/visible reading anchor; storage fault/retry; unchanged five-second timer DND/loss/restart recovery without focus/manual refresh; reused IDs and privacy checks | Actual installed-session notifications and integrated panel/session behavior |
 | Packages | Default-Cancel preview, failed/empty plan refusal, mutating close guard; actual sudo/askpass cancellation/retry restores controls under private harmless-command policy | Actual privileged package transactions and successful authentication on disposable installation |
 | Health / Updates | Readable snapshot/raw/copy, honest attention/malformed states; actual isolated report and sudo/askpass cancellation restore controls | Actual installed-session service/repository failures, successful authentication and metadata transactions |
@@ -49,6 +49,29 @@ October 17 updated Computer Use runtime was retried through its documented
 app input. No Windows automation workaround or security setting change used.
 
 ## Current batch evidence
+
+### Batch 46: mandatory password rotation and login-prompt guard
+
+Persistence regression recheck passes. The actual packaged PAM login/kernel
+test now completes mandatory password change before desktop entry, logs out,
+rejects the former password and accepts the replacement in a new nonroot
+session. Normal login wrong/correct and expired-account refusal also pass.
+Receipts plus tested kernel/login/PAM policy hashes:
+`/var/tmp/ooonana-password-rotation-confirm-20261024.nGEkY6MI`.
+
+First extended attempt completed the password change but sent the next username
+too early: loose `login:` matching accepted a PAM session-close log message.
+The harness now waits for a complete getty prompt at a terminal line boundary.
+Three fast tests cover hostnames/CR/LF, PAM/syslog false matches and fragmented
+prompts; both CI configurations include them. YAML and Python syntax checks
+pass locally; remote CI has not run. Authentication policy is unchanged.
+
+No visual or production-runtime patch, installed WSL update, real-user lock,
+sound, remote push, signing/publication, release-pointer change or ISO build.
+Private VM scratch files clean themselves; diagnostic/success logs remain.
+This closes only the private password-rotation gap from Batch45, not actual
+installed sign-in/unlock, remote/custom providers, wake/logout/suspend, WSLg
+or the remaining whole-OS ledger. Native package integration still waits.
 
 ### Batch 45: held browser/Qt themes and real authentication boundaries
 
