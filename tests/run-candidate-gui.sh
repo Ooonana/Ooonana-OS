@@ -21,6 +21,16 @@ case "$qt_scale" in 1|1.25|1.5|2) ;; *) printf 'Unsupported Qt test scale: %s\n'
 case "$device_scale" in 1|2) ;; *) printf 'Unsupported device scale: %s\n' "$device_scale" >&2; exit 2 ;; esac
 case "$text_scale" in 1.0|1.25|1.5|2.0) ;; *) printf 'Unsupported native text scale: %s\n' "$text_scale" >&2; exit 2 ;; esac
 case "$theme" in dark|light) ;; *) printf 'Unsupported test appearance: %s\n' "$theme" >&2; exit 2 ;; esac
+case "${OOONANA_FIREFOX_QA_REGULAR_WINDOW:-0}" in 0|1) ;; *) printf 'Unsupported Firefox QA window mode\n' >&2; exit 2 ;; esac
+case "${OOONANA_FIREFOX_QA_THEME_CYCLE:-0}" in
+  0) ;;
+  1) [[ "$only" == firefox-frame && "${OOONANA_FIREFOX_QA_REGULAR_WINDOW:-0}" == 1 && -n "${OOONANA_FIREFOX_QA_PROFILE_SEED:-}" ]] || { printf 'Firefox theme QA requires regular window and owned profile\n' >&2; exit 2; } ;;
+  *) printf 'Unsupported Firefox theme QA mode\n' >&2; exit 2 ;;
+esac
+if [[ -n "${OOONANA_FIREFOX_QA_PROFILE_SEED:-}" ]]; then
+  [[ "$only" == firefox-frame && "$OOONANA_FIREFOX_QA_PROFILE_SEED" =~ ^ooonana-qa-ooonana-client-frame-[a-z0-9_]+$ ]] || { printf 'Owned Firefox QA profile name required\n' >&2; exit 2; }
+  [[ -z "${OOONANA_FIREFOX_QA_FIRST_RUN:-}" ]] || { printf 'Firefox QA profile restore cannot accept first-run consent\n' >&2; exit 2; }
+fi
 if [[ "$only" == client-theme-ui ]]; then
   [[ "$geometry" == 1280x800 && "$text_scale" == 1.0 && "$device_scale" == 1 && "$qt_scale" == 1 ]] || {
     echo 'Client-theme paint probe requires 1280x800, normal text and 1x device/Qt scale' >&2; exit 2;
@@ -78,6 +88,7 @@ if [[ "${1:-}" != --worker ]]; then
     if [[ -n "${OOONANA_FIREFOX_REUSE_HOME:-}" ]]; then
       reused_home="$(realpath "$OOONANA_FIREFOX_REUSE_HOME")"
       [[ "$reused_home" == /var/tmp/ooonana-firefox-*/storage/home && -d "$reused_home/ooonana/.local/share/flatpak/app/org.mozilla.firefox" ]] || exit 2
+      [[ "$reused_home" != *[:,]* ]] || exit 2
       export OOONANA_FIREFOX_REUSE_HOME="$reused_home"
     fi
     if [[ "${OOONANA_FIREFOX_DIRECT_STORAGE:-0}" == 1 ]]; then
@@ -190,7 +201,13 @@ for directory in tmp run home dev; do
 done
 if [[ "$only" == firefox-frame ]]; then
   if [[ -n "${OOONANA_FIREFOX_REUSE_HOME:-}" ]]; then
-    mount --bind "$OOONANA_FIREFOX_REUSE_HOME" "$rootfs/home"
+    # Keep cached Flatpak/runtime/profile evidence read-only. Only disposable
+    # COW changes consume space; never duplicate the multi-GiB installation.
+    mkdir -p "$storage/home-overlay/"{lower,upper,work,rootfs}
+    mount --bind "$OOONANA_FIREFOX_REUSE_HOME" "$storage/home-overlay/lower"
+    mount -o remount,bind,ro "$storage/home-overlay/lower"
+    mount -t overlay overlay -o "lowerdir=$storage/home-overlay/lower,upperdir=$storage/home-overlay/upper,workdir=$storage/home-overlay/work" "$storage/home-overlay/rootfs"
+    mount --bind "$storage/home-overlay/rootfs" "$rootfs/home"
   else
     mkdir "$storage/home"
     mount --bind "$storage/home" "$rootfs/home"
@@ -258,7 +275,7 @@ if [[ "$only" == all || "$only" == admin-prompt-ui ]]; then
   mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-admin-askpass"
   admin_policy=1
 fi
-if [[ "$only" == all || "$only" == frame-theme-ui || "$only" == live-theme-ui || "$only" == external-theme-ui || "$only" == client-theme-ui || "$only" == theme-flow-ui || "$only" == lock-ui || "$only" == panel-live-ui || "$only" == tray-ui || "$only" == launcher-session-ui ]]; then
+if [[ "$only" == all || "$only" == frame-theme-ui || "$only" == live-theme-ui || "$only" == external-theme-ui || "$only" == client-theme-ui || "$only" == theme-flow-ui || "$only" == lock-ui || "$only" == panel-live-ui || "$only" == tray-ui || "$only" == launcher-session-ui || "$only" == firefox-frame ]]; then
   # Current helpers must include their source backend/subprocess imports.
   # This probe performs no package operations against the source-only repo dir.
   mount --bind "$SOURCE/packages/ooonana/usr/lib/ooonana" "$rootfs/usr/lib/ooonana"
@@ -497,6 +514,9 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   done
   if [ "$only" = firefox-frame ]; then
     first_run_options=()
+    if [ -n "${OOONANA_FIREFOX_QA_PROFILE_SEED:-}" ]; then first_run_options+=(--firefox-profile-seed "$OOONANA_FIREFOX_QA_PROFILE_SEED"); fi
+    if [ "${OOONANA_FIREFOX_QA_REGULAR_WINDOW:-0}" = 1 ]; then first_run_options+=(--firefox-regular-window); fi
+    if [ "${OOONANA_FIREFOX_QA_THEME_CYCLE:-0}" = 1 ]; then first_run_options+=(--firefox-theme-cycle); fi
     case "${OOONANA_FIREFOX_QA_FIRST_RUN:-}" in
       "") ;;
       inspect) first_run_options+=(--inspect-firefox-first-run) ;;

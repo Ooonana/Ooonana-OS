@@ -1,4 +1,4 @@
-# Current work - 2026-10-24
+# Current work - 2026-10-25
 
 ## Split work: source QA first, release integration later
 
@@ -13,8 +13,9 @@ Current OS/core remains **0.10.0 candidate**, not a promoted stable release.
    remaining icons, wallpaper and cursor shape/size/hotspot before lockscreen.
    Native live refresh/dock parity and held-open GTK/Geany/Nemo now pass;
    held Chromium live appearance and a compiled Qt portal fix now pass private
-   tests; native Qt package integration, Firefox/other Qt and installed/physical
-   checks remain open.
+   tests. Regular Firefox now passes private light/dark live changes and1×/2×
+   picker/window cases. Native Qt package integration, other Qt and actual
+   installed/physical checks remain open.
    Native locker clock/feedback and live lockout prevention now pass private
    real-auth tests. Panel palettes/spacing/counters and bounded modern indicator
    hosting now pass private real-service/menu tests. Legacy XEmbed hosting,
@@ -29,6 +30,40 @@ Current OS/core remains **0.10.0 candidate**, not a promoted stable release.
 4. **Release gates.** User builds fresh ISO after integration; actual PDF/WSLg,
    physical hardware and disposable persistence/upgrade checks stay required.
    Trust enrollment and stable-channel promotion need their deferred decision.
+
+## Source checkpoint: regular Firefox appearance/scaling - October 25
+
+Login prompt guards and full real-PAM password rotation recheck pass:
+`/var/tmp/ooonana-login-recheck-20261024.bL5eX8PE`.
+Continued with cached nonroot Flatpak Firefox, not an installed WSL session.
+Regular windows follow real portal/Xsettings dark→light→dark without restart,
+losing address draft or changing checked client state. Native titlebars remain
+32 logical pixels:32 physical at1×,64 at2×; no default font/size changes.
+Real chooser cancel/open, exact rendered-content clipboard proof and window
+minimize/restore/fullscreen/restore/move/close pass at1024×768 and1600×900/2×.
+Final source-session receipts:
+`/var/tmp/ooonana-firefox-theme-20261025.WVc7y78O` and
+`/var/tmp/ooonana-firefox-keyboard-confirm-20261025.Qwvg0Wln`.
+
+QA now mounts the multi-GiB cached runtime/home read-only under a disposable
+COW home and copies an existing owned, already-consented QA profile. No new
+Terms acceptance, diagnostics upload, download or production profile change.
+Initial pinned-theme captures are only baselines; final runs remove GTK_THEME
+and use current source backend, real settings bridge and portal changes.
+Two false driver failures were repaired: pointer clicks could hit address
+suggestions at2×, and retained draft could mask the navigated file URL.
+After proving draft preservation, QA explicitly cancels its own draft and uses
+keyboard page focus. Six option-refusal cases and input-order guard pass.
+Impeccable bounded normal/scaled palette/picker review found no sizing patch
+needed. This is tests/docs-only, not a new runtime or ISO patch.
+
+Private portal still emits an intermittent GTK realized-widget warning during
+chooser closure despite successful content/actions; no upstream fix claimed.
+Other Qt/custom palettes, installed Firefox/WSLg and physical/mixed-DPI remain
+open; fresh Firefox installation/update/onboarding were not rerun. Generated
+overlay/profile copies reclaimed538,352KiB inside QA filesystem; logs/captures,
+original cache/profile, models/history/keys/releases retained. No compaction.
+[Evidence and limits](ui-whole-os-review.md#batch-47-regular-firefox-live-appearance-and-device-scaling).
 
 ## Source checkpoint: complete private password rotation - October 24
 

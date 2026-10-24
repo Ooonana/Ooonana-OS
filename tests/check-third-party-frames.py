@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Real client/frame capture on explicitly isolated Xvfb/Xephyr; private profiles."""
 import argparse
+from collections import Counter
 import json
 import os
 from pathlib import Path
+import re
 import shlex
 import signal
 import shutil
@@ -36,6 +38,9 @@ parser.add_argument("--inspect-firefox-first-run", action="store_true",
                     help="QA-only: expand diagnostic choices and capture; never accept Terms")
 parser.add_argument("--accept-firefox-qa-terms", action="store_true",
                     help="Explicit human-authorized disposable QA consent only; turn diagnostics off first")
+parser.add_argument("--firefox-profile-seed", help="Copy an existing owned QA profile; never set Terms acceptance preferences")
+parser.add_argument("--firefox-regular-window", action="store_true", help="Test regular browser appearance, not intentionally dark private browsing")
+parser.add_argument("--firefox-theme-cycle", action="store_true", help="Held regular browser follows real portal/Xsettings changes without losing draft or window state")
 parser.add_argument("--wait-for-file-trace", action="store_true",
                     help="Private QA only: wait for host's read-only syscall tracer before selecting file")
 args = parser.parse_args()
@@ -51,6 +56,13 @@ if (args.inspect_firefox_first_run or args.accept_firefox_qa_terms) and args.app
     parser.error("First-run QA options require firefox")
 if args.inspect_firefox_first_run and args.accept_firefox_qa_terms:
     parser.error("Choose inspection or explicit QA consent, not both")
+if (args.firefox_profile_seed or args.firefox_regular_window) and args.app != "firefox":
+    parser.error("Firefox profile/window options require firefox")
+if args.firefox_profile_seed and (not re.fullmatch(r"ooonana-qa-ooonana-client-frame-[a-z0-9_]+", args.firefox_profile_seed)
+                                or args.inspect_firefox_first_run or args.accept_firefox_qa_terms):
+    parser.error("Existing QA profile name required; cannot combine with first-run consent")
+if args.firefox_theme_cycle and (args.app != "firefox" or not args.firefox_regular_window or not args.firefox_profile_seed):
+    parser.error("Theme cycle requires an existing QA profile and regular Firefox window")
 if args.wait_for_file_trace and (args.app != "firefox" or not args.file_dialog):
     parser.error("File tracing requires Firefox picker probe")
 if os.environ.get("OOONANA_GUI_TEST_DISPLAY") != "1":
@@ -144,6 +156,12 @@ def ready_browser_sandboxes():
     return states
 
 
+def focus_browser_document(environment):
+    # F6 returns from Firefox toolbar to page without clicking a suggestion.
+    # https://support.mozilla.org/en-US/kb/access-toolbar-functions-using-keyboard
+    subprocess.run(["xdotool", "key", "--clearmodifiers", "Escape", "F6"], env=environment, check=True)
+
+
 def document_diagnostics(owned_file, environment):
     """Read only the document selected in this private test, never grant access."""
     bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
@@ -206,6 +224,21 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
     environment.pop("WAYLAND_DISPLAY", None)
     environment["NO_AT_BRIDGE"] = "1"
     os.environ["PATH"] = environment["PATH"]
+    if args.app == "firefox":
+        # Match a new source session: theme is user configuration, not a
+        # process-pinned GTK_THEME that could conceal broken live integration.
+        environment.pop("GTK_THEME", None)
+        os.environ.pop("GTK_THEME", None)
+        environment["OOONANA_THEME_INHERITED"] = theme
+        os.environ["OOONANA_THEME_INHERITED"] = theme
+        for name in ("XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_STATE_HOME"):
+            os.environ[name] = environment[name]
+        preference = fixture / "config/ooonana/theme"
+        preference.parent.mkdir(parents=True)
+        preference.write_text(theme + "\n")
+        subprocess.run(["dbus-update-activation-environment", "DISPLAY", "XAUTHORITY", "XDG_CURRENT_DESKTOP",
+                        "XDG_RUNTIME_DIR", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_STATE_HOME"],
+                       env=environment, check=True, stdout=log, stderr=log)
     subprocess.run([str(helper_directory / "ooonana-theme-env"), "apply"], env=environment,
                    stdout=log, stderr=log, check=True, timeout=20)
     # Launch Qt with the same safe theme selection the real session exports.
@@ -237,7 +270,16 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
         profile_name = "ooonana-qa-" + fixture.name
         profile = Path.home() / ".var/app/org.mozilla.firefox/.mozilla" / profile_name
         assert profile.resolve().is_relative_to(Path.home().resolve()) and not profile.exists()
-        profile.mkdir(mode=0o700, parents=True)
+        if args.firefox_profile_seed:
+            seed = profile.parent / args.firefox_profile_seed
+            assert seed.is_dir() and not seed.is_symlink() and seed.stat().st_uid == os.getuid()
+            assert seed.resolve().parent == profile.parent.resolve()
+            ignored = {"lock", ".parentlock", "parent.lock"}
+            assert not any(path.is_symlink() for path in seed.rglob("*") if path.name not in ignored)
+            shutil.copytree(seed, profile, ignore=shutil.ignore_patterns(*ignored))
+            print("FIREFOX_QA_PROFILE_RESTORED", seed.name, "disposable copy; no consent preference changed", flush=True)
+        else:
+            profile.mkdir(mode=0o700, parents=True)
         preferences = {
             "browser.aboutwelcome.enabled": False,
             "browser.startup.firstrunSkipsHomepage": True,
@@ -250,12 +292,18 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
         (profile / "user.js").write_text("\n".join(
             f"user_pref({json.dumps(name)}, {json.dumps(value)});" for name, value in preferences.items()) + "\n")
         command[2:2] = ["--profile", str(Path.home() / ".mozilla" / profile_name)]
+        if args.firefox_regular_window:
+            command[command.index("--private-window")] = "--new-window"
     if args.app == "chromium" and args.disable_shader_cache:
         command.insert(-1, "--disable-gpu-shader-disk-cache")
     if args.app == "chromium":
         command[-1] = args.url
         if args.gpu:
             command.remove("--disable-gpu")
+    xsettings = None
+    if args.app == "firefox":
+        xsettings = subprocess.Popen([sys.executable, "/usr/lib/ooonana/xsettings_session.py"],
+                                    env=environment, stdout=log, stderr=log)
     wm = subprocess.Popen(["i3", "-c", str(config)], stdout=log, stderr=log)
     client = None
     manager = None
@@ -300,6 +348,8 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
         properties = subprocess.run(["xprop", "-id", str(node["window"]), "_GTK_FRAME_EXTENTS", "_MOTIF_WM_HINTS"],
                                     capture_output=True, text=True).stdout
         root = Gdk.get_default_root_window()
+        screen_width = root.get_width() * root.get_scale_factor()
+        screen_height = root.get_height() * root.get_scale_factor()
         # IPC geometry/action success cannot certify black/unpainted surfaces.
         # Wait for actual composited traffic-light fills before saving evidence.
         def controls_painted():
@@ -369,15 +419,72 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
             record["session_cwd"] = str(Path.cwd())
         if args.app == "firefox":
             record["qa_profile"] = profile.name
+            record["qa_profile_seed"] = args.firefox_profile_seed
+            record["regular_window"] = args.firefox_regular_window
+            record["device_scale"] = root.get_scale_factor()
+            record["theme"] = theme
         args.output.with_suffix(".json").write_text(json.dumps(record, indent=2) + "\n")
         print(json.dumps(record), flush=True)
         assert node["rect"]["y"] >= 0, "Client titlebar opened above display"
-        assert node["rect"]["y"] + node["rect"]["height"] <= root.get_height(), "Client opened below display"
-        assert all(control.get_size().height == node["deco_rect"]["height"]
+        assert node["rect"]["y"] + node["rect"]["height"] <= screen_height, "Client opened below display"
+        assert all(abs(control.get_size().height * control.get_scale_factor() - node["deco_rect"]["height"]) < control.get_scale_factor()
                    for control in manager.controls.values()), "Controls overlap client contents"
         identifier = node["id"]
         if not args.csd:
             wait(lambda: identifier in manager.controls)
+        if args.firefox_theme_cycle:
+            assert xsettings.poll() is None, "Private Xsettings bridge exited"
+            bus = Gio.bus_get_sync(Gio.BusType.SESSION)
+            def scheme():
+                return bus.call_sync("org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop",
+                    "org.freedesktop.portal.Settings", "Read", GLib.Variant("(ss)",
+                    ("org.freedesktop.appearance", "color-scheme")), None,
+                    Gio.DBusCallFlags.NONE, 5000, None).unpack()[0]
+
+            def browser_state():
+                current = find_client()
+                return {"client": {name: current.get(name) for name in
+                        ("id", "window", "rect", "deco_rect", "focused", "fullscreen_mode")},
+                        "workspaces": i3_events.request(i3_events.socket_path(), 1)}
+
+            def browser_color():
+                current = find_client()
+                rectangle, deco = current["rect"], current["deco_rect"]
+                scale = root.get_scale_factor()
+                sample = Gdk.pixbuf_get_from_window(root,
+                    (rectangle["x"] + rectangle["width"] // 2) // scale,
+                    (rectangle["y"] + deco["height"]) // scale + 12, 48, 3)
+                pixels, stride, channels = sample.get_pixels(), sample.get_rowstride(), sample.get_n_channels()
+                return Counter(tuple(pixels[y * stride + x * channels:y * stride + x * channels + 3])
+                    for y in range(sample.get_height()) for x in range(sample.get_width())).most_common(1)[0][0]
+
+            assert scheme() == (2 if theme == "light" else 1)
+            subprocess.run(["xdotool", "key", "--clearmodifiers", "ctrl+l"], check=True, env=environment)
+            draft = "Ooonana Firefox live theme draft"
+            subprocess.run(["xdotool", "type", "--clearmodifiers", "--", draft], check=True, env=environment)
+            baseline = browser_state()
+            profile_inputs = (profile / "user.js").read_bytes()
+            observations = []
+            for selected in (("dark" if theme == "light" else "light"), theme):
+                preference.write_text(selected + "\n")
+                subprocess.run([str(helper_directory / "ooonana-theme-env"), "apply"], env=environment,
+                               check=True, stdout=log, stderr=log, timeout=20)
+                wait(lambda: scheme() == (2 if selected == "light" else 1))
+                wait(lambda: (sum(browser_color()) / 3 > 150) == (selected == "light"))
+                rgb = browser_color()
+                assert browser_state() == baseline, "Firefox theme change altered window/focus/fullscreen state"
+                assert client.poll() is None and xsettings.poll() is None
+                assert (profile / "user.js").read_bytes() == profile_inputs, "QA browser profile inputs rewritten"
+                Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(
+                    str(args.output.with_name(args.output.stem + "-theme-" + selected + ".png")), "png", [], [])
+                observations.append({"theme": selected, "tab_color": rgb})
+            subprocess.run(["xdotool", "key", "--clearmodifiers", "ctrl+l", "ctrl+a", "ctrl+c"], check=True, env=environment)
+            assert Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).wait_for_text() == draft, "Firefox address draft lost"
+            args.output.with_name(args.output.stem + "-theme-cycle.json").write_text(json.dumps(observations, indent=2) + "\n")
+            print("FIREFOX_THEME_CYCLE_OK", json.dumps(observations), "same window/focus/fullscreen, draft retained", flush=True)
+            # Preservation is now proved. Explicitly cancel our editing draft
+            # before the separate navigation/picker test (no Return/search).
+            subprocess.run(["xdotool", "key", "--clearmodifiers", "Escape", "Escape"], check=True, env=environment)
         if args.qt_details:
             def qt_settings():
                 def visit(item):
@@ -659,8 +766,8 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
             Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(
                 str(args.output.with_name(args.output.stem + "-file-dialog-initial.png")), "png", [], [])
             assert rectangle["x"] >= 0 and rectangle["y"] >= 0
-            assert rectangle["x"] + rectangle["width"] <= root.get_width()
-            assert rectangle["y"] + rectangle["height"] <= root.get_height()
+            assert rectangle["x"] + rectangle["width"] <= screen_width
+            assert rectangle["y"] + rectangle["height"] <= screen_height
             manager.refresh()
             wait(controls_painted)
             Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(
@@ -704,10 +811,7 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
                         if (parsed.scheme != "file" or parsed.netloc or "/doc/" not in parsed.path
                                 or Path(unquote(parsed.path)).name != owned_file.name):
                             return False
-                        rectangle = find_client()["rect"]
-                        subprocess.run(["xdotool", "mousemove", "--sync",
-                            str(rectangle["x"] + 40), str(rectangle["y"] + 122), "click", "1"],
-                            env=environment, check=True)
+                        focus_browser_document(environment)
                         key("ctrl+a")
                         key("ctrl+c")
                         content = clipboard.wait_for_text() or ""
@@ -767,7 +871,8 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
                         rect["y"] + deco["y"], deco["height"])
             wait(lambda: manager.controls[identifier].last_position == expected)
             control = manager.controls[identifier]
-            wait(lambda: tuple(control.get_position()) == control.last_position[:2])
+            wait(lambda: all(abs(value * control.get_scale_factor() - target) < control.get_scale_factor()
+                             for value, target in zip(control.get_position(), control.last_position[:2])))
             control.get_child().get_children()[0].clicked()
             if args.app == "qterminal":
                 def exit_dialog():
@@ -806,7 +911,7 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
             manager.clear()
         # Always release private compositor/WM, even if browser exit stalls.
         try:
-            for process in (compositor, wm):
+            for process in (compositor, wm, xsettings):
                 if process is not None and process.poll() is None:
                     process.terminate()
                     try:

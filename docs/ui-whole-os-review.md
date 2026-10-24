@@ -15,7 +15,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Surface / paths | Current evidence | Work still required |
 | --- | --- | --- |
 | Control proportions | Shared/native GTK 10pt typography and chat actions measured; targeted 100/125/200% scaling; Task Manager headers/values follow text metrics | Other app-specific Qt controls, panel/card/dock content proportions; no blind blanket shrink |
-| Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; private new-app100/200% and native/GTK/Geany/Nemo live repaint1×/2×; source frames preserve state; held Chromium and compiled Qt portal candidate now repaint live while retaining window state/browser draft/terminal profile; asset/cursor/wallpaper preservation units pass | Unpublished Qt plugin package/provenance integration, Firefox/other Qt/custom palettes; older process pin/provider reopen; installed wallpaper/icons/cursor hotspot/scaling and physical/mixed-DPI remain unverified |
+| Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; private new-app100/200% and native/GTK/Geany/Nemo live repaint1×/2×; source frames preserve state; held Chromium, regular Firefox1×/2× and compiled Qt portal candidate repaint live while retaining checked window state/browser draft/terminal profile; asset/cursor/wallpaper preservation units pass | Unpublished Qt plugin package/provenance integration, other Qt/custom palettes; older process pin/provider reopen; installed Firefox/wallpaper/icons/cursor hotspot/scaling and physical/mixed-DPI remain unverified |
 | Panel / music / AI / notifications / tray | Actual source Polybar; wide CJK/full counters/AI centering across seven widths640–1600px; supervised live palette changes preserve dock/client state; bounded999+ counts; silent private MPD recovery; bounded modern indicator host with actual isolated NM/nm-applet menu, shipped Blueman adapter, owner/revision/focus/overflow/keyboard and normal/200% text/device2 tests | Legacy XEmbed-only hosting, installed tray/service authentication/recovery and physical/mixed-DPI integration; null-output QA does not prove hardware audio |
 | Dock | Flat centered icons; actual app/transient grouping, exact MRU restore, direct actions, Pin/Unpin, real held-drag reorder within left-pinned/right-running sections, saved layout/relaunch and readonly retry pass both themes normal/200% text; overflow idle-pin options, edge tooltips and actual 1×/2× device checks pass; signed candidate/native bytes synchronized | Actual installed interactive-session/display integration, physical mixed DPI/hotplug; multi-output visibility currently pure/derived guards |
 | Native Launcher | Long names/tooltips, no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard; nine actual desktop-entry/Return/nonroot/focus/bounds handoffs including Chromium and native sound/Wi-Fi/Bluetooth pass both palettes desktop/compact; current PulseAudio desktop ID now routes correctly; synchronous filtering/exact-name ranking preserves selection | Actual installed-session keyboard/IME/desktop integration and missing-app terminal fallbacks; enlarged-launcher cases do not certify external-app/global text scaling |
@@ -33,7 +33,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Native AI / model UI | Generic native chat compact layout, bounded headings, no-match search, draft attachment, safe Delete, status failure/stale/closed callbacks and streaming/copy/cancel fixtures pass | Real cloud-provider session, long-running transcript navigation; OpenVINO GUI/runtime/offline checks deferred by user October 16 |
 | Installer GUI / text wizard | Real font-metric 100/200% form/review/blocked fit 640×600 both themes; all 16 fields keyboard-walked, exact disk/password mapping and safe Cancel checked; disk details scroll inside form | Actual privileged preview/log lifecycle, text wizard and physical storage summary/install; bare UI fixtures never install |
 | Shared dialogs / menus / tooltips | Font-metric-bounded short errors and scrollable diagnostics; actual Settings storage faults through 200%; real askpass labelled/focused, Escape/close/blank/Enter and pipe-only secrets checked | Remaining file pickers/menus and installed-session integration |
-| Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Qt6/QTerminal dark/light100%/200% per-app scaling, six Preferences pages, font/portal image picker focus, cancel/select/reopen, post-return bounds and exact pending path pass. Real source session prefix establishes Home cwd. Firefox dark QA onboarding, portal open/cancel, exact rendered-content read and window actions pass | Other Qt apps, whole-desktop/mixed-DPI portal scaling; Firefox light/scaling/installed-session integration, actual physical compositor and live WSLg |
+| Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Qt6/QTerminal dark/light100%/200% per-app scaling, six Preferences pages, font/portal image picker focus, cancel/select/reopen, post-return bounds and exact pending path pass. Real source session prefix establishes Home cwd. Regular Firefox light/dark live appearance at1×/2×, real portal cancel/open/content and window actions pass; prior dark QA onboarding retained | Other Qt apps, whole-desktop/mixed-DPI portal scaling; installed Firefox/WSLg and physical compositor; intermittent private GTK chooser-close warning remains observed, not fixed |
 | Window manager | Native/XTerm modifier drag/resize, all number/move workspace keys, cycling, click focus, tile/tab/stack, resize mode, fullscreen, exact-session restore and unfocused close pass in private compositor; actual 1×/2× third-party titlebar alignment and X11 Minimize/Close clicks pass | Real WSLg/physical compositor, multi-display and complete session lifecycle transitions |
 | GRUB: live / audio submenu | Shared live/installed branding, compact audio labels; actual EFI 640×480/1280×800, missing-font/mark fallback and unchanged kernel arguments checked. Minimal contrast repaired | Physical BIOS/UEFI, corrupted-media/runtime graphics failure and actual installed boot |
 | Boot / shutdown / reboot / persistent setup | Private PTY boot/save/setup; consecutive warning retention, normal console ordering, serial/ambiguous/motion-off/small-console and exact existing waits pass | Real framebuffer/kernel-message handoff, physical shutdown/recovery and complete persistent-setup interaction |
@@ -49,6 +49,55 @@ October 17 updated Computer Use runtime was retried through its documented
 app input. No Windows automation workaround or security setting change used.
 
 ## Current batch evidence
+
+### Batch 47: regular Firefox live appearance and device scaling
+
+Rechecked full password rotation and login prompt guards successfully before
+continuing. Current source Firefox QA now uses the native source backend,
+real Xsettings bridge and portal settings with no GTK_THEME process pin.
+Cached nonroot Flatpak regular browser follows dark→light→dark at1024×768/1×
+and1600×900/2×. Dominant tab pixels change46/46/50→246/245/244→46/46/50;
+same checked window identity, focus, geometry/fullscreen and address draft.
+Final2× also checks workspace snapshot. Titles stay32 logical pixels, not a
+global200% text/default-size policy. Renderer seccomp2/NoNewPrivs1 remain.
+
+Actual GTK portal chooser stays floating/focused/bounded, cancels, reopens,
+selects the owned file, and Firefox renders its exact text (not merely a title
+or portal permission). Real minimize/restore/fullscreen/restore/move/close pass.
+1× receipt:`/var/tmp/ooonana-firefox-theme-20261025.WVc7y78O`.
+Final2× receipt:`/var/tmp/ooonana-firefox-keyboard-confirm-20261025.Qwvg0Wln`.
+Initial light baseline receipts:`/var/tmp/ooonana-firefox-light-20261024.SZr87WlT`
+and`/var/tmp/ooonana-firefox-light2-20261024.CutUCUTk`; those still pinned GTK
+and are not the final live-integration proof.
+
+Impeccable inspected normal/scaled Paper and Graphite browser/picker captures
+in bounded rounds. No product sizing/color/style patch needed. Functional
+driver follow-up was not another cosmetic pass: first pointer-based content
+focus hit address suggestions; then a deliberately preserved edit draft hid
+the navigated URL even though the file was visibly rendered. QA now explicitly
+cancels its own draft after verifying preservation and uses
+[Firefox's keyboard page-focus handoff](https://support.mozilla.org/en-US/kb/access-toolbar-functions-using-keyboard).
+The final2× complete case passes. Diagnostic failures/captures remain in
+`/var/tmp/ooonana-firefox-theme-20261025.LXNJyZqj` and
+`/var/tmp/ooonana-firefox-focus-confirm-20261025.DO2V6Qpt`.
+Six invalid-option/profile/consent combinations and mocked keyboard-only input
+order now pass alongside launcher/package and theme/control-scale regressions.
+
+Reused home/runtime is read-only under a disposable COW layer; an existing
+owned already-consented QA profile is copied, not silently given acceptance
+preferences. Diagnostics remain disabled. No fresh install/update/download or
+new onboarding proof. Private network has loopback only. An intermittent GTK
+realized-widget warning still appears on chooser closure despite successful
+results; no upstream fix or installed-session conclusion claimed. Missing
+private audio/realtime/keyring-service diagnostics are not hardware evidence.
+
+Only generated overlays and disposable profile copies were cleaned after
+resolved-path/no-link/no-mounted-descendant checks:538,352KiB in QA filesystem.
+Logs/captures, original cache/profile, compiled candidates, history/models/keys
+and release generations remain; no trim/compaction or blocked cleanup retry.
+No product runtime patch, installed WSL update, real-user lock, sound, remote
+push, signing/publication, release-pointer change, stable promotion or ISO.
+Other Qt/custom palettes and installed/physical/mixed-DPI/whole-OS gates remain.
 
 ### Batch 46: mandatory password rotation and login-prompt guard
 

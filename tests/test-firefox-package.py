@@ -103,6 +103,29 @@ if 'info' in sys.argv and os.environ.get('MISSING') == '1':
     refused = subprocess.run(['bash', str(ROOT / 'tests/run-candidate-gui.sh')],
         env={**os.environ, 'OOONANA_GUI_ONLY': 'invalid'}, capture_output=True, text=True)
     assert refused.returncode == 2 and 'Unknown GUI probe' in refused.stderr
+    for options, message in (
+        ({'OOONANA_FIREFOX_QA_PROFILE_SEED': '../../user'}, 'Owned Firefox QA profile name required'),
+        ({'OOONANA_FIREFOX_QA_PROFILE_SEED': '/home/user'}, 'Owned Firefox QA profile name required'),
+        ({'OOONANA_FIREFOX_QA_REGULAR_WINDOW': 'invalid'}, 'Unsupported Firefox QA window mode'),
+        ({'OOONANA_FIREFOX_QA_THEME_CYCLE': 'invalid'}, 'Unsupported Firefox theme QA mode'),
+        ({'OOONANA_FIREFOX_QA_THEME_CYCLE': '1'}, 'Firefox theme QA requires regular window and owned profile'),
+        ({'OOONANA_FIREFOX_QA_PROFILE_SEED': 'ooonana-qa-ooonana-client-frame-fixture',
+          'OOONANA_FIREFOX_QA_FIRST_RUN': 'accept'}, 'Firefox QA profile restore cannot accept first-run consent'),
+    ):
+        refused = subprocess.run(['bash', str(ROOT / 'tests/run-candidate-gui.sh')],
+            env={**os.environ, 'OOONANA_GUI_ONLY': 'firefox-frame', **options}, capture_output=True, text=True)
+        assert refused.returncode == 2 and message in refused.stderr, (options, refused.stderr)
+    # Real 2x failure: the autocomplete popup covered the click point. Test
+    # input order without launching any app or sending host keyboard input.
+    from types import SimpleNamespace
+    function = next(node for node in ast.parse((ROOT / 'tests/check-third-party-frames.py').read_text()).body
+                    if isinstance(node, ast.FunctionDef) and node.name == 'focus_browser_document')
+    calls = []
+    namespace = {'subprocess': SimpleNamespace(run=lambda argv, **kwargs: calls.append((argv, kwargs)))}
+    exec(compile(ast.Module(body=[function], type_ignores=[]), 'firefox-focus-fixture', 'exec'), namespace)
+    namespace['focus_browser_document']({'OWNED_QA': '1'})
+    assert calls == [(['xdotool', 'key', '--clearmodifiers', 'Escape', 'F6'],
+                      {'env': {'OWNED_QA': '1'}, 'check': True})]
     archive = repo / 'archives/firefox-1.0.1.tar.gz'
     original = archive.read_bytes()
     subprocess.run(['bash', str(ROOT / 'scripts/build-firefox-package.sh'), '--out-dir', str(repo)], check=True)
