@@ -30,6 +30,18 @@ Current OS/core remains **0.10.0 candidate**, not a promoted stable release.
    physical hardware and disposable persistence/upgrade checks stay required.
    Trust enrollment and stable-channel promotion need their deferred decision.
 
+## Source checkpoint: persistence regression fixture - October 24
+
+Recheck found a stale healthcheck fixture: it lacked the newer Xsettings, lock
+and tray helpers plus required module/theme assets. The fixture now includes
+those prerequisites; production healthcheck and persistence logic are unchanged.
+The persistence suite passes, including 26 new missing/non-executable helper
+and missing/empty asset rejection cases. Captured hook failures now include
+their output instead of hiding the cause behind a generic subprocess error.
+Package-factory, update-safety, interrupted-update/retry and release-repo checks
+also pass locally. Remote CI has not been run for this unpublished source fix.
+Native package integration and the installed/physical release gates remain open.
+
 ## Source checkpoint: browser/Qt and authentication checks - October 24
 
 Actual isolated tray/app menus recheck passes. Chromium already follows live
