@@ -13,6 +13,7 @@ text_scale="${OOONANA_GUI_TEXT_SCALE:-1.25}"
 device_scale="${OOONANA_GUI_DEVICE_SCALE:-1}"
 i3_candidate="${OOONANA_GUI_I3_CANDIDATE:-}"
 lock_candidate="${OOONANA_GUI_LOCK_CANDIDATE:-}"
+qt_portal_candidate="${OOONANA_GUI_QT_PORTAL_CANDIDATE:-}"
 tray_nm="${OOONANA_TRAY_REAL_NM:-0}"
 case "$tray_nm" in 0) ;; 1) [[ "$only" == tray-ui ]] || exit 2 ;; *) exit 2 ;; esac
 qt_scale="${OOONANA_GUI_QT_SCALE:-1}"
@@ -20,13 +21,18 @@ case "$qt_scale" in 1|1.25|1.5|2) ;; *) printf 'Unsupported Qt test scale: %s\n'
 case "$device_scale" in 1|2) ;; *) printf 'Unsupported device scale: %s\n' "$device_scale" >&2; exit 2 ;; esac
 case "$text_scale" in 1.0|1.25|1.5|2.0) ;; *) printf 'Unsupported native text scale: %s\n' "$text_scale" >&2; exit 2 ;; esac
 case "$theme" in dark|light) ;; *) printf 'Unsupported test appearance: %s\n' "$theme" >&2; exit 2 ;; esac
+if [[ "$only" == client-theme-ui ]]; then
+  [[ "$geometry" == 1280x800 && "$text_scale" == 1.0 && "$device_scale" == 1 && "$qt_scale" == 1 ]] || {
+    echo 'Client-theme paint probe requires 1280x800, normal text and 1x device/Qt scale' >&2; exit 2;
+  }
+fi
 case "$geometry" in
   320x600) [[ "$only" == dock-edges-ui ]] || exit 2 ;;
   640x600|760x600|900x600|1000x600|1024x768|1100x600|1280x800|1600x900) ;;
   *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
 esac
 case "$only" in
-  all|setup-details-ui|controls-details-ui|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|theme-flow-ui|frame-theme-ui|live-theme-ui|external-theme-ui|lock-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|launcher-session-ui|notifications-runtime|notification-lifecycle|notification-auto-recovery|window-controls-runtime|dock-ui|dock-edges-ui|device-scale-ui|csd-controls-ui|panel-ui|panel-live-ui|tray-ui|panel-media-runtime|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
+  all|setup-details-ui|controls-details-ui|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|theme-flow-ui|frame-theme-ui|live-theme-ui|external-theme-ui|client-theme-ui|lock-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|launcher-session-ui|notifications-runtime|notification-lifecycle|notification-auto-recovery|window-controls-runtime|dock-ui|dock-edges-ui|device-scale-ui|csd-controls-ui|panel-ui|panel-live-ui|tray-ui|panel-media-runtime|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -48,6 +54,12 @@ if [[ "${1:-}" != --worker ]]; then
     [[ "$only" == lock-ui && "$lock_candidate" == /mnt/winf/Ooonana/ooonana-os/qa-i3lock-*/out/i3lock && -f "$lock_candidate" && -x "$lock_candidate" ]] || exit 2
     [[ "${OOONANA_GUI_LOCK_SHA256:-}" =~ ^[a-f0-9]{64}$ && "$(sha256sum "$lock_candidate" | awk '{print $1}')" == "$OOONANA_GUI_LOCK_SHA256" ]] || exit 2
     export OOONANA_GUI_LOCK_CANDIDATE="$lock_candidate"
+  fi
+  if [[ -n "$qt_portal_candidate" ]]; then
+    qt_portal_candidate="$(realpath "$qt_portal_candidate")"
+    [[ "$only" == client-theme-ui && "$qt_portal_candidate" == /var/tmp/ooonana-qt-portal-*/out/libqxdgdesktopportal.so && -f "$qt_portal_candidate" ]] || exit 2
+    [[ "${OOONANA_GUI_QT_PORTAL_SHA256:-}" =~ ^[a-f0-9]{64}$ && "$(sha256sum "$qt_portal_candidate" | awk '{print $1}')" == "$OOONANA_GUI_QT_PORTAL_SHA256" ]] || exit 2
+    export OOONANA_GUI_QT_PORTAL_CANDIDATE="$qt_portal_candidate"
   fi
   [[ -x "$rootfs/usr/bin/python3" && -d "$rootfs/source" && -d "$rootfs/qa" ]] || exit 2
   if [[ -n "${OOONANA_GUI_REPO:-}" ]]; then
@@ -112,7 +124,7 @@ if [[ -n "${OOONANA_GUI_REPO:-}" ]]; then
     OOONANA_SOURCES_DIR="$storage/overlay/empty-sources" \
     sh "$SOURCE/packages/ooonana/usr/bin/ooonana" install xdg-desktop-portal xdg-desktop-portal-gtk xdg-document-portal \
     >"$output/portal-install.log" 2>&1
-  if [[ "$only" == all || "$only" == qterminal-frame ]]; then
+  if [[ "$only" == all || "$only" == qterminal-frame || "$only" == client-theme-ui ]]; then
     OOONANA_ROOT="$rootfs" OOONANA_REPO_DIR="$OOONANA_GUI_REPO" \
       OOONANA_REPO_VERIFY_KEY="$SOURCE/packages/ooonana/etc/ooonana/trusted-keys/repository-20261002.pub" \
       OOONANA_SOURCES_DIR="$storage/overlay/empty-sources" \
@@ -151,6 +163,13 @@ fi
 if [[ -n "$lock_candidate" ]]; then
   mount --bind "$lock_candidate" "$rootfs/usr/bin/i3lock"
   mount -o remount,bind,ro "$rootfs/usr/bin/i3lock"
+fi
+if [[ -n "$qt_portal_candidate" ]]; then
+  plugin="$rootfs/usr/lib/qt6/plugins/platformthemes/libqxdgdesktopportal.so"
+  expected="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["original_plugin_sha256"])' "$SOURCE/packages/qt-portal/source-pins.json")"
+  [[ "$(sha256sum "$plugin" | awk '{print $1}')" == "$expected" ]] || { echo 'Refuse Qt ABI/plugin mismatch'; exit 2; }
+  mount --bind "$qt_portal_candidate" "$plugin"
+  mount -o remount,bind,ro "$plugin"
 fi
 mount --bind "$SOURCE" "$rootfs/source"
 mount -o remount,bind,ro "$rootfs/source"
@@ -239,7 +258,7 @@ if [[ "$only" == all || "$only" == admin-prompt-ui ]]; then
   mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-admin-askpass"
   admin_policy=1
 fi
-if [[ "$only" == all || "$only" == frame-theme-ui || "$only" == live-theme-ui || "$only" == external-theme-ui || "$only" == theme-flow-ui || "$only" == lock-ui || "$only" == panel-live-ui || "$only" == tray-ui || "$only" == launcher-session-ui ]]; then
+if [[ "$only" == all || "$only" == frame-theme-ui || "$only" == live-theme-ui || "$only" == external-theme-ui || "$only" == client-theme-ui || "$only" == theme-flow-ui || "$only" == lock-ui || "$only" == panel-live-ui || "$only" == tray-ui || "$only" == launcher-session-ui ]]; then
   # Current helpers must include their source backend/subprocess imports.
   # This probe performs no package operations against the source-only repo dir.
   mount --bind "$SOURCE/packages/ooonana/usr/lib/ooonana" "$rootfs/usr/lib/ooonana"
@@ -262,7 +281,7 @@ if [[ "$only" == lock-ui ]]; then
 fi
 mount --bind "$SOURCE/packages/ooonana/usr/share/themes" "$rootfs/usr/share/themes"
 mount -o remount,bind,ro "$rootfs/usr/share/themes"
-if [[ "$only" == all || "$only" == launcher-session-ui || "$only" == theme-flow-ui || "$only" == frame-theme-ui || "$only" == external-theme-ui ]]; then
+if [[ "$only" == all || "$only" == launcher-session-ui || "$only" == theme-flow-ui || "$only" == frame-theme-ui || "$only" == external-theme-ui || "$only" == client-theme-ui ]]; then
   # Subprocess handoff must use current UI/wrappers, not cached candidate bytes.
   if [[ "$only" != all ]]; then
     mount --bind "$SOURCE/packages/ooonana/usr/lib/ooonana/ui" "$rootfs/usr/lib/ooonana/ui"
@@ -454,6 +473,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   probe csd-controls-ui python3 /source/tests/check-csd-controls-ui.py /qa/csd-controls
   panel_options=()
   probe tray-ui python3 /source/tests/check-tray-ui.py /qa/tray
+  probe client-theme-ui python3 /source/tests/check-client-theme-ui.py /qa/client-theme
   probe panel-live-ui python3 /source/tests/check-panel-live-ui.py /qa/panel-live
   if [ "${OOONANA_PANEL_WIDE_LABELS:-0}" = 1 ]; then panel_options+=(--wide-labels); fi
   probe panel-ui python3 /source/tests/check-panel-ui.py /qa/panel.png --rootfs / --long-wifi --desktop-overview --appearance-output /qa/appearance.png "${panel_options[@]}"

@@ -15,7 +15,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Surface / paths | Current evidence | Work still required |
 | --- | --- | --- |
 | Control proportions | Shared/native GTK 10pt typography and chat actions measured; targeted 100/125/200% scaling; Task Manager headers/values follow text metrics | Other app-specific Qt controls, panel/card/dock content proportions; no blind blanket shrink |
-| Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; real private theme toggles/new launches at100/200% text; source frame IPC/joins pass1×/2×; same native Power/dock and held GTK/Geany/Nemo live retheme pass1×/2×; strict display-owned Xsettings ownership/transfer and CSS migration units; icon/logo/cursor metadata and wallpaper preservation tests pass | Browser/Qt live retheming, voluntary one-time reopen for older process pins/providers, installed/live desktop, physical compositor/cursor hotspot/scale and remaining icon/selection states |
+| Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; private new-app100/200% and native/GTK/Geany/Nemo live repaint1×/2×; source frames preserve state; held Chromium and compiled Qt portal candidate now repaint live while retaining window state/browser draft/terminal profile; asset/cursor/wallpaper preservation units pass | Unpublished Qt plugin package/provenance integration, Firefox/other Qt/custom palettes; older process pin/provider reopen; installed wallpaper/icons/cursor hotspot/scaling and physical/mixed-DPI remain unverified |
 | Panel / music / AI / notifications / tray | Actual source Polybar; wide CJK/full counters/AI centering across seven widths640–1600px; supervised live palette changes preserve dock/client state; bounded999+ counts; silent private MPD recovery; bounded modern indicator host with actual isolated NM/nm-applet menu, shipped Blueman adapter, owner/revision/focus/overflow/keyboard and normal/200% text/device2 tests | Legacy XEmbed-only hosting, installed tray/service authentication/recovery and physical/mixed-DPI integration; null-output QA does not prove hardware audio |
 | Dock | Flat centered icons; actual app/transient grouping, exact MRU restore, direct actions, Pin/Unpin, real held-drag reorder within left-pinned/right-running sections, saved layout/relaunch and readonly retry pass both themes normal/200% text; overflow idle-pin options, edge tooltips and actual 1×/2× device checks pass; signed candidate/native bytes synchronized | Actual installed interactive-session/display integration, physical mixed DPI/hotplug; multi-output visibility currently pure/derived guards |
 | Native Launcher | Long names/tooltips, no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard; nine actual desktop-entry/Return/nonroot/focus/bounds handoffs including Chromium and native sound/Wi-Fi/Bluetooth pass both palettes desktop/compact; current PulseAudio desktop ID now routes correctly; synchronous filtering/exact-name ranking preserves selection | Actual installed-session keyboard/IME/desktop integration and missing-app terminal fallbacks; enlarged-launcher cases do not certify external-app/global text scaling |
@@ -49,6 +49,70 @@ October 17 updated Computer Use runtime was retried through its documented
 app input. No Windows automation workaround or security setting change used.
 
 ## Current batch evidence
+
+### Batch 45: held browser/Qt themes and real authentication boundaries
+
+Tray/service source recheck passes actual isolated NetworkManager/nm-applet and
+shipped Blueman indicator/menu adapter, bounded overflow and keyboard/owner
+checks: `/var/tmp/ooonana-tray-confirm-20261024.psvtgYyx`.
+Installed applet/service authentication/recovery and legacy XEmbed stay open.
+
+Actual held Chromium follows portal dark→light→dark already. QTerminal2.4.0
+on Qt6.11.1 stayed dark after live light signal despite changing frame/browser.
+Reproduction: `/var/tmp/ooonana-client-theme-20261024.AjVZ2Ho4`.
+Code-based diagnosis matches [Qt's portal handler](https://raw.githubusercontent.com/qt/qtbase/v6.11.1/src/plugins/platformthemes/xdgdesktopportal/qxdgdesktopportaltheme.cpp)
+updating the color hint without invalidating its base theme's cached palette.
+Pinned six vendor files plus one cache invalidation build a native musl plugin;
+all other vendor source is unchanged. No forced app restart or stylesheet.
+
+Unpublished candidate:
+`/var/tmp/ooonana-qt-portal-20261024.c3JxKBmc/out`.
+Binary SHA256`a7cbb6b32bcbd29ff36204c62eff43d8df2e6ca2cb6c40f196fe4d13f9705d5c`.
+Exact6.11.1 headers/private headers, source/input/dependency manifest, original
+runtime plugin hash and private read-only bind prevent silently ABI-mixing.
+Input hardening rebuild produced identical binary. Old output retained.
+
+Final real portal/client confirmation:
+`/var/tmp/ooonana-client-theme-confirm-20261024.zaUbYcdt`.
+Qt menu pixels change50→239→50; Chromium toolbar60→255→60. Same windows,
+geometry/focus/workspace/fullscreen state; browser address draft survives and
+terminal profile stays byte-identical. Explicit terminal color scheme remains
+unchanged intentionally. Impeccable before/after captures confirm palette only;
+this fixture does not start full panel/dock/control manager, so screenshots
+are not latest-desktop/window-controls certification. No cosmetic loop.
+Earlier fixed run failed only on absent xclip; final uses native GTK clipboard.
+Native source patch units, native UI and factory rootfs pass. Qt package,
+provenance/signing/closure integration remains required before final ISO.
+Firefox, other Qt/custom platform themes, installed wallpaper/cursor/hotspot/
+icons and physical/mixed-DPI session remain open. [Native candidate details](../packages/qt-portal/README.md).
+
+Real private PAM custom-policy proof:
+`/var/tmp/ooonana-lock-pam-20261024.vpZshU1H`.
+Wrong password rejected, correct accepted; explicit custom deny policy rejects
+correct credential, restoration succeeds. Cached credentials/helper/PAM bytes
+stay unchanged. Vendor lock policy uses authentication, not login's separate
+account/password/session policy; no new expiry-lockout semantics imposed.
+
+Session VM now optionally copies actual candidate PAM login, its ELF closure,
+PAM policies/modules and helper binaries into generated scratch fixture. The
+old default tested Ubuntu BusyBox login, not packaged Ooonana PAM login.
+Missing Unix helper initially caused all valid PAM logins to fail; that early
+negative-only expiry result was invalid proof. Corrected positive control
+rejects wrong password and enters nonroot desktop on correct password using
+actual packaged login and kernel6.18.37. No authentication policy changed.
+Expiry tests require actual PAM login. Expired account rejects correct password;
+expired password enters mandatory-change gate without entering desktop:
+`/var/tmp/ooonana-session-auth-final-20261024.Ib0emMSa`.
+Expected expiry text differs from ordinary bad-password error; fixture now
+checks actual PAM expiry message rather than misclassifying that refusal.
+Actual installed sign-in/unlock, completed password rotation,
+remote/custom provider, wake/logout/suspend and WSLg remain unverified.
+Only generated inactive compiler/rootfs overlays from this batch were removed:
+1,130,444KiB reclaimed in guest filesystem. Logs, captures, original source/
+build cache, candidate/previous output and history/models/keys/releases remain.
+No compaction or retry of previously blocked targets.
+No installed WSL update, audible test, device action, remote push, signing/
+publication, release pointer change, stable promotion or ISO build.
 
 ### Batch 44: tray recheck and launcher hardware/browser handoffs
 

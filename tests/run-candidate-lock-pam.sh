@@ -8,10 +8,10 @@ if [[ "${1:-}" != --worker ]]; then
   [[ "$rootfs" == /var/tmp/*/full-i3-rootfs && "$output" == /var/tmp/ooonana-lock-pam-* ]] || exit 2
   grep -qx ID=ooonana "$rootfs/etc/os-release"
   [[ -d "$rootfs/source" && -x "$rootfs/usr/sbin/unix_chkpwd" && -f "$rootfs/usr/lib/pam.d/base-auth" ]] || exit 2
-  before="$(sha256sum "$rootfs/etc/shadow" "$rootfs/usr/sbin/unix_chkpwd")"
+  before="$(sha256sum "$rootfs/etc/shadow" "$rootfs/usr/sbin/unix_chkpwd" "$rootfs/etc/pam.d/i3lock")"
   timeout --kill-after=3 90 unshare --mount --pid --fork --kill-child --net --propagation private \
     bash "$0" --worker "$rootfs" "$output"
-  [[ "$(sha256sum "$rootfs/etc/shadow" "$rootfs/usr/sbin/unix_chkpwd")" == "$before" ]]
+  [[ "$(sha256sum "$rootfs/etc/shadow" "$rootfs/usr/sbin/unix_chkpwd" "$rootfs/etc/pam.d/i3lock")" == "$before" ]]
   echo 'LOCK_PAM_NAMESPACE_OK original credential/helper bytes unchanged'
   exit 0
 fi
@@ -46,4 +46,13 @@ probe --expect-denied >"$output/broken-helper.log" 2>&1
 chmod 4755 "$rootfs/run/qa-unix_chkpwd"
 probe --expect-denied --wrong >"$output/wrong-password.log" 2>&1
 probe --expect-success >"$output/correct-password.log" 2>&1
+cp "$rootfs/etc/pam.d/i3lock" "$rootfs/run/qa-vendor-pam"
+cp "$rootfs/run/qa-vendor-pam" "$rootfs/run/qa-custom-pam"
+mount --bind "$rootfs/run/qa-custom-pam" "$rootfs/etc/pam.d/i3lock"
+mount -o remount,bind,ro "$rootfs/etc/pam.d/i3lock"
+printf 'auth required pam_deny.so\n' >"$rootfs/run/qa-custom-pam"
+probe --expect-denied >"$output/custom-policy-denied.log" 2>&1
+cp "$rootfs/run/qa-vendor-pam" "$rootfs/run/qa-custom-pam"
+probe --expect-success >"$output/restored-policy-success.log" 2>&1
+echo 'LOCK_CUSTOM_PAM_OK private deny policy respected with correct credential; restored vendor policy succeeds'
 echo 'LOCK_PAM_REAL_OK SGID-root denied correct credential; SUID-root rejected wrong and accepted correct via unchanged vendor PAM'

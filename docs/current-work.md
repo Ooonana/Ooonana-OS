@@ -1,4 +1,4 @@
-# Current work - 2026-10-23
+# Current work - 2026-10-24
 
 ## Split work: source QA first, release integration later
 
@@ -12,7 +12,9 @@ Current OS/core remains **0.10.0 candidate**, not a promoted stable release.
 2. **Active priority: theme consistency.** User requested already-open apps,
    remaining icons, wallpaper and cursor shape/size/hotspot before lockscreen.
    Native live refresh/dock parity and held-open GTK/Geany/Nemo now pass;
-   browser/Qt live appearance and installed/physical checks remain open.
+   held Chromium live appearance and a compiled Qt portal fix now pass private
+   tests; native Qt package integration, Firefox/other Qt and installed/physical
+   checks remain open.
    Native locker clock/feedback and live lockout prevention now pass private
    real-auth tests. Panel palettes/spacing/counters and bounded modern indicator
    hosting now pass private real-service/menu tests. Legacy XEmbed hosting,
@@ -27,6 +29,40 @@ Current OS/core remains **0.10.0 candidate**, not a promoted stable release.
 4. **Release gates.** User builds fresh ISO after integration; actual PDF/WSLg,
    physical hardware and disposable persistence/upgrade checks stay required.
    Trust enrollment and stable-channel promotion need their deferred decision.
+
+## Source checkpoint: browser/Qt and authentication checks - October 24
+
+Actual isolated tray/app menus recheck passes. Chromium already follows live
+portal appearance. Qt6.11.1 retained cached dark widget palette after a light
+signal; pinned one-line invalidation now compiles natively and passes held-open
+Qt/Chromium dark→light→dark paint/state tests. Browser draft and terminal profile
+remain. Impeccable before/after palette review completed; normal sizes unchanged.
+
+Unpublished plugin/source/dependency manifest:
+`/var/tmp/ooonana-qt-portal-20261024.c3JxKBmc/out`.
+SHA256`a7cbb6b32bcbd29ff36204c62eff43d8df2e6ca2cb6c40f196fe4d13f9705d5c`.
+Runtime confirmation: `/var/tmp/ooonana-client-theme-confirm-20261024.zaUbYcdt`.
+Rebuild after input-guard hardening produced identical binary. **Qt package,
+provenance/closure integration is still required; final ISO remains on hold.**
+Firefox, other Qt/custom platform themes, installed assets/hotspot and real
+mixed-DPI/session remain open. No installed WSL change.
+
+Actual packaged PAM login and its runtime closure now run in private kernel
+6.18.37 VM, unlike the older scratch BusyBox login test. Corrected positive
+control rejects wrong password and enters nonroot desktop on correct password.
+Expired account rejects correct password; expired password requires change
+before desktop. Final expiry/change-gate receipts:
+`/var/tmp/ooonana-session-auth-final-20261024.Ib0emMSa`.
+Full password rotation and actual installed sign-in/wake are not certified.
+Real private lock PAM custom deny/restoration passes with original cached
+shadow/helper/policy bytes unchanged. No login/unlock policy modified.
+Completed-probe cleanup removed only generated compiler/rootfs overlay
+subdirectories after resolved-path/no-link/no-mounted-descendant checks:
+1,130,444KiB (~1.08GiB) reclaimed inside Ubuntu QA filesystem. Logs, screenshots,
+source pins/vendor cache, compiled candidate/previous output, models/history/
+keys and releases remain. Windows C: free space may not rise until separate
+WSL trim/compaction; none performed. Previously blocked F caches not retried.
+[Evidence and limits](ui-whole-os-review.md#batch-45-held-browserqt-themes-and-real-authentication-boundaries).
 
 ## Source checkpoint: tray recheck and remaining launcher handoffs
 

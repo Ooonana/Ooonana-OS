@@ -55,3 +55,5 @@ branding/i3/config text eol=lf
 packages/openvino-chat/rootfs/usr/bin/* text eol=lf
 packages/*/rootfs/usr/bin/* text eol=lf
 packages/*/rootfs/usr/sbin/* text eol=lf
+packages/qt-portal/CMakeLists.txt text eol=lf
+packages/qt-portal/source-pins.json text eol=lf
