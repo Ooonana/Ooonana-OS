@@ -232,10 +232,12 @@ ln -s /proc/self/fd/2 "$rootfs/dev/stderr"
 mount -t devpts -o newinstance,ptmxmode=0666 devpts "$rootfs/dev/pts"
 ln -s pts/ptmx "$rootfs/dev/ptmx"
 chown 1000:1000 "$rootfs/home/ooonana" "$output"
-if [[ "$only" == lock-ui ]]; then
+if [[ "$only" == lock-ui || "$only" == all || "$only" == admin-prompt-ui ]]; then
   # Disposable credential + owned helper copy; real installed/cached auth files
   # and PAM policy stay byte-for-byte unchanged when these mounts disappear.
-  hash="$(printf %s 'Ooonana-private-lock-QA-20261023' | openssl passwd -6 -salt OoonanaLockQA -stdin)"
+  credential='Ooonana-private-admin-QA-20261026'
+  if [[ "$only" == lock-ui ]]; then credential='Ooonana-private-lock-QA-20261023'; fi
+  hash="$(printf %s "$credential" | openssl passwd -6 -salt OoonanaLockQA -stdin)"
   printf 'root:!:20000:0:99999:7:::\nooonana:%s:20000:0:99999:7:::\n' "$hash" >"$rootfs/run/qa-shadow"
   chmod 0600 "$rootfs/run/qa-shadow"
   mount --bind "$rootfs/run/qa-shadow" "$rootfs/etc/shadow"
@@ -277,7 +279,7 @@ if [[ "$only" == all || "$only" == admin-prompt-ui ]]; then
   mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-admin-askpass"
   admin_policy=1
 fi
-if [[ "$only" == all || "$only" == frame-theme-ui || "$only" == live-theme-ui || "$only" == external-theme-ui || "$only" == client-theme-ui || "$only" == theme-flow-ui || "$only" == lock-ui || "$only" == panel-live-ui || "$only" == tray-ui || "$only" == launcher-session-ui || "$only" == firefox-frame || "$only" == qterminal-frame ]]; then
+if [[ "$only" == all || "$only" == frame-theme-ui || "$only" == live-theme-ui || "$only" == external-theme-ui || "$only" == client-theme-ui || "$only" == theme-flow-ui || "$only" == settings-storage-ui || "$only" == lock-ui || "$only" == panel-live-ui || "$only" == tray-ui || "$only" == launcher-session-ui || "$only" == firefox-frame || "$only" == qterminal-frame ]]; then
   # Current helpers must include their source backend/subprocess imports.
   # This probe performs no package operations against the source-only repo dir.
   mount --bind "$SOURCE/packages/ooonana/usr/lib/ooonana" "$rootfs/usr/lib/ooonana"
@@ -300,7 +302,7 @@ if [[ "$only" == lock-ui ]]; then
 fi
 mount --bind "$SOURCE/packages/ooonana/usr/share/themes" "$rootfs/usr/share/themes"
 mount -o remount,bind,ro "$rootfs/usr/share/themes"
-if [[ "$only" == all || "$only" == launcher-session-ui || "$only" == theme-flow-ui || "$only" == frame-theme-ui || "$only" == external-theme-ui || "$only" == client-theme-ui ]]; then
+if [[ "$only" == all || "$only" == launcher-session-ui || "$only" == theme-flow-ui || "$only" == settings-storage-ui || "$only" == frame-theme-ui || "$only" == external-theme-ui || "$only" == client-theme-ui ]]; then
   # Subprocess handoff must use current UI/wrappers, not cached candidate bytes.
   if [[ "$only" != all ]]; then
     mount --bind "$SOURCE/packages/ooonana/usr/lib/ooonana/ui" "$rootfs/usr/lib/ooonana/ui"
@@ -328,6 +330,10 @@ if [[ "$only" == all || "$only" == launcher-session-ui || "$only" == theme-flow-
     mount --bind "$rootfs/run/ooonana-qa-$helper" "$rootfs/usr/bin/$helper"
     mount -o remount,bind,ro "$rootfs/usr/bin/$helper"
   done
+fi
+if [[ "$only" == all || "$only" == settings-storage-ui ]]; then
+  mount --bind "$SOURCE/packages/ooonana/usr/bin/ooonana-wallpaper" "$rootfs/usr/bin/ooonana-wallpaper"
+  mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-wallpaper"
 fi
 if [[ "$only" == all || "$only" == panel-media-runtime ]]; then
   for helper in ooonana-media-control ooonana-media-status; do

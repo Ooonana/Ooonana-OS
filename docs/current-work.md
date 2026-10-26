@@ -2,7 +2,7 @@
 
 ## Split work: source QA first, release integration later
 
-User direction: finish ordered source checks1-5 first. Do not update
+User direction: finish ordered source checks1-8. Do not update
 installed WSL, publish packages or advance release pointers until stable-ready.
 Current OS/core remains **0.10.0 candidate**, not a promoted stable release.
 
@@ -32,6 +32,50 @@ Current OS/core remains **0.10.0 candidate**, not a promoted stable release.
 4. **Release gates.** User builds fresh ISO after integration; actual PDF/WSLg,
    physical hardware and disposable persistence/upgrade checks stay required.
    Trust enrollment and stable-channel promotion need their deferred decision.
+
+## Requested checks 6-8: launcher, Settings/setup, wireless - October 26
+
+Source/private-session pass is complete; installed/hardware gates remain open.
+Impeccable reviewed the existing normal/large layouts and final error states.
+No default font, control-size or scale change. A shorter certificate recovery
+message stays fully visible at200% text on760×600.
+
+6. **Launcher:** fresh real desktop discovery, Return/focus handoff, ten
+   launch paths including Terminal=true, browser/radio-panel routing and
+   usable missing-app terminals pass with the current native i3 candidate at
+   normal/scaled sizes. This does not certify installed keyboard/IME or WSLg.
+7. **Settings/setup:** actual UI callbacks now prove both theme writes/reopen,
+   0600 files, real wallpaper rendering/save/reopen with a spaced Unicode path,
+   read-only preference failure/retry and missing-image failure retaining the
+   saved selection. Reproduced and fixed Settings replacing a managed theme
+   link: linked files, dangling links and linked preference directories are
+   retained. Actual visible refusal/retry passes. Setup review, field focus,
+   cancellation, serialized changes and closed-parent refusal pass fixtures.
+   Actual common/helper/sudo/askpass/PAM authorization succeeds against a private
+   shadow and restrictive policy permitting only `/bin/true`; cancellation/retry
+   restores controls. No real account/service/package transaction was submitted.
+8. **Wireless:** advanced/TLS/certificate/PIN forms, safe reset/remove, service
+   failures, busy/reduced-motion/closed callbacks and existing changed-adapter,
+   activation/reconnect/signal parsing regressions pass isolated checks. New
+   regression reproduced acceptance of missing/unreadable TLS/CA/key files;
+   validation now focuses the affected selector before dispatch. This checks
+   file readiness, not certificate validity or actual radio activation/pairing.
+
+Both CI definitions now run wireless action/parsing regressions; theme storage
+regressions extend the existing CI selection suite. Remote CI was not run.
+Logs: `/var/tmp/ooonana-six-eight-source-20261026.lVXTgoTx`.
+Initial details: `/var/tmp/ooonana-six-eight-ui-20261026.g5KgedB5`.
+Native/current confirmation: `/var/tmp/ooonana-six-eight-final-20261026.y41yvKhk`.
+Final recovery-copy checks: `/var/tmp/ooonana-six-eight-copy-confirm-20261026.Ng0uBjhM`.
+Managed-link and certificate failures were reproduced before their fixes.
+
+Junk scan found no additional safe deletions: new probes use transient private
+mounts and leave only small logs/captures. Preserved checkpoints, compiled
+artifacts/vendor sources, browser seed/cache, history/models/keys and releases.
+No blocked-path retries, disk compaction/move, installed WSL update, signing,
+publication, remote push, stable promotion or ISO build. OpenVINO stays deferred.
+Local unpublished core stage is refreshed separately; production CURRENT stays
+unchanged. Next ordered scope is sound/brightness/music and notifications.
 
 ## Recheck: requested checks 1-5 - October 26
 

@@ -71,6 +71,8 @@ jobs:
           python3 -B tests/test-initial-dialog-placement.py
           python3 -B tests/test-launcher-search.py
           python3 -B tests/test-launcher-fallbacks.py
+          python3 -B tests/test-wireless-utils.py
+          python3 -B tests/test-wireless-actions.py
           python3 -B tests/test-game-ui.py
           python3 -B tests/test-dock-visibility.py
           python3 -B tests/test-dock-model.py

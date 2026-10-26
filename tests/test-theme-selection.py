@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Real generated shell/native selection parity; private preferences only."""
+import ast
 import os
 import json
 from pathlib import Path
@@ -16,6 +17,56 @@ from ui_preferences import resolved_theme
 
 SOURCE = (ROOT / "scripts/build-full-i3-rootfs.sh").read_text()
 HELPER = SOURCE.split('"$ROOTFS/usr/bin/ooonana-theme-env" <<\'EOF\'\n', 1)[1].split("\nEOF", 1)[0]
+
+
+@unittest.skipIf(sys.platform == "win32", "Owned POSIX links and permissions")
+class SettingsThemeStorage(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix="ooonana-settings-theme-")
+        self.addCleanup(temporary.cleanup)
+        self.base = Path(temporary.name)
+        tree = ast.parse((ROOT / "packages/ooonana/usr/lib/ooonana/ui/settings_app.py").read_text())
+        window = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "SettingsWindow")
+        writer = next(node for node in window.body if isinstance(node, ast.FunctionDef) and node.name == "save_theme")
+        writer.decorator_list = []
+        namespace = {"os": os, "tempfile": tempfile, "Path": Path}
+        exec(compile(ast.Module(body=[writer], type_ignores=[]), "settings-theme-storage", "exec"), namespace)
+        self.write = namespace["save_theme"]
+
+    def test_regular_theme_is_private_and_replaceable(self):
+        path = self.base / "config/ooonana/theme"
+        for theme in (b"light\n", b"dark\n"):
+            self.write(path, theme)
+            self.assertEqual(path.read_bytes(), theme)
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(list(path.parent.iterdir()), [path])
+
+    def test_managed_theme_and_dangling_link_are_retained(self):
+        target = self.base / "managed-theme"
+        path = self.base / "theme"
+        for exists in (True, False):
+            if exists:
+                target.write_text("dark\n")
+            path.symlink_to(target)
+            with self.assertRaises(OSError):
+                self.write(path, b"light\n")
+            self.assertTrue(path.is_symlink())
+            if exists:
+                self.assertEqual(target.read_text(), "dark\n")
+                target.unlink()
+            else:
+                self.assertFalse(target.exists())
+            path.unlink()
+
+    def test_linked_preference_directory_stays_untouched(self):
+        managed = self.base / "managed"
+        managed.mkdir()
+        directory = self.base / "ooonana"
+        directory.symlink_to(managed, target_is_directory=True)
+        with self.assertRaises(OSError):
+            self.write(directory / "theme", b"light\n")
+        self.assertTrue(directory.is_symlink())
+        self.assertEqual(list(managed.iterdir()), [])
 
 
 @unittest.skipIf(sys.platform == "win32", "Generated POSIX helper")

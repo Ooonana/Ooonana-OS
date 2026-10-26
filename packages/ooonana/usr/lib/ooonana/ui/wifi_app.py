@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import ipaddress
+import os
 import re
 import sys
 import time
@@ -379,6 +380,13 @@ class WifiCredentialsDialog(Gtk.Dialog):
                 return invalid("Enterprise password is required for this EAP method.", self.password)
             if values["ca_policy"] == "custom" and not values["ca_cert"]:
                 return invalid("Choose a CA certificate.", self.ca_cert)
+            files = [("CA certificate", "ca_cert", self.ca_cert)] if values["ca_policy"] == "custom" else []
+            if values["eap"] == "tls":
+                files.extend((("Client certificate", "client_cert", self.client_cert),
+                              ("Private key", "private_key", self.private_key)))
+            for title, key, field in files:
+                if not Path(values[key]).is_file() or not os.access(values[key], os.R_OK):
+                    return invalid(f"{title} missing or unreadable. Choose again.", field)
         if values["ipv4_mode"] == "manual":
             try:
                 if "/" not in values["ipv4_address"]:

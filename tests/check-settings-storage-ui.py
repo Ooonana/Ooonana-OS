@@ -2,6 +2,7 @@
 """Real private preference writes/reopen/fault/retry; no settings command mocked."""
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -34,6 +35,32 @@ def capture(name):
     root = Gdk.get_default_root_window()
     Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(
         str(output / (name + ".png")), "png", [], [])
+
+
+def appearance_result(window, name, fails=False):
+    errors = []
+    deadline = time.monotonic() + 35
+    def dismiss():
+        dialog = next((item for item in Gtk.Window.list_toplevels()
+                       if isinstance(item, Gtk.MessageDialog) and item.get_visible()), None)
+        if dialog is None:
+            return window.appearance_pending and time.monotonic() < deadline
+        assert dialog.get_transient_for() is window
+        capture(name)
+        errors.append(dialog)
+        dialog.response(Gtk.ResponseType.CLOSE)
+        return False
+    watcher = GLib.timeout_add(60, dismiss) if fails else 0
+    try:
+        while window.appearance_pending and time.monotonic() < deadline:
+            settle()
+        assert not window.appearance_pending, name + ": appearance operation stalled"
+        assert bool(errors) == fails, name + ": unexpected error-dialog state"
+        assert ("failed" in window.appearance_status.get_text()) == fails
+        assert all(widget.get_sensitive() for widget in window.appearance_actions)
+    finally:
+        if watcher and GLib.MainContext.default().find_source_by_id(watcher):
+            GLib.source_remove(watcher)
 
 
 with tempfile.TemporaryDirectory(prefix="ooonana-settings-storage-") as temporary:
@@ -102,6 +129,55 @@ with tempfile.TemporaryDirectory(prefix="ooonana-settings-storage-") as temporar
         window.sidebar.select_row(window.sidebar.get_row_at_index(3))
         assert window.reduce_motion.get_active()
         capture("preference-reopened")
+        # Current helper and actual UI callbacks; every write stays private.
+        theme = config_path().with_name("theme")
+        for selected in ("light", "dark"):
+            window.theme_combo.set_active_id(selected)
+            window.apply_selected_theme()
+            appearance_result(window, "theme-" + selected)
+            assert theme.read_text() == selected + "\n"
+            assert theme.stat().st_mode & 0o777 == 0o600
+            window.destroy()
+            window = SettingsWindow()
+            window.show_all()
+            window.sidebar.select_row(window.sidebar.get_row_at_index(3))
+            assert window.theme_combo.get_active_id() == selected, "Theme choice lost on reopen"
+
+        managed = fixture / "managed-theme"
+        managed.write_text("dark\n")
+        theme.unlink()
+        theme.symlink_to(managed)
+        window.theme_combo.set_active_id("light")
+        window.apply_selected_theme()
+        appearance_result(window, "theme-linked-refusal", fails=True)
+        assert theme.is_symlink() and managed.read_text() == "dark\n"
+        theme.unlink()
+        theme.write_text("dark\n")
+        window.apply_selected_theme()
+        appearance_result(window, "theme-retry")
+        assert theme.read_text() == "light\n", "Unmanaged theme retry failed"
+
+        home = fixture / "home"
+        home.mkdir()
+        os.environ["HOME"] = str(home)
+        image = fixture / "wallpaper with spaces 그림.jpg"
+        shutil.copyfile("/usr/share/ooonana/wallpapers/ooonana-notes.jpg", image)
+        window.apply_wallpaper(str(image), "fill")
+        appearance_result(window, "wallpaper-applied")
+        saved = home / ".config/ooonana"
+        before = [(saved / name).read_bytes() for name in ("wallpaper", "wallpaper-mode")]
+        assert before == [(str(image) + "\n").encode(), b"fill\n"]
+        assert all((saved / name).stat().st_mode & 0o777 == 0o600 for name in ("wallpaper", "wallpaper-mode"))
+        window.destroy()
+        window = SettingsWindow()
+        window.show_all()
+        window.sidebar.select_row(window.sidebar.get_row_at_index(3))
+        assert window.current_wallpaper() == str(image) and window.current_wallpaper_mode() == "fill"
+        window.apply_wallpaper(str(fixture / "removed-image.jpg"), "center")
+        appearance_result(window, "wallpaper-missing-refusal", fails=True)
+        assert [(saved / name).read_bytes() for name in ("wallpaper", "wallpaper-mode")] == before
+        assert window.wallpaper_mode_combo.get_active_id() == "fill"
+
         for name, text in (("message-unbroken", "x" * 580), ("message-diagnostics", "Detail line\n" * 60)):
             dialog = message_dialog(window, "Operation unavailable", text, Gtk.MessageType.ERROR)
             dialog.show_all()
@@ -111,7 +187,7 @@ with tempfile.TemporaryDirectory(prefix="ooonana-settings-storage-") as temporar
             assert 0 <= frame.x and frame.x + frame.width <= root.get_width(), name + ": horizontal overflow"
             assert 0 <= frame.y and frame.y + frame.height <= root.get_height(), name + ": vertical overflow"
             dialog.destroy()
-        print("SETTINGS_STORAGE_UI_OK actual 0600 writes, reopen, read-only failure rollback, parent/bounds, retry", flush=True)
+        print("SETTINGS_STORAGE_UI_OK actual 0600 writes, theme/wallpaper setters and reopen; read-only/link/missing-file refusal; bounded errors and retry", flush=True)
     finally:
         if blocked is not None:
             blocked.chmod(0o700)

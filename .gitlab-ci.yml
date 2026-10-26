@@ -74,6 +74,8 @@ ci-smoke:
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-initial-dialog-placement.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-launcher-search.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-launcher-fallbacks.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-wireless-utils.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-wireless-actions.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-game-ui.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-dock-visibility.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-dock-model.py

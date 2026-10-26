@@ -19,6 +19,10 @@ October26 source checkpoint: legacy XEmbed tray hosting, missing-app launcher
 recovery and compact Breakout resize handling pass private checks. Qt Fusion
 and Windows-style dialogs/pickers pass normal/scaled cases. Compiled native
 packages are staged separately; installed WSL and signed release remain older.
+Checks6–8 now cover launcher handoffs, actual private Settings theme/wallpaper
+persistence and harmless real PAM authorization. Settings preserves managed
+theme links; Wi-Fi rejects missing/unreadable certificate selections before
+activation. Physical radios and installed keyboard/IME remain unverified.
 [Current evidence and release gates](docs/current-work.md).
 
 ![Candidate desktop with flat centered dock, Task View, left music and centered AI](docs/assets/ooonana-flat-pinned-dock-20261019.png)

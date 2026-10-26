@@ -143,6 +143,24 @@ with tempfile.TemporaryDirectory(prefix="ooonana-wireless-details-") as temporar
             check(False, "Credentials lack inline field-error recovery")
         dialog.ipv4_address.set_text("192.0.2.20/24")
         check(not dialog.validate(), "Valid advanced form rejected")
+        for field in (dialog.ca_cert, dialog.client_cert, dialog.private_key):
+            selected = field.get_filename()
+            field.set_filename(str(temporary / "removed-certificate.pem"))
+            error = dialog.validate()
+            check(bool(error) and dialog.error_field is field, "Missing certificate/key passes validation")
+            if error and field is dialog.ca_cert:
+                dialog.show_error(error)
+                capture(dialog, "wifi-certificate-missing")
+                check(dialog.get_focus() is field, "Missing certificate does not focus file selector")
+                check(not dialog.form_error.get_layout().is_ellipsized(), "Certificate recovery text is clipped")
+            field.set_filename(selected)
+            Path(selected).chmod(0)
+            try:
+                error = dialog.validate()
+                check(bool(error) and dialog.error_field is field, "Unreadable certificate/key passes validation")
+            finally:
+                Path(selected).chmod(0o600)
+        check(not dialog.validate(), "Restored certificate/key cannot retry")
         for field, invalid, valid in ((dialog.ipv4_gateway, "999.2.3.4", "192.0.2.1"),
                                       (dialog.ipv4_dns, "192.0.2.53, invalid", "192.0.2.53, 198.51.100.53"),
                                       (dialog.proxy_url, "", "https://example.invalid/proxy.pac")):

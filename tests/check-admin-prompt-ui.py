@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Real askpass component on owned X11; no sudo, credentials or host changes."""
+"""Real askpass/sudo on owned X11; disposable credentials, harmless command only."""
 import argparse
 from contextlib import redirect_stdout
 import io
@@ -190,6 +190,33 @@ with tempfile.TemporaryDirectory(prefix="ooonana-admin-prompt-") as temporary:
         assert all(button.get_sensitive() for button in health_window.actions)
         health_window.destroy()
         print("ADMIN_CANCEL_ROUTE_OK actual sudo/askpass to Packages and Health, retry, controls restored; no package transaction", flush=True)
+
+        # Private shadow uses a deliberately public QA password. Only /bin/true
+        # is authorized; no installed account, service or package is modified.
+        from common import run_async
+        result, answered = [], []
+        run_async(["/bin/true"], lambda rc, output: result.append((rc, output)), admin=True, timeout=15)
+        deadline = time.monotonic() + 12
+        def authorize():
+            found = subprocess.run(["xdotool", "search", "--onlyvisible", "--name",
+                                    "^Authorize( administration)?$"], capture_output=True, text=True)
+            if found.returncode or not found.stdout.strip():
+                return not result and time.monotonic() < deadline
+            assert not answered, "Successful authorization prompted twice"
+            subprocess.run(["xdotool", "windowfocus", found.stdout.splitlines()[0]], check=True)
+            subprocess.run(["xdotool", "type", "--clearmodifiers", "--file", "-"],
+                           input="Ooonana-private-admin-QA-20261026", text=True, check=True)
+            subprocess.run(["xdotool", "key", "--clearmodifiers", "Return"], check=True)
+            answered.append(True)
+            return False
+        watcher = GLib.timeout_add(60, authorize)
+        while not result and time.monotonic() < deadline:
+            settle()
+        if GLib.MainContext.default().find_source_by_id(watcher):
+            GLib.source_remove(watcher)
+        assert len(answered) == 1 and result and result[0][0] == 0, "Private real PAM authorization failed"
+        assert "Ooonana-private-admin-QA-20261026" not in result[0][1], "QA password reached command output"
+        print("ADMIN_AUTH_ROUTE_OK actual common/helper/sudo/askpass/PAM success; only /bin/true executed", flush=True)
     finally:
         for item in Gtk.Window.list_toplevels():
             item.destroy()

@@ -19,8 +19,8 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Panel / music / AI / notifications / tray | Actual source Polybar; wide CJK/full counters/AI centering across seven widths640–1600px; supervised live palette changes preserve dock/client state; bounded999+ counts; silent private MPD recovery; modern SNI plus bounded legacy XEmbed host, real NM/Blueman menus and GTK status-icon pointer/keyboard/hidden-start/ownership recovery/overflow tests; normal/200% text | Installed tray/service authentication/recovery and physical/mixed-DPI integration; null-output QA does not prove hardware audio |
 | Dock | Flat centered icons; actual app/transient grouping, exact MRU restore, direct actions, Pin/Unpin, real held-drag reorder within left-pinned/right-running sections, saved layout/relaunch and readonly retry pass both themes normal/200% text; overflow idle-pin options, edge tooltips and actual 1×/2× device checks pass; signed candidate/native bytes synchronized | Actual installed interactive-session/display integration, physical mixed DPI/hotplug; multi-output visibility currently pure/derived guards |
 | Native Launcher | Long names/tooltips, no-match/empty recovery, launch rejection retaining search, arrows, Unicode Backspace/clipboard; ten real desktop-entry/Return/nonroot/focus/bounds handoffs including Terminal=true; browser/sound/Wi-Fi/Bluetooth routing; usable missing-browser/files/editor recovery shells; synchronous filtering/exact-name ranking preserves selection | Actual installed-session keyboard/IME/desktop integration; enlarged-launcher cases do not certify external-app/global text scaling |
-| Wi-Fi / Bluetooth | Managed lists/hidden/personal/TLS/PIN forms; advanced fields, bounded certificate pickers, inline validation, progress/reduced motion, service gating, duplicate/closed refusal and safe Reset/Remove pass both themes through 200% text | Actual installed authentication, advanced network activation, physical reconnect/pairing and changed-adapter integration |
-| Settings: all six pages | Compact page picker, bounded/selectable sources, managed dialogs, repair/update retry; actual private 0600 preference writes, reopen, read-only rollback and retry through 200% text | Actual installed-session theme/wallpaper/authentication paths, other external file/device failures |
+| Wi-Fi / Bluetooth | Managed lists/hidden/personal/TLS/PIN forms; advanced fields, bounded certificate pickers, missing/unreadable certificate/key refusal with visible selector focus/recovery, progress/reduced motion, service gating, duplicate/closed refusal and safe Reset/Remove pass both themes through 200% text | Actual installed authentication, certificate validity, advanced network activation, physical reconnect/pairing and changed-adapter integration |
+| Settings: all six pages | Compact page picker, bounded/selectable sources, managed dialogs, repair/update retry; actual private 0600 preference/theme/wallpaper writes and reopen; read-only, managed-link and missing-image refusal/retry; harmless real private sudo/askpass/PAM authentication through 200% text | Actual installed-session/device integration and privileged Setup/service transactions; other external-file failures |
 | Setup | Compact/200% scrolling and stacked labels; focused inline validation, secret-preserving drafts, full source/routing review, default Back, reduced motion, pending/reentrant and closed-parent refusal checked both themes | Complete installed privileged setup/persistence and actual authentication/network failures; CLI backend preflight is not certified by UI validation |
 | Sound / brightness / music | Verified readiness, selected-identity audio/backlight commands, unknown/empty/permission states, persistent inline retry, serialized actions, preserved drafts, stale-poll/closed refusal; keyboard and both themes through 200% text pass silent fixtures | Actual installed route/mute/volume and playback semantics, changed-device integration and real hardware; no sound playback |
 | Power | Compact40px actions/44px at real200% text; natural-height window; Enter Cancel/Escape; visibly mapped native confirmation; duplicate refusal, error/retry, failed lock and late-callback refusal pass under private i3 in both themes | Actual lock/logout/power actions, unavailable capabilities and installed-session integration remain unverified; no real power command executed |
@@ -49,6 +49,41 @@ October 17 updated Computer Use runtime was retried through its documented
 app input. No Windows automation workaround or security setting change used.
 
 ## Current batch evidence
+
+### Batch 49: requested checks 6-8, Settings storage and wireless recovery
+
+October26 source/private-session review covers launcher, Settings/setup and
+wireless. Fresh real launcher handoffs and missing-app terminals pass at
+normal/scaled sizes with the current native i3 candidate. Actual Settings
+theme/wallpaper callbacks now prove persistence/reopen, private file modes,
+Unicode/spaced image paths, failure retaining saved choices and retry.
+
+Two defects were reproduced and repaired: Settings no longer replaces a
+managed theme link or writes through a linked preference directory; wireless
+credentials reject selected CA/client/key files that disappeared or became
+unreadable. Short inline certificate recovery remains fully visible at200%
+text on760×600 and focuses the file selector. No font/control/default-scale
+change. Impeccable reviewed normal/scaled baseline and final rendered errors.
+
+Actual private sudo/askpass/PAM accepts a disposable QA password and executes
+only `/bin/true`; existing cancellation/retry still restores controls. This
+does not certify installed service/package/Setup transactions. The private
+shadow, helper mode and restrictive sudoers vanish with their mount namespace;
+installed credentials, cache bytes and host policy stay unchanged.
+
+Existing source suites and both-theme Setup/wireless details checks pass.
+Both CI configurations include wireless regressions; theme-link cases extend
+the existing selection suite. Native/current GUI confirmation:
+`/var/tmp/ooonana-six-eight-final-20261026.y41yvKhk`.
+Final visible recovery-copy checks:
+`/var/tmp/ooonana-six-eight-copy-confirm-20261026.Ng0uBjhM`.
+[Full receipts and limits](current-work.md#requested-checks-6-8-launcher-settingssetup-wireless---october-26).
+
+Installed keyboard/IME/WSLg, physical credential activation/pairing/reconnect,
+changed hardware and complete persistence/privileged Setup remain open. No
+OpenVINO work, audible playback, installed WSL sync, remote push/CI,
+production signing/publication or ISO build. Junk scan found only retained
+evidence/checkpoints; no additional confirmed disposable files to remove.
 
 ### Batch 48: Qt variants, chooser diagnosis, helpers and legacy tray
 

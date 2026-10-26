@@ -642,6 +642,8 @@ class SettingsWindow(Gtk.Window):
 
     @staticmethod
     def save_theme(path, data):
+        if path.is_symlink() or path.parent.is_symlink():
+            raise OSError("Theme: linked preference retained; update its managed target manually.")
         path.parent.mkdir(parents=True, exist_ok=True)
         descriptor, temporary = tempfile.mkstemp(prefix="theme.", dir=path.parent)
         try:
