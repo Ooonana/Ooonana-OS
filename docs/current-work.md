@@ -33,6 +33,33 @@ Current OS/core remains **0.10.0 candidate**, not a promoted stable release.
    physical hardware and disposable persistence/upgrade checks stay required.
    Trust enrollment and stable-channel promotion need their deferred decision.
 
+## Recheck: requested checks 1-5 - October 26
+
+Impeccable polish guidance and one fresh batched visual review covered Qt
+Fusion/Graphite1×, Windows-style/Paper2×, launcher recovery/Breakout and real
+legacy tray interactions/pixels. All fresh rendered probes pass; no UI edits
+were needed. Baseline18-suite rerun passes at7d84428. GTK chooser stack evidence
+is revalidated; fresh Qt picker cancel/open still passes. Upstream warning is
+not suppressed or claimed fixed.
+
+Additional backend review reproduced one policy gap: `get` of a missing
+runtime could replace legacy core0.9 with0.10 without `--allow-major` because
+the runtime package ID was new. Guard now compares the installed legacy core
+before dependency installation. Regression proves refusal leaves dependencies
+untouched, dry-run reports the major transition and explicit authorization
+still works. Adoption/update/interruption/persistence/factory regressions pass.
+Refreshed staged packages also pass actual private native upgrade, failed-health
+rollback, config preservation and installed source/binary/dependency checks:
+`/var/tmp/ooonana-native-upgrade-policy-recheck-20261026.LuoUiZ5T`.
+
+Fresh UI receipts: `/var/tmp/ooonana-five-ui-recheck-20261026.JBbo093i`,
+`6oBy67YI`, `UHhAP6Zv` and `wlX8N8XU` under the same prefix.
+Baseline logs: `/var/tmp/ooonana-five-recheck-20261026.BDsTANEg`.
+Guard regression logs: `/var/tmp/ooonana-adoption-policy-recheck-20261026.YfnHpPTR`.
+Recheck Qt overlays alone reclaimed224,208KiB inside QA filesystem; captures,
+logs, native checkpoints, compiled artifacts, history/models/keys remain.
+WSL sync, remote CI/push, signing/publication and ISO remain deferred.
+
 ## Source checkpoint: requested checks 1-5 - October 26
 
 Qt6/QTerminal Fusion dark1× and Windows-style Paper2× pass all six Preferences

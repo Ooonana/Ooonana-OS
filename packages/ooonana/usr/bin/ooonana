@@ -2409,7 +2409,7 @@ check_reverse_dependencies() {
 }
 
 install_one_pkg() {
-  local id dry_run deps conflicts dep old_installing
+  local id dry_run deps conflicts dep old_installing old_core_version
   id="$1"
   dry_run="$2"
   safe_pkg_id "$id" || die "bad package id: $id"
@@ -2435,6 +2435,19 @@ install_one_pkg() {
   load_pkg "$id"
   check_pkg_userland
   check_pkg_conflicts "$id"
+
+  # A new runtime package ID can still replace an older installed OS core.
+  # Apply the same major-version policy before installing its dependencies.
+  if [ "$id" = ooonana-core-runtime ] && pkg_installed ooonana-core; then
+    old_core_version="$(installed_pkg_version ooonana-core)"
+    if major_os_update "$id" "$old_core_version" "$OOONANA_PKG_VERSION" && [ "${OOONANA_ALLOW_MAJOR:-0}" != 1 ]; then
+      if [ "$dry_run" -eq 1 ]; then
+        printf 'major update needs --allow-major: %s %s -> %s (legacy core adoption)\n' "$id" "$old_core_version" "$OOONANA_PKG_VERSION"
+        return 0
+      fi
+      die "major OS update requires explicit --allow-major: $id $old_core_version -> $OOONANA_PKG_VERSION (legacy core adoption; use reinstall --allow-major)"
+    fi
+  fi
 
   if [ "$dry_run" -eq 1 ]; then
     OOONANA_PLANNED="${OOONANA_PLANNED:-} $id"

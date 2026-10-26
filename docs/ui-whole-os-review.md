@@ -95,6 +95,15 @@ Unpublished stage passes654-package/612-node closure and native provenance.
 Production CURRENT/base archive hashes are unchanged. QA signatures use an
 ephemeral fixture key, with no client enrollment or production private-key read.
 
+Subsequent1-5 recheck repeats all18 baseline suites and fresh Qt/launcher/tray
+flows with Impeccable visual guidance. It finds and fixes a separate backend
+policy bypass: first runtime adoption must compare the older legacy core's
+version before dependencies change. Unapproved major adoption refuses; explicit
+`--allow-major` remains supported. Focused regressions and refreshed actual
+native upgrade/rollback/source checks pass. Latest native receipt:
+`/var/tmp/ooonana-native-upgrade-policy-recheck-20261026.LuoUiZ5T`.
+No UI sizing/style changes, installed WSL sync or publication occurred.
+
 ### Batch 47: regular Firefox live appearance and device scaling
 
 Rechecked full password rotation and login prompt guards successfully before
