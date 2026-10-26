@@ -9,6 +9,15 @@ import tray_model as model
 
 
 class TrayModel(unittest.TestCase):
+    def test_legacy_dock_wire_guards(self):
+        self.assertEqual(model.dock_request(33, 32, [0, 0, 12345, 0, 0]), 12345)
+        for kind, wire, values in ((32, 32, [0, 0, 1, 0, 0]), (33, 8, [0, 0, 1, 0, 0]),
+                (33, 32, None), (33, 32, []), (33, 32, [0, 1, 1, 0, 0]),
+                (33, 32, [0, 0, 0, 0, 0]), (33, 32, [0, 0, -1, 0, 0]),
+                (33, 32, [0, 0, 2**32, 0, 0]), (33, 32, [0, 0, True, 0, 0])):
+            self.assertIsNone(model.dock_request(kind, wire, values))
+        self.assertEqual(model.MAX_LEGACY_ITEMS, 32)
+
     def test_registration_forms(self):
         self.assertEqual(model.address("/org/blueman/sni", ":1.20"), (":1.20", "/org/blueman/sni"))
         self.assertEqual(model.address("org.example.Tray"), ("org.example.Tray", "/StatusNotifierItem"))

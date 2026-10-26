@@ -12,6 +12,7 @@ preferred = ast.literal_eval(next(node.value for node in source.body if isinstan
                                          for target in node.targets)))
 assert preferred["org.pulseaudio.pavucontrol.desktop"] == preferred["pavucontrol.desktop"] == ["ooonana-audio-panel"]
 assert preferred["chromium.desktop"] == ["ooonana-browser"]
+assert preferred["chromium-browser.desktop"] == ["ooonana-browser"]
 assert preferred["nm-connection-editor.desktop"] == ["ooonana-wifi-panel"]
 assert preferred["blueman-manager.desktop"] == ["ooonana-bluetooth-panel"]
 app = next(node for node in source.body if isinstance(node, ast.ClassDef) and node.name == "LauncherWindow")
@@ -43,4 +44,16 @@ owner.results = SimpleNamespace(invalidate_filter=lambda: calls.append("filter")
 owner.select_first = lambda: calls.append("select-current-results")
 namespace["search_changed"](owner)
 assert calls == ["filter", "rank", "select-current-results"], "Filter/rank/selection must finish before Return or idle"
+launch_method = next(node for node in app.body if isinstance(node, ast.FunctionDef) and node.name == "launch_app")
+events = []
+launch_namespace = {"PREFERRED_COMMANDS": preferred,
+    "Gdk": SimpleNamespace(Display=SimpleNamespace(get_default=lambda: None)),
+    "Gtk": SimpleNamespace(MessageType=SimpleNamespace(ERROR="error")),
+    "message": lambda *_args: events.append("error"), "launch": lambda _args: False}
+exec(compile(ast.Module(body=[launch_method], type_ignores=[]), "launcher-handoff", "exec"), launch_namespace)
+for identifier, result in (("generic.desktop", False), ("generic.desktop", True), ("chromium.desktop", False)):
+    events.clear()
+    launch_namespace["launch_app"](SimpleNamespace(close=lambda: events.append("close")),
+        SimpleNamespace(get_id=lambda: identifier, launch=lambda *_args: result))
+    assert events == (["close"] if result else ["error"]), (identifier, result, events)
 print("ok launcher-search: immediate filter/selection, exact/prefix/word/name before description, stable defaults, Unicode/no-match")

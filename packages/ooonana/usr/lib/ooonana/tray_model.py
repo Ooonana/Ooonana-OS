@@ -2,6 +2,16 @@
 import re
 
 MAX_ITEMS = 64
+MAX_LEGACY_ITEMS = 32
+
+
+def dock_request(kind, wire_format, values):
+    """Only XEmbed dock opcodes; balloon/message payloads are never allocated."""
+    if (type(kind) is not int or kind != 33 or type(wire_format) is not int or wire_format != 32
+            or not isinstance(values, (list, tuple)) or len(values) != 5 or type(values[1]) is not int or values[1] != 0):
+        return None
+    xid = values[2]
+    return xid if type(xid) is int and 0 < xid <= 0xffffffff else None
 
 
 def text(value, limit=256):

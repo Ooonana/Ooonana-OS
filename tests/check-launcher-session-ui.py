@@ -5,6 +5,7 @@ import configparser
 import os
 from pathlib import Path
 import shutil
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -92,6 +93,9 @@ with tempfile.TemporaryDirectory(prefix="ooonana-launcher-session-") as temporar
     title = "OoonanaQA-Launch-%s" % os.getpid()
     entry.write_text("[Desktop Entry]\nType=Application\nName=Ooonana QA Session Launch\n"
                      "Exec=xterm -title %s -e sleep 90\nIcon=utilities-terminal\nTerminal=false\n" % title)
+    terminal_entry = entries / ("ooonana-qa-terminal-%s.desktop" % os.getpid())
+    terminal_entry.write_text("[Desktop Entry]\nType=Application\nName=Ooonana QA Terminal Entry\n"
+                              "Exec=/bin/sleep 90\nIcon=utilities-terminal\nTerminal=true\n")
     wm = subprocess.Popen(["i3", "-c", str(config)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     launcher = None
     try:
@@ -109,6 +113,7 @@ with tempfile.TemporaryDirectory(prefix="ooonana-launcher-session-") as temporar
                 ("blueman-manager.desktop", None, "Bluetooth", "bluetooth_app.py", "preferred-bluetooth"),
                 ("chromium.desktop", None, None, "chromium", "preferred-browser"),
                 (entry.name, "Ooonana QA Session Launch", title, "xterm", "terminal"),
+                (terminal_entry.name, "Ooonana QA Terminal Entry", None, "xterm", "terminal-entry"),
                 ("ooonana-settings.desktop", "Ooonana Settings", "Ooonana Settings", "settings_app.py", "settings"),
                 ("xterm.desktop", "XTerm", None, "xterm", "preferred-terminal"),
                 ("geany.desktop", "Geany", None, "geany", "preferred-editor"),
@@ -195,6 +200,38 @@ with tempfile.TemporaryDirectory(prefix="ooonana-launcher-session-") as temporar
             wait(lambda: not any(item["window"] == app["window"] for item in clients()), "Owned app did not close")
             print("LAUNCHER_REAL_HANDOFF_OK", desktop_id, process_marker, flush=True)
             launcher = None
+        # Real missing-app terminals, current source wrappers, isolated PATH/home.
+        helper_bin = Path(temporary) / "bin"; helper_bin.mkdir()
+        (helper_bin / "ooonana-theme-env").symlink_to("/usr/bin/ooonana-theme-env")
+        builder = (ROOT / "scripts/build-full-i3-rootfs.sh").read_text()
+        for helper in ("ooonana-browser", "ooonana-files", "ooonana-editor"):
+            script = builder.split(f'"$ROOTFS/usr/bin/{helper}" <<\'EOF\'\n', 1)[1].split("\nEOF", 1)[0]
+            path = helper_bin / helper; path.write_text(script); path.chmod(0o755)
+            process = subprocess.Popen([str(path)], env={**os.environ, "PATH": str(helper_bin)})
+            wait(lambda: any(str((item.get("window_properties") or {}).get("class", "")).lower() == "xterm" for item in clients()),
+                 "Missing-app recovery terminal absent: " + helper)
+            client = next(item for item in clients() if str((item.get("window_properties") or {}).get("class", "")).lower() == "xterm")
+            command("[con_id=%d] focus" % client["id"])
+            settle(.4); capture(helper + "-missing")
+            proof = Path(temporary) / (helper + "-recovered")
+            subprocess.run(["xdotool", "type", "--clearmodifiers", "--", "printf recovered > " + shlex.quote(str(proof))], check=True)
+            subprocess.run(["xdotool", "key", "Return"], check=True)
+            wait(lambda: proof.exists() and proof.read_text() == "recovered", "Fallback shell not usable: " + helper)
+            subprocess.run(["xdotool", "type", "--clearmodifiers", "exit"], check=True)
+            subprocess.run(["xdotool", "key", "Return"], check=True)
+            process.wait(timeout=8)
+            wait(lambda: not any(item["window"] == client["window"] for item in clients()), "Fallback terminal did not exit")
+        game = subprocess.Popen([str(ROOT / "packages/ooonana/usr/bin/ooonana-game-launch")])
+        wait(lambda: any((item.get("window_properties") or {}).get("class") == "OonanaGame" for item in clients()), "Game terminal missing")
+        client = next(item for item in clients() if (item.get("window_properties") or {}).get("class") == "OonanaGame")
+        command("[con_id=%d] focus" % client["id"])
+        settle(.4); subprocess.run(["xdotool", "key", "p"], check=True); capture("game-paused")
+        command("[con_id=%d] fullscreen disable; [con_id=%d] floating enable; [con_id=%d] resize set 260 px 180 px" % (client["id"], client["id"], client["id"]))
+        settle(.3); capture("game-small")
+        command("[con_id=%d] fullscreen enable" % client["id"])
+        settle(.3); capture("game-restored")
+        subprocess.run(["xdotool", "key", "q"], check=True); game.wait(timeout=8)
+        print("HELPER_UI_OK real browser/files/editor missing-app terminals; shell recovery/exit; game pause/resize/restore/quit", flush=True)
         print("LAUNCHER_SESSION_RESULTS", json.dumps(findings), flush=True)
         assert not findings, "; ".join(findings)
         print("LAUNCHER_SESSION_UI_OK real discovery/Return/focus; preferred sound/wifi/bluetooth/browser/terminal/editor/files; default bounds; no device action", flush=True)
@@ -202,5 +239,6 @@ with tempfile.TemporaryDirectory(prefix="ooonana-launcher-session-") as temporar
         if launcher is not None:
             launcher.destroy()
         entry.unlink(missing_ok=True)
+        terminal_entry.unlink(missing_ok=True)
         wm.terminate()
         wm.wait(timeout=4)

@@ -43,6 +43,7 @@ parser.add_argument("--firefox-regular-window", action="store_true", help="Test 
 parser.add_argument("--firefox-theme-cycle", action="store_true", help="Held regular browser follows real portal/Xsettings changes without losing draft or window state")
 parser.add_argument("--wait-for-file-trace", action="store_true",
                     help="Private QA only: wait for host's read-only syscall tracer before selecting file")
+parser.add_argument("--wait-for-chooser-cancel-trace", action="store_true", help="Private QA debugger gate before chooser Cancel")
 args = parser.parse_args()
 if args.no_use_damage and not args.compositor:
     parser.error("--no-use-damage requires --compositor")
@@ -65,6 +66,8 @@ if args.firefox_theme_cycle and (args.app != "firefox" or not args.firefox_regul
     parser.error("Theme cycle requires an existing QA profile and regular Firefox window")
 if args.wait_for_file_trace and (args.app != "firefox" or not args.file_dialog):
     parser.error("File tracing requires Firefox picker probe")
+if args.wait_for_chooser_cancel_trace and (args.app != "firefox" or not args.file_dialog or args.wait_for_file_trace):
+    parser.error("Chooser Cancel tracing requires Firefox picker and a separate trace gate")
 if os.environ.get("OOONANA_GUI_TEST_DISPLAY") != "1":
     raise SystemExit("Explicit isolated display required")
 if args.app == "firefox" and os.getuid() != 1000:
@@ -416,6 +419,7 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
                   "properties": properties, "controls": {str(k): list(v.get_size()) for k, v in manager.controls.items()}}
         if args.app == "qterminal":
             record["qt_scale"] = environment.get("QT_SCALE_FACTOR", "1")
+            record["qt_style_override"] = environment.get("QT_STYLE_OVERRIDE", "")
             record["session_cwd"] = str(Path.cwd())
         if args.app == "firefox":
             record["qa_profile"] = profile.name
@@ -772,6 +776,9 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
             wait(controls_painted)
             Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(
                 str(args.output.with_name(args.output.stem + "-file-dialog.png")), "png", [], [])
+            if args.wait_for_chooser_cancel_trace:
+                print("CHOOSER_CANCEL_TRACE_READY", flush=True)
+                wait(lambda: Path("/qa/trace-ready").is_dir())
             key("Escape")
             wait(lambda: dialog_node() is None)
             wait(lambda: find_client()["focused"])

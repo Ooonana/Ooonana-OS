@@ -494,20 +494,20 @@ restore_pkg_transaction() (
   id="$2"
   manifest="$(pkg_files_manifest "$id")"
   baseline="$(config_baseline_path "$id")"
-  for entry in affected new-dirs installed.pkg checksums; do
+  for entry in affected new-dirs checksums; do
     [ -f "$transaction/$entry" ] && [ ! -L "$transaction/$entry" ] || return 1
   done
   [ -s "$transaction/checksums" ] || return 1
   # Corrupt snapshots must be refused before deleting any current payload.
   while read -r expected entry; do
     case "$entry" in
-      affected|new-dirs|installed.pkg|manifest|config-baseline|payload.tar|package-id|target-root) ;;
+      affected|new-dirs|installed.pkg|installed.absent|manifest|config-baseline|payload.tar|package-id|target-root) ;;
       *) return 1 ;;
     esac
     [ -f "$transaction/$entry" ] && [ ! -L "$transaction/$entry" ] || return 1
     [ "$(sha256_file "$transaction/$entry")" = "$expected" ] || return 1
   done <"$transaction/checksums"
-  for entry in affected new-dirs installed.pkg manifest config-baseline payload.tar package-id target-root; do
+  for entry in affected new-dirs installed.pkg installed.absent manifest config-baseline payload.tar package-id target-root; do
     expected="$(awk -v wanted="$entry" '$2==wanted { count++ } END { print count+0 }' "$transaction/checksums")"
     if [ -e "$transaction/$entry" ] || [ -L "$transaction/$entry" ]; then
       [ "$expected" = 1 ] || return 1
@@ -515,6 +515,12 @@ restore_pkg_transaction() (
       [ "$expected" = 0 ] || return 1
     fi
   done
+  if [ -f "$transaction/installed.pkg" ]; then
+    [ ! -e "$transaction/installed.absent" ] || return 1
+  else
+    [ "$id" = ooonana-core-runtime ] && [ -f "$transaction/installed.absent" ] &&
+      [ "$(cat "$transaction/installed.absent")" = "$id" ] || return 1
+  fi
   while IFS= read -r entry; do
     safe_manifest_entry "$entry" || return 1
   done <"$transaction/affected"
@@ -540,7 +546,11 @@ restore_pkg_transaction() (
   if [ -f "$transaction/payload.tar" ]; then
     tar -xpf "$transaction/payload.tar" -C "$OOONANA_ROOT" || return 1
   fi
-  cp -p "$transaction/installed.pkg" "$INSTALLED_DIR/$id.pkg" || return 1
+  if [ -f "$transaction/installed.pkg" ]; then
+    cp -p "$transaction/installed.pkg" "$INSTALLED_DIR/$id.pkg" || return 1
+  else
+    rm -f "$INSTALLED_DIR/$id.pkg" || return 1
+  fi
   if [ -f "$transaction/manifest" ]; then
     cp -p "$transaction/manifest" "$manifest" || return 1
   else
@@ -2454,6 +2464,14 @@ install_one_pkg() {
   fi
 
   ensure_pkg_dirs
+  # Older factory images have core metadata without a separate runtime record.
+  # Adopt overlapping payload through the same config-preserving journal used
+  # for upgrades; plain first-install extraction would overwrite user settings.
+  if [ "$id" = ooonana-core-runtime ] && pkg_installed ooonana-core; then
+    replace_pkg_transaction "$id"
+    printf 'installed %s %s\n' "$id" "$OOONANA_PKG_VERSION"
+    return 0
+  fi
   [ -n "$OOONANA_PKG_ARCHIVE" ] && install_pkg_archive "$id"
   run_pkg_hook "$id" install
   run_pkg_hook "$id" healthcheck
@@ -2852,7 +2870,13 @@ replace_pkg_transaction() (
   trap 'exit 129' HUP
   trap 'exit 130' INT
   trap 'exit 143' TERM
-  cp -p "$INSTALLED_DIR/$id.pkg" "$transaction/installed.pkg"
+  if [ -f "$INSTALLED_DIR/$id.pkg" ]; then
+    cp -p "$INSTALLED_DIR/$id.pkg" "$transaction/installed.pkg"
+  elif [ "$id" = ooonana-core-runtime ] && pkg_installed ooonana-core; then
+    printf '%s\n' "$id" >"$transaction/installed.absent"
+  else
+    die "replacement requires installed package or legacy core adoption: $id"
+  fi
   : > "$transaction/affected"
   : > "$transaction/backup-list"
   : > "$transaction/new-dirs"
@@ -2899,7 +2923,7 @@ replace_pkg_transaction() (
   printf '%s\n' "$OOONANA_ROOT" >"$transaction/target-root"
   (
     cd "$transaction"
-    for entry in affected new-dirs installed.pkg manifest config-baseline payload.tar package-id target-root; do
+    for entry in affected new-dirs installed.pkg installed.absent manifest config-baseline payload.tar package-id target-root; do
       [ ! -f "$entry" ] || sha256sum "$entry"
     done
   ) >"$transaction/checksums"

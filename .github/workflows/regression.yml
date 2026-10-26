@@ -36,6 +36,9 @@ jobs:
           python3 -B tests/test-panel-session.py
           python3 -B tests/test-tray-model.py
           python3 -B tests/test-qt-portal.py
+          python3 -B tests/test-qt-package.py
+          python3 -B tests/test-pam-package.py
+          python3 -B tests/test-core-adoption.py
           python3 -B tests/test-installed-wsl-update.py
           python3 -B tests/test-pdf-runtime-reuse.py
           python3 -B tests/test-native-pdf-probe.py
@@ -67,6 +70,8 @@ jobs:
           python3 -B tests/test-desktop-backend-polish.py
           python3 -B tests/test-initial-dialog-placement.py
           python3 -B tests/test-launcher-search.py
+          python3 -B tests/test-launcher-fallbacks.py
+          python3 -B tests/test-game-ui.py
           python3 -B tests/test-dock-visibility.py
           python3 -B tests/test-dock-model.py
           python3 -B tests/test-window-control-scale.py

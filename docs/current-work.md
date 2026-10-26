@@ -1,35 +1,120 @@
-# Current work - 2026-10-25
+# Current work - 2026-10-26
 
 ## Split work: source QA first, release integration later
 
-User direction: finish the current frame-theme batch first. Do not update
+User direction: finish ordered source checks1-5 first. Do not update
 installed WSL, publish packages or advance release pointers until stable-ready.
 Current OS/core remains **0.10.0 candidate**, not a promoted stable release.
 
 1. **Completed source batches.** Native color-only frame updates, resource
    ownership, readable Paper/Graphite, honest Settings feedback and flat
    third-party client/header joins. Candidate artifacts remain unpublished.
-2. **Active priority: theme consistency.** User requested already-open apps,
+2. **Requested checks1-5 completed locally.** User requested already-open apps,
    remaining icons, wallpaper and cursor shape/size/hotspot before lockscreen.
    Native live refresh/dock parity and held-open GTK/Geany/Nemo now pass;
    held Chromium live appearance and a compiled Qt portal fix now pass private
    tests. Regular Firefox now passes private light/dark live changes and1×/2×
-   picker/window cases. Native Qt package integration, other Qt and actual
-   installed/physical checks remain open.
+   picker/window cases. Bundled QTerminal Fusion/Windows-style preferences and
+   pickers now pass normal/scaled checks. Native packages are built into an
+   unpublished stage; installed/physical checks remain open.
    Native locker clock/feedback and live lockout prevention now pass private
    real-auth tests. Panel palettes/spacing/counters and bounded modern indicator
-   hosting now pass private real-service/menu tests. Legacy XEmbed hosting,
-   actual sign-in/wake and installed-session checks remain open.
+   hosting now pass private real-service/menu tests. Legacy XEmbed hosting now
+   passes hidden startup, app actions, keyboard, bounded overflow and ownership
+   loss/recovery tests. Actual sign-in/wake and installed-session checks remain.
    Latest recheck repeats real tray/service menus at200% text. Launcher browser
    and hardware-wrapper handoffs now pass private real-session checks; current
    PulseAudio desktop-ID routing is repaired. Installed keyboard/IME remains open.
    Never lock the installed/live user session during isolated QA.
-3. **Deferred release integration.** Remote CI, fresh core/runtime/native package
-   set, signed generation, final closure checks, WSL sync and updated release
+3. **Deferred release integration.** Remote CI, signed generation/publication,
+   final-image closure checks, WSL sync and updated release
    screenshots/docs. No private-key upload; OpenVINO stays deferred.
 4. **Release gates.** User builds fresh ISO after integration; actual PDF/WSLg,
    physical hardware and disposable persistence/upgrade checks stay required.
    Trust enrollment and stable-channel promotion need their deferred decision.
+
+## Source checkpoint: requested checks 1-5 - October 26
+
+Qt6/QTerminal Fusion dark1× and Windows-style Paper2× pass all six Preferences
+pages, font/portal image pickers, cancel/select/reopen, close confirmation and
+window actions. These are supported bundled-client style overrides, not proof
+for arbitrary external Qt themes/apps. Private GTK chooser Cancel warning is
+now traced with an owned-process debugger: `g_return_if_fail_warning` reports
+`gtk_widget_event: WIDGET_REALIZED_FOR_EVENT (widget, event)` during GTK window
+key propagation. Picker cancel/open/rendered content still pass. Logging stays
+enabled; no upstream GTK fix or Ooonana callback failure is claimed.
+
+Launcher generic launch failure keeps its search open and displays the error.
+The Chromium desktop alias routes through the themed browser. Ten actual
+desktop/Return/focus handoffs include a `Terminal=true` entry. Missing browser,
+Files and editor paths open usable recovery shells; typed recovery/exit pass.
+Breakout uses the dependable11pt terminal, pauses while its board cannot fit,
+shows a bounded resize notice and restores score/lives/pause state. Real PTY
+and rendered desktop pause/resize/restore/quit checks pass; no audio played.
+
+Legacy tray uses GTK XEmbed sockets alongside modern indicators:24px icons,
+32 legacy/64 modern item caps, scrolling and original app menus. It never
+steals a manager selection, uses checked foreign-window reads and event-driven
+ownership recovery. Actual GTK status icons pass background docking without
+opening the UI, pointer/menu actions, Space activation, invalid/stale XIDs,
+manager loss/re-docking and owner exit. Stale ownership feedback clears on
+reopen. Graphite normal and Paper200% text/760×600 checks pass. Impeccable
+reviewed actual Qt, mixed tray, fallback terminal and game captures in bounded
+baseline/confirmation rounds; no blanket font or control enlargement.
+
+Unpublished native/core package stage:
+`F:\Ooonana\ooonana-os\build\native-source-stage-20261026.ofe93fPA`.
+It contains i3wm4.24-r0.ooonana2, i3lock2.16-r0.ooonana1,
+qt6-qtbase-x11 6.11.1-r0.ooonana1, linux-pam1.7.1-r2.ooonana1 and current
+core0.10.0. Qt includes exact pinned vendor/build sources and binary provenance;
+PAM changes only the known imported helper mode, preserving authentication
+bytes/policy/dependencies. Qt reproducibility/tamper/refusal and PAM layout/
+preservation tests pass. Full-stage closure and actual upgrade QA now pass.
+
+Native package gate passes654 packages/612 dependency nodes. Published CURRENT
+and all five replaced base archives retain their original hashes. Actual
+upgrades and deliberately failed i3 healthcheck rollback pass. The first real
+core adoption exposed a configuration-loss defect on older factory images:
+separate runtime metadata was absent, so ordinary first-install extraction
+overwrote existing settings. Current CLI now adopts through its journaled
+replacement path, retains unknown/custom `/etc` files with `.ooonana-new`
+defaults and restores absent runtime state on rollback. Normal failure,
+SIGKILL, corrupt-marker refusal/recovery and later reinstall pass regressions.
+This fix requires the current CLI to drive legacy adoption; older clients are
+not retroactively repaired. Final real packaged confirmation passes:
+`/var/tmp/ooonana-native-upgrade-final-20261026.z1Wjjgpr`.
+Private COW installation verifies original Qt dependency installation, native
+versioned upgrades, deliberate i3 healthcheck failure/byte-exact rollback,
+first core adoption retaining custom config/mode, native musl dependency
+resolution and exact installed executable/backend/source hashes. Original
+cached packages use the known public key; candidate-copy signatures use a
+new ephemeral QA-only key. Production private key/enrollment remain untouched.
+
+Final tray receipts, including300 requested icons/32 acknowledged embeddings,
+opaque transparent-corner pixels and intact client artwork:
+`/var/tmp/ooonana-tray-complete-final-20261026.LGjCeJz0` and
+`/var/tmp/ooonana-tray-complete-final-20261026.JRClElWu`.
+Pixel readiness waits for the client's actual embedding/size acknowledgements;
+earlier immediate captures were premature. Native foreground/size hints and
+opaque background handling follow the XEmbed tray protocol. Normal/scaled
+final captures received Impeccable review. Eighteen focused suites pass, with
+adoption/update/factory/rootfs/native UI rerun after the adoption repair.
+Remote CI, publication/signing, WSL sync and final-image gates remain deferred.
+
+Confirmed cleanup removed only the two completed Qt variant overlays after
+resolved-path/no-link/no-mounted-descendant checks:224,208KiB (~219MiB) reclaimed
+inside the QA filesystem. Logs/captures, compiled artifacts/vendor sources,
+native upgrade checkpoints, browser cache/profile seed, history/models/keys
+and releases remain. No trim/compaction or retry of previously blocked F paths.
+
+Receipts: Qt `/var/tmp/ooonana-qt-variants-20261025.hiPA52Be` and
+`/var/tmp/ooonana-qt-variants-20261025.HuK7I0Kh`; warning trace
+`/var/tmp/ooonana-firefox-warning-20261025.cQNVxvXd`; tray
+`/var/tmp/ooonana-legacy-hidden-final-20261026.IRu3tIn1` and
+`/var/tmp/ooonana-legacy-tray-confirm-20261026.cuUNQeBY`; launcher/helpers
+`/var/tmp/ooonana-helper-confirm-20261026.l5OYxWIc`.
+No installed WSL update, production private-key access, remote push, release-pointer
+change, stable promotion or ISO build. OpenVINO remains untouched/deferred.
 
 ## Source checkpoint: regular Firefox appearance/scaling - October 25
 

@@ -16,6 +16,45 @@ from common import Gdk, GLib, Gtk
 from gi.repository import Gio
 Gtk.init([])
 
+if "--legacy-worker" in sys.argv:
+    import signal
+    proof = Path(sys.argv[sys.argv.index("--legacy-worker") + 1])
+    icons, menus = [], []
+    def add_icon(index):
+        if index == 0:
+            indicator = Gtk.StatusIcon.new_from_icon_name("network-wired")
+        else:
+            from gi.repository import GdkPixbuf
+            data = bytes(channel for y in range(24) for x in range(24)
+                         for channel in ((0, 190, 120, 255) if 6 <= x < 18 and 6 <= y < 18 else (0, 0, 0, 0)))
+            pixels = GdkPixbuf.Pixbuf.new_from_bytes(GLib.Bytes.new(data), GdkPixbuf.Colorspace.RGB, True, 8, 24, 24, 96)
+            indicator = Gtk.StatusIcon.new_from_pixbuf(pixels)
+        indicator.set_title("Legacy GTK QA " + str(index)); indicator.set_tooltip_text("Legacy GTK QA")
+        indicator.connect("activate", lambda *_: proof.write_text("activate"))
+        def popup(_icon, _button, _time):
+            menu = Gtk.Menu(); action = Gtk.MenuItem(label="Legacy QA action")
+            action.connect("activate", lambda *_: proof.write_text("menu"))
+            menu.append(action); menu.show_all(); menus.append(menu)
+            menu.popup_at_pointer(Gtk.get_current_event())
+            proof.write_text("popup")
+        indicator.connect("popup-menu", popup); indicator.set_visible(True); icons.append(indicator)
+    add_icon(0)
+    def flood():
+        for index in range(1, 300): add_icon(index)
+        def ready():
+            states = [{"index": index, "xid": item.get_x11_window_id(), "size": item.get_size(), "embedded": item.is_embedded()}
+                      for index,item in enumerate(icons[:32])]
+            proof.with_name("worker-state.json").write_text(json.dumps(states))
+            if not all(item["embedded"] and item["size"] > 0 for item in states): return True
+            image = icons[31].get_pixbuf()
+            proof.with_name("worker-pixels.json").write_text(json.dumps({"size": [image.get_width(), image.get_height()], "center": list(image.get_pixels()[1200:1204]), "icons": states}))
+            return False
+        GLib.timeout_add(100, ready)
+        return False
+    GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1, flood)
+    GLib.MainLoop().run()
+    raise SystemExit(0)
+
 if "--blueman-worker" in sys.argv:
     from blueman.main.indicators.StatusNotifierItem import StatusNotifierItem
     proof = Path(sys.argv[sys.argv.index("--blueman-worker") + 1])
@@ -116,7 +155,7 @@ with tempfile.TemporaryDirectory(prefix="ooonana-tray-ui-") as temporary:
     config = base / "i3.conf"
     config.write_text("\n".join(line for line in (ROOT / "branding/i3/config").read_text().splitlines() if not line.startswith("exec")) + "\n")
     wm = subprocess.Popen(["i3", "-c", str(config)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    app = worker = nm_applet = None; fixtures = []
+    app = worker = nm_applet = legacy_worker = None; fixtures = []
     try:
         wait(lambda: subprocess.run(["i3-msg", "-t", "get_tree"], capture_output=True).returncode == 0, "Private i3 unavailable")
         os.environ["OOONANA_THEME_INHERITED"] = os.environ.get("OOONANA_THEME", "dark")
@@ -125,6 +164,13 @@ with tempfile.TemporaryDirectory(prefix="ooonana-tray-ui-") as temporary:
             Gtk.Settings.get_default().set_property("gtk-xft-dpi", 192 * 1024)
         app = TrayApplication(); assert app.register(None) and not app.get_is_remote()
         assert app.service is not None
+        hidden_proof = output / "hidden-legacy-action.txt"
+        with (output / "legacy-hidden.log").open("w") as log:
+            legacy_worker = subprocess.Popen([sys.executable, "-B", __file__, "--legacy-worker", str(hidden_proof)], stdout=log, stderr=log)
+            wait(lambda: len(app.legacy.items) == 1, "Background tray did not embed before first open")
+            assert not app.window.get_visible(), "Background docking unexpectedly opened overflow"
+            legacy_worker.terminate(); legacy_worker.wait(timeout=5)
+            wait(lambda: not app.legacy.items, "Hidden legacy client did not detach")
         original_owner = app.service.owner(WATCHER)
         # Actual second launcher reaches existing app; no extra watcher/window.
         secondary = subprocess.Popen([sys.executable, "-B", str(ROOT / "packages/ooonana/usr/lib/ooonana/ui/tray_app.py"), "--background"],
@@ -246,14 +292,93 @@ with tempfile.TemporaryDirectory(prefix="ooonana-tray-ui-") as temporary:
         wait(lambda: app.window.menu is None, "Menu Escape failed")
         assert app.window.get_visible(), "Menu Escape also closed overflow window"
         capture("reopened")
+        from legacy_tray import LegacyTray
+        import signal
+        assert app.legacy is not None and app.legacy.owned, app.error_text
+        original_owner = app.legacy.owner_window
+        other = LegacyTray(app.window, lambda: None)
+        assert not other.owned and app.legacy.lib.XGetSelectionOwner(app.legacy.display, app.legacy.selection) == original_owner
+        app.legacy.add(0x7ffffffe); app.legacy.add(app.legacy.owner_window)
+        assert not app.legacy.items, "Invalid XID/manager must not embed"
+        legacy_proof = output / "legacy-action.txt"
+        with (output / "legacy.log").open("w") as legacy_log:
+            legacy_worker = subprocess.Popen([sys.executable, "-B", __file__, "--legacy-worker", str(legacy_proof)],
+                                             stdout=legacy_log, stderr=legacy_log)
+            wait(lambda: len(app.legacy.items) == 1, "Real Gtk.StatusIcon did not embed")
+            slot = next(iter(app.legacy.items.values()))["socket"]
+            wait(lambda: slot.get_plug_window() is not None, "Legacy socket not attached")
+            adjustment = app.window.scroll.get_vadjustment()
+            adjustment.set_value(adjustment.get_upper() - adjustment.get_page_size())
+            settle(.2)
+            from gi.repository import GdkX11
+            xid = GdkX11.X11Window.get_xid(slot.get_window())
+            values = dict(line.split("=", 1) for line in subprocess.check_output(
+                ["xdotool", "getwindowgeometry", "--shell", str(xid)], text=True).splitlines())
+            assert int(values["WIDTH"]) <= 24 * slot.get_scale_factor()
+            subprocess.run(["xdotool", "mousemove", "--sync", str(int(values["X"]) + int(values["WIDTH"]) // 2),
+                            str(int(values["Y"]) + int(values["HEIGHT"]) // 2), "click", "1"], check=True)
+            wait(lambda: legacy_proof.exists() and legacy_proof.read_text() == "activate", "Real legacy icon click failed")
+            subprocess.run(["xdotool", "click", "3"], check=True)
+            wait(lambda: legacy_proof.read_text() == "popup", "Legacy app-owned popup failed")
+            subprocess.run(["xdotool", "key", "Down", "Return"], check=True)
+            wait(lambda: legacy_proof.read_text() == "menu", "Legacy menu action failed")
+            capture("legacy-app-menu")
+            claimant = other.lib.XCreateSimpleWindow(other.display, other.root, -1, -1, 1, 1, 0, 0, 0)
+            other.lib.XSetSelectionOwner(other.display, other.selection, claimant, 0)
+            other.lib.XFlush(other.display)
+            wait(lambda: not app.legacy.owned and not app.legacy.items, "Legacy selection loss did not detach icons")
+            assert legacy_worker.poll() is None, "Selection loss killed foreign tray client"
+            app.window.hide(); app.activate()
+            assert "another tray" in app.window.status.get_text()
+            other.lib.XDestroyWindow(other.display, claimant); other.lib.XFlush(other.display)
+            wait(lambda: app.legacy.owned and len(app.legacy.items) == 1, "Legacy owner exit did not recover/re-dock")
+            app.window.hide(); app.activate()
+            assert "another tray" not in app.window.status.get_text(), "Recovered tray retained stale ownership warning"
+            other.close()
+            slot = next(iter(app.legacy.items.values()))["socket"]
+            adjustment.set_value(adjustment.get_upper() - adjustment.get_page_size())
+            slot.grab_focus(); settle(.2)
+            legacy_proof.write_text("keyboard pending")
+            subprocess.run(["xdotool", "key", "space"], check=True)
+            wait(lambda: legacy_proof.read_text() == "activate", "Legacy keyboard activation failed")
+            legacy_worker.send_signal(signal.SIGUSR1)
+            wait(lambda: len(app.legacy.items) == 32, "Legacy capacity/overflow failed")
+            wait(lambda: (output / "worker-pixels.json").exists(), "Legacy burst worker did not finish creating icons", seconds=30)
+            settle(.3)
+            assert len(app.legacy.items) == 32 and not app.window.empty.get_visible()
+            assert app.window.get_size().height <= geometry.height
+            adjustment.set_value(adjustment.get_upper() - adjustment.get_page_size())
+            subprocess.run(["xdotool", "mousemove", "0", "0"], check=True)
+            settle(.3)
+            capture("legacy-overflow")
+            final_slot = list(app.legacy.items.values())[-1]["socket"]
+            native = final_slot.get_window()
+            rendered = Gdk.pixbuf_get_from_window(native, 0, 0, native.get_width(), native.get_height())
+            raw = rendered.get_pixels(); stride, channels = rendered.get_rowstride(), rendered.get_n_channels()
+            corner = tuple(raw[stride + channels:stride + channels + 3])
+            color = app.window.get_style_context().get_background_color(Gtk.StateFlags.NORMAL)
+            expected = tuple(round(channel * 255) for channel in (color.red, color.green, color.blue))
+            assert all(abs(a-b) <= 4 for a,b in zip(corner, expected)), ("Legacy transparent corner lost host background", corner, expected)
+            offset = (rendered.get_height() // 2) * stride + (rendered.get_width() // 2) * channels
+            center = tuple(raw[offset:offset + 3])
+            plug = final_slot.get_plug_window()
+            diagnostic = {"socket": [native.get_width(), native.get_height()], "plug": list(plug.get_geometry()), "mapped": plug.is_viewable(), "center": center,
+                "server": subprocess.check_output(["xdotool", "getwindowgeometry", "--shell", str(GdkX11.X11Window.get_xid(plug))], text=True)}
+            (output / "pixel-diagnostic.json").write_text(json.dumps(diagnostic, indent=2))
+            Gdk.pixbuf_get_from_window(plug, 0, 0, plug.get_width(), plug.get_height()).savev(str(output / "plug-pixels.png"), "png", [], [])
+            assert all(abs(a-b) <= 4 for a,b in zip(center, (0, 190, 120))), ("Legacy icon paint lost client pixels", center)
+            legacy_worker.terminate(); legacy_worker.wait(timeout=5)
+            wait(lambda: not app.legacy.items, "Exited legacy app left stale sockets")
+        print("TRAY_LEGACY_OK real Gtk.StatusIcon, click/app menu/action, invalid XIDs, no stealing, bounded overflow and owner exit", flush=True)
         (output / "receipt.json").write_text(json.dumps({"scale": os.environ.get("OOONANA_GUI_TEXT_SCALE"), "rows": len(app.window.rows),
             "window": [width, height], "blueman": proof.read_text(), "real_bus": True, "no_hardware": True}, indent=2) + "\n")
         print("TRAY_UI_OK actual SNI/GetAll/Activate/DBusMenu; spoof/path rejection; overflow; stale revision/owner; shipped Blueman; Escape/reopen", flush=True)
     finally:
-        for process in (worker, nm_applet):
+        for process in (worker, nm_applet, legacy_worker):
             if process is not None and process.poll() is None: process.terminate(); process.wait(timeout=5)
         for fixture in fixtures: fixture.close()
         if app is not None and app.service is not None:
+            if app.legacy: app.legacy.close()
             if app.window: app.window.close_menu(); app.window.destroy()
             app.service.close()
         if wm.poll() is None: wm.terminate(); wm.wait(timeout=8)

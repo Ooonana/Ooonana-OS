@@ -11,6 +11,7 @@ from common import Gdk, GLib, Gtk, Pango, apply_theme, button, header, icon, lab
 from gi.repository import Gio, GdkPixbuf
 from tray_model import MAX_ITEMS, menu_nodes, text
 from tray_service import TrayService, WATCHER
+from legacy_tray import LegacyTray
 
 
 class TrayWindow(Gtk.ApplicationWindow):
@@ -121,9 +122,10 @@ class TrayWindow(Gtk.ApplicationWindow):
                 image.set_from_icon_name(name if name and "/" not in name else "application-x-executable-symbolic", Gtk.IconSize.LARGE_TOOLBAR)
             row.get_style_context().remove_class("status-warn")
             if item.props.get("Status") == "NeedsAttention": row.get_style_context().add_class("status-warn")
-        self.empty.set_visible(not self.rows)
+        legacy_count = len(self.app.legacy.items) if self.app.legacy is not None else 0
+        self.empty.set_visible(not self.rows and not legacy_count)
         row_height = max((row[0].get_preferred_height()[1] for row in self.rows.values()), default=32)
-        self.scroll.set_min_content_height(min(self.list_limit, max(72, min(6, len(self.rows)) * (row_height + 4))))
+        self.scroll.set_min_content_height(min(self.list_limit, max(72, min(6, len(self.rows) + legacy_count) * (row_height + 4))))
 
     def feedback(self, value):
         self.status.set_text(text(value, 384))
@@ -238,12 +240,17 @@ class TrayApplication(Gtk.Application):
     def __init__(self):
         display = hashlib.sha256(os.environ.get("DISPLAY", "default").encode()).hexdigest()[:16]
         super().__init__(application_id="org.ooonana.Tray.x" + display, flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
-        self.window, self.service, self.error_text = None, None, ""
+        self.window, self.service, self.legacy, self.error_text = None, None, None, ""
 
     def do_startup(self):
         Gtk.Application.do_startup(self)
         apply_theme()
         self.service = TrayService(self.changed, self.failed)
+        self.window = TrayWindow(self)
+        try:
+            self.legacy = LegacyTray(self.window, self.changed)
+        except (OSError, ImportError, ValueError) as error:
+            self.failed("Legacy tray unavailable: " + str(error))
         self.hold()
 
     def changed(self):
@@ -258,10 +265,14 @@ class TrayApplication(Gtk.Application):
             self.window = TrayWindow(self)
         if self.window.get_visible():
             self.window.hidden(); return
-        self.window.refresh(); self.window.show_all(); self.window.empty.set_visible(not self.window.rows)
+        self.window.refresh(); self.window.show_all()
+        self.window.empty.set_visible(not self.window.rows and not (self.legacy and self.legacy.items))
         if self.error_text: self.window.feedback(self.error_text)
+        elif self.legacy and not self.legacy.owned: self.window.feedback("Legacy icons are managed by another tray.")
+        else: self.window.feedback("App menus stay available here.")
         self.window.present()
         if self.window.rows: next(iter(self.window.rows.values()))[1].grab_focus()
+        elif self.legacy and self.legacy.items: next(iter(self.legacy.items.values()))["socket"].grab_focus()
 
     def do_command_line(self, command):
         args = command.get_arguments()[1:]
@@ -271,6 +282,7 @@ class TrayApplication(Gtk.Application):
 
     def do_shutdown(self):
         if self.window is not None: self.window.close_menu()
+        if self.legacy is not None: self.legacy.close()
         if self.service is not None:
             try: self.service.close()
             except GLib.Error: pass  # Session bus may already be gone at logout.

@@ -9,6 +9,7 @@ from gi.repository import Gio  # noqa: E402
 
 PREFERRED_COMMANDS = {
     "chromium.desktop": ["ooonana-browser"],
+    "chromium-browser.desktop": ["ooonana-browser"],
     "nemo.desktop": ["ooonana-files"],
     "geany.desktop": ["ooonana-editor"],
     "xterm.desktop": ["ooonana-theme-env", "xterm"],
@@ -243,7 +244,8 @@ class LauncherWindow(Gtk.Window):
             context = display.get_app_launch_context() if display else None
             if context:
                 context.set_timestamp(Gtk.get_current_event_time())
-            app.launch([], context)
+            if not app.launch([], context):
+                raise RuntimeError("Application did not accept launch request. Check its installation and retry.")
             self.close()
         except Exception as exc:
             message(self, "Application failed", str(exc), Gtk.MessageType.ERROR)

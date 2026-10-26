@@ -159,7 +159,7 @@ for helper in ooonana-memory ooonana-panel-start ooonana-xsettings ooonana-lock 
   [ -x "${prefix%/}/usr/bin/$helper" ] || { echo "core healthcheck: missing $helper" >&2; exit 1; }
 done
 for asset in usr/lib/ooonana/xsettings_session.py usr/lib/ooonana/legacy_gtk_style.py usr/lib/ooonana/lock_screen.py usr/lib/ooonana/lock_readiness.py \
-  usr/lib/ooonana/tray_model.py usr/lib/ooonana/tray_service.py usr/lib/ooonana/ui/tray_app.py \
+  usr/lib/ooonana/tray_model.py usr/lib/ooonana/tray_service.py usr/lib/ooonana/legacy_tray.py usr/lib/ooonana/ui/tray_app.py \
   usr/share/themes/OoonanaGraphite/gtk-3.0/gtk.css \
   usr/share/themes/OoonanaPaper/gtk-3.0/gtk.css \
   usr/share/themes/Ooonana/gtk-3.0/common.css; do

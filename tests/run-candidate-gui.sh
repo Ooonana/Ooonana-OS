@@ -17,6 +17,8 @@ qt_portal_candidate="${OOONANA_GUI_QT_PORTAL_CANDIDATE:-}"
 tray_nm="${OOONANA_TRAY_REAL_NM:-0}"
 case "$tray_nm" in 0) ;; 1) [[ "$only" == tray-ui ]] || exit 2 ;; *) exit 2 ;; esac
 qt_scale="${OOONANA_GUI_QT_SCALE:-1}"
+qt_style="${OOONANA_GUI_QT_STYLE:-}"
+case "$qt_style" in ''|Fusion|Windows) ;; *) printf 'Unsupported Qt style QA override\n' >&2; exit 2 ;; esac
 case "$qt_scale" in 1|1.25|1.5|2) ;; *) printf 'Unsupported Qt test scale: %s\n' "$qt_scale" >&2; exit 2 ;; esac
 case "$device_scale" in 1|2) ;; *) printf 'Unsupported device scale: %s\n' "$device_scale" >&2; exit 2 ;; esac
 case "$text_scale" in 1.0|1.25|1.5|2.0) ;; *) printf 'Unsupported native text scale: %s\n' "$text_scale" >&2; exit 2 ;; esac
@@ -67,7 +69,7 @@ if [[ "${1:-}" != --worker ]]; then
   fi
   if [[ -n "$qt_portal_candidate" ]]; then
     qt_portal_candidate="$(realpath "$qt_portal_candidate")"
-    [[ "$only" == client-theme-ui && "$qt_portal_candidate" == /var/tmp/ooonana-qt-portal-*/out/libqxdgdesktopportal.so && -f "$qt_portal_candidate" ]] || exit 2
+    [[ ( "$only" == client-theme-ui || "$only" == qterminal-frame ) && "$qt_portal_candidate" == /var/tmp/ooonana-qt-portal-*/out/libqxdgdesktopportal.so && -f "$qt_portal_candidate" ]] || exit 2
     [[ "${OOONANA_GUI_QT_PORTAL_SHA256:-}" =~ ^[a-f0-9]{64}$ && "$(sha256sum "$qt_portal_candidate" | awk '{print $1}')" == "$OOONANA_GUI_QT_PORTAL_SHA256" ]] || exit 2
     export OOONANA_GUI_QT_PORTAL_CANDIDATE="$qt_portal_candidate"
   fi
@@ -275,7 +277,7 @@ if [[ "$only" == all || "$only" == admin-prompt-ui ]]; then
   mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-admin-askpass"
   admin_policy=1
 fi
-if [[ "$only" == all || "$only" == frame-theme-ui || "$only" == live-theme-ui || "$only" == external-theme-ui || "$only" == client-theme-ui || "$only" == theme-flow-ui || "$only" == lock-ui || "$only" == panel-live-ui || "$only" == tray-ui || "$only" == launcher-session-ui || "$only" == firefox-frame ]]; then
+if [[ "$only" == all || "$only" == frame-theme-ui || "$only" == live-theme-ui || "$only" == external-theme-ui || "$only" == client-theme-ui || "$only" == theme-flow-ui || "$only" == lock-ui || "$only" == panel-live-ui || "$only" == tray-ui || "$only" == launcher-session-ui || "$only" == firefox-frame || "$only" == qterminal-frame ]]; then
   # Current helpers must include their source backend/subprocess imports.
   # This probe performs no package operations against the source-only repo dir.
   mount --bind "$SOURCE/packages/ooonana/usr/lib/ooonana" "$rootfs/usr/lib/ooonana"
@@ -392,7 +394,7 @@ if [[ "$tray_nm" == 1 ]]; then
   [[ "$ready" == 1 ]] || { tail -30 "$output/NetworkManager.log"; exit 1; }
 fi
 mount --bind "$rootfs/tmp" /tmp
-export rootfs output only theme text_scale device_scale qt_scale gui_runtime admin_policy i3_candidate lock_candidate tray_nm
+export rootfs output only theme text_scale device_scale qt_scale qt_style gui_runtime admin_policy i3_candidate lock_candidate tray_nm
 # Keep namespace init as Bash. Xvfb will not send its readiness signal to PID 1.
 # shellcheck disable=SC2016 # Child shell expands exported paths/display.
 unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp" bash -c '
@@ -430,7 +432,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
       OOONANA_GUI_TEST_ADMIN_POLICY="$admin_policy" \
       OOONANA_TRAY_REAL_NM="$tray_nm" \
       GTK_THEME="Adwaita:$theme" OOONANA_THEME="$theme" OOONANA_GUI_TEXT_SCALE="$text_scale" NO_AT_BRIDGE=1 \
-      GDK_SCALE="$device_scale" QT_SCALE_FACTOR="$qt_scale" \
+      GDK_SCALE="$device_scale" QT_SCALE_FACTOR="$qt_scale" QT_STYLE_OVERRIDE="$qt_style" \
       OOONANA_WINDOW_CONTROLS="${i3_candidate:+left}" \
       "${session[@]}" -- "$@" >"$output/$name.log" 2>&1; then
       printf "PASS %s\n" "$name"
@@ -524,6 +526,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
       *) printf "Unsupported QA first-run mode\n" >&2; exit 2 ;;
     esac
     if [ "${OOONANA_FIREFOX_QA_TRACE:-0}" = 1 ]; then first_run_options+=(--wait-for-file-trace); fi
+    if [ "${OOONANA_FIREFOX_QA_WARNING_TRACE:-0}" = 1 ]; then first_run_options+=(--wait-for-chooser-cancel-trace); fi
     firefox_compositor=(--compositor)
     if [ "${OOONANA_GUI_COMPOSITOR_NO_DAMAGE:-0}" = 1 ]; then firefox_compositor+=(--no-use-damage); fi
     if [ "${OOONANA_FIREFOX_PICKER:-1}" = 0 ]; then

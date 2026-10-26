@@ -259,6 +259,8 @@ class Game:
             f"Ooonana OS Breakout | OOONANA OS | Score:{self.score} | Lives:{self.lives} "
             f"| combo:{self.combo} | Speed: {self.speed} | {state}"
         )
+        if self.width < 100:
+            header = f"Ooonana Breakout | {state} | Score:{self.score} Lives:{self.lives} | Speed:{self.speed}"
         lines = [
             color(YELLOW, header[: self.width].center(self.width)),
             color(CYAN, "=" * self.width),
@@ -295,7 +297,8 @@ class Game:
             lines.append("".join(line))
 
         lines.append(color(CYAN, "=" * self.width))
-        footer = " A/D or arrows move | P pause | R restart | 1/2/3 speed | Q quit "
+        footer = (" A/D or arrows move | P pause | R restart | 1/2/3 speed | Q quit "
+                  if self.width >= 68 else " A/D move | P pause | R restart | 1-3 speed | Q quit ")
         lines.append(color(MAGENTA, footer.center(self.width)))
         return lines
 
@@ -386,6 +389,18 @@ def game_dimensions():
     return width, height
 
 
+def viewport_message(game, columns, rows):
+    """Pause drawing/physics rather than wrap a board or reset saved progress."""
+    if columns >= game.width and rows >= game.height + 2:
+        return None
+    return [line[:max(0, columns - 1)] for line in (
+        "Ooonana Breakout - terminal too small" if columns >= 40 else "Terminal too small",
+        f"Need {game.width}x{game.height + 2}.",
+        "Resize to resume.",
+        "Q quits.",
+    )][:max(0, rows - 1)]
+
+
 def snapshot():
     random.seed(7)
     game = Game(width=DEFAULT_WIDTH, height=DEFAULT_HEIGHT)
@@ -401,6 +416,8 @@ def run():
     width, height = game_dimensions()
     game = Game(width=width, height=height)
     previous = None
+    last_viewport = None
+    too_small = False
     old_settings = None
     sys.stdout.write("\033[?1049h\033[?25l\033[2J")
     sys.stdout.flush()
@@ -408,6 +425,21 @@ def run():
         old_settings = termios.tcgetattr(sys.stdin)
         tty.setcbreak(sys.stdin.fileno())
         while not game.game_over and not game.victory:
+            terminal = shutil.get_terminal_size((DEFAULT_WIDTH, DEFAULT_HEIGHT + 2))
+            viewport = (terminal.columns, terminal.lines)
+            notice = viewport_message(game, *viewport)
+            if notice is not None:
+                if not too_small or viewport != last_viewport:
+                    sys.stdout.write("\033[2J\033[H" + "\r\n".join(notice))
+                    sys.stdout.flush()
+                too_small, last_viewport, previous = True, viewport, None
+                if get_key(.1) == "quit":
+                    break
+                continue
+            if too_small or viewport != last_viewport:
+                sys.stdout.write("\033[2J")
+                previous = None
+            too_small, last_viewport = False, viewport
             frame_started = time.monotonic()
             frame_delay = SPEED_DELAYS[game.speed]
             key = get_key(frame_delay)

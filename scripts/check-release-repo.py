@@ -109,6 +109,60 @@ def validate_native_lock(repo, package):
     validate_lock_manifest(manifest, binary)
 
 
+QT_UPSTREAM_SHA = "6fe530e22bcaf2b050c086bfc9f9b62c62d316c9659b0de4ae2e2118ac4980da"
+QT_INPUTS = ("scripts/patch-qt-portal.py", "scripts/build-qt-portal-candidate.sh", "packages/qt-portal/CMakeLists.txt")
+QT_DOC = "usr/share/doc/qt6/ooonana-portal/"
+QT_PLUGIN = "usr/lib/qt6/plugins/platformthemes/libqxdgdesktopportal.so"
+
+
+def validate_qt_manifest(manifest, binary):
+    pins = json.loads((ROOT / "packages/qt-portal/source-pins.json").read_text())
+    if (not isinstance(manifest, dict) or len(binary) < 20 or binary[:6] != b"\x7fELF\x02\x01"
+            or int.from_bytes(binary[16:18], "little") != 3 or int.from_bytes(binary[18:20], "little") != 62
+            or manifest.get("component") != "qt-portal-live-palette-v1" or manifest.get("source") != pins
+            or manifest.get("compile_network") != "disabled"
+            or manifest.get("binary_sha256") != hashlib.sha256(binary).hexdigest()):
+        raise ValueError("Native Qt source/ABI/binary provenance differs")
+    for name in QT_INPUTS:
+        inputs = manifest.get("inputs")
+        if not isinstance(inputs, dict) or inputs.get(name) != hashlib.sha256((ROOT / name).read_bytes()).hexdigest():
+            raise ValueError("Native Qt build inputs stale: " + name)
+
+
+def validate_native_qt(repo, package):
+    if "native-portal-palette-v1" not in package.get("COMPONENTS", "").split():
+        raise ValueError("Qt X11 package lacks verified live portal palette; repack candidate")
+    archive = safe_file(repo, package.get("ARCHIVE", ""))
+    if hashlib.sha256(archive.read_bytes()).hexdigest() != package.get("SHA256"):
+        raise ValueError("Native Qt archive checksum mismatch")
+    with tarfile.open(archive) as bundle:
+        members = {}
+        for item in bundle:
+            name = item.name.removeprefix("./")
+            if PurePosixPath(name).is_absolute() or ".." in PurePosixPath(name).parts or name in members:
+                raise ValueError("Unsafe/duplicate native Qt archive entry")
+            members[name] = item
+        def read(name, limit=65536):
+            item = members.get(name)
+            if item is None or not item.isfile() or item.size > limit:
+                raise ValueError("Native Qt provenance/payload missing or oversized: " + name)
+            return bundle.extractfile(item).read(limit + 1)
+        binary = read(QT_PLUGIN, 8 * 1024 * 1024)
+        manifest = json.loads(read(QT_DOC + "build-manifest.json"))
+        validate_qt_manifest(manifest, binary)
+        provenance = json.loads(read(QT_DOC + "package-provenance.json"))
+        if provenance.get("upstream_sha256") != QT_UPSTREAM_SHA or provenance.get("packager_sha256") != hashlib.sha256((ROOT / "scripts/build-qt-portal-package.py").read_bytes()).hexdigest():
+            raise ValueError("Native Qt package provenance differs")
+        pins = json.loads(read(QT_DOC + "source-pins.json"))
+        if pins != manifest["source"]: raise ValueError("Native Qt bundled source pins differ")
+        for name in QT_INPUTS:
+            if hashlib.sha256(read(QT_DOC + name)).hexdigest() != manifest["inputs"][name]:
+                raise ValueError("Native Qt bundled build input differs: " + name)
+        for name, digest in pins["files"].items():
+            if hashlib.sha256(read(QT_DOC + "vendor/" + name, 256 * 1024)).hexdigest() != digest:
+                raise ValueError("Native Qt bundled vendor source differs: " + name)
+
+
 def validate(repo, profile, key=None, expected_core=None, require_native_controls=False):
     if (repo / "CURRENT").is_file():
         generation = (repo / "CURRENT").read_text().strip()
@@ -201,6 +255,8 @@ def validate(repo, profile, key=None, expected_core=None, require_native_control
     if require_native_controls:
         validate_native_controls(repo, packages.get("i3wm", {}))
         validate_native_lock(repo, packages.get("i3lock", {}))
+        if "qt6-qtbase-x11" in packages:
+            validate_native_qt(repo, packages["qt6-qtbase-x11"])
     return repo, len(packages), len(visited)
 
 

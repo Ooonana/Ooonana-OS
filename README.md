@@ -15,6 +15,12 @@ Ooonana OS is a custom Linux distribution built from scratch around its own boot
 
 Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Linux, BusyBox, GRUB, i3, and other open-source components. Ooonana package factory currently imports selected Alpine package payloads into Ooonana `.pkg` repositories while native packages replace them over time.
 
+October26 source checkpoint: legacy XEmbed tray hosting, missing-app launcher
+recovery and compact Breakout resize handling pass private checks. Qt Fusion
+and Windows-style dialogs/pickers pass normal/scaled cases. Compiled native
+packages are staged separately; installed WSL and signed release remain older.
+[Current evidence and release gates](docs/current-work.md).
+
 ![Candidate desktop with flat centered dock, Task View, left music and centered AI](docs/assets/ooonana-flat-pinned-dock-20261019.png)
 
 October 19 core 0.10.0 candidate captured at normal100% with real GTK/i3/Polybar on a private, network-isolated X11 display. Panel status uses sample data, including deliberately long CJK labels; wallpaper/dock are source assets. Flat dock groups windows by app: pinned apps left, running unpinned apps right. Right-click Pin/Unpin; hold-drag to reorder within either section, or use Move left/right. Pins/order survive restart; unpinning never closes windows. Apps launcher stays fixed at far left. All window entries/actions live in dock, not top panel. Task View (`Mod+Ctrl+Tab`) still switches windows/desktops. [Behavior, compact-screen checks and limits](docs/ui-whole-os-review.md#batch-30-flat-dock-app-groups-and-persistent-pins). No audio-device playback. Physical USB visuals require a fresh image. Earlier captures remain in `docs/assets/`.

@@ -15,10 +15,10 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Surface / paths | Current evidence | Work still required |
 | --- | --- | --- |
 | Control proportions | Shared/native GTK 10pt typography and chat actions measured; targeted 100/125/200% scaling; Task Manager headers/values follow text metrics | Other app-specific Qt controls, panel/card/dock content proportions; no blind blanket shrink |
-| Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; private new-app100/200% and native/GTK/Geany/Nemo live repaint1×/2×; source frames preserve state; held Chromium, regular Firefox1×/2× and compiled Qt portal candidate repaint live while retaining checked window state/browser draft/terminal profile; asset/cursor/wallpaper preservation units pass | Unpublished Qt plugin package/provenance integration, other Qt/custom palettes; older process pin/provider reopen; installed Firefox/wallpaper/icons/cursor hotspot/scaling and physical/mixed-DPI remain unverified |
-| Panel / music / AI / notifications / tray | Actual source Polybar; wide CJK/full counters/AI centering across seven widths640–1600px; supervised live palette changes preserve dock/client state; bounded999+ counts; silent private MPD recovery; bounded modern indicator host with actual isolated NM/nm-applet menu, shipped Blueman adapter, owner/revision/focus/overflow/keyboard and normal/200% text/device2 tests | Legacy XEmbed-only hosting, installed tray/service authentication/recovery and physical/mixed-DPI integration; null-output QA does not prove hardware audio |
+| Desktop wallpaper, cursor, native icons, theme | Earlier committed captures; native/GTK/Geany/Nemo/Chromium/Firefox/Qt live repaint with checked state retained; assets/cursor/wallpaper preservation units; native Qt package provenance and disposable upgrade pass | Signing/publication of staged packages, arbitrary external Qt styles/apps; older process pin/provider reopen; installed Firefox/wallpaper/icons/cursor hotspot/scaling and physical/mixed-DPI remain unverified |
+| Panel / music / AI / notifications / tray | Actual source Polybar; wide CJK/full counters/AI centering across seven widths640–1600px; supervised live palette changes preserve dock/client state; bounded999+ counts; silent private MPD recovery; modern SNI plus bounded legacy XEmbed host, real NM/Blueman menus and GTK status-icon pointer/keyboard/hidden-start/ownership recovery/overflow tests; normal/200% text | Installed tray/service authentication/recovery and physical/mixed-DPI integration; null-output QA does not prove hardware audio |
 | Dock | Flat centered icons; actual app/transient grouping, exact MRU restore, direct actions, Pin/Unpin, real held-drag reorder within left-pinned/right-running sections, saved layout/relaunch and readonly retry pass both themes normal/200% text; overflow idle-pin options, edge tooltips and actual 1×/2× device checks pass; signed candidate/native bytes synchronized | Actual installed interactive-session/display integration, physical mixed DPI/hotplug; multi-output visibility currently pure/derived guards |
-| Native Launcher | Long names/tooltips, no-match/empty recovery, launch rejection, arrows, Unicode Backspace/clipboard; nine actual desktop-entry/Return/nonroot/focus/bounds handoffs including Chromium and native sound/Wi-Fi/Bluetooth pass both palettes desktop/compact; current PulseAudio desktop ID now routes correctly; synchronous filtering/exact-name ranking preserves selection | Actual installed-session keyboard/IME/desktop integration and missing-app terminal fallbacks; enlarged-launcher cases do not certify external-app/global text scaling |
+| Native Launcher | Long names/tooltips, no-match/empty recovery, launch rejection retaining search, arrows, Unicode Backspace/clipboard; ten real desktop-entry/Return/nonroot/focus/bounds handoffs including Terminal=true; browser/sound/Wi-Fi/Bluetooth routing; usable missing-browser/files/editor recovery shells; synchronous filtering/exact-name ranking preserves selection | Actual installed-session keyboard/IME/desktop integration; enlarged-launcher cases do not certify external-app/global text scaling |
 | Wi-Fi / Bluetooth | Managed lists/hidden/personal/TLS/PIN forms; advanced fields, bounded certificate pickers, inline validation, progress/reduced motion, service gating, duplicate/closed refusal and safe Reset/Remove pass both themes through 200% text | Actual installed authentication, advanced network activation, physical reconnect/pairing and changed-adapter integration |
 | Settings: all six pages | Compact page picker, bounded/selectable sources, managed dialogs, repair/update retry; actual private 0600 preference writes, reopen, read-only rollback and retry through 200% text | Actual installed-session theme/wallpaper/authentication paths, other external file/device failures |
 | Setup | Compact/200% scrolling and stacked labels; focused inline validation, secret-preserving drafts, full source/routing review, default Back, reduced motion, pending/reentrant and closed-parent refusal checked both themes | Complete installed privileged setup/persistence and actual authentication/network failures; CLI backend preflight is not certified by UI validation |
@@ -33,7 +33,7 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Native AI / model UI | Generic native chat compact layout, bounded headings, no-match search, draft attachment, safe Delete, status failure/stale/closed callbacks and streaming/copy/cancel fixtures pass | Real cloud-provider session, long-running transcript navigation; OpenVINO GUI/runtime/offline checks deferred by user October 16 |
 | Installer GUI / text wizard | Real font-metric 100/200% form/review/blocked fit 640×600 both themes; all 16 fields keyboard-walked, exact disk/password mapping and safe Cancel checked; disk details scroll inside form | Actual privileged preview/log lifecycle, text wizard and physical storage summary/install; bare UI fixtures never install |
 | Shared dialogs / menus / tooltips | Font-metric-bounded short errors and scrollable diagnostics; actual Settings storage faults through 200%; real askpass labelled/focused, Escape/close/blank/Enter and pipe-only secrets checked | Remaining file pickers/menus and installed-session integration |
-| Third-party apps | Real Geany dark/light source profile + file picker and controls pass; Chromium sandbox/frame/actions pass. Qt6/QTerminal dark/light100%/200% per-app scaling, six Preferences pages, font/portal image picker focus, cancel/select/reopen, post-return bounds and exact pending path pass. Real source session prefix establishes Home cwd. Regular Firefox light/dark live appearance at1×/2×, real portal cancel/open/content and window actions pass; prior dark QA onboarding retained | Other Qt apps, whole-desktop/mixed-DPI portal scaling; installed Firefox/WSLg and physical compositor; intermittent private GTK chooser-close warning remains observed, not fixed |
+| Third-party apps | Real Geany dark/light profile/picker and Chromium sandbox/frame/actions pass. Qt6/QTerminal Fusion dark1× and Windows-style Paper2× pass six Preferences pages, font/portal pickers, focus/cancel/select/reopen and window actions; compiled live-palette plugin has pinned package provenance. Regular Firefox live appearance/portal content/window actions pass1×/2×. GTK chooser Cancel warning traced to GTK key propagation; operations still pass | Arbitrary external Qt styles/apps, whole-desktop/mixed-DPI portals; installed Firefox/WSLg and physical compositor; upstream GTK warning remains visible, not fixed |
 | Window manager | Native/XTerm modifier drag/resize, all number/move workspace keys, cycling, click focus, tile/tab/stack, resize mode, fullscreen, exact-session restore and unfocused close pass in private compositor; actual 1×/2× third-party titlebar alignment and X11 Minimize/Close clicks pass | Real WSLg/physical compositor, multi-display and complete session lifecycle transitions |
 | GRUB: live / audio submenu | Shared live/installed branding, compact audio labels; actual EFI 640×480/1280×800, missing-font/mark fallback and unchanged kernel arguments checked. Minimal contrast repaired | Physical BIOS/UEFI, corrupted-media/runtime graphics failure and actual installed boot |
 | Boot / shutdown / reboot / persistent setup | Private PTY boot/save/setup; consecutive warning retention, normal console ordering, serial/ambiguous/motion-off/small-console and exact existing waits pass | Real framebuffer/kernel-message handoff, physical shutdown/recovery and complete persistent-setup interaction |
@@ -49,6 +49,51 @@ October 17 updated Computer Use runtime was retried through its documented
 app input. No Windows automation workaround or security setting change used.
 
 ## Current batch evidence
+
+### Batch 48: Qt variants, chooser diagnosis, helpers and legacy tray
+
+October26 requested work1-5 is tracked in
+[current work](current-work.md#source-checkpoint-requested-checks-1-5---october-26).
+Qt6/QTerminal Fusion normal dark and Windows-style scaled Paper cases pass
+preferences, dialogs, real pickers and window actions. GTK chooser Cancel
+warning is traced to GTK key propagation to an unrealized widget; cancel/open
+and rendered-content checks still pass. Warning remains visible and upstream
+code remains unchanged.
+
+Launcher retains failed-launch search state and covers `Terminal=true` plus
+real missing-browser/files/editor recovery shells. Breakout preserves game
+state across a too-small viewport and restores its board; compact notice no
+longer truncates its resize instruction. Real PTY and desktop input pass.
+
+Legacy hosting follows the [tray manager protocol](https://specifications.freedesktop.org/systemtray/latest/locating.html)
+and [GTK Socket lifecycle](https://docs.gtk.org/gtk3/class.Socket.html).
+Real GTK status icons pass hidden startup, pointer/menu actions, keyboard,
+selection loss/recovery, foreign-client survival and bounded32-item overflow.
+Modern SNI remains bounded64; no extra daemon/polling/terminal dependency.
+Native sockets carry opaque backgrounds and protocol foreground hints for
+[ParentRelative legacy icons](https://specifications.freedesktop.org/systemtray/0.3/visuals.html).
+Late-paint pixel checks cover host background and preserved client artwork;
+the fixture waits for its burst worker instead of capturing unfinished icons.
+Private Graphite normal and Paper200%/760×600 captures pass bounded Impeccable
+review. This closes the earlier source-only legacy-hosting gap; installed
+service/authentication and physical integration remain unverified.
+
+Native i3, locker, Qt portal, PAM helper mode and core payloads now have a
+separate unpublished stage. Production signing key, signed generation pointer,
+installed WSL, OpenVINO and final ISO stay unchanged. Final-image and whole-OS
+release gates remain open; this batch is not stable promotion.
+
+Real package QA also exposed first-runtime adoption overwriting pre-existing
+factory settings. Current CLI now uses its config-preserving transaction for
+that transition, including absent-state rollback/crash recovery. Focused
+regressions and actual packaged COW upgrade now pass; old clients need the
+current CLI before this adoption path. Actual native versions/binaries, musl
+dependencies, custom config/mode preservation and deliberately failed i3
+healthcheck rollback are verified. Receipt:
+`/var/tmp/ooonana-native-upgrade-final-20261026.z1Wjjgpr`.
+Unpublished stage passes654-package/612-node closure and native provenance.
+Production CURRENT/base archive hashes are unchanged. QA signatures use an
+ephemeral fixture key, with no client enrollment or production private-key read.
 
 ### Batch 47: regular Firefox live appearance and device scaling
 
