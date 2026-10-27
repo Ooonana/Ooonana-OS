@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import GLib, Gtk, Pango, apply_theme, button, card, header, label, run, run_async, run_async_task  # noqa: E402
-from notification_utils import NotificationState, notification_age, parse_history, read_history, record_key  # noqa: E402
+from notification_utils import NotificationState, notification_age, parse_history, read_history, record_key, remove_live_notification  # noqa: E402
 from ui_preferences import load_preferences, save_preferences
 
 
@@ -373,11 +373,14 @@ class NotificationsWindow(Gtk.Window):
                     except OSError as exc:
                         self.show_action_error("Could not clear saved history", str(exc))
                 if rc != 0:
-                    self.action_error = "Action failed"
+                    self.action_error = "Message changed" if rc == 2 and removed_record else "Action failed"
                     self.action_detail = output or "Notification action failed. Refresh, then retry."
                 self.refresh()
 
-        run_async(["dunstctl", *arguments], done, timeout=3)
+        if removed_record:
+            run_async_task(lambda: remove_live_notification(removed_record), done)
+        else:
+            run_async(["dunstctl", *arguments], done, timeout=3)
 
 
 if __name__ == "__main__":

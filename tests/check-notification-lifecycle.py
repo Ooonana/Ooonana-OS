@@ -23,6 +23,7 @@ assert os.environ.get("OOONANA_NOTIFICATION_TEST_SESSION") == "1"
 assert subprocess.run(["i3-msg", "-t", "get_tree"], capture_output=True).returncode != 0
 output = Path(sys.argv[1])
 output.mkdir(parents=True, exist_ok=True)
+Gtk.Settings.get_default().set_property("gtk-xft-dpi", round(96 * 1024 * float(os.environ["OOONANA_GUI_TEXT_SCALE"])))
 bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
 
 

@@ -86,6 +86,8 @@ jobs:
           python3 -B tests/test-i3lock-visuals.py
           python3 -B tests/test-desktop-frame-theme.py
           python3 -B tests/test-media-metadata.py
+          python3 -B tests/test-audio-actions.py
+          python3 -B tests/test-notifications.py
           python3 -B tests/test-editor-polish.py
           python3 -B tests/test-chart-layout.py
           python3 -B tests/test-health-summary.py

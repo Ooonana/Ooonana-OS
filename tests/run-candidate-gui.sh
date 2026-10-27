@@ -44,7 +44,7 @@ case "$geometry" in
   *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
 esac
 case "$only" in
-  all|setup-details-ui|controls-details-ui|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|theme-flow-ui|frame-theme-ui|live-theme-ui|external-theme-ui|client-theme-ui|lock-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|launcher-session-ui|notifications-runtime|notification-lifecycle|notification-auto-recovery|window-controls-runtime|dock-ui|dock-edges-ui|device-scale-ui|csd-controls-ui|panel-ui|panel-live-ui|tray-ui|panel-media-runtime|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
+  all|setup-details-ui|controls-details-ui|audio-runtime|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|theme-flow-ui|frame-theme-ui|live-theme-ui|external-theme-ui|client-theme-ui|lock-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|launcher-session-ui|notifications-runtime|notification-lifecycle|notification-auto-recovery|notification-stale-ui|window-controls-runtime|dock-ui|dock-edges-ui|device-scale-ui|csd-controls-ui|panel-ui|panel-live-ui|tray-ui|panel-media-runtime|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -279,7 +279,7 @@ if [[ "$only" == all || "$only" == admin-prompt-ui ]]; then
   mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-admin-askpass"
   admin_policy=1
 fi
-if [[ "$only" == all || "$only" == frame-theme-ui || "$only" == live-theme-ui || "$only" == external-theme-ui || "$only" == client-theme-ui || "$only" == theme-flow-ui || "$only" == settings-storage-ui || "$only" == lock-ui || "$only" == panel-live-ui || "$only" == tray-ui || "$only" == launcher-session-ui || "$only" == firefox-frame || "$only" == qterminal-frame ]]; then
+if [[ "$only" == all || "$only" == frame-theme-ui || "$only" == live-theme-ui || "$only" == external-theme-ui || "$only" == client-theme-ui || "$only" == theme-flow-ui || "$only" == settings-storage-ui || "$only" == notification-stale-ui || "$only" == lock-ui || "$only" == panel-live-ui || "$only" == tray-ui || "$only" == launcher-session-ui || "$only" == firefox-frame || "$only" == qterminal-frame ]]; then
   # Current helpers must include their source backend/subprocess imports.
   # This probe performs no package operations against the source-only repo dir.
   mount --bind "$SOURCE/packages/ooonana/usr/lib/ooonana" "$rootfs/usr/lib/ooonana"
@@ -340,6 +340,10 @@ if [[ "$only" == all || "$only" == panel-media-runtime ]]; then
     mount --bind "$SOURCE/packages/ooonana/usr/bin/$helper" "$rootfs/usr/bin/$helper"
     mount -o remount,bind,ro "$rootfs/usr/bin/$helper"
   done
+fi
+if [[ "$only" == all || "$only" == notification-stale-ui ]]; then
+  mount --bind "$SOURCE/packages/ooonana/usr/bin/ooonana-notification-status" "$rootfs/usr/bin/ooonana-notification-status"
+  mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-notification-status"
 fi
 if [[ "$only" == all || "$only" == dock-ui ]]; then
   # Real chooser must use current shipped theme, never preserved cached bytes.
@@ -491,6 +495,8 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   probe notifications-runtime python3 /source/tests/check-notifications-runtime.py --output /qa/notifications.png
   probe notification-lifecycle python3 /source/tests/check-notification-lifecycle.py /qa/notification-lifecycle
   probe notification-auto-recovery python3 /source/tests/check-notification-auto-recovery.py /qa/notification-auto
+  probe notification-stale-ui python3 /source/tests/check-notification-stale-ui.py /qa/notification-stale
+  probe audio-runtime python3 /source/tests/check-audio-runtime.py /qa/audio-runtime
   probe window-controls-runtime python3 /source/tests/check-window-controls-runtime.py --own-i3
   probe dock-ui python3 /source/tests/check-dock-ui.py /qa/dock.png
   probe dock-edges-ui python3 /source/tests/check-dock-edges-ui.py /qa/dock-edges

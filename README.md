@@ -23,6 +23,11 @@ Checks6–8 now cover launcher handoffs, actual private Settings theme/wallpaper
 persistence and harmless real PAM authorization. Settings preserves managed
 theme links; Wi-Fi rejects missing/unreadable certificate selections before
 activation. Physical radios and installed keyboard/IME remain unverified.
+October27 recheck passes6–8. Checks9–10 add real private null-device audio
+routing/media and notification privacy, badges, DND and recovery checks.
+Notification Remove now rechecks message identity and targets the same daemon,
+preventing a stale click from deleting a newly reused ID after restart.
+No audible playback, installed WSL update, signing/publication or ISO build.
 [Current evidence and release gates](docs/current-work.md).
 
 ![Candidate desktop with flat centered dock, Task View, left music and centered AI](docs/assets/ooonana-flat-pinned-dock-20261019.png)

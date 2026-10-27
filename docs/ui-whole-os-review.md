@@ -22,10 +22,10 @@ in scope. Earlier OpenVINO evidence below is historical, not a fresh validation.
 | Wi-Fi / Bluetooth | Managed lists/hidden/personal/TLS/PIN forms; advanced fields, bounded certificate pickers, missing/unreadable certificate/key refusal with visible selector focus/recovery, progress/reduced motion, service gating, duplicate/closed refusal and safe Reset/Remove pass both themes through 200% text | Actual installed authentication, certificate validity, advanced network activation, physical reconnect/pairing and changed-adapter integration |
 | Settings: all six pages | Compact page picker, bounded/selectable sources, managed dialogs, repair/update retry; actual private 0600 preference/theme/wallpaper writes and reopen; read-only, managed-link and missing-image refusal/retry; harmless real private sudo/askpass/PAM authentication through 200% text | Actual installed-session/device integration and privileged Setup/service transactions; other external-file failures |
 | Setup | Compact/200% scrolling and stacked labels; focused inline validation, secret-preserving drafts, full source/routing review, default Back, reduced motion, pending/reentrant and closed-parent refusal checked both themes | Complete installed privileged setup/persistence and actual authentication/network failures; CLI backend preflight is not certified by UI validation |
-| Sound / brightness / music | Verified readiness, selected-identity audio/backlight commands, unknown/empty/permission states, persistent inline retry, serialized actions, preserved drafts, stale-poll/closed refusal; keyboard and both themes through 200% text pass silent fixtures | Actual installed route/mute/volume and playback semantics, changed-device integration and real hardware; no sound playback |
+| Sound / brightness / music | Actual private PulseAudio/null sinks/source prove selection/default routing, separate volumes and mute; real MPD/null output and panel watch prove transport/library/software volume and restart recovery; readiness/backlight identity/permission/draft/retry/closed refusal fixtures and keyboard pass; media now applies actual 200% GTK text in scaled QA | Installed PipeWire/ALSA startup, physical routes/devices/hotplug and backlight permissions; null outputs do not certify audible playback or hardware |
 | Power | Compact40px actions/44px at real200% text; natural-height window; Enter Cancel/Escape; visibly mapped native confirmation; duplicate refusal, error/retry, failed lock and late-callback refusal pass under private i3 in both themes | Actual lock/logout/power actions, unavailable capabilities and installed-session integration remain unverified; no real power command executed |
 | Lock / sign-in / wake | Pinned native clock/date/compact feedback; real private vendor PAM wrong/correct/Caps/layout1×/2× and640px; minute tick retains password draft; live locked/empty/unknown preflight refuses without grabbing; actual PAM login in disposable kernel VM proves account expiry and full password rotation/logout/old-new credential checks | Actual installed sign-in, expiry/custom remote PAM, wake/physical/multi-monitor transitions and installed WSLg; private tests never lock real user |
-| Notifications | Private real Dunst history/DND/remove/clear; changed-record nested keyboard focus/visible reading anchor; storage fault/retry; unchanged five-second timer DND/loss/restart recovery without focus/manual refresh; reused IDs and privacy checks | Actual installed-session notifications and integrated panel/session behavior |
+| Notifications | Private real Dunst history/DND/remove/clear; nested focus/reading anchor; storage fault/retry; unchanged periodic DND/loss/restart recovery; current panel helper unread/read/DND; stale live Remove revalidates identity and pins daemon unique name before mutation; actual normal/200% text captures | Installed notifications/panel/session integration, physical/mixed-DPI behavior and third-party app-specific notification actions |
 | Packages | Default-Cancel preview, failed/empty plan refusal, mutating close guard; actual sudo/askpass cancellation/retry restores controls under private harmless-command policy | Actual privileged package transactions and successful authentication on disposable installation |
 | Health / Updates | Readable snapshot/raw/copy, honest attention/malformed states; actual isolated report and sudo/askpass cancellation restore controls | Actual installed-session service/repository failures, successful authentication and metadata transactions |
 | Wi-Fi / Bluetooth signal maps | 658×750 overflow fixed; populated/empty/light/dark native candidate render, bounded labels, full-name tooltips and accessibility checks pass | Real data refresh/focus integration and physical radio/session behavior |
@@ -49,6 +49,37 @@ October 17 updated Computer Use runtime was retried through its documented
 app input. No Windows automation workaround or security setting change used.
 
 ## Current batch evidence
+
+### Batch 50: checks 6-8 recheck, silent audio and notification identity
+
+October27 rechecks6-8 with source regressions and private native/current GUI
+sessions; all pass. No additional disposable scratch found before continuing.
+Checks9-10 add actual PulseAudio routing with a private Unix socket, only null
+devices and no playback streams. MPD/null playback and panel watch cover owned
+silent samples, transport/software volume and service restart. Brightness
+permission/device/draft paths remain fixtures; physical writes are untested.
+
+A real Dunst restart/ID-reuse test reproduces stale Remove deleting a new
+message. Current removal validates the displayed fingerprint against fresh
+history and addresses the same daemon's unique bus name; mismatch refuses,
+refreshes visible history and permits a fresh retry. Actual current panel
+helper proves unread/read/DND state. Privacy/read-only/recovery and unchanged
+periodic service-loss checks still pass. Unit tests cover identity mismatch,
+bus-owner loss and read/remove errors; both CIs now include these regressions.
+
+Older media/lifecycle probes did not consume the requested GTK text-scale
+override. Corrected probes now genuinely use200% text, rather than only a small
+display. Both appearances pass; no product font/control/default-scale change.
+Impeccable reviewed baseline/confirmation together. New runtime pixel captures
+wait for GTK allocation/paint after successful callbacks, avoiding premature
+loading/old-row images. Final settled proof:
+`/var/tmp/ooonana-nine-ten-paint-confirm-20261027.dn3LaBz9`.
+[Full receipts and limits](current-work.md#recheck-6-8-and-requested-checks-9-10---october-27).
+
+Only16 duplicate Windows review-input PNGs removed (~737KiB); original captures,
+logs, visual sheets, history/models/keys and checkpoints remain. Physical and
+installed-session gates remain open. No audible output, installed WSL update,
+OpenVINO work, remote push/CI, production signing/publication or ISO build.
 
 ### Batch 49: requested checks 6-8, Settings storage and wireless recovery
 

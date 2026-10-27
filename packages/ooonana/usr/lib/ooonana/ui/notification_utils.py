@@ -97,6 +97,32 @@ def record_key(record):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False).encode("utf-8")).hexdigest()
 
 
+def remove_live_notification(record):
+    """Validate displayed content and address the same daemon's unique bus name."""
+    try:
+        from gi.repository import Gio, GLib
+
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        owner = bus.call_sync(
+            "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "GetNameOwner",
+            GLib.Variant("(s)", ("org.freedesktop.Notifications",)), GLib.VariantType.new("(s)"),
+            Gio.DBusCallFlags.NONE, 3000, None,
+        ).unpack()[0]
+        history = bus.call_sync(
+            owner, "/org/freedesktop/Notifications", "org.dunstproject.cmd0", "NotificationListHistory",
+            None, GLib.VariantType.new("(aa{sv})"), Gio.DBusCallFlags.NO_AUTO_START, 3000, None,
+        )
+        if not any(record_key(item) == record_key(record) for item in parse_history(json.dumps(history.unpack()))):
+            return 2, "Message changed or disappeared. Review refreshed history before removing."
+        bus.call_sync(
+            owner, "/org/freedesktop/Notifications", "org.dunstproject.cmd0", "NotificationRemoveFromHistory",
+            GLib.Variant("(u)", (record["id"],)), None, Gio.DBusCallFlags.NO_AUTO_START, 3000, None,
+        )
+        return 0, ""
+    except Exception as exc:
+        return 1, str(exc)
+
+
 class NotificationState:
     def __init__(self, directory=None):
         self.directory = Path(directory) if directory else Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state"))) / "ooonana"

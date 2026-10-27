@@ -1,8 +1,8 @@
-# Current work - 2026-10-26
+# Current work - 2026-10-27
 
 ## Split work: source QA first, release integration later
 
-User direction: finish ordered source checks1-8. Do not update
+User direction: finish ordered source checks1-10. Do not update
 installed WSL, publish packages or advance release pointers until stable-ready.
 Current OS/core remains **0.10.0 candidate**, not a promoted stable release.
 
@@ -32,6 +32,66 @@ Current OS/core remains **0.10.0 candidate**, not a promoted stable release.
 4. **Release gates.** User builds fresh ISO after integration; actual PDF/WSLg,
    physical hardware and disposable persistence/upgrade checks stay required.
    Trust enrollment and stable-channel promotion need their deferred decision.
+
+## Recheck 6-8 and requested checks 9-10 - October 27
+
+6-8 recheck passes six Python suites, Setup source checks and eight private GUI
+probes: normal/scaled real launcher, Settings storage and wireless forms, plus
+scaled Setup and actual harmless PAM authentication. Native i3 candidate is
+hash-checked. No new6-8 defect found. Receipt:
+`/var/tmp/ooonana-six-eight-recheck-20261027.oPdTwPpP`.
+Owned scratch scan then found no additional confirmed junk; retained evidence
+and experimental installation/checkpoints were not deleted.
+
+9. **Sound/brightness/music:** real private PulseAudio loads only native Unix
+   protocol, two null sinks and a null source; no hardware modules or playback
+   streams. Actual Sound UI proves per-output volume reads, selection without
+   switching default, Apply/default input/output routing, independent44%/21%
+   volumes and mute/unmute on the selected sink. Brightness readiness, explicit
+   device identity, permission/error/draft/retry and closed-window behavior pass
+   isolated fixtures, not real backlight writes. Actual MPD uses a verified null
+   output with owned silent samples: library, play/pause/next/stop/software-volume,
+   panel metadata/watch updates and daemon loss/restart recovery pass.
+10. **Notifications:** actual private Dunst covers nested focus/reading anchors,
+    opt-in history/read marks, read-only failures/retry, remove/clear, DND and
+    automatic daemon-loss/restart recovery. Current panel helper verifies real
+    unread/read/DND badges. A fresh reproduction found stale live Remove could
+    delete a different message when a restarted daemon reused its numeric ID.
+    Removal now compares the displayed message fingerprint against fresh
+    history and calls the matched daemon's unique bus name. Stale identity
+    refuses with visible `Message changed`; fresh Remove succeeds on retry.
+    Unit guards also cover owner/query/remove failure without retargeting.
+
+Two older runtime probes had not applied their text-scale environment override;
+media/lifecycle and auto-recovery now set actual GTK Xft DPI. Normal/scaled
+confirmation passes. Default font/control sizes remain unchanged. Impeccable
+reviews normal and200% stress captures; final new captures wait for GTK's paint
+after callbacks rather than recording stale pixels.
+
+Baseline: `/var/tmp/ooonana-nine-ten-baseline-20261027.dud0qh6I`.
+Reproduced defect: `/var/tmp/ooonana-notification-id-repro-20261027.VcI7Ge1s`.
+Current/scaled runtime confirmation:
+`/var/tmp/ooonana-nine-ten-confirm-20261027.ROdKvuW5`.
+Actual badge/Remove routing:
+`/var/tmp/ooonana-notification-panel-confirm-20261027.zl98oDZQ`.
+Final settled pixels:
+`/var/tmp/ooonana-nine-ten-paint-confirm-20261027.dn3LaBz9`.
+Focused source suites: `/var/tmp/ooonana-nine-ten-final-source-20261027.HsUHfqsL`.
+Both CI configurations now run audio action and notification regressions;
+remote CI remains deferred.
+
+Removed16 duplicate Windows review-input PNGs,754,405 bytes (~737KiB). Original
+WSL captures/logs and four visual contact sheets remain, with a cleanup receipt
+in `C:\Users\7ryan\AppData\Local\Temp\ooonana-nine-ten-review-20261027`.
+No histories, models, private keys, compiled sources/artifacts, checkpoints,
+browser seeds, releases or previously blocked paths removed/retried.
+
+These are source/private-session gates. Actual device routing, PipeWire/ALSA
+startup, hotplug/backlight permissions, installed panel/Dunst integration and
+WSLg remain required. No physical playback or power operation, OpenVINO work,
+installed WSL sync, remote push, production signing/publication, stable
+promotion or ISO build. Local core stage refresh is unpublished; CURRENT stays
+unchanged. Next ordered scope: Packages/Health/Updates and Task Manager.
 
 ## Requested checks 6-8: launcher, Settings/setup, wireless - October 26
 
