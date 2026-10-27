@@ -349,6 +349,19 @@ OOONANA_PKG_ARCHIVE=""
 OOONANA_PKG_SHA256=""
 PKG
 done
+mkdir -p "$out/.fixture-glib/usr/bin" "$out/archives"
+printf '#!/bin/sh\nexit 0\n' > "$out/.fixture-glib/usr/bin/gdbus"
+chmod 0755 "$out/.fixture-glib/usr/bin/gdbus"
+tar -czf "$out/archives/glib-1.0.tar.gz" -C "$out/.fixture-glib" .
+cat > "$out/glib.pkg" <<PKG
+OOONANA_PKG_ID="glib"
+OOONANA_PKG_VERSION="1.0"
+OOONANA_PKG_KIND="archive"
+OOONANA_PKG_SUMMARY="GLib fixture with gdbus executable"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_ARCHIVE="archives/glib-1.0.tar.gz"
+OOONANA_PKG_SHA256="$(sha256sum "$out/archives/glib-1.0.tar.gz" | awk '{print $1}')"
+PKG
 "$OOONANA_TEST_ROOT/packages/ooonana/usr/bin/ooonana" repo index "$out" >/dev/null
 EOF
 chmod +x "$stub"
@@ -376,7 +389,7 @@ while IFS= read -r package; do
   [[ -f "$tmp/repo/$package.pkg" ]] || fail "builder missing optional package: $package"
 done < "$ROOT/configs/packages/common-tools.list"
 assert_contains "$(<"$tmp/repo/ooonana-core.pkg")" 'OOONANA_PKG_DEPS="ooonana-core-runtime"'
-assert_contains "$(<"$tmp/repo/ooonana-core-runtime.pkg")" 'OOONANA_PKG_DEPS="dbus-daemon-launch-helper openssl"'
+assert_contains "$(<"$tmp/repo/ooonana-core-runtime.pkg")" 'OOONANA_PKG_DEPS="dbus-daemon-launch-helper openssl glib"'
 assert_contains "$(<"$tmp/repo/ooonana-core.pkg")" 'OOONANA_PKG_ARCHIVE=""'
 core_runtime_archive="$(find "$tmp/repo/archives" -maxdepth 1 -name 'ooonana-core-runtime-*.tar.gz' -print -quit)"
 [[ -f "$core_runtime_archive" ]] || fail "builder missing core runtime archive"
@@ -397,7 +410,7 @@ tar -xOzf "$core_runtime_archive" ./usr/bin/start-ooonana-i3 | grep -F 'Xephyr' 
 tar -xOzf "$core_runtime_archive" ./usr/share/icons/OoonanaTailless/cursors/left_ptr | python3 -c 'import sys; raise SystemExit(not sys.stdin.buffer.read().startswith(b"Xcur"))' || fail "core runtime missing tailless cursor"
 tar -xOzf "$core_runtime_archive" ./etc/os-release | grep -F 'PRETTY_NAME="Ooonana OS 0.10.0"' >/dev/null || fail "core runtime OS release stale"
 tar -tzf "$core_runtime_archive" | grep './usr/lib/ooonana/ui/task_manager_app.py' >/dev/null || fail "core runtime missing task manager"
-for native_file in usr/bin/ooonana-panel-start usr/bin/ooonana-notifications usr/bin/ooonana-notification-status usr/bin/ooonana-wallpaper-fit usr/lib/ooonana/ui/notifications_app.py; do
+for native_file in usr/bin/ooonana-panel-start usr/bin/ooonana-notifications usr/bin/ooonana-notification-status usr/bin/ooonana-wallpaper-fit usr/bin/ooonana-shell usr/bin/ooonana-controls usr/lib/ooonana/ui/notifications_app.py usr/lib/ooonana/ui/shell_flyout.py usr/lib/ooonana/ui/shell_client.py usr/lib/ooonana/ui/shell_pointer.py; do
   [[ "$core_archive_files" == *"./$native_file"* ]] || fail "core runtime missing $native_file"
 done
 [[ "$core_archive_files" != *'WindowsCursorConceptPersonal'* ]] || fail "public core includes private cursor theme"

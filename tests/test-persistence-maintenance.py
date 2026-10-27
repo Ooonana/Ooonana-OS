@@ -172,8 +172,8 @@ with tempfile.TemporaryDirectory() as temporary:
     (prefix / "var/tmp").mkdir(parents=True)
     (prefix / "var/tmp").chmod(0o1777)
     for helper in ("ooonana", "ooonana-memory", "ooonana-panel-start", "ooonana-xsettings",
-                   "ooonana-lock", "ooonana-tray", "ooonana-window-list", "ooonana-shutdown-cleanup",
-                   "ooonana-storage-watch", "ooonana-persistence", "gzip"):
+                   "ooonana-lock", "ooonana-tray", "ooonana-controls", "ooonana-shell", "ooonana-window-list", "ooonana-shutdown-cleanup",
+                   "ooonana-storage-watch", "ooonana-persistence", "gzip", "gdbus"):
         path = prefix / "usr/bin" / helper
         path.write_text('#!/bin/sh\necho "ooonana 0.9.9"\n')
         path.chmod(0o755)
@@ -182,6 +182,7 @@ with tempfile.TemporaryDirectory() as temporary:
         "usr/lib/ooonana/lock_screen.py", "usr/lib/ooonana/lock_readiness.py",
         "usr/lib/ooonana/tray_model.py", "usr/lib/ooonana/tray_service.py", "usr/lib/ooonana/legacy_tray.py",
         "usr/lib/ooonana/ui/tray_app.py", "usr/share/themes/OoonanaGraphite/gtk-3.0/gtk.css",
+        "usr/lib/ooonana/ui/shell_flyout.py", "usr/lib/ooonana/ui/shell_pointer.py", "usr/lib/ooonana/ui/shell_client.py",
         "usr/share/themes/OoonanaPaper/gtk-3.0/gtk.css", "usr/share/themes/Ooonana/gtk-3.0/common.css",
     )
     for asset in assets:
@@ -202,7 +203,7 @@ with tempfile.TemporaryDirectory() as temporary:
     check_healthcheck()
     # Keep production guards strict: absent/non-executable helpers and absent/
     # empty assets must still fail. Only this disposable fixture changed.
-    for helper in ("ooonana-xsettings", "ooonana-lock", "ooonana-tray"):
+    for helper in ("ooonana-xsettings", "ooonana-lock", "ooonana-tray", "ooonana-controls"):
         path = prefix / "usr/bin" / helper
         saved = path.read_bytes()
         path.unlink()

@@ -88,10 +88,15 @@ for package, name in payloads.items():
     installed=release.metadata(root/'var/lib/ooonana/packages/installed'/(package+'.pkg'))
     assert installed['VERSION']==metadata['VERSION'],package
     receipt[package]={'version':installed['VERSION'],'binary_sha256':expected}
-for name in ('legacy_tray.py','ui/tray_app.py','oonana_game.py','ui/launcher_app.py'):
+for name in ('legacy_tray.py','ui/tray_app.py','oonana_game.py','ui/launcher_app.py',
+             'ui/common.py','ui/shell_client.py','ui/shell_flyout.py','ui/shell_pointer.py',
+             'ui/notifications_app.py','ui/controls_app.py','ui/wifi_app.py','ui/bluetooth_app.py'):
     relative='packages/ooonana/usr/lib/ooonana/'+name
     assert (root/'usr/lib/ooonana'/name).read_bytes()==(source/relative).read_bytes(),name
 assert (root/'usr/bin/ooonana').read_bytes()==(source/'packages/ooonana/usr/bin/ooonana').read_bytes()
+for name in ('ooonana-shell', 'ooonana-controls', 'ooonana-notifications', 'ooonana-admin-askpass'):
+    assert (root/'usr/bin'/name).read_bytes()==(source/'packages/ooonana/usr/bin'/name).read_bytes(), name
+    assert (root/'usr/bin'/name).stat().st_mode & 0o111, name
 (root.parent/'receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
 PY
 echo 'NATIVE_PACKAGE_UPGRADE_OK original Qt installation; signed QA native upgrades; real failed-health rollback; custom config preserved; installed ELF/dependencies/source match'

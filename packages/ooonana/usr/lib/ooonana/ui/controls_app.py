@@ -4,6 +4,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+if __name__ == "__main__" and (sys.argv[1:] == ["controls"] or (len(sys.argv) == 3 and sys.argv[2] == "--flyout")):
+    from shell_client import main as shell_main
+    raise SystemExit(shell_main(sys.argv[1]))
 from common import (  # noqa: E402
     Gdk,
     GLib,
@@ -952,6 +955,11 @@ def main():
         print("modes: brightness audio media power")
         print("OOONANA_CONTROLS_NATIVE_OK")
         return 0
+    if "--flyout" in sys.argv or mode == "controls":
+        if sys.argv[2:] not in ([], ["--flyout"]):
+            return 2
+        from shell_flyout import run_shell
+        return run_shell(mode)
     apply_theme()
     if mode == "brightness":
         window = BrightnessWindow()

@@ -155,11 +155,12 @@ cli="${prefix%/}/usr/bin/ooonana"
   echo 'core healthcheck: /var/tmp missing or unsafe permissions' >&2; exit 1;
 }
 "$cli" version | grep -q "ooonana ${OOONANA_PKG_VERSION}"
-for helper in ooonana-memory ooonana-panel-start ooonana-xsettings ooonana-lock ooonana-tray ooonana-window-list ooonana-shutdown-cleanup ooonana-storage-watch ooonana-persistence gzip; do
+for helper in ooonana-memory ooonana-panel-start ooonana-xsettings ooonana-lock ooonana-tray ooonana-controls ooonana-shell ooonana-window-list ooonana-shutdown-cleanup ooonana-storage-watch ooonana-persistence gzip gdbus; do
   [ -x "${prefix%/}/usr/bin/$helper" ] || { echo "core healthcheck: missing $helper" >&2; exit 1; }
 done
 for asset in usr/lib/ooonana/xsettings_session.py usr/lib/ooonana/legacy_gtk_style.py usr/lib/ooonana/lock_screen.py usr/lib/ooonana/lock_readiness.py \
   usr/lib/ooonana/tray_model.py usr/lib/ooonana/tray_service.py usr/lib/ooonana/legacy_tray.py usr/lib/ooonana/ui/tray_app.py \
+  usr/lib/ooonana/ui/shell_flyout.py usr/lib/ooonana/ui/shell_pointer.py usr/lib/ooonana/ui/shell_client.py \
   usr/share/themes/OoonanaGraphite/gtk-3.0/gtk.css \
   usr/share/themes/OoonanaPaper/gtk-3.0/gtk.css \
   usr/share/themes/Ooonana/gtk-3.0/common.css; do
@@ -203,7 +204,7 @@ OOONANA_PKG_VERSION="$VERSION"
 OOONANA_PKG_KIND="archive"
 OOONANA_PKG_REBOOT=1
 OOONANA_PKG_SUMMARY="Ooonana OS native CLI, desktop apps, services, game, and defaults"
-OOONANA_PKG_DEPS="dbus-daemon-launch-helper openssl"
+OOONANA_PKG_DEPS="dbus-daemon-launch-helper openssl glib"
 OOONANA_PKG_ARCHIVE="$archive_rel"
 OOONANA_PKG_SHA256="$archive_sha"
 OOONANA_PKG_NOTES="Native Ooonana system payload; archives download only during install or upgrade"

@@ -95,6 +95,7 @@ def main() -> int:
     required_commands = (
         "init",
         "dbus-run-session",
+        "gdbus",
         "start-ooonana-i3",
         "startx",
         "Xorg",

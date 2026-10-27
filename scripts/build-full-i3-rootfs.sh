@@ -691,6 +691,9 @@ EOF
 #!/bin/sh
 set -eu
 NATIVE_APP="/usr/lib/ooonana/ui/launcher_app.py"
+if [ -x /usr/bin/ooonana-shell ] && { [ "$#" -eq 0 ] || { [ "$#" -eq 1 ] && [ "$1" = --panel ]; }; }; then
+  exec /usr/bin/ooonana-shell apps "$@"
+fi
 if [ -x /usr/bin/python3 ] && [ -f "$NATIVE_APP" ] &&
   /usr/bin/python3 -c 'import gi; gi.require_version("Gtk", "3.0")' >/dev/null 2>&1; then
   exec /usr/bin/python3 "$NATIVE_APP" "$@"
@@ -2767,7 +2770,7 @@ content = Ooonana
 content-foreground = ${colors.accent}
 content-background = ${colors.background}
 content-padding = 2
-click-left = ooonana-apps
+click-left = ooonana-shell apps --panel
 click-right = ooonana-settings-launch
 
 [module/launcher]
@@ -2855,8 +2858,8 @@ type = custom/text
 content = %{T2}%{T-}
 content-foreground = ${colors.accent}
 content-padding = 1
-click-left = ooonana-settings-launch --page hardware
-click-right = ooonana-audio-panel
+click-left = ooonana-controls
+click-right = ooonana-shell audio
 
 [module/music]
 type = custom/text
@@ -2962,7 +2965,7 @@ label-ellipsis = true
 label-foreground = ${colors.foreground}
 label-background = ${colors.background-alt}
 label-padding = 1
-click-left = ooonana-wifi-panel
+click-left = ooonana-shell wifi
 
 [module/bluetooth]
 type = custom/script
@@ -2972,7 +2975,7 @@ label = %output%
 label-foreground = ${colors.accent}
 label-background = ${colors.background-alt}
 label-padding = 2
-click-left = ooonana-bluetooth-panel
+click-left = ooonana-shell bluetooth
 click-right = blueman-manager
 
 [module/network]
@@ -2995,7 +2998,7 @@ label = %output%
 label-foreground = ${colors.foreground}
 label-background = ${colors.background-alt}
 label-padding = 1
-click-left = ooonana-audio-panel
+click-left = ooonana-shell audio
 click-middle = pactl set-sink-mute @DEFAULT_SINK@ toggle
 click-right = pavucontrol
 scroll-up = pactl set-sink-volume @DEFAULT_SINK@ +5%
@@ -3009,7 +3012,7 @@ label = %output%
 label-foreground = ${colors.accent}
 label-background = ${colors.background-alt}
 label-padding = 2
-click-left = ooonana-brightness-panel
+click-left = ooonana-shell brightness
 click-middle = brightnessctl set 50%
 click-right = arandr
 scroll-up = brightnessctl set +5%
@@ -3021,7 +3024,7 @@ content = 
 content-foreground = ${colors.foreground}
 content-background = ${colors.background-alt}
 content-padding = 2
-click-left = ooonana-power-menu
+click-left = ooonana-shell power
 click-right = ooonana-lock
 
 [module/battery]
@@ -4487,12 +4490,12 @@ install_current_backend_checks() {
     install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/$file" \
       "$ROOTFS/usr/lib/ooonana/$file"
   done
-  for file in chat_store.py common.py memory_status.py notification_utils.py task_manager_app.py theme_watch.py tray_app.py ui_preferences.py window_controls.py; do
+  for file in chat_store.py common.py memory_status.py notification_utils.py task_manager_app.py theme_watch.py tray_app.py ui_preferences.py window_controls.py shell_flyout.py shell_pointer.py shell_client.py launcher_app.py notifications_app.py controls_app.py wifi_app.py bluetooth_app.py; do
     install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ui/$file" \
       "$ROOTFS/usr/lib/ooonana/ui/$file"
   done
   install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana" "$ROOTFS/usr/bin/ooonana"
-  for file in ooonana-window-list ooonana-panel-start ooonana-media-status ooonana-notification-status ooonana-xsettings ooonana-lock ooonana-tray; do
+  for file in ooonana-window-list ooonana-panel-start ooonana-media-status ooonana-notification-status ooonana-xsettings ooonana-lock ooonana-tray ooonana-controls ooonana-shell ooonana-notifications; do
     install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/$file" "$ROOTFS/usr/bin/$file"
   done
   [[ -f "$app/APP-MANIFEST.sha256" ]] || return 0

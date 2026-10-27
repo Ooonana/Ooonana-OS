@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+if [ "${1:-}" = --dry-run ]; then
+  echo 'Ooonana quick controls: opaque anchored desktop flyout'
+  exit 0
+fi
+exec ooonana-shell controls "$@"

@@ -91,6 +91,7 @@ ci-smoke:
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-media-metadata.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-audio-actions.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-notifications.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-shell-flyouts.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-editor-polish.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-chart-layout.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-health-summary.py

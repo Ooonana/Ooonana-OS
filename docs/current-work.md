@@ -1,5 +1,83 @@
 # Current work - 2026-10-27
 
+## Desktop flyouts and reconciled acceptance goal - October 27
+
+[Current remaining checklist](release-readiness.md) replaces the repeated
+25-item draft while retaining completed private frame, Qt/Firefox, tray,
+launcher, PAM and package proofs. Core remains0.10.0 candidate. No stable
+promotion, installed Ooonana WSL update, remote push/CI, production signing/
+publication or ISO build.
+
+Launcher, notifications, quick controls, Wi-Fi, Bluetooth, sound, brightness
+and power now share one per-display shell application. Opaque flyouts anchor
+above the dock or below the panel, toggle from their trigger and dismiss on
+Escape/click-away. Flyouts and nested dialogs are excluded from dock tasks;
+full applications retain normal frames. Default font/cursor/control scaling is
+unchanged. Compact icon headers, linear connection rows, detailed control
+links and scrollable keyboard-reachable footers pass normal/large review.
+
+Real tests reproduced fullscreen exit from GTK activation, dialog-return focus
+races and a trigger reopening after delayed Python/GI startup. Mapping the
+transient without an extra activation preserves fullscreen. Child/askpass
+return gets bounded focus grace; parent hints affect presentation only.
+Panel/dock warm toggles now use a small shell/gdbus entry before Python/GTK
+startup. Strict kinds/arguments reject malformed requests; ambiguous IPC
+failures never replay toggles. Passive pointer observation neither grabs input
+nor subscribes to keyboard events. Existing async helpers retain the shell
+process while requests finish; related controls serialize reopening. Closed
+callbacks cannot reopen a dismissed view.
+
+Actual private i3/GApplication checks pass Graphite normal1280×800, Paper with
+200% text on760×600 and native-WM2× display scale on1600×900. They cover warm
+toggle, cold startup/exit, real app handoff, actual Dunst message, keyboard
+footer navigation, nested/separate askpass dialogs, exact focus and unchanged
+fullscreen geometry, outside-click focus and pending-worker lifetime. Source
+and factory tests now check the new commands, GLib dependency and payload.
+Separate actual sudo/askpass/PAM regression passes at200% text with only
+`/bin/true` authorized. No real power/radio/backlight action or audible output.
+
+Receipts:
+
+- Normal lifecycle: `/var/tmp/ooonana-shell-child-confirm-20261027.cL80EpSD`.
+- Native scaled/cold/worker checks:
+  `/var/tmp/ooonana-shell-native-final-20261027.UQCkTQRg`.
+- Real PAM regression:
+  `/var/tmp/ooonana-shell-auth-regression-20261027.d89li7CP`.
+- Source suites: `/var/tmp/ooonana-shell-source-20261027.P303vnQl`;
+  package factory: `/var/tmp/ooonana-shell-factory-final-20261027.54D4L21y`.
+- Updated unpublished core/closure:
+  `/var/tmp/ooonana-shell-package-20261027.WaiAnDrr`.
+- Actual private native upgrade/core adoption, failed-health rollback,
+  configuration preservation and installed byte/dependency checks:
+  `/var/tmp/ooonana-native-upgrade-flyouts-20261027.mDepou2h`.
+
+Unpublished stage stays at
+`F:\Ooonana\ooonana-os\build\native-source-stage-20261026.ofe93fPA`:
+654 packages/612 dependency nodes; no CURRENT or production signature. Known
+native i3/locker/Qt/PAM builds stay pinned. Production CURRENT remains
+`4bf64022f11e74d5b8d24ada04d2eebc703d8f1431045e7683343bdf5f243a2e`.
+Private upgrade signatures use a separate ephemeral QA key, never the
+production private key. Exact installed flyout modules/helpers match source.
+
+Automatic approval review rejected deleting17 duplicate Windows QA PNG copies:
+blocked by policy. No deletion was executed or retried through another tool.
+Manual script is syntax-checked, not run:
+`C:\Users\7ryan\AppData\Local\Temp\ooonana-shell-review-20261027\Cleanup-Duplicate-Review-PNGs.ps1`.
+It targets17 named copies/558,521 bytes (~545KiB), retaining two selected PNGs
+and all original WSL captures/logs. History/models/keys/build provenance and
+recovery checkpoints remain. GTK chooser-close warning stays an upstream known
+limitation; no hardware or installed-session acceptance is inferred here.
+
+Next ordered source scope remains Packages/Health/Updates and Task Manager;
+the installed/manual and release gates stay explicitly open.
+
+Latest user direction retains Ooonana's own composition, not Windows/screenshot
+placement. [Desktop style](desktop-style.md) pins that rule. Quick controls now
+follow compact connection rows, sound, backlight and a supporting footer;
+reference tile grids are removed. Installed Impeccable4.3.1 instructions were
+re-read; its layout detector reports no findings, with actual GTK captures
+providing native layout evidence beyond that mechanical scan.
+
 ## Split work: source QA first, release integration later
 
 User direction: finish ordered source checks1-10. Do not update

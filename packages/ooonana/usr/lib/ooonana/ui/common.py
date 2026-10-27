@@ -26,6 +26,9 @@ window, dialog, .background { background: #101317; color: #f5f5f7; }
 /* Round client-owned outer frames, not the body beneath an i3 titlebar. */
 window.background, dialog.background, messagedialog.background { border-radius: 0; }
 window.csd, window.solid-csd { border-radius: 14px; }
+button.shell-icon { min-width: 16px; min-height: 16px; padding: 5px; }
+button.shell-connection { background: transparent; border-color: transparent; padding: 6px 8px; }
+button.shell-connection:hover { background: #242a32; border-color: #343b46; }
 window.maximized, window.fullscreen,
 window.maximized decoration, window.fullscreen decoration,
 window.maximized headerbar, window.fullscreen headerbar { border-radius: 0; }
@@ -53,6 +56,7 @@ headerbar button { margin-top: 0; margin-bottom: 0; }
 .page-subtitle, .muted { color: #b4bdc8; }
 .card { background: #1b1f26; border: 1px solid #343b46; border-radius: 14px; padding: 16px; }
 .card-title { font-size: 11pt; font-weight: 700; color: #f5f5f7; }
+window.shell-flyout { border: 1px solid #343b46; border-radius: 14px; }
 .settings-section { background: #101317; border-bottom: 1px solid #343b46; padding: 0 0 12px 0; }
 .settings-section:last-child { border-bottom: none; padding-bottom: 0; }
 .status-good { color: #70d69b; font-weight: 700; }
@@ -125,6 +129,7 @@ button.window-control:focus { box-shadow: 0 0 0 2px #f5f5f7; }
 # Semantic foregrounds stay readable; primary/destructive actions retain meaning.
 LIGHT_CSS = b"""
 window, dialog, .background { background: #f5f5f7; color: #1b1f26; }
+window.shell-flyout { border-color: #adb7c2; }
 decoration { background: #f5f5f7; border-color: #adb7c2; }
 menu, tooltip, headerbar { background: #ffffff; color: #1b1f26; border-color: #adb7c2; }
 tooltip label, headerbar .subtitle { color: #55616e; }
@@ -135,6 +140,7 @@ menuitem:hover { background: #e9edf1; color: #1b1f26; }
 .sidebar row:hover { background: #eef1f5; }
 .sidebar row:selected { background: #e9edf1; color: #1b1f26; }
 .page-title, .card-title { color: #1b1f26; }
+window.shell-flyout button.shell-connection:hover { background: #e5e9f0; border-color: #aab3c2; }
 .page-subtitle, .muted, .status-neutral { color: #55616e; }
 .settings-section { background: #f5f5f7; border-color: #adb7c2; }
 .badge { background: #fff0cc; color: #6c4a00; border-color: #c3a563; }
@@ -587,21 +593,37 @@ def system_dbus_ready():
     return rc == 0
 
 
+def operation_callback(callback):
+    app = Gtk.Application.get_default()
+    if app is None or not hasattr(app, "begin_operation"):
+        return callback
+    finish = app.begin_operation()
+    def deliver(*result):
+        try:
+            callback(*result)
+        finally:
+            finish()
+        return False
+    return deliver
+
+
 def run_async(argv, callback, admin=False, timeout=30, env=None, input_text=None):
+    callback = operation_callback(callback)
+    app = Gtk.Application.get_default()
+    if admin and app is not None and hasattr(app, "command_environment"):
+        env = {**(env or {}), **app.command_environment()}
     def worker():
-        result = run(
-            argv,
-            admin=admin,
-            timeout=timeout,
-            env=env,
-            input_text=input_text,
-        )
+        try:
+            result = run(argv, admin=admin, timeout=timeout, env=env, input_text=input_text)
+        except Exception as exc:
+            result = (1, str(exc))
         GLib.idle_add(callback, *result)
 
     threading.Thread(target=worker, daemon=True).start()
 
 
 def run_async_task(task, callback):
+    callback = operation_callback(callback)
     def worker():
         try:
             result = task()

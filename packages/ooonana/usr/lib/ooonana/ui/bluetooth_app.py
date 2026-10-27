@@ -4,6 +4,9 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+if __name__ == "__main__" and sys.argv[1:] == ["--flyout"]:
+    from shell_client import main as shell_main
+    raise SystemExit(shell_main("bluetooth"))
 from common import (  # noqa: E402
     GLib,
     Gtk,
@@ -630,6 +633,11 @@ def main():
         print("actions: power scan pair agent trust connect-retry disconnect remove signal-map repair")
         print("OOONANA_BLUETOOTH_NATIVE_OK")
         return 0
+    if "--flyout" in sys.argv:
+        if sys.argv[1:] != ["--flyout"]:
+            return 2
+        from shell_flyout import run_shell
+        return run_shell("bluetooth")
     apply_theme()
     window = BluetoothWindow()
     window.show_all()

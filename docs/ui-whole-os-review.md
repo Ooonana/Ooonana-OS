@@ -5,6 +5,13 @@ This goal remains **active**. A passing catalog is not whole-OS completion.
 Preserve opaque graphite/amber, paper light mode, rounded controls and current
 mascot/cursor identity. Do not build an ISO or play sound during review.
 
+October27: [reconciled acceptance checklist](release-readiness.md) is the
+current ordered todo list; historical receipts below remain intact. Anchored
+launcher/notification/quick-control flyouts now pass private normal/large-text
+and native scaled-display checks. Impeccable reviewed compact headers,
+connection rows, real content/error/empty states and keyboard scrolling.
+Installed services/session acceptance and stable release gates remain open.
+
 October 16 scope update: user deferred OpenVINO until its major upstream update
 is finished. Do not change/setup/test that integration or download models.
 Generic native Ooonana AI, cloud-provider UI fixtures and other Qt apps remain

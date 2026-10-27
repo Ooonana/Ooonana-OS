@@ -29,6 +29,22 @@ Notification Remove now rechecks message identity and targets the same daemon,
 preventing a stale click from deleting a newly reused ID after restart.
 No audible playback, installed WSL update, signing/publication or ISO build.
 [Current evidence and release gates](docs/current-work.md).
+[Reconciled remaining acceptance checklist](docs/release-readiness.md) preserves
+completed private work and separates installed/manual release gates.
+
+October27 source addition: launcher, notifications and quick controls now open
+as anchored opaque desktop flyouts, with no dock task entry. Escape/click-away,
+trigger toggling, nested password dialogs and background request lifetime pass
+private checks. Default text size stays unchanged. Matching packages remain
+unpublished; installed Ooonana WSL and the signed release have not been synced.
+[Ooonana's own style and placement](docs/desktop-style.md) guide these surfaces;
+reference screenshots describe behavior, not copied composition.
+
+![Quick-controls flyout, normal text, private Graphite QA session](docs/assets/ooonana-shell-controls-20261027.png)
+
+This source preview uses a private null audio device and an owned test parent
+window; backlight hardware is unavailable in the fixture. Full desktop capture
+below is an earlier checkpoint, not evidence of a fresh installed-session test.
 
 ![Candidate desktop with flat centered dock, Task View, left music and centered AI](docs/assets/ooonana-flat-pinned-dock-20261019.png)
 

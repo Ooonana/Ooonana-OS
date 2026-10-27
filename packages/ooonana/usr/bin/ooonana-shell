@@ -1,0 +1,27 @@
+#!/bin/sh
+# Warm toggles must not wait for Python/GTK startup before reaching the shell.
+set -eu
+kind="${1:-}"
+case "$kind" in apps|notifications|controls|audio|brightness|wifi|bluetooth|power) ;; *) exit 2 ;; esac
+shift
+anchor=''
+if [ "$#" -eq 1 ] && [ "$kind" = apps ] && [ "$1" = --panel ]; then
+  anchor=left
+elif [ "$#" -ne 0 ]; then
+  exit 2
+fi
+digest="$(printf %s "${DISPLAY:-default}" | sha256sum)"
+identity="org.ooonana.Shell.x$(printf %.16s "$digest")"
+object="/org/ooonana/Shell/x$(printf %.16s "$digest")"
+if reply="$(gdbus call --session --timeout 2 --dest "$identity" --object-path "$object" \
+  --method org.gtk.Actions.Activate toggle "[<('$kind', '$anchor')>]" '{}' 2>&1)"; then
+  exit 0
+fi
+case "$reply" in
+  *org.freedesktop.DBus.Error.ServiceUnknown*|*org.freedesktop.DBus.Error.NameHasNoOwner*) ;;
+  *) printf 'Desktop flyout unavailable: %s\n' "$reply" >&2; exit 1 ;;
+esac
+if [ "$anchor" = left ]; then
+  exec python3 /usr/lib/ooonana/ui/shell_flyout.py "$kind" --panel
+fi
+exec python3 /usr/lib/ooonana/ui/shell_flyout.py "$kind"

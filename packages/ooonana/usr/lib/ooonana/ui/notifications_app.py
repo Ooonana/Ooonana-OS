@@ -3,6 +3,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+if __name__ == "__main__" and not sys.argv[1:]:
+    from shell_client import main as shell_main
+    raise SystemExit(shell_main("notifications"))
 from common import GLib, Gtk, Pango, apply_theme, button, card, header, label, run, run_async, run_async_task  # noqa: E402
 from notification_utils import NotificationState, notification_age, parse_history, read_history, record_key, remove_live_notification  # noqa: E402
 from ui_preferences import load_preferences, save_preferences
@@ -387,6 +390,11 @@ if __name__ == "__main__":
     if "--dry-run" in sys.argv:
         print("OOONANA_NOTIFICATIONS_GUI_OK")
     else:
+        if sys.argv[1:] not in ([], ["--window"]):
+            raise SystemExit(2)
+        if "--window" not in sys.argv:
+            from shell_flyout import run_shell
+            raise SystemExit(run_shell("notifications"))
         apply_theme()
         window = NotificationsWindow()
         window.show_all()

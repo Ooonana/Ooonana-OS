@@ -8,6 +8,9 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+if __name__ == "__main__" and sys.argv[1:] == ["--flyout"]:
+    from shell_client import main as shell_main
+    raise SystemExit(shell_main("wifi"))
 from common import (  # noqa: E402
     GLib,
     Gtk,
@@ -1758,6 +1761,11 @@ def main():
         print("actions: radio scan grouped-ssid security-selector certificate-policy router-map device-map csi-3d disconnect repair")
         print("OOONANA_WIFI_NATIVE_OK")
         return 0
+    if "--flyout" in sys.argv:
+        if sys.argv[1:] != ["--flyout"]:
+            return 2
+        from shell_flyout import run_shell
+        return run_shell("wifi")
     apply_theme()
     window = WifiWindow()
     window.show_all()

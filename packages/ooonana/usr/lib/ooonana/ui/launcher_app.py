@@ -3,6 +3,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+if __name__ == "__main__" and sys.argv[1:] in ([], ["--panel"]):
+    from shell_client import main as shell_main
+    raise SystemExit(shell_main("apps", panel="--panel" in sys.argv))
 from common import Gdk, Gtk, Pango, apply_theme, header, icon, label, launch, message  # noqa: E402
 from gi.repository import Gio  # noqa: E402
 
@@ -194,7 +197,7 @@ class LauncherWindow(Gtk.Window):
 
     def search_key(self, _entry, event):
         if event.keyval == Gdk.KEY_Escape:
-            self.close()
+            getattr(self, "_shell_dismiss", self.close)()
             return True
         if event.keyval not in (Gdk.KEY_Down, Gdk.KEY_Up):
             return False
@@ -210,7 +213,7 @@ class LauncherWindow(Gtk.Window):
 
     def window_key(self, _window, event):
         if event.keyval == Gdk.KEY_Escape:
-            self.close()
+            getattr(self, "_shell_dismiss", self.close)()
             return True
         return False
 
@@ -257,6 +260,11 @@ def main():
         print("features: desktop entries icons instant search keyboard selection")
         print("OOONANA_LAUNCHER_NATIVE_OK")
         return 0
+    if "--window" not in sys.argv:
+        if sys.argv[1:] not in ([], ["--panel"]):
+            return 2
+        from shell_flyout import run_shell
+        return run_shell("apps", panel="--panel" in sys.argv)
     apply_theme()
     window = LauncherWindow()
     window.show_all()
