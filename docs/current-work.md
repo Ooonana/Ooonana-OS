@@ -63,7 +63,7 @@ Automatic approval review rejected deleting17 duplicate Windows QA PNG copies:
 blocked by policy. No deletion was executed or retried through another tool.
 Manual script is syntax-checked, not run:
 `C:\Users\7ryan\AppData\Local\Temp\ooonana-shell-review-20261027\Cleanup-Duplicate-Review-PNGs.ps1`.
-It targets17 named copies/558,521 bytes (~545KiB), retaining two selected PNGs
+It targets17 named copies/558,521 bytes (~545KiB), retaining three selected PNGs
 and all original WSL captures/logs. History/models/keys/build provenance and
 recovery checkpoints remain. GTK chooser-close warning stays an upstream known
 limitation; no hardware or installed-session acceptance is inferred here.
@@ -77,6 +77,8 @@ follow compact connection rows, sound, backlight and a supporting footer;
 reference tile grids are removed. Installed Impeccable4.3.1 instructions were
 re-read; its layout detector reports no findings, with actual GTK captures
 providing native layout evidence beyond that mechanical scan.
+Final own-layout normal/200%-text/2×-display confirmation:
+`/var/tmp/ooonana-shell-own-layout-20261027.9VSOdkje`.
 
 ## Split work: source QA first, release integration later
 
