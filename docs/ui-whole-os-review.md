@@ -5,6 +5,14 @@ This goal remains **active**. A passing catalog is not whole-OS completion.
 Preserve opaque graphite/amber, paper light mode, rounded controls and current
 mascot/cursor identity. Do not build an ISO or play sound during review.
 
+October28: original6–8 plus7.5 now have installed-package private receipts.
+Control Center output identity, Refresh, fixed footer, unavailable-backlight
+disclosure and route-preserving volume Apply pass. Normal Graphite/Paper200%
+renders inspected using Impeccable4.8.0. Panel/media/dock/workspaces, saved
+appearance and actual privileged signed-metadata failure/retry pass. Cursor
+pixels/hotspot and installed icon decoding verified; physical/WSLg and real
+storage setup remain open. [Exact evidence and limits](current-work.md).
+
 October27: [reconciled acceptance checklist](release-readiness.md) is the
 current ordered todo list; historical receipts below remain intact. Anchored
 launcher/notification/quick-control flyouts now pass private normal/large-text

@@ -11,6 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "packages/ooonana/usr/lib/ooonana/ui"))
 from common import Gdk, Gtk, apply_theme
 from controls_app import AudioWindow
+from shell_flyout import QuickControls
+from types import SimpleNamespace
 
 assert os.getuid() == 1000 and os.environ.get("OOONANA_GUI_TEST_DISPLAY") == "1"
 assert subprocess.run(["i3-msg", "-t", "get_tree"], capture_output=True).returncode
@@ -105,6 +107,23 @@ with tempfile.TemporaryDirectory(prefix="ooonana-null-audio-") as temporary:
         Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height()).savev(
             str(output / "sound-null-routing.png"), "png", [], [])
         print("AUDIO_RUNTIME_OK actual private PulseAudio, selected sink/default route, volume, mute, source; no playback streams or hardware modules", flush=True)
+        window.destroy()
+        window = QuickControls(SimpleNamespace(show_surface=lambda *_: None, dismiss=lambda *_: None))
+        window.show_all()
+        audio = window.audio
+        wait(lambda: not audio.busy and audio.volume_known, "Control Center audio not ready")
+        assert audio.output_combo.get_active_id() == "qa_speaker_b"
+        # Another client changes defaults after the center opens. Its volume
+        # slider must never silently restore hidden output/input selections.
+        pactl("set-default-sink", "qa_speaker_a")
+        pactl("set-default-source", "qa_speaker_a.monitor")
+        audio.scale.set_value(33)
+        audio.apply_button.clicked()
+        wait(lambda: not audio.busy, "Control Center volume request stalled")
+        assert "33%" in pactl("get-sink-volume", "qa_speaker_b")
+        assert pactl("get-default-sink").strip() == "qa_speaker_a", "Control Center changed hidden default output"
+        assert pactl("get-default-source").strip() == "qa_speaker_a.monitor", "Control Center changed hidden default input"
+        print("CONTROL_CENTER_VOLUME_OK exact output volume; external default output/input preserved; no playback", flush=True)
     finally:
         if window is not None:
             window.destroy()

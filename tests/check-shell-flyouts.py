@@ -167,6 +167,13 @@ with tempfile.TemporaryDirectory(prefix="ooonana-shell-session-") as temporary:
                             subprocess.run(["xdotool", "key", "Tab"], check=True)
                             settle(.025)
                         assert app.window.get_focus() is app.window.settings_button, "Footer unreachable by keyboard"
+                        footer_button = app.window.settings_button
+                        point = footer_button.translate_coordinates(app.window, 0, 0)
+                        assert point is not None and min(point) >= 4
+                        assert point[0] + footer_button.get_allocated_width() <= app.window.get_allocated_width() - 4
+                        assert point[1] + footer_button.get_allocated_height() <= app.window.get_allocated_height() - 4, "Footer/focus outline clips at viewport edge"
+                        if not app.window.brightness.ready and not app.window.brightness.busy:
+                            assert not app.window.brightness_controls.get_visible(), "Unavailable backlight leaves dead controls"
                         capture("controls-footer")
                         app.window._shell_initial_focus.grab_focus()
                         settle()

@@ -12,6 +12,7 @@ except ImportError:
     sys.modules["common"] = SimpleNamespace(
         Gtk=SimpleNamespace(Window=object, MessageType=SimpleNamespace(ERROR=1)),
         GLib=SimpleNamespace(),
+        Gdk=SimpleNamespace(),
         Pango=SimpleNamespace(),
         **{name: (lambda *_args, **_kwargs: None) for name in (
             "apply_theme", "button", "flow_row", "fit_dialog", "header", "label", "launch", "more_actions",
@@ -58,6 +59,7 @@ def target(output=None, source=None, fail=None):
         return (1, "device unavailable") if args[0] == fail else (0, "")
 
     return SimpleNamespace(
+        volume_only=False,
         output_combo=Widget(output), input_combo=Widget(source),
         scale=SimpleNamespace(get_value=lambda: 42, set_sensitive=lambda _value: None),
         audio_command=command, hardware_status=Widget(), status=Widget(),

@@ -1,6 +1,6 @@
 # Core 0.10.0 candidate: remaining acceptance gates
 
-Updated October 27, 2026. Stable has not been promoted. This checklist replaces
+Updated October 28, 2026. Stable has not been promoted. This checklist replaces
 the repeated 25-item draft; detailed historical receipts remain in
 [current work](current-work.md) and [UI review](ui-whole-os-review.md).
 
@@ -58,6 +58,31 @@ packages are rebuilt in an unpublished stage; closure is654 packages/612
 dependency nodes. Installed panel/session verification remains below.
 
 ## Remaining UI/integration work, in order
+
+### Original items6–8, including new7.5: October28 status
+
+- **6 desktop/themes:** packaged private live-theme and saved wallpaper/theme
+  checks pass. Installed application icons decode at16/32px. Public cursor
+  aliases render exact19×19 pixels/hotspot2,2 through real Xcursor/XFixes.
+  Physical appearance, personal cursor variant and session-wide inheritance
+  remain separate manual gates.
+- **7 panel/dock/window manager:** packaged private panel/media, dock and
+  workspace probes pass. Grouping, pins/reorder, keyboard menu, exact minimized
+  restoration and flyout focus/fullscreen guards retain their passed status.
+  Actual user-session service/device integration remains pending.
+- **7.5 Control Center:** source upgrade and packaged private checks pass.
+  Opaque linear controls, output identity, Refresh, fixed footer and unavailable
+  backlight disclosure reviewed with Impeccable4.8.0 at normal Graphite and
+  200% text/760×600 Paper. Volume Apply changes only volume, preserving routes.
+- **8 Settings/setup:** packaged private storage/reopen/failure and setup-layout
+  probes pass. Real Settings authorization refreshes signed metadata, refuses
+  index tampering, recovers on retry and installs no package. Account/disk/
+  persistence setup mutation remains untested; layout fixtures do not close it.
+
+These are installed-package tests on a disposable X11 candidate, not an update
+or acceptance of installed Ooonana WSL. Remaining work below is retained.
+
+### Other outstanding acceptance
 
 1. Packages/Health/Updates: successful privileged GUI transactions, visible
    authentication/errors and interrupted recovery/rollback in a disposable

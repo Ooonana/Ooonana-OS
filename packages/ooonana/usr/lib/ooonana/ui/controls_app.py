@@ -191,8 +191,9 @@ class BrightnessWindow(ControlWindowState, Gtk.Window):
 
 
 class AudioWindow(ControlWindowState, Gtk.Window):
-    def __init__(self):
+    def __init__(self, volume_only=False):
         super().__init__(title="Ooonana Sound")
+        self.volume_only = volume_only
         self.init_control_state()
         self.rendering = False
         self.service_ready = self.output_ready = self.input_ready = False
@@ -271,7 +272,8 @@ class AudioWindow(ControlWindowState, Gtk.Window):
         self.input_combo.set_sensitive(enabled and self.input_ready)
         self.scale.set_sensitive(enabled and self.output_ready and self.volume_known)
         self.mute_button.set_sensitive(enabled and self.output_ready and self.mute_known)
-        self.apply_button.set_sensitive(enabled and (self.output_ready or self.input_ready))
+        can_apply = self.output_ready and self.volume_known if self.volume_only else self.output_ready or self.input_ready
+        self.apply_button.set_sensitive(enabled and can_apply)
 
     @staticmethod
     def usable_devices(devices):
@@ -373,7 +375,8 @@ class AudioWindow(ControlWindowState, Gtk.Window):
         elif outputs or inputs:
             self.hardware_status.set_text("ALSA hardware detected" if data["alsa_card_ready"] else "Audio device detected")
             self.feedback(f"Audio ready · {len(outputs)} {'output' if len(outputs) == 1 else 'outputs'}"
-                          f" · {len(inputs)} {'input' if len(inputs) == 1 else 'inputs'}. Apply saves routing and volume.")
+                          f" · {len(inputs)} {'input' if len(inputs) == 1 else 'inputs'}. Apply saves "
+                          + ("volume only." if self.volume_only else "routing and volume."))
             if self.output_ready and not (self.volume_known and self.mute_known):
                 self.feedback("Audio route available; volume or mute state unavailable. Refresh to retry.", "warn")
             elif self.volume_known and self.scale.get_value() > 100:
@@ -432,7 +435,7 @@ class AudioWindow(ControlWindowState, Gtk.Window):
             if rc == 0 and isinstance(data, dict):
                 self.apply_output_state(data)
             self.finish()
-            self.feedback("Selected output ready. Apply to save routing and volume." if self.volume_known and self.mute_known else
+            self.feedback(("Selected output ready. Apply saves volume only." if self.volume_only else "Selected output ready. Apply to save routing and volume.") if self.volume_known and self.mute_known else
                           "Output volume or mute state unavailable. Refresh to retry.", "neutral" if self.volume_known and self.mute_known else "warn")
 
         run_async_task(task, done)
@@ -516,7 +519,9 @@ class AudioWindow(ControlWindowState, Gtk.Window):
         value = int(scale.get_value())
         self.value_label.set_text(f"Volume  {value}%" if self.volume_known else "Volume unavailable")
         if self.volume_known and not self.rendering and not self.busy:
-            self.feedback("Above 100% may distort audio. Apply to save." if value > 100 else "Changes pending. Apply to save routing and volume.", "warn" if value > 100 else "neutral")
+            self.feedback("Above 100% may distort audio. Apply to save." if value > 100 else
+                          "Changes pending. Apply saves volume only." if self.volume_only else
+                          "Changes pending. Apply to save routing and volume.", "warn" if value > 100 else "neutral")
 
     def update_mute_label(self):
         self.mute_button.set_label("Unmute" if self.muted else "Mute" if self.mute_known else "Mute unavailable")
@@ -542,6 +547,9 @@ class AudioWindow(ControlWindowState, Gtk.Window):
         run_async_task(task, done)
 
     def apply(self, widget):
+        if self.volume_only:
+            self.apply_volume()
+            return
         if not (self.output_ready or self.input_ready) or not self.begin("Applying audio changes…"):
             return
         value = int(self.scale.get_value()) if self.volume_known else None
@@ -561,6 +569,23 @@ class AudioWindow(ControlWindowState, Gtk.Window):
             return self.apply_route_changes(output_id, input_id, value)
 
         run_async_task(task, done)
+
+    def apply_volume(self):
+        target = self.output_combo.get_active_id()
+        if not self.output_ready or not self.volume_known or not target or not self.begin("Applying output volume…"):
+            return
+        value = int(self.scale.get_value())
+
+        def done(rc, output):
+            if self.closed:
+                return
+            self.finish()
+            if rc:
+                self.feedback("Volume update failed. " + (output or f"Exit status {rc}") + " Draft retained; Refresh or retry Apply.", "bad")
+            else:
+                self.refresh_selected_output()
+
+        run_async_task(lambda: self.audio_command("set-sink-volume", target, f"{value}%"), done)
 
     def apply_route_changes(self, output_id, input_id, value):
         if output_id:

@@ -11,7 +11,7 @@ from common import Gdk, Gio, GLib, Gtk, Pango, apply_theme, button, header, icon
 SPECS = {
     "apps": ("Applications", 560, 520, "bottom"),
     "notifications": ("Notifications", 440, 520, "right"),
-    "controls": ("Quick controls", 440, 520, "right"),
+    "controls": ("Control center", 440, 460, "right"),
     "audio": ("Sound", 460, 360, "right"),
     "brightness": ("Brightness", 420, 260, "right"),
     "wifi": ("Wi-Fi", 560, 520, "right"),
@@ -263,10 +263,15 @@ class Flyout:
 
 class QuickControls(Gtk.Window):
     def __init__(self, app):
-        super().__init__(title="Ooonana Quick Controls")
-        header(self, "Quick controls", "", "ooonana-controls")
+        super().__init__(title="Ooonana Control Center")
+        self.closed, self.sync_source = False, 0
+        bar = header(self, "Control center", "", "ooonana-controls")
+        self.refresh_button = button("Refresh", "view-refresh-symbolic", self.refresh)
+        bar.pack_end(self.refresh_button)
         from controls_app import AudioWindow, BrightnessWindow
-        self.audio, self.brightness = AudioWindow(), BrightnessWindow()
+        self.audio, self.brightness = AudioWindow(volume_only=True), BrightnessWindow()
+        shell = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.add(shell)
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         root.set_border_width(12)
         scroll = Gtk.ScrolledWindow()
@@ -274,7 +279,7 @@ class QuickControls(Gtk.Window):
         scroll.set_overlay_scrolling(False)
         scroll.add(root)
         root.set_focus_vadjustment(scroll.get_vadjustment())
-        self.add(scroll)
+        shell.pack_start(scroll, True, True, 0)
         connections = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         for kind, image in (("wifi", "network-wireless-symbolic"), ("bluetooth", "bluetooth-symbolic")):
             control = Gtk.Button()
@@ -290,6 +295,9 @@ class QuickControls(Gtk.Window):
         root.pack_start(connections, False, False, 0)
         root.pack_start(Gtk.Separator(), False, False, 0)
         self._shell_initial_focus = connections.get_children()[0]
+        self.audio_device = label("Checking sound…", "muted", wrap=False)
+        self.audio_device.set_ellipsize(Pango.EllipsizeMode.END)
+        self.audio_device.set_max_width_chars(36)
         for owner in (self.audio, self.brightness):
             if owner is self.brightness:
                 separator = Gtk.Separator()
@@ -306,20 +314,39 @@ class QuickControls(Gtk.Window):
             title_row.pack_start(owner.value_label, True, True, 0)
             title_row.pack_end(details, False, False, 0)
             root.pack_start(title_row, False, False, 0)
-            for widget in (owner.scale,):
-                widget.get_parent().remove(widget)
-                root.pack_start(widget, False, False, 0)
+            if owner is self.audio:
+                root.pack_start(self.audio_device, False, False, 0)
+            controls = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+            owner.scale.get_parent().remove(owner.scale)
+            controls.pack_start(owner.scale, False, False, 0)
             actions = Gtk.Box(spacing=8)
             for widget in ([owner.mute_button, owner.apply_button] if owner is self.audio else [owner.apply_button]):
                 widget.get_parent().remove(widget)
                 actions.pack_end(widget, False, False, 0)
-            root.pack_start(actions, False, False, 0)
+            controls.pack_start(actions, False, False, 0)
+            root.pack_start(controls, False, False, 0)
             owner.status.get_parent().remove(owner.status)
-            owner.status.set_lines(1)
-            root.pack_start(owner.status, False, False, 0)
+            if owner is self.brightness:
+                controls.show_all()
+                controls.set_no_show_all(True)
+                self.brightness_controls = controls
+                self.brightness_details = Gtk.Expander(label="Backlight details")
+                owner.status.set_lines(-1)
+                owner.status.set_ellipsize(Pango.EllipsizeMode.NONE)
+                owner.status.set_max_width_chars(32)
+                owner.status.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+                self.brightness_details.add(owner.status)
+                root.pack_start(self.brightness_details, False, False, 0)
+            else:
+                owner.status.set_lines(2)
+                owner.status.set_max_width_chars(36)
+                root.pack_start(owner.status, False, False, 0)
+            owner.status.connect("notify::label", self.queue_sync)
+        self.audio.output_combo.connect("changed", self.queue_sync)
         self.settings_button = button("Settings", "preferences-system-symbolic", lambda *_: self.settings(app))
         footer = Gtk.Box(spacing=8)
-        footer.set_margin_top(4)
+        footer.set_border_width(12)
+        footer.get_style_context().add_class("shell-footer")
         footer.pack_start(self.settings_button, False, False, 0)
         for kind, image in (("power", "system-shutdown-symbolic"), ("notifications", "dialog-information-symbolic")):
             shortcut = button("", image, lambda *_args, kind=kind: app.show_surface(kind))
@@ -328,8 +355,40 @@ class QuickControls(Gtk.Window):
             shortcut.set_tooltip_text(SPECS[kind][0])
             shortcut.get_accessible().set_name(SPECS[kind][0])
             footer.pack_end(shortcut, False, False, 0)
-        root.pack_start(footer, False, False, 0)
-        self.connect("destroy", lambda *_: (self.audio.destroy(), self.brightness.destroy()))
+        shell.pack_end(footer, False, False, 0)
+        self.connect("destroy", self.on_destroy)
+        self.queue_sync()
+
+    def queue_sync(self, *_args):
+        if not self.closed and not self.sync_source:
+            self.sync_source = GLib.idle_add(self.sync_state)
+
+    def sync_state(self):
+        self.sync_source = 0
+        if self.closed:
+            return False
+        self.refresh_button.set_sensitive(not (self.audio.busy or self.brightness.busy))
+        name = self.audio.output_combo.get_active_text() or "Output unavailable"
+        self.audio_device.set_text(name)
+        self.audio_device.set_tooltip_text(name)
+        self.audio_device.get_accessible().set_description(name)
+        self.brightness_controls.set_visible(self.brightness.ready or self.brightness.busy)
+        self.brightness_details.set_tooltip_text(self.brightness.status.get_text())
+        return False
+
+    def refresh(self, *_args):
+        if not self.closed and not (self.audio.busy or self.brightness.busy):
+            self.audio.refresh_audio()
+            self.brightness.refresh()
+            self.queue_sync()
+
+    def on_destroy(self, *_args):
+        self.closed = True
+        if self.sync_source and GLib.MainContext.default().find_source_by_id(self.sync_source):
+            GLib.source_remove(self.sync_source)
+        self.sync_source = 0
+        self.audio.destroy()
+        self.brightness.destroy()
 
     @staticmethod
     def settings(app):

@@ -161,7 +161,8 @@ with tempfile.TemporaryDirectory() as temporary:
         assert image.get_margin_top() == image.get_margin_bottom() == 0
         centered_icons(dock)
         assert windows.panel_layout(640)[0] == "task-view media"
-        assert windows.panel_layout(1024)[2] == 0 and windows.panel_layout(1280)[2] == 1
+        assert windows.panel_layout(1024)[2] == windows.panel_layout(1280)[2] == 0
+        assert windows.panel_layout(1600)[2] == 1
 
         def current():
             return windows.windows(i3_events.request(path, 4))

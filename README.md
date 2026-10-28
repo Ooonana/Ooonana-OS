@@ -40,9 +40,15 @@ unpublished; installed Ooonana WSL and the signed release have not been synced.
 [Ooonana's own style and placement](docs/desktop-style.md) guide these surfaces;
 reference screenshots describe behavior, not copied composition.
 
-![Quick-controls flyout, normal text, private Graphite QA session](docs/assets/ooonana-shell-controls-20261027.png)
+October28: Control Center adds visible output identity, Refresh, a fixed
+keyboard-reachable footer and collapsed diagnostics when backlight is absent.
+Quick volume Apply now preserves externally changed default input/output routes.
+Packaged private desktop checks pass, including real signed-metadata Settings
+authorization, tamper refusal and retry. Installed Ooonana WSL remains held.
 
-This source preview uses a private null audio device and an owned test parent
+![Control Center, normal text, private Graphite QA session](docs/assets/ooonana-control-center-20261028.png)
+
+This preview uses a private null audio device and an owned test parent
 window; backlight hardware is unavailable in the fixture. Full desktop capture
 below is an earlier checkpoint, not evidence of a fresh installed-session test.
 

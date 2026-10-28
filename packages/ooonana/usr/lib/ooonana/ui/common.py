@@ -29,6 +29,7 @@ window.csd, window.solid-csd { border-radius: 14px; }
 button.shell-icon { min-width: 16px; min-height: 16px; padding: 5px; }
 button.shell-connection { background: transparent; border-color: transparent; padding: 6px 8px; }
 button.shell-connection:hover { background: #242a32; border-color: #343b46; }
+.shell-footer { border-top: 1px solid #343b46; }
 window.maximized, window.fullscreen,
 window.maximized decoration, window.fullscreen decoration,
 window.maximized headerbar, window.fullscreen headerbar { border-radius: 0; }
@@ -141,6 +142,7 @@ menuitem:hover { background: #e9edf1; color: #1b1f26; }
 .sidebar row:selected { background: #e9edf1; color: #1b1f26; }
 .page-title, .card-title { color: #1b1f26; }
 window.shell-flyout button.shell-connection:hover { background: #e5e9f0; border-color: #aab3c2; }
+.shell-footer { border-color: #adb7c2; }
 .page-subtitle, .muted, .status-neutral { color: #55616e; }
 .settings-section { background: #f5f5f7; border-color: #adb7c2; }
 .badge { background: #fff0cc; color: #6c4a00; border-color: #c3a563; }

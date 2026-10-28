@@ -1,4 +1,57 @@
-# Current work - 2026-10-27
+# Current work - 2026-10-28
+
+## Original6–8 and new7.5 Control Center - October28
+
+Impeccable4.8.0 guided refinement of Ooonana's opaque Graphite/Paper flyout,
+retaining compact type and linear rows. Actual normal Graphite and large-text
+760×600 Paper renders were inspected. No Windows layout was copied.
+
+Control Center now shows actual selected output identity, has Refresh and a
+fixed padded footer, and collapses unavailable backlight diagnostics instead
+of leaving disabled sliders/actions. Keyboard footer focus stays inside bounds.
+Quick volume Apply previously invoked the full Sound routing transaction;
+actual private PulseAudio reproduced changed default input/output after an
+external route change. Volume-only mode now writes only selected-sink volume.
+Full Sound still handles explicit route changes. Null devices only; no sound.
+
+Installed candidate QA uses a new COW layer over preserved native-package QA.
+Actual package manager reinstalls the candidate core using an ephemeral QA key,
+preserves custom config and verifies archived/installed/source byte equality.
+An explicit fresh-default session uses archived i3/panel configs; the preserved
+custom file remains in the receipt. Read-only aliases ensure test imports use
+installed backend/UI files rather than substituting checkout code. Production
+key/CURRENT, installed Ooonana WSL and unrelated disks remain untouched.
+
+Normal private passes: live themes, actual panel/media, dock, workspaces,
+Settings storage/details, setup details, PAM prompt, flyouts and actual audio.
+Paper200%/760×600 passes: Settings storage/details, setup details, flyouts/audio.
+Dock initially caught a stale1280px gap expectation and missing rofi executable
+in the old QA cache. Test expectation now matches current intentional density;
+real signed candidate rofi-x11-wayland installed into COW, affected rerun passes.
+
+Additional real installed checks pass: application icons decode at16/32px;
+Xcursor/XFixes show exact19×19 public cursor pixels/hotspot2,2 for three aliases.
+Settings -> actual helper/sudo/askpass/PAM -> signed metadata passes success,
+corrupt-index refusal and retry; root-owned cache proves privilege, no install.
+The narrow test-only sudo policy never enters packaged system policy.
+
+Evidence (Ubuntu-owned private paths, preserved):
+
+- `/var/tmp/ooonana-cc-route-repro-20261028.CB5kGn3A`: pre-fix routing defect.
+- `/var/tmp/ooonana-cc-ui-baseline-20261028.2mk5kI6B`: repaired source audio/flyouts.
+- `/var/tmp/ooonana-installed-desktop-20261028.aJLfVJeG`: installed receipt and
+  normal/scaled probes; retains initial missing-rofi failure for history.
+- `/var/tmp/ooonana-dock-installed-20261028.TGjMtqKh`: corrected installed dock pass.
+- `/var/tmp/ooonana-settings-admin-20261028.s0uoRvQn`: real privileged metadata.
+- `/var/tmp/ooonana-desktop-assets-20261028.tvxRjmCD`: icon/cursor renderer proof.
+
+Core rebuilt in unpublished `native-source-stage-20261026.ofe93fPA`;654 packages,
+612 closure nodes. Native binaries unchanged. Physical/interactive WSLg,
+hardware, actual storage/account setup and final release gates remain open.
+No remote push, production signing/publication, installed WSL sync or ISO.
+
+![Normal Graphite Control Center](assets/ooonana-control-center-20261028.png)
+![Paper, 200% text at760×600, keyboard footer focus](assets/ooonana-control-center-paper-large-20261028.png)
 
 ## Desktop flyouts and reconciled acceptance goal - October 27
 

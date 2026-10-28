@@ -4,6 +4,8 @@
 set -euo pipefail
 SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 only="${OOONANA_GUI_ONLY:-all}"
+installed_only="${OOONANA_GUI_INSTALLED_ONLY:-0}"
+case "$installed_only" in 0|1) ;; *) exit 2 ;; esac
 gui_runtime=/home/ooonana/runtime
 # Model the real Linux session's per-user runtime for document-portal fidelity.
 if [[ "$only" == firefox-frame ]]; then gui_runtime=/run/user/1000; fi
@@ -45,7 +47,7 @@ case "$geometry" in
 esac
 case "$only" in
   all|setup-details-ui|controls-details-ui|audio-runtime|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|theme-flow-ui|frame-theme-ui|live-theme-ui|external-theme-ui|client-theme-ui|lock-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|launcher-session-ui|notifications-runtime|notification-lifecycle|notification-auto-recovery|notification-stale-ui|window-controls-runtime|dock-ui|dock-edges-ui|device-scale-ui|csd-controls-ui|panel-ui|panel-live-ui|tray-ui|panel-media-runtime|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
-  shell-flyout-ui) ;;
+  shell-flyout-ui|settings-admin-ui|desktop-assets-ui) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -187,6 +189,18 @@ if [[ -n "$qt_portal_candidate" ]]; then
 fi
 mount --bind "$SOURCE" "$rootfs/source"
 mount -o remount,bind,ro "$rootfs/source"
+if [[ "$installed_only" = 1 ]]; then
+  [[ -f "$rootfs/var/lib/ooonana/qa-installed-receipt.json" && -z "$i3_candidate$lock_candidate$qt_portal_candidate" ]] || exit 2
+  # Tests keep their source import paths, but these private aliases resolve to
+  # the actual installed package. Never substitute checkout UI/backend bytes.
+  for relative in usr/lib/ooonana usr/bin; do
+    mount --bind "$rootfs/$relative" "$rootfs/source/packages/ooonana/$relative"
+    mount -o remount,bind,ro "$rootfs/source/packages/ooonana/$relative"
+  done
+  mount --bind "$rootfs/etc/i3/config" "$rootfs/source/branding/i3/config"
+  mount -o remount,bind,ro "$rootfs/source/branding/i3/config"
+  SOURCE="$rootfs/source"
+fi
 # Overlay actions must use this source protocol (including expected XIDs), not
 # the preserved root's older helper. Private bind leaves cache bytes unchanged.
 mount --bind "$SOURCE/packages/ooonana/usr/bin/ooonana-window-list" "$rootfs/usr/bin/ooonana-window-list"
@@ -233,7 +247,7 @@ ln -s /proc/self/fd/2 "$rootfs/dev/stderr"
 mount -t devpts -o newinstance,ptmxmode=0666 devpts "$rootfs/dev/pts"
 ln -s pts/ptmx "$rootfs/dev/ptmx"
 chown 1000:1000 "$rootfs/home/ooonana" "$output"
-if [[ "$only" == lock-ui || "$only" == all || "$only" == admin-prompt-ui ]]; then
+if [[ "$only" == lock-ui || "$only" == all || "$only" == admin-prompt-ui || "$only" == settings-admin-ui ]]; then
   # Disposable credential + owned helper copy; real installed/cached auth files
   # and PAM policy stay byte-for-byte unchanged when these mounts disappear.
   credential='Ooonana-private-admin-QA-20261026'
@@ -249,13 +263,15 @@ if [[ "$only" == lock-ui || "$only" == all || "$only" == admin-prompt-ui ]]; the
   mount --bind "$rootfs/run/qa-unix_chkpwd" "$rootfs/usr/sbin/unix_chkpwd"
 fi
 admin_policy=0
-if [[ "$only" == all || "$only" == admin-prompt-ui ]]; then
+if [[ "$only" == all || "$only" == admin-prompt-ui || "$only" == settings-admin-ui ]]; then
   # Only private mounts: cached/system sudo policy and askpass stay unchanged.
   [[ -f "$rootfs/etc/sudoers" && -d "$rootfs/etc/sudoers.d" && -f "$rootfs/usr/bin/ooonana-admin-askpass" ]]
-  install -m 0440 "$SOURCE/tests/fixtures/admin-prompt.sudoers" "$rootfs/run/ooonana-qa-sudoers"
+  policy="$SOURCE/tests/fixtures/admin-prompt.sudoers"
+  if [[ "$only" == settings-admin-ui ]]; then policy="$SOURCE/tests/fixtures/settings-admin.sudoers"; fi
+  install -m 0440 "$policy" "$rootfs/run/ooonana-qa-sudoers"
   mount --bind "$rootfs/run/ooonana-qa-sudoers" "$rootfs/etc/sudoers"
   mount -o remount,bind,ro "$rootfs/etc/sudoers"
-  cmp -s "$SOURCE/tests/fixtures/admin-prompt.sudoers" "$rootfs/etc/sudoers"
+  cmp -s "$policy" "$rootfs/etc/sudoers"
   mount -t tmpfs -o size=1m tmpfs "$rootfs/etc/sudoers.d"
   # Live-media doas rules can independently authorize the same harmless check.
   # Require the sudo prompt here rather than accidentally testing that fallback.
@@ -405,7 +421,7 @@ if [[ "$tray_nm" == 1 ]]; then
   [[ "$ready" == 1 ]] || { tail -30 "$output/NetworkManager.log"; exit 1; }
 fi
 mount --bind "$rootfs/tmp" /tmp
-export rootfs output only theme text_scale device_scale qt_scale qt_style gui_runtime admin_policy i3_candidate lock_candidate tray_nm
+export rootfs output only theme text_scale device_scale qt_scale qt_style gui_runtime admin_policy i3_candidate lock_candidate tray_nm installed_only
 # Keep namespace init as Bash. Xvfb will not send its readiness signal to PID 1.
 # shellcheck disable=SC2016 # Child shell expands exported paths/display.
 unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp" bash -c '
@@ -440,6 +456,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
       XAUTHORITY=/home/ooonana/.Xauthority XDG_RUNTIME_DIR="$gui_runtime" \
       XDG_CURRENT_DESKTOP=Ooonana:i3 XDG_SESSION_DESKTOP=ooonana DESKTOP_SESSION=ooonana \
       PYTHONDONTWRITEBYTECODE=1 OOONANA_GUI_TEST_DISPLAY=1 OOONANA_NOTIFICATION_TEST_SESSION=1 GDK_BACKEND=x11 \
+      OOONANA_GUI_INSTALLED_ONLY="$installed_only" \
       OOONANA_GUI_TEST_ADMIN_POLICY="$admin_policy" \
       OOONANA_TRAY_REAL_NM="$tray_nm" \
       GTK_THEME="Adwaita:$theme" OOONANA_THEME="$theme" OOONANA_GUI_TEXT_SCALE="$text_scale" NO_AT_BRIDGE=1 \
@@ -461,6 +478,12 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   probe wireless-notification-ui python3 /source/tests/check-wireless-notification-ui.py /qa/wireless-notification
   probe package-health-ui python3 /source/tests/check-package-health-ui.py /qa/package-health
   probe admin-prompt-ui python3 /source/tests/check-admin-prompt-ui.py /qa/admin-prompt
+  if [ "$only" = settings-admin-ui ]; then
+    probe settings-admin-ui python3 /source/tests/check-settings-admin-ui.py /qa/settings-admin
+  fi
+  if [ "$only" = desktop-assets-ui ]; then
+    probe desktop-assets-ui python3 /source/tests/check-desktop-assets-ui.py /qa/desktop-assets
+  fi
   probe installer-ui python3 /source/tests/check-installer-ui.py /qa/installer
   probe settings-power-ui python3 /source/tests/check-settings-power-ui.py --own-i3
   probe theme-flow-ui python3 /source/tests/check-theme-flow-ui.py /qa/theme-flow
