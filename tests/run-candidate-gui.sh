@@ -47,7 +47,7 @@ case "$geometry" in
 esac
 case "$only" in
   all|setup-details-ui|controls-details-ui|audio-runtime|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|theme-flow-ui|frame-theme-ui|live-theme-ui|external-theme-ui|client-theme-ui|lock-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|launcher-session-ui|notifications-runtime|notification-lifecycle|notification-auto-recovery|notification-stale-ui|window-controls-runtime|dock-ui|dock-edges-ui|device-scale-ui|csd-controls-ui|panel-ui|panel-live-ui|tray-ui|panel-media-runtime|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
-  shell-flyout-ui|settings-admin-ui|desktop-assets-ui) ;;
+  shell-flyout-ui|settings-admin-ui|desktop-assets-ui|package-transactions-ui) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -247,7 +247,7 @@ ln -s /proc/self/fd/2 "$rootfs/dev/stderr"
 mount -t devpts -o newinstance,ptmxmode=0666 devpts "$rootfs/dev/pts"
 ln -s pts/ptmx "$rootfs/dev/ptmx"
 chown 1000:1000 "$rootfs/home/ooonana" "$output"
-if [[ "$only" == lock-ui || "$only" == all || "$only" == admin-prompt-ui || "$only" == settings-admin-ui ]]; then
+if [[ "$only" == lock-ui || "$only" == all || "$only" == admin-prompt-ui || "$only" == settings-admin-ui || "$only" == package-transactions-ui ]]; then
   # Disposable credential + owned helper copy; real installed/cached auth files
   # and PAM policy stay byte-for-byte unchanged when these mounts disappear.
   credential='Ooonana-private-admin-QA-20261026'
@@ -263,11 +263,12 @@ if [[ "$only" == lock-ui || "$only" == all || "$only" == admin-prompt-ui || "$on
   mount --bind "$rootfs/run/qa-unix_chkpwd" "$rootfs/usr/sbin/unix_chkpwd"
 fi
 admin_policy=0
-if [[ "$only" == all || "$only" == admin-prompt-ui || "$only" == settings-admin-ui ]]; then
+if [[ "$only" == all || "$only" == admin-prompt-ui || "$only" == settings-admin-ui || "$only" == package-transactions-ui ]]; then
   # Only private mounts: cached/system sudo policy and askpass stay unchanged.
   [[ -f "$rootfs/etc/sudoers" && -d "$rootfs/etc/sudoers.d" && -f "$rootfs/usr/bin/ooonana-admin-askpass" ]]
   policy="$SOURCE/tests/fixtures/admin-prompt.sudoers"
   if [[ "$only" == settings-admin-ui ]]; then policy="$SOURCE/tests/fixtures/settings-admin.sudoers"; fi
+  if [[ "$only" == package-transactions-ui ]]; then policy="$SOURCE/tests/fixtures/package-transactions.sudoers"; fi
   install -m 0440 "$policy" "$rootfs/run/ooonana-qa-sudoers"
   mount --bind "$rootfs/run/ooonana-qa-sudoers" "$rootfs/etc/sudoers"
   mount -o remount,bind,ro "$rootfs/etc/sudoers"
@@ -449,7 +450,9 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
     if [ "$name" = qterminal-frame ]; then
       session=(/bin/sh /run/ooonana-qa-session-prefix "${session[@]}")
     fi
-    if timeout --kill-after=5 120 "${launch[@]}" \
+    probe_limit=120
+    if [ "$name" = package-transactions-ui ]; then probe_limit=240; fi
+    if timeout --kill-after=5 "$probe_limit" "${launch[@]}" \
       /usr/bin/env -i HOME=/home/ooonana USER=ooonana LOGNAME=ooonana \
       PATH=/usr/bin:/bin:/usr/sbin:/sbin DISPLAY="$DISPLAY" \
       LANG=C.UTF-8 LC_CTYPE=C.UTF-8 \
@@ -480,6 +483,9 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   probe admin-prompt-ui python3 /source/tests/check-admin-prompt-ui.py /qa/admin-prompt
   if [ "$only" = settings-admin-ui ]; then
     probe settings-admin-ui python3 /source/tests/check-settings-admin-ui.py /qa/settings-admin
+  fi
+  if [ "$only" = package-transactions-ui ]; then
+    probe package-transactions-ui python3 /source/tests/check-package-transactions-ui.py /qa/package-transactions
   fi
   if [ "$only" = desktop-assets-ui ]; then
     probe desktop-assets-ui python3 /source/tests/check-desktop-assets-ui.py /qa/desktop-assets

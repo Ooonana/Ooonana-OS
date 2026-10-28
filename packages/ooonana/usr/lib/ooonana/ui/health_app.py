@@ -2,7 +2,7 @@
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import Gdk, Gtk, Pango, apply_theme, button, fit_dialog, flow_row, header, label, load_preferences, more_actions, run_async
+from common import Gdk, Gtk, Pango, apply_theme, button, confirmation_dialog, flow_row, header, label, load_preferences, more_actions, run_async
 from health_summary import format_snapshot
 
 
@@ -15,15 +15,18 @@ class HealthWindow(Gtk.Window):
         self.summary_output = None
         self.set_default_size(820, 590)
         header(self, self.get_title(), "Read-only checks. No audio playback or disk probing.", "utilities-system-monitor-symbolic")
-        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-        root.set_border_width(22)
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        root.set_border_width(18)
         self.add(root)
-        self.actions = [button(title, image, callback) for title, image, callback in (
+        actions = (
             ("Health snapshot", "view-refresh-symbolic", lambda *_: self.check(False)),
             ("Update status", "system-software-update-symbolic", lambda *_: self.check(True)),
             ("Upgrade review", "document-properties-symbolic", self.review),
-            ("Refresh repository", "folder-download-symbolic", self.refresh_repo))]
+            ("Refresh repository", "folder-download-symbolic", self.refresh_repo))
+        self.actions = [button(title, image) for title, image, _callback in actions]
         self.more_button = more_actions(self.actions[2:], "Upgrade review and repository refresh")
+        for control, (_title, _image, callback) in zip(self.actions, actions):
+            control.connect_after("clicked", callback)
         controls = flow_row([*self.actions[:2], self.more_button], max_children=3, min_children=2)
         root.pack_start(controls, False, False, 0)
         policy = Gtk.Expander(label="Update policy and configuration")
@@ -142,11 +145,8 @@ class HealthWindow(Gtk.Window):
     def refresh_repo(self, *_args):
         if self.closed or self.pending:
             return
-        dialog = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.QUESTION, buttons=Gtk.ButtonsType.NONE, text="Refresh repository metadata?")
-        fit_dialog(dialog, 560)
-        dialog.format_secondary_text("Downloads metadata only. Does not install packages. Administration password may be requested.")
-        dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Refresh metadata", Gtk.ResponseType.OK)
-        dialog.set_default_response(Gtk.ResponseType.CANCEL)
+        dialog = confirmation_dialog(self, "Refresh repository metadata?",
+            "Downloads metadata only. Does not install packages. Administration password may be requested.", "Refresh metadata")
         accepted = dialog.run() == Gtk.ResponseType.OK
         dialog.destroy()
         if accepted:

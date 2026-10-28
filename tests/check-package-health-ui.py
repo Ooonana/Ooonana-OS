@@ -22,6 +22,7 @@ parser.add_argument("--baseline", action="store_true")
 args = parser.parse_args()
 args.output.mkdir(parents=True, exist_ok=True)
 assert subprocess.run(["i3-msg", "-t", "get_tree"], capture_output=True).returncode != 0
+Gtk.Settings.get_default().set_property("gtk-xft-dpi", round(96 * 1024 * float(os.environ.get("OOONANA_GUI_TEXT_SCALE", "1.0"))))
 apply_theme()
 findings, jobs, messages = [], [], []
 
@@ -124,6 +125,19 @@ with tempfile.TemporaryDirectory(prefix="ooonana-package-ui-") as temporary:
             jobs.pop()[1](0, output)
             check(not jobs, "No-op/empty plan submitted mutation")
         window.confirm_plan = original_confirm
+        respond(Gtk.ResponseType.CANCEL, "package-recovery-cancel")
+        window.recover_updates()
+        check(not jobs and not window.review_open, "Recovery Cancel submitted mutation or retained modal state")
+        respond(Gtk.ResponseType.OK, "package-recovery-review")
+        window.recover_updates()
+        command, recovery_done, kwargs = jobs.pop()
+        check(command == ["ooonana", "recover"] and kwargs.get("admin"), "Recovery bypasses actual administrator helper")
+        check(window.write_pending and window.before_close(), "Recovery does not block close during writes")
+        window.recover_updates()
+        check(not jobs, "Busy recovery submitted duplicate command")
+        recovery_done(1, "Recovery failed; checkpoint retained fixture")
+        check(not window.before_close() and all(action.get_sensitive() for action in window.action_buttons),
+              "Failed recovery left disabled actions or close guard")
         capture(window, "packages-final")
         window.destroy()
 

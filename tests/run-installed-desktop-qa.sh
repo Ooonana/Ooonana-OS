@@ -2,6 +2,9 @@
 # Private installed candidate, not the user's Ooonana WSL or physical devices.
 set -euo pipefail
 SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+pass="${OOONANA_INSTALLED_QA_PASS:-desktop}"
+case "$pass" in desktop|notifications-packages) ;; *) exit 2 ;; esac
+export OOONANA_INSTALLED_QA_PASS="$pass"
 if [[ "${1:-}" != --worker ]]; then
   [[ $# == 4 && $EUID == 0 ]] || { echo 'Usage: ROOTFS PREVIOUS_QA_UPPER UNSIGNED_STAGE OUTPUT'; exit 2; }
   base="$(realpath "$1")"; previous="$(realpath "$2")"; stage="$(realpath "$3")"; output="$(realpath "$4")"
@@ -26,10 +29,12 @@ cp "$stage"/*.pkg "$stage/index.tsv" "$stage/SHA256SUMS" "$repo/"
 cp -a "$stage/hooks" "$repo/"
 mount --bind "$stage/archives" "$repo/archives"
 mount -o remount,bind,ro "$repo/archives"
+qa_umask="$(umask)"
 umask 077
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$output/qa-only.key" >/dev/null 2>&1
 openssl pkey -in "$output/qa-only.key" -pubout -out "$output/qa-only.pub" >/dev/null 2>&1
 openssl dgst -sha256 -sign "$output/qa-only.key" -out "$repo/SHA256SUMS.sig" "$repo/SHA256SUMS"
+umask "$qa_umask"
 cp "$root/etc/ooonana/polybar.ini" "$output/custom-polybar.before"
 OOONANA_ROOT="$root" OOONANA_REPO_DIR="$repo" OOONANA_CACHE_DIR="$output/cache" \
   OOONANA_SOURCES_DIR="$output/empty-sources" OOONANA_REPO_VERIFY_KEY="$output/qa-only.pub" \
@@ -57,6 +62,7 @@ with tarfile.open(archive) as bundle:
     for name in ('usr/lib/ooonana/ui/common.py','usr/lib/ooonana/ui/shell_flyout.py',
                  'usr/lib/ooonana/ui/controls_app.py','usr/lib/ooonana/ui/settings_app.py',
                  'usr/lib/ooonana/ui/dock_app.py','usr/lib/ooonana/ui/setup_app.py',
+                 'usr/lib/ooonana/ui/packages_app.py','usr/lib/ooonana/ui/health_app.py',
                  'usr/bin/ooonana','usr/bin/ooonana-shell','usr/bin/ooonana-panel-start',
                  'usr/share/icons/OoonanaTailless/cursors/left_ptr'):
         data = bundle.extractfile(members[name]).read()
@@ -71,7 +77,13 @@ marker.write_text(json.dumps(receipt,indent=2)+'\n')
 print('INSTALLED_CANDIDATE_BYTES_OK verified archive/source/installed files; custom config preserved',flush=True)
 PY
 failure=0
-for probe in desktop-assets-ui live-theme-ui panel-live-ui panel-media-runtime dock-ui workspace-ui settings-storage-ui settings-details-ui setup-details-ui admin-prompt-ui settings-admin-ui shell-flyout-ui audio-runtime; do
+normal=(desktop-assets-ui live-theme-ui panel-live-ui panel-media-runtime dock-ui workspace-ui settings-storage-ui settings-details-ui setup-details-ui admin-prompt-ui settings-admin-ui shell-flyout-ui audio-runtime)
+scaled=(settings-storage-ui settings-details-ui setup-details-ui shell-flyout-ui audio-runtime)
+if [[ "$pass" == notifications-packages ]]; then
+  normal=(shell-flyout-ui audio-runtime notifications-runtime notification-lifecycle notification-auto-recovery notification-stale-ui package-health-ui package-transactions-ui)
+  scaled=(shell-flyout-ui package-health-ui)
+fi
+for probe in "${normal[@]}"; do
   mkdir "$output/$probe"
   OOONANA_GUI_INSTALLED_ONLY=1 OOONANA_GUI_ONLY="$probe" OOONANA_GUI_GEOMETRY=1280x800 \
     OOONANA_GUI_THEME=dark OOONANA_GUI_TEXT_SCALE=1.0 \
@@ -80,7 +92,7 @@ for probe in desktop-assets-ui live-theme-ui panel-live-ui panel-media-runtime d
     }
   if grep -qx "PASS $probe" "$output/$probe/driver.log"; then echo "INSTALLED_GUI_PASS $probe"; fi
 done
-for probe in settings-storage-ui settings-details-ui setup-details-ui shell-flyout-ui audio-runtime; do
+for probe in "${scaled[@]}"; do
   mkdir "$output/scaled-$probe"
   OOONANA_GUI_INSTALLED_ONLY=1 OOONANA_GUI_ONLY="$probe" OOONANA_GUI_GEOMETRY=760x600 \
     OOONANA_GUI_THEME=light OOONANA_GUI_TEXT_SCALE=2.0 \

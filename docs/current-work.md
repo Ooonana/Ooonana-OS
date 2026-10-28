@@ -1,5 +1,76 @@
 # Current work - 2026-10-28
 
+## Recheck6–8 and original9–10 notifications/packages - October28
+
+Rechecked installed-package desktop assets, live themes, panel, dock, Settings
+storage/authentication, Control Center/flyout lifecycle and silent null audio.
+All eight bounded rechecks pass. Installed Ooonana WSL remains unchanged.
+
+Notification checks use actual private Dunst/DBus: actions, opt-in persistence,
+privacy/storage errors, DND, unread/read panel badges, automatic service loss/
+restart, reused IDs and stale Remove refusal. Normal Graphite and large Paper
+checks pass. The simple runtime probe now applies requested GTK DPI explicitly
+and sends an explicit suppress-sound hint; physical audio endpoints stay absent.
+
+Packages had no graphical interrupted-update recovery entry. More now exposes
+Repository doctor and Recover interrupted update without adding a toolbar row.
+Recovery requires a bounded confirmation, Cancel by default, then the actual
+administrator helper. Busy writes block ordinary close/duplicate actions.
+Secondary menus pop down before their modal callback; native popdown animation
+is allowed to finish before test input continues. No production auth policy or
+package-manager removal semantics changed.
+
+Correcting the package/Health probe to apply real200% GTK DPI exposed oversized
+recovery/metadata confirmations and crowded Health output. Shared confirmation
+construction now reuses the existing bounded-text/scrollable-message fallback;
+Health spacing/margins are compacted to12/18px. Actual normal and760×600 Paper
+at200% were inspected with Impeccable4.8.0. Existing typography scale stays.
+
+Actual GUI/backend path uses a tiny signed QA repository, disposable target,
+exact-command PASSWD test policy, real sudo/askpass/PAM and installed CLI/UI:
+
+- Cancelled install review changes no payload; signed install writes root-owned
+  files. Upgrade preserves a real custom config and0640 mode/new-default file.
+- Failing health hook rolls payload/metadata back. Signed private hook kills
+  only its own transaction parent to exercise untrappable interruption.
+- Cancelled recovery retains the journal; actual More-menu recovery restores
+  prior payload/metadata/custom settings. Retry upgrades successfully.
+- Health More -> repository refresh and actual diagnostic snapshot complete.
+  Normal removal deletes package payload while retaining Ooonana-managed config
+  directories, as documented; purge remains a distinct explicit command.
+
+QA fixes: X11 prompt identity includes PID because XIDs can be reused; expired
+prompt windows are ignored. Signing umask is restored before session probes;
+private signing keys retain0600. Fixture archives include normal directory
+permissions. These changes do not alter real account/filesystem permissions.
+
+Preserved evidence:
+
+- `/var/tmp/ooonana-ui-9-10-20261028.A0gDpcbr`: eight rechecks, actual Dunst and
+  original package/Health baseline. Original package probe's scaling gap is
+  corrected above, not counted as an earlier real200% package pass.
+- `/var/tmp/ooonana-ui-9-10-20261028.LsBnrWqS`: source normal/real200% UI passes.
+- `/var/tmp/ooonana-package-transactions-20261028.9PCElSLx`: source real transactions.
+- `/var/tmp/ooonana-installed-desktop-9-10-20261028.iPbQkdlH`: new core signed
+  privately, archive/source/installed byte equality, config preservation and
+  nine final packaged passes; retains initial restrictive-QA-umask failure.
+- `/var/tmp/ooonana-packaged-transaction-confirm-20261028.A2IgwIHM`: affected
+  real installed transaction rerun passes; earlier failed outputs retained.
+- `/var/tmp/ooonana-packaged-transaction-confirm-20261028.DXmkYywq`: corrected
+  simple notification runtime probe at actual200% text passes.
+
+Core rebuilt in unpublished native source stage;654 packages/612 dependency
+nodes. No installed WSL update, remote push/CI, production signing/publication,
+stable promotion or ISO. Private release key stays local. Physical USB power
+loss/full-storage and complete installed-system upgrades remain manual gates.
+No generated code junk found; QA logs, history and recovery evidence retained.
+Private captures retain Glycin sandbox warnings during icon decoding; real
+installed-session decoder sandbox behavior is not certified by these receipts.
+
+![Packages, actual private recovered transaction](assets/ooonana-packages-20261028.png)
+![Recovery confirmation, Paper200% at760×600](assets/ooonana-package-recovery-paper-20261028.png)
+![Health summary fixture, Paper200% at760×600](assets/ooonana-health-paper-large-20261028.png)
+
 ## Original6–8 and new7.5 Control Center - October28
 
 Impeccable4.8.0 guided refinement of Ooonana's opaque Graphite/Paper flyout,

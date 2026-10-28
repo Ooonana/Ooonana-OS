@@ -46,6 +46,13 @@ Quick volume Apply now preserves externally changed default input/output routes.
 Packaged private desktop checks pass, including real signed-metadata Settings
 authorization, tamper refusal and retry. Installed Ooonana WSL remains held.
 
+October28 follow-up: packaged private notification history/actions/DND and
+restart checks pass. Packages More now exposes guarded interrupted-update
+recovery. Real signed GUI install/upgrade, failed-health rollback, interruption/
+recovery and Health checks pass in a disposable target. Confirmation wrapping
+and Health spacing were corrected for actual200% text at760×600. Full installed
+system/hardware acceptance and stable promotion remain pending.
+
 ![Control Center, normal text, private Graphite QA session](docs/assets/ooonana-control-center-20261028.png)
 
 This preview uses a private null audio device and an owned test parent

@@ -648,6 +648,19 @@ def launch(argv, admin=False):
         return False
 
 
+def confirmation_dialog(parent, title, text, action):
+    """Use the same bounded text/scroll fallback as diagnostic messages."""
+    dialog = message_dialog(parent, title, text, Gtk.MessageType.QUESTION)
+    dialog.set_title(title)
+    dialog.set_destroy_with_parent(True)
+    close = dialog.get_widget_for_response(Gtk.ResponseType.CLOSE)
+    if close is not None:
+        close.destroy()
+    dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL, action, Gtk.ResponseType.OK)
+    dialog.set_default_response(Gtk.ResponseType.CANCEL)
+    return dialog
+
+
 def message_dialog(parent, title, text, kind=Gtk.MessageType.INFO):
     if len(text) <= 600 and text.count("\n") <= 8:
         dialog = Gtk.MessageDialog(

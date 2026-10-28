@@ -5,6 +5,12 @@ This goal remains **active**. A passing catalog is not whole-OS completion.
 Preserve opaque graphite/amber, paper light mode, rounded controls and current
 mascot/cursor identity. Do not build an ISO or play sound during review.
 
+October28 follow-up: original6–8 rechecked;9 notifications and10 package/Health
+flows pass installed-package private acceptance. Added guarded recovery under
+Packages More. Fixed confirmation overflow/report crowding at actual200% text;
+real signed GUI transactions, failed-health rollback, forced interruption and
+More-menu recovery/retry pass. [Evidence and remaining gates](current-work.md).
+
 October28: original6–8 plus7.5 now have installed-package private receipts.
 Control Center output identity, Refresh, fixed footer, unavailable-backlight
 disclosure and route-preserving volume Apply pass. Normal Graphite/Paper200%

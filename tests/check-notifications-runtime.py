@@ -24,6 +24,8 @@ if not os.environ.get("OOONANA_NOTIFICATION_TEST_SESSION"):
     raise SystemExit("Run through a dedicated dbus-run-session with OOONANA_NOTIFICATION_TEST_SESSION=1.")
 if not args.config.is_file():
     raise SystemExit(f"Notification configuration missing: {args.config}")
+if os.environ.get("OOONANA_GUI_TEXT_SCALE"):
+    Gtk.Settings.get_default().set_property("gtk-xft-dpi", round(96 * 1024 * float(os.environ["OOONANA_GUI_TEXT_SCALE"])))
 
 with tempfile.TemporaryFile() as log:
     daemon = subprocess.Popen(["dunst", "-config", str(args.config)], stdout=log, stderr=log)
@@ -38,7 +40,7 @@ with tempfile.TemporaryFile() as log:
             time.sleep(0.1)
         else:
             raise RuntimeError("Isolated Dunst did not start")
-        subprocess.run(["notify-send", "-a", "Ooonana test", "Notification center ready", "History, clear, and Do Not Disturb controls.", "-t", "1000"], check=True)
+        subprocess.run(["notify-send", "-a", "Ooonana test", "-h", "boolean:suppress-sound:true", "Notification center ready", "History, clear, and Do Not Disturb controls.", "-t", "1000"], check=True)
         apply_theme()
         window = NotificationsWindow()
         window.show_all()

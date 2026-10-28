@@ -59,7 +59,7 @@ dependency nodes. Installed panel/session verification remains below.
 
 ## Remaining UI/integration work, in order
 
-### Original items6–8, including new7.5: October28 status
+### Original items6–10, including new7.5: October28 status
 
 - **6 desktop/themes:** packaged private live-theme and saved wallpaper/theme
   checks pass. Installed application icons decode at16/32px. Public cursor
@@ -78,15 +78,26 @@ dependency nodes. Installed panel/session verification remains below.
   probes pass. Real Settings authorization refreshes signed metadata, refuses
   index tampering, recovers on retry and installs no package. Account/disk/
   persistence setup mutation remains untested; layout fixtures do not close it.
+- **9 notifications:** actual packaged private Dunst actions, opt-in history,
+  privacy/storage failures, DND, panel badges and daemon restart/ID reuse pass.
+  Stale actions refuse changed messages. Normal/large-text Paper and Graphite
+  checks retain their passed status; real user-session integration stays held.
+- **10 Packages/Health/Updates:** actual signed private GUI install/remove,
+  config-preserving upgrade, failed-health rollback, forced interruption,
+  recovery cancellation/restore/retry, Health refresh and live snapshot pass.
+  Packages exposes recovery under More, defaults confirmation to Cancel and
+  preserves actual authentication. Recovery/metadata confirmations now fit
+  760×600 at200% text; Health leaves useful report space. This does not replace
+  full installed-system or physical USB upgrade/power-loss acceptance.
 
 These are installed-package tests on a disposable X11 candidate, not an update
 or acceptance of installed Ooonana WSL. Remaining work below is retained.
 
 ### Other outstanding acceptance
 
-1. Packages/Health/Updates: successful privileged GUI transactions, visible
-   authentication/errors and interrupted recovery/rollback in a disposable
-   installation. Retain already-passed package engine/native upgrade proofs.
+1. Full installed-system package upgrades and rollback in a disposable
+   installation. Private packaged GUI transactions/authentication/recovery now
+   pass; retain them together with earlier package-engine/native upgrade proofs.
 2. Task Manager: large live process lists, real sampling/overhead, sorting,
    filtering, process turnover and terminate confirmation. Native cloud AI:
    authorized real provider session, long transcript, stream/cancel/recovery.

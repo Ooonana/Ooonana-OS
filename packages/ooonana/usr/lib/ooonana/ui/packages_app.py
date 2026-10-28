@@ -11,12 +11,14 @@ from common import (  # noqa: E402
     apply_theme,
     ask_text,
     button,
+    confirmation_dialog,
     header,
     flow_row,
     fit_dialog,
     label,
     load_preferences,
     message,
+    more_actions,
     run_async,
 )
 
@@ -61,8 +63,15 @@ class PackagesWindow(Gtk.Window):
             ("Remove", "list-remove-symbolic", self.remove_package),
             ("Upgrade system", "software-update-available-symbolic", self.upgrade_system),
             ("Installed", "emblem-default-symbolic", self.show_installed),
-            ("Sources", "folder-remote-symbolic", self.show_sources),
-            ("Doctor", "emblem-system-symbolic", self.run_doctor))]
+            ("Sources", "folder-remote-symbolic", self.show_sources))]
+        tools = [button("Repository doctor", "emblem-system-symbolic"),
+                 button("Recover interrupted update", "edit-undo-symbolic")]
+        more = more_actions(tools, "Repository tools and interrupted-update recovery")
+        # Pop down the menu before a tool maps its modal confirmation.
+        for tool, callback in zip(tools, (self.run_doctor, self.recover_updates)):
+            tool.connect_after("clicked", callback)
+        self.action_buttons.extend(tools)
+        actions.append(more)
         self.action_buttons.extend(actions)
         toolbar = flow_row(actions, max_children=6, min_children=2)
         root.pack_start(toolbar, False, False, 0)
@@ -289,6 +298,28 @@ class PackagesWindow(Gtk.Window):
 
     def run_doctor(self, *_args):
         self.execute("Repository doctor", ["ooonana", "repo", "doctor"], timeout=90)
+
+    def recover_updates(self, *_args):
+        if self.closed or self.busy or self.review_open:
+            return
+        dialog = confirmation_dialog(self, "Recover interrupted package update?",
+            "Restores package-owned files and metadata from saved checkpoints. "
+            "Does not start an upgrade. If recovery fails, checkpoints stay available for retry. "
+            "Administrator password may be requested.", "Recover")
+        self.review_open = True
+        try:
+            accepted = dialog.run() == Gtk.ResponseType.OK
+        finally:
+            dialog.destroy()
+            self.review_open = False
+        if self.closed:
+            return
+        if accepted:
+            self.execute("Recovering interrupted package update", ["ooonana", "recover"],
+                         admin=True, timeout=180, mutating=True)
+        else:
+            self.status.set_text("Recovery cancelled. No packages changed.")
+            self.status.set_tooltip_text(self.status.get_text())
 
 
 def main():
