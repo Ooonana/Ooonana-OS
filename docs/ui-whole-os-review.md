@@ -5,6 +5,16 @@ This goal remains **active**. A passing catalog is not whole-OS completion.
 Preserve opaque graphite/amber, paper light mode, rounded controls and current
 mascot/cursor identity. Do not build an ISO or play sound during review.
 
+October29 item10.5: inactivity lock controls (Off by default), Super+Ctrl+L,
+guarded duplicate launches and compact2× unlock instruction. Real private
+PAM/input, one-minute idle, custom policy, minute redraw/draft, dual virtual
+monitor coverage and VM expiry/rotation/logout pass. Native vendor auth/input
+remains preserved. Power's lock-before-suspend request is tested on a private
+login1 provider; current custom-init image has no running provider. Actual
+installed sign-in and physical sleep/wake remain open. Impeccable4.8.0 review
+uses normal/large GTK and native1×/2× captures, not a copied composition.
+[Detailed10.5 evidence and remaining work](lock-session-review-20261029.md).
+
 October28 follow-up: original6–8 rechecked;9 notifications and10 package/Health
 flows pass installed-package private acceptance. Added guarded recovery under
 Packages More. Fixed confirmation overflow/report crowding at actual200% text;

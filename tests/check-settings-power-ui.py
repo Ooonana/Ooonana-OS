@@ -125,6 +125,25 @@ with tempfile.TemporaryDirectory() as temporary:
     latest(0, "LATEST")
     assert window.status_widgets["memory"].get_text() == "LATEST"
     jobs.clear()
+    window.idle_lock_combo.set_active_id("1")
+    command, complete = jobs.pop()
+    assert command == ["ooonana-session-guard", "--background"]
+    assert window.lock_pending and not window.lock_button.get_sensitive()
+    complete(1, "Fixture unavailable guard")
+    assert window.idle_lock_combo.get_active_id() == "0" and not window.lock_pending
+    assert settings.load_preferences()["idle_lock_minutes"] == 0, "Guard failure retained unsafe enabled preference"
+    window.idle_lock_combo.set_active_id("5")
+    _, complete = jobs.pop()
+    complete(0, "")
+    assert settings.load_preferences()["idle_lock_minutes"] == 5
+    window.lock_button.clicked()
+    command, complete = jobs.pop()
+    assert command == ["ooonana-lock"] and not window.idle_lock_combo.get_sensitive()
+    complete(1, "Fixture unavailable locker")
+    assert window.idle_lock_combo.get_sensitive() and "failed" in window.lock_status.get_text().lower()
+    window.idle_lock_combo.set_active_id("0")
+    assert not jobs and settings.load_preferences()["idle_lock_minutes"] == 0
+    jobs.clear()
     capture(window, "settings-appearance")
     window.apply_wallpaper("/fixture/late.jpg", "fit")
     _command, late = jobs.pop()
@@ -151,12 +170,14 @@ with tempfile.TemporaryDirectory() as temporary:
     power.show_all()
     capture(power, "power-ready")
     for widget in power.actions:
+        if not widget.get_mapped():
+            continue  # Secondary action lives in the closed More popover.
         height = widget.get_allocated_height()
         text_height = widget.create_pango_layout(widget.get_label()).get_pixel_size()[1]
         assert max(40, text_height + 8) <= height <= max(44, text_height + 16), (widget.get_label(), height, text_height)
     print("POWER_METRICS", requested_theme, "text-scale", text_scale,
           "dpi", Gtk.Settings.get_default().get_property("gtk-xft-dpi"),
-          "action-heights", [widget.get_allocated_height() for widget in power.actions], flush=True)
+          "action-heights", [widget.get_allocated_height() for widget in power.actions if widget.get_mapped()], flush=True)
     def response(value, screenshot=False):
         def respond():
             dialog = next(item for item in Gtk.Window.list_toplevels() if isinstance(item, Gtk.MessageDialog))
@@ -167,12 +188,12 @@ with tempfile.TemporaryDirectory() as temporary:
             dialog.response(value)
             return False
         GLib.timeout_add(100, respond)
-    for action in ("logout", "reboot", "shutdown"):
+    for action in ("logout", "reboot", "shutdown", "suspend"):
         response(Gtk.ResponseType.CANCEL, action == "logout")
         power.confirm(action)
         assert not jobs, "Cancel submitted power request"
     for action, expected in (("logout", ["i3-msg", "exit"]), ("reboot", ["bunana", "--restart"]),
-                             ("shutdown", ["bunana", "--shutdown"])):
+                             ("shutdown", ["bunana", "--shutdown"]), ("suspend", ["ooonana-session", "--suspend"])):
         response(Gtk.ResponseType.OK)
         power.confirm(action)
         power.restart_i3()

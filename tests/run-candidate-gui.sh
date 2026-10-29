@@ -47,7 +47,7 @@ case "$geometry" in
 esac
 case "$only" in
   all|setup-details-ui|controls-details-ui|audio-runtime|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|theme-flow-ui|frame-theme-ui|live-theme-ui|external-theme-ui|client-theme-ui|lock-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|launcher-session-ui|notifications-runtime|notification-lifecycle|notification-auto-recovery|notification-stale-ui|window-controls-runtime|dock-ui|dock-edges-ui|device-scale-ui|csd-controls-ui|panel-ui|panel-live-ui|tray-ui|panel-media-runtime|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
-  shell-flyout-ui|settings-admin-ui|desktop-assets-ui|package-transactions-ui) ;;
+  shell-flyout-ui|settings-admin-ui|desktop-assets-ui|package-transactions-ui|session-control-ui) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -247,11 +247,11 @@ ln -s /proc/self/fd/2 "$rootfs/dev/stderr"
 mount -t devpts -o newinstance,ptmxmode=0666 devpts "$rootfs/dev/pts"
 ln -s pts/ptmx "$rootfs/dev/ptmx"
 chown 1000:1000 "$rootfs/home/ooonana" "$output"
-if [[ "$only" == lock-ui || "$only" == all || "$only" == admin-prompt-ui || "$only" == settings-admin-ui || "$only" == package-transactions-ui ]]; then
+if [[ "$only" == lock-ui || "$only" == session-control-ui || "$only" == all || "$only" == admin-prompt-ui || "$only" == settings-admin-ui || "$only" == package-transactions-ui ]]; then
   # Disposable credential + owned helper copy; real installed/cached auth files
   # and PAM policy stay byte-for-byte unchanged when these mounts disappear.
   credential='Ooonana-private-admin-QA-20261026'
-  if [[ "$only" == lock-ui ]]; then credential='Ooonana-private-lock-QA-20261023'; fi
+  if [[ "$only" == lock-ui || "$only" == session-control-ui ]]; then credential='Ooonana-private-lock-QA-20261023'; fi
   hash="$(printf %s "$credential" | openssl passwd -6 -salt OoonanaLockQA -stdin)"
   printf 'root:!:20000:0:99999:7:::\nooonana:%s:20000:0:99999:7:::\n' "$hash" >"$rootfs/run/qa-shadow"
   chmod 0600 "$rootfs/run/qa-shadow"
@@ -317,6 +317,16 @@ if [[ "$only" == lock-ui ]]; then
     [[ "$result" == "$expected" ]] || { printf 'FAIL live readiness %s: expected=%s actual=%s\n' "$state" "$expected" "$result"; exit 1; }
   done
   printf 'LOCK_LIVE_READINESS_OK locked/empty refused; private configured account allowed\n'
+fi
+if [[ "$only" == session-control-ui ]]; then
+  mount --bind "$SOURCE/packages/ooonana/usr/lib/ooonana" "$rootfs/usr/lib/ooonana"
+  mount -o remount,bind,ro "$rootfs/usr/lib/ooonana"
+  for helper in ooonana-session ooonana-session-guard ooonana-lock; do
+    # Missing helper mountpoints exist only in this disposable COW candidate.
+    if [[ ! -e "$rootfs/usr/bin/$helper" ]]; then install -m 0755 /dev/null "$rootfs/usr/bin/$helper"; fi
+    mount --bind "$SOURCE/packages/ooonana/usr/bin/$helper" "$rootfs/usr/bin/$helper"
+    mount -o remount,bind,ro "$rootfs/usr/bin/$helper"
+  done
 fi
 mount --bind "$SOURCE/packages/ooonana/usr/share/themes" "$rootfs/usr/share/themes"
 mount -o remount,bind,ro "$rootfs/usr/share/themes"
@@ -451,7 +461,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
       session=(/bin/sh /run/ooonana-qa-session-prefix "${session[@]}")
     fi
     probe_limit=120
-    if [ "$name" = package-transactions-ui ]; then probe_limit=240; fi
+    if [ "$name" = package-transactions-ui ] || [ "$name" = session-control-ui ]; then probe_limit=240; fi
     if timeout --kill-after=5 "$probe_limit" "${launch[@]}" \
       /usr/bin/env -i HOME=/home/ooonana USER=ooonana LOGNAME=ooonana \
       PATH=/usr/bin:/bin:/usr/sbin:/sbin DISPLAY="$DISPLAY" \
@@ -490,6 +500,11 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   if [ "$only" = desktop-assets-ui ]; then
     probe desktop-assets-ui python3 /source/tests/check-desktop-assets-ui.py /qa/desktop-assets
   fi
+  if [ "$only" = session-control-ui ]; then
+    session_options=()
+    if [ "${OOONANA_GUI_SESSION_LAYOUT_ONLY:-0}" = 1 ]; then session_options+=(--layout-only); fi
+    probe session-control-ui python3 /source/tests/check-session-control-ui.py /qa/session-control "${session_options[@]}"
+  fi
   probe installer-ui python3 /source/tests/check-installer-ui.py /qa/installer
   probe settings-power-ui python3 /source/tests/check-settings-power-ui.py --own-i3
   probe theme-flow-ui python3 /source/tests/check-theme-flow-ui.py /qa/theme-flow
@@ -501,8 +516,10 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   fi
   if [ "$only" = lock-ui ]; then
     lock_options=()
-    if [ -n "$lock_candidate" ]; then lock_options+=(--require-visuals); fi
+    if [ -n "$lock_candidate" ] || [ "$installed_only" = 1 ]; then lock_options+=(--require-visuals); fi
     if [ "${OOONANA_GUI_LOCK_CLOCK_WAIT:-0}" = 1 ]; then lock_options+=(--clock-wait); fi
+    if [ "${OOONANA_GUI_LOCK_EXTENDED:-0}" = 1 ]; then lock_options+=(--extended); fi
+    if [ "${OOONANA_GUI_LOCK_VIRTUAL_MONITORS:-0}" = 1 ]; then lock_options+=(--virtual-monitors); fi
     probe lock-ui python3 /source/tests/check-lock-ui.py /qa/lock "${lock_options[@]}"
   fi
   # Version-matched candidate/source-only bind is explicit opt-in. Do not make

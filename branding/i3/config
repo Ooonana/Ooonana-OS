@@ -41,6 +41,7 @@ exec_always --no-startup-id ooonana-panel-start
 exec_always --no-startup-id ooonana-tray --background
 exec_always --no-startup-id ooonana-window-controls
 exec --no-startup-id ooonana-storage-watch
+exec_always --no-startup-id ooonana-session-guard --background
 exec --no-startup-id sh -c 'if command -v nm-applet >/dev/null 2>&1 && [ -S /run/dbus/system_bus_socket ]; then ooonana-tray --wait-ready >/dev/null 2>&1 || true; nm-applet --indicator & fi'
 exec --no-startup-id sh -c 'if command -v blueman-applet >/dev/null 2>&1 && [ -S /run/dbus/system_bus_socket ] && ls /sys/class/bluetooth/hci* >/dev/null 2>&1; then ooonana-tray --wait-ready >/dev/null 2>&1 || true; blueman-applet & fi'
 exec --no-startup-id sh -c '[ "${OOONANA_NO_AUDIO:-0}" = 1 ] || { command -v ooonana-audio-start >/dev/null 2>&1 && ooonana-audio-start >/dev/null 2>&1; } || true'
@@ -49,6 +50,7 @@ bindsym $mod+Return exec ooonana-theme-env xterm
 bindsym $mod+d exec ooonana-apps
 bindsym $mod+Control+d exec ooonana-window-list --dock-menu
 bindsym $mod+Control+Tab exec ooonana-window-list --task-view
+bindsym $mod+Control+l exec ooonana-lock
 bindsym $mod+Shift+d exec sh -c 'command -v rofi >/dev/null 2>&1 && rofi -show drun -theme /etc/ooonana/rofi.rasi || dmenu_run'
 bindsym $mod+Shift+f exec ooonana-files
 bindsym $mod+Shift+w exec ooonana-browser

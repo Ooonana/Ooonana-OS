@@ -71,8 +71,9 @@ static void ooonana_lock_heading(cairo_t *ctx, uint32_t *resolution, double scal
         ooonana_lock_centered(ctx, clock, width, baseline, height < 360 ? 24 : 32);
         ooonana_lock_rgb(ctx, ooonana_lock_paper() ? 0x55616e : 0xb4bdc8);
         ooonana_lock_centered(ctx, date, width, baseline + 22, 14);
-        if (height >= 460)
-            ooonana_lock_centered(ctx, "Type password to unlock", width, baseline + 48, 13);
+        if (height >= 300)
+            ooonana_lock_centered(ctx, "Type password to unlock", width,
+                                  fmin(baseline + 48, height / 2 - 68), 13);
         ooonana_lock_centered(ctx, "Ooonana OS", width, height - 24, 12);
         cairo_restore(ctx);
     }

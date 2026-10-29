@@ -1,6 +1,6 @@
 # Core 0.10.0 candidate: remaining acceptance gates
 
-Updated October 28, 2026. Stable has not been promoted. This checklist replaces
+Updated October 29, 2026. Stable has not been promoted. This checklist replaces
 the repeated 25-item draft; detailed historical receipts remain in
 [current work](current-work.md) and [UI review](ui-whole-os-review.md).
 
@@ -59,7 +59,7 @@ dependency nodes. Installed panel/session verification remains below.
 
 ## Remaining UI/integration work, in order
 
-### Original items6–10, including new7.5: October28 status
+### Original items6–10.5, including new7.5: October28 status
 
 - **6 desktop/themes:** packaged private live-theme and saved wallpaper/theme
   checks pass. Installed application icons decode at16/32px. Public cursor
@@ -89,6 +89,16 @@ dependency nodes. Installed panel/session verification remains below.
   preserves actual authentication. Recovery/metadata confirmations now fit
   760×600 at200% text; Health leaves useful report space. This does not replace
   full installed-system or physical USB upgrade/power-loss acceptance.
+- **10.5 lockscreen/sign-in/unlock — source/private checks pass:** compact
+  Graphite/Paper, clock/date, scaled unlock cue, actual password/error/Caps/
+  layout/Backspace, duplicate-launch guard, automatic locking and virtual
+  dual-monitor coverage. Real private PAM/custom-policy and three kernel/getty
+  expiry/rotation/logout cases pass. New Power Suspend path confirms lock and
+  respects login1 authorization; current custom-init image lacks a running
+  provider, so actual suspend integration/wake remains open. Sign-in stays
+  console getty/PAM; no graphical greeter introduced. [Detailed evidence and
+  limits](lock-session-review-20261029.md). Installed/physical acceptance below
+  remains pending; active user desktop was never locked during QA.
 
 These are installed-package tests on a disposable X11 candidate, not an update
 or acceptance of installed Ooonana WSL. Remaining work below is retained.
@@ -110,9 +120,10 @@ or acceptance of installed Ooonana WSL. Remaining work below is retained.
    DND/action routing and daemon recovery with actual installed services.
 5. WSLg/input/displays: keyboard/mouse, clipboard, Korean IME, keyboard focus,
    text scaling, mixed DPI, multiple displays and hotplug where available.
-6. Installed sign-in/unlock, expiry/custom authentication, logout/wake and
-   suspend/resume. Preserve real authentication; do not lock the user's session
-   as a substitute for an isolated test.
+6. Complete item10.5's installed sign-in/unlock, expiry/custom authentication,
+   automatic locking and logout acceptance. Integrate a real login1/seat
+   provider before claiming suspend support, then test physical wake/inhibitors/
+   output coverage. Preserve private PAM/idle-lock passes and real authentication.
 7. Hardware-control interfaces: Wi-Fi credentials/reconnect, Bluetooth pairing,
    adapter/signal-map changes, brightness permissions, silent audio routing and
    device changes. Real hardware acceptance remains separate below.

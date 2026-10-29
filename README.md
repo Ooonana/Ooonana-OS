@@ -53,6 +53,14 @@ recovery and Health checks pass in a disposable target. Confirmation wrapping
 and Health spacing were corrected for actual200% text at760×600. Full installed
 system/hardware acceptance and stable promotion remain pending.
 
+October29: lock/session checks add configurable inactivity locking (default
+Off), Super+Ctrl+L, guarded duplicate launches and compact scaled unlock hints.
+Actual private PAM, password editing, expiry/rotation and idle locking pass.
+Power requests suspend only after confirmed locking and login1 authorization;
+the current custom-init image lacks that service, so physical suspend remains
+pending. [Item10.5 evidence and limits](docs/lock-session-review-20261029.md).
+Installed WSL, remote publication and ISO remain held.
+
 ![Control Center, normal text, private Graphite QA session](docs/assets/ooonana-control-center-20261028.png)
 
 This preview uses a private null audio device and an owned test parent

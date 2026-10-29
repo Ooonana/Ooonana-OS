@@ -2027,19 +2027,20 @@ choose() {
     return 0
   fi
   if [ -n "${DISPLAY:-}" ] && command -v rofi >/dev/null 2>&1; then
-    printf 'Lock\nLog out\nRestart i3\nReboot\nShut down\nCancel\n' |
+    printf 'Lock\nSuspend\nLog out\nRestart i3\nReboot\nShut down\nCancel\n' |
       rofi -dmenu -i -p "Power" -theme /etc/ooonana/rofi.rasi 2>/dev/null || true
     return 0
   fi
   if [ -t 0 ]; then
-    printf '1) Lock\n2) Log out\n3) Restart i3\n4) Reboot\n5) Shut down\n6) Cancel\n> ' >&2
-    read -r answer || answer=6
+    printf '1) Lock\n2) Suspend\n3) Log out\n4) Restart i3\n5) Reboot\n6) Shut down\n7) Cancel\n> ' >&2
+    read -r answer || answer=7
     case "$answer" in
       1) echo Lock ;;
-      2) echo 'Log out' ;;
-      3) echo 'Restart i3' ;;
-      4) echo Reboot ;;
-      5) echo 'Shut down' ;;
+      2) echo Suspend ;;
+      3) echo 'Log out' ;;
+      4) echo 'Restart i3' ;;
+      5) echo Reboot ;;
+      6) echo 'Shut down' ;;
       *) echo Cancel ;;
     esac
   fi
@@ -2051,6 +2052,7 @@ fi
 action="$(choose)"
 case "$action" in
   Lock) exec ooonana-lock ;;
+  Suspend) exec ooonana-session --suspend ;;
   "Log out") command -v i3-msg >/dev/null 2>&1 && i3-msg exit >/dev/null 2>&1 || true ;;
   "Restart i3") command -v i3-msg >/dev/null 2>&1 && i3-msg restart >/dev/null 2>&1 || true ;;
   Reboot) exec bunana --restart ;;
@@ -4486,7 +4488,7 @@ install_current_backend_checks() {
     "$ROOTFS/usr/lib/ooonana/panel_session.py"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/desktop_theme.py" \
     "$ROOTFS/usr/lib/ooonana/desktop_theme.py"
-  for file in xsettings_session.py legacy_gtk_style.py lock_screen.py lock_readiness.py tray_model.py tray_service.py legacy_tray.py; do
+  for file in xsettings_session.py legacy_gtk_style.py lock_screen.py lock_readiness.py session_control.py tray_model.py tray_service.py legacy_tray.py; do
     install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/$file" \
       "$ROOTFS/usr/lib/ooonana/$file"
   done
@@ -4495,7 +4497,7 @@ install_current_backend_checks() {
       "$ROOTFS/usr/lib/ooonana/ui/$file"
   done
   install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana" "$ROOTFS/usr/bin/ooonana"
-  for file in ooonana-window-list ooonana-panel-start ooonana-media-status ooonana-notification-status ooonana-xsettings ooonana-lock ooonana-tray ooonana-controls ooonana-shell ooonana-notifications; do
+  for file in ooonana-window-list ooonana-panel-start ooonana-media-status ooonana-notification-status ooonana-xsettings ooonana-lock ooonana-session ooonana-session-guard ooonana-tray ooonana-controls ooonana-shell ooonana-notifications; do
     install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/$file" "$ROOTFS/usr/bin/$file"
   done
   [[ -f "$app/APP-MANIFEST.sha256" ]] || return 0

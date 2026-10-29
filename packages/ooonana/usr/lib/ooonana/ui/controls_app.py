@@ -14,6 +14,7 @@ from common import (  # noqa: E402
     Pango,
     apply_theme,
     button,
+    confirmation_dialog,
     flow_row,
     fit_dialog,
     header,
@@ -881,7 +882,7 @@ class PowerWindow(Gtk.Window):
         actions = [
             ("Lock", "system-lock-screen-symbolic", self.lock, None),
             ("Log out", "system-log-out-symbolic", self.logout, None),
-            ("Restart i3", "view-refresh-symbolic", self.restart_i3, None),
+            ("Suspend", "media-playback-pause-symbolic", lambda *_: self.confirm("suspend"), None),
             ("Reboot", "system-reboot-symbolic", lambda *_: self.confirm("reboot"), None),
             ("Shut down", "system-shutdown-symbolic", lambda *_: self.confirm("shutdown"), "destructive-action"),
             ("Cancel", "window-close-symbolic", lambda *_: self.destroy(), None),
@@ -895,8 +896,18 @@ class PowerWindow(Gtk.Window):
             grid.attach(widget, index % 3, index // 3, 1, 1)
         root.pack_start(grid, False, False, 0)
         self.status = label("", "muted")
-        root.pack_start(self.status, False, False, 0)
+        self.status.set_max_width_chars(36)
+        restart = button("Restart i3", "view-refresh-symbolic")
+        more = more_actions([restart], "Desktop session tools")
+        restart.connect_after("clicked", self.restart_i3)
+        for control in (restart, more):
+            control.set_size_request(-1, 40)
+        footer = Gtk.Box(spacing=8)
+        footer.pack_start(self.status, True, True, 0)
+        footer.pack_end(more, False, False, 0)
+        root.pack_start(footer, False, False, 0)
         self.cancel_button = self.actions[-1]
+        self.actions[-1:-1] = [restart, more]
         self.cancel_button.set_can_default(True)
         self.set_default(self.cancel_button)
         self.set_focus(self.cancel_button)
@@ -952,20 +963,12 @@ class PowerWindow(Gtk.Window):
             return
         title, command = {"reboot": ("Reboot", ["bunana", "--restart"]),
                           "shutdown": ("Shut down", ["bunana", "--shutdown"]),
+                          "suspend": ("Suspend", ["ooonana-session", "--suspend"]),
                           "logout": ("Log out", ["i3-msg", "exit"])}[action]
-        dialog = Gtk.MessageDialog(
-            transient_for=self,
-            modal=True,
-            message_type=Gtk.MessageType.WARNING,
-            buttons=Gtk.ButtonsType.NONE,
-            text=f"{title} Ooonana OS?",
-        )
+        detail = ("Locks this desktop before sleep. Unsupported or unauthorized suspend requests are refused. Unlock normally after wake."
+                  if action == "suspend" else "Unsaved work will be lost.")
+        dialog = confirmation_dialog(self, f"{title} Ooonana OS?", detail, title)
         header(dialog, title, "", "system-shutdown-symbolic")
-        dialog.format_secondary_text("Unsaved work will be lost.")
-        dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL, title, Gtk.ResponseType.OK)
-        dialog.set_default_response(Gtk.ResponseType.CANCEL)
-        dialog.set_destroy_with_parent(True)
-        fit_dialog(dialog, 420)
         dialog.show_all()
         accepted = dialog.run() == Gtk.ResponseType.OK
         dialog.destroy()

@@ -5,7 +5,8 @@ import os
 from pathlib import Path
 import tempfile
 
-DEFAULTS = {"reduce_motion": False, "remember_notifications": False}
+IDLE_LOCK_MINUTES = (0, 1, 5, 10, 15, 30)
+DEFAULTS = {"reduce_motion": False, "remember_notifications": False, "idle_lock_minutes": 0}
 
 
 def config_path():
@@ -70,12 +71,18 @@ def write_json(path, value):
 
 def load_preferences():
     data = read_json(config_path(), {}, limit=4096)
-    return {key: data.get(key, default) if isinstance(data, dict) and isinstance(data.get(key), bool) else default for key, default in DEFAULTS.items()}
+    return {key: data.get(key) if isinstance(data, dict) and valid_preference(key, data.get(key)) else default
+            for key, default in DEFAULTS.items()}
+
+
+def valid_preference(key, value):
+    return (type(value) is int and value in IDLE_LOCK_MINUTES if key == "idle_lock_minutes" else
+            key in DEFAULTS and isinstance(value, bool))
 
 
 def save_preferences(**changes):
     data = load_preferences()
-    data.update({key: value for key, value in changes.items() if key in DEFAULTS and isinstance(value, bool)})
+    data.update({key: value for key, value in changes.items() if key in DEFAULTS and valid_preference(key, value)})
     write_json(config_path(), data)
     return data
 

@@ -40,7 +40,7 @@ def build(base, binary, out):
     elf = subprocess.check_output(["readelf", "-lW", str(binary)], text=True)
     if "Requesting program interpreter: /lib/ld-musl-x86_64.so.1" not in elf:
         raise ValueError("Expected native x86_64 musl locker")
-    version = "2.16-r0.ooonana1"
+    version = "2.16-r0.ooonana2"
     relative = f"archives/i3lock-{version}.tar.gz"
     target = out / relative
     if target.exists() or target.is_symlink() or (out / "i3lock.pkg").exists():

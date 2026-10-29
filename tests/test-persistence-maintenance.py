@@ -172,7 +172,7 @@ with tempfile.TemporaryDirectory() as temporary:
     (prefix / "var/tmp").mkdir(parents=True)
     (prefix / "var/tmp").chmod(0o1777)
     for helper in ("ooonana", "ooonana-memory", "ooonana-panel-start", "ooonana-xsettings",
-                   "ooonana-lock", "ooonana-tray", "ooonana-controls", "ooonana-shell", "ooonana-window-list", "ooonana-shutdown-cleanup",
+                   "ooonana-lock", "ooonana-session", "ooonana-session-guard", "ooonana-tray", "ooonana-controls", "ooonana-shell", "ooonana-window-list", "ooonana-shutdown-cleanup",
                    "ooonana-storage-watch", "ooonana-persistence", "gzip", "gdbus"):
         path = prefix / "usr/bin" / helper
         path.write_text('#!/bin/sh\necho "ooonana 0.9.9"\n')
@@ -180,6 +180,7 @@ with tempfile.TemporaryDirectory() as temporary:
     assets = (
         "usr/lib/ooonana/xsettings_session.py", "usr/lib/ooonana/legacy_gtk_style.py",
         "usr/lib/ooonana/lock_screen.py", "usr/lib/ooonana/lock_readiness.py",
+        "usr/lib/ooonana/session_control.py",
         "usr/lib/ooonana/tray_model.py", "usr/lib/ooonana/tray_service.py", "usr/lib/ooonana/legacy_tray.py",
         "usr/lib/ooonana/ui/tray_app.py", "usr/share/themes/OoonanaGraphite/gtk-3.0/gtk.css",
         "usr/lib/ooonana/ui/shell_flyout.py", "usr/lib/ooonana/ui/shell_pointer.py", "usr/lib/ooonana/ui/shell_client.py",

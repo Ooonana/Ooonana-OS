@@ -1,4 +1,52 @@
-# Current work - 2026-10-28
+# Current work - 2026-10-29
+
+## Item10.5: lockscreen/sign-in/unlock - October29
+
+Completed source/private work: Settings inactivity locking with Off/1/5/10/15/
+30-minute choices (default Off), Super+Ctrl+L, lock-before-suspend policy and
+compact native unlock hint at2×. Fixed inherited stdout/stderr pipes that held
+GUI requests open after successful locking, and duplicate requests that could
+queue another locker after unlock. Display-scoped ownership survives vendor
+exec/fork. Off leaves no resident watcher and never unlocks an active locker.
+
+Real private X11/PAM checks cover one-minute inactivity, password editing/error/
+Caps/layout, minute redraw retaining draft, custom PAM, dual virtual monitor
+coverage, and kernel/getty expiry/rotation/logout. Impeccable4.8.0 used to review
+normal Graphite, real200% Paper at760×600 and native1×/2× both themes. Source/
+private packaged passes retain their evidence; actual installed Ooonana WSL is
+unchanged. [Detailed results, behavior and limits](lock-session-review-20261029.md).
+
+Initial packaged pass:13 gates in
+`/var/tmp/ooonana-installed-desktop-lock-20261029.jwyCP1w2`.
+Native compact-hint build:
+`F:\Ooonana\ooonana-os\qa-i3lock-20261029-compact-hint`;
+binary SHA256`9db006223397c2e240463308053238a0bf92eb78d2bc1b111e4eb5f85ffce5cc`,
+package revision`2.16-r0.ooonana2`. Compile-time proof restores the vendor main
+authentication/input source byte-for-byte after removing existing clock redraw
+additions. No production PAM policy is changed.
+
+Final packaged pass:13 gates in
+`/var/tmp/ooonana-installed-desktop-lock-20261029.iTeNE550` after signed private
+core reinstall and actual locker`.ooonana1`→`.ooonana2` upgrade. Archive/source/
+installed hashes match; PAM policy and customized configuration are preserved.
+New native binary passes both themes1×/2×, extended keyboard/minute/dual-monitor
+checks; real idle/protocol and normal/large GTK regressions pass. Enabled guard
+sample:17,168KiB RSS and0.01 CPU seconds across the minute wait; Off has no
+resident worker. 17 focused unit cases plus three console-prompt tests pass;
+preferences/persistence-maintenance guards pass. Selected actual captures are
+in the detailed report. Native header checkout is pinned LF for hash stability.
+
+Unpublished stage remains654 packages/612 nodes; production manifest still
+pinsc0be613 and CURRENT is unchanged. Source-only generated-junk scan found no
+`.pyc`, `.pyo`, temporary or incomplete files in packages/scripts/tests. Retain
+QA captures, logs, build provenance and recovery checkpoints.
+
+Suspend uses a real login1 protocol path with a private provider during tests;
+the custom-init image currently has no running provider. Real service/seat
+integration, physical sleep/wake/inhibitors and installed sign-in/logout remain
+open. Login stays console getty/PAM; no graphical greeter was added. No active
+user desktop lock, audible test, WSL update, remote push, production signature/
+publication, stable promotion or ISO. Production CURRENT remains unchanged.
 
 ## Recheck6–8 and original9–10 notifications/packages - October28
 

@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from ui_preferences import config_path, load_preferences, resolved_theme, save_preferences, transition_ms
+from ui_preferences import IDLE_LOCK_MINUTES, config_path, load_preferences, resolved_theme, save_preferences, transition_ms
 from storage_health import storage_health
 from common import (  # noqa: E402
     Gdk,
@@ -59,6 +59,7 @@ class SettingsWindow(Gtk.Window):
         self.metadata_pending = False
         self.dialog_open = False
         self.motion_sync = False
+        self.lock_sync = self.lock_pending = False
         self.card_grids = []
         self.appearance_rows = []
         self.headerbar = header(
@@ -376,6 +377,20 @@ class SettingsWindow(Gtk.Window):
         motion.pack_start(self.reduce_motion, False, False, 0)
         page.pack_start(motion, False, False, 0)
 
+        lock = section("Lock screen", "Choose when this desktop locks. Unlock with your account password.", "system-lock-screen-symbolic")
+        self.idle_lock_combo = Gtk.ComboBoxText()
+        self.idle_lock_combo.get_accessible().set_name("Lock after inactivity")
+        for minutes in IDLE_LOCK_MINUTES:
+            self.idle_lock_combo.append(str(minutes), "Automatic lock off" if not minutes else f"After {minutes} {'minute' if minutes == 1 else 'minutes'}")
+        self.idle_lock_combo.set_active_id(str(load_preferences()["idle_lock_minutes"]))
+        self.idle_lock_combo.connect("changed", self.lock_timeout_changed)
+        self.lock_button = button("Lock now", "system-lock-screen-symbolic", self.lock_now)
+        self.lock_button.set_tooltip_text("Lock this desktop · Super+Ctrl+L")
+        lock.pack_start(self.actions(self.idle_lock_combo, self.lock_button), False, False, 0)
+        self.lock_status = label("Super+Ctrl+L locks this desktop. A usable account password is required.", "muted")
+        lock.pack_start(self.lock_status, False, False, 0)
+        page.pack_start(lock, False, False, 0)
+
         wallpaper = section("Wallpaper", "Choose image and control scaling without restarting i3.", "preferences-desktop-wallpaper-symbolic")
         self.status_widgets["wallpaper"] = label(self.wallpaper_status(), "muted")
         self.status_widgets["wallpaper"].set_tooltip_text(self.current_wallpaper())
@@ -511,6 +526,64 @@ class SettingsWindow(Gtk.Window):
         if settings:
             settings.set_property("gtk-enable-animations", not widget.get_active())
         self.stack.set_transition_duration(transition_ms())
+
+    def lock_timeout_changed(self, widget):
+        if self.closed or self.lock_sync or self.lock_pending:
+            return
+        previous = load_preferences()["idle_lock_minutes"]
+        selected = widget.get_active_id()
+        if selected is None:
+            return
+        try:
+            save_preferences(idle_lock_minutes=int(selected))
+        except (OSError, ValueError) as exc:
+            self.lock_sync = True
+            try:
+                widget.set_active_id(str(previous))
+            finally:
+                self.lock_sync = False
+            message(self, "Could not save lock preference", str(exc), Gtk.MessageType.WARNING)
+            return
+        self.lock_status.set_text("Automatic lock off." if selected == "0" else "Starting automatic lock…")
+        if selected != "0":
+            self.lock_pending = True
+            widget.set_sensitive(False)
+            self.lock_button.set_sensitive(False)
+            def done(rc, output):
+                if self.closed:
+                    return
+                self.lock_pending = False
+                widget.set_sensitive(True)
+                self.lock_button.set_sensitive(True)
+                if rc:
+                    try:
+                        save_preferences(idle_lock_minutes=previous)
+                        self.lock_sync = True
+                        widget.set_active_id(str(previous))
+                    except OSError:
+                        self.lock_status.set_text("Guard unavailable and preference rollback failed. Check saved lock setting before retrying.")
+                    else:
+                        self.lock_status.set_text("Automatic lock not changed. " + (output or "Session guard unavailable; retry after desktop restart."))
+                    finally:
+                        self.lock_sync = False
+                else:
+                    self.lock_status.set_text("Automatic lock enabled. A usable account password is required.")
+            run_async(["ooonana-session-guard", "--background"], done, timeout=5)
+
+    def lock_now(self, widget):
+        if self.closed or self.lock_pending:
+            return
+        self.lock_pending = True
+        widget.set_sensitive(False)
+        self.idle_lock_combo.set_sensitive(False)
+        def done(rc, output):
+            if self.closed:
+                return
+            self.lock_pending = False
+            widget.set_sensitive(True)
+            self.idle_lock_combo.set_sensitive(True)
+            self.lock_status.set_text("Lock failed. " + (output or "Screen has not been secured.") if rc else "Lock submitted. Unlock with your account password.")
+        run_async(["ooonana-lock"], done, timeout=15)
 
     def set_status(self, key, text, state="good"):
         widget = self.status_widgets.get(key)

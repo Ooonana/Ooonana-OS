@@ -13,9 +13,18 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "packages/ooonana/usr/lib/ooonana"))
 import lock_screen
 import lock_readiness
+claim_display = lock_screen.claim_display
 
 
 class LockLaunch(unittest.TestCase):
+    def setUp(self):
+        self.stream_patch = patch.object(lock_screen, "quiet_background_streams")
+        self.streams = self.stream_patch.start()
+        self.addCleanup(self.stream_patch.stop)
+        self.claim_patch = patch.object(lock_screen, "claim_display", return_value=None)
+        self.claim = self.claim_patch.start()
+        self.addCleanup(self.claim_patch.stop)
+
     def test_saved_appearance_and_real_feedback_flags(self):
         with tempfile.TemporaryDirectory(prefix="ooonana-lock-launch-") as temporary:
             preference = Path(temporary) / "ooonana/theme"
@@ -35,6 +44,7 @@ class LockLaunch(unittest.TestCase):
             lock_screen.main()
             self.assertEqual(execute.call_args.args[:2], ("i3lock", lock_screen.command()))
             self.assertEqual(execute.call_args.args[2]["OOONANA_LOCK_VISUALS"], "1")
+            self.streams.assert_called_once()
 
     def test_missing_backend_and_debug_injection_fail_without_blanking(self):
         with contextlib.redirect_stderr(io.StringIO()) as errors:
@@ -44,6 +54,41 @@ class LockLaunch(unittest.TestCase):
             with patch.object(lock_screen, "live_account_status", return_value=0), patch.object(sys, "argv", ["ooonana-lock"]), patch.object(lock_screen.os, "execvpe", side_effect=FileNotFoundError):
                 self.assertEqual(lock_screen.main(), 127)
         self.assertIn("has not been secured", errors.getvalue())
+
+    def test_foreground_keeps_vendor_auth_and_ownership(self):
+        with patch.object(lock_screen, "live_account_status", return_value=0), patch.object(sys, "argv", ["ooonana-lock", "--foreground"]), patch.object(lock_screen.os, "execvpe") as execute:
+            lock_screen.main()
+            self.assertEqual(execute.call_args.args[1], lock_screen.command() + ["--nofork"])
+            self.streams.assert_not_called()
+
+    def test_duplicate_and_unsafe_runtime_refuse_before_exec(self):
+        for error, expected in ((BlockingIOError(), 75), (OSError(), 1)):
+            with patch.object(lock_screen, "live_account_status", return_value=0), patch.object(sys, "argv", ["ooonana-lock"]), \
+                    patch.object(lock_screen, "claim_display", side_effect=error), patch.object(lock_screen.os, "execvpe") as execute, \
+                    contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(lock_screen.main(), expected)
+                execute.assert_not_called()
+
+    def test_real_display_claim_lifetime_alias_and_link_refusal(self):
+        with tempfile.TemporaryDirectory(prefix="ooonana-display-claim-") as temporary, \
+                patch.dict(os.environ, {"XDG_RUNTIME_DIR": temporary, "DISPLAY": ":987.0"}):
+            descriptor = claim_display()
+            try:
+                self.assertTrue(os.get_inheritable(descriptor))
+                with patch.dict(os.environ, {"DISPLAY": ":987"}), self.assertRaises(BlockingIOError):
+                    claim_display()
+            finally:
+                os.close(descriptor)
+            descriptor = claim_display()
+            os.close(descriptor)
+            path, = (Path(temporary) / "ooonana").glob("screen-lock-*.lock")
+            path.unlink()
+            target = Path(temporary) / "unrelated"
+            target.write_text("retained")
+            path.symlink_to(target)
+            with self.assertRaises(OSError):
+                claim_display()
+            self.assertEqual(target.read_text(), "retained")
 
     def test_live_locked_empty_unknown_refuse_before_any_grab(self):
         with tempfile.TemporaryDirectory(prefix="ooonana-lock-status-") as temporary:
