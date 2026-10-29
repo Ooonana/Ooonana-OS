@@ -90,7 +90,8 @@ dependency nodes. Installed panel/session verification remains below.
   760×600 at200% text; Health leaves useful report space. This does not replace
   full installed-system or physical USB upgrade/power-loss acceptance.
 - **10.5 lockscreen/sign-in/unlock — source/private checks pass:** compact
-  Graphite/Paper, clock/date, scaled unlock cue, actual password/error/Caps/
+  Graphite/Paper, clock/date, scaled unlock cue, separate layout/modifier rows,
+  bounded UTF-8 labels and actual packaged Korean glyphs, actual password/error/Caps/
   layout/Backspace, duplicate-launch guard, automatic locking and virtual
   dual-monitor coverage. Real private PAM/custom-policy and three kernel/getty
   expiry/rotation/logout cases pass. New Power Suspend path confirms lock and

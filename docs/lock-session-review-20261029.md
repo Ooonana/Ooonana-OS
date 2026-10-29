@@ -7,6 +7,85 @@ Ooonana WSL, physical sign-in/wake, and the final release remain separate gates.
 No active user desktop was locked. No host suspend/logout, audible test, ISO,
 production signing, model download or remote publication was performed.
 
+## Requested visual recheck
+
+The first pass still crowded keyboard layout, password feedback and Caps Lock
+inside one small circle. Its empty state also lacked a central lock cue.
+This refinement separates their roles while preserving Ooonana's existing
+opaque palette, compact typography and actual keyboard/PAM behavior:
+
+- A small amber padlock marks the idle unlock area. Its instruction sits below:
+  type the password, then press Enter.
+- The native circle carries authentication feedback alone. Keyboard layout and
+  Caps/Num Lock sit in separate readable rows; the modifier warning uses amber.
+- Layout names use a bounded320px row with UTF-8-safe ellipsis. Font size stays
+  readable. Branding yields on300px logical-height displays so it cannot crowd
+  the modifier row.
+- Keystroke feedback follows Ooonana amber. Ordinary Backspace uses neutral ink
+  instead of an error flash. Real authentication failures remain red with text.
+
+Native revision is now `2.16-r0.ooonana5`, staged without publication. Vendor
+main authentication/input remains byte-for-byte unchanged after removing only
+the previously reviewed clock-redraw additions. Earlier `.ooonana2` evidence
+and screenshots below are preserved as history.
+
+Rendered review caught a stray Cairo path from the date to the new idle icon.
+The icon now starts its own path. A blank-gap pixel assertion guards normal
+and2× renders; the retained faulty1× capture contains406 stray pixels in that
+gap. The earlier `.ooonana3` functional pass did not close this visual defect.
+An auxiliary old-binary replay stopped at harness preflight and is not counted;
+its logs remain, alongside the actual captured-pixel evidence.
+
+The layout probe also waits for real PAM's empty-password cooldown before
+switching maps. It now verifies the long UTF-8 name reached the X11 server,
+rather than treating an unchanged English layout during verification as proof.
+The compiler's XKB dump then crashed in QA; readback now uses the same
+libxkbcommon-X11 API as the locker. That verified378-byte fixture exposed missing
+Korean glyphs in Cairo's default Latin face. CJK labels now select the existing
+packaged Noto Sans CJK KR face. Latin sizing stays unchanged; no font download,
+new runtime dependency or password-input change. A real Cairo glyph probe
+rejects missing or repeated glyphs for four distinct Hangul syllables.
+
+Final `.ooonana5` packaged receipt:
+`/var/tmp/ooonana-installed-desktop-lock-20261029.3yGoKZLp`.
+All **seven** affected gates pass on the same verified installed binary:
+Graphite/Paper1×/2×, compact760×600 at2× in both themes, and extended dual-monitor
+input/layout/Backspace/duplicate/minute-redraw checks. The 378-byte XKB name is
+verified through the native API; four Korean glyph IDs are distinct/nonzero
+(`49403,58199,51703,47976`). Authentication and the archived PAM policy remain
+unchanged. Impeccable review includes actual final captures, not only source
+or passing assertions. Earlier idle/suspend and real PAM proofs remain valid;
+they are not claimed as fresh physical/installed-session tests.
+
+Final binary SHA256:
+`c1892a23cfb83cfc94ef330b3c02821d5d64ccd64ac16f4b7e1ddd7a2396d567`.
+Final native archive SHA256:
+`3c2742136b6ce1f7ec2f1040cc477044cebef6395deb878d7ee9fe387a25b56f`.
+Native compilation still proves the vendor main authentication/input source
+unchanged. Unpublished stage retains654 packages/612 dependency nodes. Installed
+WSL, remote CI/push, production signing/publication and ISO remain held.
+
+Final captures use the exact `.ooonana5` package. Compact Paper is an explicit
+2× accessibility case; ordinary desktop text size has not increased.
+
+![Idle lock cue and nearby keyboard guidance, Graphite](assets/ooonana-lock-idle-refined-20261029.png)
+
+![Separated authentication/layout/Caps feedback, Graphite](assets/ooonana-lock-rows-20261029.png)
+
+![Compact Paper at2×, modifier warning retains its own space](assets/ooonana-lock-compact-paper-20261029.png)
+
+![Bounded long layout and actual Korean glyphs on two virtual monitors](assets/ooonana-lock-cjk-20261029.png)
+
+Build/controller logs:
+`C:\Users\7ryan\AppData\Local\Temp\ooonana-lock-refine-20261029`;
+final native build:
+`F:\Ooonana\ooonana-os\qa-i3lock-20261029-feedback-cjk`.
+Keep intermediate failures and their receipts. In particular, the corrected
+extended pass`qyWUOixt` proves the readback repair on `.ooonana4`; only the
+later`3yGoKZLp` receipt also proves the final Korean glyph repair. Private GTK
+captures retain the known Glycin sandbox warning; no installed decoder sandbox
+certification is inferred.
+
 ## Interface and behavior
 
 - Native i3lock keeps its real keyboard/pointer grabs and PAM authentication.
@@ -16,8 +95,8 @@ production signing, model download or remote publication was performed.
   edits the password through the vendor input path. Passwords are not shown.
 - The password instruction now remains visible at 400 logical pixels high
   (1280×800 display at2×). It stays above the unlock indicator rather than
-  enlarging it or allowing text to collide. Native package revision advances
-  to `i3lock 2.16-r0.ooonana2`; vendor authentication/input source is unchanged
+  enlarging it or allowing text to collide. The initial compact-hint revision
+  was `i3lock 2.16-r0.ooonana2`; vendor authentication/input source is unchanged
   apart from the existing opt-in clock redraw additions.
 - Settings → Appearance → Lock screen provides Lock now and inactivity choices:
   Off, 1, 5, 10, 15 or 30 minutes. Default remains **Off**. Super+Ctrl+L locks the
@@ -53,10 +132,10 @@ No copied Windows arrangement or larger default typography was introduced.
    refuse before execution.
 3. **Idle policy:** exact integer validation rejects bool/string/float values.
    One attempt occurs per idle period; new activity or a changed policy rearms
-  it. Failure notifications are bounded and suppress sound. Enabled private
-  watcher RSS was about 17 MiB; final packaged sampling recorded 0.01 CPU seconds
-  over the one-minute wait. These are fixture measurements, not hardware
-  idle-memory guarantees. Off avoids that resident cost.
+   it. Failure notifications are bounded and suppress sound. Enabled private
+   watcher RSS was about 17 MiB; final packaged sampling recorded 0.01 CPU seconds
+   over the one-minute wait. These are fixture measurements, not hardware
+   idle-memory guarantees. Off avoids that resident cost.
 4. **Suspend:** `ooonana-session --suspend` pins the current login1 bus owner,
    checks permission, confirms real locking, rechecks permission, then requests
    `Suspend(false)`. Missing, denied, challenged or inhibited service refuses.
@@ -92,9 +171,9 @@ suspends any machine. Test signing keys are independent of the production key.
 | Packaged integrated baseline |13 gates pass after actual private signed core reinstall, source/archive/installed byte comparison and custom-config preservation. `/var/tmp/ooonana-installed-desktop-lock-20261029.jwyCP1w2`. |
 | Final compact-caption package |13 gates pass again on final core plus actual signed private native locker upgrade from `.ooonana1` to `.ooonana2`. Installed binary matches the verified archive; PAM policy remains identical. `/var/tmp/ooonana-installed-desktop-lock-20261029.iTeNE550`. Both themes/1×/2×, idle/protocol/GTK, extended input/dual-monitor/minute checks pass. |
 
-Native binary SHA256:
+Initial `.ooonana2` binary SHA256:
 `9db006223397c2e240463308053238a0bf92eb78d2bc1b111e4eb5f85ffce5cc`.
-Native archive SHA256:
+Initial `.ooonana2` archive SHA256:
 `f2b3fe23b6c694209645038a9a006856bda33f8daf4cf458e003e63dba0954cc`.
 Unpublished stage passes 654-package/612-node dependency/provenance checks.
 The production generation remains
@@ -113,9 +192,9 @@ Pinned compilation uses a read-only build image/private overlay, disables
 network during compilation and records exact binary/input hashes. It does not
 update either installed WSL distribution.
 
-## Selected final captures
+## Initial10.5 captures
 
-Private disposable session, final packaged bytes. The native locker at2× is
+Private disposable session, initial `.ooonana2` bytes. The native locker at2× is
 an explicit accessibility variant; default desktop text remains unchanged.
 
 ![Settings inactivity-lock controls, normal Graphite](assets/ooonana-lock-settings-20261029.png)

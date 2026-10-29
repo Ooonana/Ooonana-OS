@@ -15,6 +15,12 @@ installed sign-in and physical sleep/wake remain open. Impeccable4.8.0 review
 uses normal/large GTK and native1×/2× captures, not a copied composition.
 [Detailed10.5 evidence and remaining work](lock-session-review-20261029.md).
 
+Requested lockscreen refinement separates layout/modifier warnings from the
+password-feedback circle, adds an idle lock cue and nearby Enter guidance,
+bounds long UTF-8 layout names, and preserves compact warning space. Native
+keypress colors follow the same amber/ink palette; ordinary Backspace is not
+shown as an authentication error. Impeccable review preserves default sizing.
+
 October28 follow-up: original6–8 rechecked;9 notifications and10 package/Health
 flows pass installed-package private acceptance. Added guarded recovery under
 Packages More. Fixed confirmation overflow/report crowding at actual200% text;

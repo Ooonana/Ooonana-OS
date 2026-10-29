@@ -42,8 +42,14 @@ def replacements():
             ('                        snprintf(buf, sizeof(buf), "%d", failed_attempts);', '                        snprintf(buf, sizeof(buf), ooonana_lock_visuals() ? "%d failed" : "%d", failed_attempts);'),
             ("                    cairo_set_font_size(ctx, 32.0);", "                    cairo_set_font_size(ctx, ooonana_lock_visuals() ? 14.0 : 32.0);"),
             ("            cairo_set_font_size(ctx, 14.0);", "            cairo_set_font_size(ctx, ooonana_lock_visuals() ? 12.0 : 14.0);"),
+            ("        if (modifier_string != NULL) {", "        if (!ooonana_lock_visuals() && modifier_string != NULL) {"),
+            ("        if (show_keyboard_layout && layout_string != NULL) {", "        if (!ooonana_lock_visuals() && show_keyboard_layout && layout_string != NULL) {"),
             ("display_button_text(ctx, modifier_string, 28., use_dark_text);", "display_button_text(ctx, modifier_string, ooonana_lock_visuals() ? 20. : 28., use_dark_text);"),
             ("display_button_text(ctx, layout_string, -28., use_dark_text);", "display_button_text(ctx, layout_string, ooonana_lock_visuals() ? -20. : -28., use_dark_text);"),
+            ("                cairo_set_source_rgb(ctx, 51.0 / 255, 219.0 / 255, 0);",
+             "                if (ooonana_lock_visuals()) ooonana_lock_rgb(ctx, ooonana_lock_paper() ? 0x805600 : 0xffb21a);\n                else cairo_set_source_rgb(ctx, 51.0 / 255, 219.0 / 255, 0);"),
+            ("                cairo_set_source_rgb(ctx, 219.0 / 255, 51.0 / 255, 0);",
+             "                if (ooonana_lock_visuals()) ooonana_lock_ink(ctx);\n                else cairo_set_source_rgb(ctx, 219.0 / 255, 51.0 / 255, 0);"),
         ],
     }
 

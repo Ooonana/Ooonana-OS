@@ -6,6 +6,7 @@ import subprocess
 import sys
 import time
 import hashlib
+import json
 import tempfile
 
 assert os.getuid() == 1000 and os.environ.get("OOONANA_GUI_TEST_DISPLAY") == "1"
@@ -34,14 +35,56 @@ def run(*args):
     subprocess.run(args, check=True, capture_output=True, timeout=5)
 
 
-def keymap(symbols):
+def keymap(symbols, layout_name=None):
     # Use the already bundled XKB compiler; no extra distro/package required.
     with tempfile.NamedTemporaryFile(mode="w", suffix=".xkb") as fixture:
+        name = '' if layout_name is None else f' name[Group1] = "{layout_name}";'
         fixture.write('xkb_keymap { xkb_keycodes { include "evdev+aliases(qwerty)" }; '
                       'xkb_types { include "complete" }; xkb_compatibility { include "complete" }; '
-                      f'xkb_symbols {{ include "{symbols}" }}; xkb_geometry {{ include "pc(pc105)" }}; }};\n')
+                      f'xkb_symbols {{ include "{symbols}"{name} }}; xkb_geometry {{ include "pc(pc105)" }}; }};\n')
         fixture.flush()
         run("xkbcomp", "-w", "0", fixture.name, os.environ["DISPLAY"])
+        if layout_name is not None:
+            # Read using the locker library rather than xkbcomp's dump path,
+            # which crashes on this fixture. No host keymap/display is used.
+            import ctypes as C
+            xcb = C.CDLL("libxcb.so.1")
+            common = C.CDLL("libxkbcommon.so.0")
+            native = C.CDLL("libxkbcommon-x11.so.0")
+            xcb.xcb_connect.argtypes = [C.c_char_p, C.c_void_p]; xcb.xcb_connect.restype = C.c_void_p
+            xcb.xcb_disconnect.argtypes = [C.c_void_p]
+            common.xkb_context_new.argtypes = [C.c_int]; common.xkb_context_new.restype = C.c_void_p
+            common.xkb_context_unref.argtypes = [C.c_void_p]
+            common.xkb_keymap_unref.argtypes = [C.c_void_p]
+            common.xkb_keymap_layout_get_name.argtypes = [C.c_void_p, C.c_uint32]
+            common.xkb_keymap_layout_get_name.restype = C.c_char_p
+            native.xkb_x11_setup_xkb_extension.argtypes = [C.c_void_p, C.c_uint16, C.c_uint16, C.c_int] + [C.c_void_p] * 4
+            native.xkb_x11_get_core_keyboard_device_id.argtypes = [C.c_void_p]
+            native.xkb_x11_keymap_new_from_device.argtypes = [C.c_void_p, C.c_void_p, C.c_int32, C.c_int]
+            native.xkb_x11_keymap_new_from_device.restype = C.c_void_p
+            connection = xcb.xcb_connect(None, None)
+            context = common.xkb_context_new(0)
+            keymap = None
+            try:
+                assert connection and context and native.xkb_x11_setup_xkb_extension(connection, 1, 0, 0, None, None, None, None)
+                device = native.xkb_x11_get_core_keyboard_device_id(connection)
+                keymap = native.xkb_x11_keymap_new_from_device(context, connection, device, 0)
+                assert keymap, "Native XKB readback unavailable"
+                actual = common.xkb_keymap_layout_get_name(keymap, 0).decode("utf-8")
+                (output / "long-layout-server.txt").write_text(actual)
+                assert actual == layout_name, "Long-layout fixture did not reach X11 server"
+                import cairo
+                probe = cairo.Context(cairo.ImageSurface(cairo.FORMAT_ARGB32, 4, 4))
+                probe.select_font_face("Noto Sans CJK KR", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+                probe.set_font_size(12)
+                glyphs = probe.get_scaled_font().text_to_glyphs(0, 0, "대한민국", False)
+                indices = [glyph[0] for glyph in glyphs]
+                assert len(indices) == 4 and 0 not in indices and len(set(indices)) == 4, "Packaged Korean font renders missing/repeated glyphs"
+                (output / "cjk-glyphs.json").write_text(json.dumps(indices))
+            finally:
+                if keymap: common.xkb_keymap_unref(keymap)
+                if context: common.xkb_context_unref(context)
+                if connection: xcb.xcb_disconnect(connection)
 
 
 try:
@@ -78,12 +121,16 @@ try:
             assert any(text[offset:offset + 3] != expected for offset in range(0, len(text), 3)), "Clock/date header absent"
             height = root.get_height()
             if height >= 300:
-                baseline = 30 if height < 360 else min(80, height * .18)
-                hint_y = min(baseline + 48, height / 2 - 68)
+                hint_y = height / 2 + 76
                 center = root.get_width() // (4 if virtual else 2)
                 hint = Gdk.pixbuf_get_from_window(root, center - 110, int(hint_y - 14), 220, 20)
                 pixels = bytes(hint.get_pixels())
                 assert any(pixels[pos:pos + 3] != expected for pos in range(0, len(pixels), hint.get_n_channels())), "Compact-screen unlock instruction absent"
+                if height >= 400:
+                    top = height // 4
+                    gap = Gdk.pixbuf_get_from_window(root, center - 80, top, 160, height // 2 - 70 - top)
+                    pixels = bytes(gap.get_pixels())
+                    assert all(pixels[pos:pos + 3] == expected for pos in range(0, len(pixels), gap.get_n_channels())), "Stray paint connects clock and unlock area"
             if virtual:
                 right = Gdk.pixbuf_get_from_window(root, 860, 20, 200, 100)
                 text = bytes(right.get_pixels())
@@ -115,12 +162,26 @@ try:
             run("xdotool", "key", "Escape", "Return")
             time.sleep(.4)
             assert process.poll() is None, "Empty input/Escape released lock"
+            # Empty Return still invokes real PAM; wait for its cooldown before
+            # testing a new layout instead of capturing the old verifying state.
+            time.sleep(5.5)
             keymap("pc+us+de:2+inet(evdev)+group(alt_shift_toggle)")
             run("xdotool", "type", "x")
             run("xdotool", "key", "alt+shift")
             time.sleep(.2)
             capture("layout-switch")
             run("xdotool", "key", "alt+shift", "Escape")
+            keymap("pc+de+inet(evdev)", "Deutsch 대한민국 " * 18)
+            run("xdotool", "type", "x")
+            time.sleep(.2)
+            capture("long-layout")
+            center = root.get_width() // (4 if virtual else 2)
+            row_y = root.get_height() // 2 + 84
+            for x in (center - 190, center + 170):
+                edge = Gdk.pixbuf_get_from_window(root, x, row_y, 16, 20)
+                pixels = bytes(edge.get_pixels())
+                assert all(pixels[pos:pos + 3] == expected for pos in range(0, len(pixels), edge.get_n_channels())), "Long keyboard layout escapes compact row"
+            run("xdotool", "key", "Escape")
             keymap("pc+us+inet(evdev)")
         run("xdotool", "key", "Caps_Lock")
         run("xdotool", "type", "--delay", "10", "wrong-private-qa-password")

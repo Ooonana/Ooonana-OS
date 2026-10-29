@@ -40,10 +40,45 @@ static void ooonana_lock_stroke(cairo_t *ctx) {
 
 static void ooonana_lock_centered(cairo_t *ctx, const char *text, double width, double y, double size) {
     cairo_text_extents_t extents;
+    cairo_save(ctx);
+    /* Cairo's toy text API does not choose a fallback for missing CJK glyphs.
+     * Full desktop already bundles this font; keep Latin on its existing face. */
+    for (const unsigned char *character = (const unsigned char *)text; *character; character++) {
+        if (*character >= 0xe0) {
+            cairo_select_font_face(ctx, "Noto Sans CJK KR", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+            break;
+        }
+    }
+    char visible[256];
+    size_t length = strnlen(text, sizeof(visible) - 4);
+    bool shortened = text[length] != '\0';
+    while (length && ((unsigned char)text[length] & 0xc0) == 0x80) length--;
     cairo_set_font_size(ctx, size);
-    cairo_text_extents(ctx, text, &extents);
+    while (true) {
+        memcpy(visible, text, length);
+        strcpy(visible + length, shortened ? "..." : "");
+        cairo_text_extents(ctx, visible, &extents);
+        if (extents.width <= fmin(width - 32, 320) || !length) break;
+        shortened = true;
+        do { length--; } while (length && ((unsigned char)text[length] & 0xc0) == 0x80);
+    }
     cairo_move_to(ctx, width / 2 - extents.width / 2 - extents.x_bearing, y);
-    cairo_show_text(ctx, text);
+    cairo_show_text(ctx, visible);
+    cairo_restore(ctx);
+}
+
+static void ooonana_lock_idle_icon(cairo_t *ctx, double x, double y) {
+    cairo_new_path(ctx);
+    cairo_set_line_width(ctx, 2);
+    cairo_set_line_cap(ctx, CAIRO_LINE_CAP_ROUND);
+    cairo_arc(ctx, x, y - 5, 7, M_PI, 2 * M_PI);
+    cairo_line_to(ctx, x + 7, y + 2);
+    cairo_move_to(ctx, x - 7, y - 5);
+    cairo_line_to(ctx, x - 7, y + 2);
+    cairo_rectangle(ctx, x - 11, y + 2, 22, 16);
+    cairo_stroke(ctx);
+    cairo_arc(ctx, x, y + 10, 1.5, 0, 2 * M_PI);
+    cairo_fill(ctx);
 }
 
 static void ooonana_lock_heading(cairo_t *ctx, uint32_t *resolution, double scale) {
@@ -71,10 +106,25 @@ static void ooonana_lock_heading(cairo_t *ctx, uint32_t *resolution, double scal
         ooonana_lock_centered(ctx, clock, width, baseline, height < 360 ? 24 : 32);
         ooonana_lock_rgb(ctx, ooonana_lock_paper() ? 0x55616e : 0xb4bdc8);
         ooonana_lock_centered(ctx, date, width, baseline + 22, 14);
-        if (height >= 300)
-            ooonana_lock_centered(ctx, "Type password to unlock", width,
-                                  fmin(baseline + 48, height / 2 - 68), 13);
-        ooonana_lock_centered(ctx, "Ooonana OS", width, height - 24, 12);
+        if (height >= 300) {
+            double center = height / 2;
+            if (unlock_state < STATE_KEY_PRESSED && auth_state == STATE_AUTH_IDLE) {
+                ooonana_lock_rgb(ctx, ooonana_lock_paper() ? 0x805600 : 0xffb21a);
+                ooonana_lock_idle_icon(ctx, width / 2, center);
+            }
+            ooonana_lock_rgb(ctx, ooonana_lock_paper() ? 0x55616e : 0xb4bdc8);
+            ooonana_lock_centered(ctx, "Type password, then press Enter", width, center + 76, 13);
+            if (show_keyboard_layout && layout_string)
+                ooonana_lock_centered(ctx, layout_string, width, center + 98, 12);
+            if (modifier_string) {
+                ooonana_lock_rgb(ctx, ooonana_lock_paper() ? 0x805600 : 0xffb21a);
+                ooonana_lock_centered(ctx, modifier_string, width, center + 120, 12);
+            }
+        }
+        if (height >= 360) {
+            ooonana_lock_rgb(ctx, ooonana_lock_paper() ? 0x55616e : 0xb4bdc8);
+            ooonana_lock_centered(ctx, "Ooonana OS", width, height - 24, 12);
+        }
         cairo_restore(ctx);
     }
 }

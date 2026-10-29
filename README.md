@@ -55,6 +55,8 @@ system/hardware acceptance and stable promotion remain pending.
 
 October29: lock/session checks add configurable inactivity locking (default
 Off), Super+Ctrl+L, guarded duplicate launches and compact scaled unlock hints.
+Lock feedback separates keyboard layout/Caps warnings, with an idle padlock
+and bounded CJK labels using the already packaged Korean font.
 Actual private PAM, password editing, expiry/rotation and idle locking pass.
 Power requests suspend only after confirmed locking and login1 authorization;
 the current custom-init image lacks that service, so physical suspend remains

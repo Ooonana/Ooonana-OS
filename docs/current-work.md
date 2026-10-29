@@ -2,6 +2,31 @@
 
 ## Item10.5: lockscreen/sign-in/unlock - October29
 
+Requested visual recheck: keyboard layout/Caps Lock no longer crowd password
+feedback inside the native circle. Added a small idle padlock, nearby Enter
+guidance, bounded UTF-8 layout text and consistent amber/neutral key feedback.
+Compact300px logical-height layouts omit the footer brand to preserve warning
+space. Native revision`.ooonana5` remains unpublished; earlier passes below are
+retained. [Latest visual details](lock-session-review-20261029.md#requested-visual-recheck).
+
+Final refinement receipt:
+`/var/tmp/ooonana-installed-desktop-lock-20261029.3yGoKZLp`.
+All seven affected native-package cases pass: both themes1×/2×, both compact
+2× layouts and extended dual-monitor/keyboard/layout/minute checks. Source,
+archive and installed native bytes match; PAM/config preserved. Actual XKB
+readback and four distinct/nonzero Hangul glyphs now prove Korean rendering;
+Cairo selects the already bundled Noto CJK face. Stray-line regression also
+passes. The report contains new exact-package screenshots. Source/native units
+retain20 passing cases and preferences checks; earlier idle/PAM results remain
+completed. No source-generated junk found; history/checkpoints/keys kept.
+
+Native binary is
+`c1892a23cfb83cfc94ef330b3c02821d5d64ccd64ac16f4b7e1ddd7a2396d567`;
+archive is
+`3c2742136b6ce1f7ec2f1040cc477044cebef6395deb878d7ee9fe387a25b56f`.
+Earlier `.ooonana3` drawing defect and `.ooonana4` missing-glyph/test-helper
+failures remain documented; they are not final acceptance receipts.
+
 Completed source/private work: Settings inactivity locking with Off/1/5/10/15/
 30-minute choices (default Off), Super+Ctrl+L, lock-before-suspend policy and
 compact native unlock hint at2×. Fixed inherited stdout/stderr pipes that held

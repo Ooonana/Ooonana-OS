@@ -3,7 +3,7 @@
 set -euo pipefail
 SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 pass="${OOONANA_INSTALLED_QA_PASS:-desktop}"
-case "$pass" in desktop|notifications-packages|lock-sessions) ;; *) exit 2 ;; esac
+case "$pass" in desktop|notifications-packages|lock-sessions|lock-visuals|lock-extended) ;; *) exit 2 ;; esac
 export OOONANA_INSTALLED_QA_PASS="$pass"
 if [[ "${1:-}" != --worker ]]; then
   [[ $# == 4 && $EUID == 0 ]] || { echo 'Usage: ROOTFS PREVIOUS_QA_UPPER UNSIGNED_STAGE OUTPUT'; exit 2; }
@@ -40,7 +40,7 @@ OOONANA_ROOT="$root" OOONANA_REPO_DIR="$repo" OOONANA_CACHE_DIR="$output/cache" 
   OOONANA_SOURCES_DIR="$output/empty-sources" OOONANA_REPO_VERIFY_KEY="$output/qa-only.pub" \
   OOONANA_REQUIRE_SIGNED_REPOS=1 OOONANA_KEEP_UPDATE_BACKUPS=all \
   bash "$SOURCE/packages/ooonana/usr/bin/ooonana" reinstall ooonana-core-runtime >"$output/core-reinstall.log" 2>&1
-if [[ "$pass" == lock-sessions ]]; then
+if [[ "$pass" == lock-* ]]; then
   cp "$root/etc/pam.d/i3lock" "$output/locker-pam.before"
   OOONANA_ROOT="$root" OOONANA_REPO_DIR="$repo" OOONANA_CACHE_DIR="$output/cache" \
     OOONANA_SOURCES_DIR="$output/empty-sources" OOONANA_REPO_VERIFY_KEY="$output/qa-only.pub" \
@@ -83,7 +83,7 @@ receipt = dict(archive_verified=True, archive_sha256=hashlib.sha256(archive.read
                source_hashes=verified, config_preserved=True, qa_default_session=True,
                production_signing=False, physical_devices_exposed=False)
 import os
-if os.environ.get('OOONANA_INSTALLED_QA_PASS') == 'lock-sessions':
+if os.environ.get('OOONANA_INSTALLED_QA_PASS') in ('lock-sessions', 'lock-visuals', 'lock-extended'):
     import importlib.util
     spec = importlib.util.spec_from_file_location('release', source/'scripts/check-release-repo.py')
     release = importlib.util.module_from_spec(spec); spec.loader.exec_module(release)
@@ -110,6 +110,14 @@ if [[ "$pass" == lock-sessions ]]; then
   normal=(session-control-ui settings-power-ui settings-storage-ui shell-flyout-ui lock-ui)
   scaled=(session-control-ui settings-power-ui settings-storage-ui shell-flyout-ui)
 fi
+if [[ "$pass" == lock-visuals ]]; then
+  normal=(lock-ui)
+  scaled=()
+fi
+if [[ "$pass" == lock-extended ]]; then
+  normal=()
+  scaled=()
+fi
 for probe in "${normal[@]}"; do
   mkdir "$output/$probe"
   OOONANA_GUI_INSTALLED_ONLY=1 OOONANA_GUI_ONLY="$probe" OOONANA_GUI_GEOMETRY=1280x800 \
@@ -128,7 +136,8 @@ for probe in "${scaled[@]}"; do
     }
   if grep -qx "PASS $probe" "$output/scaled-$probe/driver.log"; then echo "INSTALLED_GUI_PASS scaled-$probe"; fi
 done
-if [[ "$pass" == lock-sessions ]]; then
+if [[ "$pass" == lock-* ]]; then
+  if [[ "$pass" != lock-extended ]]; then
   for appearance in light:1 dark:2 light:2; do
     theme="${appearance%:*}"; scale="${appearance#*:}"
     dir="$output/lock-$theme-$scale"; mkdir "$dir"
@@ -139,6 +148,18 @@ if [[ "$pass" == lock-sessions ]]; then
       }
     if grep -qx 'PASS lock-ui' "$dir/driver.log"; then echo "INSTALLED_GUI_PASS lock-$theme-$scale"; fi
   done
+  fi
+  if [[ "$pass" == lock-visuals ]]; then
+    for theme in dark light; do
+      dir="$output/lock-compact-$theme"; mkdir "$dir"
+      OOONANA_GUI_INSTALLED_ONLY=1 OOONANA_GUI_ONLY=lock-ui OOONANA_GUI_GEOMETRY=760x600 \
+        OOONANA_GUI_THEME="$theme" OOONANA_GUI_DEVICE_SCALE=2 OOONANA_GUI_TEXT_SCALE=1.0 \
+        bash "$SOURCE/tests/run-candidate-gui.sh" "$root" "$dir" >"$dir/driver.log" 2>&1 || {
+          tail -20 "$dir/lock-ui.log"; failure=1;
+        }
+      if grep -qx 'PASS lock-ui' "$dir/driver.log"; then echo "INSTALLED_GUI_PASS lock-compact-$theme"; fi
+    done
+  fi
   dir="$output/lock-extended"; mkdir "$dir"
   OOONANA_GUI_INSTALLED_ONLY=1 OOONANA_GUI_ONLY=lock-ui OOONANA_GUI_GEOMETRY=1280x800 \
     OOONANA_GUI_THEME=dark OOONANA_GUI_DEVICE_SCALE=1 OOONANA_GUI_TEXT_SCALE=1.0 \
