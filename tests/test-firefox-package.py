@@ -41,6 +41,9 @@ if 'info' in sys.argv and os.environ.get('MISSING') == '1':
         assert result.returncode and not any('install' in call or 'remote-add' in call for call in calls)
     result, calls = run('run', 'https://example.invalid/a?x=1&y=2', '--private-window')
     assert result.returncode == 0 and calls[-1][-2:] == ['https://example.invalid/a?x=1&y=2', '--private-window']
+    assert calls[-1][:4] == ['run', '--user', '--unset-env=GTK_IM_MODULE_FILE', 'org.mozilla.firefox']
+    result, calls = run('run', GTK_IM_MODULE_FILE='/host-only/immodules.cache', GTK_IM_MODULE='ibus')
+    assert result.returncode == 0 and calls[-1] == ['run', '--user', '--unset-env=GTK_IM_MODULE_FILE', 'org.mozilla.firefox']
     result, calls = run('run', MISSING='1')
     assert result.returncode and not any('run' in call for call in calls)
     assert run('status', 'unexpected')[0].returncode == 2
@@ -74,7 +77,7 @@ if 'info' in sys.argv and os.environ.get('MISSING') == '1':
     repo = work / 'repo'
     subprocess.run(['bash', str(ROOT / 'scripts/build-firefox-package.sh'), '--out-dir', str(repo)], check=True)
     metadata = (repo / 'firefox.pkg').read_text()
-    assert 'OOONANA_PKG_VERSION="1.0.1"' in metadata
+    assert 'OOONANA_PKG_VERSION="1.0.2"' in metadata
     assert 'OOONANA_PKG_DEPS="flatpak xdg-desktop-portal xdg-desktop-portal-gtk xdg-document-portal"' in metadata
     profile = (ROOT / 'configs/packages/full-i3.list').read_text().splitlines()
     for dependency in ('xdg-desktop-portal', 'xdg-desktop-portal-gtk', 'xdg-document-portal'):
@@ -126,7 +129,7 @@ if 'info' in sys.argv and os.environ.get('MISSING') == '1':
     namespace['focus_browser_document']({'OWNED_QA': '1'})
     assert calls == [(['xdotool', 'key', '--clearmodifiers', 'Escape', 'F6'],
                       {'env': {'OWNED_QA': '1'}, 'check': True})]
-    archive = repo / 'archives/firefox-1.0.1.tar.gz'
+    archive = repo / 'archives/firefox-1.0.2.tar.gz'
     original = archive.read_bytes()
     subprocess.run(['bash', str(ROOT / 'scripts/build-firefox-package.sh'), '--out-dir', str(repo)], check=True)
     assert archive.read_bytes() == original

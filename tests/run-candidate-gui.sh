@@ -5,6 +5,8 @@ set -euo pipefail
 SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 only="${OOONANA_GUI_ONLY:-all}"
 installed_only="${OOONANA_GUI_INSTALLED_ONLY:-0}"
+preinstalled="${OOONANA_FIREFOX_PREINSTALLED:-0}"
+case "$preinstalled" in 0) ;; 1) [[ "$only" == firefox-frame && "$installed_only" == 1 && -n "${OOONANA_FIREFOX_REUSE_HOME:-}" ]] || exit 2 ;; *) exit 2 ;; esac
 case "$installed_only" in 0|1) ;; *) exit 2 ;; esac
 gui_runtime=/home/ooonana/runtime
 # Model the real Linux session's per-user runtime for document-portal fidelity.
@@ -136,11 +138,17 @@ if [[ -n "${OOONANA_GUI_REPO:-}" ]]; then
   mkdir -p "$storage/overlay/"{upper,work,rootfs,empty-sources}
   mount -t overlay overlay -o "lowerdir=$rootfs,upperdir=$storage/overlay/upper,workdir=$storage/overlay/work" "$storage/overlay/rootfs"
   rootfs="$storage/overlay/rootfs"
+  if [[ "$preinstalled" == 0 ]]; then
   OOONANA_ROOT="$rootfs" OOONANA_REPO_DIR="$OOONANA_GUI_REPO" \
     OOONANA_REPO_VERIFY_KEY="$SOURCE/packages/ooonana/etc/ooonana/trusted-keys/repository-20261002.pub" \
     OOONANA_SOURCES_DIR="$storage/overlay/empty-sources" \
     sh "$SOURCE/packages/ooonana/usr/bin/ooonana" install xdg-desktop-portal xdg-desktop-portal-gtk xdg-document-portal \
     >"$output/portal-install.log" 2>&1
+  else
+    for helper in ooonana-firefox flatpak xdg-desktop-portal xdg-desktop-portal-gtk; do
+      [[ -x "$rootfs/usr/bin/$helper" || -x "$rootfs/usr/libexec/$helper" ]] || exit 2
+    done
+  fi
   if [[ "$only" == all || "$only" == qterminal-frame || "$only" == client-theme-ui ]]; then
     OOONANA_ROOT="$rootfs" OOONANA_REPO_DIR="$OOONANA_GUI_REPO" \
       OOONANA_REPO_VERIFY_KEY="$SOURCE/packages/ooonana/etc/ooonana/trusted-keys/repository-20261002.pub" \
@@ -158,7 +166,7 @@ if [[ -n "${OOONANA_GUI_REPO:-}" ]]; then
       OOONANA_SOURCES_DIR="$storage/overlay/empty-sources" \
       sh "$SOURCE/packages/ooonana/usr/bin/ooonana" reinstall rofi-x11-wayland >"$output/rofi-install.log" 2>&1
   fi
-  if [[ "$only" == firefox-frame ]]; then
+  if [[ "$only" == firefox-frame && "$preinstalled" == 0 ]]; then
     OOONANA_ROOT="$rootfs" OOONANA_REPO_DIR="$OOONANA_GUI_REPO" \
       OOONANA_REPO_VERIFY_KEY="$SOURCE/packages/ooonana/etc/ooonana/trusted-keys/repository-20261002.pub" \
       OOONANA_SOURCES_DIR="$storage/overlay/empty-sources" \
@@ -538,6 +546,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
     if [ -n "$lock_candidate" ] || [ "$installed_only" = 1 ]; then lock_options+=(--require-visuals); fi
     if [ "${OOONANA_GUI_LOCK_CLOCK_WAIT:-0}" = 1 ]; then lock_options+=(--clock-wait); fi
     if [ "${OOONANA_GUI_LOCK_EXTENDED:-0}" = 1 ]; then lock_options+=(--extended); fi
+    if [ "${OOONANA_GUI_LOCK_EDGES:-0}" = 1 ]; then lock_options+=(--input-edges); fi
     if [ "${OOONANA_GUI_LOCK_VIRTUAL_MONITORS:-0}" = 1 ]; then lock_options+=(--virtual-monitors); fi
     probe lock-ui python3 /source/tests/check-lock-ui.py /qa/lock "${lock_options[@]}"
   fi
@@ -596,6 +605,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
   if [ "$only" = firefox-frame ]; then
     first_run_options=()
     if [ -n "${OOONANA_FIREFOX_QA_PROFILE_SEED:-}" ]; then first_run_options+=(--firefox-profile-seed "$OOONANA_FIREFOX_QA_PROFILE_SEED"); fi
+    if [ "${OOONANA_FIREFOX_QA_INPUT:-0}" = 1 ]; then first_run_options+=(--firefox-input); fi
     if [ "${OOONANA_FIREFOX_QA_REGULAR_WINDOW:-0}" = 1 ]; then first_run_options+=(--firefox-regular-window); fi
     if [ "${OOONANA_FIREFOX_QA_THEME_CYCLE:-0}" = 1 ]; then first_run_options+=(--firefox-theme-cycle); fi
     case "${OOONANA_FIREFOX_QA_FIRST_RUN:-}" in

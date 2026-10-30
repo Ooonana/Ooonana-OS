@@ -66,7 +66,9 @@ case "${1:-run}" in
       fi
       exit 1
     }
-    exec flatpak run --user "$app" "$@"
+    # The host cache names musl modules outside this glibc runtime. Let
+    # sandbox GTK discover its own bundled input modules instead.
+    exec flatpak run --user --unset-env=GTK_IM_MODULE_FILE "$app" "$@"
     ;;
   *) usage >&2; exit 2 ;;
 esac

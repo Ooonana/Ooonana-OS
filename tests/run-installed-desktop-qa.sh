@@ -3,7 +3,7 @@
 set -euo pipefail
 SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 pass="${OOONANA_INSTALLED_QA_PASS:-desktop}"
-case "$pass" in desktop|notifications-packages|lock-sessions|lock-visuals|lock-extended|ui-10-15|task-live|input-method|installer-lifecycle) ;; *) exit 2 ;; esac
+case "$pass" in desktop|notifications-packages|lock-sessions|lock-visuals|lock-extended|ui-10-15|task-live|input-method|installer-lifecycle|input-edges) ;; *) exit 2 ;; esac
 export OOONANA_INSTALLED_QA_PASS="$pass"
 if [[ "${1:-}" != --worker ]]; then
   [[ $# == 4 && $EUID == 0 ]] || { echo 'Usage: ROOTFS PREVIOUS_QA_UPPER UNSIGNED_STAGE OUTPUT'; exit 2; }
@@ -40,7 +40,7 @@ OOONANA_ROOT="$root" OOONANA_REPO_DIR="$repo" OOONANA_CACHE_DIR="$output/cache" 
   OOONANA_SOURCES_DIR="$output/empty-sources" OOONANA_REPO_VERIFY_KEY="$output/qa-only.pub" \
   OOONANA_REQUIRE_SIGNED_REPOS=1 OOONANA_KEEP_UPDATE_BACKUPS=all \
   bash "$SOURCE/packages/ooonana/usr/bin/ooonana" reinstall ooonana-core-runtime >"$output/core-reinstall.log" 2>&1
-if [[ "$pass" == lock-* || "$pass" == ui-10-15 || "$pass" == input-method ]]; then
+if [[ "$pass" == lock-* || "$pass" == ui-10-15 || "$pass" == input-method || "$pass" == input-edges ]]; then
   cp "$root/etc/pam.d/i3lock" "$output/locker-pam.before"
   OOONANA_ROOT="$root" OOONANA_REPO_DIR="$repo" OOONANA_CACHE_DIR="$output/cache" \
     OOONANA_SOURCES_DIR="$output/empty-sources" OOONANA_REPO_VERIFY_KEY="$output/qa-only.pub" \
@@ -99,7 +99,7 @@ receipt = dict(archive_verified=True, archive_sha256=hashlib.sha256(archive.read
                source_hashes=verified, config_preserved=True, qa_default_session=True,
                production_signing=False, physical_devices_exposed=False)
 import os
-if os.environ.get('OOONANA_INSTALLED_QA_PASS') in ('lock-sessions', 'lock-visuals', 'lock-extended', 'ui-10-15', 'input-method'):
+if os.environ.get('OOONANA_INSTALLED_QA_PASS') in ('lock-sessions', 'lock-visuals', 'lock-extended', 'ui-10-15', 'input-method', 'input-edges'):
     import importlib.util
     spec = importlib.util.spec_from_file_location('release', source/'scripts/check-release-repo.py')
     release = importlib.util.module_from_spec(spec); spec.loader.exec_module(release)
@@ -146,13 +146,19 @@ if [[ "$pass" == input-method ]]; then
   normal=(input-method-ui)
   scaled=(input-method-ui)
 fi
+lock_edges=0
+if [[ "$pass" == input-edges ]]; then
+  normal=(lock-ui)
+  scaled=(lock-ui)
+  lock_edges=1
+fi
 if [[ "$pass" == installer-lifecycle ]]; then
   normal=(installer-lifecycle-ui)
   scaled=(installer-lifecycle-ui)
 fi
 for probe in "${normal[@]}"; do
   mkdir "$output/$probe"
-  OOONANA_GUI_INSTALLED_ONLY=1 OOONANA_GUI_ONLY="$probe" OOONANA_GUI_GEOMETRY=1280x800 \
+  OOONANA_GUI_LOCK_EDGES="$lock_edges" OOONANA_GUI_INSTALLED_ONLY=1 OOONANA_GUI_ONLY="$probe" OOONANA_GUI_GEOMETRY=1280x800 \
     OOONANA_GUI_THEME=dark OOONANA_GUI_TEXT_SCALE=1.0 \
     bash "$SOURCE/tests/run-candidate-gui.sh" "$root" "$output/$probe" >"$output/$probe/driver.log" 2>&1 || {
       tail -22 "$output/$probe/$probe.log"; tail -12 "$output/$probe/driver.log"; failure=1;
@@ -161,7 +167,7 @@ for probe in "${normal[@]}"; do
 done
 for probe in "${scaled[@]}"; do
   mkdir "$output/scaled-$probe"
-  OOONANA_GUI_SESSION_LAYOUT_ONLY=1 OOONANA_GUI_INSTALLED_ONLY=1 OOONANA_GUI_ONLY="$probe" OOONANA_GUI_GEOMETRY=760x600 \
+  OOONANA_GUI_LOCK_EDGES="$lock_edges" OOONANA_GUI_SESSION_LAYOUT_ONLY=1 OOONANA_GUI_INSTALLED_ONLY=1 OOONANA_GUI_ONLY="$probe" OOONANA_GUI_GEOMETRY=760x600 \
     OOONANA_GUI_THEME=light OOONANA_GUI_TEXT_SCALE=2.0 \
     bash "$SOURCE/tests/run-candidate-gui.sh" "$root" "$output/scaled-$probe" >"$output/scaled-$probe/driver.log" 2>&1 || {
       tail -22 "$output/scaled-$probe/$probe.log"; tail -12 "$output/scaled-$probe/driver.log"; failure=1;

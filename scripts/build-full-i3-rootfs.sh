@@ -4330,14 +4330,21 @@ refresh_gtk_caches() {
 
 refresh_font_caches() {
   font_cache=""
+  font_cache_force=0
   [ -d /usr/share/fonts ] || return 0
+  # Factory archives normalize directory mtimes. At epoch zero, Flatpak can
+  # accept its runtime's empty /usr/share/fonts cache for the host font tree.
+  # Repair once before exposing host caches; ordinary boots keep the fast path.
+  if [ "$(stat -c %Y /usr/share/fonts 2>/dev/null)" = 0 ]; then
+    if touch /usr/share/fonts; then font_cache_force=1; fi
+  fi
   for cache in /var/cache/fontconfig/*.cache-*; do
     if [ -s "$cache" ]; then
       font_cache="$cache"
       break
     fi
   done
-  [ -n "$font_cache" ] && return 0
+  [ -n "$font_cache" ] && [ "$font_cache_force" = 0 ] && return 0
   if command -v mkfontscale >/dev/null 2>&1; then
     for font_dir in /usr/share/fonts/*; do
       [ -d "$font_dir" ] || continue
@@ -4348,7 +4355,11 @@ refresh_font_caches() {
     done
   fi
   if command -v fc-cache >/dev/null 2>&1; then
-    fc-cache /usr/share/fonts >/dev/null 2>&1 || true
+    if [ "$font_cache_force" = 1 ]; then
+      fc-cache -f /usr/share/fonts >/dev/null 2>&1 || true
+    else
+      fc-cache /usr/share/fonts >/dev/null 2>&1 || true
+    fi
   fi
 }
 
@@ -4671,6 +4682,9 @@ refresh_gtk_caches() {
 refresh_font_caches() {
   [[ -d "$ROOTFS/usr/share/fonts" ]] || return 0
   if [[ "$(id -u)" -eq 0 ]] && [[ -x "$ROOTFS/bin/sh" ]]; then
+    # Distinguish assembled host fonts from epoch-normalized Flatpak runtimes.
+    # Cached font contents remain generated after the final directory stamp.
+    touch "$ROOTFS/usr/share/fonts"
     chroot "$ROOTFS" /bin/sh -lc '
       if command -v mkfontscale >/dev/null 2>&1; then
         for font_dir in /usr/share/fonts/*; do

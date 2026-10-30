@@ -152,10 +152,24 @@ try:
             def field_pixels():
                 return bytes(Gdk.pixbuf_get_from_window(root, center - 130, root.get_height() // 2 - 18, 260, 36).get_pixels())
             empty = field_pixels()
+            if "--input-edges" in sys.argv:
+                run("xdotool", "mousemove", str(center * scale), str(root.get_height() // 2 * scale), "click", "1")
+                run("xdotool", "key", "BackSpace")
+                time.sleep(.2)
+                assert process.poll() is None and field_pixels() == empty, "Empty Backspace/click changes or releases password field"
             run("xdotool", "type", "x")
             time.sleep(.2)
             masked = field_pixels()
             assert masked != empty, "Password field gives no typing feedback"
+            if "--input-edges" in sys.argv:
+                run("xdotool", "click", "1")
+                time.sleep(.2)
+                assert process.poll() is None and field_pixels() == masked, "Mouse click discards or submits password draft"
+                run("xdotool", "key", "BackSpace")
+                time.sleep(.2)
+                assert field_pixels() == empty, "Deleting final character leaves stale mask"
+                run("xdotool", "type", "x")
+                time.sleep(.2)
             capture("password-entry")
             run("xdotool", "type", "yyyyyyyy")
             time.sleep(.2)
@@ -243,6 +257,8 @@ try:
         run("xdotool", "type", "--delay", "10", credential[12:])
         run("xdotool", "key", "Return")
         assert process.wait(timeout=12) == 0, "Correct disposable password did not unlock"
+        if "--input-edges" in sys.argv:
+            print("LOCK_INPUT_EDGES_OK click retains draft/focus; empty/final-character Backspace; clear; real PAM", flush=True)
     print("LOCK_UI_REAL_OK", os.environ.get("OOONANA_THEME"), "device", scale,
           "opaque palette; actual grab/input; wrong rejection; correct unlock; vendor PAM unchanged; clock-wait", "--clock-wait" in sys.argv, flush=True)
 finally:

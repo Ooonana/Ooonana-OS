@@ -1,6 +1,6 @@
 # Core 0.10.0 candidate: remaining acceptance gates
 
-Updated October 29, 2026. Stable has not been promoted. This checklist replaces
+Updated October 30, 2026. Stable has not been promoted. This checklist replaces
 the repeated 25-item draft; detailed historical receipts remain in
 [current work](current-work.md) and [UI review](ui-whole-os-review.md).
 
@@ -130,7 +130,10 @@ or acceptance of installed Ooonana WSL. Remaining work below is retained.
 5. WSLg/input/displays: keyboard/mouse, clipboard, Korean IME, keyboard focus,
    text scaling, mixed DPI, multiple displays and hotplug where available.
    Actual private GTK/Qt Hangul, Backspace, clipboard and active-IME unlock now
-   pass; host WSLg and Firefox Flatpak IME remain separate checks.
+   pass. Firefox Flatpak composition/Backspace/clipboard now also pass after
+   the host module-cache boundary repair. Epoch-zero host font cache repair
+   also passes exact-package normal/scaled checks with Korean font coverage.
+   Host WSLg remains separate. [Fresh10–15 receipts](ui-10-15-recheck-20261030.md).
 6. Complete item10.5's installed sign-in/unlock, expiry/custom authentication,
    automatic locking and logout acceptance. Integrate a real login1/seat
    provider before claiming suspend support, then test physical wake/inhibitors/
@@ -156,6 +159,8 @@ or acceptance of installed Ooonana WSL. Remaining work below is retained.
    and build the matching signed generation with verified provenance/closure.
 2. Approve publication and Ooonana WSL sync when stable-ready; verify the exact
    installed packages and current session. No Ubuntu product migration.
+   Review preserved custom `rcS.ooonana-new` before claiming the boot-time font
+   cache repair is active in an upgraded custom installation.
 3. Refresh final README/screenshots, guides/PDFs, release notes and known
    limitations. Clean only confirmed generated junk; keep history, models,
    credentials, keys, source/build provenance and recovery checkpoints.

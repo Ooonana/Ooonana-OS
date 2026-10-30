@@ -84,6 +84,7 @@ jobs:
           python3 -B tests/test-lock-launch.py
           python3 -B tests/test-session-control.py
           python3 -B tests/test-input-method.py
+          python3 -B tests/test-font-cache.py
           python3 -B tests/test-installed-login-prompts.py
           python3 -B tests/test-i3lock-visuals.py
           python3 -B tests/test-desktop-frame-theme.py

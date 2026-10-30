@@ -1,4 +1,18 @@
-# Current work - 2026-10-29
+# Current work - 2026-10-30
+
+## Items10–15 recheck — October30
+
+Fresh baseline passes14 normal/scaled cases; two new packaged lock input-edge
+cases also pass with actual PAM. Firefox1.0.2 fixes inherited host GTK module
+cache leakage across Flatpak; real Hangul/Backspace/clipboard, portal picker
+and window actions pass. Epoch-zero host font cache collision is repaired at
+build/boot; real Korean font coverage and rendered Paper2× pass. Three new
+cache-behavior tests and the full rootfs regression pass. Custom boot config
+is preserved, with the new factory default staged for review.
+[Current detailed evidence](ui-10-15-recheck-20261030.md).
+[Confirmed cleanup targets and manual commands](cleanup-20261030.md) follow
+automatic deletion rejection. Installed WSL, push/CI, production publication
+and ISO remain held; earlier completed checks below remain history.
 
 ## Items10–15: password field, Korean input and integration
 

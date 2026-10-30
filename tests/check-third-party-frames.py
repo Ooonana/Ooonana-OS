@@ -41,10 +41,13 @@ parser.add_argument("--accept-firefox-qa-terms", action="store_true",
 parser.add_argument("--firefox-profile-seed", help="Copy an existing owned QA profile; never set Terms acceptance preferences")
 parser.add_argument("--firefox-regular-window", action="store_true", help="Test regular browser appearance, not intentionally dark private browsing")
 parser.add_argument("--firefox-theme-cycle", action="store_true", help="Held regular browser follows real portal/Xsettings changes without losing draft or window state")
+parser.add_argument("--firefox-input", action="store_true", help="Real Hangul composition/Backspace through the normal Flatpak boundary")
 parser.add_argument("--wait-for-file-trace", action="store_true",
                     help="Private QA only: wait for host's read-only syscall tracer before selecting file")
 parser.add_argument("--wait-for-chooser-cancel-trace", action="store_true", help="Private QA debugger gate before chooser Cancel")
 args = parser.parse_args()
+if args.firefox_input and (args.app != "firefox" or not args.firefox_profile_seed):
+    parser.error("Firefox input check requires an existing owned QA profile")
 if args.no_use_damage and not args.compositor:
     parser.error("--no-use-damage requires --compositor")
 if args.file_dialog and args.app not in ("geany", "firefox"):
@@ -305,6 +308,9 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
             command.remove("--disable-gpu")
     xsettings = None
     if args.app == "firefox":
+        if args.firefox_input:
+            environment.update(json.loads(subprocess.check_output(["ooonana-input-method", "--json-env"], env=environment, text=True)))
+            subprocess.run(["ooonana-input-method", "--start"], env=environment, check=True, timeout=10)
         xsettings = subprocess.Popen([sys.executable, "/usr/lib/ooonana/xsettings_session.py"],
                                     env=environment, stdout=log, stderr=log)
     wm = subprocess.Popen(["i3", "-c", str(config)], stdout=log, stderr=log)
@@ -363,10 +369,14 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
                     if origin is None:
                         return False
                     x, y = control.get_position()
-                    pixels = Gdk.pixbuf_get_from_window(root, x + origin[0] + 3,
-                                                       y + origin[1] + 3,
-                                                       button.get_allocated_width() - 6,
-                                                       button.get_allocated_height() - 6)
+                    # Controls track the WM's device-pixel titlebar, even if
+                    # only this GTK client is at2×. A fixed3px logical inset
+                    # leaves just2×2 pixels and cannot meet a12-pixel test.
+                    inset = max(1, 3 // root.get_scale_factor())
+                    pixels = Gdk.pixbuf_get_from_window(root, x + origin[0] + inset,
+                                                       y + origin[1] + inset,
+                                                       button.get_allocated_width() - 2 * inset,
+                                                       button.get_allocated_height() - 2 * inset)
                     if pixels is None:
                         return False
                     # Fullscreen glyph crosses the old single-pixel probe.
@@ -436,6 +446,52 @@ with tempfile.TemporaryDirectory(prefix="ooonana-client-frame-") as temporary, a
         identifier = node["id"]
         if not args.csd:
             wait(lambda: identifier in manager.controls)
+        if args.firefox_input:
+            available_fonts = subprocess.run(["flatpak", "run", "--user", "--command=fc-list", "org.mozilla.firefox",
+                ":lang=ko", "family"], env=environment, capture_output=True, text=True, timeout=15)
+            assert available_fonts.returncode == 0 and available_fonts.stdout.strip(), "Flatpak font index lacks Korean glyph coverage"
+            print("FIREFOX_HANGUL_FONT", json.dumps(sorted(set(available_fonts.stdout.splitlines()))), flush=True)
+            inputs = []
+            for process in Path('/proc').glob('[0-9]*/cmdline'):
+                try:
+                    argv = process.read_bytes().split(b'\0')
+                    if argv[0] != b'/app/lib/firefox/firefox' or b'-contentproc' in argv:
+                        continue
+                    values = dict(item.split(b'=', 1) for item in process.with_name('environ').read_bytes().split(b'\0') if b'=' in item)
+                    inputs.append(dict(pid=int(process.parent.name),
+                        module=values.get(b'GTK_IM_MODULE', b'').decode(),
+                        host_cache=b'GTK_IM_MODULE_FILE' in values))
+                except (FileNotFoundError, PermissionError, ProcessLookupError):
+                    pass
+            print("FIREFOX_INPUT_RUNTIME", json.dumps(inputs), flush=True)
+            assert inputs and all(not row['host_cache'] for row in inputs), "Host GTK module cache crossed Flatpak boundary"
+            def input_key(*keys):
+                subprocess.run(["xdotool", "key", "--clearmodifiers", *keys], env=environment, check=True)
+                time.sleep(.12)
+            subprocess.run(["xdotool", "windowactivate", "--sync", str(node["window"])], env=environment, check=True)
+            input_key("ctrl+l", "ctrl+a", "BackSpace")
+            subprocess.run(["fcitx5-remote", "-s", "hangul"], env=environment, check=True)
+            subprocess.run(["fcitx5-remote", "-c"], env=environment, check=True)
+            input_key("ctrl+space")
+            wait(lambda: subprocess.check_output(["fcitx5-remote", "--check"], env=environment, text=True).strip() == "2")
+            subprocess.run(["xdotool", "type", "--clearmodifiers", "--delay", "60", "gksrma"], env=environment, check=True)
+            input_key("BackSpace")
+            subprocess.run(["xdotool", "type", "--clearmodifiers", "f"], env=environment, check=True)
+            input_key("space", "ctrl+a", "ctrl+c")
+            copied = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).wait_for_text()
+            args.output.with_name(args.output.stem + "-input.json").write_text(json.dumps(dict(copied=copied), ensure_ascii=False)+"\n")
+            def input_pixels():
+                if not controls_painted():
+                    return None
+                pixels = Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height())
+                # A compositor frame can briefly be black after input. Save
+                # painted evidence, rather than passing with an empty image.
+                return pixels if pixels is not None and sum(value > 48 for value in pixels.get_pixels()[::997]) >= 12 else None
+            wait(input_pixels).savev(str(args.output.with_name(args.output.stem + "-input.png")), "png", [], [])
+            assert copied == "한글 ", "Flatpak Firefox Hangul/Backspace failed: " + repr(copied)
+            subprocess.run(["fcitx5-remote", "-c"], env=environment, check=True)
+            input_key("ctrl+l", "ctrl+a", "BackSpace", "Escape", "Escape")
+            print("FIREFOX_INPUT_OK real Hangul/Backspace and private clipboard; browser sandbox retained", flush=True)
         if args.firefox_theme_cycle:
             assert xsettings.poll() is None, "Private Xsettings bridge exited"
             bus = Gio.bus_get_sync(Gio.BusType.SESSION)
