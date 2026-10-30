@@ -3964,6 +3964,10 @@ export XDG_SESSION_DESKTOP=ooonana
 export DESKTOP_SESSION=ooonana
 export OOONANA_WINDOW_CONTROLS="${OOONANA_WINDOW_CONTROLS:-left}"
 
+if command -v ooonana-input-method >/dev/null 2>&1; then
+  eval "$(ooonana-input-method --env)"
+fi
+
 if [ -z "${OOONANA_DBUS_SESSION:-}" ] &&
   [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] &&
   command -v dbus-run-session >/dev/null 2>&1; then
@@ -3973,7 +3977,8 @@ fi
 
 if command -v dbus-update-activation-environment >/dev/null 2>&1; then
   dbus-update-activation-environment DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP \
-    XDG_SESSION_DESKTOP DESKTOP_SESSION XDG_RUNTIME_DIR >/dev/null 2>&1 || true
+    XDG_SESSION_DESKTOP DESKTOP_SESSION XDG_RUNTIME_DIR \
+    GTK_IM_MODULE QT_IM_MODULE XMODIFIERS GTK_IM_MODULE_FILE >/dev/null 2>&1 || true
 fi
 
 if [ -x /usr/bin/ooonana-theme-env ]; then
@@ -3982,6 +3987,9 @@ if [ -x /usr/bin/ooonana-theme-env ]; then
 fi
 
 mkdir -p "${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana"
+if command -v ooonana-input-method >/dev/null 2>&1; then
+  ooonana-input-method --start >"${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/input-method.log" 2>&1 || true
+fi
 if [ "${OOONANA_NO_AUDIO:-0}" != 1 ]; then
   command -v ooonana-audio-start >/dev/null 2>&1 && ooonana-audio-start >/dev/null 2>&1 || true
 fi
@@ -4488,7 +4496,9 @@ install_current_backend_checks() {
     "$ROOTFS/usr/lib/ooonana/panel_session.py"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/desktop_theme.py" \
     "$ROOTFS/usr/lib/ooonana/desktop_theme.py"
-  for file in xsettings_session.py legacy_gtk_style.py lock_screen.py lock_readiness.py session_control.py tray_model.py tray_service.py legacy_tray.py; do
+  install -D -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/input-method-profile" \
+    "$ROOTFS/usr/share/ooonana/input-method-profile"
+  for file in xsettings_session.py legacy_gtk_style.py lock_screen.py lock_readiness.py session_control.py input_method.py tray_model.py tray_service.py legacy_tray.py; do
     install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/$file" \
       "$ROOTFS/usr/lib/ooonana/$file"
   done
@@ -4497,7 +4507,7 @@ install_current_backend_checks() {
       "$ROOTFS/usr/lib/ooonana/ui/$file"
   done
   install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana" "$ROOTFS/usr/bin/ooonana"
-  for file in ooonana-window-list ooonana-panel-start ooonana-media-status ooonana-notification-status ooonana-xsettings ooonana-lock ooonana-session ooonana-session-guard ooonana-tray ooonana-controls ooonana-shell ooonana-notifications; do
+  for file in ooonana-window-list ooonana-panel-start ooonana-media-status ooonana-notification-status ooonana-xsettings ooonana-lock ooonana-session ooonana-session-guard ooonana-input-method ooonana-tray ooonana-controls ooonana-shell ooonana-notifications; do
     install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/$file" "$ROOTFS/usr/bin/$file"
   done
   [[ -f "$app/APP-MANIFEST.sha256" ]] || return 0

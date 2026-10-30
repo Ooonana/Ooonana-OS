@@ -120,8 +120,12 @@ try:
             text = heading()
             assert any(text[offset:offset + 3] != expected for offset in range(0, len(text), 3)), "Clock/date header absent"
             height = root.get_height()
-            if height >= 300:
-                hint_y = height / 2 + 76
+            if height >= 220:
+                center = root.get_width() // (4 if virtual else 2)
+                field = Gdk.pixbuf_get_from_window(root, center - 90, height // 2 + 14, 1, 1)
+                fill = bytes.fromhex("ffffff" if args[args.index("--color") + 1] == "f5f5f7" else "1b1f26")
+                assert field.get_pixels()[:3] == fill, "Persistent focused password field absent"
+                hint_y = height / 2 + (64 if height < 300 else 76)
                 center = root.get_width() // (4 if virtual else 2)
                 hint = Gdk.pixbuf_get_from_window(root, center - 110, int(hint_y - 14), 220, 20)
                 pixels = bytes(hint.get_pixels())
@@ -143,6 +147,22 @@ try:
                 assert not any(pixels[pos:pos + 3] == b"\xdd\x44\xaa" for pos in range(0, len(pixels), screenshot.get_n_channels())), "Underlying desktop remains visible"
                 print("LOCK_MULTIMONITOR_OPAQUE_OK two active RandR monitors, per-monitor headings and covered edges", flush=True)
         capture("idle")
+        if "--require-visuals" in sys.argv:
+            center = root.get_width() // (4 if virtual else 2)
+            def field_pixels():
+                return bytes(Gdk.pixbuf_get_from_window(root, center - 130, root.get_height() // 2 - 18, 260, 36).get_pixels())
+            empty = field_pixels()
+            run("xdotool", "type", "x")
+            time.sleep(.2)
+            masked = field_pixels()
+            assert masked != empty, "Password field gives no typing feedback"
+            capture("password-entry")
+            run("xdotool", "type", "yyyyyyyy")
+            time.sleep(.2)
+            assert field_pixels() == masked, "Mask exposes password length or characters"
+            run("xdotool", "key", "ctrl+u")
+            time.sleep(.2)
+            assert field_pixels() == empty, "Clear leaves stale password mask"
         if "--extended" in sys.argv:
             import ctypes as C
             x = C.CDLL("libX11.so.6")
@@ -194,6 +214,16 @@ try:
         # Wait out vendor's wrong-password input cooldown before retry.
         time.sleep(2.5)
         run("xdotool", "key", "ctrl+u")
+        if "--require-visuals" in sys.argv:
+            center = root.get_width() // (4 if virtual else 2)
+            deadline = time.monotonic() + 8
+            while Gdk.pixbuf_get_from_window(root, center - 90, root.get_height() // 2 + 14, 1, 1).get_pixels()[:3] != fill:
+                assert time.monotonic() < deadline, "Authentication never returned to idle after failure"
+                time.sleep(.1)
+            status = Gdk.pixbuf_get_from_window(root, center - 110, root.get_height() // 2 + 35, 220, 18)
+            pixels = bytes(status.get_pixels())
+            assert any(pixels[pos:pos + 3] != expected for pos in range(0, len(pixels), status.get_n_channels())), "Failed-attempt counter absent after cooldown"
+            capture("retry-ready")
         credential = "Ooonana-private-lock-QA-20261023"
         if "--extended" in sys.argv:
             run("xdotool", "type", "discarded-draft")

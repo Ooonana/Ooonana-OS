@@ -42,12 +42,13 @@ if [[ "$only" == client-theme-ui ]]; then
 fi
 case "$geometry" in
   320x600) [[ "$only" == dock-edges-ui ]] || exit 2 ;;
+  640x480) [[ "$only" == lock-ui ]] || exit 2 ;;
   640x600|760x600|900x600|1000x600|1024x768|1100x600|1280x800|1600x900) ;;
   *) printf 'Unsupported disposable display geometry: %s\n' "$geometry" >&2; exit 2 ;;
 esac
 case "$only" in
   all|setup-details-ui|controls-details-ui|audio-runtime|wireless-details-ui|workspace-ui|task-details-ui|ai-details-ui|control-density-ui|settings-details-ui|settings-storage-ui|settings-power-ui|theme-flow-ui|frame-theme-ui|live-theme-ui|external-theme-ui|client-theme-ui|lock-ui|native-ui-runtime|native-appearance|native-app-catalog|ui-details-runtime|ui-content-runtime|wireless-notification-ui|package-health-ui|admin-prompt-ui|installer-ui|ai-indicators|ai-chat-runtime|desktop-interactions|launcher-session-ui|notifications-runtime|notification-lifecycle|notification-auto-recovery|notification-stale-ui|window-controls-runtime|dock-ui|dock-edges-ui|device-scale-ui|csd-controls-ui|panel-ui|panel-live-ui|tray-ui|panel-media-runtime|portal-ui|geany-frame|nemo-frame|chromium-frame|qterminal-frame|firefox-frame) ;;
-  shell-flyout-ui|settings-admin-ui|desktop-assets-ui|package-transactions-ui|session-control-ui) ;;
+  shell-flyout-ui|settings-admin-ui|desktop-assets-ui|package-transactions-ui|session-control-ui|task-live-ui|input-method-ui|installer-lifecycle-ui) ;;
   *) printf 'Unknown GUI probe: %s\n' "$only" >&2; exit 2 ;;
 esac
 
@@ -247,11 +248,11 @@ ln -s /proc/self/fd/2 "$rootfs/dev/stderr"
 mount -t devpts -o newinstance,ptmxmode=0666 devpts "$rootfs/dev/pts"
 ln -s pts/ptmx "$rootfs/dev/ptmx"
 chown 1000:1000 "$rootfs/home/ooonana" "$output"
-if [[ "$only" == lock-ui || "$only" == session-control-ui || "$only" == all || "$only" == admin-prompt-ui || "$only" == settings-admin-ui || "$only" == package-transactions-ui ]]; then
+if [[ "$only" == lock-ui || "$only" == session-control-ui || "$only" == input-method-ui || "$only" == installer-lifecycle-ui || "$only" == all || "$only" == admin-prompt-ui || "$only" == settings-admin-ui || "$only" == package-transactions-ui ]]; then
   # Disposable credential + owned helper copy; real installed/cached auth files
   # and PAM policy stay byte-for-byte unchanged when these mounts disappear.
   credential='Ooonana-private-admin-QA-20261026'
-  if [[ "$only" == lock-ui || "$only" == session-control-ui ]]; then credential='Ooonana-private-lock-QA-20261023'; fi
+  if [[ "$only" == lock-ui || "$only" == session-control-ui || "$only" == input-method-ui ]]; then credential='Ooonana-private-lock-QA-20261023'; fi
   hash="$(printf %s "$credential" | openssl passwd -6 -salt OoonanaLockQA -stdin)"
   printf 'root:!:20000:0:99999:7:::\nooonana:%s:20000:0:99999:7:::\n' "$hash" >"$rootfs/run/qa-shadow"
   chmod 0600 "$rootfs/run/qa-shadow"
@@ -263,12 +264,13 @@ if [[ "$only" == lock-ui || "$only" == session-control-ui || "$only" == all || "
   mount --bind "$rootfs/run/qa-unix_chkpwd" "$rootfs/usr/sbin/unix_chkpwd"
 fi
 admin_policy=0
-if [[ "$only" == all || "$only" == admin-prompt-ui || "$only" == settings-admin-ui || "$only" == package-transactions-ui ]]; then
+if [[ "$only" == all || "$only" == admin-prompt-ui || "$only" == settings-admin-ui || "$only" == package-transactions-ui || "$only" == installer-lifecycle-ui ]]; then
   # Only private mounts: cached/system sudo policy and askpass stay unchanged.
   [[ -f "$rootfs/etc/sudoers" && -d "$rootfs/etc/sudoers.d" && -f "$rootfs/usr/bin/ooonana-admin-askpass" ]]
   policy="$SOURCE/tests/fixtures/admin-prompt.sudoers"
   if [[ "$only" == settings-admin-ui ]]; then policy="$SOURCE/tests/fixtures/settings-admin.sudoers"; fi
   if [[ "$only" == package-transactions-ui ]]; then policy="$SOURCE/tests/fixtures/package-transactions.sudoers"; fi
+  if [[ "$only" == installer-lifecycle-ui ]]; then policy="$SOURCE/tests/fixtures/installer-lifecycle.sudoers"; fi
   install -m 0440 "$policy" "$rootfs/run/ooonana-qa-sudoers"
   mount --bind "$rootfs/run/ooonana-qa-sudoers" "$rootfs/etc/sudoers"
   mount -o remount,bind,ro "$rootfs/etc/sudoers"
@@ -296,6 +298,14 @@ if [[ "$only" == all || "$only" == admin-prompt-ui || "$only" == settings-admin-
   mount --bind "$SOURCE/packages/ooonana/usr/bin/ooonana-admin-askpass" "$rootfs/usr/bin/ooonana-admin-askpass"
   mount -o remount,bind,ro "$rootfs/usr/bin/ooonana-admin-askpass"
   admin_policy=1
+fi
+if [[ "$only" == installer-lifecycle-ui ]]; then
+  # No real block devices exist in this private /dev. The only elevated command
+  # is an inert fixture, guarded by this namespace-local sentinel.
+  touch "$rootfs/run/ooonana-installer-lifecycle-fixture"
+  install -m 0755 "$SOURCE/tests/fixtures/installer-lifecycle-backend.py" "$rootfs/run/qa-installer-backend"
+  mount --bind "$rootfs/run/qa-installer-backend" "$rootfs/usr/sbin/ooonana-install"
+  mount -o remount,bind,ro "$rootfs/usr/sbin/ooonana-install"
 fi
 if [[ "$only" == all || "$only" == frame-theme-ui || "$only" == live-theme-ui || "$only" == external-theme-ui || "$only" == client-theme-ui || "$only" == theme-flow-ui || "$only" == settings-storage-ui || "$only" == notification-stale-ui || "$only" == shell-flyout-ui || "$only" == lock-ui || "$only" == panel-live-ui || "$only" == tray-ui || "$only" == launcher-session-ui || "$only" == firefox-frame || "$only" == qterminal-frame ]]; then
   # Current helpers must include their source backend/subprocess imports.
@@ -461,7 +471,7 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
       session=(/bin/sh /run/ooonana-qa-session-prefix "${session[@]}")
     fi
     probe_limit=120
-    if [ "$name" = package-transactions-ui ] || [ "$name" = session-control-ui ]; then probe_limit=240; fi
+    if [ "$name" = package-transactions-ui ] || [ "$name" = session-control-ui ] || [ "$name" = installer-lifecycle-ui ]; then probe_limit=240; fi
     if timeout --kill-after=5 "$probe_limit" "${launch[@]}" \
       /usr/bin/env -i HOME=/home/ooonana USER=ooonana LOGNAME=ooonana \
       PATH=/usr/bin:/bin:/usr/sbin:/sbin DISPLAY="$DISPLAY" \
@@ -504,6 +514,15 @@ unshare --net xvfb-run -a --server-args="-screen 0 ${geometry}x24 -nolisten tcp"
     session_options=()
     if [ "${OOONANA_GUI_SESSION_LAYOUT_ONLY:-0}" = 1 ]; then session_options+=(--layout-only); fi
     probe session-control-ui python3 /source/tests/check-session-control-ui.py /qa/session-control "${session_options[@]}"
+  fi
+  if [ "$only" = task-live-ui ]; then
+    probe task-live-ui python3 /source/tests/check-task-live-ui.py /qa/task-live
+  fi
+  if [ "$only" = input-method-ui ]; then
+    probe input-method-ui python3 /source/tests/check-input-method-ui.py /qa/input-method
+  fi
+  if [ "$only" = installer-lifecycle-ui ]; then
+    probe installer-lifecycle-ui python3 /source/tests/check-installer-lifecycle-ui.py /qa/installer-lifecycle
   fi
   probe installer-ui python3 /source/tests/check-installer-ui.py /qa/installer
   probe settings-power-ui python3 /source/tests/check-settings-power-ui.py --own-i3

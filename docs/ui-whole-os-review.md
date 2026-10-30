@@ -5,6 +5,13 @@ This goal remains **active**. A passing catalog is not whole-OS completion.
 Preserve opaque graphite/amber, paper light mode, rounded controls and current
 mascot/cursor identity. Do not build an ISO or play sound during review.
 
+Latest follow-up: a persistent native password field now replaces the earlier
+indicator-only lock affordance, retaining real grabbed input/PAM and hiding
+password length. Added default GTK/Qt Hangul input; live process, full inert
+installer-GUI lifecycle and kernel/getty rechecks extend items10–15. These
+private checks do not certify installed WSLg, real radios/storage or sleep/wake.
+[Current results and remaining gates](ui-10-15-review-20261029.md).
+
 October29 item10.5: inactivity lock controls (Off by default), Super+Ctrl+L,
 guarded duplicate launches and compact2× unlock instruction. Real private
 PAM/input, one-minute idle, custom policy, minute redraw/draft, dual virtual
@@ -15,7 +22,7 @@ installed sign-in and physical sleep/wake remain open. Impeccable4.8.0 review
 uses normal/large GTK and native1×/2× captures, not a copied composition.
 [Detailed10.5 evidence and remaining work](lock-session-review-20261029.md).
 
-Requested lockscreen refinement separates layout/modifier warnings from the
+Earlier lockscreen refinement separated layout/modifier warnings from the
 password-feedback circle, adds an idle lock cue and nearby Enter guidance,
 bounds long UTF-8 layout names, and preserves compact warning space. Native
 keypress colors follow the same amber/ink palette; ordinary Backspace is not

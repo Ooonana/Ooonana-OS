@@ -7,7 +7,29 @@ Ooonana WSL, physical sign-in/wake, and the final release remain separate gates.
 No active user desktop was locked. No host suspend/logout, audible test, ISO,
 production signing, model download or remote publication was performed.
 
-## Requested visual recheck
+## Password-field follow-up
+
+The user identified a missing input affordance: the previous circle accepted
+typing without displaying a textbox. Native revision`2.16-r0.ooonana8` now
+paints a persistent focused password field, lock icon, placeholder/caret, fixed
+four-dot mask and separate verification/error/failed-attempt row. Mask length never follows
+password length. Vendor keyboard/PAM handling remains intact; no GTK overlay,
+password reveal or default font enlargement. Clearing, Backspace, rejection
+and real unlock pass. A640×480/2× regression also fixes the old height threshold
+that hid the input area on smaller screens.
+
+All nine final packaged gates pass in
+`/var/tmp/ooonana-installed-desktop-lock-20261029.vY0a5nr1`.
+[Current10–15 report and remaining gates](ui-10-15-review-20261029.md) supersedes
+the circle-only presentation below; earlier receipts/captures remain history.
+
+![Persistent focused native password field](assets/ooonana-lock-password-field-20261029.png)
+
+![Fixed mask hides password length](assets/ooonana-lock-password-mask-20261029.png)
+
+![Compact Paper,640×480 at2×, with error and Caps Lock](assets/ooonana-lock-password-compact-20261029.png)
+
+## Earlier visual recheck
 
 The first pass still crowded keyboard layout, password feedback and Caps Lock
 inside one small circle. Its empty state also lacked a central lock cue.

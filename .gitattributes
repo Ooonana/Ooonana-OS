@@ -58,3 +58,4 @@ packages/*/rootfs/usr/sbin/* text eol=lf
 packages/qt-portal/CMakeLists.txt text eol=lf
 packages/qt-portal/source-pins.json text eol=lf
 packages/i3lock/ooonana_lock_visuals.h text eol=lf
+packages/ooonana/usr/share/ooonana/input-method-profile text eol=lf

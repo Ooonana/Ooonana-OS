@@ -59,6 +59,12 @@ dependency nodes. Installed panel/session verification remains below.
 
 ## Remaining UI/integration work, in order
 
+Latest items10–15 follow-up: [password-field/input/process/installer review](ui-10-15-review-20261029.md).
+Private live Task Manager, GTK/Qt Korean input and full installer GUI lifecycle
+are no longer open source/probe tasks. Installed/physical acceptance remains.
+The unpublished catalog now has705 packages/624 nodes; earlier654/612 counts above and
+in older receipts describe their own checkpoints.
+
 ### Original items6–10.5, including new7.5: October28 status
 
 - **6 desktop/themes:** packaged private live-theme and saved wallpaper/theme
@@ -90,7 +96,7 @@ dependency nodes. Installed panel/session verification remains below.
   760×600 at200% text; Health leaves useful report space. This does not replace
   full installed-system or physical USB upgrade/power-loss acceptance.
 - **10.5 lockscreen/sign-in/unlock — source/private checks pass:** compact
-  Graphite/Paper, clock/date, scaled unlock cue, separate layout/modifier rows,
+  Graphite/Paper, clock/date, persistent password field/fixed mask, separate layout/modifier rows,
   bounded UTF-8 labels and actual packaged Korean glyphs, actual password/error/Caps/
   layout/Backspace, duplicate-launch guard, automatic locking and virtual
   dual-monitor coverage. Real private PAM/custom-policy and three kernel/getty
@@ -109,9 +115,11 @@ or acceptance of installed Ooonana WSL. Remaining work below is retained.
 1. Full installed-system package upgrades and rollback in a disposable
    installation. Private packaged GUI transactions/authentication/recovery now
    pass; retain them together with earlier package-engine/native upgrade proofs.
-2. Task Manager: large live process lists, real sampling/overhead, sorting,
-   filtering, process turnover and terminate confirmation. Native cloud AI:
+2. Task Manager: private192-worker sampling, sorting/filtering, process turnover,
+   safe termination/cancel and shortcut pass; physical hardware remains.
+   Native cloud AI:
    authorized real provider session, long transcript, stream/cancel/recovery.
+   New-key local saving was declined; no key created or existing key reused.
    OpenVINO is excluded from this pass.
 3. Installed desktop/themes: wallpaper/icons/cursor geometry/hotspot; held-open
    apps; panel services/media/AI/notifications; dock grouping/previews/actions,
@@ -121,6 +129,8 @@ or acceptance of installed Ooonana WSL. Remaining work below is retained.
    DND/action routing and daemon recovery with actual installed services.
 5. WSLg/input/displays: keyboard/mouse, clipboard, Korean IME, keyboard focus,
    text scaling, mixed DPI, multiple displays and hotplug where available.
+   Actual private GTK/Qt Hangul, Backspace, clipboard and active-IME unlock now
+   pass; host WSLg and Firefox Flatpak IME remain separate checks.
 6. Complete item10.5's installed sign-in/unlock, expiry/custom authentication,
    automatic locking and logout acceptance. Integrate a real login1/seat
    provider before claiming suspend support, then test physical wake/inhibitors/
@@ -128,8 +138,10 @@ or acceptance of installed Ooonana WSL. Remaining work below is retained.
 7. Hardware-control interfaces: Wi-Fi credentials/reconnect, Bluetooth pairing,
    adapter/signal-map changes, brightness permissions, silent audio routing and
    device changes. Real hardware acceptance remains separate below.
-8. Installer/boot/power: actual preview/log and text-wizard lifecycle,
-   persistence setup, BIOS/UEFI GRUB, framebuffer handoff and shutdown/reboot.
+8. Installer/boot/power: real partition/install/persistence mutation, BIOS/UEFI
+   GRUB, framebuffer handoff and shutdown/reboot. Whole GUI preview/auth/log/
+   completion passes with an inert device-free backend and real PAM; text
+   wizard input/echo/signal tests pass. Those do not prove actual disk writes.
 9. Bootable PDF: actual Chromium viewer boot, keyboard/Backspace, input focus,
     responsive controls and measured command latency. Source emulator tests
     alone do not close this gate.

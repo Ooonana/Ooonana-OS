@@ -31,7 +31,7 @@ def replacements():
             ("#define BUTTON_RADIUS 90", "#define BUTTON_RADIUS (ooonana_lock_visuals() ? 54 : 90)"),
             ("static void display_button_text(\n", '#include "ooonana_lock_visuals.h"\n\nstatic void display_button_text(\n'),
             ("    if (use_dark_text) {", "    if (ooonana_lock_visuals()) {\n        ooonana_lock_ink(ctx);\n    } else if (use_dark_text) {"),
-            ("    if (unlock_indicator &&\n", "    ooonana_lock_heading(xcb_ctx, resolution, scaling_factor);\n    if (unlock_indicator &&\n"),
+            ("    if (unlock_indicator &&\n", "    ooonana_lock_heading(xcb_ctx, resolution, scaling_factor);\n    if (unlock_indicator && !ooonana_lock_visuals() &&\n"),
             ("        cairo_set_line_width(ctx, 10.0);", "        cairo_set_line_width(ctx, ooonana_lock_visuals() ? 4.0 : 10.0);"),
             ("        cairo_fill_preserve(ctx);", "        if (ooonana_lock_visuals()) ooonana_lock_fill(ctx);\n        cairo_fill_preserve(ctx);"),
             ("        cairo_stroke(ctx);\n\n        /* Draw an inner seperator line. */", "        if (ooonana_lock_visuals()) ooonana_lock_stroke(ctx);\n        cairo_stroke(ctx);\n\n        /* Draw an inner seperator line. */"),

@@ -1,5 +1,37 @@
 # Current work - 2026-10-29
 
+## Items10–15: password field, Korean input and integration
+
+User-requested password field replaces the earlier circle-only affordance.
+It has persistent focus/caret, a fixed mask that hides length, clear/error
+feedback and native PAM input. Compact 640×480 at2× now receives explicit
+acceptance coverage. Earlier lock refinements and receipts below remain history.
+[Current detailed report](ui-10-15-review-20261029.md).
+
+Fresh private passes cover signed Packages/Health transactions and rollback,
+Task Manager with192 owned live workers, actual GTK/Qt Korean composition and
+Backspace/private clipboard, full installer preview/auth/log lifecycle against
+an inert backend, and three real PAM/getty VM login/expiry/rotation cases.
+Normal/scaled hardware-control UI passes retain their device-test boundaries.
+No physical target was accessed, sound played or model downloaded.
+
+Default Fcitx runtime supplies Hangul/GTK/Qt; optional advanced configuration
+dependencies stay out of the default install. Existing profiles/providers and
+tested native system packages are preserved. Unpublished catalog now has705
+packages/624 default dependency nodes. Final frozen native lock run passes all
+nine cases in`vY0a5nr1` on native`.ooonana8`, including640×480 at2× and retained
+failed-attempt feedback. Private cloud AI remains pending:
+local new-key saving was declined;
+no key created or written. Installed WSL, remote push/CI, production signing,
+publication and ISO remain held. Whole-goal/stable completion is not claimed.
+
+Final actual-session input receipt`DS7Snqiq` passes GTK/Qt Hangul, Backspace,
+private clipboard, active-IME PAM unlock and inherited session settings in both
+normal/scaled cases. Repeated starts now reuse a ready service instead of
+forking an unnecessary duplicate; failed readiness is logged. One daemon used
+about20.5MiB in the private samples. Source/private tests are complete for this
+bounded pass; physical, installed WSLg, provider/seat and release gates remain.
+
 ## Item10.5: lockscreen/sign-in/unlock - October29
 
 Requested visual recheck: keyboard layout/Caps Lock no longer crowd password

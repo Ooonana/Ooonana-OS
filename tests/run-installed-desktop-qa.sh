@@ -3,7 +3,7 @@
 set -euo pipefail
 SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 pass="${OOONANA_INSTALLED_QA_PASS:-desktop}"
-case "$pass" in desktop|notifications-packages|lock-sessions|lock-visuals|lock-extended) ;; *) exit 2 ;; esac
+case "$pass" in desktop|notifications-packages|lock-sessions|lock-visuals|lock-extended|ui-10-15|task-live|input-method|installer-lifecycle) ;; *) exit 2 ;; esac
 export OOONANA_INSTALLED_QA_PASS="$pass"
 if [[ "${1:-}" != --worker ]]; then
   [[ $# == 4 && $EUID == 0 ]] || { echo 'Usage: ROOTFS PREVIOUS_QA_UPPER UNSIGNED_STAGE OUTPUT'; exit 2; }
@@ -40,7 +40,7 @@ OOONANA_ROOT="$root" OOONANA_REPO_DIR="$repo" OOONANA_CACHE_DIR="$output/cache" 
   OOONANA_SOURCES_DIR="$output/empty-sources" OOONANA_REPO_VERIFY_KEY="$output/qa-only.pub" \
   OOONANA_REQUIRE_SIGNED_REPOS=1 OOONANA_KEEP_UPDATE_BACKUPS=all \
   bash "$SOURCE/packages/ooonana/usr/bin/ooonana" reinstall ooonana-core-runtime >"$output/core-reinstall.log" 2>&1
-if [[ "$pass" == lock-* ]]; then
+if [[ "$pass" == lock-* || "$pass" == ui-10-15 || "$pass" == input-method ]]; then
   cp "$root/etc/pam.d/i3lock" "$output/locker-pam.before"
   OOONANA_ROOT="$root" OOONANA_REPO_DIR="$repo" OOONANA_CACHE_DIR="$output/cache" \
     OOONANA_SOURCES_DIR="$output/empty-sources" OOONANA_REPO_VERIFY_KEY="$output/qa-only.pub" \
@@ -53,6 +53,12 @@ if [[ ! -x "$root/usr/bin/rofi" ]]; then
     OOONANA_SOURCES_DIR="$output/empty-sources" OOONANA_REPO_VERIFY_KEY="$output/qa-only.pub" \
     OOONANA_REQUIRE_SIGNED_REPOS=1 OOONANA_KEEP_UPDATE_BACKUPS=all \
     bash "$SOURCE/packages/ooonana/usr/bin/ooonana" get rofi-x11-wayland >"$output/rofi-install.log" 2>&1
+fi
+if [[ "$pass" == input-method ]]; then
+  OOONANA_ROOT="$root" OOONANA_REPO_DIR="$repo" OOONANA_CACHE_DIR="$output/cache" \
+    OOONANA_SOURCES_DIR="$output/empty-sources" OOONANA_REPO_VERIFY_KEY="$output/qa-only.pub" \
+    OOONANA_REQUIRE_SIGNED_REPOS=1 OOONANA_KEEP_UPDATE_BACKUPS=all \
+    bash "$SOURCE/packages/ooonana/usr/bin/ooonana" get qterminal >"$output/qt-install.log" 2>&1
 fi
 cmp "$root/etc/ooonana/polybar.ini" "$output/custom-polybar.before"
 python3 -B - "$root" "$stage" "$SOURCE" <<'PY'
@@ -71,6 +77,9 @@ with tarfile.open(archive) as bundle:
                  'usr/lib/ooonana/ui/controls_app.py','usr/lib/ooonana/ui/settings_app.py',
                  'usr/lib/ooonana/ui/dock_app.py','usr/lib/ooonana/ui/setup_app.py',
                  'usr/lib/ooonana/ui/packages_app.py','usr/lib/ooonana/ui/health_app.py',
+                 'usr/lib/ooonana/ui/task_manager_app.py','usr/lib/ooonana/process_control.py',
+                 'usr/lib/ooonana/input_method.py','usr/bin/ooonana-input-method',
+                 'usr/share/ooonana/input-method-profile',
                  'usr/lib/ooonana/lock_screen.py','usr/lib/ooonana/session_control.py',
                  'usr/lib/ooonana/ui/ui_preferences.py','usr/bin/ooonana-lock',
                  'usr/bin/ooonana-session','usr/bin/ooonana-session-guard',
@@ -79,11 +88,18 @@ with tarfile.open(archive) as bundle:
         data = bundle.extractfile(members[name]).read()
         assert data == (root/name).read_bytes() == (source/'packages/ooonana'/name).read_bytes(), name
         verified[name] = hashlib.sha256(data).hexdigest()
+    builder = (source/'scripts/build-full-i3-rootfs.sh').read_text()
+    for helper in ('ooonana-i3-session', 'ooonana-installer-gui', 'ooonana-run-admin'):
+        name = 'usr/bin/'+helper
+        generated = builder.split('"$ROOTFS/'+name+'" <<\'EOF\'\n', 1)[1].split('\nEOF', 1)[0]+'\n'
+        data = bundle.extractfile(members[name]).read()
+        assert data == (root/name).read_bytes() == generated.encode(), name
+        verified[name] = hashlib.sha256(data).hexdigest()
 receipt = dict(archive_verified=True, archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest(),
                source_hashes=verified, config_preserved=True, qa_default_session=True,
                production_signing=False, physical_devices_exposed=False)
 import os
-if os.environ.get('OOONANA_INSTALLED_QA_PASS') in ('lock-sessions', 'lock-visuals', 'lock-extended'):
+if os.environ.get('OOONANA_INSTALLED_QA_PASS') in ('lock-sessions', 'lock-visuals', 'lock-extended', 'ui-10-15', 'input-method'):
     import importlib.util
     spec = importlib.util.spec_from_file_location('release', source/'scripts/check-release-repo.py')
     release = importlib.util.module_from_spec(spec); spec.loader.exec_module(release)
@@ -117,6 +133,22 @@ fi
 if [[ "$pass" == lock-extended ]]; then
   normal=()
   scaled=()
+fi
+if [[ "$pass" == ui-10-15 ]]; then
+  normal=(package-health-ui package-transactions-ui task-details-ui task-live-ui wireless-details-ui controls-details-ui installer-ui session-control-ui)
+  scaled=(package-health-ui task-details-ui wireless-details-ui controls-details-ui installer-ui settings-power-ui)
+fi
+if [[ "$pass" == task-live ]]; then
+  normal=(task-live-ui)
+  scaled=(task-live-ui)
+fi
+if [[ "$pass" == input-method ]]; then
+  normal=(input-method-ui)
+  scaled=(input-method-ui)
+fi
+if [[ "$pass" == installer-lifecycle ]]; then
+  normal=(installer-lifecycle-ui)
+  scaled=(installer-lifecycle-ui)
 fi
 for probe in "${normal[@]}"; do
   mkdir "$output/$probe"
@@ -158,6 +190,15 @@ if [[ "$pass" == lock-* ]]; then
           tail -20 "$dir/lock-ui.log"; failure=1;
         }
       if grep -qx 'PASS lock-ui' "$dir/driver.log"; then echo "INSTALLED_GUI_PASS lock-compact-$theme"; fi
+    done
+    for theme in dark light; do
+      dir="$output/lock-small-$theme"; mkdir "$dir"
+      OOONANA_GUI_INSTALLED_ONLY=1 OOONANA_GUI_ONLY=lock-ui OOONANA_GUI_GEOMETRY=640x480 \
+        OOONANA_GUI_THEME="$theme" OOONANA_GUI_DEVICE_SCALE=2 OOONANA_GUI_TEXT_SCALE=1.0 \
+        bash "$SOURCE/tests/run-candidate-gui.sh" "$root" "$dir" >"$dir/driver.log" 2>&1 || {
+          tail -20 "$dir/lock-ui.log"; failure=1;
+        }
+      if grep -qx 'PASS lock-ui' "$dir/driver.log"; then echo "INSTALLED_GUI_PASS lock-small-$theme"; fi
     done
   fi
   dir="$output/lock-extended"; mkdir "$dir"

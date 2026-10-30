@@ -15,6 +15,13 @@ Ooonana OS is a custom Linux distribution built from scratch around its own boot
 
 Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Linux, BusyBox, GRUB, i3, and other open-source components. Ooonana package factory currently imports selected Alpine package payloads into Ooonana `.pkg` repositories while native packages replace them over time.
 
+October29 candidate follow-up adds a visible native lockscreen password field
+and default Fcitx5 Hangul input for GTK/Qt (Ctrl+Space). Existing input profiles
+and alternate providers are preserved. Real private process/PAM/installer-GUI
+checks extend items10–15; physical hardware, installed WSLg, cloud AI and final
+release acceptance remain separate. [Results and exact limits](docs/ui-10-15-review-20261029.md).
+Installed Ooonana WSL, remote publication and ISO creation remain held.
+
 October26 source checkpoint: legacy XEmbed tray hosting, missing-app launcher
 recovery and compact Breakout resize handling pass private checks. Qt Fusion
 and Windows-style dialogs/pickers pass normal/scaled cases. Compiled native
@@ -55,8 +62,9 @@ system/hardware acceptance and stable promotion remain pending.
 
 October29: lock/session checks add configurable inactivity locking (default
 Off), Super+Ctrl+L, guarded duplicate launches and compact scaled unlock hints.
-Lock feedback separates keyboard layout/Caps warnings, with an idle padlock
-and bounded CJK labels using the already packaged Korean font.
+Native lock now has a persistent focused password field, fixed hidden-input
+mask, separate errors/layout/Caps warnings and bounded CJK labels using the
+already packaged Korean font. [Password field preview](docs/assets/ooonana-lock-password-field-20261029.png).
 Actual private PAM, password editing, expiry/rotation and idle locking pass.
 Power requests suspend only after confirmed locking and login1 authorization;
 the current custom-init image lacks that service, so physical suspend remains
