@@ -1,6 +1,6 @@
 # Core 0.10.0 candidate: remaining acceptance gates
 
-Updated October 30, 2026. Stable has not been promoted. This checklist replaces
+Updated November 1, 2026. Stable has not been promoted. This checklist replaces
 the repeated 25-item draft; detailed historical receipts remain in
 [current work](current-work.md) and [UI review](ui-whole-os-review.md).
 
@@ -59,7 +59,7 @@ dependency nodes. Installed panel/session verification remains below.
 
 ## Remaining UI/integration work, in order
 
-Latest items10–15 follow-up: [password-field/input/process/installer review](ui-10-15-review-20261029.md).
+Latest items10–15 follow-up: [disk-tool repair and WSLg/VM checks](ui-10-15-recheck-20261031.md).
 Private live Task Manager, GTK/Qt Korean input and full installer GUI lifecycle
 are no longer open source/probe tasks. Installed/physical acceptance remains.
 The unpublished catalog now has705 packages/624 nodes; earlier654/612 counts above and
@@ -133,7 +133,9 @@ or acceptance of installed Ooonana WSL. Remaining work below is retained.
    pass. Firefox Flatpak composition/Backspace/clipboard now also pass after
    the host module-cache boundary repair. Epoch-zero host font cache repair
    also passes exact-package normal/scaled checks with Korean font coverage.
-   Host WSLg remains separate. [Fresh10–15 receipts](ui-10-15-recheck-20261030.md).
+   A rootless WSLg manual check records mouse/keyboard/Backspace; the user confirms
+   Hangul/paste, while its exact-text receipt stays incomplete. Nested desktop,
+   scaling and display integration remain separate. [Fresh receipts](ui-10-15-recheck-20261031.md).
 6. Complete item10.5's installed sign-in/unlock, expiry/custom authentication,
    automatic locking and logout acceptance. Integrate a real login1/seat
    provider before claiming suspend support, then test physical wake/inhibitors/
@@ -141,10 +143,13 @@ or acceptance of installed Ooonana WSL. Remaining work below is retained.
 7. Hardware-control interfaces: Wi-Fi credentials/reconnect, Bluetooth pairing,
    adapter/signal-map changes, brightness permissions, silent audio routing and
    device changes. Real hardware acceptance remains separate below.
-8. Installer/boot/power: real partition/install/persistence mutation, BIOS/UEFI
+8. Installer/boot/power: completed installation/persistence mutation, BIOS/UEFI
    GRUB, framebuffer handoff and shutdown/reboot. Whole GUI preview/auth/log/
    completion passes with an inert device-free backend and real PAM; text
-   wizard input/echo/signal tests pass. Those do not prove actual disk writes.
+   wizard input/echo/signal tests pass. A file-backed VM now partitions/formats
+   its own target and creates swap, but full copy times out on slow F: storage.
+   Whole installation/boot acceptance remains open. New disk-tool preflight and
+   installed-fstab mount policy have isolated package/behavioral checks.
 9. Bootable PDF: actual Chromium viewer boot, keyboard/Backspace, input focus,
     responsive controls and measured command latency. Source emulator tests
     alone do not close this gate.
@@ -159,8 +164,8 @@ or acceptance of installed Ooonana WSL. Remaining work below is retained.
    and build the matching signed generation with verified provenance/closure.
 2. Approve publication and Ooonana WSL sync when stable-ready; verify the exact
    installed packages and current session. No Ubuntu product migration.
-   Review preserved custom `rcS.ooonana-new` before claiming the boot-time font
-   cache repair is active in an upgraded custom installation.
+   Review preserved custom `rcS.ooonana-new` before claiming boot-time font-cache
+   repair and installed-storage mounting/guard are active in a custom installation.
 3. Refresh final README/screenshots, guides/PDFs, release notes and known
    limitations. Clean only confirmed generated junk; keep history, models,
    credentials, keys, source/build provenance and recovery checkpoints.

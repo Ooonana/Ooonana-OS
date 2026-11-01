@@ -22,11 +22,12 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--kernel", required=True, type=Path)
 parser.add_argument("--expired-account", action="store_true", help="Reject an expired disposable account even with correct password")
 parser.add_argument("--expired-password", action="store_true", help="Complete required password change; reject old password and accept new password on next login")
+parser.add_argument("--nologin", action="store_true", help="Prove transient storage-failure guard rejects normal authenticated login")
 parser.add_argument("--login-rootfs", type=Path, help="Use actual candidate PAM login/runtime, not scratch BusyBox login")
 args = parser.parse_args()
 assert args.kernel.is_file()
-assert not (args.expired_account and args.expired_password)
-assert not (args.expired_account or args.expired_password) or args.login_rootfs, "Real PAM login required for expiry proof"
+assert sum((args.expired_account, args.expired_password, args.nologin)) <= 1
+assert not (args.expired_account or args.expired_password or args.nologin) or args.login_rootfs, "Real PAM login required for account-policy proof"
 
 with tempfile.TemporaryDirectory(prefix="ooonana-login-proof-") as temporary:
     work = Path(temporary)
@@ -79,6 +80,18 @@ with tempfile.TemporaryDirectory(prefix="ooonana-login-proof-") as temporary:
         for optional in ("etc/login.defs", "etc/environment"):
             if (candidate / optional).is_file(): copy_runtime(optional)
         print("LOGIN_RUNTIME_ACTUAL_OK candidate PAM login and ELF closure; private scratch only", flush=True)
+    if args.nologin:
+        (root / "run").mkdir(exist_ok=True)
+        # Match full rcS: vendor PAM checks /var/run/nologin, with /var/run
+        # linked into transient /run before installed storage is mounted.
+        runtime_link = root / "var/run"
+        if runtime_link.is_symlink():
+            assert os.readlink(runtime_link) == "/run"
+        else:
+            if runtime_link.exists():
+                runtime_link.rmdir()  # Refuses unexpected nonempty fixture data.
+            runtime_link.symlink_to("/run", target_is_directory=True)
+        (root / "run/nologin").write_text("OO_STORAGE_QA_GUARD: configured storage unavailable\n")
     if args.expired_account or args.expired_password:
         path = root / "etc/shadow"
         records = path.read_text().splitlines()
@@ -152,7 +165,12 @@ with tempfile.TemporaryDirectory(prefix="ooonana-login-proof-") as temporary:
         send("fixture")
         expect("Password:")
         send("fixture-only-password")
-        if args.expired_account:
+        if args.nologin:
+            expect("OO_STORAGE_QA_GUARD")
+            expect_login()
+            assert b"OO_LOGIN_DESKTOP_UID=" not in transcript, "Storage failure guard allowed desktop entry"
+            print("INSTALLED_NOLOGIN_VM_OK - actual PAM rejects correct credentials while storage-failure guard exists")
+        elif args.expired_account:
             expect("account has expired")
             expect_login()
             assert b"OO_LOGIN_DESKTOP_UID=" not in transcript, "Expired account entered desktop"

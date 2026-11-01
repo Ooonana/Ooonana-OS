@@ -1,4 +1,24 @@
-# Current work - 2026-10-30
+# Current work - 2026-11-01
+
+## Items10–15 — October31–November1
+
+Fixed missing split disk tools in desktop profiles/core upgrades and package
+factory imports. Installer refuses missing inventory/operation tools before
+disk writes; runtime audit covers installer tools. Installed boot now mounts
+configured local filesystems and blocks login on failure; native mount tools
+survive builder link restoration. Six isolated mount-policy checks pass.
+Manual WSLg mouse/keyboard/Backspace receipt passes;
+user confirms Hangul/paste, while exact automated text receipt stays incomplete.
+Full VM file copy timed out on slow F: backing; installation/boot/upgrade
+acceptance stays open. Isolated signed package checks continue.
+Installed WSL/publication/ISO
+remain held. [Evidence and open gates](ui-10-15-recheck-20261031.md).
+
+Final isolated signature-verified core/tools upgrade passes with exact archive
+hashes and preserved custom boot policy. Actual native PAM/getty rejects correct
+credentials under the transient storage-failure guard. Installer, full rootfs,
+package factory, six boot-mount tests and three font-cache tests pass.
+[Manual cleanup commands](cleanup-20261101.md) follow automatic deletion rejection.
 
 ## Items10–15 recheck — October30
 

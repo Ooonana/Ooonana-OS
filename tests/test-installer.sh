@@ -199,6 +199,34 @@ assert_contains "$iso_help" "--install-target"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
+# A missing inventory tool must fail before target discovery or any mutation.
+sed '/^while \[\[ \$# -gt 0 \]\]/,$d' "$INSTALLER" >"$tmp/missing-inventory.sh"
+cat >>"$tmp/missing-inventory.sh" <<'CHECK'
+DRY_RUN=0
+PATH=/nonexistent-ooonana-qa-path
+detect_target_mode() { printf 'unsafe discovery reached\n' >&2; return 1; }
+prepare_target
+CHECK
+inventory_failure="$(bash "$tmp/missing-inventory.sh" 2>&1 || true)"
+assert_contains "$inventory_failure" 'missing command: lsblk'
+assert_not_contains "$inventory_failure" 'unsafe discovery reached'
+sed '/^while \[\[ \$# -gt 0 \]\]/,$d' "$INSTALLER" >"$tmp/missing-operation-tool.sh"
+cat >>"$tmp/missing-operation-tool.sh" <<'CHECK'
+DRY_RUN=0
+TARGET="$1"
+MISSING_TOOL="$2"
+SWAP_SIZE_MIB=512
+detect_target_mode() { printf 'disk\n'; }
+command() { [[ "$#" -eq 2 && "$1" == -v && "$2" != "$MISSING_TOOL" ]]; }
+validate_current_root_safety() { printf 'operation preflight skipped\n' >&2; exit 99; }
+prepare_target
+CHECK
+touch "$tmp/inert-image.raw"
+for missing in blkid mkswap losetup; do
+  operation_failure="$(bash "$tmp/missing-operation-tool.sh" "$tmp/inert-image.raw" "$missing" 2>&1 || true)"
+  assert_contains "$operation_failure" "missing command: $missing"
+  assert_not_contains "$operation_failure" 'operation preflight skipped'
+done
 truncate -s 12G "$tmp/swap-disk.raw"
 swap_preview="$(bash "$INSTALLER" --dry-run --yes \
   --target "$tmp/swap-disk.raw" --swap-size-mib 4096)"

@@ -170,6 +170,18 @@ def main() -> int:
         "rfkill",
         "ip",
         "brightnessctl",
+        "lsblk",
+        "findmnt",
+        "blkid",
+        "losetup",
+        "mountpoint",
+        "mkswap",
+        "mount",
+        "umount",
+        "parted",
+        "mkfs.ext4",
+        "mkfs.vfat",
+        "rsync",
         "grub-install",
     )
     for command in required_commands:

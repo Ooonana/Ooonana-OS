@@ -15,6 +15,12 @@ Ooonana OS is a custom Linux distribution built from scratch around its own boot
 
 Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Linux, BusyBox, GRUB, i3, and other open-source components. Ooonana package factory currently imports selected Alpine package payloads into Ooonana `.pkg` repositories while native packages replace them over time.
 
+November1 repairs missing installer disk tools and preflights them before writes.
+Installed boot mounts configured storage and blocks login on mount failure.
+Manual WSLg input observations and
+file-backed VM limits are [recorded separately](docs/ui-10-15-recheck-20261031.md).
+Installed WSL/publication/ISO remain held.
+
 October30 recheck passes14 normal/scaled10–15 cases and two native lock
 input-edge cases. Firefox1.0.2 repairs Flatpak Korean composition; boot/build
 font cache repair restores Korean glyphs. [Latest status and cleanup commands](docs/ui-10-15-recheck-20261030.md).

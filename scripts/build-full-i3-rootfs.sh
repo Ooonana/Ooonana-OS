@@ -4192,6 +4192,23 @@ start_device_manager() {
 start_device_manager
 start_persistence
 
+start_installed_mounts() {
+  [ "$(cat /etc/ooonana/system-mode 2>/dev/null)" = installed ] || return 0
+  if [ -s /etc/fstab ] &&
+     timeout 30 mount -a -O no_netdev >/var/log/ooonana-mounts.log 2>&1; then
+    return 0
+  fi
+  # Do not start a desktop against an unmounted configured home/filesystem.
+  # PAM's nologin guard preserves authentication and leaves rescue-media repair.
+  if [ ! -e /run/nologin ]; then
+    printf '%s\n' 'Configured storage failed to mount. Boot rescue media and review /var/log/ooonana-mounts.log.' >/run/nologin
+  fi
+  echo 'OOONANA_INSTALLED_MOUNTS_FAILED: login blocked; repair configured storage'
+  return 1
+}
+
+start_installed_mounts || exit 1
+
 if command -v ooonana-memory >/dev/null 2>&1; then
   ooonana-memory start >/var/log/ooonana-memory.log 2>&1 || true
 fi
@@ -4706,6 +4723,12 @@ restore_busybox_init_links() {
   [[ -x "$ROOTFS/bin/busybox" ]] || return 0
   mkdir -p "$ROOTFS/bin" "$ROOTFS/sbin" "$ROOTFS/usr/bin"
   for applet in adduser awk basename cat chmod clear cp cut date dd df dirname dmesg echo env free grep hostname ifconfig ip killall ls mkdir mount mv passwd ps pwd readlink rm rmdir route sed sh sha256sum sleep sort sync tar touch tr udhcpc umount uname wc wget; do
+    case "$applet" in
+      mount|umount)
+        # Retain real util-linux implementations for PARTUUID/fstab handling.
+        [[ ! -f "$ROOTFS/bin/$applet" || -L "$ROOTFS/bin/$applet" ]] || continue
+        ;;
+    esac
     ln -sf busybox "$ROOTFS/bin/$applet"
   done
   for applet in init reboot poweroff halt mdev switch_root; do

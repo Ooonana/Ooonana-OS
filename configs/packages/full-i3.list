@@ -82,6 +82,12 @@ bluez-hid2hci
 bluez-obexd
 iproute2
 util-linux-misc
+lsblk
+findmnt
+blkid
+losetup
+mount
+umount
 pulseaudio-utils
 pulseaudio
 pulseaudio-alsa

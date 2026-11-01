@@ -716,9 +716,32 @@ swap_start_boundary() {
   printf '%sMiB\n' "$start_mib"
 }
 
+validate_install_commands() {
+  require_commands mount umount mountpoint rsync install
+  if [[ "$TARGET_MODE" == disk ]]; then
+    require_commands parted mkfs.ext4 mkfs.vfat grub-install blkid
+    [[ ! -f "$TARGET" ]] || require_commands losetup
+  else
+    [[ "$FORMAT_ROOT" -eq 0 ]] || require_commands mkfs.ext4
+    if [[ -n "$EFI_PART" ]]; then
+      require_commands blkid grub-install
+      [[ "$FORMAT_EFI" -eq 0 ]] || require_commands mkfs.vfat
+    fi
+  fi
+  if [[ -n "$HOME_PART" && "$FORMAT_HOME" -eq 1 ]]; then
+    require_commands mkfs.ext4
+  fi
+  if (( SWAP_SIZE_MIB > 0 )) || [[ -n "$SWAP_PART" && "$FORMAT_SWAP" -eq 1 ]]; then
+    require_commands mkswap
+  fi
+}
+
 prepare_target() {
   local swap_start
   local -a partition_args
+  # Mounted-descendant and parent-disk guards require the real block inventory.
+  # Never skip those guards merely because a split util-linux tool is absent.
+  require_commands lsblk
   TARGET_MODE="$(detect_target_mode)"
   require_block_or_dry "$HOME_PART" "--home-part"
   require_block_or_dry "$SWAP_PART" "--swap-part"
@@ -727,6 +750,8 @@ prepare_target() {
     disk) INSTALL_DEVICE="$TARGET" ;;
     partition) TARGET_PART="$TARGET" ;;
   esac
+  # Check every selected operation before partitioning or formatting anything.
+  validate_install_commands
   # Run every disk guard before the first partition-table write.
   validate_current_root_safety
   validate_live_media_safety

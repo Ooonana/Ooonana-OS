@@ -389,7 +389,10 @@ while IFS= read -r package; do
   [[ -f "$tmp/repo/$package.pkg" ]] || fail "builder missing optional package: $package"
 done < "$ROOT/configs/packages/common-tools.list"
 assert_contains "$(<"$tmp/repo/ooonana-core.pkg")" 'OOONANA_PKG_DEPS="ooonana-core-runtime"'
-assert_contains "$(<"$tmp/repo/ooonana-core-runtime.pkg")" 'OOONANA_PKG_DEPS="dbus-daemon-launch-helper openssl glib"'
+core_runtime_deps="$( (source "$tmp/repo/ooonana-core-runtime.pkg"; printf ' %s ' "$OOONANA_PKG_DEPS") )"
+for dependency in dbus-daemon-launch-helper openssl glib lsblk findmnt blkid losetup mount umount coreutils; do
+  assert_contains "$core_runtime_deps" " $dependency "
+done
 assert_contains "$(<"$tmp/repo/ooonana-core.pkg")" 'OOONANA_PKG_ARCHIVE=""'
 core_runtime_archive="$(find "$tmp/repo/archives" -maxdepth 1 -name 'ooonana-core-runtime-*.tar.gz' -print -quit)"
 [[ -f "$core_runtime_archive" ]] || fail "builder missing core runtime archive"
