@@ -10,7 +10,7 @@ survive builder link restoration. Six isolated mount-policy checks pass.
 Manual WSLg mouse/keyboard/Backspace receipt passes;
 user confirms Hangul/paste, while exact automated text receipt stays incomplete.
 Full VM file copy timed out on slow F: backing; installation/boot/upgrade
-acceptance stays open. Isolated signed package checks continue.
+acceptance stays open. Available isolated source/package checks now pass.
 Installed WSL/publication/ISO
 remain held. [Evidence and open gates](ui-10-15-recheck-20261031.md).
 
@@ -18,6 +18,9 @@ Final isolated signature-verified core/tools upgrade passes with exact archive
 hashes and preserved custom boot policy. Actual native PAM/getty rejects correct
 credentials under the transient storage-failure guard. Installer, full rootfs,
 package factory, six boot-mount tests and three font-cache tests pass.
+Actual packaged mount/helper checks also pass for local mounts, `_netdev`,
+required failures, `nofail` and retained administrator policy. Original combined
+app defaults remain; unpublished catalog has711 packages.
 [Manual cleanup commands](cleanup-20261101.md) follow automatic deletion rejection.
 
 ## Items10–15 recheck — October30
