@@ -11,6 +11,7 @@ OUT_DIR="$ROOT/packages/ooonana/usr/lib/ooonana/repo"
 ARCH="x86_64"
 PACKAGES=""
 INDEX_REPO=1
+RESOLVE_DEPS=1
 
 usage() {
   cat <<'USAGE'
@@ -25,6 +26,7 @@ Options:
   --out-dir PATH   Ooonana repo output directory
   --arch ARCH      Expected Alpine arch (default: x86_64)
   --no-index       Leave repo indexing to caller
+  --no-deps        Import named packages only; retain declared runtime dependencies
   -h, --help       Show help
 USAGE
 }
@@ -35,6 +37,7 @@ while [[ $# -gt 0 ]]; do
     --out-dir) OUT_DIR="$2"; shift 2 ;;
     --arch) ARCH="$2"; shift 2 ;;
     --no-index) INDEX_REPO=0; shift ;;
+    --no-deps) RESOLVE_DEPS=0; shift ;;
     -h|--help) usage; exit 0 ;;
     *) PACKAGES="$PACKAGES $1"; shift ;;
   esac
@@ -326,7 +329,11 @@ main() {
       continue
     fi
     printf '%s\n' "$pkg" >> "$imported"
-    import_one "$pkg" >> "$queue"
+    if [[ "$RESOLVE_DEPS" -eq 1 ]]; then
+      import_one "$pkg" >> "$queue"
+    else
+      import_one "$pkg" >/dev/null
+    fi
   done < "$queue"
 
   if [[ "$INDEX_REPO" -eq 1 ]]; then

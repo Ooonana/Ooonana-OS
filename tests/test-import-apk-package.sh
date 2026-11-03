@@ -149,6 +149,13 @@ assert_contains "$index" $'gtk+3.0\t3.24-r0\tapk'
 grep -q 'archives/nano-1.0-r0.tar.gz' "$out/SHA256SUMS" || fail "missing archive checksum"
 grep -q 'gtk+3.0.pkg' "$out/SHA256SUMS" || fail "missing plus package checksum"
 
+# Pin an existing runtime: named-only import retains dependency declarations,
+# but must not fetch or replace any dependency payload.
+named_out="$tmp/named-only"
+bash "$SCRIPT" --repo-url "file://$repo" --repo-url "file://$repo_extra" --out-dir "$named_out" --no-deps nano
+assert_contains "$(<"$named_out/nano.pkg")" 'OOONANA_PKG_DEPS="gtk+3.0 libfoo libncurses pkgconf"'
+[[ ! -e "$named_out/libncurses.pkg" && ! -e "$named_out/archives/libncurses-1.0-r0.tar.gz" ]] || fail '--no-deps imported dependency'
+
 # Completed package archives must be reusable after an interrupted build.
 rm -f "$repo"/*.apk "$repo_extra"/*.apk
 rm -f "$out/index.tsv" "$out/SHA256SUMS"

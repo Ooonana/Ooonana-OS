@@ -11,6 +11,7 @@ DEFAULT_I3_PROFILE="$ROOT/configs/packages/full-i3.list"
 I3_PACKAGES=""
 INCLUDE_OPENVINO=auto
 BRANDING_VERSION="0.1.3"
+I3_BUNDLE_VERSION="0.1.4"
 SOF_REPO_URL="${OOONANA_SOF_REPO_URL:-https://dl-cdn.alpinelinux.org/alpine/$(ooonana_alpine_branch)/community/x86_64}"
 METADATA_ONLY=0
 INDEX_REPO=1
@@ -206,7 +207,7 @@ main() {
   write_pkg \
     "$OUT_DIR/i3.pkg" \
     "i3" \
-    "$BRANDING_VERSION" \
+    "$I3_BUNDLE_VERSION" \
     "bundle" \
     "Ooonana i3 desktop wrapper" \
     "$I3_PACKAGES" \
