@@ -11,9 +11,12 @@ the exact packaged candidate. Distinguish source/private-session passes from
 installed-session, physical-device and final-image acceptance. A private pass
 does not certify every driver, viewer or installed configuration.
 
-Current authorization holds installed Ooonana WSL updates, remote push/CI,
-production signing/publication and ISO creation. Keep the private signing key
-local. OpenVINO's overhaul remains deferred. No audible testing.
+November3 request authorizes items17–21: bounded final UI review, candidate
+freeze/packages, remote push/CI, signed candidate publication, Ooonana WSL sync,
+documentation/cleanup and public-asset exclusion checks. Stable promotion, ISO
+creation and previously deferred VM checks remain held. Keep the private signing
+key local. OpenVINO's overhaul remains deferred. No audible testing. Original
+code/artwork licensing remains undecided by explicit user choice.
 
 ## Completed source/private work: retain these passes
 

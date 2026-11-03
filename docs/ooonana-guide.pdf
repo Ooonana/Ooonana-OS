@@ -13,7 +13,7 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
 endobj
 5 0 obj
-<< /Length 3657 >>
+<< /Length 3571 >>
 stream
 0.065 0.075 0.09 rg 0 754 612 38 re f
 BT /F2 12 Tf 1 0.70 0.10 rg 54 769 Td (OOONANA / FIELD GUIDE) Tj ET
@@ -53,7 +53,10 @@ T*
 (Ooonana OS 0.10.0 field guide) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Evidence refreshed 2026-10-15; installed WSL 0.10.0, stable channel 0.9.9.) Tj
+(Evidence refreshed 2026-11-03; core and installed WSL 0.10.0 candidate; stable) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(unpromoted.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 () Tj
@@ -83,16 +86,19 @@ T*
 (separate during validation.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Chromium isolated software tests pass with optional shader disk cache disabled;) Tj
+(Private native VM checksum installation/reinstallation, BIOS/UEFI boot, UUID EFI/swap) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(renderer/GPU sandbox remains enabled. User-built ISO passed static, BIOS, UEFI and) Tj
+(mounts, nonroot login/sudo and clean shutdown pass. Signed fixture health rollback,) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(service/fault checks. Fresh Ooonana WSL replacement passed package and desktop) Tj
+(prepared-checkpoint power-loss recovery and bounded ext4 full-storage rollback also) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(readiness checks. Interactive/hardware checks remain separate gates.) Tj
+(pass. Physical USB, broader system/kernel upgrades and final ISO acceptance remain) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(separate gates.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 () Tj
@@ -154,15 +160,6 @@ T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 () Tj
 T*
-/F2 11 Tf 0.62 0.34 0.01 rg
-(Cloud repo) Tj
-T*
-/F1 9.5 Tf 0.13 0.15 0.18 rg
-(Default cloud path is the GitLab Pages direct repository:) Tj
-T*
-/F1 9.5 Tf 0.13 0.15 0.18 rg
-(https://ooonana.gitlab.io/ooonana-repo) Tj
-T*
 ET
 endstream
 endobj
@@ -170,7 +167,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 5 0 R >>
 endobj
 7 0 obj
-<< /Length 4703 >>
+<< /Length 4707 >>
 stream
 0.065 0.075 0.09 rg 0 754 612 38 re f
 BT /F2 12 Tf 1 0.70 0.10 rg 54 769 Td (OOONANA / FIELD GUIDE) Tj ET
@@ -180,10 +177,13 @@ BT
 13 TL
 54 728 Td
 /F2 11 Tf 0.62 0.34 0.01 rg
-(Cloud repo \(continued\)) Tj
+(Cloud repo) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-() Tj
+(Default cloud path is the GitLab Pages direct repository:) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(https://ooonana.gitlab.io/ooonana-repo) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (Run ooonana update && ooonana upgrade. Metadata syncs first; package archives download) Tj
@@ -208,6 +208,15 @@ T*
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (target disk.) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(Installer validates identity before disk writes, locks root, writes filesystem UUIDs) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(and checks retained-file content even when size/timestamp match. These repairs passed) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(actual private installation tests; they do not certify physical USB fault behavior.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 () Tj
@@ -308,6 +317,28 @@ T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (Readiness checks do not certify interactive input, lock/logout or suspend/resume.) Tj
 T*
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 7 0 R >>
+endobj
+9 0 obj
+<< /Length 4978 >>
+stream
+0.065 0.075 0.09 rg 0 754 612 38 re f
+BT /F2 12 Tf 1 0.70 0.10 rg 54 769 Td (OOONANA / FIELD GUIDE) Tj ET
+BT /F1 9 Tf 0.36 0.39 0.44 rg 54 36 Td (Core 0.10.0 - 3 / 4) Tj ET
+BT
+/F1 9.5 Tf
+13 TL
+54 728 Td
+/F2 11 Tf 0.62 0.34 0.01 rg
+(WSL \(continued\)) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+() Tj
+T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (Same-base maintenance: ooonana update && ooonana upgrade. Cross-base migration) Tj
 T*
@@ -323,22 +354,6 @@ T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 () Tj
 T*
-ET
-endstream
-endobj
-8 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 7 0 R >>
-endobj
-9 0 obj
-<< /Length 5066 >>
-stream
-0.065 0.075 0.09 rg 0 754 612 38 re f
-BT /F2 12 Tf 1 0.70 0.10 rg 54 769 Td (OOONANA / FIELD GUIDE) Tj ET
-BT /F1 9 Tf 0.36 0.39 0.44 rg 54 36 Td (Core 0.10.0 - 3 / 4) Tj ET
-BT
-/F1 9.5 Tf
-13 TL
-54 728 Td
 /F2 11 Tf 0.62 0.34 0.01 rg
 (AI) Tj
 T*
@@ -430,13 +445,13 @@ T*
 (downloads browser/runtime only after explicit setup; setup/update refuse volatile live) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(storage by default. Disposable nonroot Flatpak install/update and separate Documents) Tj
+(storage by default. Disposable nonroot Flatpak install/update, first-run and file-) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(portal checks passed. Firefox first-run consent/file-picker journey remains pending;) Tj
+(picker journeys passed. Installed-session acceptance remains separate; Firefox is not) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Firefox is not preinstalled in fresh WSL.) Tj
+(preinstalled in fresh WSL.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (Ooonana OpenVINO Chat 0.2.1 has a browser GUI through an authenticated loopback) Tj
@@ -459,6 +474,28 @@ T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (wireless, audio, sensors and inference remain hardware checks; no sound was played.) Tj
 T*
+ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 9 0 R >>
+endobj
+11 0 obj
+<< /Length 3712 >>
+stream
+0.065 0.075 0.09 rg 0 754 612 38 re f
+BT /F2 12 Tf 1 0.70 0.10 rg 54 769 Td (OOONANA / FIELD GUIDE) Tj ET
+BT /F1 9 Tf 0.36 0.39 0.44 rg 54 36 Td (Core 0.10.0 - 4 / 4) Tj ET
+BT
+/F1 9.5 Tf
+13 TL
+54 728 Td
+/F2 11 Tf 0.62 0.34 0.01 rg
+(Desktop and hardware \(continued\)) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+() Tj
+T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (OpenVINO Linux dependencies use exact wheel hashes and a pinned Ubuntu image/APT) Tj
 T*
@@ -479,28 +516,6 @@ T*
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (Chromium PDF interaction remains a manual gate.) Tj
-T*
-ET
-endstream
-endobj
-10 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 9 0 R >>
-endobj
-11 0 obj
-<< /Length 3059 >>
-stream
-0.065 0.075 0.09 rg 0 754 612 38 re f
-BT /F2 12 Tf 1 0.70 0.10 rg 54 769 Td (OOONANA / FIELD GUIDE) Tj ET
-BT /F1 9 Tf 0.36 0.39 0.44 rg 54 36 Td (Core 0.10.0 - 4 / 4) Tj ET
-BT
-/F1 9.5 Tf
-13 TL
-54 728 Td
-/F2 11 Tf 0.62 0.34 0.01 rg
-(Bootable PDF \(continued\)) Tj
-T*
-/F1 9.5 Tf 0.13 0.15 0.18 rg
-() Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (RV64 JavaScript emulator clock is scaled down 16x for CPU progress. Guest time is) Tj
@@ -603,15 +618,15 @@ xref
 0000000141 00000 n 
 0000000209 00000 n 
 0000000284 00000 n 
-0000003993 00000 n 
-0000004129 00000 n 
-0000008884 00000 n 
-0000009020 00000 n 
-0000014138 00000 n 
-0000014275 00000 n 
-0000017387 00000 n 
+0000003907 00000 n 
+0000004043 00000 n 
+0000008802 00000 n 
+0000008938 00000 n 
+0000013968 00000 n 
+0000014105 00000 n 
+0000017870 00000 n 
 trailer
 << /Size 13 /Root 1 0 R >>
 startxref
-17525
+18008
 %%EOF
