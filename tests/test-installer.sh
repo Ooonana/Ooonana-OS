@@ -230,6 +230,26 @@ for account in root daemon root-alias; do
 done
 [[ "$(<"$tmp/identity-target.raw")" == 'inert QA target' ]] || fail 'identity validation changed target'
 
+boundary_user=abcdefghijklmnopqrstuvwxyzabcdef
+boundary_host="$(printf 'h%.0s' {1..63})"
+for option in user hostname hostname-dash; do
+  case "$option" in
+    user) bad_value="${boundary_user}g"; expected_error='bad user name' ;;
+    hostname) bad_value="${boundary_host}h"; expected_error='bad hostname' ;;
+    hostname-dash) option=hostname; bad_value=qa-; expected_error='bad hostname' ;;
+  esac
+  identity_failure="$(printf 'fixture-password\n' | PATH="$tmp/mutation-bin:$PATH" bash "$INSTALLER" \
+    --yes --target "$tmp/identity-target.raw" --source "$tmp/identity-source" \
+    --mount-point "$tmp/identity-mount" --user fixture --password-stdin "--$option" "$bad_value" 2>&1 || true)"
+  assert_contains "$identity_failure" "$expected_error"
+  assert_not_contains "$identity_failure" UNSAFE_MUTATION
+done
+boundary_preview="$(bash "$INSTALLER" --dry-run --yes --target "$tmp/boundary-target.raw" \
+  --source "$tmp/identity-source" --user "$boundary_user" --hostname "$boundary_host" --bootloader none)"
+assert_contains "$boundary_preview" "create user $boundary_user"
+assert_contains "$boundary_preview" "write hostname $boundary_host"
+[[ "$(<"$tmp/identity-target.raw")" == 'inert QA target' ]] || fail 'identity bounds changed target'
+
 sed '/^while \[\[ \$# -gt 0 \]\]/,$d' "$INSTALLER" >"$tmp/resume-copy.sh"
 cat >>"$tmp/resume-copy.sh" <<'CHECK'
 SOURCE="$1" MOUNT_POINT="$2" TARGET_MODE=partition FORMAT_ROOT=0 DRY_RUN=0

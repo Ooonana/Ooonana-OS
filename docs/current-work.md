@@ -2,6 +2,14 @@
 
 ## Items10–15 — November3
 
+Latest `/var/tmp` recheck removes810MiB of regenerable kernel build/shader
+caches while preserving final kernel/configuration hashes, source, models,
+keys, histories and checkpoints. Ooonana's3.2MiB temporary receipts remain.
+[Cleanup evidence](vartmp-cleanup-20261103.md). TRIM completes; Windows free-space
+recovery is not assumed. The remaining installer identity-limit draft now passes
+the Linux installer regression suite and ShellCheck. VM checks remain pending
+at the user's request; installed WSL updates/publication/ISO stay held.
+
 Console mascot truncation is repaired with a getty-escaped issue asset;
 canonical plain branding remains unchanged. Source/rootfs/package-byte checks
 and real candidate getty rendering at80/40 columns pass. Installed signed package

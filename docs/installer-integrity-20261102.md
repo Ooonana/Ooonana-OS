@@ -16,7 +16,10 @@ signing enrollment and ISO creation remain held. No sound or models are used.
   missing root shadow record or an inline empty passwd field. Duplicate root
   records refuse installation. Installer identity options are checked before
   target mutation; root aliases and system accounts cannot become the selected
-  desktop user. PAM rules and the user's normal authentication remain intact.
+  desktop user. Follow-up checks cap usernames at32 characters and single-label
+  hostnames at63, with no trailing hostname hyphen. Invalid values refuse before
+  target mutation; valid boundary lengths pass. PAM rules and the user's normal
+  authentication remain intact.
 - Retained-root copying uses rsync content checksums. Reproducible timestamps
   and equal file sizes do not prove that a prior interrupted copy is complete.
   Unrelated retained files remain in place.

@@ -265,11 +265,11 @@ install_kernel() {
 }
 
 valid_user() {
-  [[ "$1" != root && "$1" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]]
+  [[ "$1" != root && "${#1}" -le 32 && "$1" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]]
 }
 
 valid_hostname() {
-  [[ "$1" =~ ^[A-Za-z0-9][A-Za-z0-9-]*$ ]]
+  [[ "${#1}" -le 63 && "$1" =~ ^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?$ ]]
 }
 
 validate_identity_options() {
