@@ -15,12 +15,15 @@ Ooonana OS is a custom Linux distribution built from scratch around its own boot
 
 Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Linux, BusyBox, GRUB, i3, and other open-source components. Ooonana package factory currently imports selected Alpine package payloads into Ooonana `.pkg` repositories while native packages replace them over time.
 
-November3: core **0.10.0 candidate**, stable unpromoted. Items17–21 now authorize
+November3–4: core **0.10.0 candidate**, stable unpromoted. Items17–21 now authorize
 final UI review, candidate packages/CI/publication and Ooonana WSL sync. No ISO
 is built by the agent. OpenVINO overhaul and VM checks stay deferred; signing
 key stays local. Original code/artwork licensing remains undecided. Current
 [candidate receipt](docs/candidate-17-21-20261103.md) supersedes older dated
 hold statements below; historical checkpoints remain evidence of their own runs.
+
+Installed Ooonana nested desktop, November3:
+![Ooonana installed desktop: compact panel, left-side music and flat application dock](docs/assets/ooonana-desktop-20261103.png)
 
 Package archive writers now replace completed files atomically and preserve
 saved hardlinks/old archives after failed rebuilds or fetches. Combined catalog
@@ -101,11 +104,17 @@ the current custom-init image lacks that service, so physical suspend remains
 pending. [Item10.5 evidence and limits](docs/lock-session-review-20261029.md).
 Installed WSL, remote publication and ISO remain held.
 
-![Control Center, normal text, private Graphite QA session](docs/assets/ooonana-control-center-20261028.png)
+![Control Center, normal text, November3 private packaged Graphite QA session](docs/assets/ooonana-controls-20261103.png)
 
 This preview uses a private null audio device and an owned test parent
 window; backlight hardware is unavailable in the fixture. Full desktop capture
 below is an earlier checkpoint, not evidence of a fresh installed-session test.
+November3 exact-package sweep passes18 normal/scaled desktop cases. The matching
+[Paper200% capture](docs/assets/ooonana-controls-paper-scaled-20261103.png) shows
+the fixed footer and scrollable body on a760×600 display. Current Ooonana WSL
+packages are synchronized and the user confirms the nested desktop is visible.
+Live review also found the missing AT-SPI activation daemon; the full desktop
+profile now includes it explicitly, with an upgradeable i3 bundle revision.
 
 ![Candidate desktop with flat centered dock, Task View, left music and centered AI](docs/assets/ooonana-flat-pinned-dock-20261019.png)
 

@@ -13,7 +13,7 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
 endobj
 5 0 obj
-<< /Length 3571 >>
+<< /Length 3578 >>
 stream
 0.065 0.075 0.09 rg 0 754 612 38 re f
 BT /F2 12 Tf 1 0.70 0.10 rg 54 769 Td (OOONANA / FIELD GUIDE) Tj ET
@@ -53,7 +53,7 @@ T*
 (Ooonana OS 0.10.0 field guide) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Evidence refreshed 2026-11-03; core and installed WSL 0.10.0 candidate; stable) Tj
+(Evidence refreshed 2026-11-04; core and installed WSL 0.10.0 candidate; stable) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (unpromoted.) Tj
@@ -113,10 +113,10 @@ T*
 (line AI.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(full-i3: minimal plus i3, Xorg, Spotlight-style launcher, movable GTK apps, wallpaper,) Tj
+(full-i3: minimal plus i3, Xorg, searchable application launcher, movable GTK apps,) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(GUI installer, AI desktop app, and full WSL rootfs.) Tj
+(wallpaper, GUI installer, AI desktop app, and full WSL rootfs.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 () Tj
@@ -167,7 +167,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 5 0 R >>
 endobj
 7 0 obj
-<< /Length 4707 >>
+<< /Length 4717 >>
 stream
 0.065 0.075 0.09 rg 0 754 612 38 re f
 BT /F2 12 Tf 1 0.70 0.10 rg 54 769 Td (OOONANA / FIELD GUIDE) Tj ET
@@ -285,10 +285,10 @@ T*
 (reimport over an existing distro as a migration shortcut.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Current installed desktop: wsl.exe -d Ooonana --exec /usr/local/bin/start-ooonana-i3) Tj
+(Launch installed desktop:) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(--nested) Tj
+(wsl -d Ooonana -u ooonana -- /usr/local/bin/start-ooonana-i3 --nested) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (WSL GUI needs WSLg and Xephyr, or an X server with DISPLAY set. Nested mode keeps i3) Tj
@@ -300,13 +300,13 @@ T*
 (WSL-local adapter preserves the packaged launcher, waits up to 60 seconds for cold) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Xephyr startup, and selects X11/XCB. Fresh WSL uses its verified local signed snapshot) Tj
+(Xephyr startup, and selects X11/XCB. Installed WSL uses verified local signed) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(at /var/lib/ooonana/candidate-repo-0.10; no removable host drive mount is required.) Tj
+(generations under /usr/lib/ooonana/repo; no removable host drive mount is required.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Ubuntu and its C: disk stay unchanged.) Tj
+(Ubuntu remains the build host; no distro disk is moved.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (No AI model weights were downloaded into fresh WSL. OpenVINO app is installed;) Tj
@@ -324,7 +324,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 7 0 R >>
 endobj
 9 0 obj
-<< /Length 4978 >>
+<< /Length 4963 >>
 stream
 0.065 0.075 0.09 rg 0 754 612 38 re f
 BT /F2 12 Tf 1 0.70 0.10 rg 54 769 Td (OOONANA / FIELD GUIDE) Tj ET
@@ -364,10 +364,13 @@ T*
 (Intel OpenVINO, ask/chat, tools, tasks, audit, history, status, and a native GUI.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(The full-i3 desktop includes a ChatGPT-style AI workspace, Settings, Wi-Fi, Bluetooth,) Tj
+(The full-i3 desktop includes a native AI workspace, Settings, Wi-Fi, Bluetooth,) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Packages, and Spotlight-style application launcher.) Tj
+(Packages and searchable application launcher. OpenVINO overhaul and new runtime/model) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(validation remain deferred.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (Pinned Linux runtime, real Korean/English tokenizer, strict RAM refusal, native CPU) Tj
@@ -397,13 +400,16 @@ T*
 (Desktop and hardware) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(The i3 desktop uses solid graphite and orange styling, rounded controls, a top) Tj
+(The desktop uses opaque Graphite/Paper surfaces, amber accents and restrained) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(music/window bar, and a centered opaque dock with running dots, click-to-restore apps,) Tj
+(rounding. Top panel carries system/service status and left-side music. Flat centered) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(and right-click window actions.) Tj
+(dock groups all application windows, with pins, running indicators, exact restore and) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(right-click actions.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (Core 0.10.0 retains matching native icons, focus-neutral dock previews, responsive) Tj
@@ -418,13 +424,13 @@ T*
 (toggles fullscreen.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(All eleven isolated GUI probes passed. Geany file-picker focus, cancel and file) Tj
+(Eighteen exact-package normal/scaled desktop cases pass. Geany file-picker focus,) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(opening passed at 1280x800 and 1024x768; initial dialogs are bounded and centered.) Tj
+(cancel and file opening passed privately at 1280x800 and 1024x768; initial dialogs are) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Physical/mixed-DPI/session behavior is not certified by Xvfb.) Tj
+(bounded and centered. Physical/mixed-DPI/session behavior is not certified by Xvfb.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (Ctrl+Shift+Esc opens native Task Manager with processes, performance, and available) Tj
@@ -468,12 +474,6 @@ T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (full-i3.) Tj
 T*
-/F1 9.5 Tf 0.13 0.15 0.18 rg
-(Installed password-login handoff passed diskless VM tests as UID 1000. Physical Xorg,) Tj
-T*
-/F1 9.5 Tf 0.13 0.15 0.18 rg
-(wireless, audio, sensors and inference remain hardware checks; no sound was played.) Tj
-T*
 ET
 endstream
 endobj
@@ -481,7 +481,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 9 0 R >>
 endobj
 11 0 obj
-<< /Length 3712 >>
+<< /Length 4020 >>
 stream
 0.065 0.075 0.09 rg 0 754 612 38 re f
 BT /F2 12 Tf 1 0.70 0.10 rg 54 769 Td (OOONANA / FIELD GUIDE) Tj ET
@@ -495,6 +495,15 @@ BT
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 () Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(Disposable VM installation, password login and sudo passed as UID 1000. Physical Xorg,) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(wireless, audio, sensors and inference remain separate checks. No audible testing is) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(performed automatically.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (OpenVINO Linux dependencies use exact wheel hashes and a pinned Ubuntu image/APT) Tj
@@ -618,15 +627,15 @@ xref
 0000000141 00000 n 
 0000000209 00000 n 
 0000000284 00000 n 
-0000003907 00000 n 
-0000004043 00000 n 
-0000008802 00000 n 
-0000008938 00000 n 
-0000013968 00000 n 
-0000014105 00000 n 
-0000017870 00000 n 
+0000003914 00000 n 
+0000004050 00000 n 
+0000008819 00000 n 
+0000008955 00000 n 
+0000013970 00000 n 
+0000014107 00000 n 
+0000018180 00000 n 
 trailer
 << /Size 13 /Root 1 0 R >>
 startxref
-18008
+18318
 %%EOF
