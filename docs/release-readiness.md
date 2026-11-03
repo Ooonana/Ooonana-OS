@@ -32,7 +32,7 @@ the actual cases exercised; physical hardware and final-image claims stay open.
 | 14 Controls | Private wireless/audio/brightness/media cases passed | Physical credentials/reconnect/pairing/routing/brightness permissions; no audible testing |
 | 15 Installer / boot | Private actual checksum installation/reinstallation, BIOS/UEFI/login/sudo/storage and recovery proofs retained | Broader system/kernel upgrade timings, actual physical installation/persistence/power transitions |
 | 16 Bootable PDF | Runtime/source tests retained | Actual Chromium viewer boot, keyboard/Backspace/focus and measured command latency |
-| 17 Bounded UI acceptance |18 exact-package normal/scaled cases; actual installed Settings, Geany, Files and exact minimize/fullscreen/close restoration passed | Physical/mixed-display acceptance and remaining integration gates in11–16 |
+| 17 Bounded UI acceptance |18 exact-package normal/scaled cases; actual installed Settings, Geany, Files and exact minimize/fullscreen/close restoration passed | Nemo folder metadata/optional helper integration; physical/mixed-display acceptance and remaining gates in11–16 |
 | 18 Source / CI / packages | Source freeze2fed28d; both CIs passed; signed712-package/631-node generation verified | Stable promotion remains separate |
 | 19 Candidate / WSL | Signed generation72702203 published on F: and installed Ooonana; native updates, IME, accessibility activation and package verification passed | Public stable update channel remains held |
 | 20 Documentation / cleanup | README/screenshots, four-page field guide, receipts and this list refreshed; disposable index scratch cleaned | Final image/release-specific evidence after user build |
