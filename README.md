@@ -25,6 +25,12 @@ hold statements below; historical checkpoints remain evidence of their own runs.
 Installed Ooonana nested desktop, November3:
 ![Ooonana installed desktop: compact panel, left-side music and flat application dock](docs/assets/ooonana-desktop-20261103.png)
 
+November4: signed candidate catalog **712 packages /631 dependency nodes** now
+matches installed Ooonana WSL. Missing accessibility activation is repaired;
+real Settings/Geany/Files window-control checks pass. Public asset exclusion
+passes; licensing and stable promotion remain pending.
+[Current11–25 checklist](docs/release-readiness.md).
+
 Package archive writers now replace completed files atomically and preserve
 saved hardlinks/old archives after failed rebuilds or fetches. Combined catalog
 includes the existing Korean-input packages. Confirmed Linux cache/duplicate

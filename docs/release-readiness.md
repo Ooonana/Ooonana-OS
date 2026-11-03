@@ -1,6 +1,6 @@
 # Core 0.10.0 candidate: remaining acceptance gates
 
-Updated November 3, 2026. Stable has not been promoted. This checklist replaces
+Updated November 4, 2026. Stable has not been promoted. This checklist replaces
 the repeated 25-item draft; detailed historical receipts remain in
 [current work](current-work.md) and [UI review](ui-whole-os-review.md).
 
@@ -17,6 +17,33 @@ documentation/cleanup and public-asset exclusion checks. Stable promotion, ISO
 creation and previously deferred VM checks remain held. Keep the private signing
 key local. OpenVINO's overhaul remains deferred. No audible testing. Original
 code/artwork licensing remains undecided by explicit user choice.
+
+## Current status — original numbering11–25
+
+This table supersedes older publication holds and catalog counts below.
+Completed private checks remain completed. Installed acceptance is bounded to
+the actual cases exercised; physical hardware and final-image claims stay open.
+
+| Item | Current result | Still required |
+| --- | --- | --- |
+| 11 Tasks / AI | Task sampling, sorting/filtering and termination checks passed | Physical metrics; authorized live cloud streaming/cancel/recovery |
+| 12 Input / displays | Private GTK/Qt/Firefox input passed; user confirmed WSLg Hangul/paste and mouse/keyboard/Backspace | Mixed DPI, monitors/hotplug and broader installed accessibility/input sweep |
+| 13 Session /10.5 | Real private PAM/expiry/rotation/locker tests passed | Installed sign-in/wake/logout; login1/seat integration and physical suspend/resume; graphical greeter absent |
+| 14 Controls | Private wireless/audio/brightness/media cases passed | Physical credentials/reconnect/pairing/routing/brightness permissions; no audible testing |
+| 15 Installer / boot | Private actual checksum installation/reinstallation, BIOS/UEFI/login/sudo/storage and recovery proofs retained | Broader system/kernel upgrade timings, actual physical installation/persistence/power transitions |
+| 16 Bootable PDF | Runtime/source tests retained | Actual Chromium viewer boot, keyboard/Backspace/focus and measured command latency |
+| 17 Bounded UI acceptance |18 exact-package normal/scaled cases; actual installed Settings, Geany, Files and exact minimize/fullscreen/close restoration passed | Physical/mixed-display acceptance and remaining integration gates in11–16 |
+| 18 Source / CI / packages | Source freeze2fed28d; both CIs passed; signed712-package/631-node generation verified | Stable promotion remains separate |
+| 19 Candidate / WSL | Signed generation72702203 published on F: and installed Ooonana; native updates, IME, accessibility activation and package verification passed | Public stable update channel remains held |
+| 20 Documentation / cleanup | README/screenshots, four-page field guide, receipts and this list refreshed; disposable index scratch cleaned | Final image/release-specific evidence after user build |
+| 21 Assets | Published702 archives/75,774 entries checked; personal cursor/private-key exclusion passed | Original code/artwork license decision and broader redistribution clearance remain pending |
+| 22 Final ISO | Build sources and signed catalog ready | User fresh build; image/checksum/BIOS/UEFI/service/GUI checks |
+| 23 Hardware | Private fixtures retained | Physical radios/GPU/RAM/zram/swap/thermals/fans/displays |
+| 24 Disposable USB | Private installed fixture recovery/rollback/ENOSPC proofs retained | Physical reboot/full-storage/power-loss/recovery/interrupted upgrade tests; reverify disposable target identity |
+| 25 Stable promotion | Private signing key remains local | Trust enrollment and stable channel/tag approval |
+
+OpenVINO remains deferred. No ISO built or stable channel promoted by this pass.
+[Exact candidate receipt, screenshots and CI links](candidate-17-21-20261103.md).
 
 ## Completed source/private work: retain these passes
 
@@ -165,7 +192,11 @@ or acceptance of installed Ooonana WSL. Remaining work below is retained.
     permission states, keyboard focus and reduced motion. Repeat a passed gate
     only for changed code, new failures or unresolved evidence gaps.
 
-## Release gates: held or manual
+## Earlier release-gate breakdown
+
+The November4 table above supersedes the earlier source/publication holds in
+this historical breakdown. It does not waive physical, final-image, licensing
+or stable-promotion gates.
 
 1. Approve source freeze; commit/push the final candidate, pass both remote CIs
    and build the matching signed generation with verified provenance/closure.

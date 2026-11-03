@@ -1,4 +1,23 @@
-# Current work - 2026-11-03
+# Current work - 2026-11-04
+
+## Items17–21 — November4
+
+Candidate source checkpoint2fed28d passes GitHub and GitLab CI. Signed generation
+72702203da0095322dbdbfa93ae02bbc31470e8765c28c9c49a1ce221f760374 contains
+712 packages/631 dependency nodes and is published on F: and in installed
+Ooonana WSL. Existing Flatpak/Nano/Node.js profile extensions are retained.
+Missing AT-SPI activation daemon is explicitly included; real installed-session
+activation and native package verification pass. Configuration, PAM/trust and
+OpenVINO hashes remain preserved. No new model download, ISO or stable promotion.
+
+Eighteen exact-package desktop cases retain their passes. Actual installed
+Settings/Geany/Files launch, exact minimized restore, fullscreen/restore, close
+and workspace return pass; captures reviewed with Impeccable4.8.0 guidance.
+README/captures, four-page guide and original11–25 checklist are refreshed.
+Public generation excludes personal cursor binaries/private keys; licensing
+decision remains pending. Disposable metadata-only index scratch was unmounted
+and removed; history/recovery generations remain.
+[Evidence and precise remaining gates](candidate-17-21-20261103.md).
 
 ## Items10–15 — November3
 
