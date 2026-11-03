@@ -15,6 +15,12 @@ Ooonana OS is a custom Linux distribution built from scratch around its own boot
 
 Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Linux, BusyBox, GRUB, i3, and other open-source components. Ooonana package factory currently imports selected Alpine package payloads into Ooonana `.pkg` repositories while native packages replace them over time.
 
+November2–3 repairs retained-install filesystem identities, missing root-lock
+records and incomplete copies hidden by reproducible timestamps. Actual private
+BIOS/UEFI login, sudo, EFI/swap and clean shutdown now pass. The console mascot
+also renders correctly through real getty at80/40 columns.
+[Evidence and remaining integration gates](docs/installer-integrity-20261102.md).
+
 November1 repairs missing installer disk tools and preflights them before writes.
 Installed boot mounts configured storage and blocks login on mount failure.
 Manual WSLg input observations and

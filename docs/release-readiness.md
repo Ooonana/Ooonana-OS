@@ -1,6 +1,6 @@
 # Core 0.10.0 candidate: remaining acceptance gates
 
-Updated November 1, 2026. Stable has not been promoted. This checklist replaces
+Updated November 3, 2026. Stable has not been promoted. This checklist replaces
 the repeated 25-item draft; detailed historical receipts remain in
 [current work](current-work.md) and [UI review](ui-whole-os-review.md).
 
@@ -59,7 +59,8 @@ dependency nodes. Installed panel/session verification remains below.
 
 ## Remaining UI/integration work, in order
 
-Latest items10–15 follow-up: [disk-tool repair and WSLg/VM checks](ui-10-15-recheck-20261031.md).
+Latest items10–15 follow-up: [installed integrity repair](installer-integrity-20261102.md)
+and [disk-tool repair and WSLg/VM checks](ui-10-15-recheck-20261031.md).
 Private live Task Manager, GTK/Qt Korean input and full installer GUI lifecycle
 are no longer open source/probe tasks. Installed/physical acceptance remains.
 The unpublished catalog now has705 packages/624 nodes; earlier654/612 counts above and

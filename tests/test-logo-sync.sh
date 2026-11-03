@@ -45,6 +45,9 @@ done
 scratch_builder="$ROOT/scripts/build-scratch-rootfs.sh"
 scratch_src="$(<"$scratch_builder")"
 assert_contains "$scratch_src" 'cp "$ROOTFS/usr/share/ooonana/logo.txt" "$ROOTFS/etc/motd"'
-assert_contains "$scratch_src" 'cp "$ROOTFS/usr/share/ooonana/logo.txt" "$ROOTFS/etc/issue"'
+
+# BusyBox getty expands backslashes and percent escapes; MOTD is plain text.
+expected_issue="$(sed -e 's/\\/\\\\/g' -e 's/%/%%/g' "$ROOT/docs/logo.txt")"
+[[ "$(<"$ROOT/packages/ooonana/etc/issue")" == "$expected_issue" ]] || fail 'getty issue does not preserve canonical logo'
 
 printf 'ok logo-sync\n'

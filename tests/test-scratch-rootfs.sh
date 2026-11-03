@@ -153,7 +153,7 @@ assert_contains "$rcs" "ooonana.smoke=1"
 assert_contains "$rcs" "reboot -f"
 assert_not_contains "$rcs" "poweroff -f"
 diff -u "$rootfs/usr/share/ooonana/logo.txt" "$rootfs/etc/motd" || fail "motd logo mismatch"
-diff -u "$rootfs/usr/share/ooonana/logo.txt" "$rootfs/etc/issue" || fail "issue logo mismatch"
+diff -u "$ROOT/packages/ooonana/etc/issue" "$rootfs/etc/issue" || fail "getty issue mismatch"
 
 real_busybox="/usr/lib/initramfs-tools/bin/busybox"
 if [[ -x "$real_busybox" ]] && ldd "$real_busybox" 2>/dev/null | grep -q 'ld-linux'; then

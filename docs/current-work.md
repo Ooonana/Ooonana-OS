@@ -1,4 +1,32 @@
-# Current work - 2026-11-01
+# Current work - 2026-11-03
+
+## Items10–15 — November3
+
+Console mascot truncation is repaired with a getty-escaped issue asset;
+canonical plain branding remains unchanged. Source/rootfs/package-byte checks
+and real candidate getty rendering at80/40 columns pass. Installed signed package
+health rollback, config preservation, prepared-checkpoint power loss/recovery
+and bounded ext4 ENOSPC rollback now pass. Read-only QA media avoids the native
+HTTP-forwarding resource pressure; signature enforcement remains. Fixture CRLF, storage-reserve abort and
+bounded firmware-start failures are retained separately from passed tests.
+No installed Ooonana WSL update, remote push, publication or ISO build occurred.
+Broader kernel/bootloader upgrades, session providers and physical gates remain.
+
+## Items10–15 — November2
+
+Both WSL distros were inspected, confirmed caches cleaned, trimmed and compacted.
+History, models, keys and checkpoints remain. Work resumes under disk/RAM
+reserve guards; installed Ooonana WSL release updates remain held.
+[Cleanup and optimization](wsl-cleanup-optimization-20261102.md).
+
+Actual full private installation exposed device-name fstab entries, an absent
+root shadow record and retained zero-filled PAM policy files skipped by rsync's
+size/mtime comparison. UUID publication, explicit root locking, early identity
+validation and checksum-based retained copying are repaired and source-tested.
+Actual checksum reinstall, BIOS/UEFI boot, wrong-password rejection, nonroot
+login, sudo, EFI/swap activation and clean shutdown now pass in the disposable
+native VM. Installed upgrade/recovery and session-provider acceptance remain.
+[Evidence and precise remaining gates](installer-integrity-20261102.md).
 
 ## Items10–15 — October31–November1
 

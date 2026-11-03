@@ -265,11 +265,30 @@ install_kernel() {
 }
 
 valid_user() {
-  [[ "$1" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]]
+  [[ "$1" != root && "$1" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]]
 }
 
 valid_hostname() {
   [[ "$1" =~ ^[A-Za-z0-9][A-Za-z0-9-]*$ ]]
+}
+
+validate_identity_options() {
+  local uid
+  if [[ -n "$USER_NAME" ]]; then
+    valid_user "$USER_NAME" || die "bad user name: $USER_NAME"
+    if [[ -r "$SOURCE/etc/passwd" ]]; then
+      uid="$(awk -F: -v user="$USER_NAME" '$1 == user { print $3 }' "$SOURCE/etc/passwd")" || return 1
+      if [[ -n "$uid" ]]; then
+        [[ "$uid" =~ ^[1-9][0-9]{3,4}$ ]] && (( 10#$uid < 60000 )) ||
+          die "reserved or invalid install user: $USER_NAME"
+      fi
+    fi
+  fi
+  [[ -z "$HOSTNAME_VALUE" ]] || valid_hostname "$HOSTNAME_VALUE" || die "bad hostname: $HOSTNAME_VALUE"
+  case "$THEME" in
+    ''|dark|light) ;;
+    *) die 'theme must be dark or light' ;;
+  esac
 }
 
 valid_repo_uri() {
@@ -474,38 +493,66 @@ fstab_device() {
   local formatted_label="$1"
   local keep_path="$2"
   local format_flag="$3"
-  if [[ "$format_flag" -eq 1 ]]; then
-    printf 'LABEL=%s\n' "$formatted_label"
-  else
-    printf '%s\n' "$keep_path"
+  local uuid
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    if [[ "$format_flag" -eq 1 ]]; then
+      printf 'LABEL=%s\n' "$formatted_label"
+    else
+      printf '%s\n' "$keep_path"
+    fi
+    return 0
   fi
+  # Probe the selected filesystem directly; cached identities can predate mkfs.
+  uuid="$(blkid -p -s UUID -o value -- "$keep_path" 2>/dev/null)" || {
+    printf 'ooonana-install: cannot read filesystem UUID: %s\n' "$keep_path" >&2
+    return 1
+  }
+  if [[ ! "$uuid" =~ ^[[:xdigit:]]{8}-[[:xdigit:]]{4}-[[:xdigit:]]{4}-[[:xdigit:]]{4}-[[:xdigit:]]{12}$ &&
+        ! "$uuid" =~ ^[[:xdigit:]]{4}-[[:xdigit:]]{4}$ ]]; then
+    printf 'ooonana-install: missing or invalid filesystem UUID: %s\n' "$keep_path" >&2
+    return 1
+  fi
+  printf 'UUID=%s\n' "$uuid"
 }
 
 build_fstab() {
-  if [[ "$FORMAT_ROOT" -eq 1 ]]; then
-    printf 'LABEL=OOONANA_ROOT / ext4 defaults 0 1\n'
-  else
-    printf '%s / ext4 defaults 0 1\n' "$TARGET_PART"
-  fi
+  local root_spec home_spec="" efi_spec="" swap_spec=""
+  # Resolve first and propagate failures even when called in a conditional.
+  root_spec="$(fstab_device OOONANA_ROOT "$TARGET_PART" "$FORMAT_ROOT")" || return 1
   if [[ -n "$HOME_PART" ]]; then
-    printf '%s /home ext4 defaults 0 2\n' "$(fstab_device OOONANA_HOME "$HOME_PART" "$FORMAT_HOME")"
+    home_spec="$(fstab_device OOONANA_HOME "$HOME_PART" "$FORMAT_HOME")" || return 1
   fi
   if [[ -n "$EFI_PART" ]]; then
-    printf '%s /boot/efi vfat umask=0077 0 1\n' "$(fstab_device OOONANA_EFI "$EFI_PART" "$FORMAT_EFI")"
+    efi_spec="$(fstab_device OOONANA_EFI "$EFI_PART" "$FORMAT_EFI")" || return 1
   fi
   if [[ -n "$SWAP_PART" ]]; then
-    printf '%s none swap sw 0 0\n' "$(fstab_device OOONANA_SWAP "$SWAP_PART" "$FORMAT_SWAP")"
+    swap_spec="$(fstab_device OOONANA_SWAP "$SWAP_PART" "$FORMAT_SWAP")" || return 1
   fi
-  printf 'proc /proc proc defaults 0 0\n'
+  local -a entries=("$root_spec / ext4 defaults 0 1")
+  [[ -z "$home_spec" ]] || entries+=("$home_spec /home ext4 defaults 0 2")
+  [[ -z "$efi_spec" ]] || entries+=("$efi_spec /boot/efi vfat umask=0077 0 1")
+  [[ -z "$swap_spec" ]] || entries+=("$swap_spec none swap sw 0 0")
+  entries+=('proc /proc proc defaults 0 0')
+  printf '%s\n' "${entries[@]}"
 }
 
 write_fstab() {
   local root="$1"
+  local pending
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf 'fstab:\n'
     build_fstab
   else
-    build_fstab > "$root/etc/fstab"
+    [[ ! -d "$root/etc/fstab" ]] || die 'fstab target is a directory'
+    pending="$(mktemp "$root/etc/.fstab.ooonana.XXXXXX")" || return 1
+    if ! build_fstab > "$pending"; then
+      rm -f -- "$pending"
+      return 1
+    fi
+    if ! chmod 0644 "$pending" || ! mv -fT -- "$pending" "$root/etc/fstab"; then
+      rm -f -- "$pending"
+      return 1
+    fi
   fi
 }
 
@@ -655,6 +702,52 @@ EOF
   printf 'cloud repo: %s\n' "$CLOUD_REPO"
 }
 
+lock_installed_root() {
+  local root="$1" passwd_file="$1/etc/passwd" shadow_file="$1/etc/shadow"
+  local passwd_pending shadow_pending day
+  [[ -f "$passwd_file" && ! -L "$passwd_file" && -f "$shadow_file" && ! -L "$shadow_file" ]] ||
+    die 'installed account files missing or symlinked'
+  awk -F: '$1 == "root" { count++; if ($3 != 0) bad=1 } END { exit (count != 1 || bad) }' "$passwd_file" ||
+    die 'installed passwd requires one root UID 0 record'
+  day="$(($(date +%s) / 86400))"
+  passwd_pending="$(mktemp "$root/etc/.passwd.install.XXXXXX")" || return 1
+  shadow_pending="$(mktemp "$root/etc/.shadow.install.XXXXXX")" || { rm -f -- "$passwd_pending"; return 1; }
+  # Canonicalize passwd as well: an inline empty password must not bypass shadow.
+  if ! awk -F: 'BEGIN { OFS=FS } $1 == "root" { $2="x" } { print }' "$passwd_file" >"$passwd_pending" ||
+     ! awk -F: -v day="$day" 'BEGIN { OFS=FS }
+       $1 == "root" { count++; $2="!" }
+       { print }
+       END { if (count > 1) exit 1; if (!count) print "root:!:" day ":0:99999:7:::" }
+     ' "$shadow_file" >"$shadow_pending" ||
+     ! chmod 0644 "$passwd_pending" || ! chmod 0600 "$shadow_pending"; then
+    rm -f -- "$passwd_pending" "$shadow_pending"
+    return 1
+  fi
+  if ! mv -fT -- "$shadow_pending" "$shadow_file" || ! mv -fT -- "$passwd_pending" "$passwd_file"; then
+    rm -f -- "$passwd_pending" "$shadow_pending"
+    return 1
+  fi
+}
+
+copy_rootfs() {
+  local -a arguments=(-aHAX --numeric-ids)
+  # Reproducible builds share timestamps. Resumed/kept files need content checks,
+  # including interrupted copies whose size and timestamp already look complete.
+  if [[ "$TARGET_MODE" == partition && "$FORMAT_ROOT" -eq 0 ]]; then
+    arguments+=(--checksum)
+  fi
+  run_cmd rsync "${arguments[@]}" \
+    --exclude '/dev/*' \
+    --exclude '/proc/*' \
+    --exclude '/sys/*' \
+    --exclude '/run/*' \
+    --exclude '/tmp/*' \
+    --exclude '/mnt/*' \
+    --exclude '/media/*' \
+    --exclude '/lost+found' \
+    "$SOURCE"/ "$MOUNT_POINT"/
+}
+
 apply_install_config() {
   local root="$1"
   create_user "$root"
@@ -691,9 +784,7 @@ SESSION
     chmod 4755 "$root/usr/libexec/Xorg.wrap"
   fi
   # Disable root password login. User can authorize administration through sudo.
-  awk -F: 'BEGIN { OFS=FS } $1=="root" { $2="!" } { print }' "$root/etc/shadow" >"$root/etc/shadow.login.$$"
-  mv "$root/etc/shadow.login.$$" "$root/etc/shadow"
-  chmod 0600 "$root/etc/shadow"
+  lock_installed_root "$root"
   printf 'installed login: password required; live admin policy removed\n'
 }
 
@@ -717,7 +808,7 @@ swap_start_boundary() {
 }
 
 validate_install_commands() {
-  require_commands mount umount mountpoint rsync install
+  require_commands mount umount mountpoint rsync install blkid mktemp chmod mv rm
   if [[ "$TARGET_MODE" == disk ]]; then
     require_commands parted mkfs.ext4 mkfs.vfat grub-install blkid
     [[ ! -f "$TARGET" ]] || require_commands losetup
@@ -918,6 +1009,7 @@ case "$BOOTLOADER" in
   *) die "bootloader must be auto, grub, or none" ;;
 esac
 [[ -z "$CLOUD_REPO" ]] || valid_repo_uri "$CLOUD_REPO" || die "bad cloud repo URI: $CLOUD_REPO"
+validate_identity_options
 if [[ "$PASSWORD_STDIN" -eq 1 && "$DRY_RUN" -eq 0 ]]; then
   IFS= read -r PASSWORD_VALUE || true
 fi
@@ -948,16 +1040,7 @@ cleanup() {
 trap cleanup EXIT
 
 prepare_target
-run_cmd rsync -aHAX --numeric-ids \
-  --exclude '/dev/*' \
-  --exclude '/proc/*' \
-  --exclude '/sys/*' \
-  --exclude '/run/*' \
-  --exclude '/tmp/*' \
-  --exclude '/mnt/*' \
-  --exclude '/media/*' \
-  --exclude '/lost+found' \
-  "$SOURCE"/ "$MOUNT_POINT"/
+copy_rootfs
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
   [[ -z "$USER_NAME" ]] || printf 'create user %s\n' "$USER_NAME"
@@ -966,16 +1049,16 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   [[ -z "$CLOUD_REPO" ]] || printf 'write cloud repo %s\n' "$CLOUD_REPO"
   [[ "$PASSWORD_STDIN" -eq 0 ]] || printf 'read password from stdin\n'
   install_bootloader
+  write_fstab "$MOUNT_POINT"
   print_cmd mkdir -p "$MOUNT_POINT/var/lib/ooonana"
   print_cmd sh -c "printf 'installed\n' > '$MOUNT_POINT/var/lib/ooonana/install-ok'"
-  write_fstab "$MOUNT_POINT"
   unmount_targets
 else
   apply_install_config "$MOUNT_POINT"
   install_bootloader
+  write_fstab "$MOUNT_POINT"
   mkdir -p "$MOUNT_POINT/var/lib/ooonana"
   printf 'installed\n' > "$MOUNT_POINT/var/lib/ooonana/install-ok"
-  write_fstab "$MOUNT_POINT"
   unmount_targets
 fi
 

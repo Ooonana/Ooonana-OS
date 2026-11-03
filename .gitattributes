@@ -1,5 +1,6 @@
 *.sh text eol=lf
 packages/ooonana/etc/environment text eol=lf
+packages/ooonana/etc/issue text eol=lf
 *.desktop text eol=lf
 *.ini text eol=lf
 packages/ooonana/etc/xdg-desktop-portal/*.conf text eol=lf

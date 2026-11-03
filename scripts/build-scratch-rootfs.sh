@@ -366,7 +366,7 @@ appendWindowsPath=false
 EOF
   if [[ -f "$ROOTFS/usr/share/ooonana/logo.txt" ]]; then
     cp "$ROOTFS/usr/share/ooonana/logo.txt" "$ROOTFS/etc/motd"
-    cp "$ROOTFS/usr/share/ooonana/logo.txt" "$ROOTFS/etc/issue"
+    # /etc/issue comes from the overlay, escaped for BusyBox getty expansion.
   fi
 }
 
