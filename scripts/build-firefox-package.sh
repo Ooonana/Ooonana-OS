@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT/scripts/lib/common.sh"
 OUT_DIR=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -17,8 +18,8 @@ find "$stage" -type d -exec chmod 0755 {} +
 find "$stage" -type f -exec chmod 0644 {} +
 chmod 0755 "$stage/usr/bin/ooonana-firefox" "$stage/usr/bin/firefox"
 archive="archives/firefox-1.0.2.tar.gz"
-tar --sort=name --mtime='UTC 1970-01-01' --numeric-owner --owner=0 --group=0 \
-  --pax-option=delete=atime,delete=ctime -C "$stage" -cf - . | gzip -n > "$OUT_DIR/$archive"
+ooonana_tar_gzip_atomic "$OUT_DIR/$archive" --sort=name --mtime='UTC 1970-01-01' --numeric-owner --owner=0 --group=0 \
+  --pax-option=delete=atime,delete=ctime -C "$stage" -cf - .
 checksum="$(sha256sum "$OUT_DIR/$archive" | awk '{print $1}')"
 cat > "$OUT_DIR/firefox.pkg" <<EOF
 OOONANA_PKG_ID="firefox"

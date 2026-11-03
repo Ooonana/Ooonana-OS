@@ -141,8 +141,8 @@ mkdir -p "$staging/var/lib/ooonana/packages/files"
 mkdir -p "$staging/var/tmp"
 chmod 1777 "$staging/var/tmp"
 : > "$staging/var/lib/ooonana/packages/files/ooonana-core.list"
-tar --sort=name --mtime="@${SOURCE_DATE_EPOCH:-0}" --numeric-owner --owner=0 --group=0 \
-  --pax-option=delete=atime,delete=ctime -C "$staging" -cf - . | gzip -n >"$archive"
+ooonana_tar_gzip_atomic "$archive" --sort=name --mtime="@${SOURCE_DATE_EPOCH:-0}" --numeric-owner --owner=0 --group=0 \
+  --pax-option=delete=atime,delete=ctime -C "$staging" -cf - .
 archive_sha="$(sha256sum "$archive" | awk '{print $1}')"
 mkdir -p "$OUT_DIR/hooks"
 cat >"$OUT_DIR/hooks/$runtime_id.healthcheck" <<'CHECK'

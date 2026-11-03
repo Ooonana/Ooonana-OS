@@ -37,3 +37,34 @@ was performed.
 This measures space reclaimed inside Linux, not equal immediate Windows VHD
 recovery. Runtime VM checks remain pending as requested. Resumed installer
 source checks and ShellCheck pass, including the unfinished identity-limit fix.
+
+## Deeper archive comparison
+
+A subsequent content/metadata scan found620 redundant package archive copies
+across three historical QA repositories. Each pair had identical SHA256, size,
+permissions, owner/group and nanosecond modification time; neither entry had
+extended attributes. Same-filesystem hardlinks now share their storage. Every
+archive path and payload remains, and all payload hashes and retained metadata
+were verified afterwards. Inodes/link counts and change times necessarily change.
+Active process, open-file, mount and owning-directory references were checked
+before replacement; source, metadata, signatures and checkpoints were not deleted.
+
+Additional allocation reclaimed:973,635,584 bytes, about928.5MiB. Measured Linux
+free space increased973,553,664 bytes. Combined with the earlier cache cleanup,
+about1.70GiB was reclaimed inside Linux. Ubuntu `/var/tmp` measured21,987,392KiB,
+about21.0GiB, after deduplication. This does not establish equivalent Windows
+VHD shrinkage. Private evidence: `archive-dedup-plan.json` and
+`archive-dedup-receipt.json` in the controller directory above.
+
+The remaining directory is not all required by a normal build. It contains
+retained rootfs/repository snapshots, Firefox QA profiles, kernel source and final
+outputs, PDF toolchains, recovery images and deferred OpenVINO runtime generations.
+Those are historical/build/recovery inputs, not proven disposable caches. User
+instructions preserve history, models, keys and substantive checkpoints. No further
+exact-content-and-metadata duplicate archive groups were found in the scanned
+large package repositories. This is not a claim that every remaining file is needed.
+
+The scan also exposed in-place archive writes in package builders, which can
+damage a shared snapshot or an older archive after a failed rebuild. The
+[archive publication repair](package-archive-atomicity-20261103.md) addresses
+this independently of cleanup. Production publication remains held.

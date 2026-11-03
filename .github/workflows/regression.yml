@@ -97,4 +97,7 @@ jobs:
           python3 -B tests/test-chart-layout.py
           python3 -B tests/test-health-summary.py
           python3 -B tests/test-update-interruption.py
+          bash tests/test-atomic-package-archive.sh
+          bash tests/test-import-apk-package.sh
+          bash tests/test-i3-package-set.sh
           bash tests/test-package-factory.sh

@@ -185,4 +185,14 @@ assert_contains "$(<"$pam_out/linux-pam.pkg")" 'OOONANA_PKG_VERSION="1.0-r0.ooon
 rm "$pam_repo/linux-pam-1.0-r0.apk"
 bash "$SCRIPT" --repo-url "file://$pam_repo" --out-dir "$pam_out" --no-index linux-pam
 
+# Failed refresh must retain the previous usable archive and its metadata.
+sed -i 's/1.0-r0.ooonana1/1.0-r0/' "$pam_out/linux-pam.pkg"
+pam_archive_sha="$(sha256sum "$pam_out/archives/linux-pam-1.0-r0.tar.gz")"
+pam_metadata_sha="$(sha256sum "$pam_out/linux-pam.pkg")"
+if bash "$SCRIPT" --repo-url "file://$pam_repo" --out-dir "$pam_out" --no-index linux-pam >"$tmp/failed-refresh.log" 2>&1; then
+  fail 'missing source accepted during archive refresh'
+fi
+[[ "$(sha256sum "$pam_out/archives/linux-pam-1.0-r0.tar.gz")" == "$pam_archive_sha" ]] || fail 'failed refresh destroyed old archive'
+[[ "$(sha256sum "$pam_out/linux-pam.pkg")" == "$pam_metadata_sha" ]] || fail 'failed refresh rewrote metadata'
+
 printf 'ok import-apk-package\n'

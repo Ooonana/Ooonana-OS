@@ -161,6 +161,26 @@ bash "$ROOT/scripts/import-i3-package-set.sh" \
 assert_contains "$(<"$out/i3.pkg")" 'OOONANA_PKG_DEPS="i3wm i3status"'
 grep -q '^base	' "$out/index.tsv" || fail "base missing from repo index"
 
+# Branding runs inside a command substitution: producer failure must still stop
+# the importer before it rewrites metadata around an old or partial archive.
+branding_archive="$out/archives/ooonana-branding-0.1.3.tar.gz"
+ln "$branding_archive" "$tmp/saved-branding.tar.gz"
+saved_branding_sha="$(sha256sum "$tmp/saved-branding.tar.gz")"
+bash "$SCRIPT" --out-dir "$out" --packages 'i3wm i3status' --metadata-only >/dev/null
+[[ ! "$branding_archive" -ef "$tmp/saved-branding.tar.gz" ]] || fail 'branding rebuild reused saved inode'
+[[ "$(sha256sum "$tmp/saved-branding.tar.gz")" == "$saved_branding_sha" ]] || fail 'saved branding changed'
+branding_sha="$(sha256sum "$branding_archive")"
+branding_metadata_sha="$(sha256sum "$out/branding.pkg")"
+mkdir "$tmp/fail-compressor"
+printf '#!/bin/sh\ncat >/dev/null\nexit 47\n' >"$tmp/fail-compressor/gzip"
+chmod +x "$tmp/fail-compressor/gzip"
+if PATH="$tmp/fail-compressor:$PATH" bash "$SCRIPT" --out-dir "$out" --packages 'i3wm i3status' --metadata-only >"$tmp/failed-branding.log" 2>&1; then
+  fail 'branding compressor failure accepted'
+fi
+[[ "$(sha256sum "$branding_archive")" == "$branding_sha" ]] || fail 'failed rebuild changed branding archive'
+[[ "$(sha256sum "$out/branding.pkg")" == "$branding_metadata_sha" ]] || fail 'failed rebuild published branding metadata'
+[[ -z "$(find "$out/archives" -name '*.tmp.*' -print -quit)" ]] || fail 'failed branding left temporary archive'
+
 branding_contents="$(tar -tzf "$out/archives/ooonana-branding-0.1.3.tar.gz" | sort)"
 assert_contains "$branding_contents" "./etc/i3/config"
 assert_contains "$branding_contents" "./usr/share/ooonana/logo.svg"

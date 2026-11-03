@@ -241,7 +241,6 @@ import_one() {
     done
     return 0
   fi
-  rm -f "$archive_path"
   fetch_url "$(repo_join "$apk_repo" "$archive_name")" "$WORK/$archive_name"
   rm -rf "$WORK/extract-$name"
   mkdir -p "$WORK/extract-$name"
@@ -261,7 +260,7 @@ import_one() {
     [[ -f "$pam_helper" && ! -L "$pam_helper" ]] || ooonana_die "linux-pam password helper missing or linked"
     chmod 4755 "$pam_helper"
   fi
-  tar \
+  ooonana_tar_gzip_atomic "$archive_path" \
     --sort=name \
     --mtime='UTC 1970-01-01' \
     --numeric-owner \
@@ -270,7 +269,7 @@ import_one() {
     --pax-option=delete=atime,delete=ctime \
     -C "$WORK/extract-$name" \
     -cf - \
-    . | gzip -n > "$archive_path"
+    .
   chmod a+rw "$archive_path"
   archive_sha="$(sha256sum "$archive_path" | awk '{print $1}')"
   write_pkg_metadata "$name" "$package_version" "$summary" "$deps" "$archive_rel" "$archive_sha" "$origin" "$base"

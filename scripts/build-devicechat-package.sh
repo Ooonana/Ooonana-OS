@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT/scripts/lib/common.sh"
 OUT_DIR=""
 VERSION="0.1.1"
 SOURCE_ARCHIVE="${OOONANA_DEVICECHAT_SOURCE:-$ROOT/packages/devicechat/source/devicechat-0.1.1.tgz}"
@@ -91,7 +92,7 @@ exec /usr/bin/node /opt/devicechat/dist/relay.js "$@"
 EOF
 chmod 0755 "$staging/usr/bin/devicechat" "$staging/usr/bin/devicechat-relay"
 
-tar \
+ooonana_tar_gzip_atomic "$archive" \
   --sort=name \
   --mtime='UTC 1970-01-01' \
   --numeric-owner \
@@ -100,7 +101,7 @@ tar \
   --pax-option=delete=atime,delete=ctime \
   -C "$staging" \
   -cf - \
-  . | gzip -n > "$archive"
+  .
 
 archive_sha="$(sha256sum "$archive" | awk '{print $1}')"
 cat > "$metadata" <<EOF

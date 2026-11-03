@@ -63,7 +63,7 @@ Latest items10–15 follow-up: [installed integrity repair](installer-integrity-
 and [disk-tool repair and WSLg/VM checks](ui-10-15-recheck-20261031.md).
 Private live Task Manager, GTK/Qt Korean input and full installer GUI lifecycle
 are no longer open source/probe tasks. Installed/physical acceptance remains.
-The unpublished catalog now has705 packages/624 nodes; earlier654/612 counts above and
+The unpublished catalog now has711 packages/630 nodes; earlier654/612 counts above and
 in older receipts describe their own checkpoints.
 
 ### Original items6–10.5, including new7.5: October28 status
@@ -113,9 +113,11 @@ or acceptance of installed Ooonana WSL. Remaining work below is retained.
 
 ### Other outstanding acceptance
 
-1. Full installed-system package upgrades and rollback in a disposable
-   installation. Private packaged GUI transactions/authentication/recovery now
-   pass; retain them together with earlier package-engine/native upgrade proofs.
+1. Broader installed-system/kernel/bootloader upgrades and rollback. Actual
+   installed signed-fixture health rollback, preserved configuration, prepared
+   checkpoint power loss/recovery and bounded ext4 ENOSPC rollback now pass.
+   Keep these with private GUI/engine/native upgrade proofs; arbitrary fault
+   timings, an entirely full system root and physical USB remain open.
 2. Task Manager: private192-worker sampling, sorting/filtering, process turnover,
    safe termination/cancel and shortcut pass; physical hardware remains.
    Native cloud AI:
@@ -147,10 +149,11 @@ or acceptance of installed Ooonana WSL. Remaining work below is retained.
 8. Installer/boot/power: completed installation/persistence mutation, BIOS/UEFI
    GRUB, framebuffer handoff and shutdown/reboot. Whole GUI preview/auth/log/
    completion passes with an inert device-free backend and real PAM; text
-   wizard input/echo/signal tests pass. A file-backed VM now partitions/formats
-   its own target and creates swap, but full copy times out on slow F: storage.
-   Whole installation/boot acceptance remains open. New disk-tool preflight and
-   installed-fstab mount policy have isolated package/behavioral checks.
+   wizard input/echo/signal tests pass. Actual checksum reinstall, BIOS/UEFI
+   boot, UUID-mounted EFI/swap, wrong-password/root-login refusal, nonroot login,
+   sudo and clean shutdown now pass in a file-backed native VM. Earlier slow
+   copy failures remain historical receipts, not current whole-install blockers.
+   Persistence-setup mutation and physical framebuffer/power behavior remain.
 9. Bootable PDF: actual Chromium viewer boot, keyboard/Backspace, input focus,
     responsive controls and measured command latency. Source emulator tests
     alone do not close this gate.

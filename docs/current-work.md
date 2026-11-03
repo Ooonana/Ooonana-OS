@@ -2,6 +2,16 @@
 
 ## Items10–15 — November3
 
+Deeper `/var/tmp` comparison consolidates620 identical archive copies while
+retaining every path/payload and permissions/owner/mtime, reclaiming928.5MiB more.
+Total Linux allocation reclaimed is about1.70GiB; remaining historical/build/
+recovery inputs are retained, not declared universally necessary. Package
+archives now replace atomically after successful writes; saved hardlinks and
+old archives survive rebuild/fetch failures. Combined catalog regains the four
+Korean-input packages already present in full-i3 and the unpublished native stage.
+[Repair and verification](package-archive-atomicity-20261103.md). No release
+publication, installed WSL sync or VM restart occurred.
+
 Latest `/var/tmp` recheck removes810MiB of regenerable kernel build/shader
 caches while preserving final kernel/configuration hashes, source, models,
 keys, histories and checkpoints. Ooonana's3.2MiB temporary receipts remain.

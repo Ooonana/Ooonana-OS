@@ -26,6 +26,10 @@ sudo
 util-linux-login
 py3-gobject3
 gtk+3.0
+fcitx5
+fcitx5-hangul
+fcitx5-gtk3
+fcitx5-qt
 xorg-server
 xorg-server-xephyr
 xinit

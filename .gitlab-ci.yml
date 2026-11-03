@@ -35,6 +35,9 @@ ci-smoke:
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-release-repo.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-runtime-firmware.py
     - bash tests/test-version-order.sh
+    - bash tests/test-atomic-package-archive.sh
+    - bash tests/test-import-apk-package.sh
+    - bash tests/test-i3-package-set.sh
     - bash tests/test-qemu-live-kernel-smoke.sh
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-service-watchdog.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-service-readiness.py

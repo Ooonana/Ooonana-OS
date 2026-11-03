@@ -112,7 +112,7 @@ build_branding_archive() {
   install -m 0644 "$ROOT/branding/desktop-0.9.png" "$payload/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png"
   install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/wallpapers/ooonana-notes.jpg" "$payload/usr/share/ooonana/wallpapers/ooonana-notes.jpg"
   install -m 0644 "$ROOT/branding/i3/config" "$payload/etc/i3/config"
-  tar \
+  ooonana_tar_gzip_atomic "$archive_path" \
     --sort=name \
     --mtime='UTC 1970-01-01' \
     --numeric-owner \
@@ -121,12 +121,13 @@ build_branding_archive() {
     --pax-option=delete=atime,delete=ctime \
     -C "$payload" \
     -cf - \
-    . | gzip -n > "$archive_path"
+    . || return 1
   chmod a+rw "$archive_path"
   printf '%s\n' "$archive_rel"
 }
 
 main() {
+  local archive
   ooonana_require_linux
   ooonana_require_commands chmod cp gzip install mkdir sed sha256sum tar
   [[ -f "$ROOT/branding/logo.svg" ]] || ooonana_die "missing branding/logo.svg"
@@ -173,14 +174,18 @@ main() {
     mkdir "$work/native-i3"
     python3 -B "$ROOT/scripts/build-i3-controls-package.py" --base "$OUT_DIR" \
       --binary "$I3_CONTROLS_BINARY" --out-dir "$work/native-i3"
-    cp "$work/native-i3/archives/"* "$OUT_DIR/archives/"
+    for archive in "$work/native-i3/archives/"*; do
+      ooonana_write_atomic "$OUT_DIR/archives/$(basename "$archive")" cat -- "$archive"
+    done
     cp "$work/native-i3/i3wm.pkg" "$OUT_DIR/i3wm.pkg"
   fi
   if [[ -n "$I3LOCK_BINARY" ]]; then
     mkdir "$work/native-lock"
     python3 -B "$ROOT/scripts/build-i3lock-package.py" --base "$OUT_DIR" \
       --binary "$I3LOCK_BINARY" --out-dir "$work/native-lock"
-    cp "$work/native-lock/archives/"* "$OUT_DIR/archives/"
+    for archive in "$work/native-lock/archives/"*; do
+      ooonana_write_atomic "$OUT_DIR/archives/$(basename "$archive")" cat -- "$archive"
+    done
     cp "$work/native-lock/i3lock.pkg" "$OUT_DIR/i3lock.pkg"
   fi
   branding_archive="$(build_branding_archive "$work")"
