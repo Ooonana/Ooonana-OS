@@ -10,8 +10,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "packages/ooonana/usr/lib/ooonana/ui"))
 
 try:
-    import gi  # noqa: F401
-except ImportError:
+    import gi
+    gi.require_version("Gtk", "3.0")
+except (ImportError, ValueError):
     class DummyWidget:
         pass
 

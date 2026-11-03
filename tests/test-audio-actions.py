@@ -7,15 +7,16 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "packages/ooonana/usr/lib/ooonana/ui"))
 
 try:
-    import gi  # noqa: F401
-except ImportError:
+    import gi
+    gi.require_version("Gtk", "3.0")
+except (ImportError, ValueError):
     sys.modules["common"] = SimpleNamespace(
         Gtk=SimpleNamespace(Window=object, MessageType=SimpleNamespace(ERROR=1)),
         GLib=SimpleNamespace(),
         Gdk=SimpleNamespace(),
         Pango=SimpleNamespace(),
         **{name: (lambda *_args, **_kwargs: None) for name in (
-            "apply_theme", "button", "flow_row", "fit_dialog", "header", "label", "launch", "more_actions",
+            "apply_theme", "button", "confirmation_dialog", "flow_row", "fit_dialog", "header", "label", "launch", "more_actions",
             "message", "run", "run_async", "run_async_task",
         )},
     )
