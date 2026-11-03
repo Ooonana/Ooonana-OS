@@ -11,7 +11,8 @@ root = Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory(prefix="ooonana-wrapper-modes-") as temporary:
     work = Path(temporary)
     source = work / "source"
-    (source / "scripts").mkdir(parents=True)
+    (source / "scripts/lib").mkdir(parents=True)
+    shutil.copyfile(root / "scripts/lib/common.sh", source / "scripts/lib/common.sh")
     installer = work / "fixture.exe"
     installer.write_bytes(b"MZ private fixture; never distributed")
     binaries = work / "binaries"
@@ -32,8 +33,9 @@ with tempfile.TemporaryDirectory(prefix="ooonana-wrapper-modes-") as temporary:
         script = source / "scripts" / builder
         shutil.copyfile(root / "scripts" / builder, script)
         repo = work / package
-        subprocess.run(["bash", str(script), "--out-dir", str(repo), *arguments],
-                       check=True, capture_output=True, preexec_fn=lambda: os.umask(0o077))
+        result = subprocess.run(["bash", str(script), "--out-dir", str(repo), *arguments],
+                                capture_output=True, text=True, preexec_fn=lambda: os.umask(0o077))
+        assert result.returncode == 0, (builder, result.stdout, result.stderr)
         for archive in (repo / "archives").glob("*.tar.gz"):
             with tarfile.open(archive) as bundle:
                 for item in bundle:
