@@ -18,17 +18,32 @@ creation and previously deferred VM checks remain held. Keep the private signing
 key local. OpenVINO's overhaul remains deferred. No audible testing. Original
 code/artwork licensing remains undecided by explicit user choice.
 
-## Current status — original numbering11–25
+## Current status — original task numbers
 
 This table supersedes older publication holds and catalog counts below.
 Completed private checks remain completed. Installed acceptance is bounded to
 the actual cases exercised; physical hardware and final-image claims stay open.
+Rows marked passed retain those exact results. They are not requests to redo
+completed work. In particular,10.5's completed lockscreen must not be conflated
+with13's unfinished session-provider integration. "All11–15 done" is too broad.
 
 | Item | Current result | Still required |
 | --- | --- | --- |
+| 1 Qt/custom themes | Remaining Qt style variants, controls/dialogs/pickers and compiled portal repair passed privately | Physical/mixed-display acceptance under12/23 |
+| 2 GTK chooser diagnosis | Warning diagnosed upstream; investigation completed | Known upstream warning remains; diagnosis is not reopened |
+| 3 Launcher/helpers | Terminal fallback, missing-browser/hardware handoff and Breakout/helper cases passed | Newly discovered Nemo integration is tracked only under17 |
+| 4 Legacy tray | Modern indicators and legacy XEmbed hosting, overflow, real applets and ownership recovery passed | Physical services/devices under14/23 |
+| 5 Native package integration | Compiled i3/locker/Qt/PAM packages, provenance/dependencies and private upgrade compatibility verified; candidate signed/synced | Fresh final-image acceptance under22 |
+| 6 Desktop/themes | Packaged wallpaper/theme/cursor/icon checks and installed desktop capture passed | Physical cursor appearance/hotspot and real display inheritance under12/23 |
+| 7 Panel/dock/window manager | Packaged grouping/previews/pins/reorder/workspace cases and installed exact restore/fullscreen/close checks passed | Physical service/display/session coverage under12–14/23 |
+| 7.5 Control Center | Compact opaque flyout, normal/large text, both themes, device/permission states and volume routing guards passed | Real device actions under14/23 |
+| 8 Settings/setup | Saved preferences, storage/link/error guards, layout and harmless real authorization passed | Actual account/storage/persistence mutation under15/24 |
+| 9 Notifications | Real private Dunst actions, privacy/history, DND, badges and restart/identity recovery passed | Everyday installed-service acceptance; no source failure currently established |
+| 10 Packages/Health/Updates | Privileged signed fixture install/remove, config preservation, interruption/recovery/health rollback and installed VM fault cases passed | Broader whole-system/kernel upgrades and physical USB acceptance under15/24 |
+| 10.5 Lockscreen | Visible password field, fixed mask, Backspace/error/Caps/layout feedback, actual PAM unlock and nine normal/scaled/compact/dual-monitor gates passed; installed native revision verified | Everyday user-session automatic lock/wake coverage under13; no unfinished password-field fix |
 | 11 Tasks / AI | Task sampling, sorting/filtering and termination checks passed | Physical metrics; authorized live cloud streaming/cancel/recovery |
-| 12 Input / displays | Private GTK/Qt/Firefox input passed; user confirmed WSLg Hangul/paste and mouse/keyboard/Backspace | Mixed DPI, monitors/hotplug and broader installed accessibility/input sweep |
-| 13 Session /10.5 | Real private PAM/expiry/rotation/locker tests passed | Installed sign-in/wake/logout; login1/seat integration and physical suspend/resume; graphical greeter absent |
+| 12 Input / displays | Private GTK/Qt/Firefox input passed; user confirmed WSLg Hangul/paste and mouse/keyboard/Backspace | Nested-desktop clipboard/scaling coverage; physical mixed DPI, monitors/hotplug |
+| 13 Session | Real private PAM/expiry/rotation/logout/locker tests and installed VM console sign-in passed | Unfinished login1/seat-provider integration; everyday desktop lock/logout transitions and physical suspend/wake |
 | 14 Controls | Private wireless/audio/brightness/media cases passed | Physical credentials/reconnect/pairing/routing/brightness permissions; no audible testing |
 | 15 Installer / boot | Private actual checksum installation/reinstallation, BIOS/UEFI/login/sudo/storage and recovery proofs retained | Broader system/kernel upgrade timings, actual physical installation/persistence/power transitions |
 | 16 Bootable PDF | Runtime/source tests retained | Actual Chromium viewer boot, keyboard/Backspace/focus and measured command latency |
@@ -41,6 +56,13 @@ the actual cases exercised; physical hardware and final-image claims stay open.
 | 23 Hardware | Private fixtures retained | Physical radios/GPU/RAM/zram/swap/thermals/fans/displays |
 | 24 Disposable USB | Private installed fixture recovery/rollback/ENOSPC proofs retained | Physical reboot/full-storage/power-loss/recovery/interrupted upgrade tests; reverify disposable target identity |
 | 25 Stable promotion | Private signing key remains local | Trust enrollment and stable channel/tag approval |
+
+Sign-in currently uses console getty/PAM. A graphical greeter has not been
+implemented; it is a separate feature decision, not a lost lockscreen patch.
+The actionable software/integration remainder is13's provider integration,
+16's viewer acceptance and17's Nemo gaps. Item11's live cloud acceptance needs
+usable authorized credentials. Physical/device checks are grouped under22–24;
+licensing/trust/stable decisions remain explicitly held under21/25.
 
 OpenVINO remains deferred. No ISO built or stable channel promoted by this pass.
 [Exact candidate receipt, screenshots and CI links](candidate-17-21-20261103.md).
