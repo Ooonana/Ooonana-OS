@@ -1,4 +1,26 @@
-# Current work - 2026-11-04
+# Current work - 2026-11-05
+
+## Items1–15 — November5
+
+Installed nested input now passes mouse, keyboard, Backspace, Hangul and paste
+with the user's manual completion. The adapted probe's missing IME environment
+and unnecessary Copy-button dependency were repaired. Earlier UI/lockscreen
+passes remain completed; the new runtime changes no UI/theme/icon payload.
+
+Source checkpointad1e04c passes both remote CIs. Signed generation
+210cf50980114af2e0c165cf5a3bc8858a0e2f36e86a336cebf7d2bf4d87a9c9 contains
+718 packages/637 dependency nodes and is published on F: and installed Ooonana
+WSL. Six pinned session-service dependencies, i3 bundle0.1.5 and the refreshed
+core verify. All57 protected authentication/configuration hashes remain unchanged;
+factory rcS advances without a pending custom configuration. The installed
+session helper returns `unsupported-wsl` without starting physical power services.
+
+Real provider/session/wake verification remains pending because VM checks stay
+held and physical hardware is unavailable. Cloud AI still needs secure new-key
+setup. No OpenVINO/model changes, audible test, ISO or stable promotion.
+Public asset scan passes708 archives/75,903 entries; licensing remains pending.
+Only1.9MiB of new payload was transferred; existing native archives were reused.
+[Detailed receipt and remaining1–15 boundaries](ui-1-15-completion-20261104.md).
 
 ## Items17–21 — November4
 

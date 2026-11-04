@@ -1,6 +1,6 @@
 # Core 0.10.0 candidate: remaining acceptance gates
 
-Updated November 4, 2026. Stable has not been promoted. This checklist replaces
+Updated November 5, 2026. Stable has not been promoted. This checklist replaces
 the repeated 25-item draft; detailed historical receipts remain in
 [current work](current-work.md) and [UI review](ui-whole-os-review.md).
 
@@ -43,15 +43,15 @@ with13's separate session-provider acceptance. "All11–15 done" is too broad.
 | 10.5 Lockscreen | Visible password field, fixed mask, Backspace/error/Caps/layout feedback, actual PAM unlock and nine normal/scaled/compact/dual-monitor gates passed; installed native revision verified | Everyday user-session automatic lock/wake coverage under13; no unfinished password-field fix |
 | 11 Tasks / AI | Task sampling, sorting/filtering and termination checks passed | Physical metrics; authorized live cloud streaming/cancel/recovery |
 | 12 Input / displays | Private GTK/Qt/Firefox input and normal/large text passed; installed nested WSLg manual receipt now confirms mouse/keyboard/Backspace/Hangul/paste | Physical mixed DPI, monitors/hotplug |
-| 13 Session | Existing PAM/expiry/rotation/logout/locker/VM console passes retained; custom-init login1/Polkit startup now integrated with nine policy/refusal tests and real native ABI closure | Actual provider/PAM registration and transitions remain unverified while VM checks are explicitly held; physical suspend/wake |
+| 13 Session | Existing PAM/expiry/rotation/logout/locker/VM console passes retained; custom-init login1/Polkit startup packaged and synced with nine policy/refusal tests, native ABI closure and installed WSL safe-skip verification | Actual provider/PAM registration and transitions remain unverified while VM checks are explicitly held; physical suspend/wake |
 | 14 Controls | Private wireless/audio/brightness/media cases passed | Physical credentials/reconnect/pairing/routing/brightness permissions; no audible testing |
 | 15 Installer / boot | Private actual checksum installation/reinstallation, BIOS/UEFI/login/sudo/storage and recovery proofs retained | Broader system/kernel upgrade timings, actual physical installation/persistence/power transitions |
 | 16 Bootable PDF | Runtime/source tests retained | Actual Chromium viewer boot, keyboard/Backspace/focus and measured command latency |
 | 17 Bounded UI acceptance |18 exact-package normal/scaled cases; actual installed Settings, Geany, Files and exact minimize/fullscreen/close restoration passed | Nemo folder metadata/optional helper integration; physical/mixed-display acceptance and remaining gates in11–16 |
-| 18 Source / CI / packages | Source freeze2fed28d; both CIs passed; signed712-package/631-node generation verified | Stable promotion remains separate |
-| 19 Candidate / WSL | Signed generation72702203 published on F: and installed Ooonana; native updates, IME, accessibility activation and package verification passed | Public stable update channel remains held |
+| 18 Source / CI / packages | Source freezead1e04c; both CIs passed; signed718-package/637-node generation verified | Stable promotion remains separate |
+| 19 Candidate / WSL | Signed generation210cf509 published on F: and installed Ooonana; nine packages verify,57 protected authentication/configuration hashes preserved; manual nested IME/input passes | Public stable update channel remains held |
 | 20 Documentation / cleanup | README/screenshots, four-page field guide, receipts and this list refreshed; disposable index scratch cleaned | Final image/release-specific evidence after user build |
-| 21 Assets | Published702 archives/75,774 entries checked; personal cursor/private-key exclusion passed | Original code/artwork license decision and broader redistribution clearance remain pending |
+| 21 Assets | Published708 archives/75,903 entries checked; personal cursor/private-key exclusion and public cursor/source match passed | Original code/artwork license decision and broader redistribution clearance remain pending |
 | 22 Final ISO | Build sources and signed catalog ready | User fresh build; image/checksum/BIOS/UEFI/service/GUI checks |
 | 23 Hardware | Private fixtures retained | Physical radios/GPU/RAM/zram/swap/thermals/fans/displays |
 | 24 Disposable USB | Private installed fixture recovery/rollback/ENOSPC proofs retained | Physical reboot/full-storage/power-loss/recovery/interrupted upgrade tests; reverify disposable target identity |
@@ -66,9 +66,9 @@ usable authorized credentials. Physical/device checks are grouped under22–24;
 licensing/trust/stable decisions remain explicitly held under21/25.
 
 [November4 items1–15 follow-up and exact boundaries](ui-1-15-completion-20261104.md)
-records the new source work and completed nested input receipt. New candidate
-packages require their own validation/publication receipt; earlier signed
-generations and private passes remain intact.
+records the new source work, completed nested input receipt and November5 signed
+publication/installed verification. Earlier signed generations and private
+passes remain intact. No physical/held VM acceptance is inferred from WSL.
 
 OpenVINO remains deferred. No ISO built or stable channel promoted by this pass.
 [Exact candidate receipt, screenshots and CI links](candidate-17-21-20261103.md).

@@ -15,7 +15,7 @@ Ooonana OS is a custom Linux distribution built from scratch around its own boot
 
 Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Linux, BusyBox, GRUB, i3, and other open-source components. Ooonana package factory currently imports selected Alpine package payloads into Ooonana `.pkg` repositories while native packages replace them over time.
 
-November3–4: core **0.10.0 candidate**, stable unpromoted. Items17–21 now authorize
+November5: core **0.10.0 candidate**, stable unpromoted. Items17–21 authorize
 final UI review, candidate packages/CI/publication and Ooonana WSL sync. No ISO
 is built by the agent. OpenVINO overhaul and VM checks stay deferred; signing
 key stays local. Original code/artwork licensing remains undecided. Current
@@ -25,10 +25,14 @@ hold statements below; historical checkpoints remain evidence of their own runs.
 Installed Ooonana nested desktop, November3:
 ![Ooonana installed desktop: compact panel, left-side music and flat application dock](docs/assets/ooonana-desktop-20261103.png)
 
-November4: signed candidate catalog **712 packages /631 dependency nodes** now
-matches installed Ooonana WSL. Missing accessibility activation is repaired;
-real Settings/Geany/Files window-control checks pass. Public asset exclusion
-passes; licensing and stable promotion remain pending.
+November5: signed candidate catalog **718 packages /637 dependency nodes** now
+matches installed Ooonana WSL. Custom-init login1/Polkit startup is packaged;
+WSL safely skips physical power services. Installed nested mouse/keyboard,
+Hangul, Backspace and clipboard acceptance passes. Nine updated packages and
+57 protected authentication/configuration files verify. Existing desktop
+visual passes remain valid; UI payload is unchanged. Public asset exclusion
+passes; licensing, physical/held VM checks and stable promotion remain pending.
+[Items1–15 follow-up](docs/ui-1-15-completion-20261104.md).
 [Current11–25 checklist](docs/release-readiness.md).
 
 Package archive writers now replace completed files atomically and preserve

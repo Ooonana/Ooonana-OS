@@ -70,6 +70,39 @@ Upstream integration contracts: [elogind](https://github.com/elogind/elogind),
 - Graphical greeter remains a separate feature decision. Native lockscreen
  password field/masking/PAM work is already completed, not reopened.
 
-Candidate packaging/publication receipt follows final source validation.
+## November5 — Signed package and installed receipt
+
+Source freeze `ad1e04cb5babc9c0180477395d000212503ebebf` passes
+[GitHub CI](https://github.com/Ooonana/Ooonana-OS/actions/runs/41836473260) and
+[GitLab CI](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/3027221267).
+The signed catalog validates718 packages/637 dependency nodes. Generation
+`210cf50980114af2e0c165cf5a3bc8858a0e2f36e86a336cebf7d2bf4d87a9c9`
+is published on F: and under installed Ooonana's `/usr/lib/ooonana/repo`.
+Previous generation72702203 and its signed checksum manifest are preserved.
+
+Six pinned packages are added: busctl, elogind, elogind-common, polkit-common,
+polkit-elogind and shadow. i3 bundle0.1.5 adds upgradeable provider dependencies.
+The only changed existing payload is core-runtime: its factory rcS plus three
+new session-provider files. UI/theme/icon payload stays byte-identical, retaining
+earlier visual passes without claiming new physical acceptance.
+
+The installed dry-run names only the expected additions. Actual upgrade and
+core refresh verify all nine selected packages. All57 preexisting protected
+configuration, account database, PAM policy/module, trust and OpenVINO hashes
+remain unchanged. Factory rcS advances without a pending custom default.
+`ooonana-session-services start` returns `unsupported-wsl` and
+`power_requests:false`; no provider activation, power request or VM is inferred.
+Recovery checkpoints remain. No model weights are downloaded.
+
+Transfer reuses701 verified archive hardlinks and copies only seven archives,
+1,955,918 bytes total. The published asset audit checks708 archives/75,903 entries:
+private cursor/key excluded, public cursor matches source. Original licensing
+decision remains pending. Disposable ABI/index roots were already cleaned;
+candidate generations, receipts and recovery data are retained.
+
+Item11 cloud credentials,13's held VM/provider transitions and14/15 physical
+acceptance remain open. Other completed1–10.5 software results remain completed.
+This follow-up does not certify all1–15 or promote stable.
+
 Private receipts remain under
 `C:\Users\7ryan\AppData\Local\Temp\ooonana-release-17-21-20261103\`.
