@@ -4259,6 +4259,10 @@ start_system_services() {
 
 start_system_services || true
 
+if command -v ooonana-session-services >/dev/null 2>&1; then
+  timeout 25 ooonana-session-services start >/var/log/ooonana-session-services.log 2>&1 || true
+fi
+
 start_service_watchdog() {
   command -v ooonana-service-watchdog >/dev/null 2>&1 || return 0
   ooonana-service-watchdog >/var/log/ooonana-service-watchdog.log 2>&1 &
@@ -4514,6 +4518,8 @@ EOF
 install_current_backend_checks() {
   # Cached first-party archives must not mask current backend/desktop fixes.
   local app="$ROOTFS/usr/lib/ooonana/openvino-chat" file
+  install -D -m 0644 "$ROOT/packages/ooonana/etc/elogind/logind.conf.d/90-ooonana.conf" \
+    "$ROOTFS/etc/elogind/logind.conf.d/90-ooonana.conf"
   install -D -m 0644 "$ROOT/packages/ooonana/etc/chromium/zz-ooonana.conf" \
     "$ROOTFS/etc/chromium/zz-ooonana.conf"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/cgroup_memory.py" \
@@ -4526,7 +4532,7 @@ install_current_backend_checks() {
     "$ROOTFS/usr/lib/ooonana/desktop_theme.py"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/input-method-profile" \
     "$ROOTFS/usr/share/ooonana/input-method-profile"
-  for file in xsettings_session.py legacy_gtk_style.py lock_screen.py lock_readiness.py session_control.py input_method.py tray_model.py tray_service.py legacy_tray.py; do
+  for file in xsettings_session.py legacy_gtk_style.py lock_screen.py lock_readiness.py session_control.py session_services.py input_method.py tray_model.py tray_service.py legacy_tray.py; do
     install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/$file" \
       "$ROOTFS/usr/lib/ooonana/$file"
   done
@@ -4535,7 +4541,7 @@ install_current_backend_checks() {
       "$ROOTFS/usr/lib/ooonana/ui/$file"
   done
   install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana" "$ROOTFS/usr/bin/ooonana"
-  for file in ooonana-window-list ooonana-panel-start ooonana-media-status ooonana-notification-status ooonana-xsettings ooonana-lock ooonana-session ooonana-session-guard ooonana-input-method ooonana-tray ooonana-controls ooonana-shell ooonana-notifications; do
+  for file in ooonana-window-list ooonana-panel-start ooonana-media-status ooonana-notification-status ooonana-xsettings ooonana-lock ooonana-session ooonana-session-services ooonana-session-guard ooonana-input-method ooonana-tray ooonana-controls ooonana-shell ooonana-notifications; do
     install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/$file" "$ROOTFS/usr/bin/$file"
   done
   [[ -f "$app/APP-MANIFEST.sha256" ]] || return 0

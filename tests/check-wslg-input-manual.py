@@ -41,7 +41,6 @@ body.pack_start(status, False, False, 0)
 buttons = Gtk.Box(spacing=8)
 copy = Gtk.Button(label="Copy QA text")
 done = Gtk.Button(label="Finish check")
-copy.set_sensitive(False)
 buttons.pack_start(copy, False, False, 0)
 buttons.pack_end(done, False, False, 0)
 body.pack_end(buttons, False, False, 0)
@@ -61,7 +60,6 @@ def key(_entry, event):
 def changed(*_):
     checks["composition"] = first.get_text() == expected
     checks["paste"] = second.get_text() == expected
-    copy.set_sensitive(checks["composition"])
     status.set_text("Ready to finish." if all(checks.values()) else
                     "Remaining: " + ", ".join(name for name, passed in checks.items() if not passed))
 

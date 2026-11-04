@@ -83,6 +83,7 @@ jobs:
           python3 -B tests/test-xsettings-session.py
           python3 -B tests/test-lock-launch.py
           python3 -B tests/test-session-control.py
+          python3 -B tests/test-session-services.py
           python3 -B tests/test-input-method.py
           python3 -B tests/test-font-cache.py
           python3 -B tests/test-installed-mounts.py

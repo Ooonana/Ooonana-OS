@@ -25,7 +25,7 @@ Completed private checks remain completed. Installed acceptance is bounded to
 the actual cases exercised; physical hardware and final-image claims stay open.
 Rows marked passed retain those exact results. They are not requests to redo
 completed work. In particular,10.5's completed lockscreen must not be conflated
-with13's unfinished session-provider integration. "All11–15 done" is too broad.
+with13's separate session-provider acceptance. "All11–15 done" is too broad.
 
 | Item | Current result | Still required |
 | --- | --- | --- |
@@ -42,8 +42,8 @@ with13's unfinished session-provider integration. "All11–15 done" is too broad
 | 10 Packages/Health/Updates | Privileged signed fixture install/remove, config preservation, interruption/recovery/health rollback and installed VM fault cases passed | Broader whole-system/kernel upgrades and physical USB acceptance under15/24 |
 | 10.5 Lockscreen | Visible password field, fixed mask, Backspace/error/Caps/layout feedback, actual PAM unlock and nine normal/scaled/compact/dual-monitor gates passed; installed native revision verified | Everyday user-session automatic lock/wake coverage under13; no unfinished password-field fix |
 | 11 Tasks / AI | Task sampling, sorting/filtering and termination checks passed | Physical metrics; authorized live cloud streaming/cancel/recovery |
-| 12 Input / displays | Private GTK/Qt/Firefox input passed; user confirmed WSLg Hangul/paste and mouse/keyboard/Backspace | Nested-desktop clipboard/scaling coverage; physical mixed DPI, monitors/hotplug |
-| 13 Session | Real private PAM/expiry/rotation/logout/locker tests and installed VM console sign-in passed | Unfinished login1/seat-provider integration; everyday desktop lock/logout transitions and physical suspend/wake |
+| 12 Input / displays | Private GTK/Qt/Firefox input and normal/large text passed; installed nested WSLg manual receipt now confirms mouse/keyboard/Backspace/Hangul/paste | Physical mixed DPI, monitors/hotplug |
+| 13 Session | Existing PAM/expiry/rotation/logout/locker/VM console passes retained; custom-init login1/Polkit startup now integrated with nine policy/refusal tests and real native ABI closure | Actual provider/PAM registration and transitions remain unverified while VM checks are explicitly held; physical suspend/wake |
 | 14 Controls | Private wireless/audio/brightness/media cases passed | Physical credentials/reconnect/pairing/routing/brightness permissions; no audible testing |
 | 15 Installer / boot | Private actual checksum installation/reinstallation, BIOS/UEFI/login/sudo/storage and recovery proofs retained | Broader system/kernel upgrade timings, actual physical installation/persistence/power transitions |
 | 16 Bootable PDF | Runtime/source tests retained | Actual Chromium viewer boot, keyboard/Backspace/focus and measured command latency |
@@ -59,10 +59,16 @@ with13's unfinished session-provider integration. "All11–15 done" is too broad
 
 Sign-in currently uses console getty/PAM. A graphical greeter has not been
 implemented; it is a separate feature decision, not a lost lockscreen patch.
-The actionable software/integration remainder is13's provider integration,
-16's viewer acceptance and17's Nemo gaps. Item11's live cloud acceptance needs
+Item13's provider startup is now implemented; its real boot/session acceptance
+remains held rather than counted as completed. Remaining work includes16's
+viewer acceptance and17's Nemo gaps. Item11's live cloud acceptance needs
 usable authorized credentials. Physical/device checks are grouped under22–24;
 licensing/trust/stable decisions remain explicitly held under21/25.
+
+[November4 items1–15 follow-up and exact boundaries](ui-1-15-completion-20261104.md)
+records the new source work and completed nested input receipt. New candidate
+packages require their own validation/publication receipt; earlier signed
+generations and private passes remain intact.
 
 OpenVINO remains deferred. No ISO built or stable channel promoted by this pass.
 [Exact candidate receipt, screenshots and CI links](candidate-17-21-20261103.md).

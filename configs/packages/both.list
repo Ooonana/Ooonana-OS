@@ -27,6 +27,8 @@ util-linux-login
 py3-gobject3
 gtk+3.0
 at-spi2-core
+elogind
+polkit-elogind
 fcitx5
 fcitx5-hangul
 fcitx5-gtk3

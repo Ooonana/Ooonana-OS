@@ -148,7 +148,7 @@ i3_pkg="$(<"$out/i3.pkg")"
 branding_pkg="$(<"$out/branding.pkg")"
 full_pkg="$(<"$out/full-i3.pkg")"
 assert_contains "$i3_pkg" 'OOONANA_PKG_ID="i3"'
-assert_contains "$i3_pkg" 'OOONANA_PKG_VERSION="0.1.4"'
+assert_contains "$i3_pkg" 'OOONANA_PKG_VERSION="0.1.5"'
 assert_contains "$i3_pkg" 'OOONANA_PKG_DEPS="i3wm i3status"'
 assert_contains "$branding_pkg" 'OOONANA_PKG_VERSION="0.1.3"'
 assert_contains "$branding_pkg" 'OOONANA_PKG_ARCHIVE="archives/ooonana-branding-0.1.3.tar.gz"'
@@ -237,7 +237,7 @@ upgrade_dry="$(OOONANA_REPO_DIR="$BUILTIN_REPO" \
   "$CLI" upgrade --dry-run)"
 assert_contains "$upgrade_dry" "would install i3wm"
 assert_contains "$upgrade_dry" "would install i3status"
-assert_contains "$upgrade_dry" "would upgrade i3 0.1.1 -> 0.1.4"
+assert_contains "$upgrade_dry" "would upgrade i3 0.1.1 -> 0.1.5"
 assert_contains "$upgrade_dry" "would upgrade full-i3 0.1.1 -> 0.1.3"
 
 for dependency in bubblewrap xz curl ca-certificates coreutils; do

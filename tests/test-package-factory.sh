@@ -338,7 +338,7 @@ OOONANA_PKG_DEPS=""
 OOONANA_PKG_ARCHIVE=""
 OOONANA_PKG_SHA256=""
 PKG
-for package in bubblewrap xz curl ca-certificates coreutils nodejs flatpak openssl $packages; do
+for package in bubblewrap xz curl ca-certificates coreutils nodejs flatpak openssl elogind polkit-elogind $packages; do
   cat > "$out/$package.pkg" <<PKG
 OOONANA_PKG_ID="$package"
 OOONANA_PKG_VERSION="1.0"
@@ -390,7 +390,7 @@ while IFS= read -r package; do
 done < "$ROOT/configs/packages/common-tools.list"
 assert_contains "$(<"$tmp/repo/ooonana-core.pkg")" 'OOONANA_PKG_DEPS="ooonana-core-runtime"'
 core_runtime_deps="$( (source "$tmp/repo/ooonana-core-runtime.pkg"; printf ' %s ' "$OOONANA_PKG_DEPS") )"
-for dependency in dbus-daemon-launch-helper openssl glib lsblk findmnt blkid losetup mount umount coreutils; do
+for dependency in dbus-daemon-launch-helper openssl glib lsblk findmnt blkid losetup mount umount coreutils elogind polkit-elogind; do
   assert_contains "$core_runtime_deps" " $dependency "
 done
 assert_contains "$(<"$tmp/repo/ooonana-core.pkg")" 'OOONANA_PKG_ARCHIVE=""'
