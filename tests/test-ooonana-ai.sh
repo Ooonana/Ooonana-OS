@@ -192,6 +192,20 @@ fallback_provider_set="$(OOONANA_AI_APP="$tmp/missing.py" OOONANA_AI_CONFIG="$fa
 assert_contains "$fallback_provider_set" "provider: gemini"
 assert_contains "$(<"$fallback_config")" "OOONANA_AI_PROVIDER=gemini"
 
+openai_config="$tmp/openai.env"
+printf 'OOONANA_AI_PROVIDER=openai\nOPENAI_API_KEY=owned-fixture-token\n' >"$openai_config"
+openai_provider="$(OOONANA_AI_APP="$tmp/missing.py" OOONANA_AI_CONFIG="$openai_config" "$CLI" ai provider)"
+assert_contains "$openai_provider" "active: openai"
+assert_contains "$openai_provider" "model: gpt-6-luna"
+assert_contains "$openai_provider" "key: present"
+assert_not_contains "$openai_provider" "owned-fixture-token"
+openai_config_out="$(OOONANA_AI_CONFIG="$openai_config" "$CLI" ai config)"
+assert_not_contains "$openai_config_out" "owned-fixture-token"
+openai_payload="$(OOONANA_AI_CONFIG="$openai_config" "$CLI" ai ask --dry-run --no-env "fixture")"
+assert_contains "$openai_payload" '"provider": "openai"'
+assert_contains "$openai_payload" '"max_completion_tokens"'
+assert_not_contains "$openai_payload" "owned-fixture-token"
+
 config_out="$(OOONANA_AI_CONFIG="$config" "$CLI" ai config)"
 assert_contains "$config_out" "redacted"
 assert_not_contains "$config_out" "test-key"

@@ -33,6 +33,7 @@ jobs:
           bash tests/test-ooonana-pdf.sh
           python3 -B tests/test-state-io-recovery.py
           python3 -B tests/test-ai-store-safety.py
+          python3 -B tests/test-ai-openai.py
           python3 -B tests/test-panel-session.py
           python3 -B tests/test-tray-model.py
           python3 -B tests/test-qt-portal.py

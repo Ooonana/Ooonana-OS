@@ -134,6 +134,7 @@ class AiWindow(Gtk.Window):
         self.provider_combo = Gtk.ComboBoxText()
         self.provider_combo.append("nim", "NVIDIA NIM")
         self.provider_combo.append("gemini", "Google Gemini")
+        self.provider_combo.append("openai", "OpenAI")
         self.provider_combo.append("openvino", "Offline Intel")
         self.provider_combo.set_active_id("nim")
         self.provider_combo.connect("changed", self.change_provider)

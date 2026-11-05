@@ -41,7 +41,7 @@ with13's separate session-provider acceptance. "All11–15 done" is too broad.
 | 9 Notifications | Real private Dunst actions, privacy/history, DND, badges and restart/identity recovery passed | Everyday installed-service acceptance; no source failure currently established |
 | 10 Packages/Health/Updates | Privileged signed fixture install/remove, config preservation, interruption/recovery/health rollback and installed VM fault cases passed | Broader whole-system/kernel upgrades and physical USB acceptance under15/24 |
 | 10.5 Lockscreen | Visible password field, fixed mask, Backspace/error/Caps/layout feedback, actual PAM unlock and nine normal/scaled/compact/dual-monitor gates passed; installed native revision verified | Everyday user-session automatic lock/wake coverage under13; no unfinished password-field fix |
-| 11 Tasks / AI | Task sampling, sorting/filtering and termination checks passed | Physical metrics; authorized live cloud streaming/cancel/recovery |
+| 11 Tasks / AI | Task sampling/termination and native chat fixture checks passed; OpenAI provider/fallback separation, redaction and both-theme control rendering repaired | Physical metrics; live cloud streaming/cancel/recovery blocked by API credit_balance_exhausted |
 | 12 Input / displays | Private GTK/Qt/Firefox input and normal/large text passed; installed nested WSLg manual receipt now confirms mouse/keyboard/Backspace/Hangul/paste | Physical mixed DPI, monitors/hotplug |
 | 13 Session | Existing PAM/expiry/rotation/logout/locker/VM console passes retained; custom-init login1/Polkit startup packaged and synced with nine policy/refusal tests, native ABI closure and installed WSL safe-skip verification | Actual provider/PAM registration and transitions remain unverified while VM checks are explicitly held; physical suspend/wake |
 | 14 Controls | Private wireless/audio/brightness/media cases passed | Physical credentials/reconnect/pairing/routing/brightness permissions; no audible testing |
@@ -62,7 +62,9 @@ implemented; it is a separate feature decision, not a lost lockscreen patch.
 Item13's provider startup is now implemented; its real boot/session acceptance
 remains held rather than counted as completed. Remaining work includes16's
 viewer acceptance and17's Nemo gaps. Item11's live cloud acceptance needs
-usable authorized credentials. Physical/device checks are grouped under22–24;
+available API balance after secure new-key setup; authentication succeeds but
+generation returns credit_balance_exhausted. [Provider repair and evidence](ai-openai-provider-20261105.md).
+Physical/device checks are grouped under22–24;
 licensing/trust/stable decisions remain explicitly held under21/25.
 
 [November4 items1–15 follow-up and exact boundaries](ui-1-15-completion-20261104.md)

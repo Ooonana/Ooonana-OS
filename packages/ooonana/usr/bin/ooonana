@@ -3073,12 +3073,15 @@ cmd_ai_setup() {
   if [ ! -f "$AI_CONFIG" ]; then
     umask 077
     cat > "$AI_CONFIG" <<'EOF'
-# Ooonana AI uses NVIDIA NIM or Google Gemini.
+# Ooonana AI uses NVIDIA NIM, Google Gemini or OpenAI.
 # Get a key from https://build.nvidia.com/settings/api-keys
 # Get a Gemini key from https://aistudio.google.com/app/apikey
 OOONANA_AI_PROVIDER=nim
 NVIDIA_API_KEY=
 GEMINI_API_KEY=
+OPENAI_API_KEY=
+OPENAI_BASE_URL=https://api.openai.com/v1
+OOONANA_OPENAI_MODEL=gpt-6-luna
 OOONANA_NIM_BASE_URL=https://integrate.api.nvidia.com/v1
 OOONANA_NIM_MODEL=nvidia/nemotron-3-super-120b-a12b
 OOONANA_GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
@@ -3098,11 +3101,12 @@ cmd_ai_doctor() {
     exit 1
   fi
   . "$AI_CONFIG"
-  provider="${AI_PROVIDER_OVERRIDE:-${OOONANA_AI_PROVIDER:-nim}}"
-  if { [ "$provider" = "gemini" ] || [ "$provider" = "auto" ]; } && { [ -n "${GEMINI_API_KEY:-}" ] || [ -n "${GOOGLE_API_KEY:-}" ]; }; then
+  provider="$(cmd_ai_provider_selected)"
+  if cmd_ai_provider_key_present "$provider"; then
     printf 'AI config: ok\n'
-  elif [ -n "${NVIDIA_API_KEY:-}" ] || [ -n "${NVIDIA_NIM_API_KEY:-}" ] || [ -n "${OPENAI_API_KEY:-}" ]; then
-    printf 'AI config: ok\n'
+  elif [ "$provider" = "openai" ]; then
+    printf 'AI config missing OPENAI_API_KEY\n'
+    exit 1
   elif [ "$provider" = "gemini" ]; then
     printf 'AI config missing GEMINI_API_KEY or GOOGLE_API_KEY\n'
     exit 1
@@ -3125,16 +3129,31 @@ cmd_ai_config_load() {
 
 cmd_ai_provider_key_present() {
   provider="$1"
-  if [ "$provider" = "gemini" ]; then
+  if [ "$provider" = "openai" ]; then
+    [ -n "${OPENAI_API_KEY:-}" ]
+  elif [ "$provider" = "gemini" ]; then
     [ -n "${GEMINI_API_KEY:-}" ] || [ -n "${GOOGLE_API_KEY:-}" ]
   else
-    [ -n "${NVIDIA_API_KEY:-}" ] || [ -n "${NVIDIA_NIM_API_KEY:-}" ] || [ -n "${OPENAI_API_KEY:-}" ]
+    [ -n "${NVIDIA_API_KEY:-}" ] || [ -n "${NVIDIA_NIM_API_KEY:-}" ]
   fi
+}
+
+cmd_ai_provider_selected() {
+  selected="${AI_PROVIDER_OVERRIDE:-${OOONANA_AI_PROVIDER:-nim}}"
+  if [ "$selected" = auto ]; then
+    if cmd_ai_provider_key_present nim; then selected=nim
+    elif cmd_ai_provider_key_present gemini; then selected=gemini
+    elif cmd_ai_provider_key_present openai; then selected=openai
+    else selected=nim; fi
+  fi
+  printf '%s\n' "$selected"
 }
 
 cmd_ai_provider_model() {
   provider="$1"
-  if [ "$provider" = "gemini" ]; then
+  if [ "$provider" = "openai" ]; then
+    printf '%s\n' "${OOONANA_OPENAI_MODEL:-gpt-6-luna}"
+  elif [ "$provider" = "gemini" ]; then
     printf '%s\n' "${OOONANA_GEMINI_MODEL:-gemini-2.5-flash}"
   else
     printf '%s\n' "${OOONANA_NIM_MODEL:-nvidia/nemotron-3-super-120b-a12b}"
@@ -3143,6 +3162,7 @@ cmd_ai_provider_model() {
 
 cmd_ai_provider_label() {
   case "$1" in
+    openai) printf 'OpenAI\n' ;;
     gemini) printf 'Google Gemini\n' ;;
     *) printf 'NVIDIA NIM\n' ;;
   esac
@@ -3173,8 +3193,7 @@ cmd_ai_provider() {
   case "$subcmd" in
     ""|show)
       cmd_ai_config_load
-      provider="${AI_PROVIDER_OVERRIDE:-${OOONANA_AI_PROVIDER:-nim}}"
-      [ "$provider" = "auto" ] && provider="nim"
+      provider="$(cmd_ai_provider_selected)"
       key_state="missing"
       cmd_ai_provider_key_present "$provider" && key_state="present"
       printf 'active: %s\n' "$provider"
@@ -3184,12 +3203,12 @@ cmd_ai_provider() {
       ;;
     set)
       value="${2:-}"
-      [ "$value" = "nim" ] || [ "$value" = "gemini" ] || die "usage: ooonana ai provider [show|set nim|set gemini]"
+      [ "$value" = "nim" ] || [ "$value" = "gemini" ] || [ "$value" = "openai" ] || die "usage: ooonana ai provider [show|set nim|set gemini|set openai]"
       cmd_ai_env_set OOONANA_AI_PROVIDER "$value"
       printf 'provider: %s\n' "$value"
       printf 'config: %s\n' "$AI_CONFIG"
       ;;
-    *) die "usage: ooonana ai provider [show|set nim|set gemini]" ;;
+    *) die "usage: ooonana ai provider [show|set nim|set gemini|set openai]" ;;
   esac
 }
 
@@ -3228,8 +3247,7 @@ cmd_ai_desktop() {
 
 cmd_ai_status() {
   cmd_ai_config_load
-  provider="${AI_PROVIDER_OVERRIDE:-${OOONANA_AI_PROVIDER:-nim}}"
-  [ "$provider" = "auto" ] && provider="nim"
+  provider="$(cmd_ai_provider_selected)"
   key_state="missing"
   cmd_ai_provider_key_present "$provider" && key_state="present"
   printf 'Ooonana AI status\n'
@@ -3246,6 +3264,7 @@ nim default: nvidia/nemotron-3-super-120b-a12b
 code: qwen/qwen3-coder-480b-a35b-instruct
 fast: qwen/qwen3-next-80b-a3b-instruct
 gemini default: gemini-2.5-flash
+openai default: gpt-6-luna
 deep: gemini-2.5-pro
 MODELS
 }
@@ -3343,7 +3362,7 @@ cmd_ai() {
         shift
         ;;
       --provider)
-        [ "$#" -ge 2 ] || die "ooonana ai --provider requires nim, gemini, or auto"
+        [ "$#" -ge 2 ] || die "ooonana ai --provider requires nim, gemini, openai, or auto"
         AI_PROVIDER_OVERRIDE="$2"
         shift 2
         ;;

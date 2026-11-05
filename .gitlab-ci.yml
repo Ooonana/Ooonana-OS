@@ -51,6 +51,7 @@ ci-smoke:
     - PYTHONDONTWRITEBYTECODE=1 bash tests/test-ooonana-pdf.sh
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-state-io-recovery.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-ai-store-safety.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-ai-openai.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-panel-session.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-tray-model.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-qt-portal.py
