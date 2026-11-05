@@ -1,5 +1,30 @@
 # Current work - 2026-11-05
 
+## Resumed WSL sync and cleanup — November5
+
+Disk reserve is restored. Signed generation81a73840 now matches F: and installed
+Ooonana WSL. Transfer reuses707 verified native archive hardlinks and copies one
+503,407-byte runtime archive. Dry-run names only core/runtime reinstall. Actual
+core/runtime/i3 verification passes; all65 protected account, authentication,
+configuration, trust and OpenVINO hashes remain unchanged. Recovery checkpoints
+stay. No model download, credential copy, ISO or stable promotion occurs.
+
+Installed native AI renders pass in Graphite/Paper with fixed status fixtures;
+captures replace the source-only examples. This certifies the installed provider
+control and layout, not live cloud inference. login1 helper safely reports
+unsupported-wsl without power requests. Earlier manual Hangul/paste checks remain
+completed. [Updated exact receipt](ai-openai-provider-20261105.md).
+
+The requested cleanup comes first: selected C: project roots,454 F: directories,
+671 Ubuntu project roots and26 Ooonana temporary roots are scanned for known
+generated caches. No additional confirmed junk is found; five earlier manual
+cleanup targets are already absent. Nothing is deleted. History, models, keys,
+source, signed generations and recovery/build checkpoints remain. Free space is
+about C:5.8GiB/F:39.4GiB after sync, not cleanup savings.
+
+Remaining1–15 gates: live cloud/API balance and held VM/physical acceptance.
+PDF viewer, Nemo integration and remaining release gates stay separately listed.
+
 ## OpenAI follow-up — November5
 
 Independent OpenAI CLI/native-GUI routing is added; its credentials no longer
@@ -16,8 +41,9 @@ is excluded from the rebuilt package; it is not copied into WSL configuration.
 
 Source9051f6d passes both CIs. Signed generation81a73840 validates718 packages/
 637 nodes and is published on F:. Previous210cf509 remains intact. Latest WSL
-sync aborts before package changes because C: falls to about1.3GiB free against
-a3.5GiB reserve. Installed session/input checks below remain completed.
+sync initially aborts before package changes because C: falls to about1.3GiB
+against a3.5GiB reserve. That hold is resolved by the resumed sync above.
+Installed session/input checks below remain completed.
 Owned temporary index roots are cleaned; history/keys/recovery remain.
 [Precise receipts and pending gates](ai-openai-provider-20261105.md).
 

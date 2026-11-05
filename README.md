@@ -28,11 +28,13 @@ Installed Ooonana nested desktop, November3:
 November5: signed candidate catalog **718 packages /637 dependency nodes** on F:
 now includes an independent OpenAI provider, safe quota/rate error handling
 and full key redaction. [Provider repair and current boundary](docs/ai-openai-provider-20261105.md).
-Latest WSL sync is held below3.5GiB free on C:; installed210cf509 remains intact.
+Latest signed generation81a73840 now matches installed Ooonana WSL after disk
+reserve was restored. Core/runtime/i3 and installed Graphite/Paper checks pass;
+65 protected authentication/configuration files remain unchanged.
 Custom-init login1/Polkit startup is already installed;
 WSL safely skips physical power services. Installed nested mouse/keyboard,
-Hangul, Backspace and clipboard acceptance passes. Nine updated packages and
-57 protected authentication/configuration files verify. Existing desktop
+Hangul, Backspace and clipboard acceptance passes. Earlier session-package
+verification remains valid. Existing desktop
 visual passes remain valid; the later AI change adds one provider choice.
 Public asset exclusion
 passes; licensing, physical/held VM checks and stable promotion remain pending.

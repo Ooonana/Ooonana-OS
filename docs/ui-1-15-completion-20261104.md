@@ -106,8 +106,9 @@ acceptance remain open. Other completed1–10.5 software results remain complete
 This follow-up does not certify all1–15 or promote stable.
 
 The later November5 OpenAI candidate81a73840 adds its independent provider and
-safe error handling. Installed WSL remains on this report's210cf509 because
-host free space dropped below the3.5GiB transfer reserve; see the follow-up above.
+safe error handling. WSL's initial low-space hold is resolved:81a73840 is now
+installed, core/runtime/i3 verify and65 protected hashes remain unchanged.
+Installed Graphite/Paper renders pass; see the follow-up above.
 
 Private receipts remain under
 `C:\Users\7ryan\AppData\Local\Temp\ooonana-release-17-21-20261103\`.

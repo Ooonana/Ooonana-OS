@@ -55,7 +55,7 @@ Previous210cf509 and its signed checksum manifest are preserved.
 Only core-runtime changes: four AI CLI/client/UI files. Other package metadata
 and payloads remain unchanged. The actual new credential is explicitly checked
 absent from the rebuilt archive. Earlier public cursor/key exclusion holds for
-unchanged archives. Both source renders below use fixed provider-status data;
+unchanged archives. Both installed renders below use fixed provider-status data;
 they prove presentation, not successful cloud generation.
 
 ![OpenAI provider in Graphite](assets/ooonana-ai-openai-graphite-20261105.png)
@@ -65,8 +65,34 @@ Native index scratch is cleaned. Slow F: indexing was stopped with its owned
 scratch cleaned; a native WSL copy reused existing verified archive hardlinks.
 History, source, signing material, generations and recovery data are retained.
 
-Latest WSL sync is held: host C: fell to about1.3GiB free, below the3.5GiB
-pre-transfer reserve. This aborts before changing installed packages. Installed
-Ooonana remains on generation210cf509 with its completed session-provider/input
-checks; the new OpenAI provider is not yet installed there. Resume the prepared
-verified transfer/sync after restoring disk reserve. No ISO or stable promotion.
+An earlier WSL sync was held when C: fell to about1.3GiB free, below the3.5GiB
+pre-transfer reserve. It aborted before changing installed packages. That failure
+receipt remains; the hold is now resolved.
+
+## Resumed installed verification
+
+After C: reserve returns to about5.9GiB, transfer reuses707 verified native
+archives and copies one503,407-byte runtime archive. Trusted-key publication
+validates the native generation before changing installed payload. Dry-run names
+only core/runtime reinstall; actual core/runtime/i3 verification passes.
+Installed CURRENT now equals81a73840, matching F:.
+
+All65 preexisting protected account, PAM policy/module, configuration, trust and
+OpenVINO hashes remain unchanged. New recovery checkpoints remain available.
+Provider selection and key redaction pass against the actual installed module.
+No real API key is copied into WSL configuration, and no models are downloaded.
+
+Installed Graphite/Paper renders are reviewed using existing Impeccable guidance:
+OpenAI selection/model, four provider choices, unchanged control dimensions and
+readable layout pass at1090x722. Fixed provider status is explicit; no successful
+cloud generation is inferred. login1 startup still reports unsupported-wsl with
+power_requests:false. The packaged nested launcher remains executable:
+
+```powershell
+wsl -d Ooonana -u ooonana -- /usr/local/bin/start-ooonana-i3 --nested
+```
+
+The prior cleanup scans selected C: project roots,454 F: directories,671 Ubuntu
+project roots and26 Ooonana temporary roots. No new confirmed cache junk is found;
+old manual targets are absent. Nothing is deleted; history/models/keys/recovery
+stay. C: remains about5.8GiB free after sync. No ISO or stable promotion.
