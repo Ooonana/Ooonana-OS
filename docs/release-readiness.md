@@ -48,8 +48,8 @@ with13's separate session-provider acceptance. "All11–15 done" is too broad.
 | 15 Installer / boot | Private actual checksum installation/reinstallation, BIOS/UEFI/login/sudo/storage and recovery proofs retained | Broader system/kernel upgrade timings, actual physical installation/persistence/power transitions |
 | 16 Bootable PDF | Runtime/source tests retained | Actual Chromium viewer boot, keyboard/Backspace/focus and measured command latency |
 | 17 Bounded UI acceptance |18 exact-package normal/scaled cases; actual installed Settings, Geany, Files and exact minimize/fullscreen/close restoration passed | Nemo folder metadata/optional helper integration; physical/mixed-display acceptance and remaining gates in11–16 |
-| 18 Source / CI / packages | Source freezead1e04c; both CIs passed; signed718-package/637-node generation verified | Stable promotion remains separate |
-| 19 Candidate / WSL | Signed generation210cf509 published on F: and installed Ooonana; nine packages verify,57 protected authentication/configuration hashes preserved; manual nested IME/input passes | Public stable update channel remains held |
+| 18 Source / CI / packages | Source freeze9051f6d; both CIs passed; signed718-package/637-node generation81a73840 verified on F: | Stable promotion remains separate |
+| 19 Candidate / WSL | Installed210cf509 retains nine package checks,57 protected hashes and manual nested input pass; latest81a73840 published on F: | Latest OpenAI sync held below3.5GiB C: reserve; public stable channel held |
 | 20 Documentation / cleanup | README/screenshots, four-page field guide, receipts and this list refreshed; disposable index scratch cleaned | Final image/release-specific evidence after user build |
 | 21 Assets | Published708 archives/75,903 entries checked; personal cursor/private-key exclusion and public cursor/source match passed | Original code/artwork license decision and broader redistribution clearance remain pending |
 | 22 Final ISO | Build sources and signed catalog ready | User fresh build; image/checksum/BIOS/UEFI/service/GUI checks |

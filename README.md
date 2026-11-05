@@ -25,12 +25,16 @@ hold statements below; historical checkpoints remain evidence of their own runs.
 Installed Ooonana nested desktop, November3:
 ![Ooonana installed desktop: compact panel, left-side music and flat application dock](docs/assets/ooonana-desktop-20261103.png)
 
-November5: signed candidate catalog **718 packages /637 dependency nodes** now
-matches installed Ooonana WSL. Custom-init login1/Polkit startup is packaged;
+November5: signed candidate catalog **718 packages /637 dependency nodes** on F:
+now includes an independent OpenAI provider, safe quota/rate error handling
+and full key redaction. [Provider repair and current boundary](docs/ai-openai-provider-20261105.md).
+Latest WSL sync is held below3.5GiB free on C:; installed210cf509 remains intact.
+Custom-init login1/Polkit startup is already installed;
 WSL safely skips physical power services. Installed nested mouse/keyboard,
 Hangul, Backspace and clipboard acceptance passes. Nine updated packages and
 57 protected authentication/configuration files verify. Existing desktop
-visual passes remain valid; UI payload is unchanged. Public asset exclusion
+visual passes remain valid; the later AI change adds one provider choice.
+Public asset exclusion
 passes; licensing, physical/held VM checks and stable promotion remain pending.
 [Items1–15 follow-up](docs/ui-1-15-completion-20261104.md).
 [Current11–25 checklist](docs/release-readiness.md).

@@ -61,8 +61,9 @@ Upstream integration contracts: [elogind](https://github.com/elogind/elogind),
 
 ## Boundaries still open
 
-- 11: real cloud streaming/cancel/recovery needs secure new-key confirmation;
- existing credentials are not silently reused.
+- 11: real cloud streaming/cancel/recovery now needs available API balance.
+ November5 new-key authentication succeeds; generation returns credit_balance_exhausted.
+ [OpenAI follow-up](ai-openai-provider-20261105.md). Existing credentials were not reused.
 - 13/15: actual provider/PAM registration, inhibitors, installed transitions and
  broader system/kernel upgrades require the held VM checks and real hardware.
 - 14/15: radios, sound routes, backlight permissions, physical installation,
@@ -100,9 +101,13 @@ private cursor/key excluded, public cursor matches source. Original licensing
 decision remains pending. Disposable ABI/index roots were already cleaned;
 candidate generations, receipts and recovery data are retained.
 
-Item11 cloud credentials,13's held VM/provider transitions and14/15 physical
+Item11 cloud API balance,13's held VM/provider transitions and14/15 physical
 acceptance remain open. Other completed1–10.5 software results remain completed.
 This follow-up does not certify all1–15 or promote stable.
+
+The later November5 OpenAI candidate81a73840 adds its independent provider and
+safe error handling. Installed WSL remains on this report's210cf509 because
+host free space dropped below the3.5GiB transfer reserve; see the follow-up above.
 
 Private receipts remain under
 `C:\Users\7ryan\AppData\Local\Temp\ooonana-release-17-21-20261103\`.

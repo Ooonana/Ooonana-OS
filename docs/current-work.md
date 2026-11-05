@@ -1,5 +1,26 @@
 # Current work - 2026-11-05
 
+## OpenAI follow-up — November5
+
+Independent OpenAI CLI/native-GUI routing is added; its credentials no longer
+count as a NIM key in shell fallback. Default GPT-6 Luna uses supported token
+budget/options; errors distinguish exhausted balance from rate limits and
+configuration output fully redacts keys. Six provider tests, CLI/fallback
+regression and GTK streaming/cancel/read-failure fixtures pass. Graphite/Paper
+native WSLg renders are reviewed with Impeccable guidance.
+
+The user confirmed secure local new-key saving. Authentication succeeds, but
+GPT-6 Luna returns credit_balance_exhausted; live generation/cancel/recovery
+remains pending available API balance. Credential remains ignored by Git and
+is excluded from the rebuilt package; it is not copied into WSL configuration.
+
+Source9051f6d passes both CIs. Signed generation81a73840 validates718 packages/
+637 nodes and is published on F:. Previous210cf509 remains intact. Latest WSL
+sync aborts before package changes because C: falls to about1.3GiB free against
+a3.5GiB reserve. Installed session/input checks below remain completed.
+Owned temporary index roots are cleaned; history/keys/recovery remain.
+[Precise receipts and pending gates](ai-openai-provider-20261105.md).
+
 ## Items1–15 — November5
 
 Installed nested input now passes mouse, keyboard, Backspace, Hangul and paste
