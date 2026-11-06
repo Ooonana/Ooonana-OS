@@ -1,6 +1,6 @@
 # Core 0.10.0 candidate: remaining acceptance gates
 
-Updated November 5, 2026. Stable has not been promoted. This checklist replaces
+Updated November 6, 2026. Stable has not been promoted. This checklist replaces
 the repeated 25-item draft; detailed historical receipts remain in
 [current work](current-work.md) and [UI review](ui-whole-os-review.md).
 
@@ -38,7 +38,7 @@ with13's separate session-provider acceptance. "All11–15 done" is too broad.
 | 7 Panel/dock/window manager | Packaged grouping/previews/pins/reorder/workspace cases and installed exact restore/fullscreen/close checks passed | Physical service/display/session coverage under12–14/23 |
 | 7.5 Control Center | Compact opaque flyout, normal/large text, both themes, device/permission states and volume routing guards passed | Real device actions under14/23 |
 | 8 Settings/setup | Saved preferences, storage/link/error guards, layout and harmless real authorization passed | Actual account/storage/persistence mutation under15/24 |
-| 9 Notifications | Real private Dunst actions, privacy/history, DND, badges and restart/identity recovery passed | Everyday installed-service acceptance; no source failure currently established |
+| 9 Notifications | Private passes retained; installed actions/history/panel badge/DND/recovery and frameless flyout/Escape passed | Longer normal-use and final-image acceptance |
 | 10 Packages/Health/Updates | Privileged signed fixture install/remove, config preservation, interruption/recovery/health rollback and installed VM fault cases passed | Broader whole-system/kernel upgrades and physical USB acceptance under15/24 |
 | 10.5 Lockscreen | Visible password field, fixed mask, Backspace/error/Caps/layout feedback, actual PAM unlock and nine normal/scaled/compact/dual-monitor gates passed; installed native revision verified | Everyday user-session automatic lock/wake coverage under13; no unfinished password-field fix |
 | 11 Tasks / AI | Task sampling/termination and native chat fixture checks passed; OpenAI provider/fallback separation, redaction and both-theme control rendering repaired | Physical metrics; live cloud streaming/cancel/recovery blocked by API credit_balance_exhausted |
@@ -47,18 +47,20 @@ with13's separate session-provider acceptance. "All11–15 done" is too broad.
 | 14 Controls | Private wireless/audio/brightness/media cases passed | Physical credentials/reconnect/pairing/routing/brightness permissions; no audible testing |
 | 15 Installer / boot | Private actual checksum installation/reinstallation, BIOS/UEFI/login/sudo/storage and recovery proofs retained | Broader system/kernel upgrade timings, actual physical installation/persistence/power transitions |
 | 16 Bootable PDF | Runtime/source tests retained | Actual Chromium viewer boot, keyboard/Backspace/focus and measured command latency |
-| 17 Bounded UI acceptance |18 exact-package normal/scaled cases; actual installed Settings, Geany, Files and exact minimize/fullscreen/close restoration passed | Nemo folder metadata/optional helper integration; physical/mixed-display acceptance and remaining gates in11–16 |
-| 18 Source / CI / packages | Source freeze9051f6d; both CIs passed; signed718-package/637-node generation81a73840 verified on F: | Stable promotion remains separate |
-| 19 Candidate / WSL | Signed81a73840 now matches F: and installed Ooonana; core/runtime/i3 verify,65 protected hashes unchanged; installed Graphite/Paper checks and earlier manual input pass retained | Public stable channel remains held; real cloud/device acceptance stays separate |
+| 17 Bounded UI acceptance | Earlier18 exact-package/installed restoration passes retained; installed notification flyout passed; Nemo integration source fixed with loader/private checks | Actual Nemo layout/thumbnail/menu/wallpaper tests after storage recovery; physical/mixed-display gates |
+| 18 Source / CI / packages | Freeze d9b4ae5 and both CIs passed; Nemo/core bundle built; prior signed718-package/637-node generation81a73840 retained | Finish complete signing/provenance/closure after F: read stalls resolve; stable separate |
+| 19 Candidate / WSL | Previous signed81a73840 installed; earlier65 protected-file/theme/input passes retained | New Nemo candidate not installed; Ooonana WSL shares stalled F: storage; publication/sync held |
 | 20 Documentation / cleanup | README/screenshots, field guide, receipts/list refreshed; disposable index scratch cleaned; latest C:/F:/both-WSL cache scan finds no additional confirmed junk | Final image/release-specific evidence after user build |
 | 21 Assets | Published708 archives/75,903 entries checked; personal cursor/private-key exclusion and public cursor/source match passed | Original code/artwork license decision and broader redistribution clearance remain pending |
-| 22 Final ISO | Build sources and signed catalog ready | User fresh build; image/checksum/BIOS/UEFI/service/GUI checks |
+| 22 Final ISO | Prior signed catalog preserved | Latest source needs matching verified packages first; user fresh build and image/checksum/boot/service checks |
 | 23 Hardware | Private fixtures retained | Physical radios/GPU/RAM/zram/swap/thermals/fans/displays |
 | 24 Disposable USB | Private installed fixture recovery/rollback/ENOSPC proofs retained | Physical reboot/full-storage/power-loss/recovery/interrupted upgrade tests; reverify disposable target identity |
 | 25 Stable promotion | Private signing key remains local | Trust enrollment and stable channel/tag approval |
 
 Sign-in currently uses console getty/PAM. A graphical greeter has not been
 implemented; it is a separate feature decision, not a lost lockscreen patch.
+November6 [installed UI and storage receipt](installed-ui-acceptance-20261106.md)
+records notification acceptance and the blocker for further package/WSL work.
 Item13's provider startup is now implemented; its real boot/session acceptance
 remains held rather than counted as completed. Remaining work includes16's
 viewer acceptance and17's Nemo gaps. Item11's live cloud acceptance needs

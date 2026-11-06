@@ -1,4 +1,18 @@
-# Current work - 2026-11-05
+# Current work - 2026-11-06
+
+## Notification acceptance and Nemo candidate — November6
+
+Source freeze d9b4ae5 is pushed to both candidate branches; both CIs passed.
+Nemo/cache fixes are built, with loader/private transaction checks passed.
+Installed notification backend and frameless flyout/Escape checks passed.
+[Receipt and screenshot](installed-ui-acceptance-20261106.md).
+
+F: reads stalled during validation. Registry confirms Ooonana WSL already
+lives on F:; Ubuntu lives on C:. Neither moved here. Owned index jobs stopped;
+no package transaction or generation promotion. Generation81a73840 stays
+installed. Resume signing/closure and Nemo installed tests after reliable I/O.
+No new large confirmed junk found. VM/physical tests and heavy viewer launches
+held; no audible test, model download or ISO build.
 
 ## Resumed WSL sync and cleanup — November5
 
