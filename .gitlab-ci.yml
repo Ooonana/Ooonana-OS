@@ -24,7 +24,7 @@ ci-smoke:
   stage: check
   before_script:
     # Verification fixtures use findmnt; BusyBox does not provide it.
-    - apk add --no-cache bash python3 diffutils findutils tar gzip xz coreutils binutils git openssl util-linux nodejs gcc musl-dev
+    - apk add --no-cache bash python3 diffutils findutils tar gzip xz coreutils binutils git openssl util-linux nodejs gcc musl-dev glib
     - command -v findmnt && command -v mountpoint
     - command -v node && command -v cc
   script:
@@ -52,6 +52,8 @@ ci-smoke:
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-state-io-recovery.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-ai-store-safety.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-ai-openai.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-desktop-package-caches.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-nemo-integration.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-panel-session.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-tray-model.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-qt-portal.py

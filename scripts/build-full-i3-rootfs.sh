@@ -4518,6 +4518,10 @@ EOF
 install_current_backend_checks() {
   # Cached first-party archives must not mask current backend/desktop fixes.
   local app="$ROOTFS/usr/lib/ooonana/openvino-chat" file
+  mkdir -p "$ROOTFS/usr/share/nemo/actions" "$ROOTFS/usr/share/glib-2.0/schemas"
+  cp -a "$ROOT/packages/ooonana/usr/share/nemo/actions/." "$ROOTFS/usr/share/nemo/actions/"
+  install -m 0644 "$ROOT/packages/ooonana/usr/share/glib-2.0/schemas/20_ooonana-nemo.gschema.override" \
+    "$ROOTFS/usr/share/glib-2.0/schemas/20_ooonana-nemo.gschema.override"
   install -D -m 0644 "$ROOT/packages/ooonana/etc/elogind/logind.conf.d/90-ooonana.conf" \
     "$ROOTFS/etc/elogind/logind.conf.d/90-ooonana.conf"
   install -D -m 0644 "$ROOT/packages/ooonana/etc/chromium/zz-ooonana.conf" \
@@ -4541,7 +4545,7 @@ install_current_backend_checks() {
       "$ROOTFS/usr/lib/ooonana/ui/$file"
   done
   install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana" "$ROOTFS/usr/bin/ooonana"
-  for file in ooonana-window-list ooonana-panel-start ooonana-media-status ooonana-notification-status ooonana-xsettings ooonana-lock ooonana-session ooonana-session-services ooonana-session-guard ooonana-input-method ooonana-tray ooonana-controls ooonana-shell ooonana-notifications; do
+  for file in ooonana-window-list ooonana-panel-start ooonana-media-status ooonana-notification-status ooonana-xsettings ooonana-lock ooonana-session ooonana-session-services ooonana-session-guard ooonana-input-method ooonana-tray ooonana-controls ooonana-shell ooonana-notifications ooonana-nemo-wallpaper; do
     install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/$file" "$ROOTFS/usr/bin/$file"
   done
   [[ -f "$app/APP-MANIFEST.sha256" ]] || return 0

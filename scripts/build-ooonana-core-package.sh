@@ -184,6 +184,15 @@ if [ -f "$inittab" ] && [ ! -L "$inittab" ] &&
    grep -qx '::shutdown:/bin/umount -a -r' "$inittab"; then
   sed -i 's|^::shutdown:/bin/umount -a -r$|::shutdown:/usr/bin/ooonana-shutdown-cleanup --from-init|' "$inittab"
 fi
+# Bootstrap older installed CLIs that predate desktop cache triggers. New CLI
+# transactions also refresh these caches on upgrade and rollback.
+schemas="${prefix%/}/usr/share/glib-2.0/schemas"
+if [ -f "$schemas/org.nemo.gschema.xml" ] && command -v glib-compile-schemas >/dev/null 2>&1; then
+  glib-compile-schemas --strict "$schemas"
+fi
+if [ "$prefix" = / ] && [ -d /usr/lib/gio/modules ] && command -v gio-querymodules >/dev/null 2>&1; then
+  gio-querymodules /usr/lib/gio/modules
+fi
 echo 'OOONANA_CORE_HEALTHCHECK_OK'
 CHECK
 chmod 0755 "$OUT_DIR/hooks/$runtime_id.healthcheck"

@@ -54,6 +54,9 @@ gdk-pixbuf
 gdk-pixbuf-loaders
 glycin-image-rs
 glycin-svg
+glycin-thumbnailer
+glycin-heif
+heif-thumbnailer
 hicolor-icon-theme
 adwaita-icon-theme
 font-awesome-free
@@ -77,6 +80,7 @@ xf86-input-evdev
 eudev
 chromium
 nemo
+gvfs
 geany
 networkmanager
 networkmanager-wifi

@@ -561,6 +561,7 @@ restore_pkg_transaction() (
   else
     rm -f "$baseline" || return 1
   fi
+  refresh_pkg_desktop_caches "$transaction/affected" || return 1
   sync || return 1
   printf 'restored previous package: %s\n' "$id" >&2
 )
@@ -1792,6 +1793,26 @@ safe_manifest_entry() {
   esac
 }
 
+refresh_pkg_desktop_caches() (
+  # Derived caches follow installed inputs, including failed-upgrade recovery.
+  # GSettings data is portable; GIO modules must run only in the native root.
+  set -eu
+  changes="$1"
+  [ -f "$changes" ] || exit 0
+  schema_dir="$(root_join /usr/share/glib-2.0/schemas)"
+  if grep -Eq '^usr/share/glib-2.0/schemas/[^/]+\.gschema\.(xml|override)$' "$changes" &&
+     command -v glib-compile-schemas >/dev/null 2>&1 && [ -d "$schema_dir" ]; then
+    [ ! -L "$schema_dir" ] || exit 1
+    glib-compile-schemas --strict "$schema_dir"
+  fi
+  if [ "$OOONANA_ROOT" = / ] &&
+     grep -Eq '^usr/lib/gio/modules/[^/]+\.so' "$changes" &&
+     command -v gio-querymodules >/dev/null 2>&1 && [ -d /usr/lib/gio/modules ]; then
+    [ ! -L /usr/lib/gio/modules ] || exit 1
+    gio-querymodules /usr/lib/gio/modules
+  fi
+)
+
 install_pkg_archive() {
   id="$1"
   ensure_pkg_archive_available
@@ -1803,6 +1824,7 @@ install_pkg_archive() {
   tar -xzpf "$archive_path" -C "$OOONANA_ROOT"
   mkdir -p "$(pkg_files_dir)"
   tar_list_archive "$archive_path" | sed -e 's#^\./##' -e '/^$/d' > "$(pkg_files_manifest "$id")"
+  refresh_pkg_desktop_caches "$(pkg_files_manifest "$id")"
   printf 'unpacked %s\n' "$OOONANA_PKG_ARCHIVE"
 }
 
@@ -1839,6 +1861,9 @@ remove_pkg_archive_files() {
       rm -f "$target"
     fi
   done
+  if [ "${ooonana_replacing_payload:-0}" != 1 ]; then
+    refresh_pkg_desktop_caches "$manifest"
+  fi
   rm -f "$manifest"
   printf 'removed archive files %s\n' "$id"
 }
@@ -2945,6 +2970,7 @@ replace_pkg_transaction() (
   mv "$transaction/phase.tmp" "$transaction/phase"
   sync
   active=1
+  ooonana_replacing_payload=1
   remove_pkg_archive_files "$id"
   if [ -f "$transaction/replacement.tar.gz" ]; then
     tar -xzpf "$transaction/replacement.tar.gz" -C "$OOONANA_ROOT"
@@ -2964,6 +2990,7 @@ replace_pkg_transaction() (
   if [ -s "$transaction/preserved-configs" ]; then
     tar -xpf "$transaction/payload.tar" -C "$OOONANA_ROOT" -T "$transaction/preserved-configs"
   fi
+  refresh_pkg_desktop_caches "$transaction/affected"
   run_pkg_hook "$id" install
   run_pkg_hook "$id" healthcheck
   cp "$LOADED_PKG_FILE" "$INSTALLED_DIR/$id.pkg"
