@@ -155,12 +155,22 @@ with tempfile.TemporaryDirectory(prefix="ooonana-shell-session-") as temporary:
                     verify(kind)
                     wait(lambda: not any(app.pending.values()), "Initial request did not settle: " + kind, seconds=55)
                     if kind == "notifications":
+                        empty_height = app.window.get_size()[1] if not app.window.records else None
                         subprocess.run(["notify-send", "--app-name=Owned QA", "Screenshot saved", "Review copy ready."], check=True)
                         app.window.refresh(collect_popups=True)
                         wait(lambda: not app.window.refreshing and bool(app.window.records), "Real notification did not appear in flyout")
+                        if empty_height is not None:
+                            assert app.window.get_size()[1] >= empty_height, "Populated history shrank below empty layout"
                     if kind == "controls":
                         capture("controls")
                         app.window._shell_initial_focus.grab_focus()
+                        settle()
+                        for widget in (app.window.audio.scale, app.window.audio.mute_button):
+                            viewport = widget.get_parent()
+                            while not isinstance(viewport, Gtk.Viewport):
+                                viewport = viewport.get_parent()
+                            _, top = widget.translate_coordinates(viewport, 0, 0)
+                            assert 0 <= top and top + widget.get_allocated_height() <= viewport.get_allocated_height(), "Sound control requires initial scrolling"
                         for _ in range(24):
                             if app.window.get_focus() is app.window.settings_button:
                                 break

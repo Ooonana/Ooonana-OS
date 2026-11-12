@@ -763,6 +763,9 @@ apply_install_config() {
   printf '%%wheel ALL=(ALL:ALL) ALL\n' >"$root/etc/sudoers.d/ooonana"
   chmod 0440 "$root/etc/sudoers.d/ooonana"
   printf 'installed\n' >"$root/etc/ooonana/system-mode"
+  if [[ ! -e "$root/etc/ooonana/login-mode" && ! -L "$root/etc/ooonana/login-mode" ]]; then
+    printf 'graphical\n' >"$root/etc/ooonana/login-mode"
+  fi
   cat >"$root/etc/inittab" <<'LOGIN'
 ::sysinit:/etc/init.d/rcS
 tty1::respawn:/bin/busybox getty 38400 tty1
@@ -772,6 +775,7 @@ tty2::respawn:/bin/busybox getty 38400 tty2
 LOGIN
   cat >"$root/etc/profile.d/ooonana-session.sh" <<'SESSION'
 if [ "$(id -u)" != 0 ] && [ -z "${DISPLAY:-}" ] &&
+  ! /bin/busybox pidof lightdm >/dev/null 2>&1 &&
   [ "$(tty 2>/dev/null)" = /dev/tty1 ] && [ -x /usr/bin/start-ooonana-i3 ]; then
   exec /usr/bin/start-ooonana-i3
 fi

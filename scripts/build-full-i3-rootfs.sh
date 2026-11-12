@@ -4438,7 +4438,10 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
 fi
 
 if [ "$(cat /etc/ooonana/system-mode 2>/dev/null)" = installed ]; then
-  echo "Installed system: console login required; desktop starts after authentication."
+  if [ -x /usr/bin/ooonana-graphical-login ]; then
+    /usr/bin/ooonana-graphical-login </dev/null >/var/log/ooonana-graphical-login.log 2>&1 &
+  fi
+  echo "Installed system: sign in to continue. Console sign-in is available on tty2."
   exit 0
 fi
 
@@ -4974,6 +4977,7 @@ main() {
     "$ROOTFS/usr/bin/ooonana-panel-start" \
     "$ROOTFS/usr/bin/ooonana-wallpaper-fit" \
     "$ROOTFS/usr/bin/ooonana-notifications" \
+    "$ROOTFS/usr/bin/ooonana-graphical-login" \
     "$ROOTFS/usr/bin/ooonana-notification-status" \
     "$ROOTFS/usr/bin/which" \
     "$ROOTFS/usr/bin/strings" \

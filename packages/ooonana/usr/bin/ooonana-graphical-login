@@ -1,0 +1,48 @@
+#!/bin/sh
+# Called once by installed-system init after local mounts and session services.
+set -eu
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+
+[ "$(id -u)" = 0 ] || exit 1
+[ "$(cat /etc/ooonana/system-mode 2>/dev/null)" = installed ] || exit 0
+[ ! -L /etc/ooonana/login-mode ] || exit 0
+[ "$(cat /etc/ooonana/login-mode 2>/dev/null)" = graphical ] || exit 0
+[ -z "${WSL_DISTRO_NAME:-}" ] || exit 0
+grep -qi microsoft /proc/sys/kernel/osrelease && exit 0
+case " $(cat /proc/cmdline) " in
+  *" ooonana.login=console "*|*" ooonana.live=1 "*) exit 0 ;;
+esac
+[ ! -e /run/nologin ] && [ ! -e /etc/nologin ] || exit 0
+[ -c /dev/tty0 ] && [ -c /dev/tty7 ] || exit 0
+
+if [ ! -x /usr/bin/lightdm ] || [ ! -x /usr/bin/lightdm-gtk-greeter ] ||
+   [ ! -x /usr/bin/ooonana-i3-session ] ||
+   { [ ! -s /etc/pam.d/login ] && [ ! -s /usr/lib/pam.d/login ]; } ||
+   [ ! -s /etc/pam.d/ooonana-graphical-login ] ||
+   [ ! -f /usr/lib/security/pam_succeed_if.so ]; then
+  echo 'Graphical sign-in components unavailable. Use console sign-in on tty2.' >&2
+  exit 1
+fi
+
+# Package archives do not execute Alpine's pre-install account hook.
+if ! id lightdm >/dev/null 2>&1; then
+  if ! awk -F: '$1 == "lightdm" { found=1 } END { exit !found }' /etc/group; then
+    addgroup -S lightdm
+  fi
+  adduser -S -D -H -h /var/lib/lightdm -s /bin/false -G lightdm lightdm
+fi
+uid="$(id -u lightdm)"
+gid="$(id -g lightdm)"
+if [ "$uid" -eq 0 ] || [ "$uid" -ge 1000 ] ||
+   [ "$gid" -eq 0 ] || [ "$gid" -ge 1000 ] ||
+   ! awk -F: '$1 == "lightdm" && $6 == "/var/lib/lightdm" && $7 == "/bin/false" { found=1 } END { exit !found }' /etc/passwd; then
+  echo 'LightDM requires its dedicated system account. Use console sign-in on tty2.' >&2
+  exit 1
+fi
+for directory in /var/lib/lightdm /var/lib/lightdm-data; do
+  [ ! -L "$directory" ] || exit 1
+done
+install -d -m 0750 -o "$uid" -g "$gid" /var/lib/lightdm
+install -d -m 0755 -o "$uid" -g "$gid" /var/lib/lightdm-data
+exec /usr/bin/lightdm

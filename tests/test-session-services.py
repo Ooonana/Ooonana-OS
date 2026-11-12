@@ -115,13 +115,17 @@ class ProviderStartup(unittest.TestCase):
         source = (ROOT/'scripts/build-full-i3-rootfs.sh').read_text()
         boot = source.index('ooonana-session-services start')
         self.assertGreater(boot, source.index('start_system_services || true'))
-        self.assertLess(boot, source.index('Installed system: console login required'))
+        graphical_login = source.index('/usr/bin/ooonana-graphical-login </dev/null')
+        self.assertLess(boot, graphical_login)
+        self.assertLess(source.index('start_installed_mounts || exit 1'), graphical_login)
         policy = (ROOT/'packages/ooonana/etc/elogind/logind.conf.d/90-ooonana.conf').read_text()
         for key in ('HandlePowerKey','HandleSuspendKey','HandleHibernateKey','HandleLidSwitch','IdleAction'):
             self.assertIn(key+'=ignore', policy)
         for name in ('full-i3','both'):
             packages = (ROOT/f'configs/packages/{name}.list').read_text().splitlines()
             self.assertIn('elogind', packages); self.assertIn('polkit-elogind', packages)
+            self.assertIn('lightdm', packages)
+            self.assertIn('lightdm-gtk-greeter', packages)
 
 
 if __name__ == '__main__': unittest.main()

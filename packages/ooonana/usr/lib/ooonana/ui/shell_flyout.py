@@ -6,7 +6,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import i3_events
 from shell_client import application_id
-from common import Gdk, Gio, GLib, Gtk, Pango, apply_theme, button, header, icon, label, launch, run
+from common import Gdk, Gio, GLib, Gtk, Pango, apply_theme, button, flow_row, header, icon, label, launch, run
 
 SPECS = {
     "apps": ("Applications", 560, 520, "bottom"),
@@ -74,7 +74,10 @@ class Flyout:
         pointer = display.get_default_seat().get_pointer().get_position()
         self.monitor = display.get_monitor_at_point(pointer.x, pointer.y)
         area = self.monitor.get_workarea()
-        geometry = anchor_geometry((area.x, area.y, area.width, area.height), SPECS[kind][1:3], anchor)
+        width, height = SPECS[kind][1:3]
+        if kind == "notifications":
+            height = 260
+        geometry = anchor_geometry((area.x, area.y, area.width, area.height), (width, height), anchor)
         window.set_size_request(-1, -1)
         window.set_default_size(*geometry[2:])
         window.set_resizable(False)
@@ -129,6 +132,8 @@ class Flyout:
             caption.set_line_wrap(True)
             caption.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
             caption.set_max_width_chars(22)
+            window.resize_flyout = self.fit_notifications
+            self.fit_notifications()
         if kind == "apps":
             try:
                 window.disconnect_by_func(Gtk.main_quit)
@@ -161,12 +166,32 @@ class Flyout:
         self.place_timer = GLib.timeout_add(80, self.position)
         return False
 
+    def fit_notifications(self):
+        self.window.scroll.set_propagate_natural_height(not self.window.records)
+        if self.window.get_mapped() and not self.place_timer:
+            self.place_timer = GLib.idle_add(self.position)
+
     def position(self):
         self.place_timer = 0
         if self.closing or not self.window.get_visible():
             return False
         area = self.monitor.get_workarea()
-        x, y, w, h = anchor_geometry((area.x, area.y, area.width, area.height), self.window.get_size(), self.anchor)
+        workarea = (area.x, area.y, area.width, area.height)
+        size = self.window.get_size()
+        if self.kind == "notifications" and hasattr(self.window, "records"):
+            width, height = SPECS[self.kind][1:3]
+            width = anchor_geometry(workarea, (width, height), self.anchor)[2]
+            if not self.window.records:
+                height = self.window.get_preferred_height_for_width(width)[1]
+                scroll_width = self.window.scroll.get_allocated_width()
+                if scroll_width > 1:
+                    # Measure wrapped copy inside its viewport, at the actual text scale.
+                    list_width = max(1, scroll_width + width - self.window.get_allocated_width())
+                    content_height = self.window.list.get_preferred_height_for_width(list_width)[1]
+                    chrome_height = self.window.get_allocated_height() - self.window.scroll.get_allocated_height()
+                    height = max(height, chrome_height + content_height)
+            size = (width, height)
+        x, y, w, h = anchor_geometry(workarea, size, self.anchor)
         self.window.resize(w, h)
         self.window.move(x, y)
         from gi.repository import GdkX11
@@ -292,14 +317,13 @@ class QuickControls(Gtk.Window):
             row.pack_end(icon("go-next-symbolic"), False, False, 0)
             control.add(row)
             connections.pack_start(control, False, False, 0)
-        root.pack_start(connections, False, False, 0)
-        root.pack_start(Gtk.Separator(), False, False, 0)
-        self._shell_initial_focus = connections.get_children()[0]
         self.audio_device = label("Checking sound…", "muted", wrap=False)
         self.audio_device.set_ellipsize(Pango.EllipsizeMode.END)
         self.audio_device.set_max_width_chars(36)
         for owner in (self.audio, self.brightness):
             if owner is self.brightness:
+                root.pack_start(Gtk.Separator(), False, False, 0)
+                root.pack_start(connections, False, False, 0)
                 separator = Gtk.Separator()
                 separator.set_margin_top(4)
                 root.pack_start(separator, False, False, 0)
@@ -314,16 +338,13 @@ class QuickControls(Gtk.Window):
             title_row.pack_start(owner.value_label, True, True, 0)
             title_row.pack_end(details, False, False, 0)
             root.pack_start(title_row, False, False, 0)
-            if owner is self.audio:
-                root.pack_start(self.audio_device, False, False, 0)
             controls = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
             owner.scale.get_parent().remove(owner.scale)
             controls.pack_start(owner.scale, False, False, 0)
-            actions = Gtk.Box(spacing=8)
-            for widget in ([owner.mute_button, owner.apply_button] if owner is self.audio else [owner.apply_button]):
+            widgets = [owner.apply_button, owner.mute_button] if owner is self.audio else [owner.apply_button]
+            for widget in widgets:
                 widget.get_parent().remove(widget)
-                actions.pack_end(widget, False, False, 0)
-            controls.pack_start(actions, False, False, 0)
+            controls.pack_start(flow_row(widgets, max_children=len(widgets), min_children=1), False, False, 0)
             root.pack_start(controls, False, False, 0)
             owner.status.get_parent().remove(owner.status)
             if owner is self.brightness:
@@ -338,6 +359,8 @@ class QuickControls(Gtk.Window):
                 self.brightness_details.add(owner.status)
                 root.pack_start(self.brightness_details, False, False, 0)
             else:
+                self._shell_initial_focus = details
+                root.pack_start(self.audio_device, False, False, 0)
                 owner.status.set_lines(2)
                 owner.status.set_max_width_chars(36)
                 root.pack_start(owner.status, False, False, 0)

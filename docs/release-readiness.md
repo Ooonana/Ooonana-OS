@@ -1,6 +1,6 @@
 # Core 0.10.0 candidate: remaining acceptance gates
 
-Updated November 6, 2026. Stable has not been promoted. This checklist replaces
+Updated November 12, 2026. Stable has not been promoted. This checklist replaces
 the repeated 25-item draft; detailed historical receipts remain in
 [current work](current-work.md) and [UI review](ui-whole-os-review.md).
 
@@ -43,7 +43,7 @@ with13's separate session-provider acceptance. "All11–15 done" is too broad.
 | 10.5 Lockscreen | Visible password field, fixed mask, Backspace/error/Caps/layout feedback, actual PAM unlock and nine normal/scaled/compact/dual-monitor gates passed; installed native revision verified | Everyday user-session automatic lock/wake coverage under13; no unfinished password-field fix |
 | 11 Tasks / AI | Task sampling/termination and native chat fixture checks passed; OpenAI provider/fallback separation, redaction and both-theme control rendering repaired | Physical metrics; live cloud streaming/cancel/recovery blocked by API credit_balance_exhausted |
 | 12 Input / displays | Private GTK/Qt/Firefox input and normal/large text passed; installed nested WSLg manual receipt now confirms mouse/keyboard/Backspace/Hangul/paste | Physical mixed DPI, monitors/hotplug |
-| 13 Session | Existing PAM/expiry/rotation/logout/locker/VM console passes retained; custom-init login1/Polkit startup packaged and synced with nine policy/refusal tests, native ABI closure and installed WSL safe-skip verification | Actual provider/PAM registration and transitions remain unverified while VM checks are explicitly held; physical suspend/wake |
+| 13 Session | Real LightDM greeter and PAM passed password rejection, sign-in, i3 startup and logout back to the greeter in an isolated X session; existing locker and console passes retained | Installed VT/seat registration, console fallback, automatic lock and physical suspend/wake |
 | 14 Controls | Private wireless/audio/brightness/media cases passed | Physical credentials/reconnect/pairing/routing/brightness permissions; no audible testing |
 | 15 Installer / boot | Private actual checksum installation/reinstallation, BIOS/UEFI/login/sudo/storage and recovery proofs retained | Broader system/kernel upgrade timings, actual physical installation/persistence/power transitions |
 | 16 Bootable PDF | Runtime/source tests retained | Actual Chromium viewer boot, keyboard/Backspace/focus and measured command latency |
@@ -57,8 +57,16 @@ with13's separate session-provider acceptance. "All11–15 done" is too broad.
 | 24 Disposable USB | Private installed fixture recovery/rollback/ENOSPC proofs retained | Physical reboot/full-storage/power-loss/recovery/interrupted upgrade tests; reverify disposable target identity |
 | 25 Stable promotion | Private signing key remains local | Trust enrollment and stable channel/tag approval |
 
-Sign-in currently uses console getty/PAM. A graphical greeter has not been
-implemented; it is a separate feature decision, not a lost lockscreen patch.
+The graphical sign-in candidate uses LightDM and the existing PAM login policy.
+New installations select graphical sign-in. Ctrl+Alt+F2 opens a console.
+For one boot, append `ooonana.login=console` to the kernel command line.
+Set `/etc/ooonana/login-mode` to `console` for subsequent boots.
+The isolated test used the candidate greeter configuration and a disposable PAM
+account. The correct password started Ooonana i3. The desktop logout command
+ended the session successfully and LightDM rendered a fresh greeter. Audio and
+first-run setup were disabled for this test. A run with audio startup enabled
+and no audio devices did not reach i3 within the 15-second check. Verify native
+boot, console fallback, seat registration and sign-in time on the final image.
 November6 [installed UI and storage receipt](installed-ui-acceptance-20261106.md)
 records notification acceptance and the blocker for further package/WSL work.
 Item13's provider startup is now implemented; its real boot/session acceptance

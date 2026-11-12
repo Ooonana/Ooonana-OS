@@ -32,6 +32,7 @@ class NotificationsWindow(Gtk.Window):
         self.message_controls = {}
         self.expanded_messages = set()
         self.records = []
+        self.resize_flyout = None
         self.state = NotificationState()
         bar = header(self, "Notification center", "Desktop messages", "dialog-information-symbolic")
         self.refresh_button = button("Refresh", "view-refresh-symbolic", lambda *_: self.refresh())
@@ -49,6 +50,8 @@ class NotificationsWindow(Gtk.Window):
         self.pause.set_sensitive(False)
         controls.pack_start(self.pause, False, False, 0)
         self.status = label("Loading notifications...", "muted")
+        self.status.set_no_show_all(True)
+        self.status.show()
         self.status.set_line_wrap(False)
         self.status.set_ellipsize(Pango.EllipsizeMode.END)
         self.status.set_max_width_chars(28)
@@ -134,17 +137,7 @@ class NotificationsWindow(Gtk.Window):
                 self.pause.set_active(paused)
                 self.pause.handler_unblock(self.pause_handler)
             self.pause.set_tooltip_text(None if self.pause_known else "Do Not Disturb status unavailable. Refresh to retry.")
-            count = len(self.records)
-            summary = (f"{count} {'message' if count == 1 else 'messages'}" if rc == 0 else
-                       "Saved history · service unavailable" if self.records else "Service unavailable")
-            error = self.action_error or self.storage_error
-            self.status.set_text(error + " · " + summary if error else summary)
-            self.status.set_tooltip_text("\n\n".join(value for value in
-                (summary, self.action_detail, self.storage_detail) if value))
-            context = self.status.get_style_context()
-            context.remove_class("status-bad")
-            if error or rc != 0:
-                context.add_class("status-bad")
+            self.update_status()
             preserve_focus = focus_before if self.get_focus() is focus_loading else None
             self.render_records(preserve_focus)
             self.update_actions()
@@ -152,6 +145,26 @@ class NotificationsWindow(Gtk.Window):
                 preserve_focus.grab_focus()
 
         run_async_task(task, done)
+
+    def update_status(self):
+        summary = ""
+        count = len(self.records)
+        if count:
+            summary = (f"{count} {'message' if count == 1 else 'messages'}"
+                       if self.service_available else "Saved history · service unavailable")
+        error = self.action_error or self.storage_error
+        text = " · ".join(value for value in (error, summary) if value)
+        changed = self.status.get_visible() != bool(text)
+        self.status.set_text(text)
+        self.status.set_visible(bool(text))
+        self.status.set_tooltip_text("\n\n".join(value for value in
+            (text, self.action_detail, self.storage_detail) if value) or None)
+        context = self.status.get_style_context()
+        context.remove_class("status-bad")
+        if error or (count and not self.service_available):
+            context.add_class("status-bad")
+        if changed and self.resize_flyout:
+            self.resize_flyout()
 
     def update_actions(self):
         ready = not (self.refreshing or self.action_pending)
@@ -188,11 +201,11 @@ class NotificationsWindow(Gtk.Window):
             child.destroy()
         if not self.records:
             empty = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-            empty.set_border_width(24)
-            empty.pack_start(label("No notifications yet" if self.service_available else "Notification service unavailable", "card-title"), False, False, 0)
+            empty.set_border_width(16)
+            empty.pack_start(label("No notifications yet" if self.service_available else "Notifications unavailable", "card-title"), False, False, 0)
             empty.pack_start(label(
-                "Desktop messages appear here. Opening this center collects visible popups into history."
-                if self.service_available else "Refresh to retry when the desktop notification service returns.", "muted"), False, False, 0)
+                "Opening Notifications moves visible popups to history."
+                if self.service_available else "Select Refresh to retry.", "muted"), False, False, 0)
             self.list.add(empty)
         groups = {}
         for record in self.records:
@@ -236,6 +249,8 @@ class NotificationsWindow(Gtk.Window):
         self.render_allocation_handler = self.list.connect_after("size-allocate", allocated)
         self.list.show_all()
         focus_after_render = self.get_focus()
+        if self.resize_flyout:
+            self.resize_flyout()
 
     def add_notification(self, record):
         widget = card(record["summary"])
@@ -306,21 +321,13 @@ class NotificationsWindow(Gtk.Window):
             widget.handler_block_by_func(self.remember_changed)
             widget.set_active(load_preferences()["remember_notifications"])
             widget.handler_unblock_by_func(self.remember_changed)
-            self.action_error = "Could not save preference"
-            self.action_detail = str(exc)
-            self.status.set_text(self.action_error)
-            self.status.set_tooltip_text(self.action_detail)
-            self.status.get_style_context().add_class("status-bad")
+            self.show_action_error("Could not save preference", str(exc))
             return
         if not widget.get_active():
             try:
                 self.state.clear_saved()
             except OSError as exc:
-                self.action_error = "Saved history could not be removed"
-                self.action_detail = str(exc)
-                self.status.set_text(self.action_error)
-                self.status.set_tooltip_text(self.action_detail)
-                self.status.get_style_context().add_class("status-bad")
+                self.show_action_error("Saved history could not be removed", str(exc))
         self.refresh()
 
     def remove_record(self, record):
@@ -342,9 +349,7 @@ class NotificationsWindow(Gtk.Window):
 
     def show_action_error(self, message, detail):
         self.action_error, self.action_detail = message, detail
-        self.status.set_text(message)
-        self.status.set_tooltip_text(detail or message)
-        self.status.get_style_context().add_class("status-bad")
+        self.update_status()
 
     def perform(self, arguments, removed_record=None):
         if self.closed or self.action_pending or self.refreshing:

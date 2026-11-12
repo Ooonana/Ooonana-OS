@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Ooonana
+Comment=Ooonana desktop
+Type=Application
+Exec=/usr/bin/ooonana-i3-session --user-session
+TryExec=/usr/bin/ooonana-i3-session

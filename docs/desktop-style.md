@@ -11,11 +11,12 @@ sizes, branding, colors or a Windows/macOS clone.
 - Brand opens Applications below the panel at the left. Dock/keyboard launcher
   sits above the dock. System flyouts sit beneath Ooonana's top-right controls,
   on the display being used, with monitor and dock clearance.
-- Quick controls follow one linear path: compact connection rows, sound,
+- Quick controls follow one linear path: sound, compact connection rows,
   backlight, then supporting Settings/notifications/power actions. No borrowed
   quick-settings tile grid, Start-menu columns or calendar composition.
 - Notifications prioritize the message stream and privacy/DND controls.
-  Flyouts toggle/dismiss naturally and create no separate dock task.
+  Empty flyouts fit their content. Flyouts toggle/dismiss naturally and create
+  no separate dock task.
 - Let content and accessibility scaling determine size. Keep labels, control
   marks and their targets proportionate; do not enlarge containers by habit.
 - Preserve native focus, authentication, Escape, clipboard/IME and reduced
