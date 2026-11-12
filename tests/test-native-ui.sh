@@ -87,7 +87,11 @@ assert_contains "$settings" 'run_async(["ooonana-memory", "status"]'
 assert_not_contains "$settings" 'memory_rc, memory_text = run('
 assert_contains "$settings" 'env={"OOONANA_THEME": selected, "OOONANA_THEME_OVERRIDE": selected}'
 assert_contains "$settings" 'os.replace(temporary, path)'
-assert_contains "$controls" 'dialog.set_default_response(Gtk.ResponseType.CANCEL)'
+power_window="$(sed -n '/^class PowerWindow/,/^def main/p' "$UI_DIR/controls_app.py")"
+confirmation="$(sed -n '/^def confirmation_dialog(/,/^def message_dialog(/p' "$UI_DIR/common.py")"
+assert_contains "$power_window" 'dialog = confirmation_dialog(self,'
+assert_contains "$power_window" 'accepted = dialog.run() == Gtk.ResponseType.OK'
+assert_contains "$confirmation" 'dialog.set_default_response(Gtk.ResponseType.CANCEL)'
 assert_not_contains "$controls" 'launch(["xset", "dpms", "force", "off"])'
 assert_contains "$settings" "ooonana-wifi-panel"
 assert_contains "$settings" "ooonana-bluetooth-panel"
@@ -219,7 +223,6 @@ assert_contains "$settings" "run_async_task(task, done)"
 assert_contains "$ai" "run_async_task(task, done)"
 assert_contains "$controls" 'self.add(root)'
 assert_contains "$controls" "PowerWindow"
-power_window="$(sed -n '/^class PowerWindow/,/^def main/p' "$UI_DIR/controls_app.py")"
 assert_contains "$power_window" 'self.add(root)'
 assert_contains "$controls" 'run_async(command, done, timeout=20)'
 assert_contains "$setup" "SetupWindow"

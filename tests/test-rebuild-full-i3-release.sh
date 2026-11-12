@@ -198,3 +198,5 @@ rm "$STAGE_DIR/.ooonana-rootfs-complete"
 if (verify_iso_resume_inputs) >/dev/null 2>&1; then fail 'unfinished ISO resume accepted'; fi
 printf 'ok rebuild-full-i3-release\n'
 PYTHONDONTWRITEBYTECODE=1 python3 "$(dirname "$SCRIPT")/../tests/test-release-repo.py"
+# Exercise the UI checks used by release preflight in both CI pipelines.
+PYTHONDONTWRITEBYTECODE=1 bash "$(dirname "$SCRIPT")/../tests/test-native-ui.sh"

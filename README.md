@@ -1491,11 +1491,9 @@ docs/jarvis-agi-research.md
 
 ## Build From Source
 
-October 14 existing user-built candidate is already verified/published at
-`F:\Ooonana\ooonana-os\release-current\ooonana-full-i3.iso`. No rebuild needed
-for the latest host-only verification fixes. Commands below are for future fresh
-builds. Current ~17.1 GiB F: free snapshot failed the stricter workspace-capacity
-check even though the simple 8 GiB minimum passed; free more space first.
+Build a fresh ISO to include the November 12 candidate packages and graphical
+sign-in. The launcher verifies the signed repository and the F: workspace
+before building. It replaces the previous release ISO after verification.
 
 For prepared Windows/WSL release workspace, run in PowerShell:
 
@@ -1504,7 +1502,7 @@ For prepared Windows/WSL release workspace, run in PowerShell:
 $workspace = 'F:\Ooonana\ooonana-os\build-storage\release-stage.ext4'
 $required = if (Test-Path -LiteralPath $workspace) { 8GB } else { 29GB }
 if ((Get-PSDrive F).Free -lt $required) { throw 'Insufficient F: space for build workspace/output.' }
-$repo = '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10'
+$repo = '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10-candidate-36dbeb5-signed'
 & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo $repo --preflight-only
 if ($LASTEXITCODE -eq 0) {
     & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo $repo
@@ -1512,6 +1510,8 @@ if ($LASTEXITCODE -eq 0) {
 ```
 
 Output: `F:\Ooonana\ooonana-os\release-current\ooonana-full-i3.iso`.
+The launcher uses the local cursor for personal builds. Add `--public-cursor`
+to both commands to use the packaged public cursor.
 Core 0.10 source needs its separate, verified candidate package repository.
 The default `build/full-i3-repo` still contains stable 0.9.9 packages; the release
 guard correctly refuses that ABI/version mismatch. This is not an Ooonana
