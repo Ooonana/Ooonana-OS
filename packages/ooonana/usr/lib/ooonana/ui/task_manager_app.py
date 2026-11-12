@@ -5,14 +5,17 @@ from __future__ import annotations
 
 import os
 import pwd
-import signal
 import sys
 import time
 from collections import deque
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import Gdk, GLib, Gtk, Pango, apply_theme, button, header, label, message  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from common import Gdk, GLib, Gtk, Pango, apply_theme, button, chart_colors, header, label, message  # noqa: E402
+from gi.repository import GObject  # noqa: E402
+from process_control import ProcessChanged, parse_process_stat, terminate_owned_process  # noqa: E402
+from ui_preferences import transition_ms  # noqa: E402
 
 
 def read_text(path: Path, limit: int = 65536) -> str:
@@ -71,19 +74,6 @@ def cpu_totals(text: str) -> tuple[int, int] | None:
     return sum(counters[:8]), counters[3] + counters[4]
 
 
-def parse_process_stat(text: str) -> tuple[str, int, int] | None:
-    end = text.rfind(")")
-    if end < 0:
-        return None
-    fields = text[end + 1 :].split()
-    if len(fields) < 20:
-        return None
-    try:
-        return fields[0], int(fields[11]) + int(fields[12]), int(fields[19])
-    except ValueError:
-        return None
-
-
 def human_rate(value: float) -> str:
     if value >= 1024 * 1024:
         return f"{value / (1024 * 1024):.1f} MiB/s"
@@ -92,8 +82,9 @@ def human_rate(value: float) -> str:
     return f"{value:.0f} B/s"
 
 
-def disk_bytes() -> tuple[int, int]:
+def disk_bytes() -> tuple[int, int] | None:
     reads = writes = 0
+    found = False
     for device in Path("/sys/block").glob("*"):
         if device.name.startswith(("loop", "ram", "zram", "dm-", "md", "sr")):
             continue
@@ -103,9 +94,10 @@ def disk_bytes() -> tuple[int, int]:
         try:
             reads += int(fields[2]) * 512
             writes += int(fields[6]) * 512
+            found = True
         except ValueError:
             continue
-    return reads, writes
+    return (reads, writes) if found else None
 
 
 def network_bytes(base: Path = Path("/sys/class/net")) -> tuple[str, int, int] | None:
@@ -196,10 +188,18 @@ class MetricCard(Gtk.Box):
         self.history: deque[float] = deque(maxlen=60)
         self.pack_start(label(title, "card-title"), False, False, 0)
         self.value = label("Checking...", "muted")
+        self.value.set_max_width_chars(36)
+        self.value.set_lines(3)
+        self.value.set_ellipsize(Pango.EllipsizeMode.END)
+        self.value.set_selectable(True)
         self.pack_start(self.value, False, False, 0)
         self.progress = Gtk.ProgressBar()
+        self.progress.set_no_show_all(True)
+        self.progress.get_accessible().set_name(title + " current sample")
         self.pack_start(self.progress, False, False, 0)
         self.chart = Gtk.DrawingArea()
+        self.chart.set_no_show_all(True)
+        self.chart.get_accessible().set_name(title + " recent samples")
         display = Gdk.Display.get_default()
         monitor = (display.get_primary_monitor() or display.get_monitor(0)) if display else None
         self.chart.set_size_request(-1, 40 if monitor and monitor.get_geometry().height <= 800 else 54)
@@ -208,8 +208,14 @@ class MetricCard(Gtk.Box):
 
     def update(self, text: str, sample: float | None) -> None:
         self.value.set_text(text)
+        self.value.set_tooltip_text(text)
+        self.value.get_accessible().set_description(text)
         if sample is not None:
             self.history.append(max(0.0, sample))
+        else:
+            self.history.clear()
+        self.progress.set_visible(sample is not None)
+        self.chart.set_visible(sample is not None)
         peak = 100.0 if self.percent_scale else max(1.0, max(self.history, default=0.0))
         self.progress.set_fraction(min(1.0, max(0.0, (sample or 0.0) / peak)))
         self.chart.queue_draw()
@@ -217,10 +223,11 @@ class MetricCard(Gtk.Box):
     def draw_chart(self, area: Gtk.DrawingArea, cr) -> bool:
         width = area.get_allocated_width()
         height = area.get_allocated_height()
-        cr.set_source_rgb(0.10, 0.12, 0.15)
+        colors = chart_colors()
+        cr.set_source_rgb(*colors["background"])
         cr.rectangle(0, 0, width, height)
         cr.fill()
-        cr.set_source_rgb(0.22, 0.25, 0.29)
+        cr.set_source_rgb(*colors["grid"])
         for fraction in (0.25, 0.5, 0.75):
             y = height * fraction
             cr.move_to(0, y)
@@ -230,7 +237,7 @@ class MetricCard(Gtk.Box):
         if len(self.history) < 2:
             return False
         peak = 100.0 if self.percent_scale else max(1.0, max(self.history))
-        cr.set_source_rgb(1.0, 0.70, 0.10)
+        cr.set_source_rgb(*colors["accent"])
         cr.set_line_width(2)
         values = list(self.history)
         for index, value in enumerate(values):
@@ -258,24 +265,44 @@ class TaskManagerWindow(Gtk.Window):
         self.previous_network: tuple[str, int, int, float] | None = None
         self.users: dict[int, str] = {}
         self.closed = False
+        self.confirming = False
+        self.refresh_timer = 0
+        self.layout_key = None
 
         root = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         self.add(root)
         self.stack = Gtk.Stack()
         self.stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
-        self.stack.set_transition_duration(220)
-        sidebar = Gtk.StackSidebar()
+        self.stack.set_transition_duration(transition_ms())
+        sidebar = self.sidebar = Gtk.StackSidebar()
         sidebar.set_stack(self.stack)
         sidebar.set_size_request(175, -1)
+        sidebar.set_no_show_all(True)
         sidebar.get_style_context().add_class("sidebar")
         root.pack_start(sidebar, False, False, 0)
-        root.pack_start(self.stack, True, True, 0)
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        self.page_picker = Gtk.ComboBoxText()
+        self.page_picker.set_margin_start(12)
+        self.page_picker.set_margin_end(12)
+        self.page_picker.set_margin_top(8)
+        self.page_picker.set_no_show_all(True)
+        self.page_picker.get_accessible().set_name("Task Manager page")
+        for key, title in (("processes", "Processes"), ("performance", "Performance")):
+            self.page_picker.append(key, title)
+        self.page_picker.set_active_id("processes")
+        self.page_picker.connect("changed", lambda widget: self.stack.set_visible_child_name(widget.get_active_id()))
+        content.pack_start(self.page_picker, False, False, 0)
+        content.pack_start(self.stack, True, True, 0)
+        root.pack_start(content, True, True, 0)
         self.stack.add_titled(self.build_processes(), "processes", "Processes")
         self.stack.add_titled(self.build_performance(), "performance", "Performance")
         self.stack.set_visible_child_name("processes")
+        self.stack.connect("notify::visible-child-name", lambda *_: self.page_picker.set_active_id(self.stack.get_visible_child_name()))
+        self.connect("size-allocate", self.resized)
+        self.resized(self, self.get_default_size())
         self.connect("destroy", self.on_destroy)
         self.refresh()
-        GLib.timeout_add_seconds(2, self.refresh)
+        self.refresh_timer = GLib.timeout_add_seconds(2, self.refresh)
 
     def build_processes(self) -> Gtk.Widget:
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
@@ -284,15 +311,21 @@ class TaskManagerWindow(Gtk.Window):
         toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.search = Gtk.SearchEntry()
         self.search.set_placeholder_text("Search name, PID, user, command")
-        self.search.connect("search-changed", lambda *_: self.filtered.refilter())
+        self.search.set_width_chars(12)
+        self.search.get_accessible().set_name("Search tasks by name, PID, user or command")
+        self.search.set_tooltip_text("Search name, PID, user or command")
+        self.search.connect("search-changed", self.search_changed)
+        self.toolbar = toolbar
         toolbar.pack_start(self.search, True, True, 0)
-        toolbar.pack_start(button("Refresh", "view-refresh-symbolic", lambda *_: self.refresh()), False, False, 0)
+        actions = Gtk.Box(spacing=8)
+        actions.pack_start(button("Refresh", "view-refresh-symbolic", lambda *_: self.refresh()), False, False, 0)
         self.end_button = button("End task", "window-close-symbolic", self.end_selected, "destructive-action")
         self.end_button.set_sensitive(False)
-        toolbar.pack_start(self.end_button, False, False, 0)
+        actions.pack_start(self.end_button, False, False, 0)
+        toolbar.pack_start(actions, False, False, 0)
         page.pack_start(toolbar, False, False, 0)
 
-        self.store = Gtk.ListStore(str, int, float, float, str, str, str, int, int)
+        self.store = Gtk.ListStore(str, int, float, float, str, str, str, GObject.TYPE_UINT64, GObject.TYPE_UINT)
         self.filtered = self.store.filter_new()
         self.filtered.set_visible_func(self.visible_process)
         self.sorted = Gtk.TreeModelSort(model=self.filtered)
@@ -300,10 +333,14 @@ class TaskManagerWindow(Gtk.Window):
         self.tree = Gtk.TreeView(model=self.sorted)
         self.tree.set_headers_clickable(True)
         self.tree.set_enable_search(False)
+        self.tree.get_accessible().set_name("Running tasks; Ctrl+C copies selected task details")
+        self.tree.set_has_tooltip(True)
+        self.tree.connect("query-tooltip", self.query_tooltip)
+        self.tree.connect("key-press-event", self.tree_key)
         self.tree.get_selection().connect("changed", self.selection_changed)
         for title, column_id in self.COLUMNS:
             renderer = Gtk.CellRendererText()
-            if column_id == 6:
+            if column_id in (0, 4, 6):
                 renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
             if column_id in (2, 3):
                 renderer.set_property("xalign", 1.0)
@@ -313,6 +350,12 @@ class TaskManagerWindow(Gtk.Window):
                 column = Gtk.TreeViewColumn(title, renderer, text=column_id)
             column.set_sort_column_id(column_id)
             column.set_resizable(True)
+            column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
+            base_width = (160, 72, 72, 90, 96, 56, 240)[column_id]
+            header_width = self.tree.create_pango_layout(title).get_pixel_size()[0] + 36
+            sample = {1: "2147483647", 2: "100.0", 3: "99999999.9"}.get(column_id, "")
+            value_width = self.tree.create_pango_layout(sample).get_pixel_size()[0] + 20
+            column.set_fixed_width(max(base_width, header_width, value_width))
             column.set_min_width(56 if column_id != 6 else 180)
             if column_id == 6:
                 column.set_expand(True)
@@ -321,6 +364,9 @@ class TaskManagerWindow(Gtk.Window):
         scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scroll.add(self.tree)
         page.pack_start(scroll, True, True, 0)
+        self.process_empty = label("No matching tasks. Clear search to show all.", "muted")
+        self.process_empty.set_no_show_all(True)
+        page.pack_start(self.process_empty, False, False, 0)
         self.process_summary = label("Reading processes...", "muted")
         page.pack_start(self.process_summary, False, False, 0)
         return page
@@ -332,8 +378,9 @@ class TaskManagerWindow(Gtk.Window):
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         page.set_border_width(18)
         page.pack_start(label("Performance", "page-title"), False, False, 0)
-        page.pack_start(label("Two-second history. Rates are measured throughput, not link speed.", "muted"), False, False, 0)
+        page.pack_start(label("Refreshes every 2 seconds; latest 60 samples. Rates are throughput, not link speed.", "muted"), False, False, 0)
         grid = Gtk.Grid(column_spacing=12, row_spacing=12)
+        self.metric_grid = grid
         grid.set_column_homogeneous(True)
         self.metrics = {
             "cpu": MetricCard("CPU"),
@@ -351,6 +398,80 @@ class TaskManagerWindow(Gtk.Window):
         page.pack_start(scroll, True, True, 0)
         return page
 
+    def resized(self, _widget, allocation):
+        compact = allocation.width < 760
+        columns = 2 if allocation.width - (0 if compact else 175) - 36 >= 640 else 1
+        key = compact, columns
+        if key == self.layout_key:
+            return
+        self.layout_key = key
+        self.sidebar.set_visible(not compact)
+        self.page_picker.set_visible(compact)
+        self.toolbar.set_orientation(Gtk.Orientation.VERTICAL if compact else Gtk.Orientation.HORIZONTAL)
+        for widget in self.metrics.values():
+            self.metric_grid.remove(widget)
+        for index, widget in enumerate(self.metrics.values()):
+            self.metric_grid.attach(widget, index % columns, index // columns, 1, 1)
+        self.metric_grid.show_all()
+
+    def search_changed(self, *_args):
+        self.filtered.refilter()
+        self.update_summary()
+
+    def update_summary(self):
+        visible, total = len(self.filtered), len(self.store)
+        query = bool(self.search.get_text().strip())
+        count = f"{visible} of {total} tasks" if query else f"{total} task" + ("" if total == 1 else "s")
+        self.process_summary.set_text(count + "  •  Click headers to sort  •  Ctrl+C copies details")
+        self.process_empty.set_text("No matching tasks. Clear search to show all." if query else "No tasks available. Refresh to retry.")
+        self.process_empty.set_visible(visible == 0)
+
+    @staticmethod
+    def row_details(row):
+        return f"{row[0]}\nPID {row[1]} • User {row[4]} • State {row[5]}\nCPU {row[2]:.1f}% • RAM {row[3]:.1f} MiB\n{row[6]}"
+
+    def query_tooltip(self, _tree, x, y, keyboard, tooltip):
+        if keyboard:
+            model, row_iter = self.tree.get_selection().get_selected()
+            if row_iter is None:
+                return False
+            path = model.get_path(row_iter)
+        else:
+            x, y = self.tree.convert_widget_to_bin_window_coords(x, y)
+            found = self.tree.get_path_at_pos(x, y)
+            if found is None:
+                return False
+            path = found[0]
+            model = self.sorted
+            row_iter = model.get_iter(path)
+        row = model[row_iter]
+        text = self.row_details(row)
+        detail = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+        monitor = self.get_display().get_monitor_at_window(self.get_window())
+        width = monitor.get_workarea().width if monitor else 640
+        char_width = max(1, self.tree.create_pango_layout("0").get_pixel_size()[0])
+        chars = max(12, min(48, (width - 64) // char_width))
+        for caption in (f"PID {row[1]} · {row[0]}",
+                        f"CPU {row[2]:.1f}% · RAM {row[3]:.1f} MiB · User {row[4]}",
+                        row[6], "Ctrl+C copies full details."):
+            line = label(caption, wrap=False)
+            line.set_max_width_chars(chars)
+            line.set_ellipsize(Pango.EllipsizeMode.END)
+            detail.pack_start(line, False, False, 0)
+        detail.get_accessible().set_description(text)
+        detail.show_all()
+        tooltip.set_custom(detail)
+        self.tree.set_tooltip_row(tooltip, path)
+        return True
+
+    def tree_key(self, _widget, event):
+        if event.state & Gdk.ModifierType.CONTROL_MASK and event.keyval in (Gdk.KEY_c, Gdk.KEY_C):
+            model, row_iter = self.tree.get_selection().get_selected()
+            if row_iter is not None:
+                Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(self.row_details(model[row_iter]), -1)
+            return True
+        return False
+
     def visible_process(self, model, row_iter, _data=None) -> bool:
         query = self.search.get_text().strip().casefold()
         if not query:
@@ -360,7 +481,7 @@ class TaskManagerWindow(Gtk.Window):
 
     def selection_changed(self, selection) -> None:
         model, row_iter = selection.get_selected()
-        allowed = bool(row_iter and os.getuid() != 0 and model[row_iter][8] == os.getuid() and model[row_iter][1] not in (1, os.getpid()))
+        allowed = bool(not self.confirming and row_iter is not None and os.getuid() != 0 and model[row_iter][8] == os.getuid() and model[row_iter][1] not in (1, os.getpid()))
         self.end_button.set_sensitive(allowed)
 
     def selected_identity(self) -> tuple[int, int, str, int] | None:
@@ -371,6 +492,8 @@ class TaskManagerWindow(Gtk.Window):
         return int(row[1]), int(row[7]), str(row[0]), int(row[8])
 
     def end_selected(self, *_args) -> None:
+        if self.closed or self.confirming:
+            return
         selected = self.selected_identity()
         if selected is None:
             return
@@ -378,27 +501,38 @@ class TaskManagerWindow(Gtk.Window):
         if os.getuid() == 0 or owner != os.getuid() or pid in (1, os.getpid()):
             message(self, "End task refused", "Only your own tasks can be stopped.", Gtk.MessageType.WARNING)
             return
+        self.confirming = True
+        self.selection_changed(self.tree.get_selection())
+        display_name = name if len(name) <= 48 else name[:45] + "…"
         dialog = Gtk.MessageDialog(
             transient_for=self, modal=True, message_type=Gtk.MessageType.WARNING,
-            buttons=Gtk.ButtonsType.NONE, text=f"End {name} (PID {pid})?",
+            buttons=Gtk.ButtonsType.NONE, text=f"End {display_name} (PID {pid})?",
         )
+        dialog.set_destroy_with_parent(True)
+        for child in dialog.get_message_area().get_children():
+            if isinstance(child, Gtk.Label):
+                child.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+                child.set_max_width_chars(40)
+                child.set_tooltip_text(name)
         dialog.format_secondary_text("Unsaved work in this task may be lost.")
         dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
         dialog.add_button("End task", Gtk.ResponseType.OK)
-        accepted = dialog.run() == Gtk.ResponseType.OK
-        dialog.destroy()
-        if not accepted:
-            return
-        current = parse_process_stat(read_text(Path(f"/proc/{pid}/stat")))
-        uid_text = read_text(Path(f"/proc/{pid}/status"))
-        current_owner = next((line.split()[1] for line in uid_text.splitlines() if line.startswith("Uid:")), "")
-        if current is None or current[2] != starttime or current_owner != str(owner):
-            message(self, "Task changed", "Process exited or PID was reused.", Gtk.MessageType.WARNING)
-            self.refresh()
+        dialog.get_widget_for_response(Gtk.ResponseType.OK).get_style_context().add_class("destructive-action")
+        dialog.set_default_response(Gtk.ResponseType.CANCEL)
+        try:
+            accepted = dialog.run() == Gtk.ResponseType.OK
+        finally:
+            dialog.destroy()
+            self.confirming = False
+            if not self.closed:
+                self.selection_changed(self.tree.get_selection())
+        if not accepted or self.closed:
             return
         try:
-            os.kill(pid, signal.SIGTERM)
-        except OSError as error:
+            terminate_owned_process(pid, starttime, owner)
+        except ProcessChanged as error:
+            message(self, "Task changed", str(error), Gtk.MessageType.WARNING)
+        except (OSError, RuntimeError) as error:
             message(self, "End task failed", str(error), Gtk.MessageType.ERROR)
         self.refresh()
 
@@ -428,7 +562,8 @@ class TaskManagerWindow(Gtk.Window):
                 except KeyError:
                     self.users[uid] = str(uid)
             try:
-                command = (entry / "cmdline").read_bytes()[:512].replace(b"\0", b" ").decode("utf-8", "replace").strip()
+                with (entry / "cmdline").open("rb") as stream:
+                    command = " ".join(stream.read(512).replace(b"\0", b" ").decode("utf-8", "replace").split())
             except OSError:
                 command = ""
             key = pid, starttime
@@ -451,22 +586,25 @@ class TaskManagerWindow(Gtk.Window):
             idle_delta = max(0, cpu[1] - self.previous_cpu[1])
             cpu_percent = 100.0 * max(0, total_delta - idle_delta) / total_delta if total_delta else 0.0
             self.metrics["cpu"].update(f"{cpu_percent:.0f}% total • {temperature} • {fan}", cpu_percent)
+        else:
+            self.metrics["cpu"].update("Sampling CPU..." if cpu else "CPU counter unavailable", None)
         self.previous_cpu = cpu
 
-        selected = self.selected_identity() if hasattr(self, "tree") else None
+        selected = self.selected_identity()
         rows = self.process_rows(total_delta)
-        self.store.clear()
+        existing = {(row[1], row[7]): row.iter for row in self.store}
         for row in rows:
-            self.store.append(row)
-        if selected:
-            def restore(model, path, row_iter, _data):
-                row = model[row_iter]
-                if row[1] == selected[0] and row[7] == selected[1]:
-                    self.tree.get_selection().select_path(path)
-                    return True
-                return False
-            self.sorted.foreach(restore, None)
-        self.process_summary.set_text(f"{len(rows)} tasks  •  Click column header to sort  •  End task affects your processes only")
+            row_iter = existing.pop((row[1], row[7]), None)
+            if row_iter is None:
+                self.store.append(row)
+            elif tuple(self.store[row_iter]) != row:
+                self.store[row_iter] = row
+        for row_iter in existing.values():
+            self.store.remove(row_iter)
+        if selected and (selected[0], selected[1]) not in {(row[1], row[7]) for row in rows}:
+            self.tree.get_selection().unselect_all()
+        self.selection_changed(self.tree.get_selection())
+        self.update_summary()
 
         memory = meminfo_values(read_text(Path("/proc/meminfo")))
         total = memory.get("MemTotal", 0)
@@ -478,17 +616,22 @@ class TaskManagerWindow(Gtk.Window):
             original, _compressed, physical = zram_consumption()
             zram = f" • zram physical {physical / 1048576:.0f} MiB ({original / physical:.1f}x effective)" if physical else ""
             self.metrics["ram"].update(f"{percent:.0f}% used • {available / 1048576:.1f} GiB available • swap {swap_used / 1048576:.1f}/{swap_total / 1048576:.1f} GiB" + zram, percent)
+        else:
+            self.metrics["ram"].update("RAM counter unavailable", None)
         gpu_name, busy = gpu_busy()
         self.metrics["gpu"].update(f"{gpu_name}: {busy:.0f}%" if busy is not None else f"{gpu_name}: counter unavailable", busy)
 
-        read_bytes, write_bytes = disk_bytes()
-        if self.previous_disk:
+        disk = disk_bytes()
+        if disk and self.previous_disk:
+            read_bytes, write_bytes = disk
             prior_read, prior_write, prior_time = self.previous_disk
             elapsed = max(0.1, now - prior_time)
             read_rate = max(0, read_bytes - prior_read) / elapsed
             write_rate = max(0, write_bytes - prior_write) / elapsed
             self.metrics["disk"].update(f"Read {human_rate(read_rate)}  •  Write {human_rate(write_rate)}", read_rate + write_rate)
-        self.previous_disk = read_bytes, write_bytes, now
+        else:
+            self.metrics["disk"].update("Sampling disk..." if disk else "Disk counters unavailable", None)
+        self.previous_disk = (*disk, now) if disk else None
 
         network = network_bytes()
         if network:
@@ -511,11 +654,17 @@ class TaskManagerWindow(Gtk.Window):
             capacity, free = storage
             percent = 100.0 * max(0, capacity - free) / capacity
             self.metrics["storage"].update(f"{percent:.0f}% used • {free / (1024 ** 3):.1f} GiB available", percent)
+        else:
+            self.metrics["storage"].update("Storage counter unavailable", None)
         return True
 
     def on_destroy(self, *_args) -> None:
         self.closed = True
-        Gtk.main_quit()
+        if self.refresh_timer:
+            GLib.source_remove(self.refresh_timer)
+            self.refresh_timer = 0
+        if Gtk.main_level():
+            Gtk.main_quit()
 
 
 def main() -> None:

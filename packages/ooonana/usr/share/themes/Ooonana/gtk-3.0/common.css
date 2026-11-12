@@ -1,0 +1,58 @@
+window.background, dialog.background, .background,
+window.background:backdrop, dialog.background:backdrop, .background:backdrop { background: @ooonana_bg; color: @ooonana_fg; }
+/* i3 owns SSD outer corners; rounding the client again cuts the header join. */
+window.background, dialog.background, messagedialog.background { border-radius: 0; }
+window.csd, window.solid-csd { border-radius: 14px; }
+window.maximized, window.fullscreen,
+window.maximized decoration, window.fullscreen decoration,
+window.maximized headerbar, window.fullscreen headerbar { border-radius: 0; }
+decoration { background: @ooonana_bg; border: 1px solid @ooonana_border; border-radius: 14px; box-shadow: none; }
+menu { background: @ooonana_panel; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 10px; padding: 6px; }
+menuitem:hover { background: @ooonana_panel_alt; color: @ooonana_text_accent; }
+headerbar { background: @ooonana_panel; color: @ooonana_fg; border-bottom: 1px solid @ooonana_border; border-radius: 14px 14px 0 0; padding: 5px 10px; }
+headerbar .title { font-weight: bold; }
+headerbar .subtitle { color: @ooonana_muted; opacity: 1; }
+button { background: @ooonana_panel_alt; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 10px; min-height: 20px; padding: 5px 10px; transition: background-color 180ms ease-out; }
+button:hover { background: @ooonana_hover; border-color: @ooonana_accent; }
+button:active { background: @ooonana_entry; border-color: @ooonana_accent; }
+button:checked, button.suggested-action { background: @ooonana_accent; color: #101317; border-color: @ooonana_accent; }
+button.suggested-action:hover { background: #ffca5c; border-color: #ffca5c; }
+button.suggested-action:active { background: #eaa21a; border-color: #eaa21a; }
+button.destructive-action { background: #3b2324; color: #ffaaa3; border-color: #8a4749; }
+button.destructive-action:hover { background: #523033; color: #ffd4cf; border-color: #b36161; }
+button.destructive-action:active { background: #2f1c1d; color: #ffd4cf; border-color: #b36161; }
+button:disabled { background: @ooonana_panel; color: #78828f; border-color: @ooonana_border; }
+button.suggested-action:disabled { background: #403624; color: #a5987f; border-color: #544733; }
+/* GTK client-owned headers keep their own behavior, sharing native 24px controls. */
+headerbar button.titlebutton { min-width: 16px; min-height: 16px; padding: 3px; margin: 0; border-radius: 99px; border: 1px solid #242830; color: #101317; box-shadow: none; }
+headerbar button.titlebutton.close { background: #ff736b; }
+headerbar button.titlebutton.minimize { background: #ffd16c; }
+headerbar button.titlebutton.maximize { background: #7fd6a0; }
+headerbar button.titlebutton:hover { border-color: #f5f5f7; }
+headerbar button.titlebutton.close:active { background: #e65c55; }
+headerbar button.titlebutton.minimize:active { background: #e6b955; }
+headerbar button.titlebutton.maximize:active { background: #67b985; }
+headerbar button.titlebutton image { -gtk-icon-transform: scale(0.75); }
+/* GtkImage owns its icon name; paint the shared fullscreen glyph on button. */
+headerbar button.titlebutton.maximize, headerbar button.titlebutton.maximize:hover, headerbar button.titlebutton.maximize:active { background-image: -gtk-icontheme("view-fullscreen-symbolic"); background-size: 12px 12px; background-position: center; background-repeat: no-repeat; }
+headerbar button.titlebutton.maximize image { opacity: 0; }
+/* Toolbars are compact work surfaces, not rows of primary-action cards. */
+toolbar { background: @ooonana_panel; padding: 3px 6px; border-bottom: 1px solid @ooonana_border; }
+toolbar button { background: @ooonana_panel; border: 0; border-radius: 6px; min-width: 20px; min-height: 20px; padding: 3px 4px; box-shadow: none; }
+toolbar button:hover, toolbar button:checked { background: @ooonana_hover; color: @ooonana_fg; }
+toolbar button:focus { outline: 2px solid @ooonana_text_accent; outline-offset: -2px; }
+toolbar entry { min-height: 20px; padding: 3px 6px; border-radius: 6px; }
+toolbar separator { margin: 3px 5px; background: @ooonana_border; }
+notebook tab button { min-width: 16px; min-height: 16px; padding: 2px; border: 0; border-radius: 5px; }
+entry, textview, treeview, list { background: @ooonana_entry; color: @ooonana_fg; border-color: @ooonana_border; }
+entry { min-height: 20px; padding: 5px 8px; border-radius: 10px; }
+treeview header button { background: @ooonana_panel_alt; color: @ooonana_text_accent; }
+treeview:selected, row:selected { background: @ooonana_panel_alt; color: @ooonana_fg; }
+notebook header { background: @ooonana_panel; }
+notebook tab { padding: 8px 14px; }
+notebook tab:checked { color: @ooonana_text_accent; border-bottom: 2px solid @ooonana_accent; }
+scale highlight { background: @ooonana_accent; }
+scale trough { background: @ooonana_panel_alt; min-height: 6px; border-radius: 6px; }
+scrollbar slider { background: @ooonana_border; border-radius: 6px; min-width: 7px; min-height: 7px; }
+scrollbar slider:hover { background: @ooonana_accent; }
+tooltip { background: @ooonana_panel; color: @ooonana_fg; border: 1px solid @ooonana_accent; border-radius: 10px; }

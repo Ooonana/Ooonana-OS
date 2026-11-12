@@ -186,26 +186,33 @@ stage_iso_tree() {
   write_rufus_note
   cat > "$ISO_TREE/boot/grub/theme.txt" <<'EOF'
 title-text: "Ooonana OS Minimal"
-title-color: "#ffb21a"
-desktop-color: "#050505"
+title-color: "#f5f5f7"
+desktop-color: "#101317"
 terminal-font: "Unifont Regular 16"
-message-color: "#ffb21a"
-message-bg-color: "#050505"
+message-color: "#f5f5f7"
+message-bg-color: "#101317"
 
 + boot_menu {
   left = 16%
   top = 32%
   width = 68%
   height = 38%
+  item_font = "Unifont Regular 16"
+  selected_item_font = "Unifont Regular 16"
+  item_color = "#b4bdc8"
+  selected_item_color = "#ffb21a"
+  item_height = 24
+  item_padding = 6
+  icon_width = 0
 }
 
 + label {
-  text = "boot time"
+  text = "ARROWS select   ENTER start   ESC back"
   left = 16%
   top = 82%
   width = 68%
   height = 18
-  color = "#ffb21a"
+  color = "#b4bdc8"
   align = "center"
 }
 
@@ -216,8 +223,8 @@ message-bg-color: "#050505"
   width = 68%
   height = 18
   fg_color = "#ffb21a"
-  bg_color = "#050505"
-  border_color = "#ffb21a"
+  bg_color = "#272d36"
+  border_color = "#46505c"
 }
 EOF
   if [[ "$INSTALL" -eq 1 && -n "$DISK_IMAGE" ]]; then

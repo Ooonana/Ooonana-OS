@@ -42,6 +42,7 @@ assert_contains "$script_src" "refresh_gtk_caches()"
 assert_contains "$script_src" 'update-mime-database "$ROOTFS/usr/share/mime"'
 assert_contains "$script_src" "gdk-pixbuf-query-loaders"
 assert_contains "$script_src" "normalize_rootfs_permissions()"
+assert_contains "$script_src" 'ln -sfn /proc/self/mounts "$ROOTFS/etc/mtab"'
 assert_contains "$script_src" 'chmod 4755 "$setuid_path"'
 assert_contains "$script_src" "refresh_font_caches()"
 assert_contains "$script_src" 'ln -s python3 "$ROOTFS/usr/bin/python"'
@@ -55,7 +56,7 @@ assert_contains "$script_src" "mkfontscale"
 assert_contains "$script_src" "fc-cache -r /usr/share/fonts"
 assert_contains "$script_src" "OOONANA_SKIP_INTEL_FIRMWARE"
 assert_contains "$script_src" "no route"
-assert_contains "$script_src" "sync 2>/dev/null || true"
+assert_contains "$script_src" "bunana --restart"
 assert_contains "$firmware_script_src" 'OOONANA_FIRMWARE_DOWNLOAD_TIMEOUT:-30'
 assert_contains "$firmware_script_src" 'OOONANA_FIRMWARE_DOWNLOAD_TRIES:-3'
 assert_contains "$patch_src" 'rcS|/etc/init.d/rcS|0100755'
@@ -150,7 +151,7 @@ EOF
 chmod +x "$scratch/bin/busybox"
 cat > "$scratch/usr/bin/ooonana" <<'EOF'
 #!/bin/sh
-echo ooonana 0.9.9
+echo ooonana 0.10.0
 EOF
 chmod +x "$scratch/usr/bin/ooonana"
 cat > "$scratch/usr/bin/ooonana-setup" <<'EOF'
@@ -187,6 +188,7 @@ EOF
 make_archive_pkg branding usr/share/ooonana/pkg-branding.txt branding-installed
 make_archive_pkg fake-i3-bin usr/bin/fake-i3-bin fake-i3-installed
 make_archive_pkg dbus-daemon-launch-helper usr/libexec/dbus-daemon-launch-helper helper-installed
+make_archive_pkg linux-pam usr/sbin/unix_chkpwd pam-helper-fixture
 chmod +x "$tmp/payload-fake-i3-bin/usr/bin/fake-i3-bin" 2>/dev/null || true
 tar -C "$tmp/payload-fake-i3-bin" -czf "$repo/fake-i3-bin.tar.gz" .
 fake_i3_sha="$(sha256sum "$repo/fake-i3-bin.tar.gz" | awk '{print $1}')"
@@ -201,7 +203,7 @@ OOONANA_PKG_ID="i3"
 OOONANA_PKG_VERSION="0.1.0"
 OOONANA_PKG_KIND="profile"
 OOONANA_PKG_SUMMARY="i3 profile"
-OOONANA_PKG_DEPS="dbus-daemon-launch-helper fake-i3-bin"
+OOONANA_PKG_DEPS="dbus-daemon-launch-helper fake-i3-bin linux-pam"
 EOF
 
 cat > "$repo/full-i3.pkg" <<'EOF'
@@ -216,7 +218,7 @@ cp "$scratch/var/lib/ooonana/packages/installed/base.pkg" "$repo/base.pkg"
 "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$repo" >/dev/null
 grep -q $'^full-i3\t' "$repo/index.tsv" || fail "fixture index missing full-i3"
 grep -q '  full-i3.pkg$' "$repo/SHA256SUMS" || fail "fixture checksums missing full-i3"
-printf '%s\n' base branding dbus-daemon-launch-helper fake-i3-bin i3 full-i3 >"$tmp/full-i3.list"
+printf '%s\n' base branding dbus-daemon-launch-helper fake-i3-bin linux-pam i3 full-i3 >"$tmp/full-i3.list"
 mkdir -p "$tmp/preflight/sources" "$tmp/preflight/state" "$tmp/preflight/cache"
 OOONANA_ROOT="$tmp/preflight/root" \
   OOONANA_REPO_DIR="$repo" \
@@ -234,6 +236,7 @@ OOONANA_SKIP_INTEL_FIRMWARE=1 bash "$SCRIPT" \
   --force
 
 rootfs="$tmp/full-rootfs"
+[[ "$(readlink "$rootfs/etc/mtab")" == /proc/self/mounts ]] || fail "missing live mount-table link"
 [[ -f "$tmp/ooonana-full-i3-rootfs.tar.gz" ]] || fail "missing full-i3 tarball"
 [[ -f "$rootfs/etc/ooonana/edition" ]] || fail "missing edition marker"
 [[ "$(<"$rootfs/etc/ooonana/edition")" == "full-i3" ]] || fail "wrong edition marker"
@@ -246,6 +249,9 @@ fi
 [[ -x "$rootfs/usr/bin/ooonana-gui-installer" ]] || fail "missing GUI installer"
 [[ -x "$rootfs/usr/bin/ooonana-installer-gui" ]] || fail "missing yad GUI installer"
 [[ -x "$rootfs/usr/bin/ooonana-install-wizard" ]] || fail "missing install wizard"
+cmp -s "$ROOT/branding/boot-mark.png" "$rootfs/usr/share/ooonana/boot-mark.png" || fail "missing installed GRUB mark"
+cmp -s "$ROOT/branding/grub-background.png" "$rootfs/usr/share/ooonana/grub-background.png" || fail "missing installed GRUB background"
+cmp -s "$ROOT/packages/ooonana/usr/share/ooonana/grub.theme" "$rootfs/usr/share/ooonana/grub.theme" || fail "missing shared GRUB theme"
 [[ -x "$rootfs/usr/bin/ooonana-ai-app" ]] || fail "missing AI app launcher"
 [[ -x "$rootfs/usr/bin/ooonana-packages-app" ]] || fail "missing package app launcher"
 [[ -x "$rootfs/usr/bin/ooonana-packages" ]] || fail "missing package app alias"
@@ -254,6 +260,11 @@ fi
 [[ -x "$rootfs/usr/bin/ooonana-i3-installer-session" ]] || fail "missing i3 installer session"
 [[ -x "$rootfs/usr/bin/ooonana-i3-smoke-session" ]] || fail "missing GUI smoke session"
 [[ -x "$rootfs/usr/bin/ooonana-theme-env" ]] || fail "missing theme helper"
+cmp -s "$ROOT/packages/ooonana/usr/lib/ooonana/desktop_theme.py" "$rootfs/usr/lib/ooonana/desktop_theme.py" || fail "stale/missing frame theme bridge"
+for appearance in Dark Light; do
+  palette="usr/share/qtermwidget6/color-schemes/Ooonana$appearance.colorscheme"
+  cmp -s "$ROOT/packages/ooonana/$palette" "$rootfs/$palette" || fail "missing current Qt terminal palette"
+done
 [[ -x "$rootfs/usr/bin/bunana" ]] || fail "missing bunana command"
 [[ -x "$rootfs/usr/bin/oonana" ]] || fail "missing oonana game"
 [[ -x "$rootfs/usr/lib/ooonana/oonana_game.py" ]] || fail "missing Python oonana game"
@@ -312,13 +323,16 @@ cmp "$ROOT/packages/ooonana/usr/bin/ooonana-window-list" "$rootfs/usr/bin/ooonan
 [[ -f "$rootfs/usr/share/ooonana/wallpapers/ooonana-notes.jpg" ]] || fail "missing Notes rootfs wallpaper"
 [[ -f "$rootfs/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png" ]] || fail "missing 0.9 rootfs wallpaper"
 [[ -x "$rootfs/usr/bin/ooonana-memory" ]] || fail "missing memory helper"
-assert_contains "$(<"$rootfs/etc/gtk-3.0/settings.ini")" "gtk-decoration-layout=menu:minimize,maximize,close"
+assert_contains "$(<"$rootfs/etc/gtk-3.0/settings.ini")" "gtk-decoration-layout=close,minimize,maximize:menu"
 [[ -f "$rootfs/etc/i3/config" ]] || fail "missing rootfs i3 config"
 [[ -f "$rootfs/etc/ooonana/polybar.ini" ]] || fail "missing polybar config"
 [[ -f "$rootfs/etc/ooonana/rofi.rasi" ]] || fail "missing rofi config"
 [[ -f "$rootfs/etc/ooonana/picom.conf" ]] || fail "missing picom config"
 [[ -f "$rootfs/etc/ooonana/dunstrc" ]] || fail "missing dunst config"
 [[ -f "$rootfs/etc/ooonana/xsettingsd.conf" ]] || fail "missing xsettingsd config"
+[[ "$(stat -c %a "$rootfs/usr/sbin/unix_chkpwd")" == 4755 ]] || fail "PAM helper cannot read protected shadow"
+[[ -x "$rootfs/usr/bin/ooonana-xsettings" ]] || fail "missing live Xsettings bridge"
+[[ -f "$rootfs/usr/lib/ooonana/xsettings_session.py" && -f "$rootfs/usr/lib/ooonana/legacy_gtk_style.py" ]] || fail "missing live theme modules"
 [[ -f "$rootfs/etc/gtk-3.0/settings.ini" ]] || fail "missing GTK system settings"
 [[ -f "$rootfs/root/.config/gtk-3.0/settings.ini" ]] || fail "missing GTK root settings"
 [[ -f "$rootfs/root/.config/gtk-3.0/gtk.css" ]] || fail "missing GTK root CSS"
@@ -377,7 +391,8 @@ assert_contains "$(<"$rootfs/etc/doas.conf")" "permit nopass :wheel"
 assert_contains "$(<"$rootfs/etc/sudoers.d/ooonana")" '%wheel ALL=(ALL:ALL) NOPASSWD: ALL'
 assert_contains "$(<"$rootfs/etc/wsl.conf")" "default=ooonana"
 assert_contains "$(<"$rootfs/etc/wsl.conf")" "mountFsTab=false"
-assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS 0.9.9"'
+assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS 0.10.0"'
+[[ -d "$rootfs/var/tmp" && "$(stat -c %a "$rootfs/var/tmp")" == 1777 ]] || fail "/var/tmp missing or unsafe"
 [[ "$(head -c 4 "$rootfs/usr/share/icons/OoonanaTailless/cursors/left_ptr")" == Xcur ]] || fail "tailless cursor missing or invalid"
 python3 - "$rootfs/usr/share/icons/OoonanaTailless/cursors/left_ptr" <<'PY'
 import struct
@@ -461,6 +476,8 @@ assert_contains "$i3_session" "setup.log"
 assert_contains "$i3_session" '/bin/busybox su -m -s /bin/sh'
 assert_contains "$i3_session" 'XDG_RUNTIME_DIR="/run/user/$desktop_uid"'
 assert_contains "$i3_session" "--user-session"
+assert_contains "$i3_session" 'CDPATH= cd -- "$HOME"'
+assert_contains "$i3_session" 'desktop home unavailable'
 assert_contains "$i3_session" "ooonana-audio-start"
 assert_contains "$i3_session" 'export LANG="${LANG:-C.UTF-8}"'
 assert_contains "$i3_session" 'source_authority="${XAUTHORITY:-${HOME:-/root}/.Xauthority}"'
@@ -468,6 +485,8 @@ assert_contains "$i3_session" 'export XAUTHORITY="$target_authority"'
 assert_contains "$i3_session" "ooonana-theme-env apply"
 assert_contains "$i3_session" "dbus-run-session"
 assert_contains "$i3_session" "OOONANA_DBUS_SESSION"
+assert_contains "$i3_session" "export XDG_CURRENT_DESKTOP=Ooonana:i3"
+assert_contains "$i3_session" "dbus-update-activation-environment DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP"
 assert_contains "$i3_session" "exec i3"
 
 audio_start="$(<"$rootfs/usr/bin/ooonana-audio-start")"
@@ -506,10 +525,12 @@ assert_contains "$i3_config" "picom --backend xrender --config /etc/ooonana/pico
 assert_contains "$i3_config" "--backend glx"
 assert_contains "$i3_config" "--backend xrender"
 assert_contains "$i3_config" "dunst -config /etc/ooonana/dunstrc"
-assert_contains "$i3_config" '/ooonana/xsettingsd.conf'
-assert_contains "$i3_config" "[ -S /run/dbus/system_bus_socket ] && nm-applet --indicator"
+assert_contains "$i3_config" 'ooonana-xsettings'
+assert_contains "$i3_config" "[ -S /run/dbus/system_bus_socket ]"
+assert_contains "$i3_config" "ooonana-tray --wait-ready"
+assert_contains "$i3_config" "nm-applet --indicator"
 assert_contains "$i3_config" "ls /sys/class/bluetooth/hci*"
-assert_contains "$i3_config" "then blueman-applet"
+assert_contains "$i3_config" "blueman-applet & fi"
 assert_contains "$i3_config" "rofi -show drun -theme /etc/ooonana/rofi.rasi"
 assert_contains "$i3_config" 'bindsym $mod+d exec ooonana-apps'
 assert_contains "$i3_config" 'bindsym $mod+Shift+d exec'
@@ -563,7 +584,7 @@ assert_contains "$theme_helper" "feh --bg-max"
 assert_contains "$theme_helper" '-e /bin/sh -l'
 assert_contains "$theme_helper" 'exec xterm -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR"'
 assert_contains "$theme_helper" 'GTK_THEME="%s"'
-assert_contains "$theme_helper" 'gtk-application-prefer-dark-theme=$OOONANA_GTK_DARK'
+assert_contains "$theme_helper" '"gtk-application-prefer-dark-theme": dark'
 assert_contains "$theme_helper" 'PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"'
 assert_not_contains "$theme_helper" 'XTERM_FONT_ARGS="-fa monospace -fs 10"'
 assert_not_contains "$theme_helper" '$XTERM_FONT_ARGS -bg "$OOONANA_BG" -fg "$OOONANA_FG"'
@@ -573,8 +594,9 @@ assert_contains "$yad_wrapper" "ooonana-theme-env env"
 assert_contains "$yad_wrapper" "--window-icon=/usr/share/ooonana/logo.png"
 
 assert_contains "$(<"$rootfs/etc/gtk-3.0/settings.ini")" "gtk-application-prefer-dark-theme=true"
-assert_contains "$(<"$rootfs/root/.config/gtk-3.0/gtk.css")" "button { background: @ooonana_panel_alt"
-assert_contains "$(<"$rootfs/root/.config/gtk-3.0/gtk.css")" "headerbar"
+assert_contains "$(<"$rootfs/usr/share/themes/Ooonana/gtk-3.0/common.css")" "button { background: @ooonana_panel_alt"
+assert_contains "$(<"$rootfs/usr/share/themes/Ooonana/gtk-3.0/common.css")" "headerbar"
+assert_contains "$(<"$rootfs/root/.config/gtk-3.0/gtk.css")" "named GTK themes"
 network_manager_config="$(<"$rootfs/etc/NetworkManager/NetworkManager.conf")"
 assert_contains "$network_manager_config" "wifi.scan-rand-mac-address=no"
 assert_contains "$network_manager_config" "match-device=type:wifi"
@@ -586,6 +608,8 @@ assert_contains "$(<"$rootfs/etc/bluetooth/main.conf")" "AutoEnable = true"
 browser_helper="$(<"$rootfs/usr/bin/ooonana-browser")"
 assert_contains "$browser_helper" "chromium --no-first-run"
 assert_contains "$browser_helper" "--disable-gpu"
+assert_contains "$browser_helper" "--disable-gpu-shader-disk-cache"
+[[ -s "$rootfs/etc/chromium/zz-ooonana.conf" ]] || fail "missing direct Chromium shader-cache policy"
 assert_contains "$browser_helper" "--disable-software-rasterizer"
 assert_contains "$browser_helper" "--disable-features=Vulkan"
 assert_contains "$browser_helper" "dbus-run-session"
@@ -886,12 +910,13 @@ assert_contains "$(<"$rootfs/usr/share/applications/oonana.desktop")" "Exec=ooon
 polybar_cfg="$(<"$rootfs/etc/ooonana/polybar.ini")"
 assert_contains "$polybar_cfg" "Ooonana OS"
 assert_contains "$polybar_cfg" "#ffb21a"
-assert_contains "$polybar_cfg" "background = #1b1f26"
+assert_contains "$polybar_cfg" 'background = ${env:OOONANA_BAR_BACKGROUND:#1b1f26}'
 assert_contains "$polybar_cfg" "width = 98%"
 assert_contains "$polybar_cfg" "radius = 12"
-assert_contains "$polybar_cfg" "OOONANA_PANEL_LEFT:brand workspaces"
+assert_contains "$polybar_cfg" "OOONANA_PANEL_LEFT:brand task-view"
 assert_contains "$polybar_cfg" "font-1 = \"Font Awesome"
-assert_contains "$polybar_cfg" "Font Awesome 6 Brands"
+assert_contains "$polybar_cfg" "Font Awesome 7 Free Solid"
+assert_contains "$polybar_cfg" "Font Awesome 7 Brands"
 assert_contains "$polybar_cfg" "[module/brand]"
 assert_contains "$polybar_cfg" "[module/launcher]"
 assert_contains "$polybar_cfg" "[module/terminal]"
@@ -912,14 +937,16 @@ assert_contains "$polybar_cfg" "click-left = i3-msg move scratchpad"
 assert_contains "$polybar_cfg" "click-right = i3-msg scratchpad show"
 assert_contains "$polybar_cfg" "[module/win-full]"
 assert_contains "$polybar_cfg" "click-left = i3-msg fullscreen toggle"
-assert_contains "$polybar_cfg" "OOONANA_PANEL_LEFT:brand workspaces win-close win-min win-full media"
+assert_contains "$polybar_cfg" "OOONANA_PANEL_LEFT:brand task-view media"
+assert_contains "$polybar_cfg" "[module/task-view]"
+assert_contains "$polybar_cfg" "click-left = ooonana-window-list --task-view"
 assert_contains "$polybar_cfg" "modules-center = ai"
 assert_contains "$polybar_cfg" "click-left = ooonana-notifications"
 assert_contains "$polybar_cfg" "click-left = ooonana-ai-launch"
 assert_contains "$polybar_cfg" "[bar/ooonana-dock]"
 assert_contains "$polybar_cfg" 'width = ${env:OOONANA_DOCK_WIDTH:524}'
 assert_contains "$polybar_cfg" 'offset-x = ${env:OOONANA_DOCK_OFFSET:378}'
-assert_contains "$polybar_cfg" 'Font Awesome 6 Free Solid:size=15;2'
+assert_contains "$polybar_cfg" 'Font Awesome 7 Free Solid:size=15;2'
 assert_contains "$polybar_cfg" "modules-center = dock-apps"
 assert_contains "$polybar_cfg" "exec = ooonana-window-list --watch-dock"
 assert_contains "$polybar_cfg" "tail = true"
@@ -929,8 +956,12 @@ assert_contains "$polybar_cfg" "[module/memory]"
 assert_contains "$polybar_cfg" "[module/windows]"
 assert_contains "$polybar_cfg" "exec = ooonana-window-list"
 assert_contains "$polybar_cfg" "click-right = ooonana-window-list --actions"
-assert_contains "$polybar_cfg" "OOONANA_PANEL_RIGHT:memory audio battery wifi notifications controls date power"
-assert_contains "$polybar_cfg" "click-left = ooonana-settings-launch --page hardware"
+assert_contains "$polybar_cfg" "OOONANA_PANEL_RIGHT:memory audio battery wifi notifications tray controls date power"
+assert_contains "$polybar_cfg" "[module/tray]"
+assert_contains "$polybar_cfg" "click-left = ooonana-tray --toggle"
+assert_contains "$(<"$rootfs/usr/bin/ooonana-tray")" 'exec /usr/bin/python3 /usr/lib/ooonana/ui/tray_app.py'
+[[ -f "$rootfs/usr/lib/ooonana/tray_service.py" && -f "$rootfs/usr/lib/ooonana/tray_model.py" && -f "$rootfs/usr/lib/ooonana/ui/tray_app.py" ]] || fail "missing native indicator host"
+assert_contains "$polybar_cfg" "click-right = ooonana-shell audio"
 assert_contains "$polybar_cfg" "exec = ooonana-audio-status"
 assert_contains "$polybar_cfg" "exec = ooonana-wifi-status"
 assert_contains "$polybar_cfg" "exec = ooonana-bluetooth-status"
@@ -943,23 +974,25 @@ assert_contains "$polybar_cfg" "content = "
 assert_contains "$polybar_cfg" "content = "
 assert_contains "$polybar_cfg" "[module/wifi]"
 assert_contains "$polybar_cfg" "exec = ooonana-wifi-status"
-assert_contains "$polybar_cfg" "click-left = ooonana-wifi-panel"
+assert_contains "$polybar_cfg" "click-left = ooonana-shell wifi"
 assert_contains "$polybar_cfg" "[module/bluetooth]"
 assert_contains "$polybar_cfg" "exec = ooonana-bluetooth-status"
-assert_contains "$polybar_cfg" "click-left = ooonana-bluetooth-panel"
+assert_contains "$polybar_cfg" "click-left = ooonana-shell bluetooth"
 assert_contains "$polybar_cfg" "[module/audio]"
 assert_contains "$polybar_cfg" "exec = ooonana-audio-status"
-assert_contains "$polybar_cfg" "click-left = ooonana-audio-panel"
+assert_contains "$polybar_cfg" "click-left = ooonana-shell audio"
 assert_contains "$polybar_cfg" "click-middle = pactl set-sink-mute"
 assert_contains "$polybar_cfg" "click-right = pavucontrol"
 assert_contains "$polybar_cfg" "[module/brightness]"
 assert_contains "$polybar_cfg" "exec = ooonana-brightness-status"
-assert_contains "$polybar_cfg" "click-left = ooonana-brightness-panel"
+assert_contains "$polybar_cfg" "click-left = ooonana-shell brightness"
 assert_contains "$polybar_cfg" "click-middle = brightnessctl set 50%"
 assert_contains "$polybar_cfg" "[module/power]"
 assert_contains "$polybar_cfg" "content = "
-assert_contains "$polybar_cfg" "click-left = ooonana-power-menu"
-assert_contains "$polybar_cfg" "click-right = i3lock"
+assert_contains "$polybar_cfg" "click-left = ooonana-shell power"
+assert_contains "$polybar_cfg" "click-left = ooonana-shell apps --panel"
+assert_contains "$polybar_cfg" "click-left = ooonana-controls"
+assert_contains "$polybar_cfg" "click-right = ooonana-lock"
 assert_contains "$polybar_cfg" "label = %time%"
 
 power_menu="$(<"$rootfs/usr/bin/ooonana-power-menu")"
@@ -969,7 +1002,9 @@ assert_contains "$power_menu" "ooonana-rofi-power"
 
 i3_keycodes="$(<"$rootfs/etc/i3/config.keycodes")"
 assert_contains "$i3_keycodes" "Ooonana OS"
-assert_contains "$i3_keycodes" "[ -S /run/dbus/system_bus_socket ] && nm-applet"
+assert_contains "$i3_keycodes" "[ -S /run/dbus/system_bus_socket ]"
+assert_contains "$i3_keycodes" "ooonana-tray --wait-ready"
+assert_contains "$i3_keycodes" "nm-applet --indicator"
 assert_contains "$i3_keycodes" "ls /sys/class/bluetooth/hci*"
 assert_not_contains "$i3_keycodes" "exec --no-startup-id nm-applet"
 assert_contains "$(<"$rootfs/etc/xdg/autostart/nm-applet.desktop")" "Hidden=true"
@@ -997,9 +1032,11 @@ assert_contains "$picom_cfg" "active-opacity = 1.0"
 assert_contains "$picom_cfg" "corner-radius = 14"
 assert_contains "$picom_cfg" "rounded-corners-exclude"
 assert_contains "$picom_cfg" "class_g = 'OoonanaWindowControls'"
-assert_contains "$i3_config" "client.focused #1b1f26 #1b1f26 #ffb21a #ffb21a #1b1f26"
-gtk_css="$(<"$rootfs/root/.config/gtk-3.0/gtk.css")"
-assert_contains "$gtk_css" "window.background, dialog.background, messagedialog.background { border-radius: 14px; }"
+assert_contains "$i3_config" 'set_from_resource $of_bg ooonana.i3.focused.background #1b1f26'
+assert_contains "$i3_config" 'client.focused $of_bg $of_bg $of_text $of_indicator $of_bg'
+gtk_css="$(<"$rootfs/usr/share/themes/Ooonana/gtk-3.0/common.css")"
+assert_contains "$gtk_css" "window.background, dialog.background, messagedialog.background { border-radius: 0; }"
+assert_contains "$gtk_css" "window.csd, window.solid-csd { border-radius: 14px; }"
 assert_not_contains "$picom_cfg" 'backend = "xrender"'
 
 dunst_cfg="$(<"$rootfs/etc/ooonana/dunstrc")"
@@ -1050,6 +1087,9 @@ assert_contains "$install_wizard" "Progress log"
 assert_contains "$install_wizard" "OOONANA_INSTALL_WIZARD_FAIL"
 assert_contains "$install_wizard" "Fallback shell"
 assert_contains "$install_wizard" "Press Enter to reboot"
+assert_contains "$install_wizard" "Input closed; reboot skipped."
+assert_not_contains "$install_wizard" "reboot -f"
+assert_not_contains "$install_wizard" "poweroff -f"
 assert_contains "$install_wizard" "--password-stdin"
 assert_contains "$install_wizard" "--cloud-repo"
 assert_contains "$install_wizard" "OOONANA_INSTALL_ALLOW_ROOT_TARGET"

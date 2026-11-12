@@ -2,7 +2,12 @@
 set -euo pipefail
 
 ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
+# shellcheck source=lib/f-build-budget.sh
+source "$ROOT/scripts/lib/f-build-budget.sh"
+# shellcheck source=lib/verification-media.sh
+source "$ROOT/scripts/lib/verification-media.sh"
 BUILD_DIR="${OOONANA_BUILD_DIR:-/mnt/winf/Ooonana/ooonana-os/build}"
+REPO_OVERRIDE="${OOONANA_RELEASE_REPO:-}"
 RELEASE_DIR="${OOONANA_RELEASE_DIR:-/mnt/winf/Ooonana/ooonana-os/release-current}"
 STAGE_DIR="${OOONANA_STAGE_DIR:-/var/tmp/ooonana-release-stage}"
 KERNEL_WORK_DIR="${OOONANA_KERNEL_WORK_DIR:-/var/tmp/ooonana-kernel-work}"
@@ -13,6 +18,9 @@ RUN_BOOT_MATRIX=1
 PREFLIGHT_ONLY=0
 RESUME_AFTER_ROOTFS=0
 RESUME_AFTER_ISO=0
+VERIFY_IN_RAM=0
+VERIFY_DISK_DIR=''
+BOOT_MEMORY=2048
 BUILD_MIN_FREE_KB=$((8 * 1024 * 1024))
 STAGE_MIN_FREE_KB=$((20 * 1024 * 1024))
 KERNEL_MIN_FREE_KB=$((20 * 1024 * 1024))
@@ -26,11 +34,14 @@ Usage:
 
 Options:
   --build-dir PATH       Build/cache directory
+  --repo PATH            Signed package repository (default: BUILD_DIR/full-i3-repo)
   --release-dir PATH     Release output directory
   --skip-boot-matrix     Skip direct BIOS and UEFI QEMU boots
   --preflight-only       Verify inputs and source without building
   --resume-after-rootfs  Reuse completed scratch and full rootfs
   --resume-after-iso     Reuse completed .iso.new and continue verification
+  --verify-in-ram        Mirror verification media in guarded nonswappable RAM
+  --verify-on-disk PATH  Temporary fast-disk ISO copy (WSL: C: directory)
   -h, --help             Show help
 
 Environment:
@@ -38,6 +49,7 @@ Environment:
   OOONANA_KERNEL_WORK_DIR=PATH   Native Linux kernel source/build cache
   OOONANA_KERNEL_SOURCE_VERSION  Kernel source version (default: 6.18.37)
   OOONANA_RELEASE_KERNEL_JOBS=N  Kernel compile jobs (default: 2)
+  OOONANA_RELEASE_REPO=PATH      Separate candidate repository; --repo takes priority
 USAGE
 }
 
@@ -49,15 +61,20 @@ die() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --build-dir) BUILD_DIR="$2"; shift 2 ;;
+    --repo) REPO_OVERRIDE="$2"; shift 2 ;;
     --release-dir) RELEASE_DIR="$2"; shift 2 ;;
     --skip-boot-matrix) RUN_BOOT_MATRIX=0; shift ;;
     --preflight-only) PREFLIGHT_ONLY=1; shift ;;
     --resume-after-rootfs) RESUME_AFTER_ROOTFS=1; shift ;;
     --resume-after-iso) RESUME_AFTER_ISO=1; shift ;;
+    --verify-in-ram) VERIFY_IN_RAM=1; shift ;;
+    --verify-on-disk) [[ $# -ge 2 && -n "$2" ]] || die "--verify-on-disk requires a directory"; VERIFY_DISK_DIR="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) die "unknown option: $1" ;;
   esac
 done
+
+[[ "$VERIFY_IN_RAM" -eq 0 || -z "$VERIFY_DISK_DIR" ]] || die "choose RAM or disk verification, not both"
 
 [[ "${EUID:-$(id -u)}" -eq 0 ]] || die "run as root"
 case "$AUTO_REBUILD_KERNEL" in
@@ -89,7 +106,7 @@ done
 
 ensure_default_build_mount
 
-for command_name in awk cmp cp dd df find flock grep install mv python3 qemu-system-x86_64 realpath sha256sum sort stat sync timeout xargs; do
+for command_name in awk cmp cp dd df du find flock grep install mv python3 qemu-system-x86_64 realpath sha256sum sort stat sync timeout xargs; do
   command -v "$command_name" >/dev/null 2>&1 || die "missing command: $command_name"
 done
 
@@ -101,11 +118,30 @@ STAGE_DIR="$(realpath -m "$STAGE_DIR")"
 [[ "$STAGE_DIR" == /var/tmp/ooonana-* ]] ||
   die "unsafe stage directory: $STAGE_DIR"
 
+check_stage_space() {
+  local stage_available_kb stage_used_kb=0 stage_mounts
+  # Never count or remove an attached installer filesystem as reclaimable scratch.
+  stage_mounts="$(findmnt -rn -o TARGET)" || die "cannot inspect stage mounts"
+  if printf '%s\n' "$stage_mounts" | awk -v stage="$STAGE_DIR" \
+      '$0 == stage || index($0, stage "/") == 1 {found=1} END {exit !found}'; then
+    die "stage contains mounted filesystems: $STAGE_DIR"
+  fi
+  stage_available_kb="$(df -Pk "$(dirname "$STAGE_DIR")" | awk 'NR == 2 {print $4}')"
+  [[ "$stage_available_kb" =~ ^[0-9]+$ ]] || die "cannot read stage disk space"
+  if [[ -d "$STAGE_DIR" ]]; then
+    stage_used_kb="$(du -skx "$STAGE_DIR" | awk '{print $1}')"
+  fi
+  [[ "$stage_used_kb" =~ ^[0-9]+$ ]] || die "cannot read existing stage allocation"
+  # Fresh builds reclaim this directory; resumes already own its allocated bytes.
+  (( stage_available_kb + stage_used_kb >= STAGE_MIN_FREE_KB )) ||
+    die "need at least 20 GiB free for stage (including reusable scratch): $STAGE_DIR"
+}
+
 KERNEL="$BUILD_DIR/ooonana-kernel/vmlinuz-ooonana"
 KERNEL_CONFIG="$BUILD_DIR/ooonana-kernel/config-ooonana"
 KERNEL_FRAGMENT="$ROOT/configs/kernel/ooonana-minimal-x86_64.fragment"
 KERNEL_CACHE_ERROR=""
-REPO="$BUILD_DIR/full-i3-repo"
+REPO="${REPO_OVERRIDE:-$BUILD_DIR/full-i3-repo}"
 if [[ -f "$REPO/CURRENT" ]]; then
   IFS= read -r repo_generation <"$REPO/CURRENT"
   repo_generation="$(printf '%s' "$repo_generation" | tr -d '\r')"
@@ -134,9 +170,13 @@ cleanup() {
     wait "$QEMU_PID" 2>/dev/null || true
   fi
   [[ -n "$OVMF_VARS" ]] && rm -f "$OVMF_VARS"
+  cleanup_ram_media || return 1
+  cleanup_disk_media || return 1
   rm -rf "$WORK"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 kernel_cache_matches_fragment() {
   local kernel_option cached_version
@@ -241,7 +281,20 @@ release_input_fingerprint() {
   } | sha256sum | awk '{ print $1 }'
 }
 
+verify_iso_resume_inputs() {
+  local expected
+  kernel_cache_matches_fragment || die "ISO resume kernel cache/config differs from requested inputs"
+  [[ -s "$STAGE_DIR/.release-inputs.sha256" &&
+     -f "$STAGE_DIR/.ooonana-rootfs-complete" ]] ||
+    die "ISO resume lacks completed build provenance; rerun without resume"
+  expected="$(<"$STAGE_DIR/.release-inputs.sha256")"
+  [[ "$expected" =~ ^[0-9a-f]{64}$ &&
+     "$expected" == "$(release_input_fingerprint)" ]] ||
+    die "ISO resume inputs changed; rerun without resume or select original signed generation"
+}
+
 mkdir -p "$BUILD_DIR" "$RELEASE_DIR"
+check_f_build_budget || die "insufficient F: backing capacity"
 if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
   kernel_refresh_needed=0
   if ! kernel_cache_matches_fragment; then
@@ -264,7 +317,7 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
   esac
   source_core_version="$("$ROOT/packages/ooonana/usr/bin/ooonana" version | awk '{print $2}')"
   python3 "$ROOT/scripts/check-release-repo.py" --repo "$REPO" \
-    --profile "$ROOT/configs/packages/full-i3.list" --core-version "$source_core_version" \
+    --profile "$ROOT/configs/packages/full-i3.list" --core-version "$source_core_version" --require-native-controls \
     --public-key "$ROOT/packages/ooonana/etc/ooonana/trusted-keys/repository-20261002.pub"
 
   FIRMWARE_SCRIPT="$ROOT/scripts/install-intel-wireless-firmware.sh"
@@ -277,13 +330,19 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
   available_kb="$(df -Pk "$BUILD_DIR" | awk 'NR == 2 { print $4 }')"
   [[ "$available_kb" =~ ^[0-9]+$ ]] || die "cannot read build disk space"
   (( available_kb >= BUILD_MIN_FREE_KB )) || die "need at least 8 GiB free in $BUILD_DIR"
-  stage_available_kb="$(df -Pk "$(dirname "$STAGE_DIR")" | awk 'NR == 2 { print $4 }')"
-  [[ "$stage_available_kb" =~ ^[0-9]+$ ]] || die "cannot read stage disk space"
-  (( stage_available_kb >= STAGE_MIN_FREE_KB )) || die "need at least 20 GiB free for stage: $STAGE_DIR"
+  check_stage_space
   if [[ "$kernel_refresh_needed" -eq 1 ]]; then
     refresh_cached_kernel
+    # Kernel and rootfs may share F-backed scratch; don't overcommit after compile.
+    check_stage_space
   fi
 else
+  check_stage_space
+  verify_iso_resume_inputs
+  source_core_version="$("$ROOT/packages/ooonana/usr/bin/ooonana" version | awk '{print $2}')"
+  python3 "$ROOT/scripts/check-release-repo.py" --repo "$REPO" \
+    --profile "$ROOT/configs/packages/full-i3.list" --core-version "$source_core_version" --require-native-controls \
+    --public-key "$ROOT/packages/ooonana/etc/ooonana/trusted-keys/repository-20261002.pub"
   if [[ -s "$STAGED_ISO" ]]; then
     VERIFY_ISO="$STAGED_ISO"
   elif [[ -s "$NEW_ISO" ]]; then
@@ -374,11 +433,13 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
   fi
 
   printf '[2/7] Scratch rootfs\n'
+  check_f_build_budget || die "F: backing space changed"
   if [[ "$RESUME_AFTER_ROOTFS" -eq 0 ]]; then
     bash "$ROOT/scripts/build-scratch-rootfs.sh" --work-dir "$STAGE_DIR" --force
     bash "$ROOT/scripts/build-scratch-initramfs.sh" --work-dir "$STAGE_DIR" --force
 
     printf '[3/7] Full rootfs\n'
+    check_f_build_budget || die "F: backing space changed"
     bash "$ROOT/scripts/build-full-i3-rootfs.sh" \
       --work-dir "$STAGE_DIR" \
       --repo "$STAGE_DIR/full-i3-repo" \
@@ -437,7 +498,7 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
   grep -q 'governor="schedutil"' "$ROOTFS/etc/init.d/rcS"
   grep -q '/mnt/ooonana-live/persistence-mode' "$ROOTFS/etc/init.d/rcS"
   grep -q 'mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /tmp' "$ROOTFS/etc/init.d/rcS"
-  python3 "$ROOT/tests/audit-full-i3-runtime.py" "$ROOTFS"
+  python3 "$ROOT/tests/audit-full-i3-runtime.py" "$ROOTFS" --kernel-config "$KERNEL_CONFIG"
   : >"$STAGE_DIR/.ooonana-rootfs-complete"
   if [[ -s "$STAGE_DIR/ooonana-full-i3-rootfs.tar.gz" ]]; then
     rootfs_tar="$STAGE_DIR/ooonana-full-i3-rootfs.tar.gz"
@@ -465,10 +526,12 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
   fi
 
   printf '[4/7] Live and installer images\n'
+  check_f_build_budget || die "F: backing space changed"
   bash "$ROOT/scripts/build-full-i3-live-initramfs.sh" --work-dir "$STAGE_DIR" --force
   bash "$ROOT/scripts/build-full-i3-disk.sh" --work-dir "$STAGE_DIR" --force
 
   printf '[5/7] ISO\n'
+  check_f_build_budget || die "F: backing space changed"
   printf '[iso] Building in WSL-native storage: %s\n' "$STAGED_ISO"
   bash "$ROOT/scripts/build-full-i3-iso.sh" \
     --work-dir "$STAGE_DIR" \
@@ -480,7 +543,23 @@ else
 fi
 
 printf '[6/7] Verification\n'
-if [[ "$(findmnt -n -o FSTYPE --target "$VERIFY_ISO" 2>/dev/null || true)" == "9p" ]]; then
+check_f_build_budget || die "F: backing space changed"
+if [[ "$VERIFY_IN_RAM" -eq 1 ]]; then
+  verification_guest_mib="${OOONANA_QEMU_MEMORY:-1536}"
+  [[ "$verification_guest_mib" =~ ^[1-9][0-9]*$ ]] &&
+    (( verification_guest_mib >= 1024 )) || die "invalid QEMU service RAM budget"
+  (( verification_guest_mib >= 2048 )) || verification_guest_mib=2048
+  prepare_ram_media "$VERIFY_ISO" "$verification_guest_mib" || die "RAM media preparation failed"
+  VERIFY_ISO="$RAM_MEDIA_ISO"
+elif [[ -n "$VERIFY_DISK_DIR" ]]; then
+  # Service smoke already runs at 1536 MiB. Use that same proven VM size for
+  # simple BIOS/UEFI startup probes too; physical/live-system RAM is unchanged.
+  BOOT_MEMORY="${OOONANA_QEMU_MEMORY:-1536}"
+  prepare_disk_media "$VERIFY_ISO" "$BOOT_MEMORY" "$VERIFY_DISK_DIR" || die "disk media preparation failed"
+  VERIFY_ISO="$DISK_MEDIA_ISO"
+fi
+if [[ "$VERIFY_ISO" != "$DISK_MEDIA_ISO" &&
+      "$(findmnt -n -o FSTYPE --target "$VERIFY_ISO" 2>/dev/null || true)" == "9p" ]]; then
   SOURCE_ISO="$VERIFY_ISO"
   VERIFY_ISO="$WORK/ooonana-full-i3.iso"
   printf '[verify] Copying ISO to WSL-native storage for QEMU\n'
@@ -501,7 +580,7 @@ boot_check() {
 
   : >"$log"
   qemu-system-x86_64 \
-    -accel "$QEMU_ACCEL" -machine q35 -m 2048 -smp 2 \
+    -accel "$QEMU_ACCEL" -machine q35 -m "$BOOT_MEMORY" -smp 2 \
     "$@" \
     -cdrom "$VERIFY_ISO" -boot d \
     -display none -serial stdio -monitor none -no-reboot \
@@ -509,10 +588,15 @@ boot_check() {
   QEMU_PID=$!
 
   while kill -0 "$QEMU_PID" 2>/dev/null; do
+    if ! verification_guest_log_ok "$log"; then
+      tail -200 "$log" >&2
+      die "$name guest storage/memory/kernel failure"
+    fi
     if grep -q 'Ooonana full i3 rootfs' "$log"; then
       kill "$QEMU_PID" 2>/dev/null || true
       wait "$QEMU_PID" 2>/dev/null || true
       QEMU_PID=""
+      verification_guest_log_ok "$log" || die "$name guest storage/memory/kernel failure"
       printf 'PASS: %s boot\n' "$name"
       return 0
     fi
@@ -534,6 +618,7 @@ boot_check() {
     tail -200 "$log" >&2
     die "$name boot failed with status $status"
   fi
+  verification_guest_log_ok "$log" || die "$name guest storage/memory/kernel failure"
   printf 'PASS: %s boot\n' "$name"
 }
 
@@ -561,6 +646,7 @@ if [[ "$RUN_BOOT_MATRIX" -eq 1 ]]; then
 fi
 
 printf '[7/7] Promote\n'
+check_f_build_budget || die "F: backing space changed"
 iso_sha256="$(sha256sum "$VERIFY_ISO" | awk '{ print $1 }')"
 iso_size="$(stat -c %s "$VERIFY_ISO")"
 if [[ "$VERIFY_ISO" != "$NEW_ISO" ]]; then
@@ -570,6 +656,9 @@ if [[ "$VERIFY_ISO" != "$NEW_ISO" ]]; then
     die "release ISO copy is incomplete"
   sync "$NEW_ISO"
 fi
+cleanup_ram_media || die "verification media still busy; refusing promotion"
+cleanup_disk_media || die "disk verification media cleanup failed; refusing promotion"
+check_stage_space
 mv -f "$NEW_ISO" "$ISO"
 printf '%s  ooonana-full-i3.iso\n' "$iso_sha256" >"$RELEASE_DIR/ooonana-full-i3.iso.sha256"
 sync

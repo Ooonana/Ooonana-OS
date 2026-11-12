@@ -10,44 +10,112 @@ variables:
   PACKAGE_SET: "both"
   PACKAGE_PROFILE: ""
   PACKAGES: ""
-  ALPINE_REPOS: "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64 https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64"
+  ALPINE_REPOS: "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86_64 https://dl-cdn.alpinelinux.org/alpine/v3.24/community/x86_64"
   OOONANA_REPO_NAME: "gitlab"
   OOONANA_PAGES_MAX_BYTES: "1073741824"
   OOONANA_KERNEL_VERSION: "6.18.37-3"
-  OOONANA_CORE_VERSION: "0.9.9"
+  OOONANA_CORE_VERSION: "0.10.0"
   OOONANA_OPENVINO_CHAT_VERSION: "0.2.1"
   OOONANA_KERNEL_PACKAGE_URL: "https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/vmlinuz-ooonana-6.18.37-3"
   OOONANA_KERNEL_PACKAGE_SHA256: "bc30e38e0ff539ac3b573a03a15c763ee49c072224e2d4620ba2e2be910065a3"
 
 ci-smoke:
-  image: alpine:3.20
+  image: alpine:3.24
   stage: check
   before_script:
-    - apk add --no-cache bash python3 diffutils findutils tar gzip coreutils
+    # Verification fixtures use findmnt; BusyBox does not provide it.
+    - apk add --no-cache bash python3 diffutils findutils tar gzip xz coreutils binutils git openssl util-linux nodejs gcc musl-dev glib
+    - command -v findmnt && command -v mountpoint
+    - command -v node && command -v cc
   script:
     - echo "Ooonana GitLab CI active"
+    - bash tests/test-iso-launcher.sh
+    - bash tests/test-wsl-distro.sh
+    - PYTHONDONTWRITEBYTECODE=1 bash tests/test-rebuild-full-i3-release.sh
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-release-repo.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-runtime-firmware.py
     - bash tests/test-version-order.sh
+    - bash tests/test-atomic-package-archive.sh
+    - bash tests/test-import-apk-package.sh
+    - bash tests/test-i3-package-set.sh
     - bash tests/test-qemu-live-kernel-smoke.sh
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-service-watchdog.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-service-readiness.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-cgroup-memory.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-backend-metrics-api.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-openvino-memory-errors.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-openvino-stream-cancel.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-openvino-transport.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-openvino-setup.py
+    - PYTHONDONTWRITEBYTECODE=1 bash tests/test-openvino-chat-package.sh
+    - PYTHONDONTWRITEBYTECODE=1 bash tests/test-ooonana-pdf.sh
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-state-io-recovery.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-ai-store-safety.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-ai-openai.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-desktop-package-caches.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-nemo-integration.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-panel-session.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-tray-model.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-qt-portal.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-qt-package.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-pam-package.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-core-adoption.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-installed-wsl-update.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-pdf-runtime-reuse.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-native-pdf-probe.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-pdf-vm-harness.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-pdf-time-csr.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-cli-query-fast.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-browser-policy.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-window-list.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-desktop-session-cwd.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-wallpaper-selection.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-firefox-package.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-update-interruption.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-tar-modes.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-process-control-ipc.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-native-wrapper-modes.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-userland-migration.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-desktop-backend-polish.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-initial-dialog-placement.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-launcher-search.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-launcher-fallbacks.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-wireless-utils.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-wireless-actions.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-game-ui.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-dock-visibility.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-dock-model.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-window-control-scale.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-i3-controls.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-theme-selection.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-theme-watch.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-xsettings-session.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-lock-launch.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-session-control.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-session-services.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-input-method.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-font-cache.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-installed-mounts.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-installed-login-prompts.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-i3lock-visuals.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-desktop-frame-theme.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-media-metadata.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-audio-actions.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-notifications.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-shell-flyouts.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-editor-polish.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-chart-layout.py
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-health-summary.py
     - sh tests/test-live-boot-storage.sh
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-console-ui.py
     - sh tests/test-live-persistence-file.sh
     - sh tests/test-persistence-maintenance.sh
 
 deploy-package-repo:
-  image: alpine:3.20
+  rules:
+    # Major base migration must not replace the stable 0.9.x endpoint on merge.
+    - if: '$CI_COMMIT_BRANCH == "main" && $OOONANA_ALLOW_MAJOR_PUBLISH == "1"'
+  image: alpine:3.24
   stage: deploy
   before_script:
     - apk add --no-cache git bash curl wget tar gzip coreutils findutils gawk grep sed openssl nodejs npm python3

@@ -1,4 +1,2266 @@
-# Current work - 2026-10-08
+# Current work - 2026-11-06
+
+## Notification acceptance and Nemo candidate — November6
+
+Source freeze d9b4ae5 is pushed to both candidate branches; both CIs passed.
+Nemo/cache fixes are built, with loader/private transaction checks passed.
+Installed notification backend and frameless flyout/Escape checks passed.
+[Receipt and screenshot](installed-ui-acceptance-20261106.md).
+
+F: reads stalled during validation. Registry confirms Ooonana WSL already
+lives on F:; Ubuntu lives on C:. Neither moved here. Owned index jobs stopped;
+no package transaction or generation promotion. Generation81a73840 stays
+installed. Resume signing/closure and Nemo installed tests after reliable I/O.
+No new large confirmed junk found. VM/physical tests and heavy viewer launches
+held; no audible test, model download or ISO build.
+
+## Resumed WSL sync and cleanup — November5
+
+Disk reserve is restored. Signed generation81a73840 now matches F: and installed
+Ooonana WSL. Transfer reuses707 verified native archive hardlinks and copies one
+503,407-byte runtime archive. Dry-run names only core/runtime reinstall. Actual
+core/runtime/i3 verification passes; all65 protected account, authentication,
+configuration, trust and OpenVINO hashes remain unchanged. Recovery checkpoints
+stay. No model download, credential copy, ISO or stable promotion occurs.
+
+Installed native AI renders pass in Graphite/Paper with fixed status fixtures;
+captures replace the source-only examples. This certifies the installed provider
+control and layout, not live cloud inference. login1 helper safely reports
+unsupported-wsl without power requests. Earlier manual Hangul/paste checks remain
+completed. [Updated exact receipt](ai-openai-provider-20261105.md).
+
+The requested cleanup comes first: selected C: project roots,454 F: directories,
+671 Ubuntu project roots and26 Ooonana temporary roots are scanned for known
+generated caches. No additional confirmed junk is found; five earlier manual
+cleanup targets are already absent. Nothing is deleted. History, models, keys,
+source, signed generations and recovery/build checkpoints remain. Free space is
+about C:5.8GiB/F:39.4GiB after sync, not cleanup savings.
+
+Remaining1–15 gates: live cloud/API balance and held VM/physical acceptance.
+PDF viewer, Nemo integration and remaining release gates stay separately listed.
+
+## OpenAI follow-up — November5
+
+Independent OpenAI CLI/native-GUI routing is added; its credentials no longer
+count as a NIM key in shell fallback. Default GPT-6 Luna uses supported token
+budget/options; errors distinguish exhausted balance from rate limits and
+configuration output fully redacts keys. Six provider tests, CLI/fallback
+regression and GTK streaming/cancel/read-failure fixtures pass. Graphite/Paper
+native WSLg renders are reviewed with Impeccable guidance.
+
+The user confirmed secure local new-key saving. Authentication succeeds, but
+GPT-6 Luna returns credit_balance_exhausted; live generation/cancel/recovery
+remains pending available API balance. Credential remains ignored by Git and
+is excluded from the rebuilt package; it is not copied into WSL configuration.
+
+Source9051f6d passes both CIs. Signed generation81a73840 validates718 packages/
+637 nodes and is published on F:. Previous210cf509 remains intact. Latest WSL
+sync initially aborts before package changes because C: falls to about1.3GiB
+against a3.5GiB reserve. That hold is resolved by the resumed sync above.
+Installed session/input checks below remain completed.
+Owned temporary index roots are cleaned; history/keys/recovery remain.
+[Precise receipts and pending gates](ai-openai-provider-20261105.md).
+
+## Items1–15 — November5
+
+Installed nested input now passes mouse, keyboard, Backspace, Hangul and paste
+with the user's manual completion. The adapted probe's missing IME environment
+and unnecessary Copy-button dependency were repaired. Earlier UI/lockscreen
+passes remain completed; the new runtime changes no UI/theme/icon payload.
+
+Source checkpointad1e04c passes both remote CIs. Signed generation
+210cf50980114af2e0c165cf5a3bc8858a0e2f36e86a336cebf7d2bf4d87a9c9 contains
+718 packages/637 dependency nodes and is published on F: and installed Ooonana
+WSL. Six pinned session-service dependencies, i3 bundle0.1.5 and the refreshed
+core verify. All57 protected authentication/configuration hashes remain unchanged;
+factory rcS advances without a pending custom configuration. The installed
+session helper returns `unsupported-wsl` without starting physical power services.
+
+Real provider/session/wake verification remains pending because VM checks stay
+held and physical hardware is unavailable. Cloud AI still needs secure new-key
+setup. No OpenVINO/model changes, audible test, ISO or stable promotion.
+Public asset scan passes708 archives/75,903 entries; licensing remains pending.
+Only1.9MiB of new payload was transferred; existing native archives were reused.
+[Detailed receipt and remaining1–15 boundaries](ui-1-15-completion-20261104.md).
+
+## Items17–21 — November4
+
+Candidate source checkpoint2fed28d passes GitHub and GitLab CI. Signed generation
+72702203da0095322dbdbfa93ae02bbc31470e8765c28c9c49a1ce221f760374 contains
+712 packages/631 dependency nodes and is published on F: and in installed
+Ooonana WSL. Existing Flatpak/Nano/Node.js profile extensions are retained.
+Missing AT-SPI activation daemon is explicitly included; real installed-session
+activation and native package verification pass. Configuration, PAM/trust and
+OpenVINO hashes remain preserved. No new model download, ISO or stable promotion.
+
+Eighteen exact-package desktop cases retain their passes. Actual installed
+Settings/Geany/Files launch, exact minimized restore, fullscreen/restore, close
+and workspace return pass; captures reviewed with Impeccable4.8.0 guidance.
+README/captures, four-page guide and original11–25 checklist are refreshed.
+Public generation excludes personal cursor binaries/private keys; licensing
+decision remains pending. Disposable metadata-only index scratch was unmounted
+and removed; history/recovery generations remain.
+[Evidence and precise remaining gates](candidate-17-21-20261103.md).
+
+## Items10–15 — November3
+
+Deeper `/var/tmp` comparison consolidates620 identical archive copies while
+retaining every path/payload and permissions/owner/mtime, reclaiming928.5MiB more.
+Total Linux allocation reclaimed is about1.70GiB; remaining historical/build/
+recovery inputs are retained, not declared universally necessary. Package
+archives now replace atomically after successful writes; saved hardlinks and
+old archives survive rebuild/fetch failures. Combined catalog regains the four
+Korean-input packages already present in full-i3 and the unpublished native stage.
+[Repair and verification](package-archive-atomicity-20261103.md). No release
+publication, installed WSL sync or VM restart occurred.
+
+Latest `/var/tmp` recheck removes810MiB of regenerable kernel build/shader
+caches while preserving final kernel/configuration hashes, source, models,
+keys, histories and checkpoints. Ooonana's3.2MiB temporary receipts remain.
+[Cleanup evidence](vartmp-cleanup-20261103.md). TRIM completes; Windows free-space
+recovery is not assumed. The remaining installer identity-limit draft now passes
+the Linux installer regression suite and ShellCheck. VM checks remain pending
+at the user's request; installed WSL updates/publication/ISO stay held.
+
+Console mascot truncation is repaired with a getty-escaped issue asset;
+canonical plain branding remains unchanged. Source/rootfs/package-byte checks
+and real candidate getty rendering at80/40 columns pass. Installed signed package
+health rollback, config preservation, prepared-checkpoint power loss/recovery
+and bounded ext4 ENOSPC rollback now pass. Read-only QA media avoids the native
+HTTP-forwarding resource pressure; signature enforcement remains. Fixture CRLF, storage-reserve abort and
+bounded firmware-start failures are retained separately from passed tests.
+No installed Ooonana WSL update, remote push, publication or ISO build occurred.
+Broader kernel/bootloader upgrades, session providers and physical gates remain.
+
+## Items10–15 — November2
+
+Both WSL distros were inspected, confirmed caches cleaned, trimmed and compacted.
+History, models, keys and checkpoints remain. Work resumes under disk/RAM
+reserve guards; installed Ooonana WSL release updates remain held.
+[Cleanup and optimization](wsl-cleanup-optimization-20261102.md).
+
+Actual full private installation exposed device-name fstab entries, an absent
+root shadow record and retained zero-filled PAM policy files skipped by rsync's
+size/mtime comparison. UUID publication, explicit root locking, early identity
+validation and checksum-based retained copying are repaired and source-tested.
+Actual checksum reinstall, BIOS/UEFI boot, wrong-password rejection, nonroot
+login, sudo, EFI/swap activation and clean shutdown now pass in the disposable
+native VM. Installed upgrade/recovery and session-provider acceptance remain.
+[Evidence and precise remaining gates](installer-integrity-20261102.md).
+
+## Items10–15 — October31–November1
+
+Fixed missing split disk tools in desktop profiles/core upgrades and package
+factory imports. Installer refuses missing inventory/operation tools before
+disk writes; runtime audit covers installer tools. Installed boot now mounts
+configured local filesystems and blocks login on failure; native mount tools
+survive builder link restoration. Six isolated mount-policy checks pass.
+Manual WSLg mouse/keyboard/Backspace receipt passes;
+user confirms Hangul/paste, while exact automated text receipt stays incomplete.
+Full VM file copy timed out on slow F: backing; installation/boot/upgrade
+acceptance stays open. Available isolated source/package checks now pass.
+Installed WSL/publication/ISO
+remain held. [Evidence and open gates](ui-10-15-recheck-20261031.md).
+
+Final isolated signature-verified core/tools upgrade passes with exact archive
+hashes and preserved custom boot policy. Actual native PAM/getty rejects correct
+credentials under the transient storage-failure guard. Installer, full rootfs,
+package factory, six boot-mount tests and three font-cache tests pass.
+Actual packaged mount/helper checks also pass for local mounts, `_netdev`,
+required failures, `nofail` and retained administrator policy. Original combined
+app defaults remain; unpublished catalog has711 packages.
+[Manual cleanup commands](cleanup-20261101.md) follow automatic deletion rejection.
+
+## Items10–15 recheck — October30
+
+Fresh baseline passes14 normal/scaled cases; two new packaged lock input-edge
+cases also pass with actual PAM. Firefox1.0.2 fixes inherited host GTK module
+cache leakage across Flatpak; real Hangul/Backspace/clipboard, portal picker
+and window actions pass. Epoch-zero host font cache collision is repaired at
+build/boot; real Korean font coverage and rendered Paper2× pass. Three new
+cache-behavior tests and the full rootfs regression pass. Custom boot config
+is preserved, with the new factory default staged for review.
+[Current detailed evidence](ui-10-15-recheck-20261030.md).
+[Confirmed cleanup targets and manual commands](cleanup-20261030.md) follow
+automatic deletion rejection. Installed WSL, push/CI, production publication
+and ISO remain held; earlier completed checks below remain history.
+
+## Items10–15: password field, Korean input and integration
+
+User-requested password field replaces the earlier circle-only affordance.
+It has persistent focus/caret, a fixed mask that hides length, clear/error
+feedback and native PAM input. Compact 640×480 at2× now receives explicit
+acceptance coverage. Earlier lock refinements and receipts below remain history.
+[Current detailed report](ui-10-15-review-20261029.md).
+
+Fresh private passes cover signed Packages/Health transactions and rollback,
+Task Manager with192 owned live workers, actual GTK/Qt Korean composition and
+Backspace/private clipboard, full installer preview/auth/log lifecycle against
+an inert backend, and three real PAM/getty VM login/expiry/rotation cases.
+Normal/scaled hardware-control UI passes retain their device-test boundaries.
+No physical target was accessed, sound played or model downloaded.
+
+Default Fcitx runtime supplies Hangul/GTK/Qt; optional advanced configuration
+dependencies stay out of the default install. Existing profiles/providers and
+tested native system packages are preserved. Unpublished catalog now has705
+packages/624 default dependency nodes. Final frozen native lock run passes all
+nine cases in`vY0a5nr1` on native`.ooonana8`, including640×480 at2× and retained
+failed-attempt feedback. Private cloud AI remains pending:
+local new-key saving was declined;
+no key created or written. Installed WSL, remote push/CI, production signing,
+publication and ISO remain held. Whole-goal/stable completion is not claimed.
+
+Final actual-session input receipt`DS7Snqiq` passes GTK/Qt Hangul, Backspace,
+private clipboard, active-IME PAM unlock and inherited session settings in both
+normal/scaled cases. Repeated starts now reuse a ready service instead of
+forking an unnecessary duplicate; failed readiness is logged. One daemon used
+about20.5MiB in the private samples. Source/private tests are complete for this
+bounded pass; physical, installed WSLg, provider/seat and release gates remain.
+
+## Item10.5: lockscreen/sign-in/unlock - October29
+
+Requested visual recheck: keyboard layout/Caps Lock no longer crowd password
+feedback inside the native circle. Added a small idle padlock, nearby Enter
+guidance, bounded UTF-8 layout text and consistent amber/neutral key feedback.
+Compact300px logical-height layouts omit the footer brand to preserve warning
+space. Native revision`.ooonana5` remains unpublished; earlier passes below are
+retained. [Latest visual details](lock-session-review-20261029.md#requested-visual-recheck).
+
+Final refinement receipt:
+`/var/tmp/ooonana-installed-desktop-lock-20261029.3yGoKZLp`.
+All seven affected native-package cases pass: both themes1×/2×, both compact
+2× layouts and extended dual-monitor/keyboard/layout/minute checks. Source,
+archive and installed native bytes match; PAM/config preserved. Actual XKB
+readback and four distinct/nonzero Hangul glyphs now prove Korean rendering;
+Cairo selects the already bundled Noto CJK face. Stray-line regression also
+passes. The report contains new exact-package screenshots. Source/native units
+retain20 passing cases and preferences checks; earlier idle/PAM results remain
+completed. No source-generated junk found; history/checkpoints/keys kept.
+
+Native binary is
+`c1892a23cfb83cfc94ef330b3c02821d5d64ccd64ac16f4b7e1ddd7a2396d567`;
+archive is
+`3c2742136b6ce1f7ec2f1040cc477044cebef6395deb878d7ee9fe387a25b56f`.
+Earlier `.ooonana3` drawing defect and `.ooonana4` missing-glyph/test-helper
+failures remain documented; they are not final acceptance receipts.
+
+Completed source/private work: Settings inactivity locking with Off/1/5/10/15/
+30-minute choices (default Off), Super+Ctrl+L, lock-before-suspend policy and
+compact native unlock hint at2×. Fixed inherited stdout/stderr pipes that held
+GUI requests open after successful locking, and duplicate requests that could
+queue another locker after unlock. Display-scoped ownership survives vendor
+exec/fork. Off leaves no resident watcher and never unlocks an active locker.
+
+Real private X11/PAM checks cover one-minute inactivity, password editing/error/
+Caps/layout, minute redraw retaining draft, custom PAM, dual virtual monitor
+coverage, and kernel/getty expiry/rotation/logout. Impeccable4.8.0 used to review
+normal Graphite, real200% Paper at760×600 and native1×/2× both themes. Source/
+private packaged passes retain their evidence; actual installed Ooonana WSL is
+unchanged. [Detailed results, behavior and limits](lock-session-review-20261029.md).
+
+Initial packaged pass:13 gates in
+`/var/tmp/ooonana-installed-desktop-lock-20261029.jwyCP1w2`.
+Native compact-hint build:
+`F:\Ooonana\ooonana-os\qa-i3lock-20261029-compact-hint`;
+binary SHA256`9db006223397c2e240463308053238a0bf92eb78d2bc1b111e4eb5f85ffce5cc`,
+package revision`2.16-r0.ooonana2`. Compile-time proof restores the vendor main
+authentication/input source byte-for-byte after removing existing clock redraw
+additions. No production PAM policy is changed.
+
+Final packaged pass:13 gates in
+`/var/tmp/ooonana-installed-desktop-lock-20261029.iTeNE550` after signed private
+core reinstall and actual locker`.ooonana1`→`.ooonana2` upgrade. Archive/source/
+installed hashes match; PAM policy and customized configuration are preserved.
+New native binary passes both themes1×/2×, extended keyboard/minute/dual-monitor
+checks; real idle/protocol and normal/large GTK regressions pass. Enabled guard
+sample:17,168KiB RSS and0.01 CPU seconds across the minute wait; Off has no
+resident worker. 17 focused unit cases plus three console-prompt tests pass;
+preferences/persistence-maintenance guards pass. Selected actual captures are
+in the detailed report. Native header checkout is pinned LF for hash stability.
+
+Unpublished stage remains654 packages/612 nodes; production manifest still
+pinsc0be613 and CURRENT is unchanged. Source-only generated-junk scan found no
+`.pyc`, `.pyo`, temporary or incomplete files in packages/scripts/tests. Retain
+QA captures, logs, build provenance and recovery checkpoints.
+
+Suspend uses a real login1 protocol path with a private provider during tests;
+the custom-init image currently has no running provider. Real service/seat
+integration, physical sleep/wake/inhibitors and installed sign-in/logout remain
+open. Login stays console getty/PAM; no graphical greeter was added. No active
+user desktop lock, audible test, WSL update, remote push, production signature/
+publication, stable promotion or ISO. Production CURRENT remains unchanged.
+
+## Recheck6–8 and original9–10 notifications/packages - October28
+
+Rechecked installed-package desktop assets, live themes, panel, dock, Settings
+storage/authentication, Control Center/flyout lifecycle and silent null audio.
+All eight bounded rechecks pass. Installed Ooonana WSL remains unchanged.
+
+Notification checks use actual private Dunst/DBus: actions, opt-in persistence,
+privacy/storage errors, DND, unread/read panel badges, automatic service loss/
+restart, reused IDs and stale Remove refusal. Normal Graphite and large Paper
+checks pass. The simple runtime probe now applies requested GTK DPI explicitly
+and sends an explicit suppress-sound hint; physical audio endpoints stay absent.
+
+Packages had no graphical interrupted-update recovery entry. More now exposes
+Repository doctor and Recover interrupted update without adding a toolbar row.
+Recovery requires a bounded confirmation, Cancel by default, then the actual
+administrator helper. Busy writes block ordinary close/duplicate actions.
+Secondary menus pop down before their modal callback; native popdown animation
+is allowed to finish before test input continues. No production auth policy or
+package-manager removal semantics changed.
+
+Correcting the package/Health probe to apply real200% GTK DPI exposed oversized
+recovery/metadata confirmations and crowded Health output. Shared confirmation
+construction now reuses the existing bounded-text/scrollable-message fallback;
+Health spacing/margins are compacted to12/18px. Actual normal and760×600 Paper
+at200% were inspected with Impeccable4.8.0. Existing typography scale stays.
+
+Actual GUI/backend path uses a tiny signed QA repository, disposable target,
+exact-command PASSWD test policy, real sudo/askpass/PAM and installed CLI/UI:
+
+- Cancelled install review changes no payload; signed install writes root-owned
+  files. Upgrade preserves a real custom config and0640 mode/new-default file.
+- Failing health hook rolls payload/metadata back. Signed private hook kills
+  only its own transaction parent to exercise untrappable interruption.
+- Cancelled recovery retains the journal; actual More-menu recovery restores
+  prior payload/metadata/custom settings. Retry upgrades successfully.
+- Health More -> repository refresh and actual diagnostic snapshot complete.
+  Normal removal deletes package payload while retaining Ooonana-managed config
+  directories, as documented; purge remains a distinct explicit command.
+
+QA fixes: X11 prompt identity includes PID because XIDs can be reused; expired
+prompt windows are ignored. Signing umask is restored before session probes;
+private signing keys retain0600. Fixture archives include normal directory
+permissions. These changes do not alter real account/filesystem permissions.
+
+Preserved evidence:
+
+- `/var/tmp/ooonana-ui-9-10-20261028.A0gDpcbr`: eight rechecks, actual Dunst and
+  original package/Health baseline. Original package probe's scaling gap is
+  corrected above, not counted as an earlier real200% package pass.
+- `/var/tmp/ooonana-ui-9-10-20261028.LsBnrWqS`: source normal/real200% UI passes.
+- `/var/tmp/ooonana-package-transactions-20261028.9PCElSLx`: source real transactions.
+- `/var/tmp/ooonana-installed-desktop-9-10-20261028.iPbQkdlH`: new core signed
+  privately, archive/source/installed byte equality, config preservation and
+  nine final packaged passes; retains initial restrictive-QA-umask failure.
+- `/var/tmp/ooonana-packaged-transaction-confirm-20261028.A2IgwIHM`: affected
+  real installed transaction rerun passes; earlier failed outputs retained.
+- `/var/tmp/ooonana-packaged-transaction-confirm-20261028.DXmkYywq`: corrected
+  simple notification runtime probe at actual200% text passes.
+
+Core rebuilt in unpublished native source stage;654 packages/612 dependency
+nodes. No installed WSL update, remote push/CI, production signing/publication,
+stable promotion or ISO. Private release key stays local. Physical USB power
+loss/full-storage and complete installed-system upgrades remain manual gates.
+No generated code junk found; QA logs, history and recovery evidence retained.
+Private captures retain Glycin sandbox warnings during icon decoding; real
+installed-session decoder sandbox behavior is not certified by these receipts.
+
+![Packages, actual private recovered transaction](assets/ooonana-packages-20261028.png)
+![Recovery confirmation, Paper200% at760×600](assets/ooonana-package-recovery-paper-20261028.png)
+![Health summary fixture, Paper200% at760×600](assets/ooonana-health-paper-large-20261028.png)
+
+## Original6–8 and new7.5 Control Center - October28
+
+Impeccable4.8.0 guided refinement of Ooonana's opaque Graphite/Paper flyout,
+retaining compact type and linear rows. Actual normal Graphite and large-text
+760×600 Paper renders were inspected. No Windows layout was copied.
+
+Control Center now shows actual selected output identity, has Refresh and a
+fixed padded footer, and collapses unavailable backlight diagnostics instead
+of leaving disabled sliders/actions. Keyboard footer focus stays inside bounds.
+Quick volume Apply previously invoked the full Sound routing transaction;
+actual private PulseAudio reproduced changed default input/output after an
+external route change. Volume-only mode now writes only selected-sink volume.
+Full Sound still handles explicit route changes. Null devices only; no sound.
+
+Installed candidate QA uses a new COW layer over preserved native-package QA.
+Actual package manager reinstalls the candidate core using an ephemeral QA key,
+preserves custom config and verifies archived/installed/source byte equality.
+An explicit fresh-default session uses archived i3/panel configs; the preserved
+custom file remains in the receipt. Read-only aliases ensure test imports use
+installed backend/UI files rather than substituting checkout code. Production
+key/CURRENT, installed Ooonana WSL and unrelated disks remain untouched.
+
+Normal private passes: live themes, actual panel/media, dock, workspaces,
+Settings storage/details, setup details, PAM prompt, flyouts and actual audio.
+Paper200%/760×600 passes: Settings storage/details, setup details, flyouts/audio.
+Dock initially caught a stale1280px gap expectation and missing rofi executable
+in the old QA cache. Test expectation now matches current intentional density;
+real signed candidate rofi-x11-wayland installed into COW, affected rerun passes.
+
+Additional real installed checks pass: application icons decode at16/32px;
+Xcursor/XFixes show exact19×19 public cursor pixels/hotspot2,2 for three aliases.
+Settings -> actual helper/sudo/askpass/PAM -> signed metadata passes success,
+corrupt-index refusal and retry; root-owned cache proves privilege, no install.
+The narrow test-only sudo policy never enters packaged system policy.
+
+Evidence (Ubuntu-owned private paths, preserved):
+
+- `/var/tmp/ooonana-cc-route-repro-20261028.CB5kGn3A`: pre-fix routing defect.
+- `/var/tmp/ooonana-cc-ui-baseline-20261028.2mk5kI6B`: repaired source audio/flyouts.
+- `/var/tmp/ooonana-installed-desktop-20261028.aJLfVJeG`: installed receipt and
+  normal/scaled probes; retains initial missing-rofi failure for history.
+- `/var/tmp/ooonana-dock-installed-20261028.TGjMtqKh`: corrected installed dock pass.
+- `/var/tmp/ooonana-settings-admin-20261028.s0uoRvQn`: real privileged metadata.
+- `/var/tmp/ooonana-desktop-assets-20261028.tvxRjmCD`: icon/cursor renderer proof.
+
+Core rebuilt in unpublished `native-source-stage-20261026.ofe93fPA`;654 packages,
+612 closure nodes. Native binaries unchanged. Physical/interactive WSLg,
+hardware, actual storage/account setup and final release gates remain open.
+No remote push, production signing/publication, installed WSL sync or ISO.
+
+![Normal Graphite Control Center](assets/ooonana-control-center-20261028.png)
+![Paper, 200% text at760×600, keyboard footer focus](assets/ooonana-control-center-paper-large-20261028.png)
+
+## Desktop flyouts and reconciled acceptance goal - October 27
+
+[Current remaining checklist](release-readiness.md) replaces the repeated
+25-item draft while retaining completed private frame, Qt/Firefox, tray,
+launcher, PAM and package proofs. Core remains0.10.0 candidate. No stable
+promotion, installed Ooonana WSL update, remote push/CI, production signing/
+publication or ISO build.
+
+Launcher, notifications, quick controls, Wi-Fi, Bluetooth, sound, brightness
+and power now share one per-display shell application. Opaque flyouts anchor
+above the dock or below the panel, toggle from their trigger and dismiss on
+Escape/click-away. Flyouts and nested dialogs are excluded from dock tasks;
+full applications retain normal frames. Default font/cursor/control scaling is
+unchanged. Compact icon headers, linear connection rows, detailed control
+links and scrollable keyboard-reachable footers pass normal/large review.
+
+Real tests reproduced fullscreen exit from GTK activation, dialog-return focus
+races and a trigger reopening after delayed Python/GI startup. Mapping the
+transient without an extra activation preserves fullscreen. Child/askpass
+return gets bounded focus grace; parent hints affect presentation only.
+Panel/dock warm toggles now use a small shell/gdbus entry before Python/GTK
+startup. Strict kinds/arguments reject malformed requests; ambiguous IPC
+failures never replay toggles. Passive pointer observation neither grabs input
+nor subscribes to keyboard events. Existing async helpers retain the shell
+process while requests finish; related controls serialize reopening. Closed
+callbacks cannot reopen a dismissed view.
+
+Actual private i3/GApplication checks pass Graphite normal1280×800, Paper with
+200% text on760×600 and native-WM2× display scale on1600×900. They cover warm
+toggle, cold startup/exit, real app handoff, actual Dunst message, keyboard
+footer navigation, nested/separate askpass dialogs, exact focus and unchanged
+fullscreen geometry, outside-click focus and pending-worker lifetime. Source
+and factory tests now check the new commands, GLib dependency and payload.
+Separate actual sudo/askpass/PAM regression passes at200% text with only
+`/bin/true` authorized. No real power/radio/backlight action or audible output.
+
+Receipts:
+
+- Normal lifecycle: `/var/tmp/ooonana-shell-child-confirm-20261027.cL80EpSD`.
+- Native scaled/cold/worker checks:
+  `/var/tmp/ooonana-shell-native-final-20261027.UQCkTQRg`.
+- Real PAM regression:
+  `/var/tmp/ooonana-shell-auth-regression-20261027.d89li7CP`.
+- Source suites: `/var/tmp/ooonana-shell-source-20261027.P303vnQl`;
+  package factory: `/var/tmp/ooonana-shell-factory-final-20261027.54D4L21y`.
+- Updated unpublished core/closure:
+  `/var/tmp/ooonana-shell-package-20261027.WaiAnDrr`.
+- Actual private native upgrade/core adoption, failed-health rollback,
+  configuration preservation and installed byte/dependency checks:
+  `/var/tmp/ooonana-native-upgrade-flyouts-20261027.mDepou2h`.
+
+Unpublished stage stays at
+`F:\Ooonana\ooonana-os\build\native-source-stage-20261026.ofe93fPA`:
+654 packages/612 dependency nodes; no CURRENT or production signature. Known
+native i3/locker/Qt/PAM builds stay pinned. Production CURRENT remains
+`4bf64022f11e74d5b8d24ada04d2eebc703d8f1431045e7683343bdf5f243a2e`.
+Private upgrade signatures use a separate ephemeral QA key, never the
+production private key. Exact installed flyout modules/helpers match source.
+
+Automatic approval review rejected deleting17 duplicate Windows QA PNG copies:
+blocked by policy. No deletion was executed or retried through another tool.
+Manual script is syntax-checked, not run:
+`C:\Users\7ryan\AppData\Local\Temp\ooonana-shell-review-20261027\Cleanup-Duplicate-Review-PNGs.ps1`.
+It targets17 named copies/558,521 bytes (~545KiB), retaining three selected PNGs
+and all original WSL captures/logs. History/models/keys/build provenance and
+recovery checkpoints remain. GTK chooser-close warning stays an upstream known
+limitation; no hardware or installed-session acceptance is inferred here.
+
+Next ordered source scope remains Packages/Health/Updates and Task Manager;
+the installed/manual and release gates stay explicitly open.
+
+Latest user direction retains Ooonana's own composition, not Windows/screenshot
+placement. [Desktop style](desktop-style.md) pins that rule. Quick controls now
+follow compact connection rows, sound, backlight and a supporting footer;
+reference tile grids are removed. Installed Impeccable4.3.1 instructions were
+re-read; its layout detector reports no findings, with actual GTK captures
+providing native layout evidence beyond that mechanical scan.
+Final own-layout normal/200%-text/2×-display confirmation:
+`/var/tmp/ooonana-shell-own-layout-20261027.9VSOdkje`.
+
+## Split work: source QA first, release integration later
+
+User direction: finish ordered source checks1-10. Do not update
+installed WSL, publish packages or advance release pointers until stable-ready.
+Current OS/core remains **0.10.0 candidate**, not a promoted stable release.
+
+1. **Completed source batches.** Native color-only frame updates, resource
+   ownership, readable Paper/Graphite, honest Settings feedback and flat
+   third-party client/header joins. Candidate artifacts remain unpublished.
+2. **Requested checks1-5 completed locally.** User requested already-open apps,
+   remaining icons, wallpaper and cursor shape/size/hotspot before lockscreen.
+   Native live refresh/dock parity and held-open GTK/Geany/Nemo now pass;
+   held Chromium live appearance and a compiled Qt portal fix now pass private
+   tests. Regular Firefox now passes private light/dark live changes and1×/2×
+   picker/window cases. Bundled QTerminal Fusion/Windows-style preferences and
+   pickers now pass normal/scaled checks. Native packages are built into an
+   unpublished stage; installed/physical checks remain open.
+   Native locker clock/feedback and live lockout prevention now pass private
+   real-auth tests. Panel palettes/spacing/counters and bounded modern indicator
+   hosting now pass private real-service/menu tests. Legacy XEmbed hosting now
+   passes hidden startup, app actions, keyboard, bounded overflow and ownership
+   loss/recovery tests. Actual sign-in/wake and installed-session checks remain.
+   Latest recheck repeats real tray/service menus at200% text. Launcher browser
+   and hardware-wrapper handoffs now pass private real-session checks; current
+   PulseAudio desktop-ID routing is repaired. Installed keyboard/IME remains open.
+   Never lock the installed/live user session during isolated QA.
+3. **Deferred release integration.** Remote CI, signed generation/publication,
+   final-image closure checks, WSL sync and updated release
+   screenshots/docs. No private-key upload; OpenVINO stays deferred.
+4. **Release gates.** User builds fresh ISO after integration; actual PDF/WSLg,
+   physical hardware and disposable persistence/upgrade checks stay required.
+   Trust enrollment and stable-channel promotion need their deferred decision.
+
+## Recheck 6-8 and requested checks 9-10 - October 27
+
+6-8 recheck passes six Python suites, Setup source checks and eight private GUI
+probes: normal/scaled real launcher, Settings storage and wireless forms, plus
+scaled Setup and actual harmless PAM authentication. Native i3 candidate is
+hash-checked. No new6-8 defect found. Receipt:
+`/var/tmp/ooonana-six-eight-recheck-20261027.oPdTwPpP`.
+Owned scratch scan then found no additional confirmed junk; retained evidence
+and experimental installation/checkpoints were not deleted.
+
+9. **Sound/brightness/music:** real private PulseAudio loads only native Unix
+   protocol, two null sinks and a null source; no hardware modules or playback
+   streams. Actual Sound UI proves per-output volume reads, selection without
+   switching default, Apply/default input/output routing, independent44%/21%
+   volumes and mute/unmute on the selected sink. Brightness readiness, explicit
+   device identity, permission/error/draft/retry and closed-window behavior pass
+   isolated fixtures, not real backlight writes. Actual MPD uses a verified null
+   output with owned silent samples: library, play/pause/next/stop/software-volume,
+   panel metadata/watch updates and daemon loss/restart recovery pass.
+10. **Notifications:** actual private Dunst covers nested focus/reading anchors,
+    opt-in history/read marks, read-only failures/retry, remove/clear, DND and
+    automatic daemon-loss/restart recovery. Current panel helper verifies real
+    unread/read/DND badges. A fresh reproduction found stale live Remove could
+    delete a different message when a restarted daemon reused its numeric ID.
+    Removal now compares the displayed message fingerprint against fresh
+    history and calls the matched daemon's unique bus name. Stale identity
+    refuses with visible `Message changed`; fresh Remove succeeds on retry.
+    Unit guards also cover owner/query/remove failure without retargeting.
+
+Two older runtime probes had not applied their text-scale environment override;
+media/lifecycle and auto-recovery now set actual GTK Xft DPI. Normal/scaled
+confirmation passes. Default font/control sizes remain unchanged. Impeccable
+reviews normal and200% stress captures; final new captures wait for GTK's paint
+after callbacks rather than recording stale pixels.
+
+Baseline: `/var/tmp/ooonana-nine-ten-baseline-20261027.dud0qh6I`.
+Reproduced defect: `/var/tmp/ooonana-notification-id-repro-20261027.VcI7Ge1s`.
+Current/scaled runtime confirmation:
+`/var/tmp/ooonana-nine-ten-confirm-20261027.ROdKvuW5`.
+Actual badge/Remove routing:
+`/var/tmp/ooonana-notification-panel-confirm-20261027.zl98oDZQ`.
+Final settled pixels:
+`/var/tmp/ooonana-nine-ten-paint-confirm-20261027.dn3LaBz9`.
+Focused source suites: `/var/tmp/ooonana-nine-ten-final-source-20261027.HsUHfqsL`.
+Both CI configurations now run audio action and notification regressions;
+remote CI remains deferred.
+
+Removed16 duplicate Windows review-input PNGs,754,405 bytes (~737KiB). Original
+WSL captures/logs and four visual contact sheets remain, with a cleanup receipt
+in `C:\Users\7ryan\AppData\Local\Temp\ooonana-nine-ten-review-20261027`.
+No histories, models, private keys, compiled sources/artifacts, checkpoints,
+browser seeds, releases or previously blocked paths removed/retried.
+
+These are source/private-session gates. Actual device routing, PipeWire/ALSA
+startup, hotplug/backlight permissions, installed panel/Dunst integration and
+WSLg remain required. No physical playback or power operation, OpenVINO work,
+installed WSL sync, remote push, production signing/publication, stable
+promotion or ISO build. Local core stage refresh is unpublished; CURRENT stays
+unchanged. Next ordered scope: Packages/Health/Updates and Task Manager.
+
+## Requested checks 6-8: launcher, Settings/setup, wireless - October 26
+
+Source/private-session pass is complete; installed/hardware gates remain open.
+Impeccable reviewed the existing normal/large layouts and final error states.
+No default font, control-size or scale change. A shorter certificate recovery
+message stays fully visible at200% text on760×600.
+
+6. **Launcher:** fresh real desktop discovery, Return/focus handoff, ten
+   launch paths including Terminal=true, browser/radio-panel routing and
+   usable missing-app terminals pass with the current native i3 candidate at
+   normal/scaled sizes. This does not certify installed keyboard/IME or WSLg.
+7. **Settings/setup:** actual UI callbacks now prove both theme writes/reopen,
+   0600 files, real wallpaper rendering/save/reopen with a spaced Unicode path,
+   read-only preference failure/retry and missing-image failure retaining the
+   saved selection. Reproduced and fixed Settings replacing a managed theme
+   link: linked files, dangling links and linked preference directories are
+   retained. Actual visible refusal/retry passes. Setup review, field focus,
+   cancellation, serialized changes and closed-parent refusal pass fixtures.
+   Actual common/helper/sudo/askpass/PAM authorization succeeds against a private
+   shadow and restrictive policy permitting only `/bin/true`; cancellation/retry
+   restores controls. No real account/service/package transaction was submitted.
+8. **Wireless:** advanced/TLS/certificate/PIN forms, safe reset/remove, service
+   failures, busy/reduced-motion/closed callbacks and existing changed-adapter,
+   activation/reconnect/signal parsing regressions pass isolated checks. New
+   regression reproduced acceptance of missing/unreadable TLS/CA/key files;
+   validation now focuses the affected selector before dispatch. This checks
+   file readiness, not certificate validity or actual radio activation/pairing.
+
+Both CI definitions now run wireless action/parsing regressions; theme storage
+regressions extend the existing CI selection suite. Remote CI was not run.
+Logs: `/var/tmp/ooonana-six-eight-source-20261026.lVXTgoTx`.
+Initial details: `/var/tmp/ooonana-six-eight-ui-20261026.g5KgedB5`.
+Native/current confirmation: `/var/tmp/ooonana-six-eight-final-20261026.y41yvKhk`.
+Final recovery-copy checks: `/var/tmp/ooonana-six-eight-copy-confirm-20261026.Ng0uBjhM`.
+Managed-link and certificate failures were reproduced before their fixes.
+
+Junk scan found no additional safe deletions: new probes use transient private
+mounts and leave only small logs/captures. Preserved checkpoints, compiled
+artifacts/vendor sources, browser seed/cache, history/models/keys and releases.
+No blocked-path retries, disk compaction/move, installed WSL update, signing,
+publication, remote push, stable promotion or ISO build. OpenVINO stays deferred.
+Local unpublished core stage is refreshed separately; production CURRENT stays
+unchanged. Next ordered scope is sound/brightness/music and notifications.
+
+## Recheck: requested checks 1-5 - October 26
+
+Impeccable polish guidance and one fresh batched visual review covered Qt
+Fusion/Graphite1×, Windows-style/Paper2×, launcher recovery/Breakout and real
+legacy tray interactions/pixels. All fresh rendered probes pass; no UI edits
+were needed. Baseline18-suite rerun passes at7d84428. GTK chooser stack evidence
+is revalidated; fresh Qt picker cancel/open still passes. Upstream warning is
+not suppressed or claimed fixed.
+
+Additional backend review reproduced one policy gap: `get` of a missing
+runtime could replace legacy core0.9 with0.10 without `--allow-major` because
+the runtime package ID was new. Guard now compares the installed legacy core
+before dependency installation. Regression proves refusal leaves dependencies
+untouched, dry-run reports the major transition and explicit authorization
+still works. Adoption/update/interruption/persistence/factory regressions pass.
+Refreshed staged packages also pass actual private native upgrade, failed-health
+rollback, config preservation and installed source/binary/dependency checks:
+`/var/tmp/ooonana-native-upgrade-policy-recheck-20261026.LuoUiZ5T`.
+
+Fresh UI receipts: `/var/tmp/ooonana-five-ui-recheck-20261026.JBbo093i`,
+`6oBy67YI`, `UHhAP6Zv` and `wlX8N8XU` under the same prefix.
+Baseline logs: `/var/tmp/ooonana-five-recheck-20261026.BDsTANEg`.
+Guard regression logs: `/var/tmp/ooonana-adoption-policy-recheck-20261026.YfnHpPTR`.
+Recheck Qt overlays alone reclaimed224,208KiB inside QA filesystem; captures,
+logs, native checkpoints, compiled artifacts, history/models/keys remain.
+WSL sync, remote CI/push, signing/publication and ISO remain deferred.
+
+## Source checkpoint: requested checks 1-5 - October 26
+
+Qt6/QTerminal Fusion dark1× and Windows-style Paper2× pass all six Preferences
+pages, font/portal image pickers, cancel/select/reopen, close confirmation and
+window actions. These are supported bundled-client style overrides, not proof
+for arbitrary external Qt themes/apps. Private GTK chooser Cancel warning is
+now traced with an owned-process debugger: `g_return_if_fail_warning` reports
+`gtk_widget_event: WIDGET_REALIZED_FOR_EVENT (widget, event)` during GTK window
+key propagation. Picker cancel/open/rendered content still pass. Logging stays
+enabled; no upstream GTK fix or Ooonana callback failure is claimed.
+
+Launcher generic launch failure keeps its search open and displays the error.
+The Chromium desktop alias routes through the themed browser. Ten actual
+desktop/Return/focus handoffs include a `Terminal=true` entry. Missing browser,
+Files and editor paths open usable recovery shells; typed recovery/exit pass.
+Breakout uses the dependable11pt terminal, pauses while its board cannot fit,
+shows a bounded resize notice and restores score/lives/pause state. Real PTY
+and rendered desktop pause/resize/restore/quit checks pass; no audio played.
+
+Legacy tray uses GTK XEmbed sockets alongside modern indicators:24px icons,
+32 legacy/64 modern item caps, scrolling and original app menus. It never
+steals a manager selection, uses checked foreign-window reads and event-driven
+ownership recovery. Actual GTK status icons pass background docking without
+opening the UI, pointer/menu actions, Space activation, invalid/stale XIDs,
+manager loss/re-docking and owner exit. Stale ownership feedback clears on
+reopen. Graphite normal and Paper200% text/760×600 checks pass. Impeccable
+reviewed actual Qt, mixed tray, fallback terminal and game captures in bounded
+baseline/confirmation rounds; no blanket font or control enlargement.
+
+Unpublished native/core package stage:
+`F:\Ooonana\ooonana-os\build\native-source-stage-20261026.ofe93fPA`.
+It contains i3wm4.24-r0.ooonana2, i3lock2.16-r0.ooonana1,
+qt6-qtbase-x11 6.11.1-r0.ooonana1, linux-pam1.7.1-r2.ooonana1 and current
+core0.10.0. Qt includes exact pinned vendor/build sources and binary provenance;
+PAM changes only the known imported helper mode, preserving authentication
+bytes/policy/dependencies. Qt reproducibility/tamper/refusal and PAM layout/
+preservation tests pass. Full-stage closure and actual upgrade QA now pass.
+
+Native package gate passes654 packages/612 dependency nodes. Published CURRENT
+and all five replaced base archives retain their original hashes. Actual
+upgrades and deliberately failed i3 healthcheck rollback pass. The first real
+core adoption exposed a configuration-loss defect on older factory images:
+separate runtime metadata was absent, so ordinary first-install extraction
+overwrote existing settings. Current CLI now adopts through its journaled
+replacement path, retains unknown/custom `/etc` files with `.ooonana-new`
+defaults and restores absent runtime state on rollback. Normal failure,
+SIGKILL, corrupt-marker refusal/recovery and later reinstall pass regressions.
+This fix requires the current CLI to drive legacy adoption; older clients are
+not retroactively repaired. Final real packaged confirmation passes:
+`/var/tmp/ooonana-native-upgrade-final-20261026.z1Wjjgpr`.
+Private COW installation verifies original Qt dependency installation, native
+versioned upgrades, deliberate i3 healthcheck failure/byte-exact rollback,
+first core adoption retaining custom config/mode, native musl dependency
+resolution and exact installed executable/backend/source hashes. Original
+cached packages use the known public key; candidate-copy signatures use a
+new ephemeral QA-only key. Production private key/enrollment remain untouched.
+
+Final tray receipts, including300 requested icons/32 acknowledged embeddings,
+opaque transparent-corner pixels and intact client artwork:
+`/var/tmp/ooonana-tray-complete-final-20261026.LGjCeJz0` and
+`/var/tmp/ooonana-tray-complete-final-20261026.JRClElWu`.
+Pixel readiness waits for the client's actual embedding/size acknowledgements;
+earlier immediate captures were premature. Native foreground/size hints and
+opaque background handling follow the XEmbed tray protocol. Normal/scaled
+final captures received Impeccable review. Eighteen focused suites pass, with
+adoption/update/factory/rootfs/native UI rerun after the adoption repair.
+Remote CI, publication/signing, WSL sync and final-image gates remain deferred.
+
+Confirmed cleanup removed only the two completed Qt variant overlays after
+resolved-path/no-link/no-mounted-descendant checks:224,208KiB (~219MiB) reclaimed
+inside the QA filesystem. Logs/captures, compiled artifacts/vendor sources,
+native upgrade checkpoints, browser cache/profile seed, history/models/keys
+and releases remain. No trim/compaction or retry of previously blocked F paths.
+
+Receipts: Qt `/var/tmp/ooonana-qt-variants-20261025.hiPA52Be` and
+`/var/tmp/ooonana-qt-variants-20261025.HuK7I0Kh`; warning trace
+`/var/tmp/ooonana-firefox-warning-20261025.cQNVxvXd`; tray
+`/var/tmp/ooonana-legacy-hidden-final-20261026.IRu3tIn1` and
+`/var/tmp/ooonana-legacy-tray-confirm-20261026.cuUNQeBY`; launcher/helpers
+`/var/tmp/ooonana-helper-confirm-20261026.l5OYxWIc`.
+No installed WSL update, production private-key access, remote push, release-pointer
+change, stable promotion or ISO build. OpenVINO remains untouched/deferred.
+
+## Source checkpoint: regular Firefox appearance/scaling - October 25
+
+Login prompt guards and full real-PAM password rotation recheck pass:
+`/var/tmp/ooonana-login-recheck-20261024.bL5eX8PE`.
+Continued with cached nonroot Flatpak Firefox, not an installed WSL session.
+Regular windows follow real portal/Xsettings dark→light→dark without restart,
+losing address draft or changing checked client state. Native titlebars remain
+32 logical pixels:32 physical at1×,64 at2×; no default font/size changes.
+Real chooser cancel/open, exact rendered-content clipboard proof and window
+minimize/restore/fullscreen/restore/move/close pass at1024×768 and1600×900/2×.
+Final source-session receipts:
+`/var/tmp/ooonana-firefox-theme-20261025.WVc7y78O` and
+`/var/tmp/ooonana-firefox-keyboard-confirm-20261025.Qwvg0Wln`.
+
+QA now mounts the multi-GiB cached runtime/home read-only under a disposable
+COW home and copies an existing owned, already-consented QA profile. No new
+Terms acceptance, diagnostics upload, download or production profile change.
+Initial pinned-theme captures are only baselines; final runs remove GTK_THEME
+and use current source backend, real settings bridge and portal changes.
+Two false driver failures were repaired: pointer clicks could hit address
+suggestions at2×, and retained draft could mask the navigated file URL.
+After proving draft preservation, QA explicitly cancels its own draft and uses
+keyboard page focus. Six option-refusal cases and input-order guard pass.
+Impeccable bounded normal/scaled palette/picker review found no sizing patch
+needed. This is tests/docs-only, not a new runtime or ISO patch.
+
+Private portal still emits an intermittent GTK realized-widget warning during
+chooser closure despite successful content/actions; no upstream fix claimed.
+Other Qt/custom palettes, installed Firefox/WSLg and physical/mixed-DPI remain
+open; fresh Firefox installation/update/onboarding were not rerun. Generated
+overlay/profile copies reclaimed538,352KiB inside QA filesystem; logs/captures,
+original cache/profile, models/history/keys/releases retained. No compaction.
+[Evidence and limits](ui-whole-os-review.md#batch-47-regular-firefox-live-appearance-and-device-scaling).
+
+## Source checkpoint: complete private password rotation - October 24
+
+Persistence fixture recheck passes. Continued the unfinished authentication
+proof in the disposable kernel/PAM VM: expired password requires change before
+desktop entry; change completes, logout returns to getty, old password rejects
+and new password enters the nonroot desktop. Normal login and expired-account
+regressions also pass. No production policy or installed credentials changed.
+
+The first extended test exposed a harness race: a PAM `login:session` log line
+was mistaken for the next username prompt after logout. Complete line-boundary
+getty prompt detection fixes that false match; three dependency-free guard
+tests now run in both CI configurations. Remote CI remains deferred. Receipts
+and kernel/login/policy hashes:
+`/var/tmp/ooonana-password-rotation-confirm-20261024.nGEkY6MI`.
+Actual installed sign-in/unlock, remote providers, wake and WSLg remain open.
+This test/docs/CI-only patch does not change the ISO runtime.
+
+## Source checkpoint: persistence regression fixture - October 24
+
+Recheck found a stale healthcheck fixture: it lacked the newer Xsettings, lock
+and tray helpers plus required module/theme assets. The fixture now includes
+those prerequisites; production healthcheck and persistence logic are unchanged.
+The persistence suite passes, including 26 new missing/non-executable helper
+and missing/empty asset rejection cases. Captured hook failures now include
+their output instead of hiding the cause behind a generic subprocess error.
+Package-factory, update-safety, interrupted-update/retry and release-repo checks
+also pass locally. Remote CI has not been run for this unpublished source fix.
+Native package integration and the installed/physical release gates remain open.
+
+## Source checkpoint: browser/Qt and authentication checks - October 24
+
+Actual isolated tray/app menus recheck passes. Chromium already follows live
+portal appearance. Qt6.11.1 retained cached dark widget palette after a light
+signal; pinned one-line invalidation now compiles natively and passes held-open
+Qt/Chromium dark→light→dark paint/state tests. Browser draft and terminal profile
+remain. Impeccable before/after palette review completed; normal sizes unchanged.
+
+Unpublished plugin/source/dependency manifest:
+`/var/tmp/ooonana-qt-portal-20261024.c3JxKBmc/out`.
+SHA256`a7cbb6b32bcbd29ff36204c62eff43d8df2e6ca2cb6c40f196fe4d13f9705d5c`.
+Runtime confirmation: `/var/tmp/ooonana-client-theme-confirm-20261024.zaUbYcdt`.
+Rebuild after input-guard hardening produced identical binary. **Qt package,
+provenance/closure integration is still required; final ISO remains on hold.**
+Firefox, other Qt/custom platform themes, installed assets/hotspot and real
+mixed-DPI/session remain open. No installed WSL change.
+
+Actual packaged PAM login and its runtime closure now run in private kernel
+6.18.37 VM, unlike the older scratch BusyBox login test. Corrected positive
+control rejects wrong password and enters nonroot desktop on correct password.
+Expired account rejects correct password; expired password requires change
+before desktop. Final expiry/change-gate receipts:
+`/var/tmp/ooonana-session-auth-final-20261024.Ib0emMSa`.
+Private password rotation is now confirmed by the checkpoint above; actual
+installed sign-in/wake remain unverified.
+Real private lock PAM custom deny/restoration passes with original cached
+shadow/helper/policy bytes unchanged. No login/unlock policy modified.
+Completed-probe cleanup removed only generated compiler/rootfs overlay
+subdirectories after resolved-path/no-link/no-mounted-descendant checks:
+1,130,444KiB (~1.08GiB) reclaimed inside Ubuntu QA filesystem. Logs, screenshots,
+source pins/vendor cache, compiled candidate/previous output, models/history/
+keys and releases remain. Windows C: free space may not rise until separate
+WSL trim/compaction; none performed. Previously blocked F caches not retried.
+[Evidence and limits](ui-whole-os-review.md#batch-45-held-browserqt-themes-and-real-authentication-boundaries).
+
+## Source checkpoint: tray recheck and remaining launcher handoffs
+
+Tray recheck passes actual isolated NetworkManager/nm-applet menus, shipped
+Blueman adapter, keyboard/overflow/owner/revision cases on640×600 Paper with
+200% text. Panel recovery/ownership and responsive layout units also pass.
+No new tray/panel defect reproduced; no cosmetic changes made there.
+Receipt: `/var/tmp/ooonana-tray-review-20261023.rFJhVot9`.
+
+Next source batch found a real launcher mismatch: the installed desktop ID is
+`org.pulseaudio.pavucontrol.desktop`, while preferred routing recognized only
+older `pavucontrol.desktop`. Volume Control opened stock mixer instead of the
+intended Ooonana Sound window. Both IDs now use the existing native wrapper;
+the actual mixer remains available from Sound's More menu. No app removed.
+
+Nine real desktop-entry/keyboard Return/process-owner/focus/bounds paths pass:
+Sound, Wi-Fi, Bluetooth, Chromium, generic terminal, Settings, preferred terminal,
+Geany and Nemo. Uses existing hashed native frame candidate/source UI/wrappers;
+no installed binaries change. Both palettes pass1280×800 normal and640×600
+with launcher200% text. External subprocess text is normal in these enlarged-
+launcher cases, not certified as global200% desktop. Browser uses software
+rendering in private network/profile; no sandbox-disabling flag introduced.
+No radio/volume/pairing operation or audible test.
+
+Impeccable inspected initial failure and final launcher/browser-icon/native
+hardware states; normal font/control sizes and dock stay unchanged. Regression
+checks cover real modern/legacy desktop IDs. QA now binds the full source
+backend and current hardware wrappers, avoiding stale cached theme helpers.
+[Evidence/limits](ui-whole-os-review.md#batch-44-tray-recheck-and-launcher-hardwarebrowser-handoffs).
+
+Remaining: actual installed keyboard/IME/launcher integration, missing-app
+terminal fallbacks, browser/Qt live retheming, physical hardware and broader
+ledger. No WSL update, remote push, signing/publication, stable promotion or ISO.
+
+## Source checkpoint: display-owned GTK live appearance
+
+New source sessions no longer export an automatic GTK_THEME process pin.
+Explicit Ooonana pins/custom GTK themes remain; preferred-app launchers still
+retain PATH/argv. Named OoonanaGraphite/Paper GTK themes replace repeated global
+CSS rewrites. Their shared styles retain compact controls and square SSD joins.
+Inactive-window specificity and explicit dark-variant fallback were corrected
+after real paint tests found Adwaita colors despite the changed theme name.
+
+The previous optional xsettingsd startup had no package in the release seed.
+A small GIO/Xlib Xsettings owner now broadcasts complete preference sets with
+directory-event debounce, bounded strict parsing and real server timestamps.
+Selection check/claim stays under one server grab. Another manager is never
+replaced/signalled; ownership transfer stops our bridge. No PID-file authority,
+extra polling, WM reload/restart or app restart. No extra APK dependency.
+
+Only byte-exact former generated user CSS is retired, with a private backup;
+custom edits, links, hardlinks and conflicting backups remain. Concurrent edits
+are refused. Older already-running processes retain their original GTK_THEME/
+user provider: one voluntary reopen is required, reported after migration.
+This patch cannot rewrite another process's environment or certify old-session
+in-place retheming. Existing Geany editor schemes intentionally remain chosen.
+
+Real held-open GTK/Geany/Nemo source tests pass both palettes at1×/2×,
+including exact computed/mapped colors, same XIDs/geometry/focus/workspaces,
+DPI, editor preservation, Reduce Motion, atomic invalid-config retention/recovery,
+duplicate refusal and real foreign ownership transfer. Original/new-app theme
+flow passes100/200% text; native live Power/dock regression, six protocol/CSS
+ownership units, theme/frame/preferences/editor, branding/native UI and factory
+rootfs suites pass. [Evidence/limits](ui-whole-os-review.md#batch-39-display-owned-live-gtk-appearance-source-checkpoint).
+
+Following this historical theme checkpoint, requested surfaces were lock/sign-in/unlock (clock/date, restrained branding,
+spacing, password/error feedback, Caps Lock/input language, focus, scale and
+wake) with real authentication unchanged; then panel installed tray/services,
+left music, AI, notifications/counters, long labels and narrow-screen spacing.
+Later lock/panel source results appear below; installed integration is not complete.
+No installed WSL update, remote push, signing, publication or ISO build.
+
+## Source checkpoint: live panel palettes and bounded counters
+
+Panel now uses owned Graphite/Paper semantic roles rather than hard-coded dark
+colors. GIO preference events reuse the supervisor's existing wait loop and
+restart only owned Polybar; native dock retains process/window and live theme
+refresh. No app/WM/session restart, extra polling timer or global process kill.
+Watcher starts before initial launch to avoid missing a fast startup change.
+
+Actual wide-label/full-counter bar renders pass both themes at640/1280px and
+Paper1000px, with AI center measured within5px and exact background pixels.
+Actual supervisor dark→Paper→dark tests at640/1280px keep same native dock
+PID/XID and held client's geometry/focus/state. Impeccable batched inspection
+confirms compact flat surfaces; no control/font/dock size changes.
+
+Notification badges now show honest999+ overflow. Native and minimal shell
+fallback bound huge/invalid counts before integer/arithmetic parsing; leading
+zeros cannot become shell octal. Existing silent MPD state flow and real Dunst
+loss/recovery pass. Factory copies latest fallback helper over cached archives.
+[Evidence/limits](ui-whole-os-review.md#batch-42-live-panel-appearance-and-bounded-counters).
+
+Modern indicator hosting is now source-tested in the next checkpoint. Legacy
+XEmbed, installed applet/service authentication and physical integration remain open.
+No WSL update, remote push, signing/publication or ISO build.
+
+## Source checkpoint: bounded background-app tray
+
+New session-bus StatusNotifier watcher/host gives indicator-mode NetworkManager
+and Blueman a compact, scrollable Background apps window behind one panel
+chevron. Existing applet modes and system-bus/adapter startup guards remain;
+startup waits at most five seconds for the watcher. Close/Escape hides the
+window without stopping applets. No extra polling loop, privileged action,
+command execution from menu text, inline icon crowding or global font shrink.
+
+App-owned Activate and DBusMenu actions use the original unique bus owner.
+Registration identity, owner replacement/loss, stale callbacks/menu revisions,
+foreign watcher adoption, duplicate aliases, icon sizes and menu depth/count
+are bounded/checked. Same-process singleton launcher delegates correctly.
+Overflow preserves keyboard focus/scroll; menus retain disabled/check/radio
+semantics. Legacy XEmbed-only apps remain unsupported by this source host.
+
+Real isolated NetworkManager/nm-applet menu and shipped Blueman indicator/menu
+adapter pass both themes; radios remain unavailable in private namespaces.
+Keyboard, owner-loss, overflow, normal/200% text and actual device2 scaling
+pass. Real source panel centering/long CJK labels/full counters pass seven
+widths640/760/1000/1024/1100/1280/1600. Narrow layouts prioritize controls over
+secondary RAM/audio labels; no tiny hit targets or changed dock geometry.
+Impeccable initial review plus one correction/confirmation completed.
+[Evidence/limits](ui-whole-os-review.md#batch-43-bounded-background-app-tray).
+
+Pure tray/panel/notification, factory rootfs, native UI and branding regressions
+pass. No installed WSL sync, remote push, signing/publication or ISO build.
+Actual installed service authentication, reconnect/pairing and legacy tray
+support remain open; these private fixtures do not certify physical hardware.
+
+### Confirmed junk cleanup - October 23
+
+Removed only inactive generated overlay subdirectories from two disposable
+locker build roots, after resolved-path/no-symlink/no-mount/process checks.
+Reclaimed2,863,104 allocated bytes (~2.73MiB). Diagnostic logs, native binaries,
+unsigned packages, pinned sources, history, models, keys and releases remain.
+
+Two previously tool-blocked archive caches remain. Read-only checks found644
+files in each, no reparse points/unlisted files, and every declared archive
+hash in preserved published generations. Stage metadata/hooks/history differ
+and must stay. Manual PowerShell cleanup, only these exact archive folders:
+
+```powershell
+Remove-Item -LiteralPath 'F:\Ooonana\ooonana-os\build\qt-publish-stage-20261018-a9825212\archives' -Recurse -Force
+Remove-Item -LiteralPath 'F:\Ooonana\ooonana-os\build\flat-pins-stage-20261019-5a39c8c-8rx2iy5j\archives' -Recurse -Force
+```
+
+About2.04GiB logical duplicates; hardlinks can reduce actual space reclaimed.
+Published generations preserve recovery copies. No denied deletion retried.
+
+## Active source batch: real lock authentication and launch groundwork
+
+Actual vendor i3lock PAM test reproduced an unlock failure, not a missing PAM
+policy: Linux-PAM1.7.1 correctly loads `/usr/lib/pam.d/base-auth`. The importer
+normalizes tar ownership to0:0, accidentally turning upstream SGID-shadow
+`unix_chkpwd` into SGID-root. It cannot read Ooonana's0600 shadow file.
+Disposable correct credential was rejected with PAM9. Supported SUID-root mode
+accepted correct credential/PAM0 and still rejected wrong credential/PAM7,
+without editing PAM policy, helper bytes, or original credentials.
+
+Source import now adapts only Linux-PAM's current-user check helper to4755,
+with version suffix`.ooonana1` and component`pam-helper-root-v1`. Old upstream-
+version caches rebuild instead of being relabelled as repaired. Fresh rootfs
+normalization and runtime audit enforce the mode/root owner. Future core health
+checks migrate only exact known2755/root:root +0600/root:root legacy layout;
+custom shadow/helper ownership or modes remain. No installed migration run.
+
+Native Power, fallback menu and panel lock action now share `ooonana-lock`:
+opaque Graphite/Paper background, current keyboard layout and failed-attempt
+feedback. No beep/debug/blanking/empty-password-policy override. Actual input
+grab and password verification remain vendor i3lock/PAM. Four private real
+locker cases pass both palettes at1×/2×: wrong password stays locked, correct
+public disposable test password unlocks. Source launcher units/import-cache/
+rootfs regressions pass. [Evidence](ui-whole-os-review.md#batch-40-real-lock-authentication-and-launch-groundwork).
+
+Native clock/date, restrained branding and compact feedback now compile from
+pinned i3lock2.16. Authentication/input main is byte-identical after removing
+two paint-only timer additions. Graphite/Paper actual wrong/correct password,
+Caps Lock/layout and1×/2× tests pass; a real minute tick preserves the password
+draft and still unlocks correctly. Small640×600 confirmation also passes.
+
+Fresh live accounts start locked. New read-only preflight refuses locked,
+empty or unknown live credentials before any grab, and explains Setup recovery.
+It uses existing noninteractive sudo/doas, with no new setuid code or password
+logging. Installed/custom PAM stays authoritative without this local precheck.
+Real private live sudo tests pass locked/empty/configured cases. This guards
+known lockout, not every PAM/account-expiry or remote-auth failure.
+
+Unsigned candidate package2.16-r0.ooonana1 retains vendor PAM/files/dependencies;
+source/binary/input provenance and release refusal for old/stale packages pass.
+Package archive digest: `abdd50e2e8249d6a558e320fb7c1b4aa3c263daa986139213c332f3d066b700f`.
+No signed generation changed. Sign-in, real wake and physical/multi-display
+transitions remain unverified. [Evidence/limits](ui-whole-os-review.md#batch-41-native-lock-presentation-and-live-lockout-guard).
+Subsequent panel/modern tray source proof appears above. Installed service and
+legacy XEmbed integration remain open.
+No WSL update, real user lock, signing, publication, remote push or ISO build.
+
+## Source checkpoint: live native appearance and Paper dock
+
+Paper color-only bridge is already compiled/provenance-checked atf5d2291;
+gaps/mode/focus/geometry/fullscreen/workspace/minimized state and malformed
+packets pass. Corner joins completed in local9e12f6b. No repeat build needed.
+
+Already-open native apps now subscribe to debounced preference-directory
+events, including atomic renames and initially missing directories. No polling,
+directory creation, process signals or desktop restart. Same CSS provider is
+reused; semantic drawing surfaces repaint and Reduce Motion updates live.
+Explicit appearance pins retain their selection. Dock now follows Paper/
+Graphite with unchanged flat geometry, pins, order, controls and app state.
+
+Real same-process/window Power+dock toggles pass dark→Paper→dark at1×/2×,
+including mapped native repaint, stable geometry/focus and explicit pin tests.
+Four dock theme/normal-or200%-text interaction cases pass using a disposable
+signed-package overlay with real rofi. Six watcher units, native UI and rootfs
+factory regressions pass. [Evidence/limits](ui-whole-os-review.md#batch-38-live-native-appearance-and-paper-dock-source-checkpoint).
+
+Icon/logo mapping and wallpaper save/failure-preservation checks pass. Public
+cursor frames/aliases/hotspots pass; local default personal cursor remains21px,
+hotspot(2,6), with proportional importer scaling. No cursor regeneration or
+resize. These static checks do not certify physical pointer appearance.
+
+**Remaining in this requested theme pass:** browser/Qt live appearance beyond
+the held-open GTK proof above, real wallpaper/cursor/icon
+session and physical hotspot/scaling checks. Do not call theme consistency or
+whole-OS UI complete from the native fixture. No WSL update, remote push,
+signing, publication or ISO build; release integration remains deferred.
+
+## Completed source batch: client/frame corner joins
+
+Impeccable review found GTK rounding its client surface beneath i3's already
+rounded outer frame, leaving cut-outs below Geany/Nemo titlebars. Managed
+session CSS, root fallback CSS and native GTK now distinguish frame ownership:
+plain clients are square at the join; CSD/solid-CSD keep14px outer rounding;
+maximized/fullscreen bodies, decorations and headers are square. Compositor
+rounding,24px controls, positions, colors and normal text scale are unchanged.
+
+Real Geany/Nemo join pixels pass both palettes at1×/2×. Four foreign/native
+CSD theme/device cases pass corner rendering, negative old-rule control,
+control metrics/actions, square fullscreen and rounded restore. Native UI,
+rootfs factory, editor/theme units and native provenance regressions pass.
+Evidence: [Batch37](ui-whole-os-review.md#batch-37-clientframe-corner-joins-source-qa-complete-not-published).
+
+No installed WSL update, remote push, signing, package publication or ISO build.
+Next priority changed to theme consistency above; lockscreen remains queued.
+
+## Completed source batch: Paper third-party frame palette
+
+Unpublished source work adds readable Graphite/Paper i3 frame resources,
+preserves unrelated X resources and exposes partial-theme notes in Settings.
+Private1×/2× compositor trials proved focused/inactive frame colors, current
+controls, real Geany/Nemo and unchanged window IDs/geometry/focus/workspaces/
+minimized sessions. However the first prototype used ordinary config reload;
+pinned i3 source review found that resets runtime workspace gaps/modes.
+
+That reload path is removed, not shipped. The pinned i3 bridge now negotiates
+color-only IPC; no config parsing/reload, startup rerun, binding-mode reset or
+gap reset. Real UID1000 tests pass at1×/2×, including exact malformed-byte
+refusal, disabled capability, focus/window geometry/workspaces/scratchpad,
+fullscreen, custom gaps and resize mode. Nine frame units, seven theme units,
+native metrics/provenance, rootfs factory and adjacent wrapper tests pass.
+Four Settings/Power cases plus1×/2× workspace and CSD controls regressions pass.
+
+Built candidate: `F:\Ooonana\ooonana-os\qa-i3-controls-20261022-frame-v1`.
+Binary SHA256: `c8de2a20fed7693c177c2dd6ef478c4ecdef8abdc999a6ca521fac4bde82437f`.
+Unpublished `i3wm 4.24-r0.ooonana2` package passes exact source/binary provenance.
+Nested Xrender's known Nemo partial-paint fault reproduced; extra waiting did
+not fix it. Existing QA full-redraw/redirection adaptation gives painted menus,
+sidebar and folders in both palettes/scales. Physical compositor policy is
+unchanged; this is not physical GPU certification. The client/frame corner
+defect is now repaired in Batch37 above; installed/physical review stays open.
+
+No new generation, WSL update, installed-session restart, sound, model work or ISO build.
+F CURRENT remains verified4bf64022 Batch35. **Hold final ISO build** until
+deferred release integration: the new source gate requires the matching native
+frame package, which is intentionally not yet in the published generation.
+See [batch evidence](ui-whole-os-review.md#batch-36-paper-third-party-frames-source-qa-complete-not-published).
+
+## October 22 saved appearance and new-app consistency
+
+Theme selection/toggle no longer loses saved Paper mode to automatic dark
+session exports. Native GTK and preferred browser/files/editor refresh owned
+theme values; explicit/custom choices, PATH/argv and existing Geany colors
+remain. Real private GTK/Geany/Nemo toggles pass both ways at100/200% text;
+four Settings/Power regression cases also pass. Lock/sign-in/unlock details
+remain queued, preserving real authentication and avoiding live lock tests.
+
+Sourcec0be613 passes GitHub/GitLab. Signed generation4bf64022 published on F
+and installed in Ooonana WSL; all1302 checksums, health checks, headless imports,
+i3 config and installed nonroot theme selection pass. Default metadata refresh
+finds654 packages/two sources. Previous generation/checkpoints retained;
+boot config, trusted key and OpenVINO metadata unchanged. No restart/ISO.
+[Full evidence and remaining limits](ui-whole-os-review.md#batch-35-saved-appearance-versus-inherited-session-values).
+
+Next: Paper third-party outer frames and already-open-app theme behavior, then
+lockscreen visual detail review. Whole-OS goal and live/physical gates stay open.
+
+## October 22 compact Power actions and keyboard safety
+
+Power no longer uses170×70 tiles or a redundant question heading. Actions
+measure40px normally/44px at real200% text; window height follows content.
+Enter initially activates Cancel; Escape closes menu. Pending requests show
+Close rather than suggesting cancellation. Native confirmation header now
+actually maps, keeps default Cancel and remains bounded on640×600.
+
+Four dark/light100/200% private i3 cases pass keyboard/error/late-callback
+checks without executing power/lock commands.25 native pages per appearance
+also pass compact bounds. Impeccable review corrected confirmation visibility;
+QA now restores requested theme after Settings and sets real text DPI.
+Source953758e passes both CIs. Signed generation
+321e5115a1432916f1264c1e9ecf4364d3b67dfd5afa20ba72b7d542638761a2
+published and installed in Ooonana WSL; file/health checks pass. No restart/ISO.
+Whole goal active; earlier checkpoints below remain historical.
+[Evidence](ui-whole-os-review.md#batch-34-compact-power-and-safe-keyboard-defaults).
+
+The theme inheritance defect found after this checkpoint is repaired and
+published in Batch35 above. Paper third-party outer frame review and manual
+relaunch of pre-fix desktop sessions remain required.
+
+User added lock/sign-in/unlock visual detail review: clock/date, branding,
+spacing, password/error feedback, Caps Lock/input layout, keyboard focus,
+scaling and wake/multi-display states. Preserve existing authentication; no
+live lock or replacement password implementation during current theme work.
+
+## October 22 native/third-party window controls
+
+Locally built i3 4.24 candidate gives third-party frames real titlebar room,
+left caption clearance and native24px controls/12px glyphs. Running-WM IPC
+negotiation protects mixed live upgrades; an old running WM keeps compatible
+legacy controls until user relaunches desktop. Native header content stays;
+unused GTK minimum/subtitle space and header-action margins are removed.
+GTK client-owned headers receive matching default placement/diameter; custom
+layouts remain. Opt-in backend handles their minimize/fullscreen requests,
+including exact dock restore. No duplicate CSD titlebar or caption overlap.
+
+Actual1×/2× controls and both themes pass pointer actions; real Geany/file
+picker, Nemo, Chromium sandbox/actions, Qt Preferences/exit dialog and native
+controls pass. Workspace drag/resize, focus, tiling/tabs/stacking, number/move
+keys, fullscreen and targeted restore/close pass. Impeccable screenshot review
+adds visibly painted controls and rendered fullscreen-glyph comparison,
+not just mapped widgets. Normal defaults remain100%.
+
+Pinned upstream signature/source, isolated musl build, native package and
+provenance gate pass. Source/build artifacts stay on F; no WSL disk move,
+OpenVINO change, sound playback or ISO. Source75923c5 passes both CIs; signed
+generation720239ac278222d731c34a423e0e7908d37bcbc8eac5025d60585b0556c7f926
+published and installed in Ooonana WSL. New apps use compact headers; new
+desktop session uses updated i3 controls. No restart forced. Whole-OS ledger
+remains active; earlier checkpoints below remain historical.
+[Evidence and limitations](ui-whole-os-review.md#batch-32-native-and-third-party-control-parity).
+
+Native header density now measures32px title-only/42px with subtitle at normal
+100% text, retaining24px controls/12px glyphs and10pt typography. Real subtitles
+remain;200% text grows headers naturally instead of clipping. Dark/light GTK
+density and real silent control checks cover action buttons as well as plain
+headers. [Header review](ui-whole-os-review.md#batch-33-compact-native-titlebars).
+
+## October 20 Spotlight selection and default app fit
+
+Real preferred-wrapper checks found Geany opening902×623 on640×600, clipping
+menus/titlebar. Nemo's default height also overlapped panel/dock clearance.
+Newly mapped floating Geany/Nemo frames now fit usable output only when needed;
+already-fitting defaults and later user resize/move stay untouched. Native apps,
+dialogs, tiled/fullscreen/hidden windows and reused/closed IDs are excluded.
+No blanket font scaling or forced new desktop-wide app size.
+
+Actual Files launch instead opened Wi-Fi: delayed search reset selected row,
+and `profiles` outranked exact `Files`. Filtering/ranking/selection now finish
+immediately; exact/prefix app names rank before description matches. Empty
+query preserves catalog order; Unicode/no-match behavior stays.
+
+Four real GTK/i3 wrapper cases pass terminal, Geany palette, Nemo Home, focus,
+window bounds and later user geometry. Final Impeccable review caught missing
+QA scaling application; corrected launcher/shared-content fixtures now record
+actual192DPI/200% parent text and pass compact dark/desktop light cases. External
+app/whole-desktop scaling is not inferred. Normal defaults stay100%. Both CIs
+pass; signed generation `26407e012bd145c98b543d03621a7d563e6eb2e947c19e9517086687c2e8ca31`
+published and installed in Ooonana WSL. Full signed checksums, separate runtime/
+core transactions, verification/health and UID1000 imports/i3 checks pass.
+Installed launcher/window-controls/dock bytes match source. Adapter/default
+metadata refreshed without GUI restart; OpenVINO/boot config retained.
+Whole-OS review remains active. Next requested: unify third-party titlebar
+button size/placement with native controls, with fresh Impeccable review.
+[Evidence](ui-whole-os-review.md#batch-31-preferred-launchers-search-selection-and-default-app-fit).
+
+## October 19 flat dock, app groups and saved pins
+
+Flat opaque dock now keeps pinned apps left and unpinned running apps right,
+with section divider. Pin/Unpin never closes windows. Hold-drag reorders within
+either section; explicit Pin/Unpin changes section. Keyboard Move left/right
+also works. Atomic per-user `dock.json` saves app IDs/order only, never window
+titles/PIDs/history. Failed saves retain old layout and expose recovery text.
+Closed pins remain launchable; compact More apps retains overflow idle pins.
+Direct grouped window rows/actions restore exactly one session; native dialogs
+follow actual parent, different native apps and Firefox/Chromium stay distinct.
+Top panel no longer has window controls/title/list; Task View stays.
+
+Four real GTK/i3 dark/light normal100% and200% text-stress cases pass actual
+Pin/Unpin, held mouse drag, rejected cross-section drop, reload, closed-pin
+relaunch, minimize/restore, readonly failure/retry and keyboard window actions.
+Actual320px overflow/hidden-pin options, edge tooltips, both panel sizes/themes
+and2× device-scale controls also pass. Default60px dock/32px icons and global
+100% scale remain. Native/rootfs/package-factory/panel-session regressions pass.
+Runtime source `5a39c8c` passes both CIs and is signed/published as generation
+`26bb8cf5f3ff10af9a104ac78886f32fe3f4fad280dd7644a7a956345be87942`.
+Ooonana WSL core/runtime, adapter and default metadata refreshed; all1302
+checksums, signatures, package/file/health checks and UID1000 import/i3 checks
+pass. Installed UI bytes match source. No GUI restart or ISO build. OpenVINO,
+boot config, history and prior generations retained.15 inactive private test
+overlays removed (41340KiB logical); captures/logs stay. Windows duplicate-stage
+cleanup blocked, not retried. Broader UI ledger stays open.
+[Evidence and limits](ui-whole-os-review.md#batch-30-flat-dock-app-groups-and-persistent-pins).
+
+## October 19 Qt scaling, pickers and desktop Home defaults
+
+Actual Qt-only100%/200% probes pass both themes: six Preferences pages, font
+chooser, image select/cancel/reopen, keyboard scrolling, exact pending path,
+post-picker bounds and outer Cancel. GTK portal stays at desktop100%; this is
+not physical mixed-DPI evidence or a new default. A real session defect was
+reproduced: BusyBox user handoff preserved `/`/launch cwd despite correct HOME.
+Desktop session now enters Home before bus/app startup, or refuses with clear
+error if unavailable. Actual source prefix runs as UID1000 in Qt QA; picker
+now opens Home. Explicit terminal workdir remains. Native/rootfs/WSL/package
+regressions and final Qt matrix pass. Runtime source `f8402a7` passes both CIs;
+signed generation `0c5889376f3bf6a88291ed60e5a7f80d6cb79ce33e31977d0010767d12ecc895`
+is published and installed in Ooonana WSL. All1302 checksums, package transactions,
+file verification, health hooks and installed UID1000 Home startup pass. Default
+metadata/WSL adapter refreshed without GUI restart; OpenVINO/WSL config retained.
+[Evidence and limits](ui-whole-os-review.md#batch-29-scaled-qt-pickers-and-session-home-defaults).
+
+Follow-up dock direction is implemented/tested above; Home checkpoint below
+does not yet contain those later changes. Whole UI ledger stays open.
+
+Cleanup:45 inactive private QA overlays removed after exact-path, no-process,
+no-symlink and all-process mount checks (434204KiB logical, regenerable). Captures,
+logs, Firefox QA homes, source caches, history, checkpoints and ISO assets retained.
+Receipt: `/var/tmp/ooonana-cleanup-20261019.KfO0FPGs`. Windows cleanup was rejected
+before execution:22 bytecode files (~961kB) and completed duplicate F publication
+stage remain. No retry/workaround used; no C:/F: deletion occurred. Logical ext4
+reclaim does not imply immediate Windows free-space gain or VHD compaction.
+
+## October 19 Task View and actual media integration
+
+Panel numbers replaced by one compact overlapping-window Task View icon.
+Existing window chooser now includes desktop switching/creation and exact
+minimized-session restore; `Mod+Ctrl+Tab` opens it, existing workspace keys stay.
+Real small-screen captures exposed clipped chooser height/unreadable inherited
+colors; bounded rows and explicit child colors repair those defects, with
+Paper/Graphite preference support. Actual private MPD/null-output checks also
+found/fixed empty-tag parsing, Korean metadata encoding and Music growing back
+over the panel. Parser-facing command locale stays unchanged. Real Dunst's
+unchanged five-second timer recovers after service loss/restart and DND changes,
+without a click/focus refresh. Runtime source `5395853` passes both CIs; signed
+generation `ea616da2e3aa29602afdc8d26e21bbf4b418ae2ec8452cd020908155ac43f2d1`
+is published and installed in Ooonana WSL. Core/runtime verification and health
+hooks pass; installed UI/helper/i3 bytes match source. Default metadata/adapter
+refreshed without GUI/WSL restart. Broader review stays active. No audible sound,
+models or release ISO. [Checkpoint and GUI command](ui-whole-os-review.md#published-checkpoint-after-batch-28).
+
+## October 19 Spotlight publication and native refresh
+
+Runtime source `d499391` passes both CIs; signed generation is
+`967ddd097a907cc4bb4075280c470198dc90dd8a45561a4c8bb2b4df217bac56`.
+Pinned signature, all1302 checksums, clean300-source-file manifest and
+654-package/612-node closure verified. Native core/runtime dry-run, reinstall,
+verify and health hooks pass; both installed i3 configs match source and UID1000
+`i3 -C` passes. Default metadata and local adapter refreshed without GUI/WSL
+restart. OpenVINO metadata, WSL boot config, history and prior generations retained.
+No user i3 overrides were present/changed. Actual WSLg input remains a separate
+manual check; no release ISO, models or audio operation.
+[Checkpoint and GUI command](ui-whole-os-review.md#published-checkpoint-after-batch-27).
+
+## October 19 managed Spotlight and real app handoff
+
+Actual i3 exposed a760px rule overriding Spotlight's display-aware GTK size;
+640px screens clipped left controls atx=-60. Removed only forced resize, keeping
+floating/border/centering and native defaults. Four dark/light,640/1280px cases
+now pass actual desktop-entry discovery, X11 Return, real XTerm/native
+Settings processes, launch dismissal, focus handoff and owned-window close.
+Compact frame is586×442 within640×600. Current Settings source/wrappers are
+read-only-bound in private QA; no mock launch success. Native/branding/rootfs/
+package-factory regressions pass; publication/native refresh completed above.
+[Evidence and remaining gates](ui-whole-os-review.md#batch-27-managed-spotlight-and-real-app-handoff).
+
+## October 19 device-scale publication and native refresh
+
+Runtime source `32a900a` passes GitHub/GitLab CI and is signed/published as
+generation `32e04e40a81312cc13e732ab853d282c876b7192f743866e0137793de92cc73d`.
+All1302 checksums, signature/trust pin, clean300-source-file manifest and
+654-package/612-node closure verified. Native core/runtime dry-run, reinstall,
+verification and health hooks pass; installed dock/controls bytes match source.
+Default metadata and local WSL adapter refreshed without GUI/WSL restart;
+OpenVINO metadata, boot config and history preserved. UID1000 imports/functions
+pass; noninteractive WSLg emitted a seat warning, so actual WSLg input remains
+unverified. No release ISO, audio or model operation. Whole-OS review stays
+active. [Checkpoint](ui-whole-os-review.md#published-checkpoint-after-batch-26).
+
+## October 19 actual device-scale alignment
+
+Real `GDK_SCALE=2` exposed third-party controls displaced/doubled beyond their
+i3 titlebar and logical/device mixing in fullscreen overlap. GTK placement,
+CSS/icon budgets and i3 hit testing now use the appropriate coordinate units.
+Four dark/light, normal-font 1×/2× cases pass real Minimize/Close clicks,
+titlebar bounds and fullscreen restoration. Default typography stays unchanged;
+2× is an isolated test, not a new default. Pure scale/negative-origin/remap
+guards run in both CIs. Native/rootfs source regressions pass; broader
+package-factory, shared native controls and actual2× dock-edge regressions also
+pass both themes. Signed publication/native refresh are completed above.
+[Evidence and limits](ui-whole-os-review.md#batch-26-device-scale-coordinate-alignment).
+
+## October 19 dock publication and native WSL refresh
+
+Source `519de7d` passes both CIs; signed candidate generation is
+`10514cb56d6b0ae8d73edd5465a2caa323e3e6c1564fb0232c20f0bd50841d6d`.
+Clean 300-source-file manifest, pinned signature, all1302 checksums and
+654-package/612-node closure verified. Native core/runtime dry-run, reinstall,
+verify and health hooks pass; installed dock bytes match source, UID1000 import
+passes. Default source metadata and local WSL adapter refreshed, without
+restarting GUI/WSL. History, prior generations, boot config and OpenVINO metadata
+retained. Two completed QA overlays removed (5512KiB logical); captures/logs stay.
+No Windows compaction/free-space claim, models, audio or ISO build. Broader UI
+review, actual scaling/session/display/manual gates remain open.
+[Checkpoint](ui-whole-os-review.md#published-checkpoint-after-batch-25).
+
+## October 19 dock edge/fullscreen review
+
+Real edge probes found dock covering fullscreen content. Existing i3 tree events
+now hide it only for visible fullscreen containers covering its monitor, and
+restore it without focus theft. Inactive workspaces, hidden tabs, scratchpad and
+other outputs do not incorrectly hide it; global fullscreen is handled. No new
+polling, resizing or idle-auto-hide policy. Eight dark/light variants pass real
+tooltips, four-corner menus, centering, 44px targets and fullscreen/workspace
+restoration: 640×600 normal/200%, 1024×768 normal, 320px dock-only stress.
+Pure guards plus native/rootfs/package and both-theme multi-session/action/
+keyboard regressions pass. Signed publication/WSL refresh are completed above.
+[Evidence and limits](ui-whole-os-review.md#batch-25-dock-edges-and-fullscreen).
+
+## October 18 administration/dialog publication and WSL refresh
+
+Source `2ff2506` passes both CIs; signed candidate generation is
+`49c469cb08b65e99ca9056edee0882a848449f96a291a9bbb0f87d60b094e2eb`.
+All 1302 checksums, pinned signature, clean 300-file source manifest and
+654-package/612-node closure verified. Native core/runtime dry-run, reinstall,
+verification and health checks pass; installed shared UI/askpass bytes match
+source, UID1000 imports pass. Default metadata and local adapter refreshed,
+without restarting GUI/WSL. OpenVINO metadata, boot config and history preserved.
+No ISO, audio or model operation. Broader review, including dock edges and
+installed-session/physical/manual gates, remains active.
+[Checkpoint and evidence](ui-whole-os-review.md#published-checkpoint-after-batch-24).
+
+## October 18 administration and actual Settings storage review
+
+Real password prompt lacked an accessible field name; added Account password
+without changing its size. Six private dark/light, compact/desktop/200% checks
+cover Escape, close, Enter, blank rejection and secret-pipe-only output. Actual
+sudo/askpass cancellation now reaches Packages/Health, restores controls and
+supports retry; private policy permits only harmless `/bin/true`, no package
+transaction or real credentials. Actual Settings 0600 writes, reopen, read-only
+failure rollback and retry also pass six variants. That path exposed scaled
+short error dialogs crossing screen edges; shared dialogs now use GTK-compatible
+font metrics and existing scrollable diagnostics when text would be too tall.
+Signed publication/WSL refresh are completed above; broader review stays
+active. [Evidence and remaining limits](ui-whole-os-review.md#batch-24-administration-and-settings-storage).
+
+## October 18 notification publication and native refresh
+
+Runtime source `9aa2ac7` passes GitHub/GitLab CI and is signed/published as
+generation `ad33c627306829f0d3b6eba287a71215d86fb9d8440645a90fbd3106bab5c4e3`.
+All 1302 checksums, signature/trust pin, clean 300-source-file manifest and
+654-package/612-node closure verified. Native core/runtime dry-run, reinstall,
+verify and health checks pass after full verification; installed notification
+files match source and UID1000 imports pass. Default metadata resolves the new
+snapshot; WSL adapter refreshed without restart. History, previous generations,
+OpenVINO metadata and boot configuration retained. No ISO, sound or models.
+[Publication evidence and remaining gates](ui-whole-os-review.md#published-checkpoint-after-batch-23).
+
+## October 18 notification reading and storage recovery
+
+Actual private Dunst/GTK lifecycle checks reproduced lost keyboard focus and
+reading position after new arrivals, plus saved rows disappearing when read-state
+writes failed. Center now restores semantic focus/reading position after GTK
+allocation, keeps readable live/archive history on storage failures and presents
+persistent save/remove errors with retry recovery. No text/control enlargement.
+Four normal100% dark/light, 640×600/1024×768 checks pass, including explicit
+service restart refresh, DND reset, reused notification IDs and clear-all.
+Only owned private history is used; sound is suppressed in QA, not production.
+Signed publication and native WSL refresh are completed above; broader review
+remains active. [Evidence and limits](ui-whole-os-review.md#batch-23-notification-reading-and-storage-recovery).
+
+## October 18 multilingual panel publication and WSL refresh
+
+Runtime source `55c25b0` passes both CIs and is signed/published as generation
+`0d8e862e06fa7e8bc068fea77308ed4119a78af728e034a4953f32b1ce5b800d`.
+Clean 300-source-file manifest, all 1302 checksums, signature/trust pin and
+654-package/612-node closure verified. Prior generation unchanged. Native WSL
+snapshot reuses 643 immutable archives; core/runtime dry-run, reinstall, verify
+and health checks pass after full verification. Installed window-list/supervisor
+match source and Polybar config matches signed archive. UID1000 imports/checks
+all responsive budgets. Default cloud metadata updated, 654 packages/two sources.
+Canonical local adapter refreshed without GUI/WSL restart. OpenVINO metadata,
+boot configuration, history/models/keys and rollback checkpoints retained.
+No ISO, sound or physical device operation. Broader review remains active.
+[Publication evidence and limits](ui-whole-os-review.md#published-checkpoint-after-batch-22).
+
+## October 18 Qt picker and multilingual panel details
+
+Real Qt font/image pickers pass 640×600/1024×768, dark/light: focused floating
+dialogs, correct settings parent, bounds, Escape, reopen, exact owned-image path
+and outer Cancel retention. No Qt restyling or user-profile changes needed.
+Panel review then found missing Korean/CJK glyphs despite installed fonts, clipped
+right controls at 760px and silent AI drift at middle-width thresholds. Added
+shipped Noto fallback, responsive Wi-Fi budgets, compact 760–999px status priority
+and tighter gaps below 1280px. Font sizes and opaque Graphite identity unchanged.
+Actual accent-pixel centering guards now catch drift that Polybar logs missed.
+Wide-label/100%/999+ sample checks cover 640/760/900/1000/1024/1100/1280px in both
+app appearances; native/rootfs/package-factory checks pass. Four completed owned
+Qt overlays removed; captures/logs/history retained. README desktop capture is
+current. Signed candidate/installed WSL refresh is completed above.
+[Evidence and remaining work](ui-whole-os-review.md#batch-22-qt-pickers-and-wide-label-panel-details).
+
+## October 18 Qt placement publication and installed refresh
+
+Runtime source `5c48b59` passes both CIs and is signed/published as generation
+`5a66c5817a8a9fd0672c86378b18daf876b61ecef0a12fa504ab6a19e485b4c9`.
+Clean 300-source-file manifest, 654 packages/612 dependency nodes, all 1302
+checksums and signature/trust pin verified. Previous generation manifest stays
+unchanged. Native WSL snapshot reuses 643 immutable archives; full verification
+precedes separate core/runtime dry-runs, reinstall, file verification and health
+checks. Installed window-controls hash exactly matches source; OpenVINO metadata
+unchanged. Default cloud source now resolves new native snapshot, 654 packages
+from two sources. Canonical local adapter refreshed without GUI/WSL restart;
+installed guards also recreate transient `/run/user/1000` mode0700 correctly.
+Four final QA overlays removed, in addition to 17 earlier; captures/logs/history
+retained. No compaction/free-space claim, models, sound or ISO operation.
+[Publication evidence and remaining gates](ui-whole-os-review.md#published-checkpoint-after-batches-20-21).
+
+## October 18 Qt settings placement and full category review
+
+Actual 640×600 QTerminal Preferences reproduced y=-13, clipping its titlebar.
+An i3 map-centering rule alone did not fix Qt's later positioning; removed that
+ineffective attempt. Existing window-controls service now corrects only newly
+observed off-output QTerminal dialogs, once after settling. Native sizes/styles
+stay unchanged. Changed geometry, hidden/closed/fullscreen/oversized windows and
+service-start existing windows are left alone; no repeated positioning policy.
+Pure guards plus real six-page dark/light review, bounds/Cancel, later user moves
+and minimize/restore/fullscreen/move/exit pass 640×600 and 1024×768. Native UI,
+rootfs and package-factory regressions pass. Publication/installed WSL refresh
+is completed above; WSL-local runtime fix below is also live.
+[Evidence and scope](ui-whole-os-review.md#batch-21-qt-settings-placement-and-categories).
+
+## October 18 local WSL document-runtime correction
+
+Local desktop adapter now uses canonical `/run/user/UID`, prepared through its
+existing privileged socket setup. No boot command, daemon, broad environment
+preservation or ISO-payload change added. Parent/type/owner/mode guards refuse
+unsafe paths; existing same-owner contents survive permission correction.
+Switching from the home runtime resets inherited bus address/marker only.
+Root Ubuntu and nonroot Ooonana BusyBox fixtures, exact generated runtime
+selection and full WSL-distro regressions pass. Adapter installed in Ooonana;
+actual runtime is UID/GID1000, mode0700. Packaged launcher and `/etc/wsl.conf`
+hashes unchanged. No GUI/WSL restart, sound, model or ISO operation. Actual
+installed Firefox/WSLg interaction still needs its separate session check.
+[Scope and evidence](ui-whole-os-review.md#batch-20-local-wsl-document-runtime).
+
+## October 18 Qt publication and Firefox first-run follow-up
+
+Qt source `f30dc7c` passes both CIs and is now signed/published as generation
+`4245766927382e2806c6891ee027acd37d6e2761e4331ed3458a2b7946797454`.
+Exact clean source manifest (299 files), all 1302 checksums, signature/trust pin,
+654 packages/612 dependency nodes and prior-generation immutability pass.
+Native Ooonana WSL core/runtime dry-runs, reinstalls, verification/health hooks,
+exact helper/palette hashes and UID1000 GTK/CSS/default-font/query checks pass.
+Default metadata points to the new native snapshot; adapter refreshed without
+GUI/WSL restart. Existing OpenVINO metadata unchanged; no models/audio/ISO work.
+
+Firefox QA now visibly expands first-run diagnostics, unchecks its opt-in and
+accepts Terms only in the human-authorized disposable profile, on an isolated
+network. Home-based runtime reproduced a selected-file permission error.
+Canonical `/run/user/1000` resolves it; earlier apparent failures then proved to
+be a QA assumption about private-window titles. Untraced real picker open/cancel,
+exact portal URL plus rendered-content clipboard read and native window actions
+now pass. Full redraw mirrors the existing WSL adaptation; no browser sandbox
+disabled or broad access granted. Installed nested WSL runtime correction was
+the next fix at this checkpoint; Batch 20 above records its implementation.
+
+F: staging duplicate is verified against retained generation but cleanup was
+blocked by execution policy; retained, with exact manual command in the ledger.
+[Publication, first-run evidence and limits](ui-whole-os-review.md#published-checkpoint-after-batch-19).
+
+## October 18 Qt appearance and removable-storage interruption
+
+Real cached Qt6/QTerminal review found light menus/dialogs in dark mode and a
+500px single tab. Theme application now bridges the selected appearance to
+GSettings/Settings portal and selects Qt's existing portal plugin only when no
+custom platform theme is set. No global Qt stylesheet or scale override added.
+New terminal profiles use opaque Graphite/Paper, 11pt monospace, small margin,
+hidden single-tab strip and natural multi-tab widths. Existing Qt preferences
+and linked configurations stay untouched. Both 1024×768 appearances and actual
+minimize/restore/fullscreen/move/exit-cancel/confirm pass on private Xvfb with
+the existing WSL full-redraw adaptation. Thirteen preference/palette tests and
+native/rootfs/package-factory regressions pass, including exact palette bytes
+in built rootfs and core archive. No sound, models or release ISO operation.
+
+Firefox rerun reuses the existing disposable QA Flatpak installation, with no
+download/network or user-profile access. Real UID1000 renderer sandbox remains
+active; first-run Terms still intercepts Open, so picker is not certified.
+Windows detects the Realtek card reader but no SD disk/F: drive. No formatting,
+repair or media writes attempted. New source is not yet signed/published to F:
+or installed into Ooonana WSL; previous verified generation remains historical
+checkpoint, not confirmation that the missing card is healthy.
+[Qt captures, precise evidence and remaining work](ui-whole-os-review.md#batch-19-qt-appearance-and-first-run-proportions).
+
+## October 18 installed branding and console diagnostics
+
+Installed GRUB now shares live branding, stages its target font under Ooonana's
+own filename and preserves existing custom boot font. Compact audio labels fit;
+missing assets keep console/serial fallback. Actual private EFI main/submenus
+and fallback at 640×480/1280×800 pass; kernel args/default/timeout unchanged.
+Console status no longer overwrites consecutive warning lines. Normal desktop
+console ordering allows existing pulse; serial/ambiguous/motion-off remain plain.
+No new waits/workers; shutdown error feedback stops before recovery message.
+Writer/native/backend/rootfs/ISO-fixture/initramfs regressions pass. Source
+`9930c08` and both CIs pass. Signed 654-package generation
+`1a0c0a9b91244d6e105e2c0aeeec8468240903218f4f112d529a9d8ae8284ba6`
+and native Ooonana WSL refresh verified: signature, all 1302 checksums, clean
+manifest, health hooks, exact installed hashes, user GTK/query and default cloud
+cache. Adapter refreshed without restart. Redundant package copy removed after
+658 matching hashes (784,431 bytes); history retained. Whole-OS review remains
+active. No real install, sound, model, power or release ISO operation.
+[Evidence](ui-whole-os-review.md#batch-17-consistent-installed-boot-branding).
+
+## October 18 installer publication and minimal GRUB
+
+Installer/presentation source `8066066` passed both CIs and is published as signed
+654-package generation `5eaba3fa8900ea4c10ee9a21b9f932df80d8a44828d025ffe2f536eb2ef53ec8`.
+All 1302 checksums, trust pins, source manifest and prior-generation immutability
+verified. Native Ooonana WSL runtime/core dry-runs, transactions, health hooks,
+exact helper hashes, user GTK/CSS/query and default metadata refresh pass. Adapter
+refreshed without restart. Temporary package copy removed after all 658 files
+matched retained generation (779,948 bytes); history/models/keys/ISO remain.
+New real EFI review found invisible minimal-GRUB entries; explicit readable
+colors/key hints now pass both 640×480 and 1280×800 role-pixel checks. Installed
+text fallback is readable; branded installed menu remains a separate improvement.
+No larger defaults: desktop stays 100%/10pt. No audio, model or ISO operation.
+[Evidence and remaining work](ui-whole-os-review.md#published-checkpoint-after-batches-14-15).
+
+## October 18 terminal installer follow-up
+
+Private shell/PTY baseline reproduced password trimming/extra newline, reboot
+on closed input/unknown text and force/poweroff fallback. Hidden entry now
+preserves exact spaces/backslashes, reports EOF failure and restores original
+terminal state, including interruption. Completion accepts explicit Enter/reboot
+through orderly `bunana --restart` only; EOF, stay and unknown input do not reboot.
+Failure remains visible. Removed pretend completed phase counters before work;
+waiting text points to actual log. Seven isolated shell/PTY regressions and
+full native/rootfs checks pass; no real installer or power command executed.
+Source/candidate publication is verified above. Whole-OS review
+and live/device gates remain open. Default text stays 100%/10pt.
+
+## October 17 installer and preference follow-up
+
+Installer form/review now fit actual 200% font metrics on 640×600, with readable
+scrolling disk details, compact labels and explicit default Cancel. Default UI
+remains 100%/10pt; 200% captures are stress tests only. Keyboard checks preserve
+all 16 semantic fields, including password spaces and `|`; malformed form output
+cannot shift targets. Theme apply retains user font/DPI/icon/unknown settings
+and bridges reduced motion to GTK/XSettings. Eight private-file regressions,
+full native/rootfs/backend checks and both-theme actual YAD fixtures pass.
+No real installation, disk enumeration, audio, model or ISO work. Signed
+candidate/installed WSL refresh for this follow-up is verified above.
+[Evidence and remaining gates](ui-whole-os-review.md#batch-14-installer-fit-and-retained-presentation-preferences).
+
+## October 17 Setup form and review follow-up
+
+Reproduced 200% form/review overflow, invalid-field focus loss and stale review
+approval dispatch after parent close. Setup now scrolls its welcome with the
+form, stacks wide labels, wraps swap text and uses a bounded scrollable review.
+Review includes manual routing/repository/password-presence choices, never
+password contents. Inline validation focuses the field, preserves secrets and
+checks IPv4/prefix/gateway/DNS and repository input. Pending/reentrant/closed
+approval is refused; failure feedback remains visible and warns changes may be
+partial. Existing CLI/backend authority and password transport are unchanged.
+Private GTK/i3 checks pass both themes, 100/200%, including keyboard focus,
+review Back/parent-close, draft retention, duplicate actions and reduced motion.
+Prior content/dialog regression and full native source suite pass. Source
+`a57c0cb` is on both remotes; GitHub/GitLab checks pass. Signed generation
+`6515c1e66d0770af57ddc3544ba2446d91a4492108cbb4d73d7fc4412fc4bf80`
+and native Ooonana WSL refresh verified, including pinned key, signature, 1302
+checksums, health hooks, installed module hashes, UID1000 GTK/CSS and default
+cloud metadata. Scratch stage/payload removed; history/checkpoints stay. Adapter
+refreshed without restart. Computer Use still fails kernel-assets initialization
+with error 3, so live Windows/WSLg gates remain open. Installer interaction review
+continues. [Evidence](ui-whole-os-review.md#published-checkpoint-after-batch-13).
+
+## October 17 Sound, Brightness and Music details
+
+Startup waits for verified state rather than allowing guessed writes. Audio
+reads and changes the selected output by identity; route/list failures remain
+visible, preserve drafts and offer Refresh/retry. Unknown volume/mute stays
+unknown. Brightness accepts only a verified display-backlight device, binds
+writes to that device and does not guess 75% when hardware is absent. Music
+polling cannot re-enable pending actions or overwrite an uncommitted volume.
+Failures remain inline; closed callbacks and duplicate actions are refused.
+
+Controls use compact content-fit actions, labelled sliders/device selectors,
+bounded full-value tooltips and scrollable, keyboard-accessible content. Private
+GTK/i3 checks pass dark/light, 100/200% text; all 25 native catalog pages pass
+both appearances at 640×600. Full native/backend source regression passes.
+No real route/mute/brightness/playback change or sound test ran. Source `9d02988`
+is pushed to both remotes and both CI checks pass. Signed 654-package generation
+`8cc58fc2caf8b8b7fd600bfe8925fa9fa4d5fadd2116bd315374953a9b61a2b3`
+is published locally; previous generation is unchanged. Native Ooonana WSL
+refresh verified after a successful startup retry: signature, 1302 checksums,
+package health, installed hashes, UID1000 GTK/CSS, nonroot query and default
+metadata source. Adapter refreshed; no forced restart.
+Eight redundant staging copies, six transfer archives and five bytecode files
+removed, including final publication stage. History/models/keys/ISO checkpoints
+stay. Review resumed with both-theme 1024px panel and scoped-session regression,
+all passing silent fixtures. [Evidence and limits](ui-whole-os-review.md#published-checkpoint-and-cleanup-after-batch-12).
+
+## October 17 wireless details and lifecycle
+
+Wi-Fi/Bluetooth now reject overlapping actions and closed-window callbacks;
+selection changes cannot hide pending progress. Indeterminate feedback runs only
+while busy and respects reduced motion. Service/controller state gates actions,
+with Repair recovery retained. Reset and Bluetooth Remove default to Cancel,
+remain parent-owned and cannot dispatch after parent close.
+
+Wi-Fi advanced forms preserve secrets and show inline IPv4/gateway/DNS/proxy
+errors with visible field focus. Certificates use bounded native local pickers;
+scaled forms stack labels. Bluetooth secondary actions move under Device actions.
+Scrollable wireless content, text-aware CSD reserves and one-time initial
+placement correction prevent small-screen overflow, without fighting later drag.
+Private GTK/i3 checks pass both themes, normal and 200% text; prior wireless,
+shared-dialog and scaled Settings regressions pass. Backend/native source tests
+pass. Source `617dabe` is on both remotes; GitHub/GitLab checks passed. Signed
+654-package generation `6bf47130fc3e1fa0d5ac5dc10445d1f11dfaf4fdb24735e3a9014320ecf2076a`
+and native Ooonana WSL core/runtime refresh verified: pinned keys, signature,
+1302 checksums, clean source manifest, health hooks, installed hashes, actual GTK
+imports/styles and nonroot query. Default metadata cache refreshed to the new
+cloud snapshot. Older generations/checkpoints retained; adapter refreshed without
+restart. Smaller headings included. No physical radio, audio, OpenVINO/model or
+ISO action. [Evidence](ui-whole-os-review.md#published-checkpoint-after-batch-11).
+
+## October 16 smaller-heading refinement
+
+Shared native page headings change 16→14pt, hero headings 20→18pt and launcher
+search 14→12pt, with proportional search padding. Body stays 10pt; card titles,
+window controls, user DPI and Korean text remain unchanged. Impeccable's role
+hierarchy, ui-styling's shared tokens and ui-ux-pro-max's consistent type scale
+guide this narrow refinement, not a theme/framework replacement.
+Private actual GTK density/type checks pass dark/light at 100/200%; compact
+Task Manager interaction regression passes both themes. Included in October 17
+signed candidate/installed WSL checkpoint above. No ISO built.
+[Evidence](ui-whole-os-review.md#smaller-heading-refinement).
+
+## October 16 Task Manager and window interaction follow-up
+
+Task Manager gains compact navigation, bounded/copyable sensor values, filtered
+counts, full-detail row tooltips/Ctrl+C, text-aware numeric widths and stable
+row/scroll refresh. Missing counters clear stale graphs. End task defaults to
+Cancel, retains confirmed identity and closes with parent. Actual private
+GTK/i3 checks include 200% text and owned-process termination regression.
+
+Window review found missing workspace keys and invalid bare move/resize mouse
+commands. All number/select/move/cycle keys added; broken overrides removed.
+Both-theme real native/XTerm pointer, tiling/tab/stack, focus, fullscreen,
+exact-session restore and close checks pass with private compositor, without
+i3 command-error bars. Branding test corrected rather than preserving bad code.
+Source `b6f186f` is pushed to both remotes and both CI checks pass. Signed
+654-package candidate and Ooonana WSL core/runtime update verified, including
+1302 checksums, health hooks and installed source hashes. No ISO built or GUI
+restart forced. Relaunch desktop/apps. C: free space fell to 1.1 GiB, so no more
+heavy QA/build work this pass. [Evidence and limits](ui-whole-os-review.md#batch-9-task-manager-detail-and-lifecycle-checks).
+
+## October 16 typography follow-up
+
+User requests smaller text. Default native body now matches desktop GTK at 10pt
+(previously 10.5pt); page/card/hero headings are 16/11/20pt instead of 19/12/24pt.
+Launcher search is 14pt instead of 16pt. AI no longer silently raises body text
+to 14.5pt or titlebar text to 13pt on wide windows. User DPI/text scaling stays
+respected, and action/window-control target dimensions are not blanket-shrunk.
+The earlier large dark screenshot used 200% text as a stress fixture, not default
+configuration. Normal-scale captures and current evidence follow in the ledger.
+All 25 compact native pages pass dark/light, plus both-theme contrast,
+native/generated density, wide AI and targeted 200% text checks. Source
+`f39e99b` is pushed to both remotes, both CI checks pass, signed candidate and
+Ooonana WSL refresh verified. Relaunch apps for new typography; no ISO build.
+[Measurements and screenshot](ui-whole-os-review.md#batch-8-smaller-native-type-no-width-triggered-ai-zoom).
+
+## October 16 native chat details; OpenVINO deferred
+
+User defers OpenVINO until its unfinished major update is ready. No integration
+changes, runtime setup/tests or model downloads in this pass. Earlier OpenVINO
+entries below remain historical. Generic native Ooonana AI stays in scope.
+
+Native chat now has proportional controls, compact chats/conversation switching,
+bounded long captions, useful empty search, default-Cancel Delete and bounded
+native attachment picker. Failed/stale/closed provider callbacks stay safe and
+UTF-8 attachments remain editable, never sent automatically. Actual private
+GTK/i3 checks pass dark/light compact/desktop and targeted 125/200% text; existing
+stream/cancel/copy/keyboard regression passes with fixture processes only.
+Published with typography follow-up below; existing ISO unchanged. [Evidence and scope](ui-whole-os-review.md#batch-7-generic-native-chat-details-openvino-deferred).
+
+## October 16 proportional controls and Settings
+
+Source `8cc3b17` fixes oversized desktop controls without reducing type. At
+normal scale, native button/entry/dropdown heights change from 42/52/46px to
+32/32/33px; native helper actions fit their labels. Generated GTK theme matches
+the compact sizing. Existing window-control/dock targets remain unchanged.
+
+Settings gains narrow page navigation, bounded/selectable status values,
+automatic visible keyboard focus, bounded native wallpaper/log dialogs, Copy
+log, honest Bluetooth errors, motion rollback and duplicate/late-action guards.
+Private actual GTK/i3 tests pass 25 normal-scale native pages in dark/light;
+targeted Settings/control fixtures pass through 200% text. Geany real picker and
+window controls pass. Commands that could change services/packages/wallpaper
+were mocked in the interaction fixtures. No sound, models or ISO build.
+
+Both remotes contain source. [GitHub regression](https://github.com/Ooonana/Ooonana-OS/actions/runs/38824635241)
+and [GitLab smoke](https://gitlab.com/Ooonana/ooonana-repo/-/pipelines/2953124816)
+passed. Signed 654-package candidate generation and native Ooonana WSL update
+are verified, including core/runtime health hooks, source hashes, actual GTK/CSS
+imports as UID1000 and unprivileged package search. Previous generations and
+rollback checkpoints stay. Relaunch desktop/apps for updated code/theme.
+[Publication and coverage ledger](ui-whole-os-review.md#published-checkpoint-after-batch-6).
+Broader application/display/session review remains active; physical/interactive
+gates are not implied by fixture success.
+
+## October 15 physical USB identification and frontend preparation
+
+User connects freshly flashed disposable G: USB and authorizes erasing fault-test
+data there. Read-only payload hashing matches published ISO kernel/initramfs/
+rootfs/EFI loader; persistent GRUB entry is present, persistence file absent.
+No formatting, raw writable access, power cut, storage fill or physical upgrade.
+Same-PC USB boot requires manual stage-1 evidence before fault tests.
+
+Native installed Ooonana WSL gained Firefox launcher/QTerminal and coherent Qt6
+dependencies through real nonroot package operations; archive verification and
+offscreen QTerminal 2.4.0 version passed. No browser runtime/model downloads.
+Windows UI/browser helpers fail at kernel-assets initialization even after reset;
+no UI tests claimed, alternate automation or old PDF-navigation bypass attempted.
+Signing/promotion scope still awaits answer; key stays local, stable unchanged.
+[Payload proof, boundaries and manual USB baseline](physical-usb-qa-20261015.md).
+
+## October 15 GitLab smoke repair and guide refresh
+
+Screenshot identifies failed pipeline 2948699262, job 17185957127, commit
+2f891ed. Job trace access is restricted; matching Alpine 3.24.2 reproduction
+found first launcher test exits 127 because CI omitted `findmnt`. Added
+`util-linux`, explicit readiness checks, Node and C compiler so PDF harness/time
+CSR tests run instead of silently skipping. Both providers now run WSL fixtures;
+those fixtures mock all Windows tools and check that interop cannot drain the
+calling script's stdin. No real distro import/unregister from regression tests.
+
+Field guide refreshed to installed WSL 0.10.0/stable 0.9.9, correct local GUI
+launcher, verified user-built ISO and accurately separated remaining runtime/
+interactive gates. Four rendered pages checked. Bootable PDF unchanged.
+
+Read-only cleanup recheck: temporary QA registration/VHD, raw image and tarball
+are absent; logs and replacement plan retained. C: ~3.7 GiB / F: ~28.9 GiB free.
+No denied-target cleanup retry. Active disks/models/history/keys preserved.
+CI/tests/docs only; no packaged runtime/kernel edits or ISO remake.
+Remote eccf95c checks passed: GitLab 2948761455 and GitHub 38655509434.
+Follow-up pins tested Ubuntu 24.04 and verified Node24 checkout SHA in both
+GitHub workflows to avoid upcoming runner/runtime drift; no package publication.
+[Detailed checks and remaining work](ci-smoke-repair-20261015.md).
+
+## October 14 installed WSL fresh replacement completed
+
+User waived backup and explicitly authorized replacing experimental Ooonana.
+Fresh 0.10.0 from verified ISO passed temporary QA, signed local 654-package
+snapshot (1302 checksum entries), real nonroot install, runtime health,
+GTK/WSLg and i3/dock/panel readiness. Old experiments erased without backup.
+Normal VHD copy-import stalled; idle-engine reset cleared only incomplete target,
+then verified VHD was registered in place at the same F: directory. Final actual
+Ooonana cold user/version/package/GUI checks passed. Ubuntu/default/disk path,
+Windows models, signing key, repositories and ISO unchanged.
+
+Installed WSL now core 0.10.0; stable package channel remains 0.9.9. Native signed
+snapshot at `/var/lib/ooonana/candidate-repo-0.10` needs no removable-drive boot
+mount. WSL-local launcher preserves packaged helper, extends cold Xephyr wait
+to 60 seconds and selects nested X11/XCB. Host installer also closes interop
+stdin; adapter/source tests and ShellCheck passed. No AI weights downloaded,
+audio playback or permanent audio suppression.
+
+Cleanup was policy-blocked before execution; QA distro plus generated raw/tar
+remain (~6.5 GiB), with history preserved and manual commands documented.
+[Replacement details, adaptations, cleanup and launch](wsl-replacement-20261014.md).
+Older dated installed-WSL status below is historical. No physical ISO remake
+needed for these host-only/WSL-local changes.
+
+## October 14 computer scan and resident RAM accounting
+
+Accessible C:/F: metadata scan covered 1,660,467 files; both WSL native roots
+reviewed. Junction/cloud reparse entries and protected paths skipped, with
+local-only evidence. Confirmed ~652 MiB old QA kernel/initramfs payload and a
+small byte-identical C: QA archive, but execution policy blocked removal before
+the command ran. No deletion/bypass; history/models/releases/keys remain.
+
+Reproduced disk-mode RAM refusal. Corrected conservative host accounting to
+include reusable RAM already resident in one observed WSL VM, subtracting all
+Linux nonreclaimable usage and another 512 MiB overhead. Virtual capacity is
+not credit; invalid/ambiguous readings refuse/fall back. Both 2 GiB reserves
+remain; unit/source/ShellCheck and live RAM-budget checks pass. Existing user-built
+ISO resume completed static/Rufus, service, BIOS/UEFI and checksum/promotion.
+No fresh construction or installed WSL migration. Candidate now at
+`F:\Ooonana\ooonana-os\release-current\ooonana-full-i3.iso`, 2,895,407,104 bytes;
+independent Windows SHA256 matched:
+`96dc45a2f27f0cd6e0e2e4e76b78af0604b3cbe79231c3eddadd1fc85c94c86d`.
+Temporary C: ISO removed; F workspace unmounted; old completed staging retired.
+
+Legacy virtual `e1000` Tx-hang warnings triggered a host-only harness repair:
+q35 probe uses PCIe `e1000e`, and health predicates reject Tx hangs/watchdogs.
+Actual published-image service/fault/shutdown retest passed without those
+errors; `build-diagnostics-20261014/service.va5T6eo1.log` retains evidence.
+Physical Wi-Fi is not certified. Core 0.10.0 candidate; stable/installed WSL
+remain 0.9.9. Latest C: ~5.1 GiB / F: ~17.1 GiB snapshot; future full-workspace
+launch correctly refused capacity-plus-reserve. No bypass or ISO rebuild needed
+for current host-only changes. Older dated status below is historical.
+[Detailed scan, boundaries, blocked targets and accounting](computer-junk-review-20261014.md).
+
+## October 14 disk-backed verification closure
+
+Repeated RAM-mirror refusal resolved with explicit `--verify-on-disk PATH`.
+Plain ISO temporary copy on C: DrvFS avoids pinned media, WSL VHD growth and
+slow F-backed QEMU CD reads. Copy is compared byte-for-byte; both disk and RAM
+retain 2 GiB reserves. Disk-mode probes use 1536 MiB VMs (~3.5 GiB host RAM
+headroom), not a physical/live OS limit. Unknown files, changed mount ownership
+and symlinks refuse cleanup; only the owned ISO and empty directory are removed.
+
+Actual existing ISO copy, static/Rufus checks, all service/fault/shutdown checks
+and BIOS/UEFI startup passed without guest I/O/OOM/panic errors. Temporary
+2.90 GB C: copy removed; F workspace normally unmounted. Fresh helper copy and
+cleanup, source/fixture guards and ShellCheck passed. No rebuild or promotion;
+user-run resume remains for final checksum/promotion. Stable/installed WSL stay
+0.9.9; original candidate generation unchanged. C: ~8.8 GiB after cleanup.
+Prior `37f1ba4` GitHub/GitLab CI passed. Full evidence and new command:
+[build verification recheck](build-verification-recheck-20261014.md).
+
+## October 14 user build and model inventory
+
+User's F-backed sparse-workspace build passed preflight and full-rootfs audit
+(174 scripts, 524 ELF files, zero errors), then produced a 2,895,407,104-byte
+staged ISO. Static hybrid/GRUB/kernel/payload checks passed, but service
+verification failed on NetworkManager/BlueZ readiness. A repeat using the same
+ISO reached all service/shutdown markers while reporting a guest CD-ROM timeout
+and I/O error. Exact cause of the first failure is unproven; daemon binaries are
+not demonstrated broken. Staged ISO remains unpromoted; October 6 release stays.
+
+Fixed host verification to reject guest I/O/filesystem/OOM/panic errors even
+with success markers, retain service serial logs and bound cold-start retries.
+ISO resume verifies signed inputs, current kernel config, fingerprint and
+completed provenance; mounted children refuse resume/promotion cleanup.
+Workspace cleanup retries ordinary unmount within a bound, checks ownership and
+retains busy/foreign mounts. F builds also require at least 1 GiB C: headroom.
+Optional nonswappable RAM verification checks Windows and Linux free memory
+before copying existing media. Actual staged fingerprint passed after these
+host-only changes; no runtime/package edit or ISO rebuild occurred.
+
+Source/backend regression suites passed. Actual RAM-media preparation refused
+because Windows had ~1.7 GiB free with WSL active (latest snapshot ~2 GiB); full verification needs ~6.7
+GiB. Unit tests cover memory budgets, read errors, mount ownership and failure
+predicates; RAM-backed real-guest verification remains pending. User compacted
+WSL disk; latest C: ~9.8 GiB, F: ~17.5 GiB. No assistant compaction/relocation.
+Removed 467,228 KiB (~456 MiB) redundant QA Python libraries after retaining
+metadata/file history and confirming a matching QA environment remains.
+Models, signed generations, kernel cache, releases and keys stay.
+[Evidence, cleanup targets, limits and resume command](build-verification-recheck-20261014.md).
+
+Pinned candidate generation:
+`5f8074ffabc6ed5848360cd1666d0c7f74ae9f2961656b6ade612efc192dbe8f`;
+core 0.10.0, 654 packages / 612 nodes, clean source revision
+`2c7a925e1d9e6d0e7b4e8723350b036885a4a795`. Both source CI pipelines passed.
+Native Ubuntu retains one testing-only SmolLM2-360M store, 218,728 KiB (~214 MiB),
+with ~207 MiB primary weights. No personal weights or extensionless model-cache
+blobs found in scanned native paths; Windows mounts/symlinks not followed.
+Ooonana WSL stays stopped and unverified, not claimed empty. Installed WSL
+update/migration deferred; no assistant model/runtime download, VHD relocation
+or compaction. [Inventory and policy](wsl-model-storage-20261014.md).
+
+## October 14 F-backed build workspace
+
+Windows ISO launcher now prepares a separate 21 GiB sparse ext4 build file on
+F:, keeping Ubuntu/Ooonana distro VHD locations unchanged. Rootfs, disk images,
+temporary files and future kernel work use that native filesystem, not raw
+NTFS trees. Initial setup requires 29 GiB F: headroom; reuse counts physical
+free space plus already allocated workspace extents, retaining an 8 GiB output
+reserve. Checks run before expensive release phases. UUID/label/size, symlink,
+exclusive-lock and mount checks reject foreign or damaged files; flush/unmount
+failures retain workspace. Retry space accounting includes reclaimable failed
+scratch, refuses mounted children, and rechecks capacity after kernel compile.
+
+Actual 64 MiB F-backed ext4 probe passed ownership, setuid, hardlinks, symlinks
+and `cp -a`. Sparse variant also passes with only 393,216 bytes allocated;
+evidence: `F:\Ooonana\ooonana-os\build-storage-thin-probe-20261014.1igKczFW\result.log`.
+Windows sparse helper now has null stdin, avoiding WSL interop consuming a piped
+script's remaining commands. Launcher/storage/source-release/backend regressions
+and signed 654-package / 612-node input-only release preflight pass. Removed
+5,755,216 KiB (~5.49 GiB) inactive failed C-backed build scratch after retaining
+fingerprint/completion markers and file listing under
+`/var/tmp/ooonana-build-storage-cleanup-20261014.ke7Wd2xb/`. This is logical guest
+space reclaimed; no VHD compaction or promise of equal Windows free space.
+History, model stores, old releases, signed generations and keys remain.
+
+Non-sparse NTFS formatting caused long zero-fill I/O on removable F: (~3.6 MB/s
+observed). Stopped only this run's Ubuntu session to cancel it; sparse-file
+setup replaces that slow allocation path. Removal of the owned incomplete
+`F:\Ooonana\ooonana-os\build-storage\release-stage.ext4.creating` (21 GiB) was
+policy-blocked; no alternate deletion/overwrite attempted. User subsequently
+removed it manually and passed actual sparse-workspace setup/preflight, as
+recorded above. Later user build produced unpromoted media; verification outcome
+and host repairs above supersede the earlier in-progress snapshot.
+No assistant ISO build, sound, installed WSL migration, stable
+promotion or private-key upload.
+
+## October 14 startup, Power and Settings
+
+Actual GRUB EFI preview reproduced small-screen logo/menu overlap; responsive
+spacing and divider repair retain boot policy. Power lock errors cannot fall
+back to insecure blanking; logout/reboot/shutdown default to Cancel, duplicate
+requests are blocked and failures visible. Settings now waits for command
+completion, rolls back failed theme preference, preserves failed wallpaper
+choice and reads memory asynchronously with stale/closed-window guards.
+Private 640/1280px state/action tests, native catalog/window/dock/panel and
+source generation checks pass. Removed ~125 MiB confirmed current-turn test
+payloads; logs/screenshots/configs/history/releases/models kept.
+[Evidence and limits](ui-structure-recheck-20261014.md). No ISO, sound, actual
+host power action, installed WSL migration or stable promotion.
+
+## October 13 centered dock and native app detail pass
+
+Dock now measures 60px with icons centered independently of running/count
+markers. Compact targets and unpinned access remain intact. Shared native
+forms/tooltips/sidebar focus and icon/text spacing refined. Task Manager obeys
+reduced motion and prevents multiline process commands from stretching rows.
+Native catalog covers 25 windows/pages/dialogs at 1024x768 and 1280x800 with
+mocked backends; separate interactive source tests cover actions/input.
+Added personal cursor is this machine's default (21px, private assets); public
+fallback remains 19px, now consistent in generated Xsettings. README captures
+updated; old dated evidence retained. [Details and limits](frontend-detail-pass-20261013.md).
+No ISO, sound, installed WSL migration or stable promotion.
+
+## October 13 frontend micro-polish
+
+Corrected stale Font Awesome 6 family names on the v3.24/Font Awesome 7
+candidate: Solid symbols previously resolved to Brands, dropping control,
+AI and status glyphs. Panel status spacing/colors now keep long Wi-Fi labels
+clear of the centered AI action at 1024 and 1280 pixels. Dock focus is visible
+without hovering; preview headings/captions are aligned with stronger hierarchy,
+bounded previews remain focus-neutral, and screen-reader descriptions include
+window/minimized counts. Native and third-party controls gain pressed feedback
+without changing circle sizes, shape/input regions or window actions.
+
+Impeccable guided one bounded refinement pass, preserving wallpaper/cursor,
+icons, opaque palette and behavior. Private actual-userspace GTK/i3/Polybar
+checks pass; enabled button-state text contrast exceeds 4.5:1. README screenshot
+updated; older visual evidence retained. [Evidence and remaining gates](frontend-polish-20261013.md).
+No ISO, audio test, installed WSL migration or stable-channel promotion.
+
+## October 13 ISO build blockers
+
+User's actual full-rootfs build found three audit errors with two causes:
+v3.24 `rofi` contains shared data but not the launcher executable, and the
+Intel DMC audit demanded a raw blob despite packaged `.zst` firmware and target
+kernel ZSTD support. Both full-i3 and combined profiles now explicitly include
+`rofi-x11-wayland`. Firmware audit accepts nonempty raw blobs or compressed blobs
+only with the corresponding resolved target-kernel loader options; missing,
+unsupported and outside-root targets still fail. Release passes its actual
+cached kernel config to audit. Existing bundle dependencies remain intact.
+
+Repaired failed staging rootfs passes all 174 script / 524 ELF checks with zero
+errors; launcher reports 2.0.0. Regression fixtures cover the split package,
+stale bundles and firmware capabilities. Compressed DMC is retained byte-for-byte
+in the initramfs fixture. Actual UID1000 X11 menu with shipped theme, Wi-Fi
+prompt, two entries and Enter selection passed; earlier auto-select/filter
+probe was inconclusive, not used as evidence of a broken shipped interaction.
+Proof: `/var/tmp/ooonana-build-blockers-20261013.lc6DCFza/` audit/menu logs.
+Candidate metadata contains 654 packages / 612 dependency nodes, with the only
+new desktop dependency `rofi-x11-wayland`. This is not a completed ISO. Rebuild
+normally, without resume flags: earlier rootfs tarball predates launcher repair.
+Physical C: free space remains below the 20 GiB staging recommendation; F: has
+adequate space. No installed Ooonana WSL migration or stable-channel promotion.
+
+## October 12 deep software scan
+
+Fixed Task Manager long-uptime/unsigned-UID overflow, identity-safe task/API
+termination, quick-kill safeguard bypass, bounded command-line reads, failed
+state flushes, malformed i3 IPC and repository publication flush ordering.
+Thirteen candidate GUI gates and real installed Linux CPU AI journey passed;
+full root and private UID1000 workflows passed. Removed ~224.5 MiB duplicate owned test payloads and
+overlays, retaining logs/screenshots/history. Bytecode cleanup policy-blocked;
+no retry through alternate tools. Installed WSL/stable unchanged; no ISO or sound.
+[Detailed evidence and assistant-owned remaining work](deep-recheck-20261012.md).
+
+## October 12 AI, Qt and Firefox closure
+
+- Native AI was explicitly requesting non-streaming replies. Removed that flag;
+  bounded incremental UTF-8 reads now paint live text, including split Korean
+  bytes. Stop terminates only owned CLI process; shared API stays running.
+- Real GTK -> production CLI -> installed CPU engine passed low-memory refusal,
+  visible streaming, Stop, same-engine reuse and loaded-engine crash/restart.
+  SmolLM2-360M QA export, 1280 MiB cgroup cap, no swap, read-only models;
+  CPU load/inference 4.459 s, HTTP cancel/reuse 0.333/0.219 s. Proof:
+  `/var/tmp/ooonana-native-ai-final-20261012.KGKGpMny/run.log`.
+  This is not GPU/large production-model or physical-session certification.
+- New-base QTerminal 2.4.0-r0 passed composited paint, minimize/restore,
+  fullscreen/restore, movement and close-dialog focus/bounds/cancel/confirmation.
+  Added optional catalog entry, not boot dependency. Candidate stage: 653
+  packages, 611 full-i3 dependency nodes. Qt file pickers/theme and physical
+  session remain separate. Proof:
+  `/var/tmp/ooonana-ai-qt-final-20261012.dwDKlZMo/qterminal-frame`.
+- All thirteen isolated candidate GUI gates passed together:
+  `/var/tmp/ooonana-gui-source-freeze-20261012.v8Yv713R/run.log`. Final streaming fixture
+  also passed after pipe cleanup; read-error fixture confirms owned child stops:
+  `/var/tmp/ooonana-ai-stream-freeze-20261012.xrpldgja`.
+- Actual nonroot Firefox installation exposed missing `/var/tmp` in rootfs.
+  Builder/core archive now create sticky 1777 directory; core health check
+  refuses absent/unsafe permissions. Build, upgrade and refusal regressions pass.
+  Firefox 157.0.1 setup/status/update passed in private Linux storage:
+  `/var/tmp/ooonana-firefox-repaired-20261012.4PxGKuV4/firefox-install-update.log`.
+  Proper mount/PID root and `/dev/full` fix chroot/outer-wrapper QA limitations;
+  real UID1000 Documents/FUSE activation, Firefox renderer seccomp=2/no-new-privs=1,
+  painted controls, minimize/restore/fullscreen/restore/move/close passed:
+  `/var/tmp/ooonana-firefox-final-20261012.HgOA2mXJ/run.log`.
+  Sandboxed picker is blocked by Firefox first-run Terms prompt. User delegated
+  recommendation; acceptance deferred, none accepted. Private QA profile has diagnostics off; production defaults
+  unchanged. No browser/Flatpak sandbox or host security policy disabled.
+- CI caught standalone sandbox-helper fixture missing the new app selector.
+  Added explicit Chromium selector plus Firefox uninitialized/unlocked/ready
+  regression. This was test-harness scope, not a disabled production sandbox.
+  New `/var/tmp` health requirement also exposed outdated shutdown-hook fixture;
+  fixture now models actual sticky directory. Entire GitHub CI command suite
+  passed locally: `/var/tmp/ooonana-full-ci-20261012.DYLFbvQV/run.log`.
+- GitHub's nonroot factory run exposed archive extraction masking sticky modes.
+  Install, replacement, configuration restore and rollback now preserve archive
+  permissions explicitly. Tests use umask 077 and verify packaged 0644 files,
+  custom 0640 configuration retention and sticky 1777 `/var/tmp`; health checks
+  stay strict. Live-root migration fixture uses a canonical `/` alias, preventing
+  host admin-helper escalation while verifying live replacement refusal.
+  Entire GitHub command suite also passed as UID1000 with private HOME/XDG state:
+  `/var/tmp/ooonana-nonroot-ci-final-20261012.JMr2j1Eu/run.log`. Root upgrade,
+  interruption and migration fixtures passed separately:
+  `/var/tmp/ooonana-root-permissions-20261012.OT6AEchs/run.log`.
+- Actual candidate BusyBox/musl passed root installation, upgrade, custom 0640
+  configuration retention, sticky 1777 directory and failed-health rollback.
+  Nonroot BusyBox ignores permission-preservation flags; that unsupported path
+  now refuses before unpack/replacement/recovery deletion instead of silently
+  damaging modes. Normal administrator installation remains supported; GNU tar
+  supports nonroot offline targets. CI includes portable archive-mode fixture.
+  Proof: `/var/tmp/ooonana-tar-candidate-final-20261012.MPmMW4AU/{root,nonroot}.log`.
+  Host Ubuntu BusyBox lacks `-T`; candidate binary was tested through its musl
+  loader in a private binary-only fixture, without changing cached userspace.
+- Removed only two failed private Flatpak download caches (~367 MiB), keeping
+  logs and histories. Owned F: 6 GiB test-file format stalled in WSL 9p I/O;
+  stopped owned formatter. Removal was tool-policy blocked; file retained,
+  no alternate deletion attempted. Valid runtime/release caches remain.
+- Latest physical headroom roughly C: 4.4 GiB, F: 10.8 GiB. Full image staging
+  still requires 20 GiB free on C:, 8 GiB on F:. No ISO, installed WSL migration,
+  stable-channel promotion, sound, physical disk mutation or key enrollment.
+  PDF real Chromium viewer remains tool-policy blocked; hardware explicitly skipped.
+
+## October 12 real candidate portal follow-up
+
+- Real activation exposed another missing split package: `xdg-document-portal`.
+  Added it to Firefox dependency closure, native factory imports and both/full-i3
+  profiles. Firefox wrapper bumped to 1.0.1 so existing clients see dependency
+  repair as an upgrade. GTK frontend/backend alone lacked Documents service.
+- FUSE cleanup also lacked `/etc/mtab`; full rootfs now links it to
+  `/proc/self/mounts`. Actual rootfs fixture and portal cleanup retest cover it.
+- Added opt-in real portal probe and signed supplemental-package COW overlay.
+  No full rootfs copy/rebuild, preserved candidate modification or downloads by
+  GUI tests. Real Ooonana manager installed verified packages into private upper.
+- UID1000 frontend/backend/Documents activation and FUSE mount, picker bounds,
+  painted window buttons, Escape cancellation and opening an unchanged owned
+  file passed at 1024x768. Screenshot inspected. Thin upper uses about 2.2 MiB.
+  Proof: `/var/tmp/ooonana-portal-candidate-20261012.MlDoAVbo`.
+- All twelve isolated candidate GUI probes passed together at 1280x800: native
+  apps, AI indicators/chat, desktop interactions, notifications, controls,
+  dock, panel, portals, composited Geany/Nemo/Chromium. Proof:
+  `/var/tmp/ooonana-gui-portals-final-20261012.QZ9gyduI/run.log`.
+- Firefox launcher/probe refusal, full-rootfs and package-factory fixtures passed.
+  Refreshed signed candidate staging contains 643 packages and 611 dependency
+  nodes with supported v3.24 provenance. Only candidate generation is refreshed;
+  stable 0.9.9 repository/installed WSL remain untouched.
+- This is not actual Firefox Flatpak download/update or sandboxed Firefox picker
+  certification. New-base Qt, GUI-to-real-model journey, real PDF viewer and
+  physical/session checks remain separate. Private session intentionally lacks
+  system bus/audio services; Glycin sandbox warning remains a known chroot limit.
+- C: ~7.4 GiB, F: ~16.8 GiB. Large rootfs/ISO staging still needs more C: space.
+  No ISO, WSL migration, sound, signing enrollment or private-key upload.
+
+## October 11 repository selection repair
+
+- Confirmed default F: repository is signed stable core 0.9.9, with imported musl
+  1.2.5-r3 and no explicit supported-base provenance. Current source is core
+  0.10.0; release refusal prevents incompatible userland reuse, not a broken
+  Ooonana package manager. Existing isolated candidate contains musl 1.2.6-r2 and
+  explicit Alpine v3.24 provenance.
+- Added explicit `--repo` / `OOONANA_RELEASE_REPO` selection to release builder;
+  default stable repository and installed WSL stay unchanged. Windows wrapper
+  delegates selected-repo validation instead of requiring an unrelated default.
+- Fixed missing GTK portal entries in the combined factory profile as well as
+  full-i3. Regression covers both profiles and CLI/environment precedence.
+- Actual signed-stage refresh exposed a factory ordering bug: unsigned reindex
+  retained an old signature, so the manager correctly rejected dependency checks.
+  Factory now signs before validation and refuses missing-key refresh before
+  touching signed staging. Build-time closure checks use the explicitly chosen
+  public key, not the unrelated bundled default. Reuse, custom-key verification
+  and no-write refusal regression added; client trust enrollment is unchanged.
+- Refreshed all factory payloads on the same v3.24 branch, current native
+  core/OpenVINO/Firefox/branding and portal closure. Real Ooonana dry-run checks
+  passed for full-i3, native apps and common tools. Final inventory: 642 packages,
+  623 imported packages with explicit v3.24 provenance, 610 dependency nodes.
+  Initial stale-signature failure log retained; repaired signing phase passed.
+- Current-source factory/release/Firefox/CLI regressions passed. Candidate-only
+  atomic publication target is `F:\Ooonana\ooonana-os\build\full-i3-repo-0.10`;
+  trusted signatures and archive checksums are checked before pointer promotion.
+  Stable `build/full-i3-repo/CURRENT` and installed Ooonana 0.9.9 are unchanged.
+- Input-only preflight passed with repaired native staging: repo/signatures,
+  desktop closure, cached kernel config, firmware and source/boot/service gates.
+  This is not a rebuilt final-image or hardware pass. Evidence:
+  `/var/tmp/ooonana-repo-repair-20261011.iA9JyBvt`.
+- F: initially ~18 GiB free, but C: only ~7 GiB after staging. Ubuntu VHD/staging
+  backs onto C:; virtual WSL `df` capacity is not physical headroom. README build
+  command checks 20 GiB free on C: first. No ISO, migration, sound, stable-channel
+  promotion, client key enrollment or private-key upload.
+
+## October 11 runtime setup, inference and portal follow-up
+
+- Hardware/USB checks explicitly skipped by user. No physical target available;
+  GPU, radio/audio routing, power loss, unrelated-drive safety and physical
+  display/session certification are deferred, not passed. No sound or ISO build.
+- Fresh OpenVINO setup completed as UID1000 in disposable storage: pinned Ubuntu
+  root image/checksum, dated APT packages, hash-locked pip dependencies, current
+  app installation, import readiness and real atomic generation promotion.
+  Proof: `/var/tmp/ooonana-fresh-runtime-20261011.pXoMA9RG/setup.log`.
+- Real CPU loading/inference/SSE exposed cancellation continuing generation after
+  BrokenPipeError: GenAI swallowed the Python callback exception. API now captures
+  disconnection and returns an explicit native stop signal for both chat and text
+  completion. Deterministic HTTP cancellation regression added to both CIs.
+- Fresh userspace plus packaged bubblewrap transport passed CPU loading/inference
+  (4.85 s), real SSE, chat/completion cancellation and same-engine reuse
+  (0.33/0.43 s), strict memory JSON/SSE, loaded-engine SIGKILL/restart, UID1000,
+  read-only models, exact dependency versions and current installed GUI assets.
+  Proof: `/var/tmp/ooonana-fresh-inference-20261011.ua0k3JRE/run.log`.
+  Disposable SmolLM2-360M INT4 export was pinned to
+  `a20518b267e200941f99935631a03d57a9eb74ab`; all 13 selected files verified by
+  Hugging Face CLI. About 224 MB downloaded; saved production models untouched.
+  Memory cap 1280 MiB, no swap allowance, two-CPU quota. This is small-model CPU
+  proof, not GPU, large saved-model or new-image physical certification.
+- Candidate image lacked desktop portal frontend/backend. Full-i3 and Firefox
+  dependency closure now include GTK portals; i3-specific backend configuration
+  and desktop/D-Bus activation environment handoff added. Firefox packaging and
+  full-i3 rootfs regressions passed. Real nonroot Flatpak installation/update and
+  portal/file-picker interaction remain pending until current candidate rebuilt.
+- Source/candidate remains 0.10.0; installed Ooonana WSL remains 0.9.9. Migration,
+  signing enrollment and private-key upload remain deferred. No denied cleanup
+  retry. Windows C: ~8.35 GiB, F: ~7.97 GiB; do not treat WSL virtual free space
+  as physical staging headroom. Fresh release repo/rootfs still required.
+
+
+## October 9 offline installed-app and Qt follow-up
+
+- Built/installed OpenVINO Chat 0.2.1 offline into a disposable copy-on-write overlay over cached Linux venv. `pip check`, every pinned dependency version and bundled web-asset hashes passed. Real packaged bubblewrap API now passes without PYTHONPATH/current-source override: UID1000, read-only models, strict memory JSON/SSE, cross-invocation status, crash/restart, stop/state and bridge cleanup. Preserved cache remains 0.2.0. Final fixture uses about 4.23 MiB: `/var/tmp/ooonana-current-app-cow-20261009.lYrBbA8F/run.log`. This closes current-app installation/transport gap, not full Ubuntu/APT setup or model inference.
+- Existing QTerminal 1.4.0 passed painted Ooonana controls, minimize/restore/fullscreen/restore/floating move/close using current config/control code in an isolated nonroot Ubuntu/Xvfb session. Capture inspected; no sound. Host Qt/i3, without compositor: not new-base Qt/theme/portal or physical session certification. Proof: `/var/tmp/ooonana-qt-window-20261009.HZcsOdqY`.
+- Third-party probe now refuses a missing expected control overlay instead of silently skipping actions; floating movement also works for initially tiled Qt clients. All eleven candidate GUI gates passed again, including composited Geany/Nemo/Chromium. Proof: `/var/tmp/ooonana-gui-installed-app-20261009.pmEp5a9o/run.log`.
+- No runtime/model download, production data mutation, ISO, installed WSL migration, signing enrollment or denied cleanup retry. Full remaining gates stay below/in the closure checklist.
+- Removed only three redundant cloned test venvs created during this pass (about 1.34 GiB allocated). Exact paths/metadata, no active mounts/open files and replacement COW proof checked first. Logs, original cached venv and models/history preserved; discarded clones reproducible, not recoverable as deleted files. No VHD compaction or guarantee that Windows backing-drive free space returns.
+
+## October 9 staged runtime setup and interrupted-promotion recovery
+
+- Found OpenVINO setup updating the working userspace in place and force setup deleting it before replacement. Setup now holds kernel writer lock, installs only in a staged copy/fresh pinned userspace, validates readiness and switches a retained generation pointer. No old-generation/model/history deletion. Space floor refuses before copying/downloading; low-RAM warning no longer counts swap as physical RAM.
+- Legacy directory conversion journals before moving its old tree. Launch blocks during pending promotion; failed rename rolls back and the next setup recovers after SIGKILL. Real filesystem/lock/rename/sync fixtures passed three interruption points, normal installer/readiness/checksum failures, concurrency, space/memory warnings and unsafe metadata refusal. Inner installer/downloads are mocked: full setup/inference not certified.
+- Actual nonroot bubblewrap/API transport also passed with the generation pointer and its own read-only model mount; cached userspace/venv unchanged. Proof: `/var/tmp/ooonana-transport-generation-20261009.YDaIdXIq.log`. Both CIs include setup regression. [Safety, recovery and limits](openvino-runtime-safety.md).
+- Follow-up ran the complete setup fault fixture inside isolated Alpine 3.24 candidate userspace and on Ubuntu. Both passed. Fixture now owns its HOME and checks both GNU/BusyBox lock refusals plus no second installer call. GitLab smoke installs `xz` for GNU tar extraction; fixture regression guards that dependency. Alpine proof: `/var/tmp/ooonana-setup-alpine-20261009.G0NqxfxR/setup.log`.
+- No real runtime installation, ISO, deferred WSL migration, sound, signing enrollment or cleanup workaround. Candidate remains 0.10.0; installed/stable 0.9.9. [Full remaining gates](remaining-closure-20261008.md).
+
+## October 9 packaged OpenVINO transport follow-up
+
+- Real packaged bubblewrap launcher passed as UID1000 in private network/PID/mount namespaces on Ubuntu QA host: lazy API start, status from a second invocation, strict oversized-context JSON503/SSE error, daemon survival across launcher exits, owned SIGKILL/restart and stop/state cleanup. Daemon `/proc` confirms host UID1000 and its own model mount read-only. All per-command browser-bridge FIFO directories removed. Preserved models/venv mounted read-only; no weights compiled, browser opened or download performed. This is not installed Ooonana/new-image kernel validation.
+- Reused cached Ubuntu 24.04 QA userspace and pinned OpenVINO 2026.4.1/GenAI/tokenizers 2026.4.1.0. Writable overlay held only disposable mountpoints/readiness marker. Cached app is 0.2.0, so current vendored code was explicitly injected for QA; this does not validate setup installing the current app snapshot. Actual transport is bubblewrap, not proot. Full setup, inference/streaming/cancel and loaded-engine recovery remain pending.
+- Added opt-in real transport runner/probe and ordinary-run/worker-refusal regression to both CIs. Final real run and targeted regressions passed; logs retained outside repository. No ISO, installed WSL migration, cleanup workaround, sound or signing enrollment.
+
+## October 9 continuation: storage guards, generation OOM and guide
+
+- Generation-time OpenVINO allocation failures now use typed insufficient-memory errors, including a failed grammar retry. OOM does not trigger a retry; unrelated errors keep their existing behavior. JSON/SSE, load/fallback/generation regressions, backend metrics and cgroup checks passed.
+- Firefox setup/update now refuse RAM-only/temporary USB storage before any Flatpak calls. Both Firefox and OpenVINO setup refuse unknown, blank, unreadable or dangling live-mode metadata. Explicit volatile opt-in only permits known temporary modes. Existing browser launch/status and setup dry-run stay nonmutating. Fixture and reproducible package checks passed; no browser/runtime downloads.
+- Docs-only guide refreshed with current Chromium/GTK/PDF/runtime evidence, candidate/stable separation and pending gates. Fixed blank page-boundary separators creating empty continuation headings; regression and all four rendered pages checked using PDF skill. Bootable PDF unchanged. Both CIs now run guide/OpenVINO package fixtures; GitLab smoke includes `strings` dependency.
+- Read-only cleanup recheck confirms previous policy-blocked synthetic images remain (~617 MiB allocated); stale F: temp files remain too. No deletion workaround, compaction, history/model/config/key/release removal. Current C: ~10.30 GiB, F: ~7.97 GiB; large release rebuild/verified WSL backup still lack safe space. Windows free RAM fluctuated ~7.5 to ~5.7 GiB; model compile requires extra host margin, so no heavyweight inference attempted.
+- Source/candidate stays 0.10.0, installed Ooonana WSL/stable stays 0.9.9. No ISO, WSL migration, sound or key enrollment. [Full remaining gates](remaining-closure-20261008.md).
+
+## October 9 runtime and file-picker follow-up
+
+- Reproduced actual Geany Open dialog at y=-44, height 862 on 1280x800. Initial GTK file-picker role now receives output-relative bounds and centering; generic alerts remain unchanged. Real nonroot file-picker focus/cancel/open and minimize/fullscreen/restore/move/close passed at 1280x800 and 1024x768. All eleven isolated GUI probes passed again; fresh inspected file-picker capture added to README.
+- Actual pinned Linux OpenVINO 2026.4.1 / GenAI 2026.4.1.0, real Granite tokenizer (including Korean text), five saved-model memory estimates, strict oversized-context refusal and API SIGKILL/restart passed. Models mounted read-only, private network/PID namespace and disposable state, UID1000. This early check used existing Linux Python 3.12 venv without packaged transport; later bubblewrap follow-up above supersedes that gap, not full model inference.
+- Found low-memory failures exposed as generic HTTP500. API now returns HTTP503 `insufficient_memory` or typed SSE error plus DONE; GPU-to-CPU fallback allocation failures receive the same RAM guidance. Unit JSON/SSE/health/unrelated-error/no-OOM-retry regressions and final real API probe passed; both source CIs include the regression.
+- Physical inference remains pending: smallest saved weights ~4.63 GiB; host free RAM measured ~4.2 GiB before probes, while WSL reports its guest allowance. No heavyweight compile/download, ISO, WSL migration, sound or key upload. Last storage check C: ~10.4 GiB, F: ~7.97 GiB; F remains below release builder's 8 GiB minimum.
+- Cleanup request identified abandoned synthetic images/stale temp files, but deletion was policy-rejected before execution. No targets removed or alternate-path retry. Logs/history/models/releases/valid generations remain. [Complete remaining list](remaining-closure-20261008.md).
+
+## Latest remaining-work closure
+
+- PDF cold list now verifies one metadata snapshot instead of resolving builtin packages repeatedly; extra hash-splitting AWK processes removed. Signature/checksum/index-version/missing-checksum/external-source regressions passed. Node measurements: list ~130 -> 45s, sync ~86 -> 57s; not viewer guarantees. Rebuilt actual PDF passed full boot/input/Backspace/edit/version/sync in 107s; 116 fields and final rendering checked. Guide stays earlier candidate snapshot.
+- Reproduced real black Nemo overlay fills; RGBA visual selection before realize plus shape-damage redraw repaired them. All eleven isolated GUI probes passed together, including Geany/Nemo/Chromium composited frames/actions. Fresh candidate desktop/window captures inspected and README updated.
+- Chromium optional shader disk cache caused sandbox syscall crash; global config/current generated helper disable only that cache. Renderer/GPU kernel state confirms seccomp filtering and privilege lock; normal GPU selection/sandbox remain. Software Xvfb/WSL kernel evidence, not image-kernel browser or physical GPU certification.
+- Actual 6.18.37 disposable VM proved interrupted package upgrade/config rollback, wrong-password refusal/nonroot login, partition and full ext4/FAT file persistence fault/recovery paths. Dirty FAT refused unchanged, late handoff/corrupt-image cleanup passed, failed shutdown held through three rescue exits. Wrong installer BusyBox test seed lacked `blkid`; fixture now refuses incompatible seeds before boot. Unrelated guest USB hash unchanged; no host disk attached.
+- Replaced predictable PID checksum cache with private random directory; allocation failure refuses and privilege exec cannot leak caller cache. Symlink/cleanup/handoff, scratch applet, package/migration/interruption and final real upgrade rollback checks passed; rebuilt PDF/core package include guard.
+- Final PDF guard exposed missing TinyEMU `rdtime`/counter enable support. Architectural `time/timeh` reads now use the actual CLINT clock with machine/supervisor privilege checks; compiled width/permission/idempotence/refusal tests passed. No RNG bypass/native kernel rebuild. Final shipped suite passed in 87s; 116 fields and last render checked. Earlier 107s/timing observations above are historical measurements.
+- Broad unit/backend/kernel/boot/package fixtures passed; small current core package inspected. Installed Ooonana/stable remain 0.9.9; candidate 0.10.0 not promoted. Disk space blocks large rebuild/backup. WSL migration remains user-deferred, signing key local, no ISO/sound. [Complete pending list](remaining-closure-20261008.md).
+
+Entries below are historical; latest closure supersedes earlier Chromium/Nemo blockers and PDF timing results.
+
+## PDF boot follow-up and remaining candidate gates
+
+- Previous shipped PDF did not hard-hang in reproduction: quiet init reached its prompt after about 170 seconds while an obsolete elapsed row stayed frozen. Fixed serial handoff/status, early boot-stage output, deterministic sequential RAM seed and RAM shell/backend use. Rebuilt bootable PDF plus guide; native prompt readiness passed. Actual shipped Node VM passed boot/stable input/native/virtual Backspace/middle edit/version/sync in 207 seconds under QA load. Real 500k-instruction cap reached prompt in 83 seconds. All 116 fields/appearances/blank input and rendered pages checked; Chromium viewer interaction remains manual because local navigation was denied, with no workaround.
+- Fixed QA observation hooks for lexical functions inside page-open try/catch; serial benchmarks and instruction caps now reach actual runtime bindings. Source fixture tests catch alias-only instrumentation. Native probe checks prompt, panic and bounded timeout, and reaps its owned guest. Package list remains slow (130s in loaded Node benchmark); sync took 86s. Larger PDF seed trades about 1.6 MiB for sequential startup.
+- Nemo capture now passes actual packaged compositor and minimize/restore/fullscreen/restore/move/close. Earlier single-pixel readiness sampled the fullscreen glyph rather than green fill; area-based validation keeps rejecting unpainted controls. Latest capture inspected without black controls/bottom strip. No speculative production redraw change or compositor/sandbox disable.
+- Service readiness, update/config safety, interrupted upgrade/retry, offline migration, native UI source and kernel policy/source checks passed again. Chromium sandbox crash remains release blocker; no newer v3.24 Chromium package found in current upstream index. Installed WSL migration stays user-deferred; no ISO, sound, key enrollment or stable promotion. [Full remaining list](supported-base-20261008.md#release-blockers--remaining-work).
+
+## Supported-base candidate and cleanup
+
+- Work continues on `codex/supported-base-0-10`, core 0.10.0 with coherent Alpine v3.24 imported payloads. Installed Ooonana WSL, stable main/update endpoint and valid historical generations remain 0.9.9. No Ubuntu conversion, live libc replacement or ISO build.
+- Built scratch/full-i3 candidate rootfs; 639-package signed staging repository passed metadata/signature checks and 580-node desktop dependency closure. New base image loading needed explicit Glycin PNG/SVG providers because APK `install_if` is not an ordinary dependency. Native GTK/CSS/reflow, actual controls, AI fixture chat/indicators, launcher/input and Task Manager checks passed. Geany/Nemo actual window actions passed. Chromium 152 crashed in its syscall sandbox; Nemo compositor capture also needs follow-up. Release remains held, not certified by source tests.
+- Added offline whole-world migration preflight, per-APK base guards, equal/lower-version ABI replacement, major approval before writes, pinned-generation resumability and retained completion records. Interrupted/failing health hooks cannot clear whole-world journal through per-package recovery. Fixtures, update interruption, package factory and kernel policy/source tests passed; no fresh physical/kernel boot certification.
+- Refreshed both PDFs with candidate/stable separation and current backend; current-source embedded VM passed boot, input, native/virtual Backspace, version and package sync in 145 seconds under QA load. Blank input and all three guide pages rendered and inspected. Actual PDF viewer latency remains separate.
+- Failed compressed WSL export stopped before F: filled; deleted only new incomplete 7,671,521,280-byte export. Original distro unchanged. Empty owned GUI test home removed; history/models/keys/checkpoints/logs/verified caches kept. User requested WSL migration be skipped for now; full valid backup and independent offline method still required before resuming.
+- Private signing key remains local. CI candidate tags cannot replace stable Pages/R2; GitLab deployment requires explicit major-publish variable on main. [Detailed evidence and remaining gates](supported-base-20261008.md).
+- Candidate checkpoint pushed to both remotes; GitHub regression and GitLab smoke passed. Stable main was not merged or deployed. Latest PDF command benchmark: bare command 3.2s, help 4.7s, version 3.1s; package list/sync still about 85s in Node VM and remain optimization work. Nemo paint check still failed with private session D-Bus; failed logs retained, speculative redraw edit reverted.
 
 ## October 8 UI and optional catalog
 
@@ -284,10 +2546,12 @@ Current source includes the backend/desktop repairs below. ISO building stays wi
 User-owned ISO build, from PowerShell:
 
 ```powershell
-& 'F:\Ooonana\ooonana-os\Build-ISO.ps1'
+& 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10'
 ```
 
-Current source requires a fresh normal build. Do not use `--resume-after-iso` or
+Do not launch another copy while the current build runs. Shipped runtime/package
+changes require a fresh normal build; documentation-only updates do not.
+Do not use `--resume-after-iso` or
 `--resume-after-rootfs` against the old October 5 staging. Back up persistent USB
 data before flashing; existing production/staged ISOs do not contain these repairs.
 

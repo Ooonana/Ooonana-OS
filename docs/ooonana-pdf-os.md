@@ -7,9 +7,9 @@ Current 0.6 build is based on [ading2210/linuxpdf](https://github.com/ading2210/
 - PDF JavaScript runs TinyEMU.
 - TinyEMU boots a RISC-V Linux kernel.
 - The PDF exposes a real 80x30 serial terminal plus on-page keyboard controls.
-- Boot uses accelerated VM batches and shows live elapsed time before kernel logs.
+- Boot uses bounded VM batches; elapsed time stays live after kernel logs too.
 - Chromium PDF viewer is the main target.
-- Native RISC-V64 Linux 6.18.37 / static BusyBox 1.37.0 rootfs carries Ooonana package manager 0.9.9 and current logo/help.
+- Native RISC-V64 Linux 6.18.37 / static BusyBox 1.37.0 rootfs carries candidate package manager 0.10.0 and current logo/help.
 - Boot console prints `OOONANA_PDF_BOOT_OK` after Ooonana init starts.
 - Opaque graphite cards, orange monospaced terminal, rounded keyboard controls and a blank command input with Run / Enter; redundant input hints removed.
 - The upstream one-second input-reset interval is removed from embedded JavaScript, not merely the initial widget appearance. Input remains editable without periodic replacement.
@@ -62,7 +62,7 @@ That writes `docs/ooonana-guide.pdf`.
 
 - Native Linux/BusyBox build manifests, JavaScript VM boot/input/version/package-sync tests and static form/render checks are included. Chromium interaction remains manual/pending; automation availability is not proof of viewer behavior.
 - PDF payload carries only portable CLI/comparator/help/logo, base metadata, source configs and public trust keys. Desktop GTK/Python/icons/wallpapers/installer/WSL extras and unsupported AI/dev/GUI bundles are excluded. Base indexes/checksums are rebuilt consistently; real package checksum/signature verification is unchanged.
-- Real CLI backend, help and repository inputs are copied by explicit names into bounded tmpfs, avoiding repeated 9p reads/enumeration. Dirty terminal rows paint at most 20 Hz with cached widget references; VM batches have a 12 ms deadline and 32-call cap. Loader diagnostics no longer update invisible form fields.
+- Real CLI backend, help, trust/source inputs and BusyBox shell enter bounded tmpfs through one deterministic seed archive, avoiding per-file runtime 9p opens/copies. Early console handoff reports mount/seed/session stages. Package backend bytes and verification stay unchanged. Dirty terminal rows paint at most 20 Hz with cached widget references; VM batches have a 12 ms deadline and 32-call cap. Loader diagnostics no longer update invisible form fields.
 - All 116 canonical widgets were reopened with matching values/appearances/actions; the final static layout was inspected. PDF size fell about 7%; payload root about 35%.
 - Regression checks now run the embedded script beyond its old one-second reset deadline and exercise both native and virtual Backspace through guest shell commands. Fixture checks cover tail replacement, middle selection positioning and Delete past end.
 - Add release artifact upload for `ooonana.pdf`.
@@ -85,12 +85,23 @@ October 5 host Node VM measurements (not browser timings):
 | `ooonana list` | exceeded 240 s | 63.4 s |
 | `ooonana update` | prior native boot/input/sync suite passed | 51.1 s command |
 
-Latest rebuilt boot/stable-input/native-and-virtual-Backspace/middle-edit/arithmetic/version/package-sync suite passed in 90 seconds.
+October 8 follow-up: the previous shipped PDF reached a prompt after about 170 seconds on a slow host; first serial output froze its displayed boot row, so quiet init looked stalled. Rebuilt PDF removes that obsolete row and keeps elapsed/status updates alive until userspace readiness. Actual shipped page-open code (not only cached compiled JS) passed boot, stable input, native/virtual Backspace, middle editing, version and package sync in 207 seconds under concurrent QA load. A genuine 500,000 interpreted-instruction/second cap reached the prompt in 83 seconds. Timings are host Node VM measurements, not browser guarantees.
+
+Earlier shipped-code benchmark under QA load: bare command 5.070s, topic help 6.457s, version 4.201s, list 129.932s, sync 86.228s. PDF grew to about 6.9 MiB because the seed archive duplicates shell/metadata bytes for faster sequential startup.
+
+Latest October 8 optimization removes AWK processes used only to split checksum fields and lists cold builtin packages through one private verified metadata/index snapshot. It preserves signature/checksum/version refusal, missing-checksum rejection, explicit embedded-key trust policy and normal external-source precedence. Snapshot bytes, not separately reread originals, are sourced. Source fixtures cover corruption, CRLF sums, signed/unsigned policy and cleanup. Latest measured Node list 45.371s, sync 56.699s, bare command 2.406s, help 3.308s, version 2.198s; host load differs, so these are observations rather than speed guarantees. After the final stricter checksum-entry guard, rebuilt actual shipped script passed boot/stable input/native/virtual Backspace/middle edit/version/sync in 107s. All 116 fields and final rendered layout checked. Real Chromium viewer remains untested; no policy workaround used.
+
+The harness now reads page-open JavaScript and canonical fields from the actual PDF. Optional QA observation/rate hooks capture lexical bindings inside its try/catch wrapper, not merely Annex-B global aliases; a fixture verifies both paths. These hooks are injected only in the Node test context, never into the delivered PDF. `scripts/inspect-pdf-runtime.py` requires `pypdf`; select Python through `OOONANA_PDF_PYTHON`, or pipe its JSON output into the harness using `-`. Native probe requires both boot marker and prompt; panic/timeout fails and its owned child is always reaped.
+
+Final cache hardening uses one private random directory per package invocation, inherited by subshells and removed by parent cleanup. It neither follows nor removes pre-created PID symlinks and refuses allocation failure. Allocation occurs after privilege handoff, avoiding `exec` leaks; bare help/version do not allocate. Current PDF embeds this guard too. Earlier timing observations above precede this last hardening change.
+
+That guard exposed real guest `mktemp` failure on `0xc01027f3` (`rdtime`). TinyEMU did not implement `time/timeh` and discarded the time-enable counter bit. Builder now applies an idempotent architectural CSR patch: existing CLINT clock callback, machine plus supervisor permission gates, RV32 high word and RV64 high-word refusal. It neither substitutes instruction count for time nor bypasses kernel randomness. Compiled permission/width tests passed; final actual PDF boot/input/Backspace/middle edit/version/sync passed in 87s and was rendered/inspected again. Native kernel/BusyBox binaries remained hash-verified originals. Harness now rejects illegal guest instructions/cache-creation failure immediately. [RISC-V counter access specification](https://docs.riscv.org/reference/isa/priv/supervisor.html).
+
 Actual package sync passes, but package operations still cost much more than simple
 help/version. Browser field IPC and machine speed can change latency; measure the
 user's Chromium viewer separately before claiming the two-minute issue resolved.
 
-Native configuration includes legacy SBI console, PLIC, virtio/9p, 100 Hz tick and ISA fallback. Runtime uses `hvc1` when available for keyboard input. Slow RV64 JavaScript otherwise starves CPU progress with timer interrupts, so only the Emscripten RV64 emulator clock is scaled down 16x. Guest wall clock is therefore slower than real time; native host TinyEMU and RV32 are unchanged. Init injection unlinks the BusyBox init symlink before replacing it, preserving the BusyBox executable.
+Native configuration includes legacy SBI console, PLIC, virtio/9p, 100 Hz tick and ISA fallback. Runtime uses `hvc1` when available for keyboard input. Slow RV64 JavaScript otherwise starves CPU progress with timer interrupts, so only the Emscripten RV64 emulator clock is scaled down 16x. Guest wall clock is therefore slower than real time; native host TinyEMU and RV32 timer rates are unchanged. New architectural time CSR reads follow whichever clock the machine actually uses. Init injection unlinks the BusyBox init symlink before replacing it, preserving the BusyBox executable.
 
 Native runtime resolves SHMEM/tmpfs and sysctl dependencies. Temporary mounts use bounded RAM-backed tmpfs; BusyBox standalone/nofork avoids repeated applet ELF loading. `--reuse-runtime` verifies the existing binary manifest and every current fragment option rather than rebuilding kernels for PDF-only changes. New builds and `--reuse-kernel` use the same configuration gate: missing required features, enabled forbidden features and duplicate options refuse. The fragment records dependency-selected `RISCV_ALTERNATIVE=y` and `DEBUG_KERNEL=y`; these are architecture/menu requirements, not newly enabled debug instrumentation. Matching emulator sources are not rewritten merely to trigger rebuilds. Static PDF form/render checks are separate from runtime execution. Local PDF browser navigation was blocked by browser security policy; no alternate browser/proxy workaround was used. Chromium interactive verification remains manual/pending.
 
@@ -107,4 +118,4 @@ Chrome smoke:
 powershell -ExecutionPolicy Bypass -File scripts/test-ooonana-pdf-chrome.ps1
 ```
 
-The screenshot output is `docs/ooonana-pdf-chrome-smoke.png`.
+The screenshot output is `docs/ooonana-pdf-chrome-smoke.png`. Do not run this as a workaround when browser policy denies local PDF navigation. Current session's viewer check remains manual.

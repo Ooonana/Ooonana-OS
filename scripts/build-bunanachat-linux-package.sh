@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT/scripts/lib/common.sh"
 OUT_DIR=""
 VERSION="0.1.1"
 SOURCE_DIR="${OOONANA_BUNANACHAT_LINUX_SOURCE:-$ROOT/packages/bunanachat-linux/source/dist}"
@@ -61,9 +62,13 @@ install -d "$staging/opt/bunanachat"
 install -m 0755 "$SOURCE_DIR/BunanaChat.Linux" "$staging/opt/bunanachat/BunanaChat.Linux"
 install -m 0755 "$SOURCE_DIR/libSkiaSharp.so" "$staging/opt/bunanachat/libSkiaSharp.so"
 install -m 0755 "$SOURCE_DIR/libHarfBuzzSharp.so" "$staging/opt/bunanachat/libHarfBuzzSharp.so"
+find "$staging" -type d -exec chmod 0755 {} +
+find "$staging" -type f -exec chmod 0644 {} +
+chmod 0755 "$staging/opt/bunanachat/BunanaChat.Linux" \
+  "$staging/opt/bunanachat/libSkiaSharp.so" "$staging/opt/bunanachat/libHarfBuzzSharp.so"
 chmod 0755 "$staging/usr/bin/bunanachat"
 
-tar \
+ooonana_tar_gzip_atomic "$archive" \
   --sort=name \
   --mtime='UTC 1970-01-01' \
   --numeric-owner \
@@ -72,7 +77,7 @@ tar \
   --pax-option=delete=atime,delete=ctime \
   -C "$staging" \
   -cf - \
-  . | gzip -n > "$archive"
+  .
 
 archive_sha="$(sha256sum "$archive" | awk '{print $1}')"
 cat > "$metadata" <<EOF

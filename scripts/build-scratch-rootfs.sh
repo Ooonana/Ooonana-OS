@@ -90,7 +90,7 @@ create_base_dirs() {
 
 create_busybox_links() {
   local applet
-  for applet in adduser awk basename cat chmod clear cp cut date dd df dirname dmesg echo env find free grep hostname ifconfig ip killall login ls mkdir mount mv passwd ps pwd readlink rm rmdir route sed sh sha256sum sleep sort sync tar touch tr udhcpc umount uname wc wget; do
+  for applet in adduser awk basename cat chmod clear cp cut date dd df dirname dmesg echo env find free grep hostname ifconfig ip killall login ls mkdir mktemp mount mv passwd ps pwd readlink rm rmdir route sed sh sha256sum sleep sort sync tar touch tr udhcpc umount uname wc wget; do
     ln -sf busybox "$ROOTFS/bin/$applet"
   done
   for applet in mdev reboot; do
@@ -311,7 +311,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   list_output="$(/usr/bin/ooonana list 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.9' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.10.0' &&
     printf '%s\n' "$me_output" | grep -q 'Ooonana OS' &&
     printf '%s\n' "$list_output" | grep -q 'gui' &&
     printf '%s\n' "$installed_output" | grep -q 'base'; then
@@ -330,11 +330,12 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
 fi
 EOF
 
-  write_file "$ROOTFS/etc/os-release" 0644 <<'EOF'
+  write_file "$ROOTFS/etc/os-release" 0644 <<EOF
 NAME="Ooonana OS"
 ID=ooonana
 PRETTY_NAME="Ooonana OS Scratch"
 VERSION_ID="0.0.1-scratch"
+OOONANA_USERLAND_BASE="alpine-$(ooonana_alpine_branch)"
 EOF
   write_file "$ROOTFS/etc/profile" 0644 <<'EOF'
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin${PATH:+:$PATH}"
@@ -365,7 +366,7 @@ appendWindowsPath=false
 EOF
   if [[ -f "$ROOTFS/usr/share/ooonana/logo.txt" ]]; then
     cp "$ROOTFS/usr/share/ooonana/logo.txt" "$ROOTFS/etc/motd"
-    cp "$ROOTFS/usr/share/ooonana/logo.txt" "$ROOTFS/etc/issue"
+    # /etc/issue comes from the overlay, escaped for BusyBox getty expansion.
   fi
 }
 

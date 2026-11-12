@@ -15,13 +15,365 @@ Ooonana OS is a custom Linux distribution built from scratch around its own boot
 
 Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Linux, BusyBox, GRUB, i3, and other open-source components. Ooonana package factory currently imports selected Alpine package payloads into Ooonana `.pkg` repositories while native packages replace them over time.
 
-![Current Ooonana desktop with original wallpaper, left music, centered AI and blue browser icon](docs/assets/ooonana-desktop-20261008.png)
+**Core 0.10.0 candidate.** Runtime revision `36dbeb5` passed GitHub and GitLab
+CI. Local signed generation `82d298f4ebf5` contains 737 packages, including the
+Nemo integration fixes, graphical sign-in, and updated desktop flyouts.
+Ooonana WSL uses this generation with i3 bundle `0.1.7`.
+[Current checks and release gates](docs/release-readiness.md).
 
-October 8 source desktop captured with real GTK/i3/Polybar on an isolated X11 display. Panel status uses sample data; wallpaper/dock are source assets. No audio played. Physical USB visuals require a fresh image. Earlier WSL screenshot remains in `docs/assets/ooonana-full-i3-desktop.png`.
+Graphical sign-in after logout in an isolated candidate session.
 
-Core 0.9.9 source refresh adds unboxed dock hover feedback, slimmer panel, open Appearance groups, blue globe browser icon and canonical wallpaper fitting. Component previews use isolated test windows, not physical USB boot.
+![Ooonana sign-in screen with username and password fields over the Ooonana wallpaper](docs/assets/ooonana-sign-in-20261112.png)
 
-![Current native Appearance settings](docs/assets/ooonana-appearance-20261008.png)
+Installed Ooonana nested desktop, November3:
+![Ooonana installed desktop: compact panel, left-side music and flat application dock](docs/assets/ooonana-desktop-20261103.png)
+
+November5: signed candidate catalog **718 packages /637 dependency nodes** on F:
+now includes an independent OpenAI provider, safe quota/rate error handling
+and full key redaction. [Provider repair and current boundary](docs/ai-openai-provider-20261105.md).
+On November 5, signed generation `81a73840` matched installed Ooonana WSL after disk
+reserve was restored. Core/runtime/i3 and installed Graphite/Paper checks pass;
+65 protected authentication/configuration files remain unchanged.
+Custom-init login1/Polkit startup is already installed;
+WSL safely skips physical power services. Installed nested mouse/keyboard,
+Hangul, Backspace and clipboard acceptance passes. Earlier session-package
+verification remains valid. Existing desktop
+visual passes remain valid; the later AI change adds one provider choice.
+Public asset exclusion
+passes; licensing, physical/held VM checks and stable promotion remain pending.
+[Items1–15 follow-up](docs/ui-1-15-completion-20261104.md).
+[Current11–25 checklist](docs/release-readiness.md).
+
+Package archive writers now replace completed files atomically and preserve
+saved hardlinks/old archives after failed rebuilds or fetches. Combined catalog
+includes the existing Korean-input packages. Confirmed Linux cache/duplicate
+cleanup reclaimed about1.70GiB while preserving history/models/keys.
+[Archive repair](docs/package-archive-atomicity-20261103.md) ·
+[cleanup evidence](docs/vartmp-cleanup-20261103.md).
+
+November2–3 repairs retained-install filesystem identities, missing root-lock
+records and incomplete copies hidden by reproducible timestamps. Actual private
+BIOS/UEFI login, sudo, EFI/swap and clean shutdown now pass. The console mascot
+also renders correctly through real getty at80/40 columns.
+[Evidence and remaining integration gates](docs/installer-integrity-20261102.md).
+
+November1 repairs missing installer disk tools and preflights them before writes.
+Installed boot mounts configured storage and blocks login on mount failure.
+Manual WSLg input observations and
+file-backed VM limits are [recorded separately](docs/ui-10-15-recheck-20261031.md).
+Installed WSL/publication/ISO remain held.
+
+October30 recheck passes14 normal/scaled10–15 cases and two native lock
+input-edge cases. Firefox1.0.2 repairs Flatpak Korean composition; boot/build
+font cache repair restores Korean glyphs. [Latest status and cleanup commands](docs/ui-10-15-recheck-20261030.md).
+
+October29 candidate follow-up adds a visible native lockscreen password field
+and default Fcitx5 Hangul input for GTK/Qt (Ctrl+Space). Existing input profiles
+and alternate providers are preserved. Real private process/PAM/installer-GUI
+checks extend items10–15; physical hardware, installed WSLg, cloud AI and final
+release acceptance remain separate. [Results and exact limits](docs/ui-10-15-review-20261029.md).
+Installed Ooonana WSL, remote publication and ISO creation remain held.
+
+October26 source checkpoint: legacy XEmbed tray hosting, missing-app launcher
+recovery and compact Breakout resize handling pass private checks. Qt Fusion
+and Windows-style dialogs/pickers pass normal/scaled cases. Compiled native
+packages are staged separately; installed WSL and signed release remain older.
+Checks6–8 now cover launcher handoffs, actual private Settings theme/wallpaper
+persistence and harmless real PAM authorization. Settings preserves managed
+theme links; Wi-Fi rejects missing/unreadable certificate selections before
+activation. Physical radios and installed keyboard/IME remain unverified.
+October27 recheck passes6–8. Checks9–10 add real private null-device audio
+routing/media and notification privacy, badges, DND and recovery checks.
+Notification Remove now rechecks message identity and targets the same daemon,
+preventing a stale click from deleting a newly reused ID after restart.
+No audible playback, installed WSL update, signing/publication or ISO build.
+[Current evidence and release gates](docs/current-work.md).
+[Reconciled remaining acceptance checklist](docs/release-readiness.md) preserves
+completed private work and separates installed/manual release gates.
+
+October27 source addition: launcher, notifications and quick controls now open
+as anchored opaque desktop flyouts, with no dock task entry. Escape/click-away,
+trigger toggling, nested password dialogs and background request lifetime pass
+private checks. Default text size stays unchanged. Matching packages remain
+unpublished; installed Ooonana WSL and the signed release have not been synced.
+[Ooonana's own style and placement](docs/desktop-style.md) guide these surfaces;
+reference screenshots describe behavior, not copied composition.
+
+October28: Control Center adds visible output identity, Refresh, a fixed
+keyboard-reachable footer and collapsed diagnostics when backlight is absent.
+Quick volume Apply now preserves externally changed default input/output routes.
+Packaged private desktop checks pass, including real signed-metadata Settings
+authorization, tamper refusal and retry. Installed Ooonana WSL remains held.
+
+October28 follow-up: packaged private notification history/actions/DND and
+restart checks pass. Packages More now exposes guarded interrupted-update
+recovery. Real signed GUI install/upgrade, failed-health rollback, interruption/
+recovery and Health checks pass in a disposable target. Confirmation wrapping
+and Health spacing were corrected for actual200% text at760×600. Full installed
+system/hardware acceptance and stable promotion remain pending.
+
+October29: lock/session checks add configurable inactivity locking (default
+Off), Super+Ctrl+L, guarded duplicate launches and compact scaled unlock hints.
+Native lock now has a persistent focused password field, fixed hidden-input
+mask, separate errors/layout/Caps warnings and bounded CJK labels using the
+already packaged Korean font. [Password field preview](docs/assets/ooonana-lock-password-field-20261029.png).
+Actual private PAM, password editing, expiry/rotation and idle locking pass.
+Power requests suspend only after confirmed locking and login1 authorization;
+the current custom-init image lacks that service, so physical suspend remains
+pending. [Item10.5 evidence and limits](docs/lock-session-review-20261029.md).
+Installed WSL, remote publication and ISO remain held.
+
+![Graphite Control Center with volume and mute above connection controls](docs/assets/ooonana-controls-20261112.png)
+
+This November 12 preview uses a silent test output. The
+[empty Notifications flyout](docs/assets/ooonana-notifications-empty-20261112.png)
+shows the shorter layout. Full desktop capture below records an earlier session.
+November3 exact-package sweep passes18 normal/scaled desktop cases. The matching
+[Paper200% capture](docs/assets/ooonana-controls-paper-scaled-20261103.png) shows
+the fixed footer and scrollable body on a760×600 display. Current Ooonana WSL
+packages are synchronized and the user confirms the nested desktop is visible.
+Live review also found the missing AT-SPI activation daemon; the full desktop
+profile now includes it explicitly, with an upgradeable i3 bundle revision.
+
+![Candidate desktop with flat centered dock, Task View, left music and centered AI](docs/assets/ooonana-flat-pinned-dock-20261019.png)
+
+October 19 core 0.10.0 candidate captured at normal100% with real GTK/i3/Polybar on a private, network-isolated X11 display. Panel status uses sample data, including deliberately long CJK labels; wallpaper/dock are source assets. Flat dock groups windows by app: pinned apps left, running unpinned apps right. Right-click Pin/Unpin; hold-drag to reorder within either section, or use Move left/right. Pins/order survive restart; unpinning never closes windows. Apps launcher stays fixed at far left. All window entries/actions live in dock, not top panel. Task View (`Mod+Ctrl+Tab`) still switches windows/desktops. [Behavior, compact-screen checks and limits](docs/ui-whole-os-review.md#batch-30-flat-dock-app-groups-and-persistent-pins). No audio-device playback. Physical USB visuals require a fresh image. Earlier captures remain in `docs/assets/`.
+
+Signed local candidate and Ooonana WSL now include flat dock/pin changes;
+both CIs, signed repository, installed files and health checks pass. Close old
+nested desktop manually when ready, then relaunch. No ISO built.
+[Publication receipt, GUI/build and manual cleanup commands](docs/ui-whole-os-review.md#published-checkpoint-after-batch-30).
+
+October20 follow-up fixes Spotlight's delayed selection reset and ranks exact
+app names before description-only matches. Newly opened Geany/Files windows
+fit small-screen panel/dock clearance without changing already-fitting defaults
+or later user resizing. Signed candidate/Ooonana WSL include these fixes.
+Real themed-wrapper checks pass both appearances;
+[checks and current publication state](docs/ui-whole-os-review.md#batch-31-preferred-launchers-search-selection-and-default-app-fit).
+
+October22 signed candidate compacts native titlebars:32px title-only/42px with
+subtitle at normal text, retaining24px controls and unchanged font sizes.
+Useful subtitles and larger accessibility text still get content-driven room.
+Third-party controls now have a pinned native i3 candidate with matching left
+placement/diameter. [Review and publication status](docs/ui-whole-os-review.md#batch-32-native-and-third-party-control-parity).
+GitHub/GitLab checks pass; signed local generation and Ooonana WSL now include
+both changes. Existing apps/desktop need manual relaunch; no ISO built.
+
+Power follow-up now uses compact40px actions, safe initial Cancel/Enter and
+Escape handling, and visibly mapped native confirmation chrome. Actual private
+i3 dark/light100/200% checks pass; signed candidate/Ooonana WSL include it.
+[Power screenshots, checks and remaining UI work](docs/ui-whole-os-review.md#batch-34-compact-power-and-safe-keyboard-defaults).
+
+Desktop sessions now enter the user's Home before launching apps/services,
+instead of inheriting a build folder, Windows mount or filesystem root. Missing
+Home stops startup with a clear error. Explicit app workdirs remain unchanged.
+[Qt scaling/picker and Home-default checks](docs/ui-whole-os-review.md#batch-29-scaled-qt-pickers-and-session-home-defaults)
+cover normal defaults plus isolated200% Qt stress; no global scale increase.
+Signed candidate and native Ooonana WSL now include this fix; package/file/health
+checks and installed UID1000 Home startup pass. No GUI restart or ISO build.
+[Home-default publication receipt](docs/ui-whole-os-review.md#published-checkpoint-after-batch-29).
+
+October 18 notification follow-up preserves keyboard reading position when new
+messages arrive and keeps saved history visible during storage failures, with
+persistent error/retry feedback. Actual private Dunst checks pass both themes
+and compact/desktop sizes. Signed candidate and native Ooonana WSL are updated;
+relaunch apps for changed code. [Checks and remaining limits](docs/ui-whole-os-review.md#published-checkpoint-after-batch-23).
+No release ISO built; an old ISO/resume cannot acquire these runtime changes.
+
+October 18 administration/recovery follow-up labels the password field and
+keeps error dialogs inside small displays at enlarged text sizes. Real private
+sudo cancellation/retry and Settings save/reopen/read-only recovery pass;
+successful privileged package transactions still need separate verification.
+Signed candidate and Ooonana WSL refreshed; typography/default scale unchanged.
+[Normal-size capture, tests and limits](docs/ui-whole-os-review.md#batch-24-administration-and-settings-storage).
+
+October 19 dock follow-up removes fullscreen-content overlap and restores dock
+visibility without focus theft when switching workspace or leaving fullscreen.
+Real edge tooltips/menus and multi-session keyboard actions pass; normal dock
+height, icons, framing and default text scale stay unchanged. Signed candidate
+and Ooonana WSL refreshed; relaunch GUI for new dock code. No ISO built.
+[Preview, fullscreen checks and remaining display limits](docs/ui-whole-os-review.md#published-checkpoint-after-batch-25).
+
+October 19 device-scale follow-up keeps third-party window controls inside their
+native i3 titlebar at actual 1×/2× device scaling and fixes offset-monitor
+fullscreen hit testing. Four real dark/light cases pass, including actual
+Minimize/Close X11 clicks. Default text size and normal control proportions stay
+unchanged. Signed candidate and native Ooonana WSL refreshed; relaunch desktop
+for changed code. No ISO built.
+[Checks and physical-display limits](docs/ui-whole-os-review.md#published-checkpoint-after-batch-26).
+
+October 19 Spotlight follow-up removes i3's forced760px size, which clipped
+window controls on640px screens. Display-aware GTK sizing now survives actual
+window-manager mapping; normal app defaults remain unchanged. Real keyboard
+launch/discovery/focus handoff to terminal and native Settings pass four
+dark/light compact/desktop cases. Signed candidate and native WSL refreshed;
+relaunch desktop for changed rules. No ISO built.
+[Normal-size capture and exact limits](docs/ui-whole-os-review.md#published-checkpoint-after-batch-27).
+
+Stable core 0.9.9 desktop refresh adds unboxed dock hover feedback, slimmer panel, open Appearance groups, blue globe browser icon and canonical wallpaper fitting. Component previews use isolated test windows, not physical USB boot.
+
+Latest October 14: installed **Ooonana WSL is now 0.10.0** after user-authorized
+fresh replacement of experimental data, without old backup. Actual cold user,
+signed local package source/install, GTK/WSLg and nested i3/dock/panel readiness
+passed. Ubuntu remains on C:, Ooonana remains at its existing F: location; stable
+package channel remains 0.9.9. No AI weights downloaded, audio muted or ISO
+remade. [Replacement, manual QA cleanup and GUI launch](docs/wsl-replacement-20261014.md).
+Older dated installed-WSL snapshots below are historical.
+
+October 15 application polish: compact first-run Geany toolbar and readable
+Graphite/Paper palettes; preserved existing editor preferences. Shared GTK
+pressed-button states and dim subtitles repaired; AI now distinguishes request
+Idle from a loaded model. Ten native app layouts fit 1280×800 and 1024×768;
+actual WSLg mouse/physical-key/Backspace and GTK picker checks passed.
+Windows clipboard/Unicode, Korean IME and manual PDF metrics remain open.
+These runtime changes require a new user-built ISO after repository refresh.
+[Screenshots, checks and limits](docs/app-polish-20261015.md).
+
+Broader UI recheck: 25 native pages/dialogs checked in both appearances;
+repaired light-mode native/chat contrast, quieter application launch actions and
+form accessibility. Dock, native window controls, Settings/Power recovery and
+small-screen GRUB rechecked. [Coverage, screenshots and remaining gates](docs/ui-missed-recheck-20261015.md).
+
+Whole-OS UI review remains active. New compact-layout fixes cover Packages,
+Health/Updates and signal maps; native plots now follow both appearances.
+Busy/error/retry feedback and keyboard action rows have isolated GTK checks.
+Follow-up repairs bound long app/music/device names, add empty-search guidance,
+keep installer fields scrollable and protect in-flight Setup. WSL compositor
+adaptation now preserves full redraw/redirection without changing physical defaults.
+Wireless pages keep list space and name priority on compact screens; secondary
+tools stay under keyboard-accessible More. Notification refresh retains focus,
+long messages expand on demand and action/preference failures stay visible.
+Batches 1–3 are now in the signed local candidate repository and installed
+Ooonana WSL; both core/runtime verification checks pass. Relaunch GUI to use
+new app code. Existing ISO is unchanged; broader review remains active.
+This is not a claim that every installer, app, display or session path is done.
+October 18 Qt follow-up: selected dark/light appearance now reaches the Settings
+portal and Qt dialogs. Fresh QTerminal profiles get opaque Graphite/Paper,
+smaller type/margins and no oversized lone tab; existing Qt preferences remain.
+Actual isolated Qt6 controls and exit confirmation pass both appearances.
+F: returned; this Qt follow-up is now signed/published locally and verified in
+Ooonana WSL. Relaunch GUI for changed code; no GUI restart or ISO build performed.
+Firefox's isolated first-run/picker/window flow now passes. Local WSL canonical
+document runtime correction is installed and passes guards/selection checks;
+actual installed browser/WSLg integration stays open. Qt Preferences' clipped
+small-screen titlebar now has a one-time initial bounds correction, without
+resizing native controls or fighting later user movement. Six settings pages,
+Cancel and window actions pass 640×600/1024×768 in both appearances. This newest
+placement patch is signed/published locally and verified in Ooonana WSL;
+relaunch desktop/apps for changed code. Broader review stays active.
+[Qt evidence, screenshots and remaining review](docs/ui-whole-os-review.md#batch-19-qt-appearance-and-first-run-proportions).
+Follow-up adds default-Cancel package change previews and readable Health
+snapshots with exact raw/copy access and honest service/memory warnings. Compact
+dock overflow now tracks visible pins; `Super+Ctrl+D` opens keyboard dock actions.
+Batch 4/5 are now signed/published locally and verified in Ooonana WSL; relaunch
+GUI for current app code/shortcut. Older ISO stays unchanged.
+October 16 source follow-up corrects oversized desktop controls: normal buttons/
+entries 32px, dropdowns 33px, existing font sizes retained and actions content-fit.
+Settings gains compact page navigation, visible keyboard focus, bounded native
+picker/log dialogs and stronger failure/duplicate handling. This batch is now in
+the signed local candidate and Ooonana WSL; close older desktop/apps and relaunch
+for current code/theme. Existing ISO is unchanged; broader UI review continues.
+Latest source: native chat gains proportional controls, compact navigation,
+bounded captions/attachment picker, empty search and safe status callbacks.
+OpenVINO work is deferred by user until its unfinished major update is ready;
+no OpenVINO runtime changes or model downloads. Native chat checks use fixtures.
+Typography follow-up: native body matches desktop 10pt, headings/search are
+quieter, and wide AI windows no longer auto-enlarge text. User scaling retained;
+large stress-test screenshots are not default size.
+Typography/native-chat refresh is now signed/published and verified in Ooonana
+WSL; both remotes contain source. Relaunch apps for new text size. No ISO built.
+Latest source follow-up improves Task Manager compact views, copyable diagnostics,
+stable selection/scroll and safe End task confirmation. Real window interaction
+checks caught/fixed missing workspace keys and broken modifier drag/resize;
+private native/XTerm tests pass both themes. This refresh is signed/published and
+verified in Ooonana WSL; relaunch desktop/apps. Existing ISO remains unchanged.
+Latest refinement further reduces page/hero/search text to 14/18/12pt,
+keeping body 10pt and user scaling. Dark/light 100/200% checks pass; this small
+follow-up is included in October 17 signed candidate/WSL refresh.
+Wireless follow-up hardens busy/closed states, advanced form validation, bounded
+certificate pickers and safe Reset/Remove; scaled CSD placement now stays onscreen.
+Source verified in private GTK/i3, both remotes/CI and signed candidate/Ooonana
+WSL. Relaunch apps for changes; ISO unchanged. No forced restart.
+Sound/brightness/music follow-up adds verified-readiness gates, selected-device
+audio commands, inline permission/retry feedback and preserved volume drafts.
+Actions cannot overlap or re-enable from stale polling; small/scaled layouts
+remain scrollable and keyboard accessible. Silent private GTK fixtures pass both
+themes at 100/200% text, plus all 25 native catalog pages at compact size.
+Controls batch is signed/published locally and pushed to both remotes; both CI
+checks pass. Installed Ooonana WSL refresh, module hashes, user GTK imports and
+default package cache verified after a successful startup retry; no forced restart.
+Confirmed redundant staging/transfers and bytecode
+cleaned, with history/models/keys/ISO checkpoints retained. No sound played.
+Setup follow-up now bounds scaled forms/review, focuses invalid fields and shows
+network/repository choices without exposing passwords. Review cannot dispatch
+after parent close; failed setup retains drafts and warns about partial changes.
+Private keyboard/form/lifecycle checks pass dark/light through 200% text.
+Setup refresh is now signed/published and verified in Ooonana WSL; both remotes
+and source CI are updated. Relaunch apps for changes; no forced restart or ISO
+build. Whole-OS review remains active.
+Installer follow-up fits small/scaled forms and review, keeps disk details
+scrollable, preserves password delimiters and defaults final approval to Cancel.
+Theme changes retain saved font/DPI and respect reduced motion. **Default UI
+stays 100% with 10pt body; 200% is QA only.** Signed package publication and
+installed WSL refresh for this follow-up are verified; both source CIs pass.
+Terminal installer follow-up preserves exact passwords/TTY state, avoids reboot
+on EOF/typos and uses orderly restart only. Waiting text no longer pretends every
+installation phase already ran. Private shell/PTY checks pass; no real power or
+installation operation was performed.
+Minimal GRUB follow-up fixes nearly invisible menu entries with explicit readable
+roles and clearer key hints; actual 640×480/1280×800 EFI checks pass. Installed
+menu remains readable text fallback, not a newly branded graphical menu. No ISO
+was built; broader UI/session/device gates remain open.
+Installed GRUB now shares live branding and preserves custom boot fonts, with
+readable fallback if assets are missing. Console status redraw keeps warning
+lines visible; normal desktop/serial ordering and reduced motion are checked.
+Private EFI/PTY and source regressions pass; signed repo/installed WSL refresh
+verified, with exact source hashes and health checks. Both source CIs pass;
+adapter refreshed without restart. Default sizes unchanged. No physical boot/
+shutdown is certified; broader UI review remains active.
+[Full scope, current evidence and remaining UI work](docs/ui-whole-os-review.md).
+
+October 15 CI follow-up: Alpine smoke environment lacked `findmnt`, required by
+verification fixtures. Added its dependency and explicit Node/C-compiler tooling;
+WSL fixture now mocks every Windows tool even for dry runs and checks piped-input
+retention. Refreshed/render-checked field guide. Previous WSL QA disk/images are
+now absent; logs/history remain. These CI/test/docs-only edits do not require an
+ISO remake. [Current checks and remaining gates](docs/ci-smoke-repair-20261015.md).
+
+This branch stages **core 0.10.0**, a coherent Alpine v3.24 imported-userland candidate. Installed Ooonana WSL is 0.10.0; stable package channel remains 0.9.9. Chromium's optional shader disk cache triggered a syscall-sandbox crash; disabling that cache fixes isolated window tests without disabling sandbox or normal GPU selection. Kernel-reported renderer/GPU seccomp and privilege-lock checks passed. User's October 14 F-backed ISO build passed full-rootfs audit (174 scripts / 524 ELF files). Assistant resumed that existing ISO: disk-backed static/Rufus, service, BIOS/UEFI and final checksum/promotion passed. Independent Windows SHA256 matched the published `F:\Ooonana\ooonana-os\release-current\ooonana-full-i3.iso`. Legacy virtual-NIC Tx-hang warnings prompted a host-only `e1000e` harness repair; actual published-image service/fault/shutdown retest passed without those errors. No fresh ISO construction or packaged-input change. Experimental WSL was subsequently replaced with explicit backup waiver. Physical hardware gates remain untested. See [build recheck](docs/build-verification-recheck-20261014.md) and [remaining gates](docs/remaining-closure-20261008.md).
+
+October 14 storage update: sparse ext4 scratch on F: works without moving any WSL distro disk. Full accessible C:/F: metadata scan covered 1,660,467 files; protected/reparse paths skipped. Both native WSL roots reviewed: Ubuntu retains a testing-only SmolLM2-360M store (~214 MiB); no weights found in inspected Ooonana native paths, not a blanket emptiness guarantee. Windows model stores/history/keys preserved. Latest ~652 MiB confirmed QA junk removal was policy-blocked; no bypass. Existing ISO is published, but future fresh full-workspace launches still need guarded F: capacity. [Computer scan and RAM accounting](docs/computer-junk-review-20261014.md); [earlier inventory and policy](docs/wsl-model-storage-20261014.md).
+
+October 9 follow-up: GTK file pickers no longer open above the display. Actual Geany cancel/open and window controls passed on isolated 1280x800 and 1024x768 displays; ordinary alerts retain their size. OpenVINO low-memory failures now return typed JSON/SSE errors, including CPU-fallback and generation allocation failures; OOM never triggers grammar retry. Real pinned Linux runtime/tokenizer, strict RAM refusal and API crash/restart passed without loading heavyweight model weights; inference remains pending. [Evidence and limits](docs/remaining-closure-20261008.md#october-9-follow-up).
+
+October 11: fresh nonroot OpenVINO setup passed verified Ubuntu root image, dated APT packages, hash-locked pip installation and runtime generation promotion. Real small-model CPU loading/inference, SSE, low-memory errors and loaded-engine crash/restart passed through packaged bubblewrap. Fixed cancellation hang caused by GenAI swallowing broken-pipe callback errors; both chat/completion cancel and same-engine reuse passed. Saved models unchanged; heavyweight/GPU checks remain separate. Firefox/full-i3 include GTK desktop portals plus i3/D-Bus environment handoff. Hardware checks skipped by user. [Evidence and remaining gates](docs/remaining-closure-20261008.md#october-11-follow-up).
+
+October 12: fixed missing Documents portal and sticky `/var/tmp`, including nonroot extraction under restrictive umask. Real nonroot Firefox installation/update, Documents/FUSE, renderer sandbox state and window controls passed; first-run Terms acceptance/picker deferred. New-base QTerminal composited controls/dialogs passed; optional package catalog includes it. Native AI now streams live text; actual GTK/CLI/CPU streaming, Stop, low-memory refusal and engine recovery passed. All thirteen main GUI gates plus separate real Firefox frame gate passed. Installed WSL/stable remain unchanged; no ISO built. [Latest evidence and limits](docs/remaining-closure-20261008.md#october-12-follow-up).
+
+Deep recheck: repaired long-uptime/unsigned-UID Task Manager overflow, Linux task/API PID-reuse races, old quick-kill safeguards, state-write/IPC recovery and generation flush ordering. Current GUI/CPU AI gates passed again; duplicate test scratch removed, history retained. No ISO or installed WSL migration. [Evidence and remaining assistant work](docs/deep-recheck-20261012.md).
+
+October 13 actual build follow-up: full-i3 now explicitly includes the split `rofi-x11-wayland` executable. Hardware firmware audit recognizes compressed blobs only when the resolved target kernel supports that format. Repaired staging rootfs passes 174 script / 524 ELF checks, zero errors. Those packaged changes required the fresh build completed by the user on October 14; older unrepaired images cannot resume into them. [Build repair details](docs/current-work.md#october-13-iso-build-blockers).
+
+![Native Ooonana AI with real CPU response and request cancellation](docs/assets/ooonana-ai-real-cpu-20261012.png)
+
+Real GTK screenshot from isolated Xvfb. Low-memory caption reflects deliberate 1280 MiB test cap, not normal physical desktop RAM. Saved models/history untouched.
+
+Packaged OpenVINO bubblewrap launcher also passed nonroot API lifecycle, strict memory JSON/SSE refusal, cross-invocation daemon survival, owned crash/restart and bridge FIFO cleanup. Models/runtime were read-only in private namespaces. Offline installation of current app 0.2.1 in a small copy-on-write fixture passed without source override, including pinned dependencies and bundled GUI asset hashes. Existing Qt terminal window actions and all eleven isolated candidate GUI gates passed too; physical/new-base Qt sessions remain separate.
+
+OpenVINO setup now stages replacement instead of modifying/deleting the working
+runtime. Validated generations stay for recovery; legacy-directory promotion has
+an interrupted-update journal and launch guard. Filesystem/lock/rename/SIGKILL
+fixtures, full pinned APT/pip setup and real generation-pointer transport passed.
+[Runtime safety and limits](docs/openvino-runtime-safety.md).
+
+![Candidate Geany file picker contained within 1024x768 display](docs/assets/ooonana-geany-file-picker-20261009.png)
+
+![Current native Appearance settings](docs/assets/ooonana-appearance-details-20261013.png)
+
+[Startup, Power and Settings detail checks](docs/ui-structure-recheck-20261014.md)
+cover small-screen GRUB layout, default-Cancel power review, visible action
+failures and completion-aware appearance changes. Test actions are isolated or
+mocked; physical boot/lock/logout are not certified by these captures.
 
 See [October 8 verification and remaining gates](docs/ui-catalog-20261008.md).
 
@@ -38,15 +390,17 @@ ooonana-firefox setup
 firefox
 ```
 
-`firefox` package supplies launchers, not bundled Mozilla binaries. Browser/runtime download through the [Mozilla-documented Flatpak route](https://support.mozilla.org/en-US/kb/install-firefox-linux). Check persistent disk space first. `ooonana-firefox update` updates that user-owned browser; OS package updates do not update its Flatpak runtime automatically.
+`firefox` package supplies launchers, not bundled Mozilla binaries. Browser/runtime download through the [Mozilla-documented Flatpak route](https://support.mozilla.org/en-US/kb/install-firefox-linux). Check persistent disk space first. Setup/update refuse RAM-only or temporary USB storage; unreadable/unknown live-mode metadata also refuses before Flatpak mutation. Explicit `OOONANA_FIREFOX_ALLOW_VOLATILE=1` permits known volatile modes with a warning, not a space guarantee. `ooonana-firefox update` updates that user-owned browser; OS package updates do not update its Flatpak runtime automatically.
 
-Imported base still targets Alpine 3.20, whose normal support ended April 1, 2026 ([upstream lifecycle](https://alpinelinux.org/releases/)). Old Chromium and libraries need a coherent supported-base migration. Optional catalog is not that migration; do not mix newer ABI libraries into old rootfs.
+Stable 0.9.9 imported base targets Alpine 3.20, whose normal support ended April 1, 2026 ([upstream lifecycle](https://alpinelinux.org/releases/)). Candidate 0.10.0 uses one v3.24 branch and rejects mixed provenance. Never mix its libraries into live 0.9.9 systems. Candidate `neofetch` is a small native compatibility command, not the removed upstream APK; use `fastfetch` for richer reporting.
 
 ![Core 0.9.6 native app icon family](docs/assets/ooonana-native-icons.png)
 
 ![Current Chromium rounded frame with opaque circular window controls](docs/assets/ooonana-third-party-rounded.png)
 
 October 7 frame repair removes rectangular control-popup backing and clipped orange perimeter outlines. Orange focused title text remains; controls stay opaque. Current screenshot uses private Chromium profile, nested i3 and packaged xrender rounding policy with software browser rendering, not physical GPU validation. Geany/Nemo/Chromium window actions passed; remaining desktop checks are listed in [frontend coverage](docs/frontend-recheck-20261007.md).
+
+Latest candidate captures: [Nemo](docs/assets/ooonana-candidate-nemo-20261008.png), [Chromium](docs/assets/ooonana-candidate-chromium-20261008.png). Reproduced black controls repaired through correct popup visual/redraw; compositor/window actions and browser child sandbox-state checks passed. These private Xvfb captures are not physical-session proof.
 
 ![Native dock tooltip and bounded window preview](docs/assets/ooonana-dock-preview.png)
 
@@ -223,7 +577,9 @@ Core 0.9.8 fixes BusyBox builds that advertise version sorting but cannot perfor
 
 The bootable `docs/ooonana.pdf` has opaque graphite terminal/keyboard cards and a blank command input with Run / Enter. The upstream one-second input-reset timer is removed, so the redundant hint cannot return during execution. Native Backspace/deletion ranges are forwarded to the real guest; virtual Backspace deletes once and updates the capture field. Its PDF-only payload excludes unsupported desktop/Python/AI files and bundles base metadata only, with consistent indexes/checksums. The unchanged real package backend, help, repository inputs and public trust keys are seeded into bounded tmpfs. Dirty rows repaint at most 20 Hz; hidden loader widgets are removed.
 
-Node VM benchmarks: bare `ooonana` 35.9 -> 2.4 seconds; package help 51.8 -> 3.0 seconds; list 63.4 seconds; actual sync 51.1 seconds. These are host Node timings, not browser promises; package operations remain comparatively slow. Latest boot/stable-input/native-and-virtual-Backspace/middle-edit/arithmetic/core-version/package-sync suite passed in 90 seconds. All 116 canonical widgets/actions were reopened and checked; Chromium interaction remains manual. Desktop/ISO payloads and the docs-only guide are unchanged.
+Boot progress now continues after kernel warnings instead of freezing at the first serial byte. Early console messages identify mount/seed/session stages; one sequential archive loads metadata and the interactive BusyBox shell into RAM. Actual shipped JavaScript passed boot/input/Backspace/version/package sync; a 500k-instruction/second Node fixture reached the prompt in 83 seconds. These are not Chromium viewer timings. Keep the PDF tab visible and wait for `ooonana#`; package list/sync can still take minutes. [Current PDF evidence and limits](docs/ooonana-pdf-os.md).
+
+Latest October 8 Node VM pass: package list about 130 -> 45 seconds, sync about 86 -> 57 seconds, bare command 2.4 seconds. Cold builtin listing verifies one metadata snapshot rather than repeatedly resolving package versions; checksum/signature/version refusal remains tested. Private cache hardening exposed missing emulator `time` CSR support; reads now use the same clock as CLINT, with privilege gates intact. Final shipped boot/stable-input/native-and-virtual-Backspace/middle-edit/version/package-sync suite passed in 87 seconds. Benchmarks are host Node timings, not browser promises; package operations remain comparatively slow. All 116 canonical widgets/actions and final rendering were checked; Chromium PDF interaction remains manual. Docs-only guide now reflects October 9 evidence and explicit pending gates; bootable PDF unchanged by this guide refresh.
 
 Backend pass adds verified repository generations, signed metadata, preserved custom `/etc` files, post-upgrade health checks with automatic payload rollback, retained core/kernel checkpoints, explicit major-update approval, security-update markings, and reboot status. Native **Health** and **Updates** apps provide on-demand diagnostics and upgrade review. Diskless login VM passed password rejection/authentication and UID-1000 desktop handoff; physical Xorg/hardware and model inference remain separate gates. OpenVINO Chat 0.2.1 uses complete hash-locked Linux wheels plus a pinned Ubuntu image/APT snapshot. Private signing key stays local by choice. This pass does not build an ISO.
 
@@ -241,15 +597,15 @@ Working now:
 - Installer ISO opens a fallback shell on install failure or cancel
 - Installer has a serial-safe xterm UI with logo, disk picker, user/password, hostname, theme, cloud repo picker, progress, logs, fail shell, and reboot prompt
 - Live/install ISO keeps interactive prompts on the VGA console for VMware while smoke tests log through serial
-- GRUB uses a solid graphite background with orange accents and a centered Ooonana logo, BIOS/UEFI hybrid support, live/install/safe graphics menus, and a persistent USB boot entry. After selection, the live initramfs keeps the larger orange logo and loading bar visible while it finds boot media, mounts the live rootfs read-only, creates a RAM or USB persistence overlay, and starts i3. Full-i3 does not force a fixed `gfxmode`; it preserves the firmware framebuffer for a clean splash handoff.
+- GRUB uses an opaque graphite panel, orange selection and a continuous-stroke Ooonana mascot image, with a compact seconds countdown, BIOS/UEFI hybrid support, live/install/safe graphics menus, and a persistent USB boot entry. Text-only boot/shutdown uses a compact wordmark and real stage names, not broken-looking ASCII art or invented progress percentages. A lightweight console pulse uses existing media-retry and shutdown/reboot grace waits only; no background worker or extra cosmetic delay. Serial/small consoles and `ooonana.motion=off` use plain stage messages. Persistent USB setup still has text size/CREATE prompts, with explicit cancellation/error messages and no splash redraw over input. Full-i3 preserves the firmware framebuffer rather than forcing a fixed `gfxmode`. [Boot UI evidence and limits](docs/boot-ui-polish-20261015.md).
 - Kernel config is tuned for desktop responsiveness: performance compiler mode, full preemption, dynamic preemption, high-resolution timers, 1000 Hz scheduler tick, scheduler autogroup, zram, and CPU/NVMe temperature sensors.
 - Rufus support has an ISO-mode note inside the ISO, USB-friendly volume labels, and `scripts/verify-rufus-iso.sh`
 - Full-i3 live starts eudev before Xorg and ships libinput config for PS/2 keyboard, mouse, and touchpad discovery
 - Full-i3 live boot never formats internal disks. GRUB boot UUID and same-parent checks restrict writable overlays to the boot USB. Normal live uses a cleared temporary overlay there, with RAM fallback when no matching storage exists. Persistent live keeps its separate saved overlay; failed/missing storage stops in recovery instead of silently discarding changes. Only the confirmed installer target can be partitioned or formatted.
 - Full-i3 runs the desktop as the unprivileged `ooonana` user (UID 1000). Administrative commands use a validated wheel-only `doas` policy.
 - Full-i3 mounts `/run` and `/dev/shm` before desktop services, maps `/var/run` to `/run`, starts system D-Bus first, then starts NetworkManager and BlueZ. This runtime order supports Chromium, Wi-Fi, Bluetooth, and desktop applets from live USB and installed systems.
-- Full-i3 ships an Ooonana i3 desktop: solid rounded top panel with music status, RAM gauge, workspaces, and minimize/fullscreen/close controls; centered opaque app dock with pinned icons, running dots, restore-on-click, and right-click window actions; Spotlight-style launcher; opaque rounded GTK windows; dunst notifications; Chromium, Nemo, and editor/media shortcuts. Focus changes on click, not cursor hover. Notes is the default wallpaper again; the graphite wallpaper remains selectable. Fit mode preserves aspect ratio rather than stretching.
-- OoonanaTailless cursor keeps a rounded, narrow black-and-white pointer. It is drawn for this project; third-party Windows cursor-pack files are not redistributed.
+- Full-i3 ships an Ooonana i3 desktop: solid rounded top panel with music status, RAM gauge and compact Task View; centered flat opaque app dock with persistent left-side pins, right-side running apps, drag ordering, running dots and direct window actions; Spotlight-style launcher; opaque rounded GTK windows; dunst notifications; Chromium, Nemo, and editor/media shortcuts. Window actions belong in dock/titlebars, not top panel. Focus changes on click, not cursor hover. Notes is the default wallpaper again; the graphite wallpaper remains selectable. Fit mode preserves aspect ratio rather than stretching.
+- Added Windows cursor conversion is the default for this machine's Ooonana builds (21px, original proportions/hotspot). Public builds use the separately drawn OoonanaTailless fallback (19px); third-party cursor-pack files remain private and are not redistributed.
 - Setup, Settings, Wi-Fi, Bluetooth, Packages, AI, Task Manager, controls, and application launcher are native GTK3 apps with shared graphite/orange design and short slide transitions. Picom keeps windows opaque; shadows and fades are disabled. Panel status scripts degrade cleanly when a VM has no battery, radio, audio, or backlight hardware.
 - Wi-Fi groups repeated school/campus access points by exact SSID, shows real security instead of treating missing metadata as open, retries secured BSSIDs during roaming, and supports WPA/WPA2/WPA3 Personal, OWE, WEP, and 802.1X enterprise identity/password/CA/client-certificate profiles. Wi-Fi and Bluetooth include an RSSI proximity map. Optional `3D mode` launches RuView when its CSI point-cloud runtime is installed; normal laptop adapters remain RSSI-only.
 - Installed disk boots in QEMU
@@ -337,6 +693,33 @@ wsl.exe -d Ooonana -- /usr/bin/start-ooonana-i3 --nested
 ```
 
 WSLg shows the full i3 desktop inside a Xephyr window. `--nested` needs `xorg-server-xephyr` and uses a private X socket namespace because WSLg mounts its socket directory read-only. Normal launch starts Ooonana audio services; `OOONANA_NO_AUDIO=1` is only a test override. Close i3 with Super+Shift+E or its window close button.
+
+Desktop workspace/window shortcuts:
+
+- `Super+1…9/0`: select workspace 1…9/10; add `Shift` to move selected window.
+- `Super+Ctrl+Left/Right`: previous/next workspace.
+- `Super+left-drag/right-drag`: move/resize floating window using native i3 handling.
+- `Super+Shift+Space`: floating/tiling; `Super+W/S/E`: tabbed/stacked/split.
+- `Super+R`: keyboard resize mode; `Escape` exits. `Super+F`: fullscreen/restore.
+- `Super+M`: minimize; dock actions restore specific sessions. `Alt+F4`: close.
+
+Current local WSL installation uses an independently installed adapter for cold
+F: reads (60-second bounded Xephyr wait, nested X11/XCB). Existing privileged
+socket setup prepares private `/run/user/UID` for document-portal file access;
+unsafe paths/owners are refused. Changing from the old home runtime drops only
+the inherited session-bus address so the desktop starts its matching bus.
+Packaged launcher, boot configuration and physical ISO are unchanged.
+Normal audio-enabled PowerShell launch:
+
+```powershell
+wsl -d Ooonana --exec /usr/local/bin/start-ooonana-i3 --nested
+```
+
+Regenerate adapter after compatible WSL package updates as root with
+`sh scripts/install-wsl-desktop-adapter.sh`; unknown future launcher layout
+refuses rather than overwriting the working override. Current WSL candidate
+packages use a signed native snapshot under `/var/lib/ooonana/`,
+not the still-0.9.9 stable cloud channel. No removable-drive mount is needed.
 
 ## Ooonana Command
 
@@ -773,11 +1156,13 @@ sudo ooonana-install \
   --yes
 ```
 
-Default full-i3 UI uses solid dark graphite, light text, and orange accents. Music sits on the left beside window controls; AI access sits in the center. Left-click AI opens Ooonana AI; right-click opens OpenVINO Chat. Right-side indicators cover RAM, audio, battery, Wi-Fi, unread notifications, compact hardware controls, clock, and power. Unavailable audio/battery placeholders are hidden; Bluetooth and brightness remain accessible through hardware controls. The notification center groups messages by app, supports individual removal, Clear all, and Do Not Disturb; right-click the bell toggles Do Not Disturb. Dunst retains up to 80 notifications during its session. Optional private local history saves messages collected by the center across sessions; default is off, and disabling it deletes saved history. Messages received while the center is closed are collected on reopening. Centered bottom dock shows running counts and hollow indicators for minimized apps; left-click restores an app session, right-click offers a native GTK action menu with rofi fallback. Unpinned windows get bounded chips and an overflow session picker. OpenVINO gets its own icon when installed. Hover alone does not change focus. Notes wallpaper is default; graphite wallpaper remains available in Settings. `Mod+d` opens native Ooonana Spotlight; `Mod+Shift+d` opens rofi. Light mode remains available:
+Default full-i3 UI uses solid dark graphite, light text, and orange accents. Music sits on the left beside Task View; AI access sits in the center. Left-click AI opens Ooonana AI; right-click opens OpenVINO Chat. Right-side indicators cover RAM, audio, battery, Wi-Fi, unread notifications, compact hardware controls, clock, and power. Unavailable audio/battery placeholders are hidden; Bluetooth and brightness remain accessible through hardware controls. The notification center groups messages by app, supports individual removal, Clear all, and Do Not Disturb; right-click the bell toggles Do Not Disturb. Dunst retains up to80 notifications during its session. Optional private local history defaults off; disabling it deletes saved history. Messages received while the center is closed are collected on reopening.
+
+Centered flat bottom dock groups windows by app, with running counts and hollow minimized indicators. Pinned apps sit left, unpinned running apps right. Right-click Pin/Unpin; hold-drag reorders within either section, with Move left/right keyboard alternative. Pins/order save per user; unpinning never closes windows. Left-click raises one exact session, not every minimized sibling. Right-click offers direct grouped window actions; Shift+F10 on a window row targets that window. More apps retains overflow running windows and idle pins. Top panel does not duplicate window lists/actions. OpenVINO retains its icon when installed; runtime work remains deferred. Hover alone never changes focus. Notes wallpaper is default; graphite remains selectable in Settings. `Mod+d` opens native Spotlight; `Mod+Shift+d` opens rofi. Light mode remains available:
 
 Native GTK window controls now sit on the left as red/yellow/green circles with visible symbols and accessible names. Appearance offers reduced motion; default page slides last 180ms without window transparency. The offline AI dialog separates app, runtime, model files, and API status without claiming that an active API proves successful model loading. Setup presents a review before applying settings; installer text clarifies erase/custom modes, target partitions, and disk swap. Formatter logic is unchanged. Third-party controls attach to visible i3 decorations and target their own window; hidden tabs, occluded and fullscreen-covered controls are excluded. Native dialog headers do not receive a second i3 titlebar. Dock/titlebar action menus provide restore/minimize/fullscreen/close.
 
-This machine's private Windows cursor conversion uses a real 21px frame (+10% from 19px, rounded), retaining original proportions and scaled hotspot. The separately drawn public tailless theme defaults to a real 19px frame (+10% from 17px, rounded). The private theme stays outside tracked sources and must not be redistributed. ISO and WSL overlay builders read preferred size from the private theme's `cursor-size` file.
+The added Windows cursor conversion is now the default for this machine's Ooonana builds: a real 21px frame (+10% from 19px, rounded), retaining original proportions and scaled hotspot. The separately drawn public tailless fallback uses a real 19px frame (+10% from 17px, rounded), consistent between GTK and Xsettings. Private assets stay outside tracked sources and must not be redistributed. The normal ISO wrapper selects the private theme when present and reads its `cursor-size` file; `--public-cursor` explicitly selects the public fallback. Existing user cursor preferences remain intact.
 
 ```bash
 ooonana help ui
@@ -787,6 +1172,7 @@ OOONANA_THEME=light ooonana setup --first-boot --gui
 ```
 
 The installer persists the chosen theme in `/etc/ooonana/theme`; i3 reads it through `ooonana-theme-env` on boot. Inside i3, `Mod+Shift+T` toggles dark/light, `Mod+Shift+A` opens the Ooonana AI app through `ooonana-ai-launch`, `Mod+Shift+S` opens settings through `ooonana-settings-launch`, `Mod+Shift+O` opens the package manager app, and `Mod+Shift+I` opens the installer.
+Saved user appearance (`$XDG_CONFIG_HOME/ooonana/theme`, normally `~/.config/ooonana/theme`) takes priority over automatic session exports. Newly opened native apps and preferred browser/files/editor wrappers refresh their theme; custom GTK themes, caller PATH and existing editor color choices remain untouched. `OOONANA_THEME=light command` still overrides a different inherited value. Use `OOONANA_THEME_OVERRIDE=light command` to force a value even when it matches an inherited session value. Sessions started before this provenance fix need a normal manual desktop relaunch; installing this patch does not restart i3 or promise to recolor every already-open app. Paper-mode third-party outer frames remain under review.
 Extra i3 keys:
 
 ```text
@@ -808,7 +1194,7 @@ Mod+Shift+U  ranger file manager
 
 `ooonana-settings` opens native Ooonana Control Center. Overview shows session, network, Bluetooth, package source, and available RAM/swap. Appearance controls theme and wallpaper; other pages expose hardware, apps, and system tools. Wallpaper choices are fit, fill/crop, center, stretch, and tile. It can open display/audio/Wi-Fi/Bluetooth tools, package manager, AI, Chromium, Nemo, terminal, screenshots, and system logs. Terminal help remains fallback when GTK is missing.
 
-Ooonana Task Manager shows searchable/sortable processes and CPU, GPU, RAM, disk, network, storage, temperature, and fan readings. GPU and fan counters say unavailable when drivers or hardware do not expose them. End Task requires confirmation and can terminate only your own process. Native GTK apps have close, minimize-to-scratchpad, and fullscreen buttons; top-panel controls and dock window actions cover third-party windows.
+Ooonana Task Manager shows searchable/sortable processes and CPU, GPU, RAM, disk, network, storage, temperature, and fan readings. GPU and fan counters say unavailable when drivers or hardware do not expose them. End Task requires confirmation and can terminate only your own process. Native GTK apps have close, minimize-to-scratchpad, and fullscreen buttons; titlebar controls and dock window actions cover third-party windows.
 
 Persistent live USB:
 
@@ -832,7 +1218,7 @@ Back up persistent files before reflashing. Saved overlays record the root-image
 
 `ooonana-memory status` reports available RAM, swap, and live storage mode. Ooonana starts compressed zram swap at boot (half physical RAM, capped at 8 GiB); it does not silently create a USB swapfile. Zram helps memory pressure but cannot replace physical RAM for a large model. OpenVINO setup on live USB needs the persistent GRUB entry plus sufficiently large persistent storage; RAM-only and temporary overlays cannot safely hold its runtime and model files.
 
-Memory reporting now separates zram logical capacity, compressed bytes and physical consumption; Task Manager shows swap usage rather than capacity alone. OpenVINO preflight estimates weights/cache against available memory, including cgroup limits, and offers context/cache/model reductions. Linux core runtime pins were import-tested, not inference-tested. Use **Refresh runtime** in Offline setup when moving between tested dependency sets. See [backend update policy](docs/backend-update-policy.md) and [AI UI verification](docs/ai-ui-verification.md) for signing, enrollment, update/rollback boundaries and remaining checks.
+Memory reporting now separates zram logical capacity, compressed bytes and physical consumption; Task Manager shows swap usage rather than capacity alone. OpenVINO preflight estimates weights/cache against available memory, including cgroup limits, and offers context/cache/model reductions. Current pinned Linux runtime passed fresh setup and small-model CPU inference; heavyweight/GPU validation remains separate. Use **Refresh runtime** in Offline setup when moving between tested dependency sets. See [backend update policy](docs/backend-update-policy.md) and [AI UI verification](docs/ai-ui-verification.md) for signing, enrollment, update/rollback boundaries and remaining checks.
 
 First-boot Setup writes `/etc/ooonana/memory.conf`: choose zram at 0, 25, 50, 75, or 100 percent of RAM, plus enable/disable configured disk swap. Settings apply next boot. Setup does not create partitions; installer offers optional disk swap during erase-disk installation.
 
@@ -1105,17 +1491,93 @@ docs/jarvis-agi-research.md
 
 ## Build From Source
 
+Build a fresh ISO to include the November 12 candidate packages and graphical
+sign-in. The launcher verifies the signed repository and the F: workspace
+before building. It replaces the previous release ISO after verification.
+
 For prepared Windows/WSL release workspace, run in PowerShell:
 
 ```powershell
-& 'F:\Ooonana\ooonana-os\Build-ISO.ps1'
+# First run needs 29 GiB free on F:; launcher also checks backing capacity on reuse.
+$workspace = 'F:\Ooonana\ooonana-os\build-storage\release-stage.ext4'
+$required = if (Test-Path -LiteralPath $workspace) { 8GB } else { 29GB }
+if ((Get-PSDrive F).Free -lt $required) { throw 'Insufficient F: space for build workspace/output.' }
+$repo = '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10-candidate-36dbeb5-signed'
+& 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo $repo --preflight-only
+if ($LASTEXITCODE -eq 0) {
+    & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo $repo
+}
 ```
 
 Output: `F:\Ooonana\ooonana-os\release-current\ooonana-full-i3.iso`.
-Use `& 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --preflight-only` to check inputs without building. Run a fresh build after
-source or package changes; do not reuse rootfs/ISO resume stages from older code.
+The launcher uses the local cursor for personal builds. Add `--public-cursor`
+to both commands to use the packaged public cursor.
+Core 0.10 source needs its separate, verified candidate package repository.
+The default `build/full-i3-repo` still contains stable 0.9.9 packages; the release
+guard correctly refuses that ABI/version mismatch. This is not an Ooonana
+package-manager failure. Alpine supplies imported third-party binaries/libraries;
+Ooonana owns `.pkg` metadata, dependency handling, signatures, install/update and
+rollback. Do not relabel old archives or bypass provenance checks.
+`--repo` selects a repository without changing the stable `CURRENT` pointer or
+installed WSL. It must exist and pass signatures, checksums and dependency checks;
+selecting it does not certify a release. Other machines must supply their own path.
+The Windows launcher now places rootfs, installer images, temporary files and
+future kernel work in a separate F-backed ext4 workspace:
+`F:\Ooonana\ooonana-os\build-storage\release-stage.ext4`. Ubuntu's distro VHD
+stays on C:; no distro relocation, reimport or migration occurs. First use needs
+29 GiB free on F: (21 GiB sparse scratch capacity plus 8 GiB output reserve).
+Windows sparse-file setup avoids slow zero-filling of the entire workspace.
+Later runs require free F: space plus already allocated workspace extents to
+cover those 29 GiB, with at least 8 GiB actually free. The launcher and each
+release phase check this physical budget; guest `df` alone is insufficient.
+Keep normal Windows free-space headroom
+on C: too; the launcher refuses below 1 GiB even when bulk staging stays on F:.
+This is a minimum guard, not a recommended operating target.
+The ext4 workspace is mounted only during the command and flushed/
+unmounted afterward; UUID, label, size and exclusive-use checks refuse foreign
+or damaged images rather than formatting them. Failed scratch can be retried
+normally; mounted leftovers and insufficient capacity fail closed.
+Do not delete the workspace while a build runs. It is reusable build storage,
+not a moved WSL disk or a release backup. Raw rootfs trees must not live directly
+on NTFS/DrvFS: Unix permissions and links need ext4. Direct Linux invocation of
+`rebuild-full-i3-release.sh` still uses its configured native staging filesystem;
+the F-backed behavior belongs to `run-iso-build-wsl.sh` / `Build-ISO.ps1`.
+An interrupted first-time setup can leave `release-stage.ext4.creating`.
+The launcher refuses to overwrite it. Stop its owning setup/build before
+removing that incomplete scratch file; never remove a mounted finalized image
+or any `ext4.vhdx` distro disk.
+Run a fresh build after
+packaged runtime, boot, kernel, cursor or package-input changes; do not reuse
+older payloads. Host-only verification/docs repairs can reuse matching staged
+media. ISO resume now checks completed provenance, kernel configuration, the
+input fingerprint, signed repository and mounted-child safety before proceeding.
 The release script validates package checksums and kernel config, builds in WSL,
 and verifies the ISO before replacing the previous release.
+
+For slow F-backed QEMU media, optional `--verify-in-ram` mirrors existing media
+in guarded nonswappable tmpfs; it does not rebuild the ISO or move a WSL disk.
+Both Linux and Windows available RAM must cover the ISO, the largest test guest
+(at least 2 GiB), and a 2 GiB reserve. A 2.90 GB ISO therefore needs approximately
+6.7 GiB available on both sides while WSL is running; larger service-memory
+overrides increase the budget. Insufficient RAM refuses before copying.
+Service and BIOS/UEFI success markers cannot override guest I/O, filesystem,
+kernel-panic, OOM or network Tx-hang/watchdog errors. [Completed existing-image verification and limits](docs/build-verification-recheck-20261014.md).
+
+If RAM mirroring cannot fit, `--verify-on-disk PATH` instead makes a temporary,
+byte-compared ISO copy on a fast disk. On this Windows workspace use
+`/mnt/c/Users/7ryan/AppData/Local/Temp`: only the plain ISO goes on C:, not rootfs
+trees, build staging or a relocated/growing WSL distro VHD. Copy cleanup removes
+only its owned ISO and empty directory. Both destination and Windows C: must
+have ISO-size-plus-2-GiB disk headroom. RAM still needs guest-size-plus-2-GiB;
+the disk-backed service and BIOS/UEFI probes use 1536 MiB VMs by default (~3.5 GiB
+budget required), with `OOONANA_QEMU_MEMORY` overrides counted. On WSL, that
+host budget includes conservatively estimated reusable RAM already resident in
+the VM, not only Windows free RAM; virtual VM capacity alone is never credited.
+Linux availability and the 2 GiB reserve still must pass independently.
+Windows must also retain at least 1 GiB immediately free physical RAM.
+This changes
+test VM allocation only, never physical/live OS RAM. RAM and disk flags are
+mutually exclusive; neither bypasses boot/service/error checks.
 
 After upgrading `openvino-chat`, run `openvino setup` to update its separate
 runtime. Model downloads require Internet and enough USB storage; inference

@@ -97,6 +97,32 @@ def record_key(record):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False).encode("utf-8")).hexdigest()
 
 
+def remove_live_notification(record):
+    """Validate displayed content and address the same daemon's unique bus name."""
+    try:
+        from gi.repository import Gio, GLib
+
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        owner = bus.call_sync(
+            "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "GetNameOwner",
+            GLib.Variant("(s)", ("org.freedesktop.Notifications",)), GLib.VariantType.new("(s)"),
+            Gio.DBusCallFlags.NONE, 3000, None,
+        ).unpack()[0]
+        history = bus.call_sync(
+            owner, "/org/freedesktop/Notifications", "org.dunstproject.cmd0", "NotificationListHistory",
+            None, GLib.VariantType.new("(aa{sv})"), Gio.DBusCallFlags.NO_AUTO_START, 3000, None,
+        )
+        if not any(record_key(item) == record_key(record) for item in parse_history(json.dumps(history.unpack()))):
+            return 2, "Message changed or disappeared. Review refreshed history before removing."
+        bus.call_sync(
+            owner, "/org/freedesktop/Notifications", "org.dunstproject.cmd0", "NotificationRemoveFromHistory",
+            GLib.Variant("(u)", (record["id"],)), None, Gio.DBusCallFlags.NO_AUTO_START, 3000, None,
+        )
+        return 0, ""
+    except Exception as exc:
+        return 1, str(exc)
+
+
 class NotificationState:
     def __init__(self, directory=None):
         self.directory = Path(directory) if directory else Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state"))) / "ooonana"
@@ -130,15 +156,22 @@ class NotificationState:
             result.append({"id": value["id"], "timestamp": value["timestamp"], "app": value["app"][:128], "summary": value["summary"][:256], "body": value["body"][:4096]})
         return result
 
-    def merge(self, live, remember):
+    def snapshot(self, live, remember):
+        """Read-only view remains available when saving presentation state fails."""
         live = live[:80]
         if not remember:
             return [{**record, "archived": False} for record in live]
         keys = {record_key(record) for record in live}
         previous = [record for record in self.archive() if record_key(record) not in keys]
         merged = (live + previous)[:80]
-        write_json(self.archive_path, merged)
         return [{**record, "archived": record_key(record) not in keys} for record in merged]
+
+    def merge(self, live, remember):
+        records = self.snapshot(live, remember)
+        if remember:
+            write_json(self.archive_path, [{key: value for key, value in record.items() if key != "archived"}
+                                           for record in records])
+        return records
 
     def forget(self, record):
         key = record_key(record)
@@ -146,6 +179,14 @@ class NotificationState:
 
     def clear_saved(self):
         self.archive_path.unlink(missing_ok=True)
+
+
+def bounded_badge_count(value):
+    # Never parse arbitrarily long integers or non-ASCII digit lookalikes.
+    if not value or not value.isascii() or not value.isdecimal():
+        return 0
+    significant = value.lstrip("0")
+    return 1000 if len(significant) > 3 else int(significant or "0")
 
 
 def notification_badge():
@@ -164,9 +205,8 @@ def notification_badge():
     count = NotificationState().unread(parse_history(history))
     for queue in ("displayed", "waiting"):
         value = query("count", queue)
-        if value.isdigit():
-            count += min(999, int(value))
-    return "%{T2}\uf0f3%{T-}" + (f" {min(count, 999)}" if count else "")
+        count = min(1000, count + bounded_badge_count(value))
+    return "%{T2}\uf0f3%{T-}" + (" 999+" if count > 999 else f" {count}" if count else "")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,6 @@
+#%PAM-1.0
+auth      requisite pam_succeed_if.so uid >= 1000 quiet
+auth      include   login
+account   include   login
+password  include   login
+session   include   login

@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,7 +27,9 @@ if 'info' in sys.argv and os.environ.get('MISSING') == '1':
     (work / "id").chmod(0o755)
     (work / "notify-send").write_text('#!/bin/sh\nexit 0\n')
     (work / "notify-send").chmod(0o755)
-    env = {**os.environ, "PATH": str(work) + ":" + os.environ['PATH'], "CALLS": str(log)}
+    mode_file = work / 'persistence-mode'
+    env = {**os.environ, "PATH": str(work) + ":" + os.environ['PATH'], "CALLS": str(log),
+           "OOONANA_LIVE_MODE_FILE": str(mode_file), "OOONANA_FIREFOX_ALLOW_VOLATILE": '0'}
     def run(*args, **overrides):
         log.write_text('')
         result = subprocess.run(['sh', str(launcher), *args], env={**env, **overrides}, capture_output=True, text=True)
@@ -38,14 +41,96 @@ if 'info' in sys.argv and os.environ.get('MISSING') == '1':
         assert result.returncode and not any('install' in call or 'remote-add' in call for call in calls)
     result, calls = run('run', 'https://example.invalid/a?x=1&y=2', '--private-window')
     assert result.returncode == 0 and calls[-1][-2:] == ['https://example.invalid/a?x=1&y=2', '--private-window']
+    assert calls[-1][:4] == ['run', '--user', '--unset-env=GTK_IM_MODULE_FILE', 'org.mozilla.firefox']
+    result, calls = run('run', GTK_IM_MODULE_FILE='/host-only/immodules.cache', GTK_IM_MODULE='ibus')
+    assert result.returncode == 0 and calls[-1] == ['run', '--user', '--unset-env=GTK_IM_MODULE_FILE', 'org.mozilla.firefox']
     result, calls = run('run', MISSING='1')
     assert result.returncode and not any('run' in call for call in calls)
     assert run('status', 'unexpected')[0].returncode == 2
     assert run('update')[1][-1] == ['--user', 'update', 'org.mozilla.firefox']
+    for mode in ('ram', 'usb-temporary', '', 'invalid'):
+        mode_file.write_text(mode + '\n')
+        for operation in ('setup', 'update'):
+            result, calls = run(operation)
+            assert result.returncode and not calls, (mode, operation, calls)
+        # Queries and already installed browser launches do not download.
+        assert run('status')[0].returncode == 0
+        assert run('run')[0].returncode == 0
+    for mode in ('ram', 'usb-temporary'):
+        mode_file.write_text(mode + '\n')
+        for operation in ('setup', 'update'):
+            result, calls = run(operation, OOONANA_FIREFOX_ALLOW_VOLATILE='1')
+            assert result.returncode == 0 and 'WARNING' in result.stderr
+    mode_file.write_text('usb\n')
+    assert run('setup')[0].returncode == 0
+    assert run('update')[0].returncode == 0
+    mode_file.unlink()
+    mode_file.mkdir()  # Present but unreadable as a mode file: fail closed.
+    for operation in ('setup', 'update'):
+        result, calls = run(operation)
+        assert result.returncode and not calls
+    mode_file.rmdir()
+    mode_file.symlink_to(work / 'missing-mode')
+    for operation in ('setup', 'update'):
+        result, calls = run(operation)
+        assert result.returncode and not calls
     repo = work / 'repo'
     subprocess.run(['bash', str(ROOT / 'scripts/build-firefox-package.sh'), '--out-dir', str(repo)], check=True)
-    archive = repo / 'archives/firefox-1.0.0.tar.gz'
+    metadata = (repo / 'firefox.pkg').read_text()
+    assert 'OOONANA_PKG_VERSION="1.0.2"' in metadata
+    assert 'OOONANA_PKG_DEPS="flatpak xdg-desktop-portal xdg-desktop-portal-gtk xdg-document-portal"' in metadata
+    profile = (ROOT / 'configs/packages/full-i3.list').read_text().splitlines()
+    for dependency in ('xdg-desktop-portal', 'xdg-desktop-portal-gtk', 'xdg-document-portal'):
+        assert dependency in profile
+        assert dependency in (ROOT / 'scripts/build-package-repo.sh').read_text()
+    import configparser
+    portal = configparser.ConfigParser()
+    portal.read(ROOT / 'packages/ooonana/etc/xdg-desktop-portal/i3-portals.conf')
+    assert portal['preferred']['default'] == 'gtk'
+    assert portal['preferred']['org.freedesktop.impl.portal.Secret'] == 'gnome-keyring'
+    # Opt-in rendered probe must fail before touching real desktop/session.
+    import ast
+    probe = ROOT / 'tests/check-portal-ui.py'
+    ast.parse(probe.read_text())
+    refused = subprocess.run([sys.executable, '-B', str(probe), str(work / 'unsafe.png')],
+        env={**os.environ, 'OOONANA_GUI_TEST_DISPLAY': '0'}, capture_output=True, text=True)
+    assert refused.returncode and 'isolated nonroot' in refused.stderr
+    assert not (work / 'unsafe.png').exists()
+    install_probe = ROOT / 'tests/probe-firefox-install.py'
+    ast.parse(install_probe.read_text())
+    refused = subprocess.run([sys.executable, '-B', str(install_probe)],
+        env={**os.environ, 'OOONANA_FIREFOX_DOWNLOAD': '0'}, capture_output=True, text=True)
+    assert refused.returncode and 'disposable UID1000' in refused.stderr
+    assert subprocess.run(['bash', str(ROOT / 'tests/run-firefox-mount-root.sh')],
+        capture_output=True).returncode == 2
+    refused = subprocess.run(['bash', str(ROOT / 'tests/run-candidate-gui.sh')],
+        env={**os.environ, 'OOONANA_GUI_ONLY': 'invalid'}, capture_output=True, text=True)
+    assert refused.returncode == 2 and 'Unknown GUI probe' in refused.stderr
+    for options, message in (
+        ({'OOONANA_FIREFOX_QA_PROFILE_SEED': '../../user'}, 'Owned Firefox QA profile name required'),
+        ({'OOONANA_FIREFOX_QA_PROFILE_SEED': '/home/user'}, 'Owned Firefox QA profile name required'),
+        ({'OOONANA_FIREFOX_QA_REGULAR_WINDOW': 'invalid'}, 'Unsupported Firefox QA window mode'),
+        ({'OOONANA_FIREFOX_QA_THEME_CYCLE': 'invalid'}, 'Unsupported Firefox theme QA mode'),
+        ({'OOONANA_FIREFOX_QA_THEME_CYCLE': '1'}, 'Firefox theme QA requires regular window and owned profile'),
+        ({'OOONANA_FIREFOX_QA_PROFILE_SEED': 'ooonana-qa-ooonana-client-frame-fixture',
+          'OOONANA_FIREFOX_QA_FIRST_RUN': 'accept'}, 'Firefox QA profile restore cannot accept first-run consent'),
+    ):
+        refused = subprocess.run(['bash', str(ROOT / 'tests/run-candidate-gui.sh')],
+            env={**os.environ, 'OOONANA_GUI_ONLY': 'firefox-frame', **options}, capture_output=True, text=True)
+        assert refused.returncode == 2 and message in refused.stderr, (options, refused.stderr)
+    # Real 2x failure: the autocomplete popup covered the click point. Test
+    # input order without launching any app or sending host keyboard input.
+    from types import SimpleNamespace
+    function = next(node for node in ast.parse((ROOT / 'tests/check-third-party-frames.py').read_text()).body
+                    if isinstance(node, ast.FunctionDef) and node.name == 'focus_browser_document')
+    calls = []
+    namespace = {'subprocess': SimpleNamespace(run=lambda argv, **kwargs: calls.append((argv, kwargs)))}
+    exec(compile(ast.Module(body=[function], type_ignores=[]), 'firefox-focus-fixture', 'exec'), namespace)
+    namespace['focus_browser_document']({'OWNED_QA': '1'})
+    assert calls == [(['xdotool', 'key', '--clearmodifiers', 'Escape', 'F6'],
+                      {'env': {'OWNED_QA': '1'}, 'check': True})]
+    archive = repo / 'archives/firefox-1.0.2.tar.gz'
     original = archive.read_bytes()
     subprocess.run(['bash', str(ROOT / 'scripts/build-firefox-package.sh'), '--out-dir', str(repo)], check=True)
     assert archive.read_bytes() == original
-print('ok firefox launcher: explicit user setup, remote guard, argv, missing runtime, reproducible package')
+print('ok firefox launcher: user setup, live-storage guard, remote guard, argv, reproducible package')

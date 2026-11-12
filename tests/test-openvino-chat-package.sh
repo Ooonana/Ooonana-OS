@@ -146,6 +146,21 @@ if setup_rejection="$(OOONANA_LIVE_MODE_FILE="$tmp/live-mode" sh "$PAYLOAD/usr/b
   fail "OpenVINO setup accepted temporary live storage"
 fi
 assert_contains "$setup_rejection" 'vanish on reboot'
+for invalid_mode in '' invalid; do
+  printf '%s\n' "$invalid_mode" >"$tmp/live-mode-invalid"
+  if setup_rejection="$(OOONANA_LIVE_MODE_FILE="$tmp/live-mode-invalid" OOONANA_OPENVINO_ALLOW_VOLATILE=1 sh "$PAYLOAD/usr/bin/ooonana-openvino-setup" 2>&1)"; then
+    fail "OpenVINO setup accepted unknown live mode"
+  fi
+  assert_contains "$setup_rejection" 'unknown live storage mode'
+done
+mkdir "$tmp/live-mode-directory"
+ln -s "$tmp/missing-mode" "$tmp/live-mode-link"
+for mode_file in "$tmp/live-mode-directory" "$tmp/live-mode-link"; do
+  if setup_rejection="$(OOONANA_LIVE_MODE_FILE="$mode_file" sh "$PAYLOAD/usr/bin/ooonana-openvino-setup" 2>&1)"; then
+    fail "OpenVINO setup accepted unreadable live mode"
+  fi
+  assert_contains "$setup_rejection" 'cannot read live storage mode'
+done
 mkdir -p "$tmp/state/rootfs"
 touch "$tmp/state/rootfs/.ooonana-openvino-ready"
 if doctor="$(OOONANA_OPENVINO_STATE_DIR="$tmp/state" OOONANA_OPENVINO_PROJECT="$SOURCE" "$PAYLOAD/usr/bin/openvino" doctor)"; then
@@ -156,7 +171,9 @@ assert_contains "$doctor" "next: openvino setup"
 assert_contains "$setup_text" 'APP-MANIFEST.sha256'
 assert_contains "$setup_text" 'openvino-dependencies.lock'
 assert_contains "$setup_text" 'requirements-linux-full.lock'
-built="$(bash "$BUILDER" --out-dir "$tmp/repo" --version 0.2.1)"
+cp -a "$SOURCE" "$tmp/source"
+chmod 0777 "$tmp/source/src/openvino_chat" "$tmp/source/src/openvino_chat/api.py"
+built="$(umask 077; bash "$BUILDER" --out-dir "$tmp/repo" --version 0.2.1 --source-dir "$tmp/source")"
 assert_contains "$built" "openvino-chat.pkg"
 [[ -f "$tmp/repo/openvino-chat.pkg" ]] || fail "missing package metadata"
 [[ -f "$tmp/repo/archives/openvino-chat-0.2.1.tar.gz" ]] || fail "missing package archive"
@@ -168,6 +185,21 @@ assert_contains "$metadata" "Offline Ooonana AI"
 assert_contains "$metadata" "intel gpu cpu"
 
 contents="$(tar -tzf "$tmp/repo/archives/openvino-chat-0.2.1.tar.gz")"
+python3 -B - "$tmp/repo/archives/openvino-chat-0.2.1.tar.gz" <<'PY'
+import sys
+import tarfile
+with tarfile.open(sys.argv[1]) as archive:
+    for item in archive.getmembers():
+        if item.isdir():
+            assert item.mode == 0o755, (item.name, item.mode)
+        elif item.isfile():
+            path = item.name.removeprefix('./')
+            executable = path.startswith('usr/bin/') or (
+                path.startswith('usr/lib/ooonana/openvino-chat/scripts/') and path.endswith('.sh'))
+            assert item.mode == (0o755 if executable else 0o644), (item.name, item.mode)
+        assert item.uid == item.gid == 0
+print('ok openvino archive modes: writable source/restrictive umask normalized')
+PY
 [[ "$contents" != *'__pycache__'* ]] || fail "OpenVINO contains Python cache"
 [[ "$contents" != *'.pyc'* ]] || fail "OpenVINO contains Python bytecode"
 [[ "$contents" != *'/.openvino/'* && "$contents" != *'/models/'* && "$contents" != *'.venv/'* ]] || fail "OpenVINO package contains user runtime or models"

@@ -133,7 +133,7 @@ EOF
 
   archive_rel="archives/$PKG_ID-$VERSION.tar.gz"
   archive_path="$OUT_DIR/$archive_rel"
-  tar \
+  ooonana_tar_gzip_atomic "$archive_path" \
     --sort=name \
     --mtime='UTC 1970-01-01' \
     --numeric-owner \
@@ -142,7 +142,7 @@ EOF
     --pax-option=delete=atime,delete=ctime \
     -C "$work/root" \
     -cf - \
-    . | gzip -n > "$archive_path"
+    .
   chmod a+rw "$archive_path"
   archive_sha="$(sha256sum "$archive_path" | awk '{print $1}')"
 

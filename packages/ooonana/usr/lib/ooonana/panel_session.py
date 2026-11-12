@@ -13,16 +13,41 @@ import subprocess
 import sys
 import time
 
+sys.path.insert(0, str(Path(__file__).parent / "ui"))
+from ui_preferences import config_path, resolved_theme
+from theme_watch import AppearanceWatch
+
 PANEL_COMMAND = ["polybar", "-c", "/etc/ooonana/polybar.ini", "ooonana"]
 DOCK_COMMAND = [*PANEL_COMMAND[:-1], "ooonana-dock"]
 GEOMETRY_KEYS = {
     "OOONANA_DOCK_WIDTH", "OOONANA_DOCK_OFFSET", "OOONANA_PANEL_LEFT",
     "OOONANA_PANEL_RIGHT", "OOONANA_PANEL_GAP", "OOONANA_MEDIA_MAX_CHARS",
+    "OOONANA_WIFI_MAX_CHARS",
 }
+
+
+def palette_environment():
+    # Owned roles only. Never reuse stale automatic session color exports.
+    roles = ("BACKGROUND", "FOREGROUND", "ACCENT", "MUTED", "URGENT", "COOL", "BORDER")
+    values = (("#ffffff", "#1b1f26", "#805600", "#55616e", "#fae9e7", "#0065a8", "#adb7c2")
+              if resolved_theme() == "light" else
+              ("#1b1f26", "#f5f5f7", "#ffb21a", "#b4bdc8", "#3b2324", "#9ec3ff", "#46505c"))
+    return {"OOONANA_BAR_" + role: value for role, value in zip(roles, values)}
+
+
+def watch_appearance(changed):
+    try:
+        from gi.repository import Gio, GLib
+    except ImportError:
+        return None, None  # Minimal fallback retains explicit panel reload.
+    watch = AppearanceWatch(Gio, GLib, (config_path().with_name("theme"), Path("/etc/ooonana/theme")),
+                            lambda: resolved_theme() or "dark", changed)
+    return watch, GLib.MainContext.default()
 
 
 def geometry_environment():
     environment = dict(os.environ)
+    environment.update(palette_environment())
     for option in ("--dock-geometry", "--panel-geometry"):
         try:
             output = subprocess.check_output(["ooonana-window-list", option], text=True, timeout=3)
@@ -78,6 +103,7 @@ def main():
                             return 1
                         time.sleep(0.05)
         panel = dock = None
+        appearance_watch = context = None
         running = True
         failures = {"panel": deque(), "dock": deque()}
         cooling = set()
@@ -111,6 +137,14 @@ def main():
             if include_dock and (dock is None or dock.poll() is not None):
                 dock = subprocess.Popen(["ooonana-dock"] if native else DOCK_COMMAND, env=environment)
 
+        def appearance_changed():
+            if not running:
+                return
+            try:
+                restart(dock is not None)
+            except OSError as error:
+                print(f"ooonana panel: appearance refresh failed: {error}", file=sys.stderr)
+
         native = native_dock_available()
         signal.signal(signal.SIGTERM, stopped)
         signal.signal(signal.SIGINT, stopped)
@@ -120,12 +154,18 @@ def main():
             try:
                 server.bind(str(endpoint))
                 endpoint.chmod(0o600)
+                appearance_watch, context = watch_appearance(appearance_changed)
                 restart(not panel_only)
                 while running:
                     if select.select([server], [], [], 0.5)[0]:
                         request = server.recv(16)
                         if request in (b"panel", b"all"):
                             restart(request == b"all" or dock is not None)
+                    if context is not None:
+                        for _ in range(8):  # Bound event bursts; keep IPC/recovery responsive.
+                            if not context.pending():
+                                break
+                            context.iteration(False)
                     if not running:
                         break
                     if panel.poll() is not None:
@@ -142,6 +182,8 @@ def main():
                             except OSError as error:
                                 print(f"ooonana panel: dock recovery failed: {error}", file=sys.stderr)
             finally:
+                if appearance_watch is not None:
+                    appearance_watch.close()
                 stop_child(dock)
                 stop_child(panel)
                 endpoint.unlink(missing_ok=True)

@@ -14,11 +14,11 @@ on:
       alpine_repo:
         description: "Space-separated Alpine APK repository URLs"
         required: true
-        default: "https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64 https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64"
+        default: "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86_64 https://dl-cdn.alpinelinux.org/alpine/v3.24/community/x86_64"
       release_tag:
         description: "GitHub Release tag for tarball backup"
         required: true
-        default: "packages-latest"
+        default: "candidate-core-0.10.0"
       publish_pages:
         description: "Deploy generated package repo to GitHub Pages"
         required: true
@@ -66,10 +66,23 @@ permissions:
 
 jobs:
   build-packages:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
+
+      - name: Protect stable channel during major-base validation
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          PUBLISH_PAGES: ${{ inputs.publish_pages }}
+          PUBLISH_R2: ${{ inputs.publish_r2 }}
+        run: |
+          set -eu
+          if [ "$RELEASE_TAG" = packages-latest ] || [ "$PUBLISH_PAGES" = true ] || [ "$PUBLISH_R2" = true ]; then
+            echo 'Core 0.10 candidate requires separate release tag; stable Pages/R2 publication deferred.' >&2
+            exit 1
+          fi
+          case "$RELEASE_TAG" in candidate-*) ;; *) echo 'Use candidate-* release tag for isolated 0.10 artifacts.' >&2; exit 1 ;; esac
 
       - name: Build package repo
         env:

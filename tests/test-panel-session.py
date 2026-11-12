@@ -3,15 +3,25 @@
 import ast
 import hashlib
 import json
+import importlib.util
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import time
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SUPERVISOR = ROOT / "packages/ooonana/usr/lib/ooonana/panel_session.py"
+spec = importlib.util.spec_from_file_location("panel_palette", SUPERVISOR)
+palette = importlib.util.module_from_spec(spec); spec.loader.exec_module(palette)
+for theme, expected in (("dark", "#1b1f26"), ("light", "#ffffff")):
+    with patch.object(palette, "resolved_theme", return_value=theme):
+        colors = palette.palette_environment()
+    assert colors["OOONANA_BAR_BACKGROUND"] == expected
+    assert len(colors) == 7 and all(len(value) == 7 and value.startswith("#") for value in colors.values())
+    assert set(colors) == {"OOONANA_BAR_" + name for name in ("BACKGROUND", "FOREGROUND", "ACCENT", "MUTED", "URGENT", "COOL", "BORDER")}
 
 
 def wait(predicate, message, seconds=8):
@@ -38,7 +48,9 @@ import json, os, signal, sys, time
 def record(event):
     with open(os.environ["FIXTURE_EVENTS"], "a") as stream:
         stream.write(json.dumps(dict(event=event, pid=os.getpid(), display=os.environ["DISPLAY"],
-                                    bar=sys.argv[-1], left=os.environ.get("OOONANA_PANEL_LEFT"))) + "\\n")
+                                    bar=sys.argv[-1], left=os.environ.get("OOONANA_PANEL_LEFT"),
+                                    wifi=os.environ.get("OOONANA_WIFI_MAX_CHARS"),
+                                    background=os.environ.get("OOONANA_BAR_BACKGROUND"))) + "\\n")
 def stop(*_):
     record("stop")
     raise SystemExit(0)
@@ -52,10 +64,11 @@ while True:
     geometry.write_text(f"#!{sys.executable}\n" + '''
 import sys
 print("OOONANA_DOCK_WIDTH=524\\nOOONANA_DOCK_OFFSET=378" if sys.argv[-1] == "--dock-geometry"
-      else "OOONANA_PANEL_LEFT='workspaces media'\\nOOONANA_PANEL_RIGHT='memory power'\\nOOONANA_PANEL_GAP=0\\nOOONANA_MEDIA_MAX_CHARS=10")
+      else "OOONANA_PANEL_LEFT='task-view media'\\nOOONANA_PANEL_RIGHT='memory power'\\nOOONANA_PANEL_GAP=0\\nOOONANA_MEDIA_MAX_CHARS=10\\nOOONANA_WIFI_MAX_CHARS=10")
 ''')
     geometry.chmod(0o755)
     environment = {**os.environ, "PATH": str(binary), "FIXTURE_EVENTS": str(events),
+                   "XDG_CONFIG_HOME": str(fixture / "config"), "OOONANA_THEME": "dark", "OOONANA_THEME_INHERITED": "dark",
                    "XDG_RUNTIME_DIR": str(fixture / "runtime")}
     # PATH excludes the real native dock; fallback exercises two owned bars.
     first_env = {**environment, "DISPLAY": ":qa-first"}
@@ -81,7 +94,8 @@ print("OOONANA_DOCK_WIDTH=524\\nOOONANA_DOCK_OFFSET=378" if sys.argv[-1] == "--d
         assert unrelated.poll() is None
         assert len(started(":qa-second", "ooonana")) == 1
         assert len(started(":qa-second", "ooonana-dock")) == 1
-        assert all(row["left"] == "workspaces media" for row in started(":qa-first", "ooonana"))
+        assert all(row["left"] == "task-view media" for row in started(":qa-first", "ooonana"))
+        assert all(row["wifi"] == "10" for row in started(":qa-first", "ooonana"))
         first_starts = started(":qa-first", "ooonana") + started(":qa-first", "ooonana-dock")
         assert all(any(row["event"] == "stop" and row["pid"] == start["pid"] for row in records())
                    for start in first_starts[:1])
@@ -193,6 +207,31 @@ raise SystemExit(module.main())
     finally:
         stop(first)
 
+    # Actual GIO is present in GUI QA; headless/minimal CI retains manual reload.
+    watch, context = palette.watch_appearance(lambda: None)
+    if watch is not None:
+        watch.close()
+        first = None
+        theme_env = {**native_env, "DISPLAY": ":qa-live-theme"}
+        preference = fixture / "config/ooonana/theme"
+        preference.parent.mkdir(parents=True)
+        preference.write_text("dark\n")
+        try:
+            first = subprocess.Popen([sys.executable, "-B", "-c", native_runner, str(SUPERVISOR)], env=theme_env)
+            wait(lambda: len(started(":qa-live-theme", "ooonana")) == 1 and len(started(":qa-live-theme", "native-dock")) == 1,
+                 "Live theme panel/dock missing")
+            native_pid = started(":qa-live-theme", "native-dock")[0]["pid"]
+            for index, theme, color in ((2, "light", "#ffffff"), (3, "dark", "#1b1f26")):
+                replacement = preference.with_suffix(".next")
+                replacement.write_text(theme + "\n"); replacement.replace(preference)
+                wait(lambda: len(started(":qa-live-theme", "ooonana")) == index, "Atomic live palette refresh missing")
+                assert started(":qa-live-theme", "ooonana")[-1]["background"] == color
+                assert len(started(":qa-live-theme", "native-dock")) == 1
+                assert not any(row["event"] == "stop" and row["pid"] == native_pid for row in records())
+            print("ok actual GIO panel palette refresh preserves native dock")
+        finally:
+            stop(first)
+
     # Actual generated Wi-Fi status must not publish executable Polybar tags.
     builder = (ROOT / "scripts/build-full-i3-rootfs.sh").read_text()
     status = builder.split('"$ROOTFS/usr/bin/ooonana-wifi-status" <<\'EOF\'\n', 1)[1].split('\nEOF', 1)[0]
@@ -218,5 +257,17 @@ print("enabled" if sys.argv[-1] == "radio" else "802-11-wireless:network%{F#ff00
     output = subprocess.check_output(["sh", str(ROOT / "packages/ooonana/usr/bin/ooonana-media-status"), "--once"],
                                      env={**wifi_env, "OOONANA_MEDIA_MAX_CHARS": "14"}, text=True, timeout=5)
     assert output.partition(" ")[2].strip() == title.replace("%", "")[:14], output
+
+    # Minimal shell fallback obeys same overflow bound without shell octal or
+    # oversized arithmetic. No real notification daemon/session contacted.
+    notification_source = (ROOT / "packages/ooonana/usr/bin/ooonana-notification-status").read_text()
+    fallback = fixture / "notification-fallback"
+    fallback.write_text("#!/bin/sh\nset -eu\nif ! command -v dunstctl" + notification_source.split("if ! command -v dunstctl", 1)[1])
+    dunstctl = binary / "dunstctl"
+    dunstctl.write_text(f"#!{sys.executable}\nimport os,sys\nprint('false' if sys.argv[1]=='is-paused' else os.environ['FIXTURE_COUNT'])\n")
+    dunstctl.chmod(0o755)
+    for count, suffix in (("0", "%{T-}"), ("0008", " 24"), ("999", " 999+"), ("9" * 10000, " 999+")):
+        output = subprocess.check_output(["sh", str(fallback)], env={**wifi_env, "FIXTURE_COUNT": count}, text=True, timeout=5)
+        assert output.strip().endswith(suffix), output
 
 print("ok panel session: reload scoped, unrelated bars preserved, children stopped, controls per display")

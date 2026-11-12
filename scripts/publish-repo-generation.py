@@ -40,6 +40,30 @@ def digest(path):
     return result.hexdigest()
 
 
+def sync_directory(path):
+    # Python has no portable directory-flush primitive on Windows. File flushes
+    # still apply there; POSIX additionally persists rename/directory entries.
+    if os.name == "nt":
+        return
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def sync_generation(path):
+    directories = [path]
+    for item in path.rglob("*"):
+        if item.is_dir():
+            directories.append(item)
+        elif item.is_file():
+            with item.open("r+b" if os.name == "nt" else "rb") as stream:
+                os.fsync(stream.fileno())
+    for directory in sorted(directories, key=lambda item: len(item.parts), reverse=True):
+        sync_directory(directory)
+
+
 def verify(source, public_key=None):
     source = source.resolve()
     if not (source / "index.tsv").is_file() or not (source / "SHA256SUMS").is_file():
@@ -124,6 +148,7 @@ def publish(source, target, public_key=None):
                         destination.chmod(0o755 if relative.startswith("hooks/") else 0o644)
                 verify(stage, public_key)
                 stage.chmod(0o755)
+                sync_generation(stage)
                 os.replace(stage, final)
             finally:
                 if stage.exists():
@@ -132,6 +157,10 @@ def publish(source, target, public_key=None):
                     shutil.rmtree(stage)
         else:
             verify(final, public_key)
+            sync_generation(final)
+        # A complete generation must be durable before its pointer is published.
+        sync_directory(generations)
+        sync_directory(target)
         descriptor, temporary = tempfile.mkstemp(prefix=".CURRENT-", dir=target)
         try:
             with os.fdopen(descriptor, "w", newline="\n") as pointer:
@@ -140,6 +169,7 @@ def publish(source, target, public_key=None):
                 os.fsync(pointer.fileno())
             Path(temporary).chmod(0o644)
             os.replace(temporary, target / "CURRENT")
+            sync_directory(target)
         finally:
             Path(temporary).unlink(missing_ok=True)
     return final

@@ -112,7 +112,7 @@ def build(compiled, output):
     speed = create_field("speed_indicator", 555, 774, 177, 22, "Loading kernel...")
     speed.Ff = 1
     fields.append(speed)
-    status = create_field("key_status", 452, 315, 280, 14, "Keyboard ready")
+    status = create_field("key_status", 452, 315, 280, 14, "Booting Linux; keep PDF tab visible")
     status.Ff = 1
     fields.append(status)
     command = create_field("key_input", 28, 282, 608, 26)
@@ -173,7 +173,7 @@ def build(compiled, output):
         text(32, 232, 9, "VIRTUAL KEYBOARD", MUTED),
         text(461, 232, 9, "Click modifier once to toggle; again to release.", MUTED),
         text(28, 22, 8, "Based on linuxpdf  /  Chromium PDF JavaScript required", MUTED),
-        text(551, 22, 8, "Boot usually takes 30-60 seconds", MUTED),
+        text(445, 22, 8, "Boot speed varies; keep PDF tab visible", MUTED),
     ]))
     page.Annots = PdfArray(fields)
     writer = PdfWriter()

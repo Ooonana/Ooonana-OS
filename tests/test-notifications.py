@@ -2,9 +2,12 @@
 import json
 from pathlib import Path
 import sys
+from unittest.mock import patch
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages/ooonana/usr/lib/ooonana/ui"))
 from notification_utils import notification_age, parse_history  # noqa: E402
+import notification_utils
 
 
 def field(value, kind="s"):
@@ -24,4 +27,45 @@ assert parse_history(json.dumps({"data": [[{"summary": "Bad", "id": "command"}]]
 assert notification_age(1_000_000, now=1.5) == "Just now"
 assert notification_age(1_000_000, now=121) == "2m ago"
 assert notification_age(0, now=121) == "Saved"
-print("ok notifications")
+for value, expected in (("", 0), ("no", 0), ("-1", 0), ("１２", 0), ("0012", 12),
+                        ("999", 999), ("1000", 1000), ("9" * 10000, 1000), ("0" * 10000 + "1", 1)):
+    assert notification_utils.bounded_badge_count(value) == expected
+for count, expected in (("0", ""), ("17", " 34"), ("999", " 999+"), ("9" * 10000, " 999+")):
+    def query(command, **_kwargs):
+        return SimpleNamespace(returncode=0, stdout="false" if command[1] == "is-paused" else count)
+    with patch.object(notification_utils, "read_history", return_value=(0, '{"data": []}')), \
+            patch.object(notification_utils, "NotificationState") as state, patch.object(notification_utils.subprocess, "run", side_effect=query):
+        state.return_value.unread.return_value = 0
+        assert notification_utils.notification_badge() == "%{T2}\uf0f3%{T-}" + expected
+class NotificationBus:
+    def __init__(self, current, fail=None):
+        self.current, self.fail, self.calls = current, fail, []
+
+    def call_sync(self, destination, _path, _interface, method, *_args):
+        self.calls.append((destination, method))
+        if method == self.fail:
+            raise RuntimeError("Owned notification daemon vanished")
+        result = (":1.55",) if method == "GetNameOwner" else ([self.current],) if method == "NotificationListHistory" else ()
+        return SimpleNamespace(unpack=lambda: result)
+
+
+expected = parsed[0]
+for current, fail, rc in ((record, None, 0),
+                          ({**record, "summary": field("Replacement message")}, None, 2),
+                          ({**record, "timestamp": field(2_000_000, "x")}, None, 2),
+                          (record, "GetNameOwner", 1),
+                          (record, "NotificationListHistory", 1),
+                          (record, "NotificationRemoveFromHistory", 1)):
+    bus = NotificationBus(current, fail)
+    repository = SimpleNamespace(
+        Gio=SimpleNamespace(BusType=SimpleNamespace(SESSION=1), bus_get_sync=lambda *_: bus,
+                            DBusCallFlags=SimpleNamespace(NONE=0, NO_AUTO_START=1)),
+        GLib=SimpleNamespace(Variant=lambda _signature, value: value,
+                             VariantType=SimpleNamespace(new=lambda value: value)))
+    with patch.dict(sys.modules, {"gi": SimpleNamespace(repository=repository), "gi.repository": repository}):
+        result, detail = notification_utils.remove_live_notification(expected)
+    assert result == rc, (rc, result, detail)
+    actions = [(destination, method) for destination, method in bus.calls if method == "NotificationRemoveFromHistory"]
+    assert bool(actions) == (rc == 0 or fail == "NotificationRemoveFromHistory")
+    assert all(destination == ":1.55" for destination, method in bus.calls if method != "GetNameOwner"), bus.calls
+print("ok notifications: parsing, badges, stale identity refusal, unique-owner removal and daemon-loss refusal")

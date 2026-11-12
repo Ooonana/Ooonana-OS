@@ -25,7 +25,7 @@ assert_not_contains() {
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
-for app in common ui_preferences window_menu wireless_utils notification_utils signal_map setup_app settings_app wifi_app bluetooth_app packages_app ai_app controls_app launcher_app task_manager_app notifications_app; do
+for app in common ui_preferences window_menu wireless_utils wireless_ui notification_utils signal_map setup_app settings_app wifi_app bluetooth_app packages_app ai_app controls_app launcher_app task_manager_app notifications_app; do
   [[ -f "$UI_DIR/$app.py" ]] || fail "missing GTK app: $app"
 done
 for app in signal_map setup_app settings_app wifi_app bluetooth_app packages_app ai_app controls_app launcher_app task_manager_app notifications_app; do
@@ -33,6 +33,13 @@ for app in signal_map setup_app settings_app wifi_app bluetooth_app packages_app
 done
 
 PYTHONPYCACHEPREFIX="$tmp/pycache" "$PYTHON" -m py_compile "$UI_DIR"/*.py
+PYTHONPYCACHEPREFIX="$tmp/pycache" "$PYTHON" -m py_compile "$ROOT/packages/ooonana/usr/bin/ooonana-admin-askpass"
+assert_contains "$(<"$ROOT/packages/ooonana/usr/bin/ooonana-admin-askpass")" 'entry.get_accessible().set_name("Account password")'
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-dock-visibility.py"
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-dock-model.py"
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-launcher-search.py"
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-window-control-scale.py"
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-media-metadata.py"
 
 common="$(<"$UI_DIR/common.py")"
 settings="$(<"$UI_DIR/settings_app.py")"
@@ -64,7 +71,8 @@ assert_contains "$common" 'window-close-symbolic'
 assert_contains "$common" 'OoonanaApp'
 assert_contains "$common" "#ffb21a"
 assert_contains "$common" "window.background"
-assert_contains "$common" "window.background, dialog.background, messagedialog.background { border-radius: 14px; }"
+assert_contains "$common" "window.background, dialog.background, messagedialog.background { border-radius: 0; }"
+assert_contains "$common" "window.csd, window.solid-csd { border-radius: 14px; }"
 assert_contains "$common" "headerbar"
 assert_contains "$common" "transition: background-color 180ms ease-out"
 assert_contains "$common" "decoration_layout"
@@ -75,7 +83,16 @@ assert_contains "$common" "textview text"
 assert_contains "$common" "progressbar progress"
 assert_contains "$settings" "Desktop runs without root privileges"
 assert_contains "$settings" '"Memory and swap"'
-assert_contains "$settings" 'run(["ooonana-memory", "status"]'
+assert_contains "$settings" 'run_async(["ooonana-memory", "status"]'
+assert_not_contains "$settings" 'memory_rc, memory_text = run('
+assert_contains "$settings" 'env={"OOONANA_THEME": selected, "OOONANA_THEME_OVERRIDE": selected}'
+assert_contains "$settings" 'os.replace(temporary, path)'
+power_window="$(sed -n '/^class PowerWindow/,/^def main/p' "$UI_DIR/controls_app.py")"
+confirmation="$(sed -n '/^def confirmation_dialog(/,/^def message_dialog(/p' "$UI_DIR/common.py")"
+assert_contains "$power_window" 'dialog = confirmation_dialog(self,'
+assert_contains "$power_window" 'accepted = dialog.run() == Gtk.ResponseType.OK'
+assert_contains "$confirmation" 'dialog.set_default_response(Gtk.ResponseType.CANCEL)'
+assert_not_contains "$controls" 'launch(["xset", "dpms", "force", "off"])'
 assert_contains "$settings" "ooonana-wifi-panel"
 assert_contains "$settings" "ooonana-bluetooth-panel"
 assert_contains "$settings" "Fit desktop / keep dock clear"
@@ -198,7 +215,7 @@ assert_contains "$controls" "PipeWire has no hardware route"
 assert_contains "$controls" "def collect_audio_state"
 assert_contains "$controls" "def refresh_audio"
 audio_start_line="$(grep -n 'service_rc, service_output = self.audio_command("info")' "$UI_DIR/controls_app.py" | cut -d: -f1)"
-audio_refresh_line="$(grep -n 'outputs = self.list_audio_devices("sinks")' "$UI_DIR/controls_app.py" | cut -d: -f1)"
+audio_refresh_line="$(grep -n 'self.list_audio_devices("sinks"' "$UI_DIR/controls_app.py" | cut -d: -f1)"
 [[ -n "$audio_start_line" && -n "$audio_refresh_line" && "$audio_start_line" -lt "$audio_refresh_line" ]] ||
   fail "audio UI must start its server before enumerating devices"
 assert_contains "$controls" "set-default-sink"
@@ -206,7 +223,6 @@ assert_contains "$settings" "run_async_task(task, done)"
 assert_contains "$ai" "run_async_task(task, done)"
 assert_contains "$controls" 'self.add(root)'
 assert_contains "$controls" "PowerWindow"
-power_window="$(sed -n '/^class PowerWindow/,/^def main/p' "$UI_DIR/controls_app.py")"
 assert_contains "$power_window" 'self.add(root)'
 assert_contains "$controls" 'run_async(command, done, timeout=20)'
 assert_contains "$setup" "SetupWindow"
@@ -217,8 +233,11 @@ assert_contains "$setup" "Apply setup"
 assert_contains "$setup" "admin_command"
 assert_contains "$launcher" "Gio.AppInfo.get_all"
 assert_contains "$launcher" "Ooonana Spotlight"
-assert_contains "$launcher" "Search apps, settings, and commands"
+assert_contains "$launcher" "Search applications"
 assert_contains "$launcher" "OoonanaSpotlight"
+spotlight_rule="$(grep 'class="^OoonanaSpotlight$"' "$ROOT/branding/i3/config")"
+assert_contains "$spotlight_rule" 'floating enable'
+assert_not_contains "$spotlight_rule" 'resize set'
 assert_contains "$launcher" "Gdk.KEY_Down"
 assert_contains "$launcher" "PREFERRED_COMMANDS"
 assert_contains "$launcher" '"chromium.desktop": ["ooonana-browser"]'
@@ -229,7 +248,8 @@ assert_contains "$task_manager" "Gtk.TreeView"
 assert_contains "$task_manager" "CPU %"
 assert_contains "$task_manager" "Wi-Fi / network"
 assert_contains "$task_manager" "gpu_busy_percent"
-assert_contains "$task_manager" "os.kill(pid, signal.SIGTERM)"
+assert_contains "$task_manager" "terminate_owned_process(pid, starttime, owner)"
+assert_contains "$task_manager" "GObject.TYPE_UINT64"
 assert_not_contains "$task_manager" "signal.SIGKILL"
 assert_contains "$i3_config" 'bindsym Control+Shift+Escape exec ooonana-processes'
 assert_contains "$i3_config" 'focus_follows_mouse no'
@@ -238,11 +258,20 @@ assert_contains "$window_list" 'scratchpad show'
 assert_contains "$window_list" 'hidden_count'
 assert_contains "$window_list" '"--close-menu"'
 assert_contains "$window_list" '"--actions"'
+assert_contains "$window_list" '"--task-view"'
+assert_contains "$i3_config" 'bindsym $mod+Control+Tab exec ooonana-window-list --task-view'
 assert_contains "$window_list" 'f"[con_id={item[0]}] kill"'
 full_builder="$(<"$ROOT/scripts/build-full-i3-rootfs.sh")"
 assert_contains "$full_builder" 'ROOTFS/usr/bin/ooonana-process-kill'
 assert_contains "$full_builder" 'click-right = ooonana-process-kill'
-assert_contains "$full_builder" '[ "$owner" = "$uid" ]'
+process_control="$(<"$ROOT/packages/ooonana/usr/lib/ooonana/process_control.py")"
+process_kill="$(<"$ROOT/packages/ooonana/usr/bin/ooonana-process-kill")"
+assert_contains "$process_control" 'uid == 0 or owner != uid'
+assert_contains "$process_control" 'os.pidfd_open(pid, 0)'
+assert_contains "$process_control" 'signal.pidfd_send_signal(descriptor, signal.SIGTERM, None, 0)'
+assert_contains "$process_kill" 'task_manager_app.py'
+assert_not_contains "$process_kill" 'kill -'
+assert_not_contains "$process_control" 'os.kill('
 assert_contains "$i3_config" 'Chromium-browser'
 assert_contains "$i3_config" "--backend glx"
 assert_contains "$i3_config" "--backend xrender"
@@ -251,10 +280,13 @@ PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-wireless-utils.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-wireless-actions.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-audio-actions.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-window-list.py"
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-desktop-session-cwd.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-offline-ai-flow.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-ai-ui-status.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-notifications.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-gui-preferences.py"
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-desktop-theme-preferences.py"
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-installer-wizard-ui.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-cursor-theme.py"
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$ROOT/tests/test-signal-map.py"
 

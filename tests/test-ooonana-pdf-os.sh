@@ -81,6 +81,7 @@ printf 'riscv-busybox\n' > "$rootfs/bin/busybox"
 mkdir -p "$rootfs/sbin"
 ln -s ../bin/busybox "$rootfs/sbin/init"
 chmod 0755 "$rootfs/bin/busybox"
+ln -s busybox "$rootfs/bin/sh"
 ln -s ../../bin/busybox "$rootfs/usr/bin/clear"
 inject="$(bash "$INJECTOR" "$rootfs")"
 [[ ! -L "$rootfs/sbin/init" ]] || fail "injected init remains symlink"
@@ -93,6 +94,14 @@ assert_contains "$inject" "injected Ooonana PDF rootfs"
 [[ ! -d "$rootfs/usr/lib/ooonana/ai" ]] || fail "PDF contains unused Python AI payload"
 [[ ! -d "$rootfs/usr/share/icons" ]] || fail "PDF contains unused desktop icons"
 [[ -s "$rootfs/etc/ooonana/pdf-runtime-seeds" ]] || fail "missing RAM runtime seed list"
+[[ -s "$rootfs/usr/share/ooonana/pdf-seed.tar" ]] || fail "missing sequential RAM seed archive"
+mkdir -p "$tmp/seeds"
+tar -xf "$rootfs/usr/share/ooonana/pdf-seed.tar" -C "$tmp/seeds"
+cmp "$rootfs/bin/busybox" "$tmp/seeds/bin/busybox" || fail "RAM shell bytes changed"
+[[ -L "$tmp/seeds/bin/sh" ]] || fail "RAM shell link lost"
+cmp "$rootfs/usr/bin/ooonana-pkg" "$tmp/seeds/usr/bin/ooonana-pkg" || fail "RAM backend changed"
+cmp "$rootfs/usr/share/ooonana/pdf-help/packages" "$tmp/seeds/help/packages" || fail "RAM help changed"
+cmp "$rootfs/usr/lib/ooonana/repo/base.pkg" "$tmp/seeds/state/installed/base.pkg" || fail "RAM package state changed"
 [[ -s "$rootfs/usr/share/ooonana/pdf-help/packages" ]] || fail "missing extracted package help"
 [[ "$(find "$rootfs/usr/lib/ooonana/repo" -name '*.pkg' | wc -l)" -eq 1 ]] || fail "PDF includes unsupported package bundles"
 cmp "$ROOT/packages/ooonana/usr/bin/ooonana" "$rootfs/usr/bin/ooonana-pkg" || fail "PDF changes package verification backend"
@@ -104,7 +113,7 @@ assert_contains "$(<"$rootfs/sbin/init")" "stty cols 80 rows 30"
 assert_contains "$(<"$rootfs/sbin/init")" 'export OOONANA_SOURCES_DIR=/run/ooonana/sources.d'
 assert_contains "$(<"$rootfs/sbin/init")" 'export OOONANA_CACHE_DIR=/run/ooonana/cache'
 [[ -f "$rootfs/etc/ooonana/pdf-source-seeds" ]] || fail "missing source seed list"
-assert_contains "$(<"$rootfs/sbin/init")" "PDF Minimal 0.6 | pkg 0.9.9"
+assert_contains "$(<"$rootfs/sbin/init")" "PDF Minimal 0.6 | pkg 0.10.0"
 assert_contains "$(<"$rootfs/sbin/init")" "exec </dev/hvc0 >/dev/hvc0 2>&1"
 assert_contains "$(<"$rootfs/sbin/init")" "--- Ooonana userspace ready ---"
 assert_contains "$(<"$rootfs/root/.profile")" "ooonana help packages"
@@ -112,7 +121,7 @@ assert_contains "$(<"$rootfs/root/.profile")" "ooonana ai status"
 assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS PDF Minimal"'
 assert_contains "$(<"$rootfs/etc/os-release")" 'VERSION_ID="0.6-pdf"'
 [[ -f "$rootfs/etc/ooonana/pdf-release" ]] || fail "missing PDF release metadata"
-assert_contains "$(<"$rootfs/etc/ooonana/pdf-release")" 'OOONANA_PDF_PACKAGE_MANAGER="0.9.9"'
+assert_contains "$(<"$rootfs/etc/ooonana/pdf-release")" 'OOONANA_PDF_PACKAGE_MANAGER="0.10.0"'
 assert_contains "$(<"$rootfs/etc/ooonana/pdf-release")" 'OOONANA_PDF_VERSION="0.6"'
 
 if [[ -f "$PDF" ]]; then

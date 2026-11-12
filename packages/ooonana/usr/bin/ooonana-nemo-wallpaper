@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+[ "$#" -eq 1 ] || { echo 'usage: ooonana-nemo-wallpaper IMAGE' >&2; exit 2; }
+image="$1"
+case "$image" in /*) ;; *) image="$PWD/$image" ;; esac
+if [ -f "$image" ] && ooonana-wallpaper "$image"; then
+  exit 0
+fi
+echo 'Wallpaper unchanged; choose another readable image.' >&2
+if command -v notify-send >/dev/null 2>&1; then
+  notify-send -a 'Ooonana Files' -h boolean:suppress-sound:true \
+    'Wallpaper unchanged' 'Could not open selected image. Choose another image.' || true
+fi
+exit 1

@@ -21,26 +21,36 @@ for_window [class="^(Nemo|Geany|Alacritty|XTerm)$"] floating enable, move positi
 # Set initial bounds only; later user resize/fullscreen remains unrestricted.
 for_window [class="^(Chromium|chromium|Chromium-browser|chromium-browser|Google-chrome)$"] floating enable, resize set 80 ppt 70 ppt, move position center
 for_window [window_type="dialog"] floating enable
+# GTK file pickers can request more height than the output and hide both actions
+# and titlebar. Bound initial file-picker size only, not ordinary message dialogs.
+for_window [window_role="^GtkFileChooserDialog$"] floating enable, resize set 80 ppt 70 ppt, move position center
 for_window [window_role="pop-up"] floating enable
 # Native client-side headers override generic dialog decorations.
 for_window [class="^OoonanaApp$"] floating enable, border none, move position center
-for_window [class="^OoonanaSpotlight$"] floating enable, border none, resize set 760 520, move position center
+# Spotlight's GTK request already fits the monitor; fixed pixels clip small outputs.
+for_window [class="^OoonanaSpotlight$"] floating enable, border none, move position center
+for_window [class="^OoonanaFlyout$"] floating enable, border none
 for_window [class="^OonanaGame$"] fullscreen enable
 
 exec_always --no-startup-id ooonana-theme-env apply
 exec --no-startup-id xsetroot -name "Ooonana OS" -cursor_name left_ptr
 exec --no-startup-id sh -c 'if command -v picom >/dev/null 2>&1; then if [ "${OOONANA_WSL_SOCKET_READY:-0}" = 1 ]; then picom --backend xrender --config /etc/ooonana/picom.conf; else picom --backend glx --config /etc/ooonana/picom.conf || exec picom --backend xrender --config /etc/ooonana/picom.conf; fi; fi &'
 exec --no-startup-id sh -c 'command -v dunst >/dev/null 2>&1 && dunst -config /etc/ooonana/dunstrc &'
-exec --no-startup-id sh -c 'command -v xsettingsd >/dev/null 2>&1 && xsettingsd -c "${XDG_CONFIG_HOME:-$HOME/.config}/ooonana/xsettingsd.conf" &'
+exec_always --no-startup-id ooonana-xsettings
 exec_always --no-startup-id ooonana-panel-start
+exec_always --no-startup-id ooonana-tray --background
 exec_always --no-startup-id ooonana-window-controls
 exec --no-startup-id ooonana-storage-watch
-exec --no-startup-id sh -c 'command -v nm-applet >/dev/null 2>&1 && [ -S /run/dbus/system_bus_socket ] && nm-applet --indicator &'
-exec --no-startup-id sh -c 'if command -v blueman-applet >/dev/null 2>&1 && [ -S /run/dbus/system_bus_socket ] && ls /sys/class/bluetooth/hci* >/dev/null 2>&1; then blueman-applet & fi'
+exec_always --no-startup-id ooonana-session-guard --background
+exec --no-startup-id sh -c 'if command -v nm-applet >/dev/null 2>&1 && [ -S /run/dbus/system_bus_socket ]; then ooonana-tray --wait-ready >/dev/null 2>&1 || true; nm-applet --indicator & fi'
+exec --no-startup-id sh -c 'if command -v blueman-applet >/dev/null 2>&1 && [ -S /run/dbus/system_bus_socket ] && ls /sys/class/bluetooth/hci* >/dev/null 2>&1; then ooonana-tray --wait-ready >/dev/null 2>&1 || true; blueman-applet & fi'
 exec --no-startup-id sh -c '[ "${OOONANA_NO_AUDIO:-0}" = 1 ] || { command -v ooonana-audio-start >/dev/null 2>&1 && ooonana-audio-start >/dev/null 2>&1; } || true'
 
 bindsym $mod+Return exec ooonana-theme-env xterm
 bindsym $mod+d exec ooonana-apps
+bindsym $mod+Control+d exec ooonana-window-list --dock-menu
+bindsym $mod+Control+Tab exec ooonana-window-list --task-view
+bindsym $mod+Control+l exec ooonana-lock
 bindsym $mod+Shift+d exec sh -c 'command -v rofi >/dev/null 2>&1 && rofi -show drun -theme /etc/ooonana/rofi.rasi || dmenu_run'
 bindsym $mod+Shift+f exec ooonana-files
 bindsym $mod+Shift+w exec ooonana-browser
@@ -72,13 +82,38 @@ bindsym --release button3 exec ooonana-window-list --focused-actions
 bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'Exit Ooonana i3?' -b 'Exit' 'i3-msg exit'"
 bindsym $mod+Tab focus next
 bindsym $mod+Shift+Tab focus prev
+
+# Numbered workspaces remain keyboard-accessible even when panel is hidden.
+bindsym $mod+1 workspace number 1
+bindsym $mod+2 workspace number 2
+bindsym $mod+3 workspace number 3
+bindsym $mod+4 workspace number 4
+bindsym $mod+5 workspace number 5
+bindsym $mod+6 workspace number 6
+bindsym $mod+7 workspace number 7
+bindsym $mod+8 workspace number 8
+bindsym $mod+9 workspace number 9
+bindsym $mod+0 workspace number 10
+bindsym $mod+Shift+1 move container to workspace number 1
+bindsym $mod+Shift+2 move container to workspace number 2
+bindsym $mod+Shift+3 move container to workspace number 3
+bindsym $mod+Shift+4 move container to workspace number 4
+bindsym $mod+Shift+5 move container to workspace number 5
+bindsym $mod+Shift+6 move container to workspace number 6
+bindsym $mod+Shift+7 move container to workspace number 7
+bindsym $mod+Shift+8 move container to workspace number 8
+bindsym $mod+Shift+9 move container to workspace number 9
+bindsym $mod+Shift+0 move container to workspace number 10
+bindsym $mod+Control+Left workspace prev
+bindsym $mod+Control+Right workspace next
+
 bindsym $mod+minus scratchpad show
 bindsym $mod+Shift+minus move scratchpad
 bindsym $mod+m move scratchpad
 bindsym $mod+Shift+space floating toggle
 bindsym $mod+space focus mode_toggle
-bindsym --whole-window $mod+button1 move
-bindsym --whole-window $mod+button3 resize
+# floating_modifier supplies Super+left drag and Super+right resize. Bare
+# move/resize mouse commands are invalid and override those native handlers.
 
 bindsym $mod+h focus left
 bindsym $mod+j focus down
@@ -111,7 +146,21 @@ bindsym $mod+r mode "resize"
 
 # Blend frame edges into titlebar; rectangular accent outlines are clipped by
 # rounded corners. Keep focus/urgency accents in text and tiling indicators.
-client.focused #1b1f26 #1b1f26 #ffb21a #ffb21a #1b1f26
-client.unfocused #101317 #101317 #b4bdc8 #414957 #101317
-client.focused_inactive #171b21 #171b21 #b4bdc8 #414957 #171b21
-client.urgent #3b2324 #3b2324 #ff675c #ff675c #3b2324
+# Ooonana managed frame palette v1
+# Fallbacks keep validation/startup working without any X resource database.
+set_from_resource $of_bg ooonana.i3.focused.background #1b1f26
+set_from_resource $of_text ooonana.i3.focused.text #ffb21a
+set_from_resource $of_indicator ooonana.i3.focused.indicator #ffb21a
+set_from_resource $ou_bg ooonana.i3.unfocused.background #101317
+set_from_resource $ou_text ooonana.i3.unfocused.text #b4bdc8
+set_from_resource $ou_indicator ooonana.i3.unfocused.indicator #414957
+set_from_resource $oi_bg ooonana.i3.focused_inactive.background #171b21
+set_from_resource $oi_text ooonana.i3.focused_inactive.text #b4bdc8
+set_from_resource $oi_indicator ooonana.i3.focused_inactive.indicator #414957
+set_from_resource $oa_bg ooonana.i3.urgent.background #3b2324
+set_from_resource $oa_text ooonana.i3.urgent.text #ff675c
+set_from_resource $oa_indicator ooonana.i3.urgent.indicator #ff675c
+client.focused $of_bg $of_bg $of_text $of_indicator $of_bg
+client.unfocused $ou_bg $ou_bg $ou_text $ou_indicator $ou_bg
+client.focused_inactive $oi_bg $oi_bg $oi_text $oi_indicator $oi_bg
+client.urgent $oa_bg $oa_bg $oa_text $oa_indicator $oa_bg

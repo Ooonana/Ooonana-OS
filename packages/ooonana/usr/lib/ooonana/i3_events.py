@@ -28,7 +28,10 @@ def receive(connection):
     magic, size, kind = HEADER.unpack(receive_exact(connection, HEADER.size))
     if magic != MAGIC or size > MAX_MESSAGE:
         raise ValueError("Invalid i3 IPC frame")
-    return kind, json.loads(receive_exact(connection, size))
+    try:
+        return kind, json.loads(receive_exact(connection, size))
+    except RecursionError as error:
+        raise ValueError("i3 IPC JSON nesting exceeds limit") from error
 
 
 def send(connection, kind, payload=b""):
@@ -43,6 +46,10 @@ def request(path, kind):
         reply_kind, value = receive(connection)
         if reply_kind != kind:
             raise ValueError("Unexpected i3 reply")
+        if kind == 4 and not isinstance(value, dict):
+            raise ValueError("Invalid i3 tree reply")
+        if kind == 1 and (not isinstance(value, list) or any(not isinstance(item, dict) for item in value)):
+            raise ValueError("Invalid i3 workspace reply")
         return value
 
 
@@ -53,7 +60,7 @@ def trees():
         connection.connect(path)
         send(connection, 2, b'["window","workspace","output","shutdown"]')
         kind, reply = receive(connection)
-        if kind != 2 or not reply.get("success"):
+        if kind != 2 or not isinstance(reply, dict) or reply.get("success") is not True:
             raise ValueError("i3 subscription failed")
         connection.settimeout(None)
         yield request(path, 4)

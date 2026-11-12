@@ -26,7 +26,29 @@ PATH_DIRS = (
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("rootfs", type=Path)
+    parser.add_argument("--kernel-config", type=Path,
+                        help="Resolved target kernel config; required for compressed firmware")
     return parser.parse_args()
+
+
+def firmware_exists(root: Path, name: str, kernel_options: set[str]) -> bool:
+    """Accept compression only when target kernel can actually load it."""
+    candidates = [name]
+    if {"CONFIG_FW_LOADER=y", "CONFIG_FW_LOADER_COMPRESS=y"} <= kernel_options:
+        for suffix, option in ((".zst", "CONFIG_FW_LOADER_COMPRESS_ZSTD=y"),
+                               (".xz", "CONFIG_FW_LOADER_COMPRESS_XZ=y")):
+            if option in kernel_options:
+                candidates.append(name + suffix)
+    for candidate in candidates:
+        path = root / candidate.lstrip("/")
+        try:
+            resolved = path.resolve(strict=True)
+            if (resolved.is_relative_to(root.resolve()) and resolved.is_file()
+                    and resolved.stat().st_size > 0):
+                return True
+        except (OSError, RuntimeError):
+            continue
+    return False
 
 
 def main() -> int:
@@ -35,6 +57,13 @@ def main() -> int:
     errors: list[str] = []
     checked_elf = 0
     checked_scripts = 0
+    kernel_options: set[str] = set()
+    if args.kernel_config is not None:
+        try:
+            kernel_options = set(args.kernel_config.read_text().splitlines())
+        except OSError as error:
+            print(f"cannot read target kernel config: {error}", file=sys.stderr)
+            return 2
 
     def fail(message: str) -> None:
         errors.append(message)
@@ -66,6 +95,7 @@ def main() -> int:
     required_commands = (
         "init",
         "dbus-run-session",
+        "gdbus",
         "start-ooonana-i3",
         "startx",
         "Xorg",
@@ -107,6 +137,14 @@ def main() -> int:
         "ooonana-hardware-reprobe",
         "ooonana-service-repair",
         "ooonana-service-watchdog",
+        "ooonana-session-services",
+        "loginctl",
+        "glycin-thumbnailer",
+        "heif-thumbnailer",
+        "ooonana-nemo-wallpaper",
+        "ooonana-graphical-login",
+        "lightdm",
+        "lightdm-gtk-greeter",
         "ooonana-run-admin",
         "ooonana-apps",
         "ooonana-files",
@@ -140,6 +178,18 @@ def main() -> int:
         "rfkill",
         "ip",
         "brightnessctl",
+        "lsblk",
+        "findmnt",
+        "blkid",
+        "losetup",
+        "mountpoint",
+        "mkswap",
+        "mount",
+        "umount",
+        "parted",
+        "mkfs.ext4",
+        "mkfs.vfat",
+        "rsync",
         "grub-install",
     )
     for command in required_commands:
@@ -161,6 +211,27 @@ def main() -> int:
         "/etc/passwd",
         "/etc/group",
         "/etc/shadow",
+        "/usr/sbin/unix_chkpwd",
+        "/usr/lib/pam.d/base-auth",
+        "/usr/lib/security/pam_unix.so",
+        "/usr/lib/security/pam_elogind.so",
+        "/usr/lib/security/pam_succeed_if.so",
+        "/etc/pam.d/ooonana-graphical-login",
+        "/etc/lightdm/lightdm.conf.d/90-ooonana.conf",
+        "/etc/lightdm/lightdm-gtk-greeter.conf.d/90-ooonana.conf",
+        "/usr/share/xsessions/ooonana.desktop",
+        "/usr/share/xgreeters/lightdm-gtk-greeter.desktop",
+        "/usr/libexec/elogind/elogind",
+        "/usr/lib/polkit-1/polkitd",
+        "/usr/share/dbus-1/system-services/org.freedesktop.login1.service",
+        "/usr/share/dbus-1/system-services/org.freedesktop.PolicyKit1.service",
+        "/etc/elogind/logind.conf.d/90-ooonana.conf",
+        "/usr/libexec/gvfs/gvfsd-metadata",
+        "/usr/lib/gio/modules/libgvfsdbus.so",
+        "/usr/share/dbus-1/services/org.gtk.vfs.Metadata.service",
+        "/usr/share/nemo/actions/ooonana-wallpaper.nemo_action",
+        "/usr/share/nemo/actions/ooonana-appearance.nemo_action",
+        "/usr/share/glib-2.0/schemas/20_ooonana-nemo.gschema.override",
         "/etc/NetworkManager/NetworkManager.conf",
         "/etc/ssl/cert.pem",
         "/etc/ssl/certs/ca-certificates.crt",
@@ -213,10 +284,12 @@ def main() -> int:
         if "ooonana" not in members:
             fail(f"desktop user missing group: {group}")
 
-    for path in ("/usr/bin/doas", "/usr/bin/sudo", "/bin/su"):
+    for path in ("/usr/bin/doas", "/usr/bin/sudo", "/bin/su", "/usr/sbin/unix_chkpwd"):
         candidate = rooted(path)
         if candidate.exists() and not candidate.stat().st_mode & stat.S_ISUID:
             fail(f"setuid bit missing: {path}")
+        if path.endswith("unix_chkpwd") and candidate.exists() and candidate.stat().st_uid != 0:
+            fail("password-check helper must be owned by root")
 
     dbus_helper = rooted("/usr/libexec/dbus-daemon-launch-helper")
     if dbus_helper.exists():
@@ -333,8 +406,8 @@ def main() -> int:
         "/lib/firmware/intel/sof-ipc4/tgl/sof-tgl.ri": "Intel Tiger Lake audio",
     }
     for firmware_path, description in required_hardware_firmware.items():
-        if not rooted(firmware_path).exists():
-            fail(f"missing {description} firmware: {firmware_path}")
+        if not firmware_exists(root, firmware_path, kernel_options):
+            fail(f"missing/load-incompatible {description} firmware: {firmware_path}")
 
     if not any(rooted("/usr/lib/NetworkManager").rglob("*wifi*")):
         fail("NetworkManager Wi-Fi plugin missing")

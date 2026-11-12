@@ -169,18 +169,68 @@ with tempfile.TemporaryDirectory() as temporary:
     prefix = Path(temporary)
     (prefix / "usr/bin").mkdir(parents=True)
     (prefix / "etc").mkdir()
-    for helper in ("ooonana", "ooonana-memory", "ooonana-panel-start", "ooonana-window-list", "ooonana-shutdown-cleanup", "ooonana-storage-watch", "ooonana-persistence", "gzip"):
+    (prefix / "var/tmp").mkdir(parents=True)
+    (prefix / "var/tmp").chmod(0o1777)
+    for helper in ("ooonana", "ooonana-memory", "ooonana-panel-start", "ooonana-xsettings",
+                   "ooonana-lock", "ooonana-session", "ooonana-session-services", "ooonana-session-guard", "ooonana-input-method", "ooonana-tray", "ooonana-controls", "ooonana-shell", "ooonana-window-list", "ooonana-shutdown-cleanup",
+                   "ooonana-storage-watch", "ooonana-persistence", "gzip", "gdbus"):
         path = prefix / "usr/bin" / helper
         path.write_text('#!/bin/sh\necho "ooonana 0.9.9"\n')
         path.chmod(0o755)
+    assets = (
+        "usr/lib/ooonana/xsettings_session.py", "usr/lib/ooonana/legacy_gtk_style.py",
+        "usr/lib/ooonana/lock_screen.py", "usr/lib/ooonana/lock_readiness.py",
+        "usr/lib/ooonana/session_control.py",
+        "usr/lib/ooonana/session_services.py", "etc/elogind/logind.conf.d/90-ooonana.conf",
+        "usr/lib/ooonana/input_method.py", "usr/share/ooonana/input-method-profile",
+        "usr/lib/ooonana/tray_model.py", "usr/lib/ooonana/tray_service.py", "usr/lib/ooonana/legacy_tray.py",
+        "usr/lib/ooonana/ui/tray_app.py", "usr/share/themes/OoonanaGraphite/gtk-3.0/gtk.css",
+        "usr/lib/ooonana/ui/shell_flyout.py", "usr/lib/ooonana/ui/shell_pointer.py", "usr/lib/ooonana/ui/shell_client.py",
+        "usr/share/themes/OoonanaPaper/gtk-3.0/gtk.css", "usr/share/themes/Ooonana/gtk-3.0/common.css",
+    )
+    for asset in assets:
+        target = prefix / asset
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(root / "packages/ooonana" / asset, target)
     environment = {**os.environ, "OOONANA_ROOT": str(prefix), "OOONANA_PKG_VERSION": "0.9.9"}
+
+    def check_healthcheck(error=None):
+        result = subprocess.run(["sh"], input=hook, text=True, env=environment, capture_output=True)
+        if error is None:
+            assert result.returncode == 0, (result.stdout, result.stderr)
+            assert "OOONANA_CORE_HEALTHCHECK_OK" in result.stdout
+        else:
+            assert result.returncode != 0 and error in result.stderr, (result.stdout, result.stderr)
+            assert "OOONANA_CORE_HEALTHCHECK_OK" not in result.stdout
+
+    check_healthcheck()
+    # Keep production guards strict: absent/non-executable helpers and absent/
+    # empty assets must still fail. Only this disposable fixture changed.
+    for helper in ("ooonana-xsettings", "ooonana-lock", "ooonana-tray", "ooonana-controls"):
+        path = prefix / "usr/bin" / helper
+        saved = path.read_bytes()
+        path.unlink()
+        check_healthcheck("core healthcheck: missing " + helper)
+        path.write_bytes(saved)
+        path.chmod(0o644)
+        check_healthcheck("core healthcheck: missing " + helper)
+        path.chmod(0o755)
+    for asset in assets:
+        path = prefix / asset
+        saved = path.read_bytes()
+        path.unlink()
+        check_healthcheck("core healthcheck: missing " + asset)
+        path.write_bytes(b"")
+        check_healthcheck("core healthcheck: missing " + asset)
+        path.write_bytes(saved)
+    check_healthcheck()
     auth = "tty1::respawn:/bin/busybox getty 38400 tty1\n"
     for shutdown, changed in (("::shutdown:/bin/umount -a -r\n", True),
                               ("::shutdown:/custom/shutdown\n", False),
                               ("::shutdown:/bin/umount -a -r\n::shutdown:/custom/hook\n", False)):
         inittab = prefix / "etc/inittab"
         inittab.write_text(auth + shutdown)
-        subprocess.run(["sh"], input=hook, text=True, env=environment, check=True, capture_output=True)
+        check_healthcheck()
         assert inittab.read_text().startswith(auth)
         assert ("ooonana-shutdown-cleanup --from-init" in inittab.read_text()) == changed
 

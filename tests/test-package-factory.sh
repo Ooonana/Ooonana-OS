@@ -71,6 +71,10 @@ assert_contains "$both_profile" "bubblewrap"
 assert_contains "$both_profile" "xz"
 assert_contains "$both_profile" "nodejs"
 assert_contains "$both_profile" "flatpak"
+for package in xdg-desktop-portal xdg-desktop-portal-gtk xdg-document-portal; do
+  grep -Fxq "$package" "$FULL_I3_PROFILE" || fail "desktop profile missing $package"
+  grep -Fxq "$package" "$BOTH_PROFILE" || fail "combined profile missing $package"
+done
 assert_contains "$both_profile" "i3wm"
 assert_contains "$both_profile" "xorg-server-xephyr"
 assert_contains "$both_profile" "chromium"
@@ -222,7 +226,7 @@ assert_contains "$gitlab_ci" "OOONANA_REPO_SIGN_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_REPO_PUBLIC_KEY_B64"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_CORE_VERSION"
-assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.9.9"'
+assert_contains "$gitlab_ci" 'OOONANA_CORE_VERSION: "0.10.0"'
 assert_contains "$gitlab_ci" "OOONANA_OPENVINO_CHAT_VERSION"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_URL"
 assert_contains "$gitlab_ci" "OOONANA_KERNEL_PACKAGE_SHA256"
@@ -334,7 +338,7 @@ OOONANA_PKG_DEPS=""
 OOONANA_PKG_ARCHIVE=""
 OOONANA_PKG_SHA256=""
 PKG
-for package in bubblewrap xz curl ca-certificates coreutils nodejs flatpak openssl $packages; do
+for package in bubblewrap xz curl ca-certificates coreutils nodejs flatpak openssl elogind polkit-elogind $packages; do
   cat > "$out/$package.pkg" <<PKG
 OOONANA_PKG_ID="$package"
 OOONANA_PKG_VERSION="1.0"
@@ -345,6 +349,19 @@ OOONANA_PKG_ARCHIVE=""
 OOONANA_PKG_SHA256=""
 PKG
 done
+mkdir -p "$out/.fixture-glib/usr/bin" "$out/archives"
+printf '#!/bin/sh\nexit 0\n' > "$out/.fixture-glib/usr/bin/gdbus"
+chmod 0755 "$out/.fixture-glib/usr/bin/gdbus"
+tar -czf "$out/archives/glib-1.0.tar.gz" -C "$out/.fixture-glib" .
+cat > "$out/glib.pkg" <<PKG
+OOONANA_PKG_ID="glib"
+OOONANA_PKG_VERSION="1.0"
+OOONANA_PKG_KIND="archive"
+OOONANA_PKG_SUMMARY="GLib fixture with gdbus executable"
+OOONANA_PKG_DEPS=""
+OOONANA_PKG_ARCHIVE="archives/glib-1.0.tar.gz"
+OOONANA_PKG_SHA256="$(sha256sum "$out/archives/glib-1.0.tar.gz" | awk '{print $1}')"
+PKG
 "$OOONANA_TEST_ROOT/packages/ooonana/usr/bin/ooonana" repo index "$out" >/dev/null
 EOF
 chmod +x "$stub"
@@ -372,13 +389,18 @@ while IFS= read -r package; do
   [[ -f "$tmp/repo/$package.pkg" ]] || fail "builder missing optional package: $package"
 done < "$ROOT/configs/packages/common-tools.list"
 assert_contains "$(<"$tmp/repo/ooonana-core.pkg")" 'OOONANA_PKG_DEPS="ooonana-core-runtime"'
-assert_contains "$(<"$tmp/repo/ooonana-core-runtime.pkg")" 'OOONANA_PKG_DEPS="dbus-daemon-launch-helper openssl"'
+core_runtime_deps="$( (source "$tmp/repo/ooonana-core-runtime.pkg"; printf ' %s ' "$OOONANA_PKG_DEPS") )"
+for dependency in dbus-daemon-launch-helper openssl glib lsblk findmnt blkid losetup mount umount coreutils elogind polkit-elogind; do
+  assert_contains "$core_runtime_deps" " $dependency "
+done
 assert_contains "$(<"$tmp/repo/ooonana-core.pkg")" 'OOONANA_PKG_ARCHIVE=""'
 core_runtime_archive="$(find "$tmp/repo/archives" -maxdepth 1 -name 'ooonana-core-runtime-*.tar.gz' -print -quit)"
 [[ -f "$core_runtime_archive" ]] || fail "builder missing core runtime archive"
 core_archive_files="$(tar -tzf "$core_runtime_archive")"
 [[ "$core_archive_files" != *'__pycache__'* ]] || fail "core runtime contains Python cache"
 [[ "$core_archive_files" != *'.pyc'* ]] || fail "core runtime contains Python bytecode"
+[[ "$(tar -tvzf "$core_runtime_archive" ./var/tmp/ | awk 'NR == 1 {print $1}')" == "drwxrwxrwt" ]] ||
+  fail "core runtime missing sticky /var/tmp"
 tar -tzf "$core_runtime_archive" | grep 'var/lib/ooonana/packages/files/ooonana-core.list' >/dev/null || fail "core runtime missing legacy manifest guard"
 tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-audio-start' >/dev/null || fail "core runtime missing audio session helper"
 tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-game-launch' >/dev/null || fail "core runtime missing game launcher"
@@ -389,9 +411,9 @@ tar -tzf "$core_runtime_archive" | grep './usr/bin/start-ooonana-i3' >/dev/null 
 # even when the required runtime content exists.
 tar -xOzf "$core_runtime_archive" ./usr/bin/start-ooonana-i3 | grep -F 'Xephyr' >/dev/null || fail "core runtime missing nested display support"
 tar -xOzf "$core_runtime_archive" ./usr/share/icons/OoonanaTailless/cursors/left_ptr | python3 -c 'import sys; raise SystemExit(not sys.stdin.buffer.read().startswith(b"Xcur"))' || fail "core runtime missing tailless cursor"
-tar -xOzf "$core_runtime_archive" ./etc/os-release | grep -F 'PRETTY_NAME="Ooonana OS 0.9.9"' >/dev/null || fail "core runtime OS release stale"
+tar -xOzf "$core_runtime_archive" ./etc/os-release | grep -F 'PRETTY_NAME="Ooonana OS 0.10.0"' >/dev/null || fail "core runtime OS release stale"
 tar -tzf "$core_runtime_archive" | grep './usr/lib/ooonana/ui/task_manager_app.py' >/dev/null || fail "core runtime missing task manager"
-for native_file in usr/bin/ooonana-panel-start usr/bin/ooonana-notifications usr/bin/ooonana-notification-status usr/bin/ooonana-wallpaper-fit usr/lib/ooonana/ui/notifications_app.py; do
+for native_file in usr/bin/ooonana-panel-start usr/bin/ooonana-notifications usr/bin/ooonana-notification-status usr/bin/ooonana-wallpaper-fit usr/bin/ooonana-shell usr/bin/ooonana-controls usr/lib/ooonana/ui/notifications_app.py usr/lib/ooonana/ui/shell_flyout.py usr/lib/ooonana/ui/shell_client.py usr/lib/ooonana/ui/shell_pointer.py; do
   [[ "$core_archive_files" == *"./$native_file"* ]] || fail "core runtime missing $native_file"
 done
 [[ "$core_archive_files" != *'WindowsCursorConceptPersonal'* ]] || fail "public core includes private cursor theme"
@@ -409,6 +431,10 @@ tar -tzf "$core_runtime_archive" | grep './usr/bin/strings' >/dev/null || fail "
 tar -tzf "$core_runtime_archive" | grep './usr/bin/hsetroot' >/dev/null || fail "core runtime missing wallpaper renderer"
 tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-wallpaper' >/dev/null || fail "core runtime missing wallpaper settings"
 tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-theme-env' >/dev/null || fail "core runtime missing desktop theme helper"
+for appearance in Dark Light; do
+  palette="usr/share/qtermwidget6/color-schemes/Ooonana$appearance.colorscheme"
+  tar -xOzf "$core_runtime_archive" "./$palette" | cmp -s "$ROOT/packages/ooonana/$palette" - || fail "core Qt terminal palette differs from source"
+done
 tar -tzf "$core_runtime_archive" | grep './usr/bin/ooonana-wifi-panel' >/dev/null || fail "core runtime missing generated Wi-Fi helper"
 tar -tzf "$core_runtime_archive" | grep './etc/ooonana/polybar.ini' >/dev/null || fail "core runtime missing generated panel config"
 tar -tzf "$core_runtime_archive" | grep './etc/i3/config' >/dev/null || fail "core runtime missing updated i3 config"
@@ -428,17 +454,25 @@ OOONANA_PKG_DEPS=""
 OOONANA_PKG_ARCHIVE="archives/ooonana-core-0.8.1.tar.gz"
 OOONANA_PKG_SHA256="legacy"
 EOF
-core_upgrade="$(OOONANA_REPO_DIR="$tmp/repo" \
+core_upgrade="$(umask 077; OOONANA_REPO_DIR="$tmp/repo" \
   OOONANA_CACHE_DIR="$tmp/core-upgrade-cache" \
   OOONANA_ROOT="$core_upgrade_root" \
   "$ROOT/packages/ooonana/usr/bin/ooonana" upgrade --allow-major ooonana-core)"
 assert_contains "$core_upgrade" "installed ooonana-core-runtime"
 assert_contains "$core_upgrade" "upgraded ooonana-core 0.8.1"
 assert_contains "$core_upgrade" "OOONANA_CORE_META_HEALTHCHECK_OK"
+[[ "$(stat -c %a "$core_upgrade_root/var/tmp")" == 1777 ]] || fail "upgrade failed to create sticky /var/tmp"
+chmod 0700 "$core_upgrade_root/var/tmp"
+if OOONANA_ROOT="$core_upgrade_root" OOONANA_PKG_VERSION=0.10.0 \
+  sh "$tmp/repo/hooks/ooonana-core-runtime.healthcheck" >"$tmp/bad-tmp-health.log" 2>&1; then
+  fail "core healthcheck accepted unsafe /var/tmp"
+fi
+assert_contains "$(<"$tmp/bad-tmp-health.log")" '/var/tmp missing or unsafe permissions'
+chmod 1777 "$core_upgrade_root/var/tmp"
 [[ -f "$core_upgrade_state/files/ooonana-core.list" && ! -s "$core_upgrade_state/files/ooonana-core.list" ]] ||
   fail "core migration removed empty legacy manifest guard"
 [[ -x "$core_upgrade_root/usr/bin/ooonana" ]] || fail "core migration removed upgraded CLI"
-assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.9.9"
+assert_contains "$(OOONANA_ROOT="$core_upgrade_root" "$core_upgrade_root/usr/bin/ooonana" version)" "ooonana 0.10.0"
 assert_contains "$(<"$tmp/repo/cloud.repo")" 'OOONANA_REPO_URI="https://example.test/repo"'
 assert_contains "$(<"$tmp/repo/README.txt")" "ooonana update"
 
@@ -491,6 +525,32 @@ OOONANA_REPO_DIR="$tmp/full-repo" \
   "$ROOT/packages/ooonana/usr/bin/ooonana" install full-i3 --dry-run >/dev/null ||
   fail "full repo dependency closure is broken"
 
+# Reusing a signed mutable stage must refresh its signature BEFORE the manager
+# checks closure. Previously the unsigned reindex retained a stale signature.
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:1024 -out "$tmp/fixture-sign.key" >/dev/null 2>&1
+openssl pkey -in "$tmp/fixture-sign.key" -pubout -out "$tmp/full-repo/repo.pub" >/dev/null 2>&1
+OUT_DIR="$tmp/full-repo"
+SIGN_KEY="$tmp/fixture-sign.key"
+source "$ROOT/scripts/lib/common.sh"
+eval "$(sed -n '/^index_verified_repo() {$/,/^}$/p' "$BUILDER")"
+index_verified_repo
+printf '# refreshed package metadata\n' >> "$OUT_DIR/base.pkg"
+index_verified_repo
+eval "$(sed -n '/^verify_repo_profile() {$/,/^}$/p' "$BUILDER")"
+verify_repo_profile full-i3
+before_sums="$(sha256sum "$OUT_DIR/SHA256SUMS" "$OUT_DIR/SHA256SUMS.sig")"
+if (SIGN_KEY=""; index_verified_repo) >/dev/null 2>&1; then
+  fail "signed reindex accepted missing signing key"
+fi
+[[ "$(sha256sum "$OUT_DIR/SHA256SUMS" "$OUT_DIR/SHA256SUMS.sig")" == "$before_sums" ]] ||
+  fail "missing-key refusal changed signed index"
+if bash "$BUILDER" --out-dir "$OUT_DIR" --package-profile /dev/null --packages nano >/dev/null 2>&1; then
+  fail "factory accepted signed-stage refresh without key"
+fi
+[[ "$(sha256sum "$OUT_DIR/SHA256SUMS" "$OUT_DIR/SHA256SUMS.sig")" == "$before_sums" ]] ||
+  fail "factory missing-key refusal changed signed stage"
+SIGN_KEY=""
+
 printf 'kernel-test\n' > "$tmp/vmlinuz"
 kernel_sha256="$(sha256sum "$tmp/vmlinuz" | awk '{print $1}')"
 bash "$KERNEL_PACKAGER" \
@@ -541,7 +601,7 @@ assert_contains "$(<"$tmp/r2.repo")" 'OOONANA_REPO_URI="https://packages.example
 
 i3_importer="$(<"$ROOT/scripts/import-i3-package-set.sh")"
 assert_contains "$i3_importer" "configs/packages/full-i3.list"
-assert_contains "$i3_importer" "alpine/edge/community/x86_64"
+assert_contains "$i3_importer" '$(ooonana_alpine_branch)/community/x86_64'
 assert_contains "$full_i3_profile" "xf86-video-vesa"
 assert_contains "$full_i3_profile" "libxcb"
 assert_contains "$full_i3_profile" "libxau"

@@ -12,7 +12,7 @@ TARBALL="$WORK_DIR/ooonana-full-i3-rootfs.tar.gz"
 REPO="$WORK_DIR/full-i3-repo"
 STAGED_REPO=""
 PACKAGE_PROFILE="$ROOT/configs/packages/full-i3.list"
-OS_VERSION="${OOONANA_OS_VERSION:-0.9.9}"
+OS_VERSION="${OOONANA_OS_VERSION:-0.10.0}"
 FORCE=0
 
 usage() {
@@ -245,6 +245,8 @@ EOF
 }
 
 write_theme_helpers() {
+  mkdir -p "$ROOTFS/usr/share/themes"
+  cp -a "$ROOT/packages/ooonana/usr/share/themes/." "$ROOTFS/usr/share/themes/"
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-theme-env" <<'EOF'
 #!/bin/sh
 set -eu
@@ -253,14 +255,29 @@ export PATH
 export LANG="${LANG:-C.UTF-8}"
 export LC_CTYPE="${LC_CTYPE:-C.UTF-8}"
 export PYTHONUTF8=1
+client_gtk_theme="${GTK_THEME:-}"
 
 load_theme() {
-  theme="${OOONANA_THEME:-}"
-  if [ -z "$theme" ] && [ -n "${HOME:-}" ] && [ -f "$HOME/.config/ooonana/theme" ]; then
-    IFS= read -r theme <"$HOME/.config/ooonana/theme" || theme=""
-  fi
-  if [ -z "$theme" ] && [ -f /etc/ooonana/theme ]; then
-    IFS= read -r theme </etc/ooonana/theme || theme=""
+  inherited="${OOONANA_THEME_INHERITED:-}"
+  case "$inherited" in dark|light) ;; *) inherited="" ;; esac
+  theme="${OOONANA_THEME_OVERRIDE:-}"
+  explicit=1
+  case "$theme" in dark|light) ;; *)
+    theme="${OOONANA_THEME:-}"
+    case "$theme" in dark|light) ;; *) theme="" ;; esac
+    if [ -z "$theme" ] || [ "$theme" = "$inherited" ]; then explicit=0; fi
+    ;;
+  esac
+  if [ "$explicit" = 0 ]; then
+    fallback="$theme"
+    theme=""
+    for theme_file in "${XDG_CONFIG_HOME:-${HOME:-/root}/.config}/ooonana/theme" /etc/ooonana/theme; do
+      [ -f "$theme_file" ] || continue
+      candidate=""
+      IFS= read -r candidate <"$theme_file" || true
+      case "$candidate" in dark|light) theme="$candidate"; break ;; esac
+    done
+    [ -n "$theme" ] || theme="$fallback"
   fi
 
   case "$theme" in
@@ -274,6 +291,7 @@ load_theme() {
       OOONANA_MUTED="#55616e"
       OOONANA_ENTRY="#ffffff"
       OOONANA_HOVER="#d8dee6"
+      OOONANA_TEXT_ACCENT="#805600"
       OOONANA_GTK_THEME="Adwaita"
       OOONANA_GTK_DARK="false"
       ;;
@@ -287,10 +305,13 @@ load_theme() {
       OOONANA_MUTED="#b4bdc8"
       OOONANA_ENTRY="#15191f"
       OOONANA_HOVER="#39414b"
+      OOONANA_TEXT_ACCENT="#ffb21a"
       OOONANA_GTK_THEME="Adwaita:dark"
       OOONANA_GTK_DARK="true"
       ;;
   esac
+  if [ "$explicit" = 0 ]; then inherited="$OOONANA_THEME"; fi
+  OOONANA_THEME_INHERITED="$inherited"
   OOONANA_CURSOR="#ffb21a"
   cursor_config="${XDG_CONFIG_HOME:-${HOME:-/root}/.config}/ooonana"
   XCURSOR_THEME="${OOONANA_XCURSOR_THEME:-}"
@@ -312,9 +333,25 @@ load_theme() {
   case "$XCURSOR_THEME" in ""|*[!A-Za-z0-9._-]*) XCURSOR_THEME=OoonanaTailless ;; esac
   case "$XCURSOR_SIZE" in ""|*[!0-9]*) XCURSOR_SIZE=19 ;; esac
   [ "$XCURSOR_SIZE" -ge 16 ] && [ "$XCURSOR_SIZE" -le 96 ] || XCURSOR_SIZE=19
-  GTK_THEME="$OOONANA_GTK_THEME"
+  # GTK_THEME is a process pin, not a live desktop preference. Preserve custom
+  # themes and explicit Ooonana pins; automatic clients follow Xsettings.
+  case "$client_gtk_theme" in
+    ""|Adwaita|Adwaita:dark|Adwaita-dark|OoonanaGraphite|OoonanaPaper)
+      if [ "$explicit" = 1 ]; then
+        case "$OOONANA_THEME" in light) GTK_THEME=OoonanaPaper ;; *) GTK_THEME=OoonanaGraphite ;; esac
+        export GTK_THEME
+      else unset GTK_THEME; fi
+      ;;
+  esac
   GDK_BACKEND="${GDK_BACKEND:-x11}"
-  export OOONANA_THEME OOONANA_BG OOONANA_FG OOONANA_CURSOR OOONANA_PANEL OOONANA_PANEL_ALT OOONANA_BORDER OOONANA_MUTED OOONANA_ENTRY OOONANA_HOVER OOONANA_GTK_THEME OOONANA_GTK_DARK XCURSOR_THEME XCURSOR_SIZE GTK_THEME GDK_BACKEND
+  # Use Qt's shipped portal bridge, not a replacement widget stylesheet.
+  # Explicit qt6ct/KDE/custom platform themes remain user-owned.
+  if [ -z "${QT_QPA_PLATFORMTHEME:-}" ] &&
+     [ -f /usr/lib/qt6/plugins/platformthemes/libqxdgdesktopportal.so ]; then
+    QT_QPA_PLATFORMTHEME=xdgdesktopportal
+    export QT_QPA_PLATFORMTHEME
+  fi
+  export OOONANA_THEME OOONANA_THEME_INHERITED OOONANA_BG OOONANA_FG OOONANA_CURSOR OOONANA_PANEL OOONANA_PANEL_ALT OOONANA_BORDER OOONANA_MUTED OOONANA_ENTRY OOONANA_HOVER OOONANA_GTK_THEME OOONANA_GTK_DARK XCURSOR_THEME XCURSOR_SIZE GTK_THEME GDK_BACKEND
 }
 
 load_theme
@@ -322,18 +359,37 @@ load_theme
 write_theme() {
   new_theme="$1"
   if [ "$(id -u 2>/dev/null || echo 1)" = "0" ]; then
-    mkdir -p /etc/ooonana
-    printf '%s\n' "$new_theme" >/etc/ooonana/theme
+    theme_dir=/etc/ooonana
+    theme_mode=0644
+    theme_dir_mode=0755
   else
-    mkdir -p "${HOME:-/tmp}/.config/ooonana"
-    printf '%s\n' "$new_theme" >"${HOME:-/tmp}/.config/ooonana/theme"
+    theme_dir="${XDG_CONFIG_HOME:-${HOME:-/tmp}/.config}/ooonana"
+    theme_mode=0600
+    theme_dir_mode=0700
   fi
+  [ ! -L "$theme_dir" ] && [ ! -L "$theme_dir/theme" ] || {
+    printf '%s\n' 'Theme: linked preference retained; update its managed target manually.' >&2
+    return 1
+  }
+  (
+    umask 077
+    mkdir -p -m "$theme_dir_mode" "$theme_dir"
+    theme_temporary="$(mktemp "$theme_dir/.theme.XXXXXXXX")"
+    trap 'rm -f -- "$theme_temporary"' 0
+    printf '%s\n' "$new_theme" >"$theme_temporary"
+    chmod "$theme_mode" "$theme_temporary"
+    mv -f "$theme_temporary" "$theme_dir/theme"
+  )
 }
 
 case "${1:-env}" in
-  env)
-    printf 'PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"\n'
+  env|client-env)
+    # App refresh must not replace caller PATH or a custom GTK theme.
+    if [ "${1:-env}" = env ]; then
+      printf 'PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"\n'
+    fi
     printf 'OOONANA_THEME="%s"\n' "$OOONANA_THEME"
+    printf 'OOONANA_THEME_INHERITED="%s"\n' "$OOONANA_THEME_INHERITED"
     printf 'OOONANA_BG="%s"\n' "$OOONANA_BG"
     printf 'OOONANA_FG="%s"\n' "$OOONANA_FG"
     printf 'OOONANA_CURSOR="%s"\n' "$OOONANA_CURSOR"
@@ -341,70 +397,183 @@ case "${1:-env}" in
     printf 'XCURSOR_SIZE="%s"\n' "$XCURSOR_SIZE"
     printf 'OOONANA_GTK_THEME="%s"\n' "$OOONANA_GTK_THEME"
     printf 'OOONANA_GTK_DARK="%s"\n' "$OOONANA_GTK_DARK"
-    printf 'GTK_THEME="%s"\n' "$OOONANA_GTK_THEME"
+    case "$client_gtk_theme" in
+      ""|Adwaita|Adwaita:dark|Adwaita-dark|OoonanaGraphite|OoonanaPaper)
+        if [ "$explicit" = 1 ]; then printf 'GTK_THEME="%s"\n' "$GTK_THEME"
+        else printf 'unset GTK_THEME\n'; fi ;;
+    esac
     printf 'GDK_BACKEND="x11"\n'
-    printf 'export OOONANA_THEME OOONANA_BG OOONANA_FG OOONANA_CURSOR OOONANA_GTK_THEME OOONANA_GTK_DARK XCURSOR_THEME XCURSOR_SIZE GTK_THEME GDK_BACKEND\n'
+    if [ -n "${QT_QPA_PLATFORMTHEME:-}" ]; then
+      # Do not interpolate an arbitrary user override into shell code.
+      python3 -c 'import os, shlex; print("export QT_QPA_PLATFORMTHEME=" + shlex.quote(os.environ["QT_QPA_PLATFORMTHEME"]))'
+    fi
+    printf 'export OOONANA_THEME OOONANA_THEME_INHERITED OOONANA_BG OOONANA_FG OOONANA_CURSOR OOONANA_GTK_THEME OOONANA_GTK_DARK XCURSOR_THEME XCURSOR_SIZE GTK_THEME GDK_BACKEND\n'
     ;;
   apply)
     config_home="${XDG_CONFIG_HOME:-${HOME:-/root}/.config}"
     mkdir -p "$config_home/gtk-3.0"
-    cat >"$config_home/gtk-3.0/settings.ini" <<SETTINGS
-[Settings]
-gtk-theme-name=Adwaita
-gtk-application-prefer-dark-theme=$OOONANA_GTK_DARK
-gtk-icon-theme-name=Adwaita
-gtk-cursor-theme-name=$XCURSOR_THEME
-gtk-cursor-theme-size=$XCURSOR_SIZE
-gtk-font-name=Sans 10
-gtk-button-images=1
-gtk-menu-images=1
-gtk-decoration-layout=menu:minimize,maximize,close
-SETTINGS
     mkdir -p "$config_home/ooonana"
-    case "$OOONANA_THEME" in light) xsettings_theme=Adwaita ;; *) xsettings_theme=Adwaita-dark ;; esac
-    cat >"$config_home/ooonana/xsettingsd.conf" <<XSETTINGS
-Net/ThemeName "$xsettings_theme"
-Net/IconThemeName "Adwaita"
-Gtk/FontName "Sans 10"
-Gtk/CursorThemeName "$XCURSOR_THEME"
-Gtk/CursorThemeSize $XCURSOR_SIZE
-XSETTINGS
-    cat >"$config_home/gtk-3.0/gtk.css" <<CSS
-@define-color ooonana_bg $OOONANA_BG;
-@define-color ooonana_fg $OOONANA_FG;
-@define-color ooonana_accent #ffb21a;
-@define-color ooonana_panel $OOONANA_PANEL;
-@define-color ooonana_panel_alt $OOONANA_PANEL_ALT;
-@define-color ooonana_border $OOONANA_BORDER;
-@define-color ooonana_muted $OOONANA_MUTED;
-@define-color ooonana_entry $OOONANA_ENTRY;
-@define-color ooonana_hover $OOONANA_HOVER;
-window, dialog, .background { background-color: @ooonana_bg; color: @ooonana_fg; }
-window.background, dialog.background, messagedialog.background { border-radius: 14px; }
-decoration { background: @ooonana_bg; border: 1px solid @ooonana_border; border-radius: 14px; box-shadow: none; }
-menu { background: @ooonana_panel; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 10px; padding: 6px; }
-menuitem:hover { background: @ooonana_panel_alt; color: @ooonana_accent; }
-headerbar { background: @ooonana_panel; color: @ooonana_fg; border-bottom: 1px solid @ooonana_border; border-radius: 14px 14px 0 0; padding: 5px 10px; }
-headerbar .title { font-weight: bold; }
-headerbar .subtitle { color: @ooonana_muted; }
-button { background: @ooonana_panel_alt; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 10px; padding: 8px 14px; transition: background-color 180ms ease-out; }
-button:hover { background: @ooonana_hover; border-color: @ooonana_accent; }
-button:checked, button.suggested-action { background: @ooonana_accent; color: #101317; border-color: @ooonana_accent; }
-button:disabled { background: @ooonana_panel; color: #78828f; border-color: @ooonana_border; }
-button.suggested-action:disabled { background: #403624; color: #a5987f; border-color: #544733; }
-entry, textview, treeview, list { background: @ooonana_entry; color: @ooonana_fg; border-color: @ooonana_border; }
-entry { padding: 8px 10px; border-radius: 10px; }
-treeview header button { background: @ooonana_panel_alt; color: @ooonana_accent; }
-treeview:selected, row:selected { background: @ooonana_panel_alt; color: @ooonana_fg; }
-notebook header { background: @ooonana_panel; }
-notebook tab { padding: 8px 14px; }
-notebook tab:checked { color: @ooonana_accent; border-bottom: 2px solid @ooonana_accent; }
-scale highlight { background: @ooonana_accent; }
-scale trough { background: @ooonana_panel_alt; min-height: 6px; border-radius: 6px; }
-scrollbar slider { background: @ooonana_border; border-radius: 6px; min-width: 7px; min-height: 7px; }
-scrollbar slider:hover { background: @ooonana_accent; }
-tooltip { background: @ooonana_panel; color: @ooonana_fg; border: 1px solid @ooonana_accent; border-radius: 10px; }
-CSS
+    case "$OOONANA_THEME" in light) xsettings_theme=OoonanaPaper ;; *) xsettings_theme=OoonanaGraphite ;; esac
+    # Merge presentation-owned values; retain user fonts, DPI and unknown keys.
+    python3 - "$config_home" "$OOONANA_GTK_DARK" "$xsettings_theme" "$XCURSOR_THEME" "$XCURSOR_SIZE" <<'PY_GTK_SETTINGS'
+import configparser
+import json
+import os
+from pathlib import Path
+import re
+import shlex
+import stat
+import sys
+import tempfile
+
+base, dark, theme, cursor, size = sys.argv[1:]
+ini = Path(base) / "gtk-3.0/settings.ini"
+xconfig = Path(base) / "ooonana/xsettingsd.conf"
+if ini.is_symlink() or xconfig.is_symlink():
+    raise SystemExit("Theme: linked settings retained; update their managed target manually.")
+original = ini.read_text(encoding="utf-8") if ini.exists() else ""
+xoriginal = xconfig.read_text(encoding="utf-8") if xconfig.exists() else ""
+parser = configparser.RawConfigParser(strict=False, delimiters=("=",))
+try:
+    parser.read_string(original)
+except configparser.Error:
+    raise SystemExit("Theme: invalid GTK settings retained; repair settings.ini before retrying.")
+if not parser.has_section("Settings"):
+    parser.add_section("Settings")
+preferences = parser["Settings"]
+xvalues = {}
+for line in xoriginal.splitlines():
+    try:
+        parts = shlex.split(line, comments=True)
+        if len(parts) == 2:
+            xvalues[parts[0]] = parts[1]
+    except ValueError:
+        continue
+updates = {"gtk-theme-name": theme, "gtk-application-prefer-dark-theme": dark,
+           "gtk-cursor-theme-name": cursor, "gtk-cursor-theme-size": size}
+defaults = {"gtk-font-name": xvalues.get("Gtk/FontName", "Sans 10"),
+            "gtk-icon-theme-name": xvalues.get("Net/IconThemeName", "Adwaita"),
+            "gtk-button-images": "1", "gtk-menu-images": "1",
+            "gtk-decoration-layout": "close,minimize,maximize:menu"}
+updates.update({key: value for key, value in defaults.items() if key not in preferences})
+if preferences.get("gtk-decoration-layout") == "menu:minimize,maximize,close":
+    # Migrate our former default, never an independent custom button layout.
+    updates["gtk-decoration-layout"] = defaults["gtk-decoration-layout"]
+font = preferences.get("gtk-font-name", defaults["gtk-font-name"])
+icons = preferences.get("gtk-icon-theme-name", defaults["gtk-icon-theme-name"])
+if any(not text or any(not char.isprintable() for char in text) for text in (font, icons)):
+    raise SystemExit("Theme: invalid font/icon preference retained; no settings replaced.")
+xupdates = {"Net/ThemeName": json.dumps(theme), "Net/IconThemeName": json.dumps(icons, ensure_ascii=False),
+            "Gtk/FontName": json.dumps(font, ensure_ascii=False),
+            "Gtk/DecorationLayout": json.dumps(updates.get("gtk-decoration-layout", preferences.get("gtk-decoration-layout"))),
+            "Gtk/CursorThemeName": json.dumps(cursor), "Gtk/CursorThemeSize": str(int(size))}
+# Ooonana's reduced-motion choice also applies to third-party GTK dialogs.
+# Missing/invalid UI preferences must not overwrite an independent GTK choice.
+try:
+    ui_path = Path(base) / "ooonana/ui.json"
+    with ui_path.open(encoding="utf-8") as stream:
+        ui = json.loads(stream.read(4097))
+    reduced = ui.get("reduce_motion") if isinstance(ui, dict) else None
+except (OSError, ValueError, RecursionError):
+    reduced = None
+if isinstance(reduced, bool):
+    updates["gtk-enable-animations"] = "false" if reduced else "true"
+    xupdates["Gtk/EnableAnimations"] = "0" if reduced else "1"
+if "gtk-xft-dpi" in preferences:
+    try:
+        dpi = int(preferences["gtk-xft-dpi"])
+        if dpi != -1 and not 1024 <= dpi <= 4_194_304:
+            raise ValueError()
+    except ValueError:
+        raise SystemExit("Theme: invalid DPI preference retained; no settings replaced.")
+    xupdates["Xft/DPI"] = str(dpi)
+
+# Edit only owned/missing keys, preserving comments, other sections and values.
+lines, seen, in_settings, found = [], set(), False, False
+for line in original.splitlines(keepends=True):
+    section = re.match(r"^\s*\[([^]]+)\]", line)
+    if section:
+        if in_settings:
+            lines.extend(f"{key}={value}\n" for key, value in updates.items() if key not in seen)
+        in_settings = section.group(1) == "Settings"
+        found |= in_settings
+    key = line.split("=", 1)[0].strip().lower() if in_settings and "=" in line and not line.lstrip().startswith(("#", ";")) else None
+    if key in updates:
+        lines.append(f"{key}={updates[key]}\n")
+        seen.add(key)
+    else:
+        lines.append(line)
+if not found:
+    lines.append("\n[Settings]\n")
+if in_settings or not found:
+    if lines and not lines[-1].endswith("\n"):
+        lines[-1] += "\n"
+    lines.extend(f"{key}={value}\n" for key, value in updates.items() if key not in seen)
+xlines = [line for line in xoriginal.splitlines(keepends=True)
+          if not line.strip() or line.lstrip().startswith("#") or line.split()[0] not in xupdates]
+if xlines and not xlines[-1].endswith("\n"):
+    xlines[-1] += "\n"
+xlines.extend(f"{key} {value}\n" for key, value in xupdates.items())
+prepared = []
+try:
+    for path, text in ((ini, "".join(lines)), (xconfig, "".join(xlines))):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, temporary = tempfile.mkstemp(prefix="." + path.name + ".", dir=path.parent)
+        prepared.append((path, Path(temporary)))
+        with os.fdopen(descriptor, "w", encoding="utf-8") as output:
+            os.fchmod(output.fileno(), stat.S_IMODE(path.stat().st_mode) if path.exists() else 0o644)
+            output.write(text)
+            output.flush()
+            os.fsync(output.fileno())
+    for path, temporary in prepared:
+        os.replace(temporary, path)
+finally:
+    for _path, temporary in prepared:
+        temporary.unlink(missing_ok=True)
+PY_GTK_SETTINGS
+    # The Settings portal reads GSettings, not GTK_THEME/settings.ini. Without
+    # this bridge Qt/Flatpak dialogs stay light inside an otherwise dark session.
+    if [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] && command -v gsettings >/dev/null 2>&1; then
+      case "$OOONANA_THEME" in light) portal_scheme=prefer-light ;; *) portal_scheme=prefer-dark ;; esac
+      if [ "$(gsettings writable org.gnome.desktop.interface color-scheme 2>/dev/null || true)" = true ]; then
+        gsettings set org.gnome.desktop.interface color-scheme "$portal_scheme" ||
+          printf '%s\n' 'Theme: desktop color preference unavailable; GTK appearance still applied.' >&2
+      fi
+    fi
+    if command -v qterminal >/dev/null 2>&1; then
+      python3 - "$config_home" "$OOONANA_THEME" <<'PY_QTERMINAL_DEFAULTS'
+import os
+from pathlib import Path
+import sys
+import tempfile
+
+base, theme = sys.argv[1:]
+directory = Path(base) / "qterminal.org"
+path = directory / "qterminal.ini"
+# First-run defaults only. Never rewrite saved Qt preferences or linked files.
+if not directory.is_symlink() and not path.exists() and not path.is_symlink():
+    directory.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary = tempfile.mkstemp(prefix=".qterminal.ini.", dir=directory)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as output:
+            output.write("[General]\ncolorScheme=Ooonana" + ("Light" if theme == "light" else "Dark") +
+                         "\nfontFamily=Monospace\nfontSize=11\nHideTabBarWithOneTab=true\n"
+                         "FixedTabWidth=false\nTerminalMargin=6\nTerminalTransparency=0\n")
+            output.flush()
+            os.fsync(output.fileno())
+        try:
+            os.link(temporary, path)  # No overwrite, including concurrent first launch.
+        except FileExistsError:
+            pass
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+PY_QTERMINAL_DEFAULTS
+    fi
+    # Named theme replacement, not user CSS rewrite, repaints existing clients.
+    python3 /usr/lib/ooonana/legacy_gtk_style.py "$config_home"
+    if [ -n "${DISPLAY:-}" ] && [ -f /usr/lib/ooonana/desktop_theme.py ]; then
+      python3 /usr/lib/ooonana/desktop_theme.py "$OOONANA_THEME"
+    fi
     if command -v ooonana-wallpaper >/dev/null 2>&1 && ooonana-wallpaper --apply-saved; then
       exit 0
     fi
@@ -441,6 +610,7 @@ CSS
       dark) write_theme light ;;
       *) write_theme dark ;;
     esac
+    unset OOONANA_THEME OOONANA_THEME_OVERRIDE
     exec "$0" apply
     ;;
   xterm)
@@ -451,7 +621,7 @@ CSS
     exec xterm -bg "$OOONANA_BG" -fg "$OOONANA_FG" -cr "$OOONANA_CURSOR" "$@"
     ;;
   *)
-    echo "usage: ooonana-theme-env [env|apply|toggle|xterm]" >&2
+    echo "usage: ooonana-theme-env [env|client-env|apply|toggle|xterm]" >&2
     exit 1
     ;;
 esac
@@ -474,7 +644,7 @@ EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/gtk-3.0/settings.ini" <<'EOF'
 [Settings]
-gtk-theme-name=Adwaita
+gtk-theme-name=OoonanaGraphite
 gtk-application-prefer-dark-theme=true
 gtk-icon-theme-name=Adwaita
 gtk-cursor-theme-name=OoonanaTailless
@@ -482,12 +652,12 @@ gtk-cursor-theme-size=19
 gtk-font-name=Sans 10
 gtk-button-images=1
 gtk-menu-images=1
-gtk-decoration-layout=menu:minimize,maximize,close
+gtk-decoration-layout=close,minimize,maximize:menu
 EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/root/.config/gtk-3.0/settings.ini" <<'EOF'
 [Settings]
-gtk-theme-name=Adwaita
+gtk-theme-name=OoonanaGraphite
 gtk-application-prefer-dark-theme=true
 gtk-icon-theme-name=Adwaita
 gtk-cursor-theme-name=OoonanaTailless
@@ -495,29 +665,11 @@ gtk-cursor-theme-size=19
 gtk-font-name=Sans 10
 gtk-button-images=1
 gtk-menu-images=1
+gtk-decoration-layout=close,minimize,maximize:menu
 EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/root/.config/gtk-3.0/gtk.css" <<'EOF'
-@define-color ooonana_bg #101317;
-@define-color ooonana_fg #f5f5f7;
-@define-color ooonana_accent #ffb21a;
-@define-color ooonana_panel #1b1f26;
-@define-color ooonana_panel_alt #272d36;
-@define-color ooonana_border #46505c;
-@define-color ooonana_entry #15191f;
-window, dialog, .background { background-color: @ooonana_bg; color: @ooonana_fg; }
-window.background, dialog.background, messagedialog.background { border-radius: 14px; }
-decoration { background: @ooonana_bg; border: 1px solid @ooonana_border; border-radius: 14px; box-shadow: none; }
-headerbar { background: @ooonana_panel; color: @ooonana_fg; border-bottom: 1px solid @ooonana_border; border-radius: 14px 14px 0 0; }
-button { background: @ooonana_panel_alt; color: @ooonana_fg; border: 1px solid @ooonana_border; border-radius: 10px; padding: 8px 14px; transition: background-color 180ms ease-out; }
-button:hover { background: #39414b; border-color: @ooonana_accent; }
-button:checked, button.suggested-action { background: @ooonana_accent; color: #101317; }
-button:disabled { background: @ooonana_panel; color: #78828f; border-color: @ooonana_border; }
-button.suggested-action:disabled { background: #403624; color: #a5987f; border-color: #544733; }
-entry, textview, treeview, list { background: @ooonana_entry; color: @ooonana_fg; border-color: @ooonana_border; }
-entry { padding: 8px 10px; border-radius: 10px; }
-treeview:selected, row:selected { background: @ooonana_panel_alt; color: @ooonana_fg; }
-scale highlight { background: @ooonana_accent; }
+/* Ooonana appearance now follows named GTK themes; custom CSS belongs here. */
 EOF
 }
 
@@ -539,6 +691,9 @@ EOF
 #!/bin/sh
 set -eu
 NATIVE_APP="/usr/lib/ooonana/ui/launcher_app.py"
+if [ -x /usr/bin/ooonana-shell ] && { [ "$#" -eq 0 ] || { [ "$#" -eq 1 ] && [ "$1" = --panel ]; }; }; then
+  exec /usr/bin/ooonana-shell apps "$@"
+fi
 if [ -x /usr/bin/python3 ] && [ -f "$NATIVE_APP" ] &&
   /usr/bin/python3 -c 'import gi; gi.require_version("Gtk", "3.0")' >/dev/null 2>&1; then
   exec /usr/bin/python3 "$NATIVE_APP" "$@"
@@ -590,6 +745,9 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-browser" <<'EOF'
 #!/bin/sh
 set -eu
+if command -v ooonana-theme-env >/dev/null 2>&1; then
+  theme_env="$(ooonana-theme-env client-env)" && eval "$theme_env"
+fi
 url="${1:-about:blank}"
 case "${DBUS_SESSION_BUS_ADDRESS:-}" in
   unix:*|tcp:*) ;;
@@ -604,15 +762,16 @@ fi
 if command -v chromium >/dev/null 2>&1; then
   log="${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/chromium.log"
   mkdir -p "${log%/*}"
-  chromium --no-first-run --disable-default-apps --disable-dev-shm-usage "$url" 2>"$log" && exit 0
+  chromium --no-first-run --disable-default-apps --disable-dev-shm-usage --disable-gpu-shader-disk-cache "$url" 2>"$log" && exit 0
   printf '\nNormal GPU launch failed; retrying software rendering.\n' >>"$log"
   chromium --no-first-run --disable-default-apps --disable-dev-shm-usage \
+    --disable-gpu-shader-disk-cache \
     --disable-gpu --disable-software-rasterizer --disable-features=Vulkan \
     "$url" 2>>"$log" && exit 0
   exec ooonana-theme-env xterm -e sh -lc 'echo "Chromium failed:"; tail -80 "${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/chromium.log"; echo; echo "Log saved. Press Enter."; read _'
 fi
 if command -v chromium-browser >/dev/null 2>&1; then
-  exec chromium-browser "$url"
+  exec chromium-browser --disable-gpu-shader-disk-cache "$url"
 fi
 exec ooonana-theme-env xterm -e sh -lc 'echo "chromium missing"; echo "run: ooonana get chromium"; exec sh'
 EOF
@@ -620,6 +779,9 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-files" <<'EOF'
 #!/bin/sh
 set -eu
+if command -v ooonana-theme-env >/dev/null 2>&1; then
+  theme_env="$(ooonana-theme-env client-env)" && eval "$theme_env"
+fi
 path="${1:-${HOME:-/root}}"
 if command -v nemo >/dev/null 2>&1; then
   exec nemo "$path"
@@ -1865,19 +2027,20 @@ choose() {
     return 0
   fi
   if [ -n "${DISPLAY:-}" ] && command -v rofi >/dev/null 2>&1; then
-    printf 'Lock\nLog out\nRestart i3\nReboot\nShut down\nCancel\n' |
+    printf 'Lock\nSuspend\nLog out\nRestart i3\nReboot\nShut down\nCancel\n' |
       rofi -dmenu -i -p "Power" -theme /etc/ooonana/rofi.rasi 2>/dev/null || true
     return 0
   fi
   if [ -t 0 ]; then
-    printf '1) Lock\n2) Log out\n3) Restart i3\n4) Reboot\n5) Shut down\n6) Cancel\n> ' >&2
-    read -r answer || answer=6
+    printf '1) Lock\n2) Suspend\n3) Log out\n4) Restart i3\n5) Reboot\n6) Shut down\n7) Cancel\n> ' >&2
+    read -r answer || answer=7
     case "$answer" in
       1) echo Lock ;;
-      2) echo 'Log out' ;;
-      3) echo 'Restart i3' ;;
-      4) echo Reboot ;;
-      5) echo 'Shut down' ;;
+      2) echo Suspend ;;
+      3) echo 'Log out' ;;
+      4) echo 'Restart i3' ;;
+      5) echo Reboot ;;
+      6) echo 'Shut down' ;;
       *) echo Cancel ;;
     esac
   fi
@@ -1888,7 +2051,8 @@ if [ "${1:-}" = "--dry-run" ]; then
 fi
 action="$(choose)"
 case "$action" in
-  Lock) command -v i3lock >/dev/null 2>&1 && exec i3lock ;;
+  Lock) exec ooonana-lock ;;
+  Suspend) exec ooonana-session --suspend ;;
   "Log out") command -v i3-msg >/dev/null 2>&1 && i3-msg exit >/dev/null 2>&1 || true ;;
   "Restart i3") command -v i3-msg >/dev/null 2>&1 && i3-msg restart >/dev/null 2>&1 || true ;;
   Reboot) exec bunana --restart ;;
@@ -1937,12 +2101,41 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-editor" <<'EOF'
 #!/bin/sh
 set -eu
+if command -v ooonana-theme-env >/dev/null 2>&1; then
+  theme_env="$(ooonana-theme-env client-env)" && eval "$theme_env"
+fi
 target="${1:-}"
 if command -v geany >/dev/null 2>&1; then
-  if [ -n "$target" ]; then
-    exec geany "$target"
+  # Seed only a new profile. Never replace an existing user's editor choices.
+  geany_dir="${XDG_CONFIG_HOME:-${HOME:-/tmp}/.config}/geany"
+  if [ ! -L "$geany_dir" ] && [ ! -e "$geany_dir/geany.conf" ] && [ ! -L "$geany_dir/geany.conf" ]; then
+    if (umask 077; mkdir -p "$geany_dir") 2>/dev/null; then
+      editor_theme="${OOONANA_THEME:-dark}"
+      if command -v ooonana-theme-env >/dev/null 2>&1; then
+        editor_theme="$(ooonana-theme-env env | sed -n 's/^OOONANA_THEME="\([^"]*\)"$/\1/p')"
+      fi
+      case "$editor_theme" in light) scheme=ooonana-light.conf ;; *) scheme=ooonana-dark.conf ;; esac
+      (umask 077; set -C; printf '[geany]\ncolor_scheme=%s\neditor_font=Monospace 11\npref_toolbar_use_gtk_default_icon=false\npref_toolbar_icon_size=2\npref_toolbar_use_gtk_default_style=false\npref_toolbar_icon_style=0\nmsgwindow_visible=false\n' "$scheme" >"$geany_dir/geany.conf") 2>/dev/null || true
+      # Keep frequent actions visible; remaining commands stay in native menus.
+      if [ ! -e "$geany_dir/ui_toolbar.xml" ] && [ ! -L "$geany_dir/ui_toolbar.xml" ]; then
+        (umask 077; set -C; printf '%s\n' '<ui>
+  <toolbar name="GeanyToolbar">
+    <toolitem action="New" />
+    <toolitem action="Open" />
+    <toolitem action="Save" />
+    <separator />
+    <toolitem action="NavBack" />
+    <toolitem action="NavFor" />
+    <toolitem action="Search" />
+    <separator />
+    <toolitem action="Build" />
+    <toolitem action="Run" />
+  </toolbar>
+</ui>' >"$geany_dir/ui_toolbar.xml") 2>/dev/null || true
+      fi
+    fi
   fi
-  exec geany
+  exec geany "$@"
 fi
 if command -v vim >/dev/null 2>&1; then
   if [ -n "$target" ]; then
@@ -1971,53 +2164,7 @@ fi
 exec ooonana-theme-env xterm -e sh -lc 'echo "htop missing"; echo "run: ooonana get htop"; exec sh'
 EOF
 
-  install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-process-kill" <<'EOF'
-#!/bin/sh
-set -eu
-
-if ! command -v rofi >/dev/null 2>&1; then
-  command -v notify-send >/dev/null 2>&1 && notify-send "Ooonana Processes" "rofi is unavailable"
-  exit 1
-fi
-
-uid="$(id -u)"
-rows="$(ps -u "$uid" -o pid=,comm=,args= --sort=-%cpu 2>/dev/null |
-  awk -v self="$$" '$1 != self && $2 != "rofi" { printf "%s\t%s\t", $1, $2; for (i = 3; i <= NF; i++) printf "%s%s", $i, (i < NF ? " " : "\n") }')"
-
-if [ -z "$rows" ]; then
-  command -v notify-send >/dev/null 2>&1 && notify-send "Ooonana Processes" "No user processes found"
-  exit 0
-fi
-
-choice="$(printf '%s\n' "$rows" | rofi -dmenu -i -p "Terminate process" -no-custom 2>/dev/null || true)"
-[ -n "$choice" ] || exit 0
-pid="$(printf '%s\n' "$choice" | awk '{print $1}')"
-case "$pid" in
-  ''|*[!0-9]*) exit 1 ;;
-esac
-
-[ "$pid" -ne 1 ] && [ "$pid" -ne "$$" ] && [ -r "/proc/$pid/status" ] || exit 1
-owner="$(awk '/^Uid:/ { print $2; exit }' "/proc/$pid/status" 2>/dev/null || true)"
-[ "$owner" = "$uid" ] || {
-  command -v notify-send >/dev/null 2>&1 && notify-send "Ooonana Processes" "Refusing process owned by another user"
-  exit 1
-}
-
-name="$(printf '%s\n' "$choice" | awk '{print $2}')"
-action="$(printf 'Cancel\nTerminate\nForce kill\n' | rofi -dmenu -i -p "$name ($pid)" -no-custom 2>/dev/null || true)"
-case "$action" in
-  Terminate) signal=TERM ;;
-  "Force kill") signal=KILL ;;
-  *) exit 0 ;;
-esac
-
-if kill -s "$signal" "$pid" 2>/dev/null; then
-  command -v notify-send >/dev/null 2>&1 && notify-send "Ooonana Processes" "$action sent to $name ($pid)"
-else
-  command -v notify-send >/dev/null 2>&1 && notify-send "Ooonana Processes" "Could not signal $name ($pid)"
-  exit 1
-fi
-EOF
+  install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana-process-kill" "$ROOTFS/usr/bin/ooonana-process-kill"
 
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-ranger" <<'EOF'
 #!/bin/sh
@@ -2542,25 +2689,25 @@ AutoEnable = true
 EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/xsettingsd.conf" <<'EOF'
-Net/ThemeName "Adwaita-dark"
+Net/ThemeName "OoonanaGraphite"
 Net/IconThemeName "Adwaita"
 Gtk/FontName "Sans 10"
 Gtk/CursorThemeName "OoonanaTailless"
-Gtk/CursorThemeSize 17
+Gtk/CursorThemeSize 19
 Gtk/ButtonImages 1
 Gtk/MenuImages 1
 EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/polybar.ini" <<'EOF'
 [colors]
-background = #1b1f26
-background-alt = #1b1f26
-foreground = #f5f5f7
-accent = #ffb21a
-muted = #9ca7b6
-urgent = #3b2324
-cool = #9ec3ff
-border = #414957
+background = ${env:OOONANA_BAR_BACKGROUND:#1b1f26}
+background-alt = ${env:OOONANA_BAR_BACKGROUND:#1b1f26}
+foreground = ${env:OOONANA_BAR_FOREGROUND:#f5f5f7}
+accent = ${env:OOONANA_BAR_ACCENT:#ffb21a}
+muted = ${env:OOONANA_BAR_MUTED:#b4bdc8}
+urgent = ${env:OOONANA_BAR_URGENT:#3b2324}
+cool = ${env:OOONANA_BAR_COOL:#9ec3ff}
+border = ${env:OOONANA_BAR_BORDER:#46505c}
 
 [bar/ooonana]
 width = 98%
@@ -2581,11 +2728,12 @@ separator-foreground = ${colors.muted}
 line-size = 0
 line-color = ${colors.accent}
 font-0 = "DejaVu Sans:size=10;2"
-font-1 = "Font Awesome 6 Free Solid:size=10;2"
-font-2 = "Font Awesome 6 Brands:size=10;2"
-modules-left = ${env:OOONANA_PANEL_LEFT:brand workspaces win-close win-min win-full media}
+font-1 = "Font Awesome 7 Free Solid:size=10;2"
+font-2 = "Font Awesome 7 Brands:size=10;2"
+font-3 = "Noto Sans CJK KR:size=10;2"
+modules-left = ${env:OOONANA_PANEL_LEFT:brand task-view media}
 modules-center = ai
-modules-right = ${env:OOONANA_PANEL_RIGHT:memory audio battery wifi notifications controls date power}
+modules-right = ${env:OOONANA_PANEL_RIGHT:memory audio battery wifi notifications tray controls date power}
 tray-position = none
 wm-restack = i3
 override-redirect = true
@@ -2608,9 +2756,10 @@ padding-right = 1
 module-margin = 0
 separator = ""
 font-0 = "DejaVu Sans:size=11;2"
-font-1 = "Font Awesome 6 Free Solid:size=15;2"
-font-2 = "Font Awesome 6 Free Solid:size=12;2"
-font-3 = "Font Awesome 6 Brands:size=12;2"
+font-1 = "Font Awesome 7 Free Solid:size=15;2"
+font-2 = "Font Awesome 7 Free Solid:size=12;2"
+font-3 = "Font Awesome 7 Brands:size=12;2"
+font-4 = "Noto Sans CJK KR:size=11;2"
 modules-left =
 modules-center = dock-apps
 modules-right =
@@ -2623,7 +2772,7 @@ content = Ooonana
 content-foreground = ${colors.accent}
 content-background = ${colors.background}
 content-padding = 2
-click-left = ooonana-apps
+click-left = ooonana-shell apps --panel
 click-right = ooonana-settings-launch
 
 [module/launcher]
@@ -2671,7 +2820,7 @@ type = custom/script
 exec = ooonana-media-status --watch
 tail = true
 label = %output%
-label-foreground = ${colors.accent}
+label-foreground = ${colors.foreground}
 label-background = ${colors.background-alt}
 label-padding = 2
 click-left = ooonana-music
@@ -2698,13 +2847,21 @@ label-padding = 1
 click-left = ooonana-notifications
 click-right = ooonana-notification-status --toggle
 
+[module/tray]
+type = custom/text
+content = %{T2}%{T-}
+content-foreground = ${colors.muted}
+content-padding = 1
+click-left = ooonana-tray --toggle
+click-right = ooonana-tray --toggle
+
 [module/controls]
 type = custom/text
 content = %{T2}%{T-}
 content-foreground = ${colors.accent}
 content-padding = 1
-click-left = ooonana-settings-launch --page hardware
-click-right = ooonana-audio-panel
+click-left = ooonana-controls
+click-right = ooonana-shell audio
 
 [module/music]
 type = custom/text
@@ -2755,24 +2912,12 @@ type = custom/text
 content = Ooonana OS
 content-foreground = ${colors.accent}
 
-[module/workspaces]
-type = internal/i3
-format = <label-state>
-label-focused = %name%
-label-focused-foreground = ${colors.accent}
-label-focused-background = #303640
-label-focused-padding = 2
-label-unfocused = %name%
-label-unfocused-foreground = ${colors.accent}
-label-unfocused-background = ${colors.background-alt}
-label-unfocused-padding = 2
-label-visible = %name%
-label-visible-foreground = ${colors.foreground}
-label-visible-padding = 2
-label-urgent = %name%
-label-urgent-foreground = ${colors.background}
-label-urgent-background = ${colors.urgent}
-label-urgent-padding = 2
+[module/task-view]
+type = custom/text
+content = %{T2}%{T-}
+content-foreground = ${colors.foreground}
+content-padding = 1
+click-left = ooonana-window-list --task-view
 
 [module/title]
 type = internal/xwindow
@@ -2817,12 +2962,12 @@ type = custom/script
 exec = ooonana-wifi-status
 interval = 5
 label = %output%
-label-maxlen = 14
+label-maxlen = ${env:OOONANA_WIFI_MAX_CHARS:14}
 label-ellipsis = true
-label-foreground = ${colors.accent}
+label-foreground = ${colors.foreground}
 label-background = ${colors.background-alt}
-label-padding = 2
-click-left = ooonana-wifi-panel
+label-padding = 1
+click-left = ooonana-shell wifi
 
 [module/bluetooth]
 type = custom/script
@@ -2832,7 +2977,7 @@ label = %output%
 label-foreground = ${colors.accent}
 label-background = ${colors.background-alt}
 label-padding = 2
-click-left = ooonana-bluetooth-panel
+click-left = ooonana-shell bluetooth
 click-right = blueman-manager
 
 [module/network]
@@ -2852,10 +2997,10 @@ type = custom/script
 exec = ooonana-audio-status | sed '/ --$/d'
 interval = 5
 label = %output%
-label-foreground = ${colors.accent}
+label-foreground = ${colors.foreground}
 label-background = ${colors.background-alt}
-label-padding = 2
-click-left = ooonana-audio-panel
+label-padding = 1
+click-left = ooonana-shell audio
 click-middle = pactl set-sink-mute @DEFAULT_SINK@ toggle
 click-right = pavucontrol
 scroll-up = pactl set-sink-volume @DEFAULT_SINK@ +5%
@@ -2869,7 +3014,7 @@ label = %output%
 label-foreground = ${colors.accent}
 label-background = ${colors.background-alt}
 label-padding = 2
-click-left = ooonana-brightness-panel
+click-left = ooonana-shell brightness
 click-middle = brightnessctl set 50%
 click-right = arandr
 scroll-up = brightnessctl set +5%
@@ -2881,17 +3026,17 @@ content = 
 content-foreground = ${colors.foreground}
 content-background = ${colors.background-alt}
 content-padding = 2
-click-left = ooonana-power-menu
-click-right = i3lock
+click-left = ooonana-shell power
+click-right = ooonana-lock
 
 [module/battery]
 type = custom/script
 exec = ooonana-battery-status | sed '/ --$/d'
 interval = 30
 label = %output%
-label-foreground = ${colors.accent}
+label-foreground = ${colors.foreground}
 label-background = ${colors.background-alt}
-label-padding = 2
+label-padding = 1
 click-left = ooonana-settings-launch
 
 [module/date]
@@ -2902,7 +3047,7 @@ time = %H:%M
 label = %time%
 label-foreground = ${colors.cool}
 label-background = ${colors.background-alt}
-label-padding = 2
+label-padding = 1
 EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/rofi.rasi" <<'EOF'
@@ -2928,6 +3073,8 @@ configuration {
   alternate-normal-background: #171b21;
   urgent: #3b2324;
   font: "Sans 11";
+  background-color: @background;
+  text-color: @foreground;
 }
 window {
   width: 52%;
@@ -3026,7 +3173,8 @@ element selected.urgent {
 element-icon {
   size: 20px;
 }
-element-text {
+element-text, element-icon, prompt, textbox-prompt-colon, entry {
+  background-color: inherit;
   text-color: inherit;
 }
 scrollbar {
@@ -3098,7 +3246,7 @@ if [ -z "${DISPLAY:-}" ] || ! command -v yad >/dev/null 2>&1; then
 fi
 
 default_target=""
-disk_summary="$(lsblk -dn -o PATH,SIZE,MODEL,TRAN 2>/dev/null | head -n 8 || true)"
+disk_summary="$(lsblk -dn -o PATH,SIZE,MODEL,TRAN 2>/dev/null || true)"
 [ -n "$disk_summary" ] || disk_summary="Disk list unavailable; run lsblk in a terminal."
 
 parent_disk() {
@@ -3126,13 +3274,59 @@ root_disk() {
   esac
 }
 
-form="$(yad --center --title "Install Ooonana OS" --width=720 \
-  --text "Erase disk: deletes target disk contents. Custom: uses explicitly selected partitions.
-Only chosen target and listed partitions may be changed. Leave unrelated USB/SD cards unselected.
-$disk_summary" \
-  --form --separator='|' \
-  --field "Mode:CB" "erase-disk!custom-existing-partitions" \
-  --field "Target disk or root partition" "$default_target" \
+form_width=720
+form_height=680
+review_width=860
+review_height=560
+# Match the primary monitor's usable area, including desktop panel reservations.
+geometry="$(python3 - <<'PY_INSTALL_GEOMETRY' 2>/dev/null || true
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+from gi.repository import Gdk, Gtk
+display = Gdk.Display.get_default()
+monitor = (display.get_primary_monitor() or display.get_monitor(0)) if display else None
+if monitor:
+    area = monitor.get_workarea()
+    glyph = Gtk.Label(label="M").get_layout().get_pixel_size()[0]
+    print(area.width, area.height, max(1, glyph))
+PY_INSTALL_GEOMETRY
+)"
+screen_width=0; screen_height=0; glyph_width=16
+IFS=' ' read -r screen_width screen_height glyph_width <<GEOMETRY
+$geometry
+GEOMETRY
+case "$screen_width:$screen_height" in
+  *[!0-9:]*|:*|*:) ;;
+  *)
+    if [ "$screen_width" -ge 320 ] && [ "$screen_height" -ge 320 ]; then
+      [ "$form_width" -le "$((screen_width - 48))" ] || form_width="$((screen_width - 48))"
+      [ "$review_width" -le "$((screen_width - 48))" ] || review_width="$((screen_width - 48))"
+      [ "$form_height" -le "$((screen_height - 96))" ] || form_height="$((screen_height - 96))"
+      [ "$review_height" -le "$((screen_height - 96))" ] || review_height="$((screen_height - 96))"
+    fi
+    ;;
+esac
+case "$glyph_width" in ""|*[!0-9]*|0) glyph_width=16 ;; esac
+form_text_width="$(((form_width - 64) / glyph_width))"
+review_text_width="$(((review_width - 64) / glyph_width))"
+[ "$form_text_width" -le 50 ] || form_text_width=50
+[ "$form_text_width" -ge 12 ] || form_text_width=12
+[ "$review_text_width" -le 50 ] || review_text_width=50
+[ "$review_text_width" -ge 12 ] || review_text_width=12
+# Read-only disk details belong inside the scrolling form. Escape YAD's field
+# syntax after wrapping, so model names cannot become tooltips/field types.
+disk_field="$(printf '%s' "$disk_summary" | python3 -c 'import sys,textwrap; width=int(sys.argv[1]); text="Detected disks:\n"+"\n".join(textwrap.fill(line,width=width) for line in sys.stdin.read().splitlines()); print(text.replace("\\", "\\\\").replace("!", "\\041").replace(":", "\\072"))' "$form_text_width")"
+separator="$(printf '\037')"
+
+form="$(yad --center --title "Install Ooonana OS" --width="$form_width" --height="$form_height" \
+  --window-icon=ooonana-installer --borders=16 --text-width="$form_text_width" --no-markup \
+  --text "Erase disk deletes all target data. Custom partitions uses only selected partitions. Verify target before continuing." \
+  --form --scroll --focus-field=2 --selectable-labels --separator="$separator" \
+  --button=Cancel:1 --button="Review installation":0 \
+  --field "$disk_field:LBL" "" \
+  --field "_Mode:CB" "Erase disk!Custom partitions" \
+  --field "Target disk/root" "$default_target" \
   --field "Home partition" "" \
   --field "Swap partition" "" \
   --field "EFI partition" "" \
@@ -3146,14 +3340,25 @@ $disk_summary" \
   --field "Theme:CB" "dark!light" \
   --field "Cloud repo" "https://ooonana.gitlab.io/ooonana-repo" \
   --field "Source root" "/" \
-  --field "Disk swap MiB (erase mode; 0 disables)" "0" 2>/dev/null || true)"
+  --field "Erase swap MiB!Erase mode only; 0 disables disk swap" "0" 2>/dev/null || true)"
 [ -n "$form" ] || exit 0
+# One read-only prefix + 16 values, each followed by YAD's separator. Refuse
+# embedded control separators rather than silently shifting disk/password data.
+if [ "${form#"$separator"}" = "$form" ] ||
+  [ "$(printf '%s' "$form" | tr -cd '\037' | wc -c | tr -d ' ')" != 17 ]; then
+  yad --center --title "Install Ooonana OS" --text "Form data could not be read safely. Remove control characters and retry."
+  exit 1
+fi
 
 field() {
-  printf '%s' "$form" | cut -d'|' -f"$1"
+  printf '%s' "$form" | cut -d"$separator" -f"$(($1 + 1))"
 }
 
-mode="$(field 1)"
+case "$(field 1)" in
+  "Erase disk") mode=erase-disk ;;
+  "Custom partitions") mode=custom-existing-partitions ;;
+  *) exit 1 ;;
+esac
 target="$(field 2)"
 home_part="$(field 3)"
 swap_part="$(field 4)"
@@ -3209,8 +3414,7 @@ if [ "$(id -u 2>/dev/null || echo 1)" != "0" ]; then
   set -- ooonana-run-admin "$@"
 fi
 
-tmp_dir="${TMPDIR:-/tmp}/ooonana-installer-gui.$$"
-mkdir -p "$tmp_dir"
+tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/ooonana-installer-gui.XXXXXXXX")"
 preview="$tmp_dir/preview.txt"
 log="$tmp_dir/install.log"
 status_file="$tmp_dir/status"
@@ -3222,15 +3426,17 @@ else
   "$@" --dry-run --yes >"$preview" 2>&1 && preview_ok=1
 fi
 if [ "$preview_ok" -ne 1 ]; then
-  yad --center --title "Ooonana Install Blocked" --width=860 --height=420 \
-    --text-info --filename="$preview" --button=Close:0 2>/dev/null || true
+  yad --center --title "Ooonana Install Blocked" --width="$review_width" --height="$review_height" \
+    --window-icon=ooonana-installer --text-info --wrap --filename="$preview" --button=Close:0 2>/dev/null || true
   exit 1
 fi
 
-yad --center --title "Ooonana Install Preview" --width=860 --height=560 \
+yad --center --title "Ooonana Install Preview" --width="$review_width" --height="$review_height" \
+  --window-icon=ooonana-installer --text-width="$review_text_width" \
+  --default-button=1 \
   --text "Final review. Installation changes only listed target/partitions. Verify sizes and format flags below before continuing." \
-  --text-info --filename="$preview" \
-  --button=Cancel:1 --button="Install selected target":0 2>/dev/null || exit 0
+  --text-info --wrap --filename="$preview" \
+  --button=Cancel:1 --button="Install target":0 2>/dev/null || exit 0
 
 : >"$log"
 (
@@ -3245,14 +3451,16 @@ yad --center --title "Ooonana Install Preview" --width=860 --height=560 \
 ) &
 pid="$!"
 
-yad --center --title "Ooonana Install Log" --width=860 --height=560 \
-  --text-info --tail --filename="$log" --button=Close:0 2>/dev/null || true
+yad --center --title "Ooonana Install Log" --width="$review_width" --height="$review_height" \
+  --window-icon=ooonana-installer --text-width="$review_text_width" \
+  --text "Installation continues if this log closes. Wait for completion before rebooting." \
+  --text-info --wrap --tail --filename="$log" --button="Hide log":0 2>/dev/null || true
 wait "$pid" 2>/dev/null || true
 status="$(cat "$status_file" 2>/dev/null || echo 1)"
 if [ "$status" = "0" ]; then
   yad --center --title "Ooonana OS" --text "Install complete. Reboot when ready." 2>/dev/null || true
 else
-  if yad --center --title "Ooonana Install Failed" --text "Install failed. Open fallback shell?" --button=No:1 --button=Shell:0 2>/dev/null; then
+  if yad --center --title "Ooonana Install Failed" --default-button=1 --text "Install failed. Open fallback shell?" --button=No:1 --button=Shell:0 2>/dev/null; then
     exec ooonana-theme-env xterm -e /bin/sh -l
   fi
 fi
@@ -3372,14 +3580,23 @@ screen() {
 read_hidden() {
   prompt="$1"
   printf '%s' "$prompt" >&2
-  if command -v stty >/dev/null 2>&1; then
-    stty -echo 2>/dev/null || true
-    read -r answer || answer=""
-    stty echo 2>/dev/null || true
-    printf '\n'
-  else
-    read -r answer || answer=""
+  saved_tty="$(stty -g 2>/dev/null || true)"
+  restore_hidden_tty() {
+    [ -z "$saved_tty" ] || stty "$saved_tty" 2>/dev/null || true
+  }
+  if [ -n "$saved_tty" ]; then
+    trap 'restore_hidden_tty' 0
+    trap 'exit 129' 1
+    trap 'exit 130' 2
+    trap 'exit 143' 15
+    stty -echo 2>/dev/null || return 1
   fi
+  read_status=0
+  IFS= read -r answer || read_status=1
+  restore_hidden_tty
+  trap - 0 1 2 15
+  printf '\n' >&2
+  [ "$read_status" -eq 0 ] || return 1
   printf '%s\n' "$answer"
 }
 
@@ -3465,12 +3682,9 @@ run_installer() {
   printf 'Theme: %s\n' "$THEME"
   printf 'Package repo: %s\n' "${CLOUD_REPO:-none}"
   printf 'Progress log: %s\n\n' "$LOG_FILE"
-  printf '[1/6] format target\n'
-  printf '[2/6] copy Ooonana files\n'
-  printf '[3/6] write user, hostname, theme\n'
-  printf '[4/6] write package repo source\n'
-  printf '[5/6] write fstab/install marker\n'
-  printf '[6/6] finish\n\n'
+  printf 'Starting installation. This may take several minutes.\n'
+  printf 'Detailed output is written to the progress log above.\n'
+  printf 'Keep this session open; wait for the completion result.\n\n'
   if [ -n "$PASSWORD_VALUE" ]; then
     if printf '%s\n' "$PASSWORD_VALUE" | "$@" >"$LOG_FILE" 2>&1; then
       cat "$LOG_FILE"
@@ -3490,14 +3704,21 @@ run_installer() {
 
 finish_prompt() {
   [ "$YES" -eq 0 ] || return 0
-  printf '\nInstall complete. Press Enter to reboot, type shell to close: '
-  read -r answer || answer=""
+  printf '\nInstall complete. Press Enter to reboot, type stay to keep this session: '
+  if ! IFS= read -r answer; then
+    printf '\nInput closed; reboot skipped.\n' >&2
+    return 0
+  fi
   case "$answer" in
-    shell|SHELL|no|NO|n|N) return 0 ;;
-    *)
-      sync 2>/dev/null || true
-      reboot -f 2>/dev/null || poweroff -f 2>/dev/null || true
+    ""|reboot|REBOOT)
+      if bunana --restart; then
+        return 0
+      fi
+      printf 'Reboot failed. Session remains open; retry from Power menu or terminal.\n' >&2
+      return 1
       ;;
+    stay|STAY|shell|SHELL|no|NO|n|N) return 0 ;;
+    *) printf 'Reboot skipped; no recognized reboot request.\n' >&2 ;;
   esac
 }
 
@@ -3731,11 +3952,33 @@ if [ "${1:-}" = "--user-session" ]; then
   shift
 fi
 
+# A desktop is not a terminal invocation: app/picker defaults must start in the
+# desktop user's home, not an inherited mount, build folder or filesystem root.
+if [ -z "${HOME:-}" ] || ! CDPATH= cd -- "$HOME"; then
+  echo "ooonana-i3-session: desktop home unavailable; check HOME and directory permissions" >&2
+  exit 1
+fi
+
+export XDG_CURRENT_DESKTOP=Ooonana:i3
+export XDG_SESSION_DESKTOP=ooonana
+export DESKTOP_SESSION=ooonana
+export OOONANA_WINDOW_CONTROLS="${OOONANA_WINDOW_CONTROLS:-left}"
+
+if command -v ooonana-input-method >/dev/null 2>&1; then
+  eval "$(ooonana-input-method --env)"
+fi
+
 if [ -z "${OOONANA_DBUS_SESSION:-}" ] &&
   [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] &&
   command -v dbus-run-session >/dev/null 2>&1; then
   export OOONANA_DBUS_SESSION=1
   exec dbus-run-session -- "$0" "$@"
+fi
+
+if command -v dbus-update-activation-environment >/dev/null 2>&1; then
+  dbus-update-activation-environment DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP \
+    XDG_SESSION_DESKTOP DESKTOP_SESSION XDG_RUNTIME_DIR \
+    GTK_IM_MODULE QT_IM_MODULE XMODIFIERS GTK_IM_MODULE_FILE >/dev/null 2>&1 || true
 fi
 
 if [ -x /usr/bin/ooonana-theme-env ]; then
@@ -3744,6 +3987,9 @@ if [ -x /usr/bin/ooonana-theme-env ]; then
 fi
 
 mkdir -p "${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana"
+if command -v ooonana-input-method >/dev/null 2>&1; then
+  ooonana-input-method --start >"${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/ooonana/input-method.log" 2>&1 || true
+fi
 if [ "${OOONANA_NO_AUDIO:-0}" != 1 ]; then
   command -v ooonana-audio-start >/dev/null 2>&1 && ooonana-audio-start >/dev/null 2>&1 || true
 fi
@@ -3764,6 +4010,7 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-i3-installer-session" <<'EOF'
 #!/bin/sh
 set -eu
+export OOONANA_WINDOW_CONTROLS="${OOONANA_WINDOW_CONTROLS:-left}"
 
 if [ -z "${OOONANA_DBUS_SESSION:-}" ] &&
   [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] &&
@@ -3945,6 +4192,23 @@ start_device_manager() {
 start_device_manager
 start_persistence
 
+start_installed_mounts() {
+  [ "$(cat /etc/ooonana/system-mode 2>/dev/null)" = installed ] || return 0
+  if [ -s /etc/fstab ] &&
+     timeout 30 mount -a -O no_netdev >/var/log/ooonana-mounts.log 2>&1; then
+    return 0
+  fi
+  # Do not start a desktop against an unmounted configured home/filesystem.
+  # PAM's nologin guard preserves authentication and leaves rescue-media repair.
+  if [ ! -e /run/nologin ]; then
+    printf '%s\n' 'Configured storage failed to mount. Boot rescue media and review /var/log/ooonana-mounts.log.' >/run/nologin
+  fi
+  echo 'OOONANA_INSTALLED_MOUNTS_FAILED: login blocked; repair configured storage'
+  return 1
+}
+
+start_installed_mounts || exit 1
+
 if command -v ooonana-memory >/dev/null 2>&1; then
   ooonana-memory start >/var/log/ooonana-memory.log 2>&1 || true
 fi
@@ -3994,6 +4258,10 @@ start_system_services() {
 }
 
 start_system_services || true
+
+if command -v ooonana-session-services >/dev/null 2>&1; then
+  timeout 25 ooonana-session-services start >/var/log/ooonana-session-services.log 2>&1 || true
+fi
 
 start_service_watchdog() {
   command -v ooonana-service-watchdog >/dev/null 2>&1 || return 0
@@ -4083,14 +4351,21 @@ refresh_gtk_caches() {
 
 refresh_font_caches() {
   font_cache=""
+  font_cache_force=0
   [ -d /usr/share/fonts ] || return 0
+  # Factory archives normalize directory mtimes. At epoch zero, Flatpak can
+  # accept its runtime's empty /usr/share/fonts cache for the host font tree.
+  # Repair once before exposing host caches; ordinary boots keep the fast path.
+  if [ "$(stat -c %Y /usr/share/fonts 2>/dev/null)" = 0 ]; then
+    if touch /usr/share/fonts; then font_cache_force=1; fi
+  fi
   for cache in /var/cache/fontconfig/*.cache-*; do
     if [ -s "$cache" ]; then
       font_cache="$cache"
       break
     fi
   done
-  [ -n "$font_cache" ] && return 0
+  [ -n "$font_cache" ] && [ "$font_cache_force" = 0 ] && return 0
   if command -v mkfontscale >/dev/null 2>&1; then
     for font_dir in /usr/share/fonts/*; do
       [ -d "$font_dir" ] || continue
@@ -4101,7 +4376,11 @@ refresh_font_caches() {
     done
   fi
   if command -v fc-cache >/dev/null 2>&1; then
-    fc-cache /usr/share/fonts >/dev/null 2>&1 || true
+    if [ "$font_cache_force" = 1 ]; then
+      fc-cache -f /usr/share/fonts >/dev/null 2>&1 || true
+    else
+      fc-cache /usr/share/fonts >/dev/null 2>&1 || true
+    fi
   fi
 }
 
@@ -4116,15 +4395,6 @@ fi
 [ -n "$host" ] || host="ooonana"
 hostname "$host" 2>/dev/null || true
 
-if [ -f /usr/share/ooonana/boot-logo.txt ]; then
-  printf '\033]P3ffb21a\033[1;33m'
-  cat /usr/share/ooonana/boot-logo.txt
-  printf '\033[0m'
-elif [ -f /usr/share/ooonana/logo.txt ]; then
-  printf '\033]P3ffb21a\033[1;33m'
-  cat /usr/share/ooonana/logo.txt
-  printf '\033[0m'
-fi
 echo "Ooonana full i3 rootfs"
 
 if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
@@ -4145,7 +4415,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   version_output="$(/usr/bin/ooonana version 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.9.9' &&
+    printf '%s\n' "$version_output" | grep -q 'ooonana 0.10.0' &&
     printf '%s\n' "$installed_output" | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else
@@ -4168,7 +4438,10 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
 fi
 
 if [ "$(cat /etc/ooonana/system-mode 2>/dev/null)" = installed ]; then
-  echo "Installed system: console login required; desktop starts after authentication."
+  if [ -x /usr/bin/ooonana-graphical-login ]; then
+    /usr/bin/ooonana-graphical-login </dev/null >/var/log/ooonana-graphical-login.log 2>&1 &
+  fi
+  echo "Installed system: sign in to continue. Console sign-in is available on tty2."
   exit 0
 fi
 
@@ -4191,6 +4464,8 @@ EOF
 }
 
 install_branding() {
+  install -D -m 0644 "$ROOT/branding/boot-mark.png" "$ROOTFS/usr/share/ooonana/boot-mark.png"
+  install -D -m 0644 "$ROOT/branding/grub-background.png" "$ROOTFS/usr/share/ooonana/grub-background.png"
   install -D -m 0644 "$ROOT/branding/logo.svg" "$ROOTFS/usr/share/ooonana/logo.svg"
   install -D -m 0644 "$ROOT/branding/logo.png" "$ROOTFS/usr/share/ooonana/logo.png"
   install -D -m 0644 "$ROOT/branding/wallpaper.svg" "$ROOTFS/usr/share/ooonana/wallpapers/ooonana-wallpaper.svg"
@@ -4246,18 +4521,34 @@ EOF
 install_current_backend_checks() {
   # Cached first-party archives must not mask current backend/desktop fixes.
   local app="$ROOTFS/usr/lib/ooonana/openvino-chat" file
+  mkdir -p "$ROOTFS/usr/share/nemo/actions" "$ROOTFS/usr/share/glib-2.0/schemas"
+  cp -a "$ROOT/packages/ooonana/usr/share/nemo/actions/." "$ROOTFS/usr/share/nemo/actions/"
+  install -m 0644 "$ROOT/packages/ooonana/usr/share/glib-2.0/schemas/20_ooonana-nemo.gschema.override" \
+    "$ROOTFS/usr/share/glib-2.0/schemas/20_ooonana-nemo.gschema.override"
+  install -D -m 0644 "$ROOT/packages/ooonana/etc/elogind/logind.conf.d/90-ooonana.conf" \
+    "$ROOTFS/etc/elogind/logind.conf.d/90-ooonana.conf"
+  install -D -m 0644 "$ROOT/packages/ooonana/etc/chromium/zz-ooonana.conf" \
+    "$ROOTFS/etc/chromium/zz-ooonana.conf"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/cgroup_memory.py" \
     "$ROOTFS/usr/lib/ooonana/cgroup_memory.py"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/storage_health.py" \
     "$ROOTFS/usr/lib/ooonana/storage_health.py"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/panel_session.py" \
     "$ROOTFS/usr/lib/ooonana/panel_session.py"
-  for file in chat_store.py common.py memory_status.py notification_utils.py task_manager_app.py ui_preferences.py window_controls.py; do
+  install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/desktop_theme.py" \
+    "$ROOTFS/usr/lib/ooonana/desktop_theme.py"
+  install -D -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/input-method-profile" \
+    "$ROOTFS/usr/share/ooonana/input-method-profile"
+  for file in xsettings_session.py legacy_gtk_style.py lock_screen.py lock_readiness.py session_control.py session_services.py input_method.py tray_model.py tray_service.py legacy_tray.py; do
+    install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/$file" \
+      "$ROOTFS/usr/lib/ooonana/$file"
+  done
+  for file in chat_store.py common.py memory_status.py notification_utils.py task_manager_app.py theme_watch.py tray_app.py ui_preferences.py window_controls.py shell_flyout.py shell_pointer.py shell_client.py launcher_app.py notifications_app.py controls_app.py wifi_app.py bluetooth_app.py; do
     install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ui/$file" \
       "$ROOTFS/usr/lib/ooonana/ui/$file"
   done
   install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana" "$ROOTFS/usr/bin/ooonana"
-  for file in ooonana-window-list ooonana-panel-start ooonana-media-status; do
+  for file in ooonana-window-list ooonana-panel-start ooonana-media-status ooonana-notification-status ooonana-xsettings ooonana-lock ooonana-session ooonana-session-services ooonana-session-guard ooonana-input-method ooonana-tray ooonana-controls ooonana-shell ooonana-notifications ooonana-nemo-wallpaper; do
     install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/$file" "$ROOTFS/usr/bin/$file"
   done
   [[ -f "$app/APP-MANIFEST.sha256" ]] || return 0
@@ -4421,6 +4712,9 @@ refresh_gtk_caches() {
 refresh_font_caches() {
   [[ -d "$ROOTFS/usr/share/fonts" ]] || return 0
   if [[ "$(id -u)" -eq 0 ]] && [[ -x "$ROOTFS/bin/sh" ]]; then
+    # Distinguish assembled host fonts from epoch-normalized Flatpak runtimes.
+    # Cached font contents remain generated after the final directory stamp.
+    touch "$ROOTFS/usr/share/fonts"
     chroot "$ROOTFS" /bin/sh -lc '
       if command -v mkfontscale >/dev/null 2>&1; then
         for font_dir in /usr/share/fonts/*; do
@@ -4442,6 +4736,12 @@ restore_busybox_init_links() {
   [[ -x "$ROOTFS/bin/busybox" ]] || return 0
   mkdir -p "$ROOTFS/bin" "$ROOTFS/sbin" "$ROOTFS/usr/bin"
   for applet in adduser awk basename cat chmod clear cp cut date dd df dirname dmesg echo env free grep hostname ifconfig ip killall ls mkdir mount mv passwd ps pwd readlink rm rmdir route sed sh sha256sum sleep sort sync tar touch tr udhcpc umount uname wc wget; do
+    case "$applet" in
+      mount|umount)
+        # Retain real util-linux implementations for PARTUUID/fstab handling.
+        [[ ! -f "$ROOTFS/bin/$applet" || -L "$ROOTFS/bin/$applet" ]] || continue
+        ;;
+    esac
     ln -sf busybox "$ROOTFS/bin/$applet"
   done
   for applet in init reboot poweroff halt mdev switch_root; do
@@ -4487,6 +4787,8 @@ write_full_groups() {
   mkdir -p "$ROOTFS/var" "$ROOTFS/run"
   rm -rf "$ROOTFS/var/run"
   ln -s ../run "$ROOTFS/var/run"
+  # FUSE helpers need a live mount table for nonroot portal cleanup.
+  ln -sfn /proc/self/mounts "$ROOTFS/etc/mtab"
 
   local live_user="ooonana"
   local live_uid="1000"
@@ -4546,6 +4848,7 @@ ID=ooonana
 PRETTY_NAME="Ooonana OS $OS_VERSION"
 VERSION="$OS_VERSION"
 VERSION_ID="$OS_VERSION"
+OOONANA_USERLAND_BASE="alpine-$(ooonana_alpine_branch)"
 HOME_URL="https://github.com/Ooonana/Ooonana-OS"
 SUPPORT_URL="https://github.com/Ooonana/Ooonana-OS/issues"
 EOF
@@ -4586,9 +4889,9 @@ write_tarball() {
 }
 
 normalize_rootfs_permissions() {
-  mkdir -p "$ROOTFS/tmp"
+  mkdir -p "$ROOTFS/tmp" "$ROOTFS/var/tmp"
   chmod -R go-w "$ROOTFS" 2>/dev/null || true
-  chmod 1777 "$ROOTFS/tmp"
+  chmod 1777 "$ROOTFS/tmp" "$ROOTFS/var/tmp"
 
   local setuid_path
   for setuid_path in \
@@ -4598,6 +4901,13 @@ normalize_rootfs_permissions() {
     "$ROOTFS/bin/su"; do
     [[ -f "$setuid_path" ]] && chmod 4755 "$setuid_path"
   done
+
+  # Imported APK tar owners are normalized to root. Preserve 0600 shadow;
+  # SGID-root cannot read it. Use Linux-PAM's supported SUID-root helper mode.
+  if [[ -f "$ROOTFS/usr/sbin/unix_chkpwd" && ! -L "$ROOTFS/usr/sbin/unix_chkpwd" ]]; then
+    [[ "$(id -u)" != 0 ]] || chown 0:0 "$ROOTFS/usr/sbin/unix_chkpwd"
+    chmod 4755 "$ROOTFS/usr/sbin/unix_chkpwd"
+  fi
 
   if [[ -f "$ROOTFS/usr/lib/chromium/chrome-sandbox" ]]; then
     chmod 4755 "$ROOTFS/usr/lib/chromium/chrome-sandbox"
@@ -4667,6 +4977,7 @@ main() {
     "$ROOTFS/usr/bin/ooonana-panel-start" \
     "$ROOTFS/usr/bin/ooonana-wallpaper-fit" \
     "$ROOTFS/usr/bin/ooonana-notifications" \
+    "$ROOTFS/usr/bin/ooonana-graphical-login" \
     "$ROOTFS/usr/bin/ooonana-notification-status" \
     "$ROOTFS/usr/bin/which" \
     "$ROOTFS/usr/bin/strings" \

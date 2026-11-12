@@ -4,7 +4,7 @@
 << /Type /Catalog /Pages 2 0 R >>
 endobj
 2 0 obj
-<< /Type /Pages /Kids [6 0 R 8 0 R 10 0 R] /Count 3 >>
+<< /Type /Pages /Kids [6 0 R 8 0 R 10 0 R 12 0 R] /Count 4 >>
 endobj
 3 0 obj
 << /Type /Font /Subtype /Type1 /BaseFont /Courier >>
@@ -13,11 +13,11 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
 endobj
 5 0 obj
-<< /Length 3480 >>
+<< /Length 3578 >>
 stream
 0.065 0.075 0.09 rg 0 754 612 38 re f
 BT /F2 12 Tf 1 0.70 0.10 rg 54 769 Td (OOONANA / FIELD GUIDE) Tj ET
-BT /F1 9 Tf 0.36 0.39 0.44 rg 54 36 Td (Core 0.9.9 - 1 / 3) Tj ET
+BT /F1 9 Tf 0.36 0.39 0.44 rg 54 36 Td (Core 0.10.0 - 1 / 4) Tj ET
 BT
 /F1 9.5 Tf
 13 TL
@@ -50,7 +50,13 @@ T*
 () Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Ooonana OS 0.9.9 field guide) Tj
+(Ooonana OS 0.10.0 field guide) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(Evidence refreshed 2026-11-04; core and installed WSL 0.10.0 candidate; stable) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(unpromoted.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 () Tj
@@ -71,6 +77,30 @@ T*
 (repos; the target OS installs Ooonana packages, not live Alpine APKs.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
+(Core 0.10.0 is a supported-base candidate, not a stable release. Imported payloads use) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(one Alpine v3.24 branch. Stable 0.9.9 installations and public update channel remain) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(separate during validation.) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(Private native VM checksum installation/reinstallation, BIOS/UEFI boot, UUID EFI/swap) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(mounts, nonroot login/sudo and clean shutdown pass. Signed fixture health rollback,) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(prepared-checkpoint power-loss recovery and bounded ext4 full-storage rollback also) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(pass. Physical USB, broader system/kernel upgrades and final ISO acceptance remain) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(separate gates.) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
 () Tj
 T*
 /F2 11 Tf 0.62 0.34 0.01 rg
@@ -83,10 +113,10 @@ T*
 (line AI.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(full-i3: minimal plus i3, Xorg, Spotlight-style launcher, movable GTK apps, wallpaper,) Tj
+(full-i3: minimal plus i3, Xorg, searchable application launcher, movable GTK apps,) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(GUI installer, AI desktop app, and full WSL rootfs.) Tj
+(wallpaper, GUI installer, AI desktop app, and full WSL rootfs.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 () Tj
@@ -130,6 +160,22 @@ T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 () Tj
 T*
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Length 4717 >>
+stream
+0.065 0.075 0.09 rg 0 754 612 38 re f
+BT /F2 12 Tf 1 0.70 0.10 rg 54 769 Td (OOONANA / FIELD GUIDE) Tj ET
+BT /F1 9 Tf 0.36 0.39 0.44 rg 54 36 Td (Core 0.10.0 - 2 / 4) Tj ET
+BT
+/F1 9.5 Tf
+13 TL
+54 728 Td
 /F2 11 Tf 0.62 0.34 0.01 rg
 (Cloud repo) Tj
 T*
@@ -164,24 +210,17 @@ T*
 (target disk.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
+(Installer validates identity before disk writes, locks root, writes filesystem UUIDs) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(and checks retained-file content even when size/timestamp match. These repairs passed) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(actual private installation tests; they do not certify physical USB fault behavior.) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
 () Tj
 T*
-ET
-endstream
-endobj
-6 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 5 0 R >>
-endobj
-7 0 obj
-<< /Length 4757 >>
-stream
-0.065 0.075 0.09 rg 0 754 612 38 re f
-BT /F2 12 Tf 1 0.70 0.10 rg 54 769 Td (OOONANA / FIELD GUIDE) Tj ET
-BT /F1 9 Tf 0.36 0.39 0.44 rg 54 36 Td (Core 0.9.9 - 2 / 3) Tj ET
-BT
-/F1 9.5 Tf
-13 TL
-54 728 Td
 /F2 11 Tf 0.62 0.34 0.01 rg
 (USB live modes) Tj
 T*
@@ -192,13 +231,16 @@ T*
 (on OOONANA_PERSIST when available on the same boot USB, with RAM fallback.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Persistent live mode accepts only an ext4 OOONANA_PERSIST partition on the same) Tj
+(Persistent live mode uses an ext4 OOONANA_PERSIST partition or a configured ext4) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(physical boot USB. Its full writable overlay saves files, settings, Wi-Fi, Bluetooth) Tj
+(persistence file on the same boot USB. Setup previews and requires confirmation; GRUB) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(pairings, packages, and system changes.) Tj
+(selection never silently formats storage. Full writable overlay saves files, settings,) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(radio pairings, packages and system changes.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (GRUB boot UUID and same-parent checks protect unrelated media. Cloned UUIDs, unsafe) Tj
@@ -234,13 +276,19 @@ T*
 (WSL) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Import full-i3 with scripts/install-wsl-distro.sh --distro Ooonana --tarball) Tj
+(For a new test distro only: scripts/install-wsl-distro.sh --distro OoonanaCandidate) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(/var/tmp/ooonana-os/release/ooonana-full-i3-wsl-rootfs.tar.gz --force) Tj
+(--tarball /var/tmp/ooonana-os/release/ooonana-full-i3-wsl-rootfs.tar.gz. Never force-) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Launch desktop with: wsl.exe -d Ooonana -u ooonana --exec start-ooonana-i3) Tj
+(reimport over an existing distro as a migration shortcut.) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(Launch installed desktop:) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(wsl -d Ooonana -u ooonana -- /usr/local/bin/start-ooonana-i3 --nested) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (WSL GUI needs WSLg and Xephyr, or an X server with DISPLAY set. Nested mode keeps i3) Tj
@@ -249,7 +297,59 @@ T*
 (panel and dock together in one window.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Update an imported distro with: ooonana update && ooonana upgrade) Tj
+(WSL-local adapter preserves the packaged launcher, waits up to 60 seconds for cold) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(Xephyr startup, and selects X11/XCB. Installed WSL uses verified local signed) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(generations under /usr/lib/ooonana/repo; no removable host drive mount is required.) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(Ubuntu remains the build host; no distro disk is moved.) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(No AI model weights were downloaded into fresh WSL. OpenVINO app is installed;) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(inference runtime/models need explicit setup. Windows model folders remain untouched.) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(Readiness checks do not certify interactive input, lock/logout or suspend/resume.) Tj
+T*
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 7 0 R >>
+endobj
+9 0 obj
+<< /Length 4963 >>
+stream
+0.065 0.075 0.09 rg 0 754 612 38 re f
+BT /F2 12 Tf 1 0.70 0.10 rg 54 769 Td (OOONANA / FIELD GUIDE) Tj ET
+BT /F1 9 Tf 0.36 0.39 0.44 rg 54 36 Td (Core 0.10.0 - 3 / 4) Tj ET
+BT
+/F1 9.5 Tf
+13 TL
+54 728 Td
+/F2 11 Tf 0.62 0.34 0.01 rg
+(WSL \(continued\)) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+() Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(Same-base maintenance: ooonana update && ooonana upgrade. Cross-base migration) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(requires verified backup and whole-world upgrade --allow-major from an independent) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(host against an offline target root. Live libc replacement is refused; old saved USB) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(overlays need separate explicit data migration.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 () Tj
@@ -264,10 +364,34 @@ T*
 (Intel OpenVINO, ask/chat, tools, tasks, audit, history, status, and a native GUI.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(The full-i3 desktop includes a ChatGPT-style AI workspace, Settings, Wi-Fi, Bluetooth,) Tj
+(The full-i3 desktop includes a native AI workspace, Settings, Wi-Fi, Bluetooth,) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Packages, and Spotlight-style application launcher.) Tj
+(Packages and searchable application launcher. OpenVINO overhaul and new runtime/model) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(validation remain deferred.) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(Pinned Linux runtime, real Korean/English tokenizer, strict RAM refusal, native CPU) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(streaming/cancel and loaded-engine restart passed with small QA models.) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(Heavyweight/GPU model inference remains pending. Fresh WSL app installation does not) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(imply inference runtime or models are configured.) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(Load and generation allocation failures return insufficient_memory \(HTTP503, or typed) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(SSE error after streaming headers\). Reduce context/output length or choose a smaller) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(model; swap is not extra physical RAM.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 () Tj
@@ -276,25 +400,37 @@ T*
 (Desktop and hardware) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(The i3 desktop uses solid graphite and orange styling, rounded controls, a top) Tj
+(The desktop uses opaque Graphite/Paper surfaces, amber accents and restrained) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(music/window bar, and a centered opaque dock with running dots, click-to-restore apps,) Tj
+(rounding. Top panel carries system/service status and left-side music. Flat centered) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(and right-click window actions.) Tj
+(dock groups all application windows, with pins, running indicators, exact restore and) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Core 0.9.9 includes matching native icons, focus-neutral dock previews, responsive) Tj
+(right-click actions.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(panel spacing, AI loading/RAM/storage indicators, and larger third-party controls that) Tj
+(Core 0.10.0 retains matching native icons, focus-neutral dock previews, responsive) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(exclude hidden tabs and fullscreen-covered windows. Alt+F4 closes; Alt+F10 toggles) Tj
+(panel spacing, AI loading/RAM/storage indicators, and compact third-party controls) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(fullscreen.) Tj
+(that exclude hidden tabs and fullscreen-covered windows. Alt+F4 closes; Alt+F10) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(toggles fullscreen.) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(Eighteen exact-package normal/scaled desktop cases pass. Geany file-picker focus,) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(cancel and file opening passed privately at 1280x800 and 1024x768; initial dialogs are) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(bounded and centered. Physical/mixed-DPI/session behavior is not certified by Xvfb.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (Ctrl+Shift+Esc opens native Task Manager with processes, performance, and available) Tj
@@ -307,6 +443,21 @@ T*
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (or an installed system; RAM-only live storage cannot hold its runtime and models.) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(Optional Firefox: ooonana get firefox, then nonroot ooonana-firefox setup. Launcher) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(downloads browser/runtime only after explicit setup; setup/update refuse volatile live) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(storage by default. Disposable nonroot Flatpak install/update, first-run and file-) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(picker journeys passed. Installed-session acceptance remains separate; Firefox is not) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(preinstalled in fresh WSL.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (Ooonana OpenVINO Chat 0.2.1 has a browser GUI through an authenticated loopback) Tj
@@ -326,15 +477,15 @@ T*
 ET
 endstream
 endobj
-8 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 7 0 R >>
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 9 0 R >>
 endobj
-9 0 obj
-<< /Length 3175 >>
+11 0 obj
+<< /Length 4020 >>
 stream
 0.065 0.075 0.09 rg 0 754 612 38 re f
 BT /F2 12 Tf 1 0.70 0.10 rg 54 769 Td (OOONANA / FIELD GUIDE) Tj ET
-BT /F1 9 Tf 0.36 0.39 0.44 rg 54 36 Td (Core 0.9.9 - 3 / 3) Tj ET
+BT /F1 9 Tf 0.36 0.39 0.44 rg 54 36 Td (Core 0.10.0 - 4 / 4) Tj ET
 BT
 /F1 9.5 Tf
 13 TL
@@ -346,10 +497,13 @@ T*
 () Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(Installed password-login handoff passed diskless VM tests as UID 1000. Physical Xorg,) Tj
+(Disposable VM installation, password login and sudo passed as UID 1000. Physical Xorg,) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
-(wireless, audio, sensors and inference remain hardware checks; no sound was played.) Tj
+(wireless, audio, sensors and inference remain separate checks. No audible testing is) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(performed automatically.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (OpenVINO Linux dependencies use exact wheel hashes and a pinned Ubuntu image/APT) Tj
@@ -377,6 +531,27 @@ T*
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (slower than real time. This terminal PDF is not the x86 i3 desktop.) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(Boot status updates after kernel warnings. A sequential RAM seed replaces per-file) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(boot copying; the interactive shell and package backend use RAM. Keep the PDF tab) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(visible. Slow viewers may need several minutes; wait for ooonana# before typing.) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(Latest shipped-code Node suite passed in 87 seconds, not a viewer guarantee. Metadata) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(snapshot reuse reduced measured package list from 130 to 45 seconds and sync from 86) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(to 57; signatures/checksums remain verified. Emulator time CSR now follows CLINT with) Tj
+T*
+/F1 9.5 Tf 0.13 0.15 0.18 rg
+(privilege checks.) Tj
 T*
 /F1 9.5 Tf 0.13 0.15 0.18 rg
 (docs/ooonana-lite.pdf is a legacy artifact, not the current optimized runtime.) Tj
@@ -441,24 +616,26 @@ T*
 ET
 endstream
 endobj
-10 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 9 0 R >>
+12 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 11 0 R >>
 endobj
 xref
-0 11
+0 13
 0000000000 65535 f 
 0000000015 00000 n 
 0000000064 00000 n 
-0000000134 00000 n 
-0000000202 00000 n 
-0000000277 00000 n 
-0000003809 00000 n 
-0000003945 00000 n 
-0000008754 00000 n 
-0000008890 00000 n 
-0000012117 00000 n 
+0000000141 00000 n 
+0000000209 00000 n 
+0000000284 00000 n 
+0000003914 00000 n 
+0000004050 00000 n 
+0000008819 00000 n 
+0000008955 00000 n 
+0000013970 00000 n 
+0000014107 00000 n 
+0000018180 00000 n 
 trailer
-<< /Size 11 /Root 1 0 R >>
+<< /Size 13 /Root 1 0 R >>
 startxref
-12254
+18318
 %%EOF

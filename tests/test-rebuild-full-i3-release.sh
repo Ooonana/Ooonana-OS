@@ -20,6 +20,8 @@ bash -n "$SCRIPT"
 
 help="$(bash "$SCRIPT" --help)"
 assert_contains "$help" "--preflight-only"
+assert_contains "$help" "--repo PATH"
+assert_contains "$help" "OOONANA_RELEASE_REPO=PATH"
 assert_contains "$help" "--resume-after-rootfs"
 assert_contains "$help" "--resume-after-iso"
 assert_contains "$help" "OOONANA_AUTO_REBUILD_KERNEL=0"
@@ -28,6 +30,8 @@ assert_contains "$help" "OOONANA_RELEASE_KERNEL_JOBS=N"
 
 source_text="$(<"$SCRIPT")"
 assert_contains "$source_text" 'STAGE_DIR="${OOONANA_STAGE_DIR:-/var/tmp/ooonana-release-stage}"'
+assert_contains "$source_text" 'REPO="${REPO_OVERRIDE:-$BUILD_DIR/full-i3-repo}"'
+assert_contains "$source_text" '--repo) REPO_OVERRIDE="$2"; shift 2 ;;'
 assert_contains "$source_text" '[[ "$STAGE_DIR" == /var/tmp/ooonana-* ]]'
 assert_contains "$source_text" 'cp -a "$REPO" "$STAGE_DIR/full-i3-repo"'
 assert_contains "$source_text" 'install -m 0755 "$KERNEL" "$STAGE_DIR/ooonana-kernel/vmlinuz-ooonana"'
@@ -52,6 +56,7 @@ assert_contains "$source_text" 'findmnt mount mountpoint'
 assert_contains "$source_text" 'install mv python3 qemu-system-x86_64 realpath'
 assert_contains "$source_text" 'stale i3.pkg dependency bundle'
 assert_contains "$source_text" 'check-release-repo.py'
+assert_contains "$source_text" '--require-native-controls'
 assert_contains "$source_text" '--core-version "$source_core_version"'
 assert_contains "$source_text" 'KERNEL_WORK_DIR="${OOONANA_KERNEL_WORK_DIR:-/var/tmp/ooonana-kernel-work}"'
 assert_contains "$source_text" 'KERNEL_SOURCE_VERSION="${OOONANA_KERNEL_SOURCE_VERSION:-6.18.37}"'
@@ -102,7 +107,46 @@ assert_contains "$source_text" 'QEMU_ACCEL="${OOONANA_QEMU_ACCEL:-}"'
 assert_contains "$source_text" 'QEMU_ACCEL=kvm'
 assert_contains "$source_text" 'QEMU_ACCEL=tcg,thread=multi'
 assert_contains "$source_text" '-accel "$QEMU_ACCEL"'
+assert_contains "$source_text" 'verification_guest_log_ok "$log"'
+assert_contains "$source_text" 'verification_guest_mib="${OOONANA_QEMU_MEMORY:-1536}"'
+assert_contains "$source_text" 'prepare_ram_media "$VERIFY_ISO" "$verification_guest_mib"'
+assert_contains "$source_text" 'prepare_disk_media "$VERIFY_ISO" "$BOOT_MEMORY" "$VERIFY_DISK_DIR"'
+assert_contains "$source_text" '"$VERIFY_ISO" != "$DISK_MEDIA_ISO"'
+assert_contains "$source_text" '-machine q35 -m "$BOOT_MEMORY"'
+assert_contains "$source_text" $'else\n  check_stage_space\n  verify_iso_resume_inputs'
+assert_contains "$source_text" $'check_stage_space\nmv -f "$NEW_ISO" "$ISO"'
 assert_contains "$(<"$ROOT/scripts/build-full-i3-iso.sh")" 'OOONANA_MAX_ISO_BYTES:-4500000000'
+
+# Exercise actual option parsing without mounting, touching caches or building.
+parser_source="$(sed -n '1,/^\[\[ "${EUID/ p' "$SCRIPT" | sed '$d')"
+option_values="$(bash -c "$parser_source"$'\nprintf "%s\\n" "$REPO_OVERRIDE" "$BUILD_DIR"' "$SCRIPT" --repo '/candidate path/repo' --build-dir /cache)"
+[[ "$option_values" == $'/candidate path/repo\n/cache' ]] || fail "candidate repository option not parsed"
+option_values="$(OOONANA_RELEASE_REPO=/environment-repo bash -c "$parser_source"$'\nprintf "%s\\n" "$REPO_OVERRIDE"' "$SCRIPT" --repo /explicit-repo)"
+[[ "$option_values" == /explicit-repo ]] || fail "CLI repository must override environment"
+option_values="$(bash -c "$parser_source"$'\nprintf "%s\\n" "$VERIFY_DISK_DIR"' "$SCRIPT" --verify-on-disk '/fast disk/temp')"
+[[ "$option_values" == '/fast disk/temp' ]] || fail 'disk directory option not parsed'
+if bash -c "$parser_source" "$SCRIPT" --verify-on-disk >/dev/null 2>&1; then fail 'missing disk directory accepted'; fi
+if bash -c "$parser_source" "$SCRIPT" --verify-on-disk /fast --verify-in-ram >/dev/null 2>&1; then fail 'conflicting mirror modes accepted'; fi
+assert_contains "$(<"$(dirname "$SCRIPT")/run-iso-build-wsl.sh")" '"${release_args[@]}"'
+
+# Small F-backed workspace: old failed scratch must not prevent a fresh retry.
+eval "$(sed -n '/^check_stage_space() {$/,/^}$/p' "$SCRIPT")"
+die() { fail "$*"; }
+STAGE_DIR=/var/tmp/ooonana-test-stage
+STAGE_MIN_FREE_KB=100
+df() { printf 'Filesystem 1K-blocks Used Available Capacity Mounted\nfixture 200 160 %s 80%% /fixture\n' "${fixture_free:-60}"; }
+du() { printf '%s\tfixture\n' "${fixture_used:-40}"; }
+findmnt() { [[ "${fixture_mount_failure:-0}" == 0 ]] || return 1; printf '%s\n' "${fixture_mount:-/fixture}"; }
+# Exercise directory-present branch without creating anything in /var/tmp.
+space_function="$(declare -f check_stage_space)"
+eval "${space_function/\[\[ -d \"\$STAGE_DIR\" \]\]/true}"
+check_stage_space
+if (fixture_free=59; check_stage_space) >/dev/null 2>&1; then fail 'low capacity accepted'; fi
+if (fixture_mount="$STAGE_DIR/nested"; check_stage_space) >/dev/null 2>&1; then fail 'mounted scratch accepted'; fi
+if (fixture_mount="$STAGE_DIR"; check_stage_space) >/dev/null 2>&1; then fail 'stage mount accepted'; fi
+if (fixture_mount_failure=1; check_stage_space) >/dev/null 2>&1; then fail 'failed mount inspection accepted'; fi
+if (fixture_free=invalid; check_stage_space) >/dev/null 2>&1; then fail 'invalid free space accepted'; fi
+unset -f df du findmnt check_stage_space die
 
 fingerprint_work="$(mktemp -d)"
 trap 'rm -rf "$fingerprint_work"' EXIT
@@ -138,5 +182,21 @@ printf '19\n' >"$OOONANA_PERSONAL_CURSOR_DIR/cursor-size"
 fingerprint_before="$(release_input_fingerprint)"
 OOONANA_PERSONAL_CURSOR_SIZE=20
 [[ "$(release_input_fingerprint)" != "$fingerprint_before" ]] || fail "Personal cursor size missing from release inputs"
+eval "$(sed -n '/^verify_iso_resume_inputs() {$/,/^}$/p' "$SCRIPT")"
+die() { fail "$*"; }
+kernel_cache_matches_fragment() { [[ "${fixture_kernel_current:-1}" == 1 ]]; }
+STAGE_DIR="$fingerprint_work/stage"
+mkdir "$STAGE_DIR"
+release_input_fingerprint >"$STAGE_DIR/.release-inputs.sha256"
+: >"$STAGE_DIR/.ooonana-rootfs-complete"
+verify_iso_resume_inputs
+if (fixture_kernel_current=0; verify_iso_resume_inputs) >/dev/null 2>&1; then fail 'stale requested kernel accepted'; fi
+printf 'changed kernel\n' >"$KERNEL"
+if (verify_iso_resume_inputs) >/dev/null 2>&1; then fail 'stale ISO resume accepted'; fi
+release_input_fingerprint >"$STAGE_DIR/.release-inputs.sha256"
+rm "$STAGE_DIR/.ooonana-rootfs-complete"
+if (verify_iso_resume_inputs) >/dev/null 2>&1; then fail 'unfinished ISO resume accepted'; fi
 printf 'ok rebuild-full-i3-release\n'
 PYTHONDONTWRITEBYTECODE=1 python3 "$(dirname "$SCRIPT")/../tests/test-release-repo.py"
+# Exercise the UI checks used by release preflight in both CI pipelines.
+PYTHONDONTWRITEBYTECODE=1 bash "$(dirname "$SCRIPT")/../tests/test-native-ui.sh"

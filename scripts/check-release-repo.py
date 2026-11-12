@@ -2,11 +2,13 @@
 """Read-only ISO repository gate. Never execute package metadata."""
 import argparse
 import hashlib
+import json
 import os
 from pathlib import Path, PurePosixPath
 import re
 import shlex
 import subprocess
+import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
 IDENTIFIER = re.compile(r"[A-Za-z0-9_.+-]+")
@@ -42,7 +44,126 @@ def safe_file(repo, relative):
     return target
 
 
-def validate(repo, profile, key=None, expected_core=None):
+def validate_native_controls(repo, package):
+    if "native-controls-v1" not in package.get("COMPONENTS", "").split():
+        raise ValueError("i3wm lacks native controls; build/repack verified i3 controls candidate")
+    if "native-frame-theme-v1" not in package.get("COMPONENTS", "").split():
+        raise ValueError("i3wm lacks color-only frame updates; rebuild native candidate")
+    archive = safe_file(repo, package.get("ARCHIVE", ""))
+    if hashlib.sha256(archive.read_bytes()).hexdigest() != package.get("SHA256"):
+        raise ValueError("i3wm native archive checksum mismatch")
+    with tarfile.open(archive) as bundle:
+        members = {item.name.removeprefix("./"): item for item in bundle}
+        def read(name, limit):
+            item = members.get(name)
+            if item is None or not item.isfile() or item.size > limit:
+                raise ValueError("i3wm native provenance/payload missing or oversized: " + name)
+            return bundle.extractfile(item).read(limit + 1)
+        binary = read("usr/bin/i3", 16 * 1024 * 1024)
+        manifest = json.loads(read("usr/share/doc/i3/ooonana-controls/build-manifest.json", 65536))
+    pins = json.loads((ROOT / "packages/i3wm/source-pins.json").read_text())
+    if (not isinstance(manifest, dict) or not binary.startswith(b"\x7fELF") or manifest.get("control_api") != 1 or manifest.get("frame_theme_api") != 1
+            or manifest.get("source") != pins or manifest.get("binary_sha256") != hashlib.sha256(binary).hexdigest()):
+        raise ValueError("i3wm native binary/source provenance differs")
+    inputs = manifest.get("inputs")
+    for name in ("scripts/patch-i3-controls.py", "packages/i3wm/ooonana_controls.h"):
+        if not isinstance(inputs, dict) or inputs.get(name) != hashlib.sha256((ROOT / name).read_bytes()).hexdigest():
+            raise ValueError("i3wm native build inputs stale: " + name)
+
+
+def validate_lock_manifest(manifest, binary):
+    pins = json.loads((ROOT / "packages/i3lock/source-pins.json").read_text())
+    if (not isinstance(manifest, dict) or not binary.startswith(b"\x7fELF")
+            or manifest.get("lock_visual_api") != 1 or manifest.get("source") != pins
+            or manifest.get("auth_source_unchanged") is not True
+            or manifest.get("compile_network") != "disabled"
+            or not re.fullmatch(r"[a-f0-9]{64}", str(manifest.get("auth_source_sha256", "")))
+            or manifest.get("binary_sha256") != hashlib.sha256(binary).hexdigest()):
+        raise ValueError("i3lock native authentication/source/binary provenance differs")
+    for name in ("scripts/patch-i3lock-visuals.py", "packages/i3lock/ooonana_lock_visuals.h"):
+        inputs = manifest.get("inputs")
+        if not isinstance(inputs, dict) or inputs.get(name) != hashlib.sha256((ROOT / name).read_bytes()).hexdigest():
+            raise ValueError("i3lock native build inputs stale: " + name)
+
+
+def validate_native_lock(repo, package):
+    if "native-lock-visuals-v1" not in package.get("COMPONENTS", "").split():
+        raise ValueError("i3lock lacks verified native lock presentation; rebuild candidate")
+    archive = safe_file(repo, package.get("ARCHIVE", ""))
+    if hashlib.sha256(archive.read_bytes()).hexdigest() != package.get("SHA256"):
+        raise ValueError("i3lock native archive checksum mismatch")
+    with tarfile.open(archive) as bundle:
+        names = {}
+        for item in bundle:
+            name = item.name.removeprefix("./")
+            if name in names:
+                raise ValueError("Duplicate native locker archive entry")
+            names[name] = item
+        def read(name, limit):
+            item = names.get(name)
+            if item is None or not item.isfile() or item.size > limit:
+                raise ValueError("Native locker provenance/payload missing or oversized")
+            return bundle.extractfile(item).read(limit + 1)
+        binary = read("usr/bin/i3lock", 8 * 1024 * 1024)
+        manifest = json.loads(read("usr/share/doc/i3lock/ooonana-visuals/build-manifest.json", 65536))
+    validate_lock_manifest(manifest, binary)
+
+
+QT_UPSTREAM_SHA = "6fe530e22bcaf2b050c086bfc9f9b62c62d316c9659b0de4ae2e2118ac4980da"
+QT_INPUTS = ("scripts/patch-qt-portal.py", "scripts/build-qt-portal-candidate.sh", "packages/qt-portal/CMakeLists.txt")
+QT_DOC = "usr/share/doc/qt6/ooonana-portal/"
+QT_PLUGIN = "usr/lib/qt6/plugins/platformthemes/libqxdgdesktopportal.so"
+
+
+def validate_qt_manifest(manifest, binary):
+    pins = json.loads((ROOT / "packages/qt-portal/source-pins.json").read_text())
+    if (not isinstance(manifest, dict) or len(binary) < 20 or binary[:6] != b"\x7fELF\x02\x01"
+            or int.from_bytes(binary[16:18], "little") != 3 or int.from_bytes(binary[18:20], "little") != 62
+            or manifest.get("component") != "qt-portal-live-palette-v1" or manifest.get("source") != pins
+            or manifest.get("compile_network") != "disabled"
+            or manifest.get("binary_sha256") != hashlib.sha256(binary).hexdigest()):
+        raise ValueError("Native Qt source/ABI/binary provenance differs")
+    for name in QT_INPUTS:
+        inputs = manifest.get("inputs")
+        if not isinstance(inputs, dict) or inputs.get(name) != hashlib.sha256((ROOT / name).read_bytes()).hexdigest():
+            raise ValueError("Native Qt build inputs stale: " + name)
+
+
+def validate_native_qt(repo, package):
+    if "native-portal-palette-v1" not in package.get("COMPONENTS", "").split():
+        raise ValueError("Qt X11 package lacks verified live portal palette; repack candidate")
+    archive = safe_file(repo, package.get("ARCHIVE", ""))
+    if hashlib.sha256(archive.read_bytes()).hexdigest() != package.get("SHA256"):
+        raise ValueError("Native Qt archive checksum mismatch")
+    with tarfile.open(archive) as bundle:
+        members = {}
+        for item in bundle:
+            name = item.name.removeprefix("./")
+            if PurePosixPath(name).is_absolute() or ".." in PurePosixPath(name).parts or name in members:
+                raise ValueError("Unsafe/duplicate native Qt archive entry")
+            members[name] = item
+        def read(name, limit=65536):
+            item = members.get(name)
+            if item is None or not item.isfile() or item.size > limit:
+                raise ValueError("Native Qt provenance/payload missing or oversized: " + name)
+            return bundle.extractfile(item).read(limit + 1)
+        binary = read(QT_PLUGIN, 8 * 1024 * 1024)
+        manifest = json.loads(read(QT_DOC + "build-manifest.json"))
+        validate_qt_manifest(manifest, binary)
+        provenance = json.loads(read(QT_DOC + "package-provenance.json"))
+        if provenance.get("upstream_sha256") != QT_UPSTREAM_SHA or provenance.get("packager_sha256") != hashlib.sha256((ROOT / "scripts/build-qt-portal-package.py").read_bytes()).hexdigest():
+            raise ValueError("Native Qt package provenance differs")
+        pins = json.loads(read(QT_DOC + "source-pins.json"))
+        if pins != manifest["source"]: raise ValueError("Native Qt bundled source pins differ")
+        for name in QT_INPUTS:
+            if hashlib.sha256(read(QT_DOC + name)).hexdigest() != manifest["inputs"][name]:
+                raise ValueError("Native Qt bundled build input differs: " + name)
+        for name, digest in pins["files"].items():
+            if hashlib.sha256(read(QT_DOC + "vendor/" + name, 256 * 1024)).hexdigest() != digest:
+                raise ValueError("Native Qt bundled vendor source differs: " + name)
+
+
+def validate(repo, profile, key=None, expected_core=None, require_native_controls=False):
     if (repo / "CURRENT").is_file():
         generation = (repo / "CURRENT").read_text().strip()
         if not re.fullmatch(r"[0-9a-f]{64}", generation):
@@ -65,6 +186,19 @@ def validate(repo, profile, key=None, expected_core=None):
                         "-verify", str(key), "-signature", str(signature),
                         str(repo / "SHA256SUMS")], check=True, stdout=subprocess.DEVNULL)
     packages = {path.stem: metadata(path) for path in repo.glob("*.pkg")}
+    bases = {p.get("BASE") for p in packages.values() if p.get("KIND") == "apk" and p.get("BASE")}
+    if len(bases) > 1:
+        raise ValueError("Mixed userland branches cannot be released")
+    manifest = repo / "BUILD-MANIFEST.json"
+    if manifest.is_file():
+        if sums.get(manifest.name) != hashlib.sha256(manifest.read_bytes()).hexdigest():
+            raise ValueError("Build manifest checksum mismatch")
+        declared = json.loads(manifest.read_text()).get("userland_base")
+        if bases and declared not in (None, "unverified", next(iter(bases))):
+            raise ValueError("Userland provenance differs from build manifest")
+    if expected_core and expected_core.startswith("0.10."):
+        if any(p.get("KIND") == "apk" and p.get("BASE") != "alpine-v3.24" for p in packages.values()):
+            raise ValueError("Core 0.10 requires coherent supported alpine-v3.24 packages")
     index = {}
     for line in (repo / "index.tsv").read_text().splitlines():
         fields = line.split("\t")
@@ -118,6 +252,11 @@ def validate(repo, profile, key=None, expected_core=None):
             raise ValueError(f"Full-i3 install closure missing: {name}")
     for target in ("ooonana-core", "openvino-chat"):
         closure(target)
+    if require_native_controls:
+        validate_native_controls(repo, packages.get("i3wm", {}))
+        validate_native_lock(repo, packages.get("i3lock", {}))
+        if "qt6-qtbase-x11" in packages:
+            validate_native_qt(repo, packages["qt6-qtbase-x11"])
     return repo, len(packages), len(visited)
 
 
@@ -127,9 +266,10 @@ if __name__ == "__main__":
     parser.add_argument("--profile", type=Path, default=ROOT / "configs/packages/full-i3.list")
     parser.add_argument("--public-key", type=Path)
     parser.add_argument("--core-version")
+    parser.add_argument("--require-native-controls", action="store_true")
     args = parser.parse_args()
     try:
-        repo, count, closure_count = validate(args.repo, args.profile, args.public_key, args.core_version)
-    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+        repo, count, closure_count = validate(args.repo, args.profile, args.public_key, args.core_version, args.require_native_controls)
+    except (OSError, ValueError, tarfile.TarError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"FAIL: release repository: {error}\n")
     print(f"OOONANA_RELEASE_REPO_OK {count} packages; {closure_count} dependency nodes; {repo}")

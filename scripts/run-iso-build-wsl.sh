@@ -16,11 +16,6 @@ if [[ "$(findmnt -n -o SOURCE --target "$MOUNT_DIR")" != "F:" ]]; then
   printf 'run-iso-build-wsl: %s is not F:\n' "$MOUNT_DIR" >&2
   exit 1
 fi
-if [[ ! -d "$MOUNT_DIR/Ooonana/ooonana-os/build/full-i3-repo" ]]; then
-  printf 'run-iso-build-wsl: F: package repository missing\n' >&2
-  exit 1
-fi
-
 public_cursor=0
 release_args=()
 for argument in "$@"; do
@@ -42,7 +37,13 @@ elif [[ -z "${OOONANA_PERSONAL_CURSOR_DIR:-}" && -d "$personal_cursor" ]]; then
     IFS= read -r OOONANA_PERSONAL_CURSOR_SIZE <"$personal_cursor/cursor-size" || true
   fi
   export OOONANA_PERSONAL_CURSOR_SIZE="${OOONANA_PERSONAL_CURSOR_SIZE:-32}"
-  printf '[cursor] personal cursor included; resulting ISO is for personal use only\n'
+  printf '[cursor] default Ooonana local cursor included; resulting ISO is for personal use only\n'
 fi
 
-exec bash "$SCRIPT_DIR/rebuild-full-i3-release.sh" "${release_args[@]}"
+for argument in "${release_args[@]}"; do
+  if [[ "$argument" == --help || "$argument" == -h ]]; then
+    exec bash "$SCRIPT_DIR/rebuild-full-i3-release.sh" "${release_args[@]}"
+  fi
+done
+exec bash "$SCRIPT_DIR/with-f-build-storage.sh" \
+  bash "$SCRIPT_DIR/rebuild-full-i3-release.sh" "${release_args[@]}"

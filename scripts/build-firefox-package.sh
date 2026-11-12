@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT/scripts/lib/common.sh"
 OUT_DIR=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -13,17 +14,19 @@ mkdir -p "$OUT_DIR/archives"
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
 cp -a "$ROOT/packages/firefox/rootfs/." "$stage/"
+find "$stage" -type d -exec chmod 0755 {} +
+find "$stage" -type f -exec chmod 0644 {} +
 chmod 0755 "$stage/usr/bin/ooonana-firefox" "$stage/usr/bin/firefox"
-archive="archives/firefox-1.0.0.tar.gz"
-tar --sort=name --mtime='UTC 1970-01-01' --numeric-owner --owner=0 --group=0 \
-  --pax-option=delete=atime,delete=ctime -C "$stage" -cf - . | gzip -n > "$OUT_DIR/$archive"
+archive="archives/firefox-1.0.2.tar.gz"
+ooonana_tar_gzip_atomic "$OUT_DIR/$archive" --sort=name --mtime='UTC 1970-01-01' --numeric-owner --owner=0 --group=0 \
+  --pax-option=delete=atime,delete=ctime -C "$stage" -cf - .
 checksum="$(sha256sum "$OUT_DIR/$archive" | awk '{print $1}')"
 cat > "$OUT_DIR/firefox.pkg" <<EOF
 OOONANA_PKG_ID="firefox"
-OOONANA_PKG_VERSION="1.0.0"
+OOONANA_PKG_VERSION="1.0.2"
 OOONANA_PKG_KIND="archive"
 OOONANA_PKG_SUMMARY="Firefox launcher with isolated current-user Flatpak runtime"
-OOONANA_PKG_DEPS="flatpak"
+OOONANA_PKG_DEPS="flatpak xdg-desktop-portal xdg-desktop-portal-gtk xdg-document-portal"
 OOONANA_PKG_ARCHIVE="$archive"
 OOONANA_PKG_SHA256="$checksum"
 OOONANA_PKG_COMPONENTS="browser firefox flatpak"

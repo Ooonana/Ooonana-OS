@@ -49,7 +49,7 @@ with tempfile.TemporaryDirectory() as temporary:
         path = i3_events.socket_path()
         tree = i3_events.request(path, 4)
         visible = {workspace["name"] for workspace in i3_events.request(path, 1) if workspace.get("visible")}
-        targets = decoration_targets(tree, visible)
+        targets = decoration_targets(tree, visible, manager.control_scale)
         identifier = next(iter(targets))
         control = manager.controls[identifier]
         assert not control.get_accept_focus() and not control.get_focus_on_map()
@@ -61,15 +61,15 @@ with tempfile.TemporaryDirectory() as temporary:
             time.sleep(0.02)
         print("CONTROL_GEOMETRY", targets[identifier], tuple(control.get_position()), tuple(control.get_size()), flush=True)
         assert [widget.get_accessible().get_name() for widget in control.get_child().get_children()] == ["Close window", "Minimize window", "Toggle fullscreen"]
-        assert control.get_size().width == WIDTH
+        assert control.get_size().width == (82 * manager.control_scale if manager.control_scale else WIDTH)
         assert control.get_size().height == targets[identifier][2], "Controls overlap client contents"
         assert not control.control_region.contains_point(0, 0), "Rectangular popup corner visible"
         assert control.get_window().is_shaped(), "X11 popup shape not applied"
         for widget in control.get_child().get_children():
             size = widget.get_allocation()
-            assert size.width == size.height == 16, (size.width, size.height)
+            assert size.width == size.height == (24 * manager.control_scale if manager.control_scale else 16), (size.width, size.height)
             assert size.height <= targets[identifier][2]
-            assert widget.get_image().get_pixel_size() == 10
+            assert widget.get_image().get_pixel_size() == (12 * manager.control_scale if manager.control_scale else 10)
             assert widget.get_tooltip_text() == widget.get_accessible().get_name()
             x, y = widget.translate_coordinates(control, 0, 0)
             assert control.control_region.contains_point(x + size.width // 2, y + size.height // 2)
@@ -92,8 +92,16 @@ with tempfile.TemporaryDirectory() as temporary:
             return find(tree)
         # Title can be visible before WM_CLASS and initial for_window rules.
         # Moving too soon gets overwritten by fixture's initial position.
-        wait(lambda: peer_present() and peer_present().get('floating') == 'user_on'
-             and peer_present()['rect']['height'] == 330)
+        try:
+            # Xterm cell-size hints can quantize requested 330px to 328px.
+            # Wait for the rule's position, then test controls against actual
+            # decoration geometry rather than a platform-dependent client size.
+            wait(lambda: peer_present() and peer_present().get('floating') == 'user_on'
+                 and peer_present()['rect']['x'] == 80 and peer_present()['rect']['y'] == 80)
+        except AssertionError:
+            node = peer_present()
+            print("PEER_STATE", {key: node.get(key) for key in ("name", "floating", "rect", "window_properties")} if node else None, flush=True)
+            raise
         peer_id = peer_present()["id"]
         moved = subprocess.run(["i3-msg", '-r', f"[con_id={peer_id}] move position 720 100; [con_id={peer_id}] focus"], check=True, capture_output=True)
         assert all(item.get('success') for item in json.loads(moved.stdout)), (moved.stdout, moved.stderr)
@@ -114,7 +122,7 @@ with tempfile.TemporaryDirectory() as temporary:
                        check=True, capture_output=True)
         wait(lambda: manager.controls[identifier].last_position != targets[identifier])
         tree = i3_events.request(path, 4)
-        moved_target = decoration_targets(tree, visible)[identifier]
+        moved_target = decoration_targets(tree, visible, manager.control_scale)[identifier]
         wait(lambda: manager.controls[identifier].last_position == moved_target)
         wait(lambda: tuple(manager.controls[identifier].get_position()) == moved_target[:2])
         manager.controls[identifier].get_child().get_children()[1].emit("clicked")

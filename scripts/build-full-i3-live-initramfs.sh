@@ -87,6 +87,7 @@ main() {
   install -m 0644 "$ROOT/scripts/lib/live-boot-storage.sh" "$LIVE_INIT_TREE/lib/ooonana-live-storage.sh"
   install -m 0644 "$ROOT/scripts/lib/live-persistence-file.sh" "$LIVE_INIT_TREE/lib/ooonana-live-persistence-file.sh"
   install -m 0755 "$ROOT/scripts/lib/live-shutdown.sh" "$LIVE_INIT_TREE/lib/ooonana-live-shutdown.sh"
+  install -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/console-ui.sh" "$LIVE_INIT_TREE/lib/ooonana-console-ui.sh"
   if [[ -f "$ROOTFS/usr/share/ooonana/logo.txt" ]]; then
     install -m 0644 "$ROOTFS/usr/share/ooonana/logo.txt" "$LIVE_INIT_TREE/usr/share/ooonana/logo.txt"
   fi
@@ -155,13 +156,15 @@ PATH=/bin:/sbin
 LIVE_IMAGE="/images/ooonana-full-i3-live-rootfs.ext4"
 . /lib/ooonana-live-storage.sh
 . /lib/ooonana-live-persistence-file.sh
+. /lib/ooonana-console-ui.sh
 
 mount -t proc proc /proc 2>/dev/null || true
 cmdline="$(cat /proc/cmdline 2>/dev/null || true)"
 
 fail() {
   live_persistence_file_abort || echo OOONANA_BOOT_STORAGE_CLEANUP_FAILED >/dev/console
-  splash "boot failed" 10
+  ooonana_console_stage "Boot stopped - see error below"
+  ooonana_console_end
   echo "Ooonana live init failed: $*" >/dev/console
   exec sh
 }
@@ -174,76 +177,7 @@ mount -t devtmpfs devtmpfs /dev 2>/dev/null || {
 }
 [ -c /dev/tty1 ] || mknod /dev/tty1 c 4 1 2>/dev/null || true
 
-splash_console="/dev/tty1"
-[ -e "$splash_console" ] || splash_console="/dev/console"
-center_line() {
-  text="$1"
-  len=${#text}
-  pad=$(((cols - len) / 2))
-  [ "$pad" -lt 0 ] && pad=0
-  i=0
-  while [ "$i" -lt "$pad" ]; do
-    printf ' '
-    i=$((i + 1))
-  done
-  printf '%s\n' "$text"
-}
-draw_logo() {
-  if [ -f /usr/share/ooonana/boot-logo.txt ]; then
-    while IFS= read -r line || [ -n "$line" ]; do
-      center_line "$line"
-    done < /usr/share/ooonana/boot-logo.txt
-  elif [ -f /usr/share/ooonana/logo.txt ]; then
-    while IFS= read -r line || [ -n "$line" ]; do
-      center_line "$line"
-    done < /usr/share/ooonana/logo.txt
-  else
-    center_line 'Ooonana OS'
-    center_line '      __________________'
-    center_line '     |    __      __    |'
-    center_line '     |   /  \    /  \   |'
-    center_line '   / |                  |\'
-    center_line '  /  |     \______/     | \'
-    center_line '     |__________________|'
-    center_line '          |        |'
-  fi
-}
-splash() {
-  label="$1"
-  step="${2:-0}"
-  rows=25
-  cols=80
-  dimensions="$(stty size <"$splash_console" 2>/dev/null || true)"
-  if [ -n "$dimensions" ]; then
-    rows="${dimensions%% *}"
-    cols="${dimensions##* }"
-  fi
-  case "$rows" in ''|*[!0-9]*) rows=25 ;; esac
-  case "$cols" in ''|*[!0-9]*) cols=80 ;; esac
-  logo_file="/usr/share/ooonana/logo.txt"
-  [ -f /usr/share/ooonana/boot-logo.txt ] && logo_file="/usr/share/ooonana/boot-logo.txt"
-  logo_lines="$(wc -l <"$logo_file" 2>/dev/null || echo 10)"
-  start_row=$(( (rows - logo_lines - 3) / 2 ))
-  [ "$start_row" -lt 2 ] && start_row=2
-  filled=""
-  empty=""
-  i=0
-  while [ "$i" -lt "$step" ]; do
-    filled="${filled}="
-    i=$((i + 1))
-  done
-  while [ "$i" -lt 10 ]; do
-    empty="${empty}."
-    i=$((i + 1))
-  done
-  {
-    printf '\033]P3ffb21a\033[2J\033[%s;1H\033[1;33m' "$start_row"
-    draw_logo
-    printf '\n'
-    center_line "[$filled>$empty]  $label"
-    printf '\033[0m'
-  } >"$splash_console" 2>/dev/null || true
-}
+ooonana_console_begin
 
 persistence_requested=0
 live_cmdline_has_arg ooonana.persistence=1 "$cmdline" && persistence_requested=1
@@ -258,7 +192,7 @@ live_image_arg="$(live_cmdline_value ooonana.live.rootfs "$cmdline")" || fail "d
 [ -z "$live_image_arg" ] || LIVE_IMAGE="$live_image_arg"
 case "$LIVE_IMAGE" in /*) ;; *) fail "live rootfs path must be absolute" ;; esac
 
-splash "starting live boot" 1
+ooonana_console_stage "Starting live session"
 mkdir -p /dev/pts /mnt/iso /mnt/root-ro /cow /persist /newroot
 mount -t devpts devpts /dev/pts 2>/dev/null || true
 [ -e /proc/sys/kernel/hotplug ] && echo /sbin/mdev >/proc/sys/kernel/hotplug 2>/dev/null || true
@@ -270,7 +204,7 @@ modprobe overlay 2>/dev/null || true
 [ -b /dev/loop0 ] || mknod /dev/loop0 b 7 0 2>/dev/null || true
 [ -c /dev/loop-control ] || mknod /dev/loop-control c 10 237 2>/dev/null || true
 
-splash "finding boot media" 2
+ooonana_console_stage "Finding boot media"
 tries=0
 boot_media_device=""
 
@@ -361,7 +295,7 @@ while [ "$tries" -lt 40 ]; do
     fi
   done
   tries=$((tries + 1))
-  sleep 1
+  ooonana_console_wait 1
 done
 
 [ -f "/mnt/iso$LIVE_IMAGE" ] || fail "cannot find $LIVE_IMAGE on boot media"
@@ -372,12 +306,12 @@ if [ -n "$BOOT_UUID" ]; then
 fi
 live_image_path="$(readlink -f "/mnt/iso$LIVE_IMAGE")" || fail "cannot resolve live rootfs path"
 case "$live_image_path" in /mnt/iso/*) ;; *) fail "live rootfs escapes boot media" ;; esac
-splash "attaching live rootfs" 4
+ooonana_console_stage "Opening system image"
 losetup -r /dev/loop0 "$live_image_path" || fail "cannot attach live rootfs image"
 mount -t ext4 -o ro,noload /dev/loop0 /mnt/root-ro || fail "cannot mount live rootfs image"
 live_base_id="$(blkid_value UUID /dev/loop0)" || fail "root image identity missing"
 live_base_id="$(live_normalize_uuid "$live_base_id")" || fail "invalid root image identity"
-splash "creating writable overlay" 6
+ooonana_console_stage "Preparing writable session"
 overlay_upper="/cow/upper"
 overlay_work="/cow/work"
 persistence_mode="ram"
@@ -454,7 +388,7 @@ fi
 mkdir -p /newroot
 mount -t overlay overlay -o suid,dev,exec,lowerdir=/mnt/root-ro,upperdir="$overlay_upper",workdir="$overlay_work" /newroot || fail "cannot mount overlay root"
 
-splash "starting desktop" 9
+ooonana_console_stage "Starting system services"
 live_handoff_paths_safe /newroot || fail "unsafe live handoff paths; saved data not reset"
 mkdir -p /newroot/proc /newroot/sys /newroot/dev /newroot/mnt/ooonana-live/iso /newroot/mnt/ooonana-live/root-ro /newroot/mnt/ooonana-live/cow
 printf '%s\n' "$boot_media_device" >/newroot/mnt/ooonana-live/boot-device
@@ -485,10 +419,13 @@ if [ -n "$persistence_file" ]; then
     [ ! -f "$library" ] || cp "$library" "$shutdown_root/lib/" || fail "cannot copy RAM init library"
   done
   cp /lib/ooonana-live-shutdown.sh "$shutdown_root/shutdown" || fail "cannot copy RAM shutdown"
-  for applet in sh mount umount pivot_root losetup sync sleep cat grep awk sort readlink; do
+  cp /lib/ooonana-console-ui.sh "$shutdown_root/console-ui.sh" || fail "cannot copy RAM console UI"
+  [ ! -f /usr/share/ooonana/boot-logo.txt ] || cp /usr/share/ooonana/boot-logo.txt "$shutdown_root/boot-logo.txt" || fail "cannot copy RAM boot logo"
+  for applet in sh mount umount pivot_root losetup sync sleep cat grep awk sort readlink stty chvt; do
     ln -s busybox "$shutdown_root/bin/$applet" || fail "cannot prepare RAM shutdown applets"
   done
 fi
+ooonana_console_end
 mount --move /proc /newroot/proc 2>/dev/null || fail "cannot move proc mount"
 mount --move /sys /newroot/sys 2>/dev/null || fail "cannot move sys mount"
 mount --move /dev /newroot/dev 2>/dev/null || fail "cannot move dev mount"

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT/scripts/lib/common.sh"
 OUT_DIR=""
 VERSION="1.0.1"
 PAYLOAD_DIR="$ROOT/packages/wine-compat/rootfs"
@@ -51,9 +52,11 @@ mkdir -p "$OUT_DIR/archives"
 staging="$(mktemp -d)"
 trap 'rm -rf "$staging"' EXIT
 cp -a "$PAYLOAD_DIR/." "$staging/"
+find "$staging" -type d -exec chmod 0755 {} +
+find "$staging" -type f -exec chmod 0644 {} +
 chmod 0755 "$staging/usr/bin/ooonana-wine" "$staging/usr/bin/wine"
 
-tar \
+ooonana_tar_gzip_atomic "$archive" \
   --sort=name \
   --mtime='UTC 1970-01-01' \
   --numeric-owner \
@@ -62,7 +65,7 @@ tar \
   --pax-option=delete=atime,delete=ctime \
   -C "$staging" \
   -cf - \
-  . | gzip -n > "$archive"
+  .
 
 archive_sha="$(sha256sum "$archive" | awk '{print $1}')"
 cat > "$metadata" <<EOF

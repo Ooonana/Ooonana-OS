@@ -8,6 +8,13 @@ import tempfile
 import time
 
 root = Path(__file__).resolve().parents[1]
+desktop_config = (root / "branding/i3/config").read_text()
+assert 'for_window [window_role="^GtkFileChooserDialog$"] floating enable, resize set 80 ppt 70 ppt, move position center' in desktop_config
+assert 'for_window [window_type="dialog"] floating enable\n' in desktop_config
+assert 'for_window [window_type="dialog"] floating enable, resize' not in desktop_config
+builder = (root / "scripts/build-full-i3-rootfs.sh").read_text()
+assert 'font-3 = "Noto Sans CJK KR:size=10;2"' in builder
+assert 'font-4 = "Noto Sans CJK KR:size=11;2"' in builder
 assert "packages/ooonana/etc/environment text eol=lf" in (root / ".gitattributes").read_text()
 assert b"\r" not in (root / "packages/ooonana/etc/environment").read_bytes(), "PAM retains CR in Python UTF8 setting"
 sys.path.insert(0, str(root / "packages/ooonana/usr/lib/ooonana"))
@@ -51,6 +58,21 @@ with tempfile.TemporaryDirectory() as temporary:
     (source / "scripts/example.py").write_text("print(2)\n")
     changed = manifest.source_state(source)
     assert changed[0] != original[0] and changed[2]
+    repo = work / "repo"
+    repo.mkdir()
+    fixture = repo / "library.pkg"
+    fixture.write_text('OOONANA_PKG_VERSION="1"\nOOONANA_PKG_KIND="apk"\nOOONANA_PKG_BASE="alpine-v3.24"\n')
+    assert manifest.build_manifest(source, repo)["userland_base"] == "alpine-v3.24"
+    fixture.write_text('OOONANA_PKG_VERSION="1"\nOOONANA_PKG_KIND="apk"\n')
+    assert manifest.build_manifest(source, repo)["userland_base"] == "unverified"
+    fixture.write_text('OOONANA_PKG_VERSION="1"\nOOONANA_PKG_KIND="apk"\nOOONANA_PKG_BASE="alpine-v3.24"\n')
+    (repo / "old.pkg").write_text('OOONANA_PKG_VERSION="1"\nOOONANA_PKG_KIND="apk"\nOOONANA_PKG_BASE="alpine-v3.20"\n')
+    try:
+        manifest.build_manifest(source, repo)
+    except ValueError as error:
+        assert "Mixed userland" in str(error)
+    else:
+        raise AssertionError("mixed base manifest accepted")
     proc = work / "meminfo"
     proc.write_text("MemTotal: 8388608 kB\nMemAvailable: 4194304 kB\nSwapTotal: 67108864 kB\n")
     cgroup = work / "cgroup"

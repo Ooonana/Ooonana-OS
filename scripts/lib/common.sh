@@ -1,5 +1,17 @@
 #!/usr/bin/env bash
 
+ooonana_alpine_branch() {
+  local branch="${OOONANA_ALPINE_BRANCH:-v3.24}"
+  [[ "$branch" =~ ^v[0-9]+\.[0-9]+$ ]] || { printf 'invalid Alpine branch\n' >&2; return 1; }
+  printf '%s\n' "$branch"
+}
+
+ooonana_alpine_repositories() {
+  local branch
+  branch="$(ooonana_alpine_branch)" || return 1
+  printf 'https://dl-cdn.alpinelinux.org/alpine/%s/main/x86_64 https://dl-cdn.alpinelinux.org/alpine/%s/community/x86_64\n' "$branch" "$branch"
+}
+
 ooonana_log() {
   printf '[ooonana] %s\n' "$*"
 }
@@ -37,6 +49,43 @@ ooonana_require_commands() {
   for command_name in "$@"; do
     ooonana_require_command "$command_name"
   done
+}
+
+# Capture a producer beside the destination, then replace without writing through
+# saved hardlinks. Producer failure must leave the previous file intact.
+ooonana_write_atomic() (
+  set -euo pipefail
+  local archive="$1" archive_tmp="" mode mask
+  shift
+  if [[ -L "$archive" || ( -e "$archive" && ! -f "$archive" ) ]]; then
+    printf 'output destination is not a regular file: %s\n' "$archive" >&2
+    return 1
+  fi
+  if [[ -f "$archive" ]]; then
+    mode="$(stat -c '%a' -- "$archive")" || return 1
+  else
+    mask="$(umask)"
+    printf -v mode '%o' "$((0666 & ~8#$mask))"
+  fi
+  archive_tmp="$(mktemp -- "${archive}.tmp.XXXXXXXX")" || return 1
+  trap '[[ -z "$archive_tmp" ]] || rm -f -- "$archive_tmp"' EXIT
+  if ! "$@" >"$archive_tmp"; then
+    return 1
+  fi
+  chmod "$mode" -- "$archive_tmp" || return 1
+  mv -fT -- "$archive_tmp" "$archive" || return 1
+  archive_tmp=""
+)
+
+ooonana_tar_gzip_stream() (
+  set -o pipefail
+  tar "$@" | gzip -n
+)
+
+ooonana_tar_gzip_atomic() {
+  local archive="$1"
+  shift
+  ooonana_write_atomic "$archive" ooonana_tar_gzip_stream "$@"
 }
 
 ooonana_require_unix_permissions() {

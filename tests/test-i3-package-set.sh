@@ -39,7 +39,7 @@ EOF
 [[ -x "$SCRIPT" ]] || fail "missing executable i3 package-set importer"
 script_src="$(<"$SCRIPT")"
 assert_contains "$script_src" "configs/packages/full-i3.list"
-assert_contains "$script_src" "alpine/edge/community/x86_64"
+assert_contains "$script_src" '$(ooonana_alpine_branch)/community/x86_64'
 assert_contains "$script_src" "sof-firmware"
 assert_contains "$script_src" "--no-index"
 profile_src="$(<"$ROOT/configs/packages/full-i3.list")"
@@ -53,6 +53,10 @@ while IFS= read -r package; do
     fail "combined package profile missing full-i3 package: $package"
 done < "$ROOT/configs/packages/full-i3.list"
 assert_contains "$profile_src" "xsetroot"
+assert_contains "$profile_src" "at-spi2-core"
+for dependency in gvfs glycin-thumbnailer glycin-heif heif-thumbnailer; do
+  grep -qx "$dependency" "$ROOT/configs/packages/full-i3.list" || fail "missing file integration: $dependency"
+done
 assert_contains "$profile_src" "xinput"
 assert_contains "$profile_src" "xf86-input-libinput"
 assert_contains "$profile_src" "xf86-input-evdev"
@@ -147,7 +151,7 @@ i3_pkg="$(<"$out/i3.pkg")"
 branding_pkg="$(<"$out/branding.pkg")"
 full_pkg="$(<"$out/full-i3.pkg")"
 assert_contains "$i3_pkg" 'OOONANA_PKG_ID="i3"'
-assert_contains "$i3_pkg" 'OOONANA_PKG_VERSION="0.1.3"'
+assert_contains "$i3_pkg" 'OOONANA_PKG_VERSION="0.1.7"'
 assert_contains "$i3_pkg" 'OOONANA_PKG_DEPS="i3wm i3status"'
 assert_contains "$branding_pkg" 'OOONANA_PKG_VERSION="0.1.3"'
 assert_contains "$branding_pkg" 'OOONANA_PKG_ARCHIVE="archives/ooonana-branding-0.1.3.tar.gz"'
@@ -160,6 +164,26 @@ bash "$ROOT/scripts/import-i3-package-set.sh" \
   --metadata-only
 assert_contains "$(<"$out/i3.pkg")" 'OOONANA_PKG_DEPS="i3wm i3status"'
 grep -q '^base	' "$out/index.tsv" || fail "base missing from repo index"
+
+# Branding runs inside a command substitution: producer failure must still stop
+# the importer before it rewrites metadata around an old or partial archive.
+branding_archive="$out/archives/ooonana-branding-0.1.3.tar.gz"
+ln "$branding_archive" "$tmp/saved-branding.tar.gz"
+saved_branding_sha="$(sha256sum "$tmp/saved-branding.tar.gz")"
+bash "$SCRIPT" --out-dir "$out" --packages 'i3wm i3status' --metadata-only >/dev/null
+[[ ! "$branding_archive" -ef "$tmp/saved-branding.tar.gz" ]] || fail 'branding rebuild reused saved inode'
+[[ "$(sha256sum "$tmp/saved-branding.tar.gz")" == "$saved_branding_sha" ]] || fail 'saved branding changed'
+branding_sha="$(sha256sum "$branding_archive")"
+branding_metadata_sha="$(sha256sum "$out/branding.pkg")"
+mkdir "$tmp/fail-compressor"
+printf '#!/bin/sh\ncat >/dev/null\nexit 47\n' >"$tmp/fail-compressor/gzip"
+chmod +x "$tmp/fail-compressor/gzip"
+if PATH="$tmp/fail-compressor:$PATH" bash "$SCRIPT" --out-dir "$out" --packages 'i3wm i3status' --metadata-only >"$tmp/failed-branding.log" 2>&1; then
+  fail 'branding compressor failure accepted'
+fi
+[[ "$(sha256sum "$branding_archive")" == "$branding_sha" ]] || fail 'failed rebuild changed branding archive'
+[[ "$(sha256sum "$out/branding.pkg")" == "$branding_metadata_sha" ]] || fail 'failed rebuild published branding metadata'
+[[ -z "$(find "$out/archives" -name '*.tmp.*' -print -quit)" ]] || fail 'failed branding left temporary archive'
 
 branding_contents="$(tar -tzf "$out/archives/ooonana-branding-0.1.3.tar.gz" | sort)"
 assert_contains "$branding_contents" "./etc/i3/config"
@@ -216,7 +240,7 @@ upgrade_dry="$(OOONANA_REPO_DIR="$BUILTIN_REPO" \
   "$CLI" upgrade --dry-run)"
 assert_contains "$upgrade_dry" "would install i3wm"
 assert_contains "$upgrade_dry" "would install i3status"
-assert_contains "$upgrade_dry" "would upgrade i3 0.1.1 -> 0.1.3"
+assert_contains "$upgrade_dry" "would upgrade i3 0.1.1 -> 0.1.7"
 assert_contains "$upgrade_dry" "would upgrade full-i3 0.1.1 -> 0.1.3"
 
 for dependency in bubblewrap xz curl ca-certificates coreutils; do

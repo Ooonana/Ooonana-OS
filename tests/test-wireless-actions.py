@@ -3,29 +3,34 @@ import sys
 import json
 from pathlib import Path
 from types import MethodType, SimpleNamespace
+import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "packages/ooonana/usr/lib/ooonana/ui"))
 
 try:
-    import gi  # noqa: F401
-except ImportError:
+    import gi
+    gi.require_version("Gtk", "3.0")
+except (ImportError, ValueError):
     class DummyWidget:
         pass
 
     common = SimpleNamespace(
         GLib=SimpleNamespace(),
-        Gtk=SimpleNamespace(Dialog=DummyWidget, Window=DummyWidget),
+        Gtk=SimpleNamespace(Dialog=DummyWidget, Window=DummyWidget, Button=DummyWidget),
+        Pango=SimpleNamespace(),
         apply_theme=lambda: None,
         button=lambda *_args, **_kwargs: None,
         command_exists=lambda _name: False,
         flow_row=lambda *_args, **_kwargs: None,
+        fit_dialog=lambda *_args, **_kwargs: None,
         header=lambda *_args, **_kwargs: None,
         host_radio_unavailable=lambda _kind: False,
         label=lambda *_args, **_kwargs: None,
         launch=lambda *_args, **_kwargs: False,
         message=lambda *_args, **_kwargs: None,
+        more_actions=lambda *_args, **_kwargs: None,
         page_intro=lambda *_args, **_kwargs: None,
         read_file=lambda *_args, **_kwargs: "",
         run=lambda *_args, **_kwargs: (0, ""),
@@ -405,14 +410,44 @@ bluetooth_target.wait_for_connection_state = MethodType(
     bluetooth_target,
 )
 real_bluetooth_sleep = bluetooth_app.time.sleep
+real_bluetooth_run = bluetooth_app.run
+radio_commands = []
+def isolated_radio_run(command, **_kwargs):
+    radio_commands.append(command)
+    return 0, "owned radio-command fixture"
+bluetooth_app.run = isolated_radio_run
 bluetooth_app.time.sleep = lambda _seconds: None
 try:
     rc, output = bluetooth_target.connect_with_retry("AA:BB:CC:DD:EE:FF")
 finally:
     bluetooth_app.time.sleep = real_bluetooth_sleep
+    bluetooth_app.run = real_bluetooth_run
 check(rc == 0, "Bluetooth retry reaches confirmed connection")
 check(bluetooth_target.connect_attempts == 2, "Bluetooth retries unconfirmed connection")
 check(any("scan" in call for call in bluetooth_target.calls), "Bluetooth rescans before retry")
 check("Connection successful" in output, "Bluetooth returns successful output")
+check(radio_commands == [["rfkill", "unblock", "bluetooth"]], "Bluetooth unblock stays an isolated command contract")
 
-print("ok wireless-actions")
+with tempfile.TemporaryDirectory(prefix="ooonana-wifi-certificate-") as directory:
+    base = Path(directory)
+    certificate = base / "owned-file.pem"
+    certificate.write_text("UI file-readiness fixture; not a real certificate.\n")
+    values = dict(security_kind="enterprise", identity="fixture", eap="tls", password="",
+                  ca_policy="custom", ca_cert=str(certificate), client_cert=str(certificate),
+                  private_key=str(certificate), ipv4_mode="auto", proxy_mode="none")
+    form = SimpleNamespace(values=lambda: values, ca_cert="ca", client_cert="client", private_key="key")
+    validate = lambda: wifi_app.WifiCredentialsDialog.validate(form)
+    check(not validate(), "readable TLS selections accepted")
+    for key in ("ca_cert", "client_cert", "private_key"):
+        for unavailable in (base / "missing.pem", base):
+            values[key] = str(unavailable)
+            check(bool(validate()) and form.error_field == getattr(form, key),
+                  "missing/non-file certificate is identified before activation")
+        values[key] = str(certificate)
+    check(not validate(), "restored TLS selections can retry")
+    values.update(ca_policy="system", ca_cert=str(base / "unused.pem"))
+    check(not validate(), "system-CA mode ignores unused custom selection")
+    values.update(eap="peap", password="fixture", private_key="", client_cert="")
+    check(not validate(), "password EAP does not require TLS client files")
+
+print("ok wireless-actions and certificate readiness")

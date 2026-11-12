@@ -14,13 +14,20 @@ import notification_utils
 
 with tempfile.TemporaryDirectory() as directory:
     os.environ["XDG_CONFIG_HOME"] = directory + "/config"
-    assert load_preferences() == {"reduce_motion": False, "remember_notifications": False}
+    assert load_preferences() == {"reduce_motion": False, "remember_notifications": False, "idle_lock_minutes": 0}
     assert transition_ms() == 180
     save_preferences(reduce_motion=True)
     assert transition_ms() == 0
     assert stat.S_IMODE(config_path().stat().st_mode) == 0o600
     save_preferences(remember_notifications=True)
     assert load_preferences()["remember_notifications"]
+    save_preferences(idle_lock_minutes=10)
+    assert load_preferences()["idle_lock_minutes"] == 10
+    for invalid in (True, False, -1, 2, 3600, "10", None):
+        save_preferences(idle_lock_minutes=invalid)
+        assert load_preferences()["idle_lock_minutes"] == 10
+    save_preferences(reduce_motion=False)
+    assert load_preferences()["idle_lock_minutes"] == 10
     config_path().write_text('{"reduce_motion":"false"}')
     assert not load_preferences()["reduce_motion"]
     state = NotificationState(Path(directory) / "state")
@@ -34,6 +41,18 @@ with tempfile.TemporaryDirectory() as directory:
     assert not state.archive_path.exists()
     assert not state.merge([message], True)[0]["archived"]
     assert stat.S_IMODE(state.archive_path.stat().st_mode) == 0o600
+    from unittest.mock import patch
+    with patch.object(notification_utils, "write_json", side_effect=PermissionError("owned fixture storage denied")) as writer:
+        preview = state.snapshot([changed], True)
+        assert len(preview) == 2 and not preview[0]["archived"] and preview[1]["archived"]
+        writer.assert_not_called()
+        try:
+            state.merge([changed], True)
+        except PermissionError:
+            pass
+        else:
+            raise AssertionError("Archive write failure not reported")
+        assert state.snapshot([changed], True) == preview
     assert state.merge([], True)[0]["archived"]
     state.forget(message)
     assert not state.merge([], True)

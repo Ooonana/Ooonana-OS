@@ -93,9 +93,22 @@ for confirm_reply in '' yes create CANCEL; do
 done
 live_persistence_read() { return 1; }
 reject live_persistence_file_prompt 4095
+read_count=0
+live_persistence_read() {
+  if [ "$read_count" = 0 ]; then
+    read_count=1; LIVE_SETUP_REPLY=512; return 0
+  fi
+  return 1
+}
+reject live_persistence_file_prompt 4095
 exec 3>&-
 grep -q 'No existing files erased' "$tmp/prompt" || fail 'safety text'
 grep -q 'Type CREATE' "$tmp/prompt" || fail 'confirmation text'
+grep -q 'Setup cancelled. No storage created.' "$tmp/prompt" || fail 'explicit cancel state'
+grep -q 'Invalid size; enter whole MiB' "$tmp/prompt" || fail 'invalid size state'
+grep -q 'Creation not confirmed. No storage created.' "$tmp/prompt" || fail 'confirmation failure state'
+grep -q 'Setup timed out or input closed.' "$tmp/prompt" || fail 'timeout state'
+grep -q 'Confirmation timed out or input closed.' "$tmp/prompt" || fail 'confirmation timeout state'
 
 # Failure rollback touches only known initramfs mount paths/owned loop1.
 abort_log="$tmp/abort.log"

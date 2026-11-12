@@ -3,7 +3,7 @@
 # shellcheck disable=SC1090,SC3043
 set -eu
 
-VERSION="0.9.9"
+VERSION="0.10.0"
 case "${1:-}" in
   version|--version|-v) printf 'ooonana %s\n' "$VERSION"; exit 0 ;;
 esac
@@ -72,7 +72,16 @@ INSTALLED_DIR="$STATE_DIR/installed"
 DOWNLOAD_CONNECT_TIMEOUT="${OOONANA_DOWNLOAD_CONNECT_TIMEOUT:-10}"
 DOWNLOAD_MAX_TIME="${OOONANA_DOWNLOAD_MAX_TIME:-90}"
 DOWNLOAD_RETRIES="${OOONANA_DOWNLOAD_RETRIES:-1}"
-CHECKSUM_CACHE_DIR="${TMPDIR:-/tmp}/ooonana-checksums.$$"
+CHECKSUM_CACHE_DIR=""
+# Queries may run as root. Never follow a pre-created PID directory/symlink.
+# Help/version need no cache; package operations share one private allocation
+# inherited by subshells, so the parent can reliably remove it on exit.
+initialize_checksum_cache() {
+  CHECKSUM_CACHE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ooonana-checksums.XXXXXXXX")" || {
+    printf 'ooonana: cannot create private query cache\n' >&2
+    exit 1
+  }
+}
 
 cleanup_checksum_cache() {
   case "$CHECKSUM_CACHE_DIR" in
@@ -343,6 +352,7 @@ usage_ui_help() {
 Full i3 UI:
   Mod+Enter     terminal
   Mod+d         app launcher
+  Mod+Ctrl+Tab  Task View (windows and desktops)
   Mod+Shift+F   Nemo file manager
   Mod+Shift+W   Chromium browser
   Mod+N         Wi-Fi settings
@@ -478,25 +488,26 @@ check_pending_replacements() {
 restore_pkg_transaction() (
   # Idempotent restore: keep checkpoint until every owned path is restored.
   set -eu
+  require_archive_modes
   local transaction id manifest baseline entry target expected
   transaction="$1"
   id="$2"
   manifest="$(pkg_files_manifest "$id")"
   baseline="$(config_baseline_path "$id")"
-  for entry in affected new-dirs installed.pkg checksums; do
+  for entry in affected new-dirs checksums; do
     [ -f "$transaction/$entry" ] && [ ! -L "$transaction/$entry" ] || return 1
   done
   [ -s "$transaction/checksums" ] || return 1
   # Corrupt snapshots must be refused before deleting any current payload.
   while read -r expected entry; do
     case "$entry" in
-      affected|new-dirs|installed.pkg|manifest|config-baseline|payload.tar|package-id|target-root) ;;
+      affected|new-dirs|installed.pkg|installed.absent|manifest|config-baseline|payload.tar|package-id|target-root) ;;
       *) return 1 ;;
     esac
     [ -f "$transaction/$entry" ] && [ ! -L "$transaction/$entry" ] || return 1
     [ "$(sha256_file "$transaction/$entry")" = "$expected" ] || return 1
   done <"$transaction/checksums"
-  for entry in affected new-dirs installed.pkg manifest config-baseline payload.tar package-id target-root; do
+  for entry in affected new-dirs installed.pkg installed.absent manifest config-baseline payload.tar package-id target-root; do
     expected="$(awk -v wanted="$entry" '$2==wanted { count++ } END { print count+0 }' "$transaction/checksums")"
     if [ -e "$transaction/$entry" ] || [ -L "$transaction/$entry" ]; then
       [ "$expected" = 1 ] || return 1
@@ -504,6 +515,12 @@ restore_pkg_transaction() (
       [ "$expected" = 0 ] || return 1
     fi
   done
+  if [ -f "$transaction/installed.pkg" ]; then
+    [ ! -e "$transaction/installed.absent" ] || return 1
+  else
+    [ "$id" = ooonana-core-runtime ] && [ -f "$transaction/installed.absent" ] &&
+      [ "$(cat "$transaction/installed.absent")" = "$id" ] || return 1
+  fi
   while IFS= read -r entry; do
     safe_manifest_entry "$entry" || return 1
   done <"$transaction/affected"
@@ -527,9 +544,13 @@ restore_pkg_transaction() (
     rmdir "$(root_join "/$entry")" 2>/dev/null || true
   done
   if [ -f "$transaction/payload.tar" ]; then
-    tar -xf "$transaction/payload.tar" -C "$OOONANA_ROOT" || return 1
+    tar -xpf "$transaction/payload.tar" -C "$OOONANA_ROOT" || return 1
   fi
-  cp -p "$transaction/installed.pkg" "$INSTALLED_DIR/$id.pkg" || return 1
+  if [ -f "$transaction/installed.pkg" ]; then
+    cp -p "$transaction/installed.pkg" "$INSTALLED_DIR/$id.pkg" || return 1
+  else
+    rm -f "$INSTALLED_DIR/$id.pkg" || return 1
+  fi
   if [ -f "$transaction/manifest" ]; then
     cp -p "$transaction/manifest" "$manifest" || return 1
   else
@@ -540,6 +561,7 @@ restore_pkg_transaction() (
   else
     rm -f "$baseline" || return 1
   fi
+  refresh_pkg_desktop_caches "$transaction/affected" || return 1
   sync || return 1
   printf 'restored previous package: %s\n' "$id" >&2
 )
@@ -582,6 +604,7 @@ reset_pkg_vars() {
   OOONANA_PKG_CONFLICTS=""
   OOONANA_PKG_KIND=""
   OOONANA_PKG_COMPONENTS=""
+  OOONANA_PKG_BASE=""
   OOONANA_PKG_NOTES=""
   OOONANA_PKG_ARCHIVE=""
   OOONANA_PKG_SHA256=""
@@ -888,6 +911,7 @@ validate_repo_tarball_entries() {
 }
 
 sync_tarball_repo() {
+  require_archive_modes
   repo_name="$1"
   repo_uri="$2"
   cache_dir="$(repo_cache_dir "$repo_name")"
@@ -907,7 +931,7 @@ sync_tarball_repo() {
     cp "$repo_uri" "$tarball"
   fi
   validate_repo_tarball_entries "$repo_name" "$tarball"
-  tar -xzf "$tarball" -C "$tmp_dir/root"
+  tar -xzpf "$tarball" -C "$tmp_dir/root"
 
   repo_root="$(resolve_repo_generation "$tmp_dir/root")"
   if [ ! -f "$repo_root/index.tsv" ]; then
@@ -1006,7 +1030,10 @@ runtime_cache_path() {
   source_file="$1"
   cache_kind="$2"
   have cksum && have cp || return 1
-  cache_key="$(printf '%s\n' "$source_file" | cksum | awk '{ print $1 "-" $2 }')"
+  cache_key="$(printf '%s\n' "$source_file" | cksum)"
+  # cksum on stdin returns two numbers. Avoid an extra AWK process merely
+  # to join them: forks are expensive in the interpreted RISC-V PDF guest.
+  cache_key="${cache_key%% *}-${cache_key##* }"
   printf '%s/%s-%s\n' "$CHECKSUM_CACHE_DIR" "$cache_kind" "$cache_key"
 }
 
@@ -1163,7 +1190,9 @@ version_is_newer() {
 sha256_file() {
   path="$1"
   have sha256sum || die "missing command: sha256sum"
-  sha256sum "$path" | awk '{print $1}'
+  local digest
+  digest="$(sha256sum "$path")" || return 1
+  printf '%s\n' "${digest%% *}"
 }
 
 repo_checksum_expected() {
@@ -1171,7 +1200,8 @@ repo_checksum_expected() {
   rel_path="$2"
   lookup_file="$sums_file"
   if have cksum && have cp; then
-    checksum_key="$(printf '%s\n' "$sums_file" | cksum | awk '{ print $1 "-" $2 }')"
+    checksum_key="$(printf '%s\n' "$sums_file" | cksum)"
+    checksum_key="${checksum_key%% *}-${checksum_key##* }"
     mkdir -p "$CHECKSUM_CACHE_DIR"
     lookup_file="$CHECKSUM_CACHE_DIR/$checksum_key"
     if [ ! -f "$lookup_file" ]; then
@@ -1711,10 +1741,19 @@ tar_verbose_archive() {
   fi
 }
 
+require_archive_modes() {
+  # BusyBox ignores -p/--same-permissions for nonroot extraction. Do not silently
+  # damage an offline target or weaken umask for unrelated state creation.
+  if [ "$(id -u)" != 0 ] && tar --help 2>&1 | grep -q '^BusyBox '; then
+    die 'nonroot archive extraction requires GNU tar; run BusyBox extraction as root'
+  fi
+}
+
 validate_archive_entries() {
   id="$1"
   archive_path="$2"
   have tar || die "missing command: tar"
+  require_archive_modes
   tar_list_archive "$archive_path" | while IFS= read -r entry; do
     clean_entry="${entry#./}"
     [ -n "$clean_entry" ] || continue
@@ -1754,6 +1793,26 @@ safe_manifest_entry() {
   esac
 }
 
+refresh_pkg_desktop_caches() (
+  # Derived caches follow installed inputs, including failed-upgrade recovery.
+  # GSettings data is portable; GIO modules must run only in the native root.
+  set -eu
+  changes="$1"
+  [ -f "$changes" ] || exit 0
+  schema_dir="$(root_join /usr/share/glib-2.0/schemas)"
+  if grep -Eq '^usr/share/glib-2.0/schemas/[^/]+\.gschema\.(xml|override)$' "$changes" &&
+     command -v glib-compile-schemas >/dev/null 2>&1 && [ -d "$schema_dir" ]; then
+    [ ! -L "$schema_dir" ] || exit 1
+    glib-compile-schemas --strict "$schema_dir"
+  fi
+  if [ "$OOONANA_ROOT" = / ] &&
+     grep -Eq '^usr/lib/gio/modules/[^/]+\.so' "$changes" &&
+     command -v gio-querymodules >/dev/null 2>&1 && [ -d /usr/lib/gio/modules ]; then
+    [ ! -L /usr/lib/gio/modules ] || exit 1
+    gio-querymodules /usr/lib/gio/modules
+  fi
+)
+
 install_pkg_archive() {
   id="$1"
   ensure_pkg_archive_available
@@ -1762,9 +1821,10 @@ install_pkg_archive() {
   verify_pkg_archive "$id" "$archive_path"
   validate_archive_entries "$id" "$archive_path"
   mkdir -p "$OOONANA_ROOT"
-  tar -xzf "$archive_path" -C "$OOONANA_ROOT"
+  tar -xzpf "$archive_path" -C "$OOONANA_ROOT"
   mkdir -p "$(pkg_files_dir)"
   tar_list_archive "$archive_path" | sed -e 's#^\./##' -e '/^$/d' > "$(pkg_files_manifest "$id")"
+  refresh_pkg_desktop_caches "$(pkg_files_manifest "$id")"
   printf 'unpacked %s\n' "$OOONANA_PKG_ARCHIVE"
 }
 
@@ -1801,6 +1861,9 @@ remove_pkg_archive_files() {
       rm -f "$target"
     fi
   done
+  if [ "${ooonana_replacing_payload:-0}" != 1 ]; then
+    refresh_pkg_desktop_caches "$manifest"
+  fi
   rm -f "$manifest"
   printf 'removed archive files %s\n' "$id"
 }
@@ -2066,6 +2129,58 @@ cmd_clean() {
   fi
 }
 
+cmd_list_builtin() {
+  local file id metadata indexed_version state snapshot
+  # No external sources: inspect each builtin package once, rather than
+  # resolving its best version twice through nested subshells/index copies.
+  # Retain verified metadata copies and index/version consistency checks.
+  snapshot="$CHECKSUM_CACHE_DIR/builtin-list"
+  mkdir -p "$snapshot"
+  chmod 0700 "$CHECKSUM_CACHE_DIR" "$snapshot"
+  for file in "$REPO_DIR"/*.pkg "$REPO_DIR/index.tsv" "$REPO_DIR/SHA256SUMS" "$REPO_DIR/SHA256SUMS.sig" "$REPO_DIR/repo.pub"; do
+    [ -f "$file" ] || continue
+    cp "$file" "$snapshot/${file##*/}"
+  done
+  # Verify the exact snapshot which is read below, with the original trusted
+  # key. Hash metadata/index in one applet invocation, not archives/payloads.
+  # Missing checksums in legacy unsigned repos retain existing behavior.
+  verify_repo_signature "$snapshot" "${OOONANA_BUILTIN_REPO_KEY:-}"
+  if [ -f "$snapshot/SHA256SUMS" ]; then
+    awk '{ sub(/\r$/, "") } $2 ~ /^[A-Za-z0-9_.+-]+[.]pkg$/ || $2 == "index.tsv" { print }' \
+      "$snapshot/SHA256SUMS" >"$snapshot/list-checksums"
+    if [ -s "$snapshot/list-checksums" ]; then
+      (cd "$snapshot" && sha256sum -c list-checksums >/dev/null) || die "builtin metadata checksum mismatch"
+    fi
+    if [ -f "$snapshot/SHA256SUMS.sig" ] && [ -f "$snapshot/index.tsv" ]; then
+      awk '$2 == "index.tsv" { found=1; exit } END { exit !found }' "$snapshot/list-checksums" ||
+        die "missing checksum: index.tsv"
+    fi
+  fi
+  for file in "$snapshot"/*.pkg; do
+    [ -f "$file" ] || continue
+    id="${file##*/}"
+    id="${id%.pkg}"
+    if [ -f "$snapshot/SHA256SUMS" ]; then
+      awk -v rel="$id.pkg" '$2 == rel { found=1; exit } END { exit !found }' \
+        "$snapshot/list-checksums" || die "missing checksum: $id.pkg"
+    fi
+    metadata="$file"
+    reset_pkg_vars
+    . "$metadata"
+    [ "$OOONANA_PKG_ID" = "$id" ] || die "bad package metadata: $id"
+    [ -n "$OOONANA_PKG_VERSION" ] || die "package missing version: $id"
+    [ -n "$OOONANA_PKG_SUMMARY" ] || die "package missing summary: $id"
+    if [ -f "$snapshot/index.tsv" ]; then
+      indexed_version="$(awk -F '\t' -v id="$id" '$1 == id { print $2; exit }' "$snapshot/index.tsv")"
+      [ -z "$indexed_version" ] || [ "$indexed_version" = "$OOONANA_PKG_VERSION" ] ||
+        die "repo index version mismatch: $id $indexed_version != $OOONANA_PKG_VERSION"
+    fi
+    state=available
+    if pkg_installed "$id"; then state=installed; fi
+    print_pkg_line "$id" "$state"
+  done
+}
+
 cmd_list() {
   installed_only=0
   upgradeable_only=0
@@ -2107,6 +2222,19 @@ cmd_list() {
         [ -n "$id" ] || continue
         print_pkg_fields_line "$id" "$version" "$(pkg_state "$id")" "$summary"
       done | sort
+    return 0
+  fi
+
+  local external source_file
+  external=0
+  for source_file in "$SOURCES_DIR"/*.repo; do
+    [ -f "$source_file" ] || continue
+    external=1
+    break
+  done
+  if [ "$external" -eq 0 ]; then
+    [ -d "$REPO_DIR" ] || die "missing repo: $REPO_DIR"
+    cmd_list_builtin
     return 0
   fi
 
@@ -2306,7 +2434,7 @@ check_reverse_dependencies() {
 }
 
 install_one_pkg() {
-  local id dry_run deps conflicts dep old_installing
+  local id dry_run deps conflicts dep old_installing old_core_version
   id="$1"
   dry_run="$2"
   safe_pkg_id "$id" || die "bad package id: $id"
@@ -2330,7 +2458,21 @@ install_one_pkg() {
     esac
   fi
   load_pkg "$id"
+  check_pkg_userland
   check_pkg_conflicts "$id"
+
+  # A new runtime package ID can still replace an older installed OS core.
+  # Apply the same major-version policy before installing its dependencies.
+  if [ "$id" = ooonana-core-runtime ] && pkg_installed ooonana-core; then
+    old_core_version="$(installed_pkg_version ooonana-core)"
+    if major_os_update "$id" "$old_core_version" "$OOONANA_PKG_VERSION" && [ "${OOONANA_ALLOW_MAJOR:-0}" != 1 ]; then
+      if [ "$dry_run" -eq 1 ]; then
+        printf 'major update needs --allow-major: %s %s -> %s (legacy core adoption)\n' "$id" "$old_core_version" "$OOONANA_PKG_VERSION"
+        return 0
+      fi
+      die "major OS update requires explicit --allow-major: $id $old_core_version -> $OOONANA_PKG_VERSION (legacy core adoption; use reinstall --allow-major)"
+    fi
+  fi
 
   if [ "$dry_run" -eq 1 ]; then
     OOONANA_PLANNED="${OOONANA_PLANNED:-} $id"
@@ -2360,6 +2502,14 @@ install_one_pkg() {
   fi
 
   ensure_pkg_dirs
+  # Older factory images have core metadata without a separate runtime record.
+  # Adopt overlapping payload through the same config-preserving journal used
+  # for upgrades; plain first-install extraction would overwrite user settings.
+  if [ "$id" = ooonana-core-runtime ] && pkg_installed ooonana-core; then
+    replace_pkg_transaction "$id"
+    printf 'installed %s %s\n' "$id" "$OOONANA_PKG_VERSION"
+    return 0
+  fi
   [ -n "$OOONANA_PKG_ARCHIVE" ] && install_pkg_archive "$id"
   run_pkg_hook "$id" install
   run_pkg_hook "$id" healthcheck
@@ -2388,7 +2538,7 @@ cmd_get() {
 }
 
 upgrade_one_pkg() {
-  local id dry_run old_version new_version deps dep archive_path old_upgrading old_security_only
+  local id dry_run old_version new_version deps dep archive_path old_upgrading old_security_only old_base force
   id="$1"
   dry_run="$2"
   safe_pkg_id "$id" || die "bad package id: $id"
@@ -2412,12 +2562,18 @@ upgrade_one_pkg() {
 
   old_version="$(installed_pkg_version "$id")"
   load_pkg "$id"
+  check_pkg_userland
   new_version="$OOONANA_PKG_VERSION"
-  if [ "$old_version" = "$new_version" ]; then
+  force=0
+  if [ -n "${OOONANA_MIGRATION_BASE:-}" ] && [ "$OOONANA_PKG_KIND" = apk ]; then
+    old_base="$(sed -n 's/^OOONANA_PKG_BASE="\([^"]*\)"$/\1/p' "$INSTALLED_DIR/$id.pkg")"
+    [ "$old_base" = "$OOONANA_MIGRATION_BASE" ] || force=1
+  fi
+  if [ "$force" -eq 0 ] && [ "$old_version" = "$new_version" ]; then
     printf 'already current %s %s\n' "$id" "$new_version"
     return 0
   fi
-  if ! version_is_newer "$old_version" "$new_version"; then
+  if [ "$force" -eq 0 ] && ! version_is_newer "$old_version" "$new_version"; then
     printf 'installed version newer %s %s > %s\n' "$id" "$old_version" "$new_version"
     return 0
   fi
@@ -2495,7 +2651,15 @@ cmd_upgrade() {
       [ -f "$file" ] || { printf 'no packages installed\n'; return 0; }
       id="$(basename "$file" .pkg)"
       old_version="$(installed_pkg_version "$id")"
-      if new_version="$(available_pkg_version "$id")" && version_is_newer "$old_version" "$new_version"; then
+      if [ -n "${OOONANA_MIGRATION_BASE:-}" ]; then
+        load_pkg "$id"
+        # Imported libraries first; native health hooks run after their ABI.
+        if [ "$OOONANA_PKG_KIND" = apk ]; then
+          packages="$id $packages"
+        else
+          packages="$packages $id"
+        fi
+      elif new_version="$(available_pkg_version "$id")" && version_is_newer "$old_version" "$new_version"; then
         packages="$packages $id"
       fi
     done
@@ -2506,10 +2670,24 @@ cmd_upgrade() {
     return 0
   fi
 
+  # Reject major OS plans before the first library changes, not halfway through
+  # an alphabetical world upgrade. Individual dependency guards stay in place.
+  if [ "$dry_run" -eq 0 ] && [ "$OOONANA_ALLOW_MAJOR" -ne 1 ]; then
+    for id in $packages; do
+      old_version="$(installed_pkg_version "$id")"
+      load_pkg "$id"
+      if major_os_update "$id" "$old_version" "$OOONANA_PKG_VERSION"; then
+        die "major OS update requires explicit --allow-major before any package changes: $id"
+      fi
+    done
+  fi
   for id in $packages; do
     safe_pkg_id "$id" || die "bad package id: $id"
     upgrade_one_pkg "$id" "$dry_run"
   done
+  if [ "$dry_run" -eq 0 ] && [ -n "${OOONANA_MIGRATION_BASE:-}" ]; then
+    finish_userland_transition
+  fi
 }
 
 cmd_update_status() {
@@ -2654,6 +2832,7 @@ fix_one_pkg() {
 
   old_version="$(installed_pkg_version "$id")"
   load_pkg "$id"
+  check_pkg_userland
   if major_os_update "$id" "$old_version" "$OOONANA_PKG_VERSION" && [ "${OOONANA_ALLOW_MAJOR:-0}" != 1 ]; then
     if [ "$dry_run" -eq 1 ]; then
       printf 'major update needs --allow-major: %s %s -> %s\n' "$id" "$old_version" "$OOONANA_PKG_VERSION"
@@ -2729,7 +2908,13 @@ replace_pkg_transaction() (
   trap 'exit 129' HUP
   trap 'exit 130' INT
   trap 'exit 143' TERM
-  cp -p "$INSTALLED_DIR/$id.pkg" "$transaction/installed.pkg"
+  if [ -f "$INSTALLED_DIR/$id.pkg" ]; then
+    cp -p "$INSTALLED_DIR/$id.pkg" "$transaction/installed.pkg"
+  elif [ "$id" = ooonana-core-runtime ] && pkg_installed ooonana-core; then
+    printf '%s\n' "$id" >"$transaction/installed.absent"
+  else
+    die "replacement requires installed package or legacy core adoption: $id"
+  fi
   : > "$transaction/affected"
   : > "$transaction/backup-list"
   : > "$transaction/new-dirs"
@@ -2776,7 +2961,7 @@ replace_pkg_transaction() (
   printf '%s\n' "$OOONANA_ROOT" >"$transaction/target-root"
   (
     cd "$transaction"
-    for entry in affected new-dirs installed.pkg manifest config-baseline payload.tar package-id target-root; do
+    for entry in affected new-dirs installed.pkg installed.absent manifest config-baseline payload.tar package-id target-root; do
       [ ! -f "$entry" ] || sha256sum "$entry"
     done
   ) >"$transaction/checksums"
@@ -2785,9 +2970,10 @@ replace_pkg_transaction() (
   mv "$transaction/phase.tmp" "$transaction/phase"
   sync
   active=1
+  ooonana_replacing_payload=1
   remove_pkg_archive_files "$id"
   if [ -f "$transaction/replacement.tar.gz" ]; then
-    tar -xzf "$transaction/replacement.tar.gz" -C "$OOONANA_ROOT"
+    tar -xzpf "$transaction/replacement.tar.gz" -C "$OOONANA_ROOT"
     mkdir -p "$(pkg_files_dir)"
     tar_list_archive "$transaction/replacement.tar.gz" | sed -e 's#^\./##' -e '/^$/d' > "$manifest"
     printf 'unpacked %s\n' "$OOONANA_PKG_ARCHIVE"
@@ -2802,8 +2988,9 @@ replace_pkg_transaction() (
     fi
   done <"$transaction/preserved-configs"
   if [ -s "$transaction/preserved-configs" ]; then
-    tar -xf "$transaction/payload.tar" -C "$OOONANA_ROOT" -T "$transaction/preserved-configs"
+    tar -xpf "$transaction/payload.tar" -C "$OOONANA_ROOT" -T "$transaction/preserved-configs"
   fi
+  refresh_pkg_desktop_caches "$transaction/affected"
   run_pkg_hook "$id" install
   run_pkg_hook "$id" healthcheck
   cp "$LOADED_PKG_FILE" "$INSTALLED_DIR/$id.pkg"
@@ -2913,12 +3100,15 @@ cmd_ai_setup() {
   if [ ! -f "$AI_CONFIG" ]; then
     umask 077
     cat > "$AI_CONFIG" <<'EOF'
-# Ooonana AI uses NVIDIA NIM or Google Gemini.
+# Ooonana AI uses NVIDIA NIM, Google Gemini or OpenAI.
 # Get a key from https://build.nvidia.com/settings/api-keys
 # Get a Gemini key from https://aistudio.google.com/app/apikey
 OOONANA_AI_PROVIDER=nim
 NVIDIA_API_KEY=
 GEMINI_API_KEY=
+OPENAI_API_KEY=
+OPENAI_BASE_URL=https://api.openai.com/v1
+OOONANA_OPENAI_MODEL=gpt-6-luna
 OOONANA_NIM_BASE_URL=https://integrate.api.nvidia.com/v1
 OOONANA_NIM_MODEL=nvidia/nemotron-3-super-120b-a12b
 OOONANA_GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
@@ -2938,11 +3128,12 @@ cmd_ai_doctor() {
     exit 1
   fi
   . "$AI_CONFIG"
-  provider="${AI_PROVIDER_OVERRIDE:-${OOONANA_AI_PROVIDER:-nim}}"
-  if { [ "$provider" = "gemini" ] || [ "$provider" = "auto" ]; } && { [ -n "${GEMINI_API_KEY:-}" ] || [ -n "${GOOGLE_API_KEY:-}" ]; }; then
+  provider="$(cmd_ai_provider_selected)"
+  if cmd_ai_provider_key_present "$provider"; then
     printf 'AI config: ok\n'
-  elif [ -n "${NVIDIA_API_KEY:-}" ] || [ -n "${NVIDIA_NIM_API_KEY:-}" ] || [ -n "${OPENAI_API_KEY:-}" ]; then
-    printf 'AI config: ok\n'
+  elif [ "$provider" = "openai" ]; then
+    printf 'AI config missing OPENAI_API_KEY\n'
+    exit 1
   elif [ "$provider" = "gemini" ]; then
     printf 'AI config missing GEMINI_API_KEY or GOOGLE_API_KEY\n'
     exit 1
@@ -2965,16 +3156,31 @@ cmd_ai_config_load() {
 
 cmd_ai_provider_key_present() {
   provider="$1"
-  if [ "$provider" = "gemini" ]; then
+  if [ "$provider" = "openai" ]; then
+    [ -n "${OPENAI_API_KEY:-}" ]
+  elif [ "$provider" = "gemini" ]; then
     [ -n "${GEMINI_API_KEY:-}" ] || [ -n "${GOOGLE_API_KEY:-}" ]
   else
-    [ -n "${NVIDIA_API_KEY:-}" ] || [ -n "${NVIDIA_NIM_API_KEY:-}" ] || [ -n "${OPENAI_API_KEY:-}" ]
+    [ -n "${NVIDIA_API_KEY:-}" ] || [ -n "${NVIDIA_NIM_API_KEY:-}" ]
   fi
+}
+
+cmd_ai_provider_selected() {
+  selected="${AI_PROVIDER_OVERRIDE:-${OOONANA_AI_PROVIDER:-nim}}"
+  if [ "$selected" = auto ]; then
+    if cmd_ai_provider_key_present nim; then selected=nim
+    elif cmd_ai_provider_key_present gemini; then selected=gemini
+    elif cmd_ai_provider_key_present openai; then selected=openai
+    else selected=nim; fi
+  fi
+  printf '%s\n' "$selected"
 }
 
 cmd_ai_provider_model() {
   provider="$1"
-  if [ "$provider" = "gemini" ]; then
+  if [ "$provider" = "openai" ]; then
+    printf '%s\n' "${OOONANA_OPENAI_MODEL:-gpt-6-luna}"
+  elif [ "$provider" = "gemini" ]; then
     printf '%s\n' "${OOONANA_GEMINI_MODEL:-gemini-2.5-flash}"
   else
     printf '%s\n' "${OOONANA_NIM_MODEL:-nvidia/nemotron-3-super-120b-a12b}"
@@ -2983,6 +3189,7 @@ cmd_ai_provider_model() {
 
 cmd_ai_provider_label() {
   case "$1" in
+    openai) printf 'OpenAI\n' ;;
     gemini) printf 'Google Gemini\n' ;;
     *) printf 'NVIDIA NIM\n' ;;
   esac
@@ -3013,8 +3220,7 @@ cmd_ai_provider() {
   case "$subcmd" in
     ""|show)
       cmd_ai_config_load
-      provider="${AI_PROVIDER_OVERRIDE:-${OOONANA_AI_PROVIDER:-nim}}"
-      [ "$provider" = "auto" ] && provider="nim"
+      provider="$(cmd_ai_provider_selected)"
       key_state="missing"
       cmd_ai_provider_key_present "$provider" && key_state="present"
       printf 'active: %s\n' "$provider"
@@ -3024,12 +3230,12 @@ cmd_ai_provider() {
       ;;
     set)
       value="${2:-}"
-      [ "$value" = "nim" ] || [ "$value" = "gemini" ] || die "usage: ooonana ai provider [show|set nim|set gemini]"
+      [ "$value" = "nim" ] || [ "$value" = "gemini" ] || [ "$value" = "openai" ] || die "usage: ooonana ai provider [show|set nim|set gemini|set openai]"
       cmd_ai_env_set OOONANA_AI_PROVIDER "$value"
       printf 'provider: %s\n' "$value"
       printf 'config: %s\n' "$AI_CONFIG"
       ;;
-    *) die "usage: ooonana ai provider [show|set nim|set gemini]" ;;
+    *) die "usage: ooonana ai provider [show|set nim|set gemini|set openai]" ;;
   esac
 }
 
@@ -3068,8 +3274,7 @@ cmd_ai_desktop() {
 
 cmd_ai_status() {
   cmd_ai_config_load
-  provider="${AI_PROVIDER_OVERRIDE:-${OOONANA_AI_PROVIDER:-nim}}"
-  [ "$provider" = "auto" ] && provider="nim"
+  provider="$(cmd_ai_provider_selected)"
   key_state="missing"
   cmd_ai_provider_key_present "$provider" && key_state="present"
   printf 'Ooonana AI status\n'
@@ -3086,6 +3291,7 @@ nim default: nvidia/nemotron-3-super-120b-a12b
 code: qwen/qwen3-coder-480b-a35b-instruct
 fast: qwen/qwen3-next-80b-a3b-instruct
 gemini default: gemini-2.5-flash
+openai default: gpt-6-luna
 deep: gemini-2.5-pro
 MODELS
 }
@@ -3183,7 +3389,7 @@ cmd_ai() {
         shift
         ;;
       --provider)
-        [ "$#" -ge 2 ] || die "ooonana ai --provider requires nim, gemini, or auto"
+        [ "$#" -ge 2 ] || die "ooonana ai --provider requires nim, gemini, openai, or auto"
         AI_PROVIDER_OVERRIDE="$2"
         shift 2
         ;;
@@ -3225,6 +3431,108 @@ cmd_ai() {
   esac
 }
 
+check_pkg_userland() {
+  local installed release
+  [ "$OOONANA_PKG_KIND" = apk ] && [ -n "$OOONANA_PKG_BASE" ] || return 0
+  [ -f "$INSTALLED_DIR/ooonana-core.pkg" ] || return 0
+  release="$(root_join /etc/os-release)"
+  installed="$(sed -n 's/^OOONANA_USERLAND_BASE="\([^"]*\)"$/\1/p' "$release" 2>/dev/null || true)"
+  [ -n "$installed" ] || installed=alpine-v3.20
+  [ "$OOONANA_PKG_BASE" = "$installed" ] || [ "$OOONANA_PKG_BASE" = "${OOONANA_MIGRATION_BASE:-}" ] ||
+    die "cross-base package refused: $OOONANA_PKG_ID; use verified offline whole-world migration"
+}
+
+check_userland_transition() {
+  local action candidate installed release manifest dry allow whole argument journal digest pending_base pending_digest file id old_kind staging
+  action="$1"; shift
+  [ "$action" != recover ] || return 0
+  journal="$STATE_DIR/.userland-migration"
+  if [ -e "$journal" ] || [ -L "$journal" ]; then
+    [ -f "$journal" ] && [ ! -L "$journal" ] || die 'unsafe userland migration journal'
+    # Per-package recovery never marks a whole userland migration complete.
+  fi
+  [ -f "$INSTALLED_DIR/ooonana-core.pkg" ] || return 0
+  manifest="$REPO_DIR/BUILD-MANIFEST.json"
+  if [ ! -f "$manifest" ]; then
+    [ ! -e "$journal" ] || die 'pending userland migration requires original repository manifest'
+    return 0
+  fi
+  verify_repo_checksum "$REPO_DIR" BUILD-MANIFEST.json "${OOONANA_REPO_KEY:-}"
+  candidate="$(sed -n 's/.*"userland_base" *: *"\([^"]*\)".*/\1/p' "$manifest")"
+  case "$candidate" in
+    none|unverified|'') [ ! -e "$journal" ] || die 'pending migration requires verified userland provenance'; return 0 ;;
+  esac
+  printf '%s\n' "$candidate" | grep -Eq '^alpine-v[0-9]+\.[0-9]+$' || die 'invalid userland provenance'
+  digest="$(sha256_file "$REPO_DIR/SHA256SUMS")"
+  if [ -f "$journal" ]; then
+    pending_base="$(sed -n '1p' "$journal")"
+    pending_digest="$(sed -n '2p' "$journal")"
+    [ "$(wc -l <"$journal" | tr -d ' ')" = 2 ] &&
+      [ "$pending_base" = "$candidate" ] && [ "$pending_digest" = "$digest" ] ||
+      die 'pending userland migration requires identical repository generation'
+  fi
+  release="$(root_join /etc/os-release)"
+  installed="$(sed -n 's/^OOONANA_USERLAND_BASE="\([^"]*\)"$/\1/p' "$release" 2>/dev/null || true)"
+  [ -n "$installed" ] || installed=alpine-v3.20
+  [ "$candidate" != "$installed" ] || [ -f "$journal" ] || return 0
+  dry=0; allow=0; whole=1
+  for argument in "$@"; do
+    case "$argument" in --dry-run) dry=1 ;; --allow-major) allow=1 ;; --security-only) whole=0 ;; --*) ;; *) whole=0 ;; esac
+  done
+  [ "$action" = upgrade ] && [ "$whole" -eq 1 ] ||
+    die "userland migration requires whole-world upgrade --allow-major: $installed -> $candidate"
+  OOONANA_MIGRATION_BASE="$candidate"
+  # Refuse retained/renamed legacy APKs instead of silently mixing ABI branches.
+  for file in "$INSTALLED_DIR"/*.pkg; do
+    [ -f "$file" ] || continue
+    id="$(basename "$file" .pkg)"
+    load_installed_pkg "$id"
+    old_kind="$OOONANA_PKG_KIND"
+    load_pkg "$id"
+    if [ "$old_kind" = apk ] || [ "$OOONANA_PKG_KIND" = apk ]; then
+      [ "$OOONANA_PKG_KIND" = apk ] && [ "$OOONANA_PKG_BASE" = "$candidate" ] ||
+        die "migration package needs explicit retirement/replacement plan: $id"
+    fi
+  done
+  if [ "$dry" -eq 1 ]; then
+    printf 'userland migration: %s -> %s; whole-world upgrade --allow-major required\n' "$installed" "$candidate"
+    return 0
+  fi
+  [ "$allow" -eq 1 ] || die 'userland migration requires explicit --allow-major'
+  # Removing musl/BusyBox from the running system can break the updater itself.
+  # Execute from an independent host against an offline, backed-up target root.
+  [ "$(readlink -f "$OOONANA_ROOT")" != / ] ||
+    die 'userland migration requires offline target root and verified backup; live replacement refused'
+  if [ ! -f "$journal" ]; then
+    umask 077
+    staging="$(mktemp "$STATE_DIR/.userland-prepared.XXXXXX")"
+    printf '%s\n%s\n' "$candidate" "$digest" >"$staging"
+    sync
+    mv "$staging" "$journal"
+    sync
+  fi
+}
+
+finish_userland_transition() {
+  local file id destination release
+  for file in "$INSTALLED_DIR"/*.pkg; do
+    [ -f "$file" ] || continue
+    load_installed_pkg "$(basename "$file" .pkg)"
+    [ "$OOONANA_PKG_KIND" != apk ] || [ "$OOONANA_PKG_BASE" = "$OOONANA_MIGRATION_BASE" ] ||
+      die 'incomplete userland migration; journal retained'
+  done
+  release="$(root_join /etc/os-release)"
+  [ "$(sha256_file "$REPO_DIR/SHA256SUMS")" = "$(sed -n '2p' "$STATE_DIR/.userland-migration")" ] ||
+    die 'repository changed during migration; journal retained'
+  grep -Fx "OOONANA_USERLAND_BASE=\"$OOONANA_MIGRATION_BASE\"" "$release" >/dev/null ||
+    die 'core release marker not migrated; journal retained'
+  mkdir -p "$STATE_DIR/backups"
+  destination="$(mktemp -d "$STATE_DIR/backups/userland-completed.XXXXXX")"
+  mv "$STATE_DIR/.userland-migration" "$destination/journal"
+  sync
+  printf 'userland migration complete: %s; record: %s\n' "$OOONANA_MIGRATION_BASE" "$destination"
+}
+
 main() {
   cmd="${1:-}"
   [ -n "$cmd" ] || { usage; exit 0; }
@@ -3263,6 +3571,11 @@ main() {
   fi
 
   case "$cmd" in
+    help|usage|--help|-h|me|ai|wine|wsl|setup) ;;
+    *) initialize_checksum_cache ;;
+  esac
+
+  case "$cmd" in
     get|install|add|upgrade|remove|uninstall|purge|fix|reinstall|recover)
       dry_run=0
       for argument in "$@"; do [ "$argument" != --dry-run ] || dry_run=1; done
@@ -3270,8 +3583,13 @@ main() {
         lock_pkg_state
         [ "$cmd" = recover ] || check_pending_replacements
       fi
+      check_userland_transition "$cmd" "$@"
       ;;
-    verify|check) check_pending_replacements ;;
+    verify|check)
+      check_pending_replacements
+      [ ! -e "$STATE_DIR/.userland-migration" ] && [ ! -L "$STATE_DIR/.userland-migration" ] ||
+        die 'whole userland migration incomplete; recover package checkpoints then resume offline upgrade'
+      ;;
   esac
 
   case "$cmd" in

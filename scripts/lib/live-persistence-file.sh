@@ -121,12 +121,28 @@ live_persistence_file_prompt() {
   printf 'Creates ext4 storage FILE, not partition. No existing files erased.\n' >&3
   printf 'Writes save directly to USB. Internal disks are not used.\n' >&3
   printf 'Storage size MiB: 256..%s [%s]; cancel to stop: ' "$live_max" "$live_default" >&3
-  live_persistence_read || return 1
+  live_persistence_read || {
+    printf '\nSetup timed out or input closed. No storage created.\n' >&3
+    return 1
+  }
+  case "$LIVE_SETUP_REPLY" in cancel|CANCEL)
+    printf 'Setup cancelled. No storage created.\n' >&3
+    return 1 ;;
+  esac
   live_size_mib="${LIVE_SETUP_REPLY:-$live_default}"
-  live_persistence_size_valid "$live_size_mib" "$live_max" || return 1
+  live_persistence_size_valid "$live_size_mib" "$live_max" || {
+    printf 'Invalid size; enter whole MiB from 256 to %s. No storage created.\n' "$live_max" >&3
+    return 1
+  }
   printf 'Create %s MiB on %s? Type CREATE: ' "$live_size_mib" "$boot_media_device" >&3
-  live_persistence_read || return 1
-  [ "$LIVE_SETUP_REPLY" = CREATE ] || return 1
+  live_persistence_read || {
+    printf '\nConfirmation timed out or input closed. No storage created.\n' >&3
+    return 1
+  }
+  [ "$LIVE_SETUP_REPLY" = CREATE ] || {
+    printf 'Creation not confirmed. No storage created.\n' >&3
+    return 1
+  }
 }
 
 live_persistence_file_create() (
@@ -187,6 +203,10 @@ live_persistence_file_attach() {
     live_console=/dev/console
     live_cmdline_has_arg console=tty0 "$cmdline" && live_console=/dev/tty1
     exec 3<>"$live_console" || return 1
+    # Interactive storage setup owns the console. Do not redraw over input.
+    if command -v ooonana_console_end >/dev/null 2>&1; then
+      ooonana_console_end
+    fi
     live_persistence_file_prompt "$live_max" || { exec 3>&-; return 1; }
     # Revalidate drive identity and free space after the user's confirmation.
     live_storage_identity_safe || { exec 3>&-; return 1; }

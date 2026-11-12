@@ -19,6 +19,15 @@ sudo
 util-linux-login
 py3-gobject3
 gtk+3.0
+at-spi2-core
+elogind
+polkit-elogind
+lightdm
+lightdm-gtk-greeter
+fcitx5
+fcitx5-hangul
+fcitx5-gtk3
+fcitx5-qt
 xorg-server
 xorg-server-xephyr
 xinit
@@ -32,10 +41,18 @@ i3lock
 i3status
 polybar
 rofi
+# v3.24 splits launcher executable from shared themes/scripts.
+rofi-x11-wayland
 yad
 shared-mime-info
 gdk-pixbuf
 gdk-pixbuf-loaders
+# New gdk-pixbuf uses Glycin; APK install_if is not dependency import.
+glycin-image-rs
+glycin-svg
+glycin-thumbnailer
+glycin-heif
+heif-thumbnailer
 hicolor-icon-theme
 adwaita-icon-theme
 font-awesome-free
@@ -59,6 +76,7 @@ xf86-input-evdev
 eudev
 chromium
 nemo
+gvfs
 geany
 networkmanager
 networkmanager-wifi
@@ -73,6 +91,12 @@ bluez-hid2hci
 bluez-obexd
 iproute2
 util-linux-misc
+lsblk
+findmnt
+blkid
+losetup
+mount
+umount
 pulseaudio-utils
 pulseaudio
 pulseaudio-alsa
@@ -84,6 +108,9 @@ pipewire-spa-bluez
 wireplumber
 libnotify
 xdg-utils
+xdg-desktop-portal
+xdg-desktop-portal-gtk
+xdg-document-portal
 iw
 wireless-tools
 wpa_supplicant

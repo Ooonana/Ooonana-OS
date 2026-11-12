@@ -19,13 +19,17 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "packages/ooonana/usr/lib/ooonana/ui"))
 from common import Gdk, Gtk
+sys.path.insert(0, str(ROOT / "packages/ooonana/usr/lib/ooonana"))
+from panel_session import palette_environment
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("output", type=Path)
 parser.add_argument("--rootfs", type=Path, required=True)
 parser.add_argument("--long-wifi", action="store_true")
+parser.add_argument("--wide-labels", action="store_true", help="Wide-language sample labels; no live network/audio data")
 parser.add_argument("--desktop", action="store_true", help="Include source native Settings/dock and original wallpaper")
 parser.add_argument("--desktop-overview", action="store_true", help="Wallpaper/panel/dock without Settings window")
+parser.add_argument("--appearance-output", type=Path, help="Additional same-session native Appearance capture")
 args = parser.parse_args()
 loader = SourceFileLoader("panel_windows", str(ROOT / "packages/ooonana/usr/bin/ooonana-window-list"))
 windows = module_from_spec(spec_from_loader(loader.name, loader))
@@ -34,7 +38,7 @@ screen = Gdk.get_default_root_window()
 assert os.environ.get('OOONANA_GUI_TEST_DISPLAY') == '1', 'Isolated owned display required'
 assert subprocess.run(['i3-msg', '-t', 'get_tree'], capture_output=True).returncode != 0, 'Existing window manager: refuse'
 width = screen.get_width()
-left, right, gap, limit = windows.panel_layout(width)
+left, right, gap, limit, wifi_limit = windows.panel_layout(width)
 rootfs = args.rootfs.resolve()
 
 with tempfile.TemporaryDirectory(prefix="ooonana-panel-ui-") as temporary:
@@ -46,6 +50,10 @@ with tempfile.TemporaryDirectory(prefix="ooonana-panel-ui-") as temporary:
     text = builder.split('"$ROOTFS/etc/ooonana/polybar.ini" <<\'EOF\'\n', 1)[1].split("\nEOF", 1)[0]
     configuration = configparser.RawConfigParser(strict=False)
     configuration.read_string(text)
+    assert "module/workspaces" not in configuration.sections()
+    task_view = configuration["module/task-view"]
+    assert task_view["type"] == "custom/text" and task_view["content-padding"] == "1"
+    assert task_view["click-left"] == "ooonana-window-list --task-view"
     samples = {
         "media": "%{T2}%{T-} " + "Sample track title for layout"[:limit],
         "memory": "RAM 42%", "wifi": " Connected",
@@ -54,6 +62,13 @@ with tempfile.TemporaryDirectory(prefix="ooonana-panel-ui-") as temporary:
     }
     if args.long_wifi:
         samples["wifi"] = " VeryLongNetworkNameThatMustNeverPushAIAway"
+    if args.wide_labels:
+        samples["media"] = "%{T2}%{T-} " + "한글歌曲日本語음악긴제목보기"[:limit]
+        samples["wifi"] = " 매우긴무선네트워크이름테스트"
+        samples["memory"] = "RAM 100%"
+        samples["audio"] = "%{T2}%{T-} 100%"
+        samples["battery"] = "%{T2}%{T-} 100%"
+        samples["notifications"] = "%{T2}%{T-} 999+"
     for section in configuration.sections():
         for key in list(configuration[section]):
             if key.startswith(("click-", "scroll-")):
@@ -71,7 +86,8 @@ with tempfile.TemporaryDirectory(prefix="ooonana-panel-ui-") as temporary:
                      f'<dir>{rootfs}/usr/share/fonts</dir><dir>/usr/share/fonts</dir>'
                      f'<cachedir>{fixture}/font-cache</cachedir></fontconfig>')
     environment = {**os.environ, "FONTCONFIG_FILE": str(fonts), "OOONANA_PANEL_LEFT": left,
-                   "OOONANA_PANEL_RIGHT": right, "OOONANA_PANEL_GAP": str(gap)}
+                   "OOONANA_PANEL_RIGHT": right, "OOONANA_PANEL_GAP": str(gap),
+                   "OOONANA_WIFI_MAX_CHARS": str(wifi_limit), **palette_environment()}
     wm = subprocess.Popen(["i3", "-c", str(wm_config)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     panel = dock = settings = wallpaper = None
     try:
@@ -107,16 +123,56 @@ with tempfile.TemporaryDirectory(prefix="ooonana-panel-ui-") as temporary:
                     Gtk.main_iteration_do(False)
                 assert panel.poll() is None, args.output.with_suffix(".log").read_text()
                 time.sleep(0.025)
-            assert "polybar|error:" not in args.output.with_suffix(".log").read_text(), "Panel config errors"
+            panel_log = args.output.with_suffix(".log").read_text()
+            # Keep the actual broken surface too, not just a missing-glyph log.
             pixels = Gdk.pixbuf_get_from_window(screen, 0, 0, screen.get_width(), screen.get_height())
             assert pixels is not None
             pixels.savev(str(args.output), "png", [], [])
+            assert "polybar|error:" not in panel_log, "Panel config errors"
+            assert 'file=/usr/share/fonts/font-awesome/Font Awesome 7 Free-Solid-900.otf)' in panel_log, 'Solid icon font not loaded'
+            assert 'name=Font Awesome 7 Brands' in panel_log, 'Brands font not loaded'
+            assert 'Dropping unmatched character' not in panel_log, 'Panel label/icon glyph disappeared'
+            assert 'overlap' not in panel_log.lower(), 'Panel groups overlap'
+            if args.wide_labels:
+                assert 'name=Noto Sans CJK KR' in panel_log, 'CJK fallback font not loaded'
+            # Polybar can silently shift center content or clip right controls
+            # without logging overlap. Check actual AI accent glyph position.
+            accent = tuple(int(environment['OOONANA_BAR_ACCENT'].strip('#')[i:i+2], 16) for i in (0, 2, 4))
+            data, stride, channels = pixels.get_pixels(), pixels.get_rowstride(), pixels.get_n_channels()
+            columns = [x for x in range(max(0, width // 2 - 100), min(width, width // 2 + 100))
+                if any(all(abs(data[y * stride + x * channels + channel] - value) < 12
+                           for channel, value in enumerate(accent)) for y in range(10, 43))]
+            assert columns, 'AI center glyph missing'
+            visual_center = (min(columns) + max(columns)) / 2
+            print(f'PANEL_AI_CENTER expected={width / 2} actual={visual_center}', flush=True)
+            assert abs(visual_center - width / 2) <= 5, 'AI shifted by crowded panel groups'
+            sample = pixels.get_pixels()[12 * pixels.get_rowstride() + (width // 2) * pixels.get_n_channels():][:3]
+            assert sample == bytes.fromhex(environment['OOONANA_BAR_BACKGROUND'][1:]), 'Panel retained stale appearance'
+            if args.appearance_output:
+                assert args.desktop_overview, 'Appearance capture requires isolated desktop fixture'
+                settings = SettingsWindow()
+                settings.headerbar.set_subtitle('Isolated native GTK preview')
+                settings.show_all()
+                settings.sidebar.select_row(settings.sidebar.get_row_at_index(3))
+                for _ in range(40):
+                    while Gtk.events_pending():
+                        Gtk.main_iteration_do(False)
+                    time.sleep(0.025)
+                dock.snapshot = i3_events.request(i3_events.socket_path(), 4)
+                dock.refresh()
+                for _ in range(12):
+                    while Gtk.events_pending():
+                        Gtk.main_iteration_do(False)
+                    time.sleep(0.025)
+                pixels = Gdk.pixbuf_get_from_window(screen, 0, 0, screen.get_width(), screen.get_height())
+                pixels.savev(str(args.appearance_output), 'png', [], [])
         print(f"PANEL_UI_OK {width}px sample state: {args.output}")
     finally:
         if dock:
             dock.destroy()
         if settings:
-            settings.disconnect_by_func(Gtk.main_quit)
+            settings.disconnect_by_func(settings.on_destroy)
+            settings.closed = True
             settings.destroy()
         wallpaper_error = None
         if wallpaper:

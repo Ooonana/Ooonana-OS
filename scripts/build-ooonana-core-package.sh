@@ -2,8 +2,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT/scripts/lib/common.sh"
 OUT_DIR=""
-VERSION="0.9.9"
+VERSION="0.10.0"
 DRY_RUN=0
 
 usage() {
@@ -14,7 +15,7 @@ Usage:
   scripts/build-ooonana-core-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER  Package version (default: 0.9.9)
+  --version VER  Package version (default: 0.10.0)
   --dry-run      Print resolved package details
   -h, --help     Show help
 USAGE
@@ -89,6 +90,8 @@ install -m 0644 "$ROOT/branding/i3/config" "$staging/etc/i3/config"
 install -m 0644 "$ROOT/branding/i3/config" "$staging/etc/i3/config.keycodes"
 install -D -m 0644 "$ROOT/branding/desktop-0.9.svg" "$staging/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.svg"
 install -D -m 0644 "$ROOT/branding/desktop-0.9.png" "$staging/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png"
+install -D -m 0644 "$ROOT/branding/boot-mark.png" "$staging/usr/share/ooonana/boot-mark.png"
+install -D -m 0644 "$ROOT/branding/grub-background.png" "$staging/usr/share/ooonana/grub-background.png"
 for helper in \
   ooonana-theme-env ooonana-open ooonana-apps ooonana-run-admin \
   ooonana-browser ooonana-files ooonana-hardware-reprobe \
@@ -99,7 +102,6 @@ for helper in \
   ooonana-brightness-panel ooonana-audio-panel ooonana-audio-status \
   ooonana-battery-status ooonana-volume ooonana-rofi-power \
   ooonana-power-menu ooonana-screenshot ooonana-editor ooonana-processes \
-  ooonana-process-kill \
   ooonana-ranger ooonana-brightness ooonana-brightness-status \
   ooonana-packages-app ooonana-packages ooonana-settings \
   ooonana-settings-launch ooonana-installer-gui ooonana-gui-installer \
@@ -119,6 +121,7 @@ ID=ooonana
 PRETTY_NAME="Ooonana OS $VERSION"
 VERSION="$VERSION"
 VERSION_ID="$VERSION"
+OOONANA_USERLAND_BASE="alpine-$(ooonana_alpine_branch)"
 HOME_URL="https://github.com/Ooonana/Ooonana-OS"
 SUPPORT_URL="https://github.com/Ooonana/Ooonana-OS/issues"
 EOF
@@ -135,9 +138,11 @@ for config in \
   extract_config "ROOTFS/$config" "$staging/$config"
 done
 mkdir -p "$staging/var/lib/ooonana/packages/files"
+mkdir -p "$staging/var/tmp"
+chmod 1777 "$staging/var/tmp"
 : > "$staging/var/lib/ooonana/packages/files/ooonana-core.list"
-tar --sort=name --mtime="@${SOURCE_DATE_EPOCH:-0}" --numeric-owner --owner=0 --group=0 \
-  --pax-option=delete=atime,delete=ctime -C "$staging" -cf - . | gzip -n >"$archive"
+ooonana_tar_gzip_atomic "$archive" --sort=name --mtime="@${SOURCE_DATE_EPOCH:-0}" --numeric-owner --owner=0 --group=0 \
+  --pax-option=delete=atime,delete=ctime -C "$staging" -cf - .
 archive_sha="$(sha256sum "$archive" | awk '{print $1}')"
 mkdir -p "$OUT_DIR/hooks"
 cat >"$OUT_DIR/hooks/$runtime_id.healthcheck" <<'CHECK'
@@ -146,16 +151,47 @@ set -eu
 prefix="${OOONANA_ROOT:-/}"
 cli="${prefix%/}/usr/bin/ooonana"
 [ -x "$cli" ] || { echo 'core healthcheck: CLI missing' >&2; exit 1; }
+[ -d "${prefix%/}/var/tmp" ] && [ "$(stat -c %a "${prefix%/}/var/tmp")" = 1777 ] || {
+  echo 'core healthcheck: /var/tmp missing or unsafe permissions' >&2; exit 1;
+}
 "$cli" version | grep -q "ooonana ${OOONANA_PKG_VERSION}"
-for helper in ooonana-memory ooonana-panel-start ooonana-window-list ooonana-shutdown-cleanup ooonana-storage-watch ooonana-persistence gzip; do
+for helper in ooonana-memory ooonana-panel-start ooonana-xsettings ooonana-lock ooonana-session ooonana-session-services ooonana-session-guard ooonana-input-method ooonana-tray ooonana-controls ooonana-shell ooonana-window-list ooonana-shutdown-cleanup ooonana-storage-watch ooonana-persistence gzip gdbus; do
   [ -x "${prefix%/}/usr/bin/$helper" ] || { echo "core healthcheck: missing $helper" >&2; exit 1; }
 done
+for asset in usr/lib/ooonana/xsettings_session.py usr/lib/ooonana/legacy_gtk_style.py usr/lib/ooonana/lock_screen.py usr/lib/ooonana/lock_readiness.py \
+  usr/lib/ooonana/session_services.py etc/elogind/logind.conf.d/90-ooonana.conf \
+  usr/lib/ooonana/session_control.py usr/lib/ooonana/input_method.py usr/share/ooonana/input-method-profile \
+  usr/lib/ooonana/tray_model.py usr/lib/ooonana/tray_service.py usr/lib/ooonana/legacy_tray.py usr/lib/ooonana/ui/tray_app.py \
+  usr/lib/ooonana/ui/shell_flyout.py usr/lib/ooonana/ui/shell_pointer.py usr/lib/ooonana/ui/shell_client.py \
+  usr/share/themes/OoonanaGraphite/gtk-3.0/gtk.css \
+  usr/share/themes/OoonanaPaper/gtk-3.0/gtk.css \
+  usr/share/themes/Ooonana/gtk-3.0/common.css; do
+  [ -s "${prefix%/}/$asset" ] || { echo "core healthcheck: missing $asset" >&2; exit 1; }
+done
+# Migrate only our known broken legacy helper layout. Custom PAM/shadow
+# ownership/modes stay untouched; fresh linux-pam.ooonana1 carries this mode.
+pam_helper="${prefix%/}/usr/sbin/unix_chkpwd"
+shadow="${prefix%/}/etc/shadow"
+if [ -f "$pam_helper" ] && [ ! -L "$pam_helper" ] && [ -f "$shadow" ] && [ ! -L "$shadow" ] &&
+   [ "$(stat -c '%u:%g:%a' "$pam_helper")" = 0:0:2755 ] &&
+   [ "$(stat -c '%u:%g:%a' "$shadow")" = 0:0:600 ]; then
+  chmod 4755 "$pam_helper"
+fi
 # Only single known legacy action changes; installed getty/custom actions stay.
 inittab="${prefix%/}/etc/inittab"
 if [ -f "$inittab" ] && [ ! -L "$inittab" ] &&
    [ "$(grep -c '^::shutdown:' "$inittab" || true)" = 1 ] &&
    grep -qx '::shutdown:/bin/umount -a -r' "$inittab"; then
   sed -i 's|^::shutdown:/bin/umount -a -r$|::shutdown:/usr/bin/ooonana-shutdown-cleanup --from-init|' "$inittab"
+fi
+# Bootstrap older installed CLIs that predate desktop cache triggers. New CLI
+# transactions also refresh these caches on upgrade and rollback.
+schemas="${prefix%/}/usr/share/glib-2.0/schemas"
+if [ -f "$schemas/org.nemo.gschema.xml" ] && command -v glib-compile-schemas >/dev/null 2>&1; then
+  glib-compile-schemas --strict "$schemas"
+fi
+if [ "$prefix" = / ] && [ -d /usr/lib/gio/modules ] && command -v gio-querymodules >/dev/null 2>&1; then
+  gio-querymodules /usr/lib/gio/modules
 fi
 echo 'OOONANA_CORE_HEALTHCHECK_OK'
 CHECK
@@ -179,7 +215,7 @@ OOONANA_PKG_VERSION="$VERSION"
 OOONANA_PKG_KIND="archive"
 OOONANA_PKG_REBOOT=1
 OOONANA_PKG_SUMMARY="Ooonana OS native CLI, desktop apps, services, game, and defaults"
-OOONANA_PKG_DEPS="dbus-daemon-launch-helper openssl"
+OOONANA_PKG_DEPS="dbus-daemon-launch-helper openssl glib libxscrnsaver fcitx5 fcitx5-hangul fcitx5-gtk3 fcitx5-qt lsblk findmnt blkid losetup mount umount coreutils elogind polkit-elogind"
 OOONANA_PKG_ARCHIVE="$archive_rel"
 OOONANA_PKG_SHA256="$archive_sha"
 OOONANA_PKG_NOTES="Native Ooonana system payload; archives download only during install or upgrade"

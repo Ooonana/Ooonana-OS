@@ -1,0 +1,7 @@
+# Private mount-namespace fixture. Never install this on user systems.
+Defaults timestamp_timeout=0
+Defaults passwd_tries=1
+Defaults lecture=never
+Defaults env_keep += "OOONANA_REPO_DIR OOONANA_SOURCES_DIR OOONANA_CACHE_DIR OOONANA_STATE_DIR OOONANA_REPO_VERIFY_KEY OOONANA_REQUIRE_SIGNED_REPOS"
+root ALL=(ALL:ALL) ALL
+ooonana ALL=(root) PASSWD: /usr/bin/ooonana update

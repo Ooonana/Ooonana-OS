@@ -11,6 +11,22 @@ loader = SourceFileLoader("window_list", str(root / "packages/ooonana/usr/bin/oo
 module = module_from_spec(spec_from_loader(loader.name, loader))
 loader.exec_module(module)
 
+for width in (640, 759, 760, 900, 999, 1000, 1099, 1100, 1279, 1280, 1920):
+    left, right, gap, media, wifi = module.panel_layout(width)
+    assert 'media' in left and all(item in right.split() for item in ('battery', 'notifications', 'tray', 'controls', 'power'))
+    assert media <= 18 and wifi <= 14
+    assert 'task-view' in left.split() and 'workspaces' not in left.split()
+    assert not (set(left.split()) & {'windows', 'title', 'win-close', 'win-min', 'win-full'})
+    if 760 <= width < 1100:
+        assert left == 'task-view media' and 'date' in right and 'wifi' in right
+        assert 'memory' not in right and 'audio' not in right and wifi == 6
+    if width < 760:
+        assert wifi == 10
+    elif width < 1100:
+        assert wifi == 6
+    elif width < 1280:
+        assert wifi == 8 and gap == 0
+
 
 def window(identifier, name, **kwargs):
     return dict(id=identifier, window=identifier, name=name, **kwargs)
@@ -55,6 +71,7 @@ module.shutil.which = original_which
 commands = []
 launches = []
 selection = "0"
+returncode = 0
 
 
 menu_inputs = []
@@ -64,7 +81,7 @@ def run(command, **kwargs):
     commands.append(command)
     if command[0] == "rofi":
         menu_inputs.append(kwargs["input"])
-    return SimpleNamespace(stdout=selection)
+    return SimpleNamespace(stdout=selection, returncode=returncode)
 
 
 module.subprocess.run = run
@@ -101,6 +118,13 @@ assert commands[-1] == ["i3-msg", "[con_id=3] move scratchpad"]
 module.sys.argv = ["ooonana-window-list", "--window-action", "show", "4"]
 module.main()
 assert commands[-1] == ["i3-msg", "[con_id=4] scratchpad show; [con_id=4] focus"]
+before = len(commands)
+module.sys.argv = ["ooonana-window-list", "--window-action", "close", "4", "--expect-xid", "9999"]
+module.main()
+assert len(commands) == before, "Stale/reused container must never close a different X11 window"
+module.sys.argv[-1] = "4"
+module.main()
+assert commands[-1] == ["i3-msg", "[con_id=4] kill"]
 module.sys.argv = ["ooonana-window-list", "--window-action", "close", "invalid"]
 before = len(commands)
 module.main()
@@ -135,9 +159,85 @@ assert commands[-1] == ["i3-msg", "[con_id=3] move scratchpad"]
 selection = "0"
 module.dock_actions(items, "music")
 assert launches[-1] == ("ooonana-music",)
+
+# Compact dock's Other group includes pins hidden to make room, not only unpinned apps.
+music = (20, "Ooonana Music", False, True, "ooonanaapp")
+compact_pins = ["apps", "terminal", "browser", "files"]
+assert module.other_windows(items + [music], compact_pins) == [music]
+module.dock_open(items + [music], "other", compact_pins)
+assert commands[-1] == ["i3-msg", "[con_id=20] scratchpad show; [con_id=20] focus"]
+selection = "1"
+module.dock_actions(items + [music], "other", compact_pins)
+assert commands[-1] == ["i3-msg", "[con_id=20] move scratchpad"]
+module.tree = lambda: dict(nodes=[window(20, "Ooonana Music", window_properties={"class": "OoonanaApp"})])
+module.sys.argv = ["ooonana-window-list", "--dock-open", "other", "--visible-pins", ",".join(compact_pins)]
+module.main()
+assert commands[-1] == ["i3-msg", "[con_id=20] focus"]
+before = len(commands)
+module.sys.argv[-1] = "unknown-pin"
+module.main()
+assert len(commands) == before
+module.tree = lambda: tree
+
+# Failed/cancelled chooser stdout must never restore or close a session.
+returncode = 1
+selection = "3"
+before = len(commands)
+module.actions_menu(items, 3)
+assert all(command[0] != "i3-msg" for command in commands[before:])
+selection = "0"
+assert module.choose(items, "Cancelled") is None
+returncode = 0
+original_actions = module.dock_actions
+selected_groups = []
+module.dock_actions = lambda data, key, **kwargs: selected_groups.append((data, key, kwargs))
+selection = "1"
+module.dock_menu(items + [music, other])
+assert selected_groups[-1] == (items + [music, other], "terminal", {"keyboard": True})
+assert "Terminal · 1 window" in menu_inputs[-1] and "Other windows" in menu_inputs[-1]
+returncode = 1
+module.dock_menu(items)
+assert len(selected_groups) == 1
+returncode = 0
+module.dock_actions = original_actions
 tree["nodes"].append(window(5, "100%{A1:bad:} CPU"))
 assert "%{A1:bad:}" not in module.bar(module.windows())
 assert "ooonana-window-list --focus 5" in module.dock(module.windows())
 tree["nodes"].append(window(7, "Spreadsheet"))
 assert " +1 " in module.dock(module.windows())
+
+# Task View keeps desktop names as one quoted IPC argument and never restores
+# a window from a stale chooser snapshot. Failed/cancelled selections do nothing.
+desktops = [dict(name="1", num=1, focused=True),
+            dict(name='2: 한글; "notes"', num=2, focused=False),
+            dict(name="bad\nname", num=3), None]
+module.subprocess.check_output = lambda *_args, **_kwargs: module.json.dumps(desktops)
+selection = "0"
+module.task_view(items)
+assert commands[-1] == ["i3-msg", "[con_id=3] focus"]
+selection = "1"
+module.sys.argv = ["ooonana-window-list", "--task-view"]
+module.main()
+assert commands[-1] == ["i3-msg", "[con_id=4] scratchpad show; [con_id=4] focus"]
+selection = "3"
+module.task_view(items)
+assert commands[-1] == ["i3-msg", 'workspace "2: 한글; \\"notes\\""']
+selection = "4"
+module.task_view(items)
+assert commands[-1] == ["i3-msg", "workspace number 4"]
+assert "Desktop · 1" in menu_inputs[-1] and "New desktop" in menu_inputs[-1]
+assert "bad\nname" not in menu_inputs[-1]
+selection = "0"
+before = len(commands)
+module.task_view([(9999, "Closed window", False, False, "xterm")])
+assert all(command[0] != "i3-msg" for command in commands[before:])
+for selection, returncode in (("0", 1), ("9999", 0)):
+    before = len(commands)
+    module.task_view(items)
+    assert all(command[0] != "i3-msg" for command in commands[before:])
+returncode = 0
+module.subprocess.check_output = lambda *_args, **_kwargs: "not JSON"
+selection = "0"
+module.task_view([])
+assert commands[-1] == ["i3-msg", "workspace number 1"]
 print("ok window-list")

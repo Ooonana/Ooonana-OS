@@ -18,6 +18,9 @@ PINS = (
     ("openvino", "", ("ooonana-openvino-launch",)),
     ("tasks", "", ("ooonana-processes",)),
 )
+PIN_NAMES = {"apps": "Applications", "terminal": "Terminal", "browser": "Browser",
+             "files": "Files", "editor": "Editor", "music": "Music",
+             "openvino": "Offline AI", "tasks": "Task Manager", "other": "Other windows"}
 
 PIN_COLORS = {
     "apps": "#c4a9ff", "terminal": "#c0c8d4", "browser": "#8cbcff",
@@ -46,12 +49,15 @@ def dock_geometry():
 
 
 def panel_layout(width):
+    """Reserve centered AI space even with double-width names and full counters."""
     if width < 760:
-        return ("workspaces media", "memory battery notifications controls power", 0, 10)
+        # RAM/audio details stay in Task Manager/Control Center on small panels.
+        return ("task-view media", "battery notifications tray controls power", 0, 10, 10)
     if width < 1100:
-        return ("brand workspaces media", "memory audio battery wifi notifications controls date power", 0, 14)
-    return ("brand workspaces win-close win-min win-full media",
-            "memory audio battery wifi notifications controls date power", 1, 18)
+        return ("task-view media", "battery wifi notifications tray controls date power", 0, 10, 6)
+    return ("brand task-view media",
+            "memory audio battery wifi notifications tray controls date power", 0 if width < 1600 else 1,
+            18, 8 if width < 1280 else 14)
 
 
 def panel_geometry():
@@ -63,8 +69,8 @@ def panel_geometry():
         width = int(selected["rect"]["width"])
     except (OSError, ValueError, KeyError, IndexError, TypeError, subprocess.SubprocessError):
         pass
-    left, right, gap, media = panel_layout(width)
-    print(f"OOONANA_PANEL_LEFT='{left}'\nOOONANA_PANEL_RIGHT='{right}'\nOOONANA_PANEL_GAP={gap}\nOOONANA_MEDIA_MAX_CHARS={media}")
+    left, right, gap, media, wifi = panel_layout(width)
+    print(f"OOONANA_PANEL_LEFT='{left}'\nOOONANA_PANEL_RIGHT='{right}'\nOOONANA_PANEL_GAP={gap}\nOOONANA_MEDIA_MAX_CHARS={media}\nOOONANA_WIFI_MAX_CHARS={wifi}")
 
 
 def tree():
@@ -95,7 +101,18 @@ def leaves(node, in_scratchpad=False):
 
 def windows(snapshot=None):
     items = []
-    for node, hidden in leaves(tree() if snapshot is None else snapshot):
+    nodes = leaves(tree() if snapshot is None else snapshot)
+    excluded = {node["window"] for node, _hidden in nodes
+                if str((node.get("window_properties") or {}).get("class", "")).casefold() == "ooonanaflyout"}
+    while True:
+        nested = {node["window"] for node, _hidden in nodes
+                  if (node.get("window_properties") or {}).get("transient_for") in excluded}
+        if nested <= excluded:
+            break
+        excluded.update(nested)
+    for node, hidden in nodes:
+        if node["window"] in excluded:
+            continue
         con_id = node.get("id")
         if not isinstance(con_id, int):
             continue
@@ -211,9 +228,9 @@ def dock(items):
     return " ".join(chips)
 
 
-def dock_open(items, key):
+def dock_open(items, key, visible_pins=None):
     if key == "other":
-        matches = other_windows(items)
+        matches = other_windows(items, visible_pins)
         item = matches[0] if len(matches) == 1 else choose(matches, "Other windows")
         if item is not None:
             focus(item)
@@ -233,28 +250,47 @@ def dock_open(items, key):
         return
 
 
-def dock_actions(items, key):
+def dock_actions(items, key, visible_pins=None, keyboard=False):
     if key == "other":
-        matches = other_windows(items)
+        matches = other_windows(items, visible_pins)
         item = matches[0] if len(matches) == 1 else choose(matches, "Other windows")
         if item is not None:
-            actions_menu(items, item[0])
+            actions_menu(items, item[0], keyboard=keyboard)
         return
     if not any(pin == key for pin, _icon, _command in PINS):
         return
     matches = [item for item in items if pin_for(item) == key]
     if not matches:
-        if choose([(0, f"Open {key.title()}", False, False, "")], "Dock") is not None:
+        if choose([(0, f"Open {PIN_NAMES[key]}", False, False, "")], "Dock") is not None:
             dock_open(items, key)
         return
     item = matches[0] if len(matches) == 1 else choose(matches, "App sessions")
     if item is not None:
-        actions_menu(items, item[0])
+        actions_menu(items, item[0], keyboard=keyboard)
 
 
-def other_windows(items):
-    pinned = {pin[0] for pin in available_pins()}
+def other_windows(items, visible_pins=None):
+    pinned = {pin[0] for pin in available_pins()} if visible_pins is None else set(visible_pins)
     return [item for item in items if pin_for(item) not in pinned]
+
+
+def dock_menu(items):
+    """Keyboard entry point; pointer dock never needs to steal window focus."""
+    keys = [pin[0] for pin in available_pins()]
+    if other_windows(items):
+        keys.append("other")
+    choices = []
+    for index, key in enumerate(keys):
+        matches = other_windows(items) if key == "other" else [item for item in items if pin_for(item) == key]
+        count = len(matches)
+        detail = f"{count} {'window' if count == 1 else 'windows'}" if count else "Open app"
+        hidden = sum(bool(item[3]) for item in matches)
+        if hidden:
+            detail += f" · {hidden} minimized"
+        choices.append((index, f"{PIN_NAMES[key]} · {detail}", False, False, ""))
+    selected = choose(choices, "Dock actions")
+    if selected is not None:
+        dock_actions(items, keys[selected[0]], keyboard=True)
 
 
 def focus(item):
@@ -266,7 +302,7 @@ def focus(item):
     subprocess.run(["i3-msg", "; ".join(commands)], check=False)
 
 
-def choose(items, prompt):
+def choose(items, prompt, compact=False):
     if not items:
         return None
     choices = [
@@ -278,6 +314,23 @@ def choose(items, prompt):
         theme = Path("/etc/ooonana/rofi.rasi")
         if theme.is_file():
             command.extend(["-theme", str(theme)])
+        styles = []
+        appearance = os.environ.get("OOONANA_THEME", "dark")
+        try:
+            saved = (Path.home() / ".config/ooonana/theme").read_text(encoding="utf-8").strip()
+            if saved in ("light", "dark"):
+                appearance = saved
+        except (OSError, ValueError):
+            pass
+        if appearance == "light":
+            styles.append("* { background: #ffffff; background-alt: #e9edf1; foreground: #1b1f26; "
+                          "accent: #805600; muted: #55616e; selected-normal-background: #e9edf1; "
+                          "selected-normal-foreground: #1b1f26; alternate-normal-background: #f5f5f7; }")
+        if compact:
+            styles.append('listview { lines: 6; fixed-height: false; } '
+                          'entry { placeholder: "Search windows or desktops"; }')
+        if styles:
+            command.extend(["-theme-str", " ".join(styles)])
         result = subprocess.run(
             command,
             input="\n".join(choices) + "\n",
@@ -287,6 +340,8 @@ def choose(items, prompt):
             timeout=30,
             check=False,
         )
+        if result.returncode != 0:
+            return None
         selected = int(result.stdout.strip())
     except (OSError, ValueError, subprocess.SubprocessError):
         return None
@@ -303,7 +358,44 @@ def menu(items, close=False):
         focus(item)
 
 
-def actions_menu(items, con_id=None):
+def task_view(items):
+    """One compact overview for existing windows, desktops and a new desktop."""
+    try:
+        desktops = json.loads(subprocess.check_output(
+            ["i3-msg", "-t", "get_workspaces"], text=True, timeout=3))
+        if not isinstance(desktops, list):
+            desktops = []
+    except (OSError, ValueError, subprocess.SubprocessError):
+        desktops = []
+    entries = [("window", item, item[1], item[2], item[3]) for item in items]
+    for desktop in desktops:
+        if not isinstance(desktop, dict):
+            continue
+        name = desktop.get("name")
+        if not isinstance(name, str) or not name or not all(ch.isprintable() for ch in name):
+            continue
+        entries.append(("desktop", name, "Desktop · " + name, bool(desktop.get("focused")), False))
+    used = {desktop.get("num") for desktop in desktops if isinstance(desktop, dict)
+            and type(desktop.get("num")) is int and desktop["num"] > 0}
+    number = next(value for value in range(1, len(used) + 2) if value not in used)
+    entries.append(("new", number, "New desktop", False, False))
+    rows = [(index, entry[2], entry[3], entry[4], "") for index, entry in enumerate(entries)]
+    selected = choose(rows, "Task View", compact=True)
+    if selected is None:
+        return
+    kind, target, *_ = entries[selected[0]]
+    if kind == "window":
+        # Refresh after the chooser: closed windows must not become stale targets.
+        current = next((item for item in windows() if item[0] == target[0]), None)
+        if current:
+            focus(current)
+    elif kind == "desktop":
+        subprocess.run(["i3-msg", "workspace " + json.dumps(target, ensure_ascii=False)], check=False)
+    else:
+        subprocess.run(["i3-msg", f"workspace number {target}"], check=False)
+
+
+def actions_menu(items, con_id=None, keyboard=False):
     item = next((entry for entry in items if entry[0] == con_id), None) if con_id else choose(items, "Window actions")
     if item is None:
         return
@@ -312,6 +404,8 @@ def actions_menu(items, con_id=None):
         command = ["python3", str(popup), "--window", str(item[0]), "--title", item[1]]
         if item[3]:
             command.append("--hidden")
+        if keyboard:
+            command.append("--keyboard")
         try:
             subprocess.Popen(command, start_new_session=True)
             return
@@ -324,6 +418,8 @@ def actions_menu(items, con_id=None):
             input="\n".join(choices) + "\n", text=True,
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=30, check=False,
         )
+        if result.returncode != 0:
+            return
         selected = int(result.stdout.strip())
     except (OSError, ValueError, subprocess.SubprocessError):
         return
@@ -371,10 +467,21 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == "--panel-geometry":
         panel_geometry()
         return
-    items = windows()
-    if len(sys.argv) == 4 and sys.argv[1] == "--window-action":
+    snapshot = tree()
+    items = windows(snapshot)
+    if len(sys.argv) == 2 and sys.argv[1] == "--task-view":
+        task_view(items)
+        return
+    if len(sys.argv) in (4, 6) and sys.argv[1] == "--window-action":
         try:
             identifier = int(sys.argv[3])
+            if len(sys.argv) == 6:
+                if sys.argv[4] != "--expect-xid":
+                    return
+                expected = int(sys.argv[5])
+                node = next((node for node, _hidden in leaves(snapshot) if node.get("id") == identifier), {})
+                if expected <= 0 or node.get("window") != expected:
+                    return
         except ValueError:
             return
         item = next((entry for entry in items if entry[0] == identifier), None)
@@ -388,11 +495,19 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == "--dock":
         print(dock(items))
         return
-    if len(sys.argv) > 2 and sys.argv[1] == "--dock-open":
-        dock_open(items, sys.argv[2])
+    if len(sys.argv) > 1 and sys.argv[1] == "--dock-menu":
+        dock_menu(items)
         return
-    if len(sys.argv) > 2 and sys.argv[1] == "--dock-actions":
-        dock_actions(items, sys.argv[2])
+    if len(sys.argv) > 2 and sys.argv[1] in ("--dock-open", "--dock-actions"):
+        visible = None
+        if len(sys.argv) != 3:
+            if len(sys.argv) != 5 or sys.argv[3] != "--visible-pins":
+                return
+            visible = sys.argv[4].split(",")
+            if not visible or any(key not in PIN_NAMES or key == "other" for key in visible):
+                return
+        action = dock_open if sys.argv[1] == "--dock-open" else dock_actions
+        action(items, sys.argv[2], visible)
         return
     if len(sys.argv) > 1 and sys.argv[1] == "--menu":
         menu(items)

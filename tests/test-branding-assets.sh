@@ -37,6 +37,8 @@ grub_logo="$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt"
 [[ -f "$i3_config" ]] || fail "missing i3 config"
 [[ -f "$grub_logo" ]] || fail "missing GRUB logo"
 assert_png "$ROOT/branding/logo.png"
+assert_png "$ROOT/branding/boot-mark.png"
+assert_contains "$(<"$ROOT/branding/boot-mark.svg")" 'viewBox="0 0 256 176"'
 assert_png "$ROOT/branding/wallpaper.png"
 assert_png "$ROOT/branding/desktop-0.9.png"
 
@@ -77,8 +79,16 @@ assert_not_contains "$desktop_wallpaper" 'opacity='
 assert_contains "$config" '# i3 config file (v4)'
 assert_contains "$config" 'set $mod Mod4'
 assert_contains "$config" 'bindsym $mod+Return exec ooonana-theme-env xterm'
-assert_contains "$config" 'bindsym --whole-window $mod+button1 move'
-assert_contains "$config" 'bindsym --whole-window $mod+button3 resize'
+assert_contains "$config" 'floating_modifier $mod'
+assert_not_contains "$config" 'bindsym --whole-window $mod+button1 move'
+assert_not_contains "$config" 'bindsym --whole-window $mod+button3 resize'
+for workspace in {1..10}; do
+  key="$((workspace % 10))"
+  assert_contains "$config" "bindsym \$mod+$key workspace number $workspace"
+  assert_contains "$config" "bindsym \$mod+Shift+$key move container to workspace number $workspace"
+done
+assert_contains "$config" 'bindsym $mod+Control+Left workspace prev'
+assert_contains "$config" 'bindsym $mod+Control+Right workspace next'
 assert_contains "$config" 'exec_always --no-startup-id ooonana-panel-start'
 panel_start="$(<"$ROOT/packages/ooonana/usr/bin/ooonana-panel-start")"
 assert_contains "$panel_start" 'exec python3 /usr/lib/ooonana/panel_session.py'
@@ -92,7 +102,7 @@ assert_contains "$config" 'rofi -show drun -theme /etc/ooonana/rofi.rasi'
 assert_contains "$config" 'picom --backend glx --config /etc/ooonana/picom.conf'
 assert_contains "$config" 'picom --backend xrender --config /etc/ooonana/picom.conf'
 assert_contains "$config" 'dunst -config /etc/ooonana/dunstrc'
-assert_contains "$config" 'xsettingsd -c "${XDG_CONFIG_HOME:-$HOME/.config}/ooonana/xsettingsd.conf"'
+assert_contains "$config" 'exec_always --no-startup-id ooonana-xsettings'
 assert_contains "$config" 'hide_edge_borders none'
 assert_contains "$config" 'default_border normal 1'
 assert_contains "$config" 'default_floating_border normal 1'

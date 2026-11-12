@@ -7,7 +7,7 @@ source "$ROOT/scripts/lib/common.sh"
 
 OUT_DIR="$(ooonana_default_build_dir)/package-repo"
 PACKAGE_PROFILE="$ROOT/configs/packages/ooonana-cloud.list"
-ALPINE_REPOS="https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64 https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64"
+ALPINE_REPOS="$(ooonana_alpine_repositories)"
 CUSTOM_REPOS=0
 PACKAGES=""
 FULL_I3=0
@@ -34,9 +34,9 @@ WINDOWS_CHAT_PACKAGE_VERSION="${OOONANA_WINDOWS_CHAT_VERSION:-1.0.1}"
 DEVICECHAT_SOURCE="${OOONANA_DEVICECHAT_SOURCE:-$ROOT/packages/devicechat/source/devicechat-0.1.1.tgz}"
 BUNANACHAT_SOURCE_DIR="${OOONANA_BUNANACHAT_LINUX_SOURCE:-$ROOT/packages/bunanachat-linux/source/dist}"
 WINDOWS_CHAT_SOURCE="${OOONANA_OONANA_CHAT_WINDOWS_SOURCE:-$ROOT/packages/ooonana-chat-windows/source/OoonanaChat Setup 1.0.0.exe}"
-NATIVE_APK_PACKAGES="openssl nodejs flatpak bluez dbus fontconfig freetype libx11 libice libsm mesa-gl icu-libs zlib libgcc libstdc++"
+NATIVE_APK_PACKAGES="openssl glib nodejs flatpak xdg-desktop-portal xdg-desktop-portal-gtk xdg-document-portal bluez dbus dbus-daemon-launch-helper fontconfig freetype libx11 libice libsm mesa-gl icu-libs zlib libgcc libstdc++ libxscrnsaver fcitx5 fcitx5-hangul fcitx5-gtk3 fcitx5-qt lsblk findmnt blkid losetup mount umount coreutils"
 COMMON_PROFILE="$ROOT/configs/packages/common-tools.list"
-CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.9.9}"
+CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.10.0}"
 KERNEL_PACKAGE_PATH="${OOONANA_KERNEL_PACKAGE_PATH:-}"
 KERNEL_PACKAGE_URL="${OOONANA_KERNEL_PACKAGE_URL:-}"
 KERNEL_PACKAGE_SHA256="${OOONANA_KERNEL_SHA256:-}"
@@ -63,7 +63,7 @@ Options:
   --kernel-url URL        Add Ooonana kernel package from remote kernel image
   --kernel-sha256 SHA256  Require this SHA-256 for the kernel image
   --kernel-version VER    Kernel package version (default: 6.18.37-3)
-  --core-version VER      Ooonana system update package version (default: 0.9.9)
+  --core-version VER      Ooonana system update package version (default: 0.10.0)
   --openvino-version VER  OpenVINO Chat package version (default: 0.2.1)
   --devicechat-version VER Native DeviceChat package version (default: 0.1.1)
   --bunanachat-version VER Native BunanaChat Linux package version (default: 0.1.1)
@@ -194,6 +194,7 @@ verify_repo_profile() {
   work="$(mktemp -d)"
   mkdir -p "$work/root" "$work/sources" "$work/state" "$work/cache"
   if ! OOONANA_ROOT="$work/root" OOONANA_REPO_DIR="$OUT_DIR" \
+    OOONANA_REPO_VERIFY_KEY="${PUBLIC_KEY:-$OUT_DIR/repo.pub}" \
     OOONANA_SOURCES_DIR="$work/sources" \
     OOONANA_STATE_DIR="$work/state" \
     OOONANA_CACHE_DIR="$work/cache" \
@@ -211,6 +212,7 @@ verify_repo_packages() {
   work="$(mktemp -d)"
   mkdir -p "$work/root" "$work/sources" "$work/state" "$work/cache"
   if ! OOONANA_ROOT="$work/root" OOONANA_REPO_DIR="$OUT_DIR" \
+    OOONANA_REPO_VERIFY_KEY="${PUBLIC_KEY:-$OUT_DIR/repo.pub}" \
     OOONANA_SOURCES_DIR="$work/sources" \
     OOONANA_STATE_DIR="$work/state" \
     OOONANA_CACHE_DIR="$work/cache" \
@@ -219,6 +221,18 @@ verify_repo_packages() {
     ooonana_die "package repo has an incomplete native package dependency closure"
   fi
   rm -rf "$work"
+}
+
+index_verified_repo() {
+  # Dependency checks read the repository through the real package manager.
+  # Refresh the signature with the index, before those checks see either file.
+  if [[ -n "$SIGN_KEY" ]]; then
+    "$ROOT/packages/ooonana/usr/bin/ooonana" repo index --sign-key "$SIGN_KEY" "$OUT_DIR" >/dev/null
+  elif [[ -e "$OUT_DIR/SHA256SUMS.sig" ]]; then
+    ooonana_die "signed staging refresh requires --sign-key; existing signature cannot be reused"
+  else
+    "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$OUT_DIR" >/dev/null
+  fi
 }
 
 main() {
@@ -235,6 +249,8 @@ main() {
   profile_packages="$(load_profile_packages "$PACKAGE_PROFILE" | tr '\n' ' ')"
   package_list="$(normalize_package_list "$profile_packages" "$PACKAGES")"
   [[ -n "$package_list" ]] || ooonana_die "no packages requested"
+  common_packages="$(sed 's/#.*//' "$COMMON_PROFILE" | xargs)"
+  common_apks="$(printf '%s\n' "$common_packages" | tr ' ' '\n' | awk '$0!="neofetch"' | xargs)"
 
   repo_args=()
   for repo in $ALPINE_REPOS; do
@@ -275,7 +291,8 @@ main() {
       printf 'bunanachat: skipped (source missing: %s)\n' "$BUNANACHAT_SOURCE_DIR"
     fi
     ooonana_print_command bash "$WINE_COMPAT_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$WINE_COMPAT_PACKAGE_VERSION"
-    ooonana_print_command bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --no-index $(sed 's/#.*//' "$COMMON_PROFILE" | xargs)
+    ooonana_print_command bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --no-index $common_apks
+    printf 'neofetch: native core runtime compatibility bundle %s\n' "$CORE_PACKAGE_VERSION"
     ooonana_print_command bash "$ROOT/scripts/build-firefox-package.sh" --out-dir "$OUT_DIR"
     if [[ -f "$WINDOWS_CHAT_SOURCE" ]]; then
       ooonana_print_command bash "$WINDOWS_CHAT_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$WINDOWS_CHAT_PACKAGE_VERSION" --source "$WINDOWS_CHAT_SOURCE"
@@ -286,6 +303,9 @@ main() {
   fi
 
   [[ ! -f "$OUT_DIR/CURRENT" ]] || ooonana_die "published generations are immutable; build in separate staging directory"
+  if [[ "$CLEAN" -eq 0 && -e "$OUT_DIR/SHA256SUMS.sig" && -z "$SIGN_KEY" ]]; then
+    ooonana_die "signed staging refresh requires --sign-key; existing signature cannot be reused"
+  fi
   [[ "$CLEAN" -eq 1 ]] && rm -rf "$OUT_DIR"
   mkdir -p "$OUT_DIR"
   if [[ "$FULL_I3" -eq 1 ]]; then
@@ -298,10 +318,19 @@ main() {
   # profile. Import their dependencies without adding them to the desktop bundle.
   # shellcheck disable=SC2086
   bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --no-index $NATIVE_APK_PACKAGES
-  common_packages="$(sed 's/#.*//' "$COMMON_PROFILE" | xargs)"
   # Optional catalog, deliberately outside desktop install profile.
   # shellcheck disable=SC2086
-  bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --no-index $common_packages
+  bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --no-index $common_apks
+  # Native lightweight neofetch already belongs to core runtime; upstream
+  # archived implementation is absent from the supported Alpine catalog.
+  cat > "$OUT_DIR/neofetch.pkg" <<EOF
+OOONANA_PKG_ID="neofetch"
+OOONANA_PKG_VERSION="$CORE_PACKAGE_VERSION"
+OOONANA_PKG_KIND="bundle"
+OOONANA_PKG_SUMMARY="Ooonana lightweight native system information command"
+OOONANA_PKG_DEPS="ooonana-core-runtime"
+OOONANA_PKG_NOTES="Native compatibility command, not archived upstream Neofetch; use fastfetch for richer reports"
+EOF
   bash "$ROOT/scripts/build-firefox-package.sh" --out-dir "$OUT_DIR"
   if [[ -n "$KERNEL_PACKAGE_PATH" || -n "$KERNEL_PACKAGE_URL" ]]; then
     kernel_source="$KERNEL_PACKAGE_PATH"
@@ -355,16 +384,13 @@ main() {
     chmod 0644 "$OUT_DIR/repo.pub"
   fi
   python3 "$ROOT/scripts/record-release-manifest.py" --repo "$OUT_DIR"
-  "$ROOT/packages/ooonana/usr/bin/ooonana" repo index "$OUT_DIR" >/dev/null
+  index_verified_repo
   native_packages="ooonana-core openvino-chat devicechat wine firefox"
   [[ "$bunanachat_built" -eq 1 ]] && native_packages="$native_packages bunanachat"
   [[ "$windows_chat_built" -eq 1 ]] && native_packages="$native_packages ooonana-chat-windows"
   verify_repo_packages $native_packages $common_packages
   if [[ "$FULL_I3" -eq 1 ]]; then
     verify_repo_profile full-i3
-  fi
-  if [[ -n "$SIGN_KEY" ]]; then
-    "$ROOT/packages/ooonana/usr/bin/ooonana" repo index --sign-key "$SIGN_KEY" "$OUT_DIR" >/dev/null
   fi
   write_cloud_hints
   ooonana_log "package repo ready: $OUT_DIR"

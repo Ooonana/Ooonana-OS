@@ -34,6 +34,8 @@ DEFAULT_MODEL = "nvidia/nemotron-3-super-120b-a12b"
 DEFAULT_PROVIDER = "nim"
 DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
+DEFAULT_OPENAI_MODEL = "gpt-6-luna"
 DEFAULT_OPENVINO_BASE_URL = "http://127.0.0.1:11435/v1"
 DEFAULT_OPENVINO_MODEL = "qwen3.5-9b-int4-ov"
 CONFIG_PATH = Path(os.environ.get("OOONANA_AI_CONFIG", "~/.config/ooonana/ai.env")).expanduser()
@@ -46,7 +48,7 @@ Identity:
 - Your name is Ooonana.
 - If asked who you are, answer as Ooonana.
 - You are not Gemini, Claude, ChatGPT, Google, NVIDIA NIM, or OpenVINO.
-- NVIDIA NIM, Google Gemini, and local OpenVINO are model providers behind the app.
+- NVIDIA NIM, Google Gemini, OpenAI, and local OpenVINO are model providers behind the app.
 
 Environment:
 - You live in a Linux terminal and are designed for Ooonana OS, WSL, and shell-first workflows.
@@ -129,10 +131,12 @@ OPENVINO_POPULAR_MODELS = [
 PROVIDER_LABELS = {
     "nim": "NVIDIA NIM",
     "gemini": "Google Gemini",
+    "openai": "OpenAI",
     "openvino": "OpenVINO Local",
 }
 
 DEFAULT_MODEL_ALIASES = {
+    "openai": {"fast": DEFAULT_OPENAI_MODEL, "code": "gpt-6.1-sol", "deep": "gpt-6-astra"},
     "nim": {
         "fast": "qwen/qwen3-next-80b-a3b-instruct",
         "code": "qwen/qwen3-coder-480b-a35b-instruct",
@@ -220,6 +224,9 @@ def load_config(path: Path) -> dict[str, str]:
         "NVIDIA_NIM_API_KEY",
         "GEMINI_API_KEY",
         "GOOGLE_API_KEY",
+        "OPENAI_API_KEY",
+        "OPENAI_BASE_URL",
+        "OOONANA_OPENAI_MODEL",
         "OOONANA_AI_PROVIDER",
         "OOONANA_NIM_BASE_URL",
         "OOONANA_NIM_MODEL",
@@ -245,6 +252,7 @@ def load_config(path: Path) -> dict[str, str]:
             key in fixed_keys
             or key.startswith("OOONANA_MODEL_")
             or key.startswith("OOONANA_GEMINI_MODEL_")
+            or key.startswith("OOONANA_OPENAI_MODEL_")
             or key.startswith("OOONANA_OPENVINO_MODEL_")
         ):
             values[key] = value
@@ -273,13 +281,17 @@ def selected_provider(config: dict[str, str], override: str = "") -> str:
     if provider == "auto":
         if gemini_api_key(config) and not api_key(config):
             return "gemini"
+        if config.get("OPENAI_API_KEY") and not api_key(config):
+            return "openai"
         return DEFAULT_PROVIDER
     if provider not in PROVIDER_LABELS:
-        raise OoonanaError("provider must be nim, gemini, openvino, or auto")
+        raise OoonanaError("provider must be nim, gemini, openai, openvino, or auto")
     return provider
 
 
 def provider_api_key(config: dict[str, str], provider: str) -> str:
+    if provider == "openai":
+        return config.get("OPENAI_API_KEY", "")
     if provider == "openvino":
         return "local"
     if provider == "gemini":
@@ -288,6 +300,8 @@ def provider_api_key(config: dict[str, str], provider: str) -> str:
 
 
 def provider_base_url(config: dict[str, str], provider: str) -> str:
+    if provider == "openai":
+        return config_value(config, "OPENAI_BASE_URL", DEFAULT_OPENAI_BASE_URL)
     if provider == "openvino":
         return config_value(config, "OOONANA_OPENVINO_BASE_URL", DEFAULT_OPENVINO_BASE_URL)
     if provider == "gemini":
@@ -296,6 +310,8 @@ def provider_base_url(config: dict[str, str], provider: str) -> str:
 
 
 def missing_key_message(provider: str) -> str:
+    if provider == "openai":
+        return "AI config missing OPENAI_API_KEY"
     if provider == "openvino":
         return "OpenVINO local API unavailable: run openvino api start"
     if provider == "gemini":
@@ -311,12 +327,15 @@ def setup_config(path: Path) -> None:
             path.write_text(
                 textwrap.dedent(
                     f"""\
-                    # Ooonana AI uses NVIDIA NIM, Google Gemini, or local OpenVINO.
+                    # Ooonana AI uses NVIDIA NIM, Google Gemini, OpenAI, or local OpenVINO.
                     # Get a key from https://build.nvidia.com/settings/api-keys
                     # Get a Gemini key from https://aistudio.google.com/app/apikey
                     OOONANA_AI_PROVIDER=nim
                     NVIDIA_API_KEY=
                     GEMINI_API_KEY=
+                    OPENAI_API_KEY=
+                    OPENAI_BASE_URL={DEFAULT_OPENAI_BASE_URL}
+                    OOONANA_OPENAI_MODEL={DEFAULT_OPENAI_MODEL}
                     OOONANA_NIM_BASE_URL={DEFAULT_BASE_URL}
                     OOONANA_NIM_MODEL={DEFAULT_MODEL}
                     OOONANA_GEMINI_BASE_URL={DEFAULT_GEMINI_BASE_URL}
@@ -801,7 +820,19 @@ def request_payload(args: argparse.Namespace, config: dict[str, str], messages: 
         return gemini_request_payload(args, config, messages, stream=stream, include_meta=True)
     if provider == "openvino":
         return openvino_request_payload(args, config, messages, stream=stream, include_meta=True)
+    if provider == "openai":
+        return openai_request_payload(args, config, messages, stream=stream, include_meta=True)
     return nim_request_payload(args, config, messages, stream=stream, include_meta=True)
+
+
+def openai_request_payload(args, config, messages, stream, include_meta=False):
+    model = resolve_model(args.model, config, "openai")
+    payload = {"model": model, "messages": messages,
+               "max_completion_tokens": max_tokens(config), "stream": stream}
+    if model == "gpt-6-luna" or model.startswith("gpt-6-luna-"):
+        payload["reasoning_effort"] = "none"
+    # Reasoning models do not uniformly accept temperature. Leave its default.
+    return {"provider": "openai", **payload} if include_meta else payload
 
 
 def nim_request_payload(
@@ -879,6 +910,8 @@ def gemini_request_payload(
 
 
 def model_default_env_key(provider: str) -> str:
+    if provider == "openai":
+        return "OOONANA_OPENAI_MODEL"
     if provider == "openvino":
         return "OOONANA_OPENVINO_MODEL"
     if provider == "gemini":
@@ -887,6 +920,8 @@ def model_default_env_key(provider: str) -> str:
 
 
 def model_default(config: dict[str, str], provider: str) -> str:
+    if provider == "openai":
+        return config_value(config, "OOONANA_OPENAI_MODEL", DEFAULT_OPENAI_MODEL)
     if provider == "openvino":
         return config_value(config, "OOONANA_OPENVINO_MODEL", DEFAULT_OPENVINO_MODEL)
     if provider == "gemini":
@@ -898,8 +933,8 @@ def model_alias_env_key(alias: str, provider: str = "nim") -> str:
     normalized = normalize_model_alias(alias)
     if normalized == "default":
         return model_default_env_key(provider)
-    if provider == "openvino":
-        prefix = "OOONANA_OPENVINO_MODEL_"
+    if provider in ("openvino", "openai"):
+        prefix = f"OOONANA_{provider.upper()}_MODEL_"
     else:
         prefix = "OOONANA_GEMINI_MODEL_" if provider == "gemini" else "OOONANA_MODEL_"
     return prefix + normalized.upper().replace("-", "_")
@@ -909,8 +944,8 @@ def model_aliases(config: dict[str, str], provider: str = "nim") -> dict[str, st
     aliases: dict[str, str] = {"default": model_default(config, provider)}
     for alias, default_model in DEFAULT_MODEL_ALIASES[provider].items():
         aliases[alias] = config.get(model_alias_env_key(alias, provider), default_model)
-    if provider == "openvino":
-        prefix = "OOONANA_OPENVINO_MODEL_"
+    if provider in ("openvino", "openai"):
+        prefix = f"OOONANA_{provider.upper()}_MODEL_"
     else:
         prefix = "OOONANA_GEMINI_MODEL_" if provider == "gemini" else "OOONANA_MODEL_"
     extras: list[tuple[str, str]] = []
@@ -940,7 +975,9 @@ def print_model_aliases(config: dict[str, str], provider: str) -> None:
 def print_model_catalog(config: dict[str, str], provider: str) -> None:
     print_model_aliases(config, provider)
     print("popular:")
-    if provider == "openvino":
+    if provider == "openai":
+        models = list(DEFAULT_MODEL_ALIASES["openai"].values())
+    elif provider == "openvino":
         models = OPENVINO_POPULAR_MODELS
     else:
         models = GEMINI_POPULAR_MODELS if provider == "gemini" else POPULAR_MODELS
@@ -998,7 +1035,53 @@ def call_model(args: argparse.Namespace, config: dict[str, str], messages: list[
         return call_gemini(args, config, messages, stream)
     if provider == "openvino":
         return call_openvino(args, config, messages, stream)
+    if provider == "openai":
+        return call_openai(args, config, messages, stream)
     return call_nim(args, config, messages, stream)
+
+
+def call_openai(args, config, messages, stream):
+    key = provider_api_key(config, "openai")
+    if not key:
+        raise OoonanaError(missing_key_message("openai"))
+    request = urllib.request.Request(
+        completions_url(provider_base_url(config, "openai")),
+        data=json.dumps(openai_request_payload(args, config, messages, stream)).encode("utf-8"),
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json",
+                 "Accept": "text/event-stream" if stream else "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(request, timeout=float(os.environ.get("OOONANA_AI_TIMEOUT", "120"))) as response:
+            if stream:
+                return read_streaming_response(response)
+            data = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        try:
+            detail = json.loads(error.read()).get("error", {})
+            code = detail.get("code") or detail.get("type") or "request_failed"
+        except (ValueError, AttributeError):
+            code = "request_failed"
+        if code in ("insufficient_quota", "credit_balance_exhausted"):
+            message = "API credits exhausted; check https://platform.openai.com/settings/organization/billing"
+        elif code == "rate_limit_exceeded":
+            message = "Request rate limited; wait before retrying"
+        elif error.code in (403, 404):
+            message = "Check model availability and project access"
+        elif error.code == 401:
+            message = "Check OPENAI_API_KEY and project access"
+        else:
+            message = "Request failed; check provider status and configuration"
+        raise OoonanaError(f"OpenAI HTTP {error.code}: {message}") from error
+    except urllib.error.URLError as error:
+        raise OoonanaError("OpenAI connection failed; check network access") from error
+    except (ValueError, UnicodeError) as error:
+        raise OoonanaError("OpenAI returned an invalid response; retry after checking provider status") from error
+    try:
+        text = data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as error:
+        raise OoonanaError("OpenAI response did not include chat content") from error
+    if not isinstance(text, str) or not text:
+        raise OoonanaError("OpenAI returned no text; check model and output-token limit")
+    return text
 
 
 def call_gemini(args: argparse.Namespace, config: dict[str, str], messages: list[dict[str, str]], stream: bool) -> str:
@@ -1210,12 +1293,12 @@ def cmd_provider(args: argparse.Namespace) -> int:
         return 0
     if action == "set":
         if args.value not in PROVIDER_LABELS:
-            raise OoonanaError("provider must be nim, gemini, or openvino")
+            raise OoonanaError("provider must be nim, gemini, openai, or openvino")
         write_env_updates(path, {"OOONANA_AI_PROVIDER": args.value})
         print(f"provider: {args.value}")
         print(f"config: {path}")
         return 0
-    raise OoonanaError("usage: ooonana-ai provider [show|set nim|set gemini|set openvino]")
+    raise OoonanaError("usage: ooonana-ai provider [show|set nim|set gemini|set openai|set openvino]")
     return 0
 
 
@@ -1473,9 +1556,9 @@ def cmd_config(args: argparse.Namespace) -> int:
     path = Path(args.config).expanduser()
     config = load_config(path)
     safe = dict(config)
-    for key in ("NVIDIA_API_KEY", "NVIDIA_NIM_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"):
+    for key in ("NVIDIA_API_KEY", "NVIDIA_NIM_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENAI_API_KEY"):
         if key in safe and safe[key]:
-            safe[key] = (safe[key][:8] + "...redacted") if len(safe[key]) > 12 else "...redacted"
+            safe[key] = "...redacted"
     print(f"config: {path}")
     print(json.dumps(safe, indent=2, sort_keys=True))
     return 0
@@ -1647,11 +1730,11 @@ def cmd_chat(args: argparse.Namespace) -> int:
             if command == "/provider":
                 if len(parts) == 1:
                     print(f"active provider: {provider}")
-                    print("available: nim, gemini")
+                    print("available: nim, gemini, openai, openvino")
                     continue
                 if len(parts) == 3 and parts[1] == "set":
                     if parts[2] not in PROVIDER_LABELS:
-                        print("usage: /provider set nim|gemini|openvino")
+                        print("usage: /provider set nim|gemini|openai|openvino")
                         continue
                     provider = parts[2]
                     write_env_updates(Path(args.config).expanduser(), {"OOONANA_AI_PROVIDER": provider})
@@ -1659,7 +1742,7 @@ def cmd_chat(args: argparse.Namespace) -> int:
                     model = resolve_model("", config, provider)
                     print(f"provider: {provider}")
                     continue
-                print("usage: /provider [set nim|gemini|openvino]")
+                print("usage: /provider [set nim|gemini|openai|openvino]")
                 continue
             if command == "/models":
                 print_model_catalog(config, provider)
@@ -1756,7 +1839,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="ooonana ai", description="Ooonana AI CLI for NVIDIA NIM, Google Gemini, and local OpenVINO")
     parser.add_argument("--config", default=str(CONFIG_PATH), help="config env file")
     parser.add_argument("--state-dir", default=str(STATE_PATH), help="history/session state directory")
-    parser.add_argument("--provider", default="", choices=("nim", "gemini", "openvino", "auto", ""), help="provider override")
+    parser.add_argument("--provider", default="", choices=("nim", "gemini", "openai", "openvino", "auto", ""), help="provider override")
     subparsers = parser.add_subparsers(dest="command")
 
     subparsers.add_parser("setup", help="create config file")
@@ -1766,7 +1849,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("models", help="show useful provider model ids")
     provider = subparsers.add_parser("provider", help="show or change provider")
     provider.add_argument("action", nargs="?", default="show", choices=("show", "set"), help="provider action")
-    provider.add_argument("value", nargs="?", default="", choices=("nim", "gemini", "openvino", ""), help="provider name")
+    provider.add_argument("value", nargs="?", default="", choices=("nim", "gemini", "openai", "openvino", ""), help="provider name")
     model = subparsers.add_parser("model", help="show or change default model")
     model.add_argument("action", nargs="?", default="show", choices=("show", "list", "set", "use", "alias"), help="model action")
     model.add_argument("values", nargs="*", help="model id or alias values")

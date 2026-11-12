@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 """Sudo askpass: secret goes only to sudo-owned pipe, never to logs or state."""
 import sys
+import os
 sys.path.insert(0, "/usr/lib/ooonana/ui")
 from common import Gtk, apply_theme, header, label
 
@@ -13,11 +14,26 @@ area.set_border_width(20)
 area.set_spacing(12)
 area.pack_start(label("Enter your account password."), False, False, 0)
 entry = Gtk.Entry()
+entry.get_accessible().set_name("Account password")
 entry.set_visibility(False)
 entry.set_input_purpose(Gtk.InputPurpose.PASSWORD)
 entry.set_activates_default(True)
 area.pack_start(entry, False, False, 0)
 dialog.set_default_response(Gtk.ResponseType.OK)
+
+# Parent hint affects presentation only. Sudo/PAM still authenticate the user.
+parent_xid = os.environ.get("OOONANA_PARENT_XID", "")
+if 1 <= len(parent_xid) <= 10 and parent_xid.isascii() and parent_xid.isdecimal() and 0 < int(parent_xid) <= 0xffffffff:
+    from gi.repository import GdkX11
+    dialog.realize()
+    display = dialog.get_display()
+    display.error_trap_push()
+    try:
+        parent = GdkX11.X11Window.foreign_new_for_display(display, int(parent_xid))
+        if parent is not None:
+            dialog.get_window().set_transient_for(parent)
+    finally:
+        display.error_trap_pop()
 dialog.show_all()
 entry.grab_focus()
 accepted = dialog.run() == Gtk.ResponseType.OK

@@ -5,12 +5,13 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/common.sh
 source "$ROOT/scripts/lib/common.sh"
 
-DEFAULT_REPO_URLS="https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64 https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64"
+DEFAULT_REPO_URLS="$(ooonana_alpine_repositories)"
 REPO_URLS=""
 OUT_DIR="$ROOT/packages/ooonana/usr/lib/ooonana/repo"
 ARCH="x86_64"
 PACKAGES=""
 INDEX_REPO=1
+RESOLVE_DEPS=1
 
 usage() {
   cat <<'USAGE'
@@ -21,10 +22,11 @@ Usage:
 
 Options:
   --repo-url URL   Alpine package repo URL or path. Can be repeated.
-                   (default: Alpine v3.20 main and community x86_64)
+                   (default: Alpine v3.24 main and community x86_64)
   --out-dir PATH   Ooonana repo output directory
   --arch ARCH      Expected Alpine arch (default: x86_64)
   --no-index       Leave repo indexing to caller
+  --no-deps        Import named packages only; retain declared runtime dependencies
   -h, --help       Show help
 USAGE
 }
@@ -35,6 +37,7 @@ while [[ $# -gt 0 ]]; do
     --out-dir) OUT_DIR="$2"; shift 2 ;;
     --arch) ARCH="$2"; shift 2 ;;
     --no-index) INDEX_REPO=0; shift ;;
+    --no-deps) RESOLVE_DEPS=0; shift ;;
     -h|--help) usage; exit 0 ;;
     *) PACKAGES="$PACKAGES $1"; shift ;;
   esac
@@ -161,7 +164,10 @@ write_pkg_metadata() {
   local archive_rel="$5"
   local archive_sha="$6"
   local origin="$7"
+  local base="${8:-}"
   local pkg_file="$OUT_DIR/$name.pkg"
+  local components="apk-import alpine $ARCH"
+  [[ "$name" != linux-pam ]] || components="$components pam-helper-root-v1"
   cat > "$pkg_file" <<EOF
 OOONANA_PKG_ID="$(shell_escape "$name")"
 OOONANA_PKG_VERSION="$(shell_escape "$version")"
@@ -170,7 +176,8 @@ OOONANA_PKG_SUMMARY="$(shell_escape "$summary")"
 OOONANA_PKG_DEPS="$(shell_escape "$deps")"
 OOONANA_PKG_ARCHIVE="$(shell_escape "$archive_rel")"
 OOONANA_PKG_SHA256="$(shell_escape "$archive_sha")"
-OOONANA_PKG_COMPONENTS="apk-import alpine $(shell_escape "$ARCH")"
+OOONANA_PKG_COMPONENTS="$(shell_escape "$components")"
+OOONANA_PKG_BASE="$(shell_escape "$base")"
 OOONANA_PKG_NOTES="Imported from Alpine package $(shell_escape "$origin")"
 EOF
 }
@@ -201,11 +208,21 @@ reuse_cached_archive() {
 
 import_one() {
   local name="$1"
-  local version apk_arch origin summary raw_deps deps archive_name archive_rel archive_path apk_repo
+  local version package_version apk_arch origin summary raw_deps deps archive_name archive_rel archive_path apk_repo base branch
   version="$(apk_field "$name" V)"
   [[ -n "$version" ]] || ooonana_die "package not found in APKINDEX: $name"
+  package_version="$version"
+  [[ "$name" != linux-pam ]] || package_version="$version.ooonana1"
   apk_repo="$(apk_field "$name" X)"
   [[ -n "$apk_repo" ]] || ooonana_die "package repo missing in APKINDEX: $name"
+  base=""
+  case "$apk_repo" in
+    https://dl-cdn.alpinelinux.org/alpine/v*)
+      branch="${apk_repo#https://dl-cdn.alpinelinux.org/alpine/}"
+      branch="${branch%%/*}"
+      [[ ! "$branch" =~ ^v[0-9]+\.[0-9]+$ ]] || base="alpine-$branch"
+      ;;
+  esac
   apk_arch="$(apk_field "$name" A)"
   [[ -z "$apk_arch" || "$apk_arch" == "$ARCH" ]] || ooonana_die "wrong arch for $name: $apk_arch"
   origin="$(apk_field "$name" o)"
@@ -219,15 +236,14 @@ import_one() {
   archive_rel="archives/$name-$version.tar.gz"
   archive_path="$OUT_DIR/$archive_rel"
   mkdir -p "$OUT_DIR/archives" "$WORK/extract-$name"
-  if reuse_cached_archive "$OUT_DIR/$name.pkg" "$archive_path" "$version" "$archive_rel"; then
+  if reuse_cached_archive "$OUT_DIR/$name.pkg" "$archive_path" "$package_version" "$archive_rel"; then
     archive_sha="$(sha256sum "$archive_path" | awk '{print $1}')"
-    write_pkg_metadata "$name" "$version" "$summary" "$deps" "$archive_rel" "$archive_sha" "$origin"
+    write_pkg_metadata "$name" "$package_version" "$summary" "$deps" "$archive_rel" "$archive_sha" "$origin" "$base"
     for dep in $deps; do
       printf '%s\n' "$dep"
     done
     return 0
   fi
-  rm -f "$archive_path"
   fetch_url "$(repo_join "$apk_repo" "$archive_name")" "$WORK/$archive_name"
   rm -rf "$WORK/extract-$name"
   mkdir -p "$WORK/extract-$name"
@@ -239,7 +255,15 @@ import_one() {
     -name '.post-*' -o \
     -name '.trigger' \
   \) -exec rm -f {} +
-  tar \
+  if [[ "$name" == linux-pam ]]; then
+    # Ooonana imports normalize owners/groups to root and keep shadow 0600.
+    # Upstream SGID-shadow would become SGID-root, unable to read that file.
+    # Linux-PAM supports SUID-root for its current-user-only check helper.
+    local pam_helper="$WORK/extract-$name/usr/sbin/unix_chkpwd"
+    [[ -f "$pam_helper" && ! -L "$pam_helper" ]] || ooonana_die "linux-pam password helper missing or linked"
+    chmod 4755 "$pam_helper"
+  fi
+  ooonana_tar_gzip_atomic "$archive_path" \
     --sort=name \
     --mtime='UTC 1970-01-01' \
     --numeric-owner \
@@ -248,10 +272,10 @@ import_one() {
     --pax-option=delete=atime,delete=ctime \
     -C "$WORK/extract-$name" \
     -cf - \
-    . | gzip -n > "$archive_path"
+    .
   chmod a+rw "$archive_path"
   archive_sha="$(sha256sum "$archive_path" | awk '{print $1}')"
-  write_pkg_metadata "$name" "$version" "$summary" "$deps" "$archive_rel" "$archive_sha" "$origin"
+  write_pkg_metadata "$name" "$package_version" "$summary" "$deps" "$archive_rel" "$archive_sha" "$origin" "$base"
   for dep in $deps; do
     printf '%s\n' "$dep"
   done
@@ -305,7 +329,11 @@ main() {
       continue
     fi
     printf '%s\n' "$pkg" >> "$imported"
-    import_one "$pkg" >> "$queue"
+    if [[ "$RESOLVE_DEPS" -eq 1 ]]; then
+      import_one "$pkg" >> "$queue"
+    else
+      import_one "$pkg" >/dev/null
+    fi
   done < "$queue"
 
   if [[ "$INDEX_REPO" -eq 1 ]]; then

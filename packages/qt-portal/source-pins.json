@@ -1,0 +1,13 @@
+{
+  "version": "6.11.1",
+  "source_url": "https://raw.githubusercontent.com/qt/qtbase/v6.11.1/src/plugins/platformthemes/xdgdesktopportal/",
+  "original_plugin_sha256": "89d8d20395998b1918302f57d41d5bb0cdeb74030c74732b230c2c6026f47bd7",
+  "files": {
+    "main.cpp": "98c3c2498456b53b8ef8e5e630f3ca346e264ca10bb69511aa0f85a3efe88246",
+    "qxdgdesktopportalfiledialog.cpp": "3041fe52b1785c6463cc15b05728632d61ed27c062cb26a9e5b1f39e2876ef17",
+    "qxdgdesktopportalfiledialog_p.h": "7608ee1bea8eabb047739d3c9d163ff092b6c199ea0e8dcf5dd4e2eccdc01b91",
+    "qxdgdesktopportaltheme.cpp": "966a0bf288d6b09493c64298fde824804643d16432dab4fe526abf48c7ada299",
+    "qxdgdesktopportaltheme.h": "93fdca887e42a97a1fdf37b00e2b0942fae30d2803dd59bf343e498189b990a5",
+    "xdgdesktopportal.json": "bfa0eabc8ee1db1b9e4fecb81b6b1ff97faafa8385d65e8e16ade7945db8a838"
+  }
+}

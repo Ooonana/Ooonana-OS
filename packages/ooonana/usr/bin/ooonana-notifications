@@ -5,6 +5,7 @@ if [ "${1:-}" = --dry-run ]; then
   exit 0
 fi
 if [ -n "${DISPLAY:-}" ] && command -v python3 >/dev/null 2>&1; then
+  if [ "$#" -eq 0 ]; then exec ooonana-shell notifications; fi
   exec python3 /usr/lib/ooonana/ui/notifications_app.py "$@"
 fi
 exec python3 /usr/lib/ooonana/ui/notification_utils.py

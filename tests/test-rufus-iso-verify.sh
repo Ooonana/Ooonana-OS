@@ -175,7 +175,8 @@ REPORT
       *) cp "$OOONANA_FAKE_ROOT/theme.txt" "$last" ;;
     esac
     ;;
-  *"-extract /boot/grub/background.png"*)
+  *"-extract /boot/grub/background.png"*|*"-extract /boot/grub/boot-mark.png"*)
+    case "$*" in *boot-mark.png*) [ "${OOONANA_FAKE_MISSING_MARK:-0}" != 1 ] || exit 1 ;; esac
     for arg in "$@"; do
       last="$arg"
     done
@@ -208,6 +209,19 @@ assert_contains "$out" "OOONANA_RUFUS_ISO_OK"
 
 minimal_out="$(OOONANA_FAKE_ROOT="$tmp" OOONANA_FAKE_EDITION=minimal PATH="$tmp/bin:$PATH" bash "$SCRIPT" --iso "$tmp/min.iso" --edition minimal)"
 assert_contains "$minimal_out" "OOONANA_RUFUS_ISO_OK"
+
+# Current compact countdown and earlier bar themes are both supported.
+sed -i 's/+ progress_bar {/+ label {/; /fg_color =/d; /bg_color =/d; /id = "__timeout__"/a\  text = "Starting in %d s"' "$tmp/theme.txt"
+compact_out="$(OOONANA_FAKE_ROOT="$tmp" OOONANA_FAKE_EDITION=full-i3 PATH="$tmp/bin:$PATH" bash "$SCRIPT" --iso "$tmp/full.iso")"
+assert_contains "$compact_out" "OOONANA_RUFUS_ISO_OK"
+sed -i 's/ooonana-logo-1/ooonana-brand-mark/; s/ooonana-logo-8/ooonana-brand-name/; /id = "ooonana-brand-mark"/a\  file = "boot-mark.png"' "$tmp/theme.txt"
+image_out="$(OOONANA_FAKE_ROOT="$tmp" OOONANA_FAKE_EDITION=full-i3 PATH="$tmp/bin:$PATH" bash "$SCRIPT" --iso "$tmp/full.iso")"
+assert_contains "$image_out" "OOONANA_RUFUS_ISO_OK"
+if OOONANA_FAKE_ROOT="$tmp" OOONANA_FAKE_EDITION=full-i3 OOONANA_FAKE_MISSING_MARK=1 \
+  PATH="$tmp/bin:$PATH" bash "$SCRIPT" --iso "$tmp/full.iso" >"$tmp/missing-mark.log" 2>&1; then
+  fail 'verifier accepted graphical theme without mascot image'
+fi
+grep -qF 'boot mark image missing' "$tmp/missing-mark.log" || fail 'missing-image failure unclear'
 
 if OOONANA_FAKE_ROOT="$tmp" OOONANA_FAKE_EDITION=full-i3 OOONANA_FAKE_MISSING_PAYLOAD=1 \
   PATH="$tmp/bin:$PATH" bash "$SCRIPT" --iso "$tmp/full.iso" >"$tmp/missing.log" 2>&1; then

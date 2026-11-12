@@ -38,6 +38,7 @@ mkdir -p "$tmp/rootfs/usr/share/ooonana"
 cat > "$tmp/bin/cpio" <<'EOF'
 #!/bin/sh
 cat >/dev/null
+cmp -s "$OOONANA_EXPECT_DMC" lib/firmware/i915/adlp_dmc.bin.zst || exit 1
 printf 'fake cpio\n'
 EOF
 chmod +x "$tmp/bin/cpio"
@@ -72,6 +73,7 @@ printf 'sof\n' > "$tmp/rootfs/lib/firmware/intel/sof-ipc4/mtl/sof-mtl.ri"
 printf 'rtlbt\n' > "$tmp/rootfs/lib/firmware/rtl_bt/rtl8761bu_fw.bin"
 printf 'rtw89\n' > "$tmp/rootfs/lib/firmware/rtw89/rtw8852b_fw.bin"
 printf 'i915\n' > "$tmp/rootfs/lib/firmware/i915/adlp_dmc.bin"
+printf 'compressed-i915-fixture\n' > "$tmp/rootfs/lib/firmware/i915/adlp_dmc.bin.zst"
 printf 'amdgpu\n' > "$tmp/rootfs/lib/firmware/amdgpu/test.bin"
 printf 'radeon\n' > "$tmp/rootfs/lib/firmware/radeon/test.bin"
 printf 'full-i3\n' > "$tmp/rootfs/etc/ooonana/edition"
@@ -83,7 +85,7 @@ echo start
 EOF
 chmod +x "$tmp/rootfs/usr/bin/start-ooonana-i3"
 
-PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
+OOONANA_EXPECT_DMC="$tmp/rootfs/lib/firmware/i915/adlp_dmc.bin.zst" PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
   --rootfs "$tmp/rootfs" \
   --rootfs-image "$tmp/live-rootfs.ext4" \
   --kernel "$tmp/vmlinuz" \
@@ -113,15 +115,14 @@ assert_contains "$script_src" 'mount --move /mnt/iso'
 assert_contains "$script_src" 'mount --move /persist'
 assert_contains "$script_src" 'mode=0700,nosuid,nodev,size=8m'
 assert_contains "$script_src" '/mnt/ooonana-shutdown/bin/busybox init'
-assert_contains "$script_src" "splash \"starting live boot\" 1"
-assert_contains "$script_src" "splash \"finding boot media\" 2"
-assert_contains "$script_src" "splash \"starting desktop\" 9"
-assert_contains "$script_src" "center_line"
-assert_contains "$script_src" "draw_logo"
+assert_contains "$script_src" 'ooonana_console_stage "Starting live session"'
+assert_contains "$script_src" 'ooonana_console_stage "Finding boot media"'
+assert_contains "$script_src" 'ooonana_console_stage "Starting system services"'
+assert_contains "$script_src" 'ooonana_console_wait 1'
+assert_contains "$script_src" '"$shutdown_root/console-ui.sh"'
+assert_contains "$script_src" '"$shutdown_root/boot-logo.txt"'
 assert_contains "$script_src" "boot-logo.txt"
-assert_contains "$script_src" "stty size"
-assert_contains "$script_src" "start_row"
-assert_contains "$script_src" "P3ffb21a"
+assert_contains "$script_src" 'ooonana_console_end'
 assert_contains "$script_src" 'mount -t ext4 -o ro,noload "$candidate"'
 assert_contains "$script_src" "/sys/class/block/*"
 assert_contains "$script_src" "boot_media_candidate()"
@@ -220,4 +221,5 @@ assert_contains "$kernel_fragment" "CONFIG_INTEL_MEI_ME=y"
 sh "$ROOT/tests/test-live-boot-storage.sh"
 sh "$ROOT/tests/test-live-persistence-file.sh"
 PYTHONDONTWRITEBYTECODE=1 python3 "$ROOT/tests/test-iso-boot-uuid.py"
+PYTHONDONTWRITEBYTECODE=1 python3 "$ROOT/tests/test-console-ui.py"
 printf 'ok full-i3-live-initramfs\n'

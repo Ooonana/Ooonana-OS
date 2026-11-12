@@ -19,6 +19,8 @@ sys.modules["common"] = SimpleNamespace(
     PangoCairo=SimpleNamespace(),
     header=lambda *_args, **_kwargs: None,
     label=lambda *_args, **_kwargs: None,
+    chart_colors=lambda: {},
+    flow_row=lambda *_args, **_kwargs: None,
 )
 
 from signal_map import SignalMapWindow  # noqa: E402

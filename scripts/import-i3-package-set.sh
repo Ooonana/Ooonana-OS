@@ -11,9 +11,12 @@ DEFAULT_I3_PROFILE="$ROOT/configs/packages/full-i3.list"
 I3_PACKAGES=""
 INCLUDE_OPENVINO=auto
 BRANDING_VERSION="0.1.3"
-SOF_REPO_URL="https://dl-cdn.alpinelinux.org/alpine/edge/community/x86_64"
+I3_BUNDLE_VERSION="0.1.7"
+SOF_REPO_URL="${OOONANA_SOF_REPO_URL:-https://dl-cdn.alpinelinux.org/alpine/$(ooonana_alpine_branch)/community/x86_64}"
 METADATA_ONLY=0
 INDEX_REPO=1
+I3_CONTROLS_BINARY="${OOONANA_I3_CONTROLS_BINARY:-}"
+I3LOCK_BINARY="${OOONANA_I3LOCK_BINARY:-}"
 
 usage() {
   cat <<'USAGE'
@@ -29,6 +32,8 @@ Options:
   --metadata-only     Refresh bundle metadata/index from packages already present
   --include-openvino  Include native OpenVINO Chat in the full-i3 install profile
   --no-index          Write package metadata without rebuilding repository index
+  --i3-controls-binary PATH  Repack pinned i3 with verified native-control build
+  --i3lock-binary PATH  Repack pinned locker with verified native presentation
   -h, --help          Show help
 USAGE
 }
@@ -41,6 +46,8 @@ while [[ $# -gt 0 ]]; do
     --metadata-only) METADATA_ONLY=1; shift ;;
     --include-openvino) INCLUDE_OPENVINO=1; shift ;;
     --no-index) INDEX_REPO=0; shift ;;
+    --i3-controls-binary) I3_CONTROLS_BINARY="$2"; shift 2 ;;
+    --i3lock-binary) I3LOCK_BINARY="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) ooonana_die "unknown option: $1" ;;
   esac
@@ -106,7 +113,7 @@ build_branding_archive() {
   install -m 0644 "$ROOT/branding/desktop-0.9.png" "$payload/usr/share/ooonana/wallpapers/ooonana-desktop-0.9.png"
   install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/wallpapers/ooonana-notes.jpg" "$payload/usr/share/ooonana/wallpapers/ooonana-notes.jpg"
   install -m 0644 "$ROOT/branding/i3/config" "$payload/etc/i3/config"
-  tar \
+  ooonana_tar_gzip_atomic "$archive_path" \
     --sort=name \
     --mtime='UTC 1970-01-01' \
     --numeric-owner \
@@ -115,12 +122,13 @@ build_branding_archive() {
     --pax-option=delete=atime,delete=ctime \
     -C "$payload" \
     -cf - \
-    . | gzip -n > "$archive_path"
+    . || return 1
   chmod a+rw "$archive_path"
   printf '%s\n' "$archive_rel"
 }
 
 main() {
+  local archive
   ooonana_require_linux
   ooonana_require_commands chmod cp gzip install mkdir sed sha256sum tar
   [[ -f "$ROOT/branding/logo.svg" ]] || ooonana_die "missing branding/logo.svg"
@@ -146,8 +154,8 @@ main() {
     # shellcheck disable=SC2086
     bash "$ROOT/scripts/import-apk-package.sh" "${REPO_ARGS[@]}" --out-dir "$OUT_DIR" --no-index $I3_PACKAGES
 
-    # Alpine v3.20 SOF predates Meteor Lake DMIC fixes. This package contains
-    # only firmware data, so importing it from edge does not mix userland ABIs.
+    # Supported stable SOF stays on the same branch as default userspace.
+    # Explicit data-only firmware overrides remain available for hardware QA.
     bash "$ROOT/scripts/import-apk-package.sh" \
       --repo-url "$SOF_REPO_URL" \
       --out-dir "$OUT_DIR" \
@@ -163,6 +171,24 @@ main() {
 
   work="$(mktemp -d)"
   trap 'rm -rf "$work"' EXIT
+  if [[ -n "$I3_CONTROLS_BINARY" ]]; then
+    mkdir "$work/native-i3"
+    python3 -B "$ROOT/scripts/build-i3-controls-package.py" --base "$OUT_DIR" \
+      --binary "$I3_CONTROLS_BINARY" --out-dir "$work/native-i3"
+    for archive in "$work/native-i3/archives/"*; do
+      ooonana_write_atomic "$OUT_DIR/archives/$(basename "$archive")" cat -- "$archive"
+    done
+    cp "$work/native-i3/i3wm.pkg" "$OUT_DIR/i3wm.pkg"
+  fi
+  if [[ -n "$I3LOCK_BINARY" ]]; then
+    mkdir "$work/native-lock"
+    python3 -B "$ROOT/scripts/build-i3lock-package.py" --base "$OUT_DIR" \
+      --binary "$I3LOCK_BINARY" --out-dir "$work/native-lock"
+    for archive in "$work/native-lock/archives/"*; do
+      ooonana_write_atomic "$OUT_DIR/archives/$(basename "$archive")" cat -- "$archive"
+    done
+    cp "$work/native-lock/i3lock.pkg" "$OUT_DIR/i3lock.pkg"
+  fi
   branding_archive="$(build_branding_archive "$work")"
   branding_sha="$(sha256sum "$OUT_DIR/$branding_archive" | awk '{print $1}')"
 
@@ -181,7 +207,7 @@ main() {
   write_pkg \
     "$OUT_DIR/i3.pkg" \
     "i3" \
-    "$BRANDING_VERSION" \
+    "$I3_BUNDLE_VERSION" \
     "bundle" \
     "Ooonana i3 desktop wrapper" \
     "$I3_PACKAGES" \

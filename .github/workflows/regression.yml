@@ -1,33 +1,56 @@
 name: Backend and desktop regression checks
 on:
   push:
-    branches: [main]
+    branches: [main, 'codex/**']
   pull_request:
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   regression:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
       - name: Backend, boot policy, kernel configuration, package safety
         env:
           PYTHONDONTWRITEBYTECODE: '1'
         run: |
           set -eu
           bash tests/test-backend-regressions.sh
+          bash tests/test-iso-launcher.sh
+          bash tests/test-wsl-distro.sh
+          PYTHONDONTWRITEBYTECODE=1 bash tests/test-rebuild-full-i3-release.sh
           python3 -B tests/test-service-watchdog.py
           python3 -B tests/test-service-readiness.py
           python3 -B tests/test-cgroup-memory.py
           python3 -B tests/test-backend-metrics-api.py
+          python3 -B tests/test-openvino-memory-errors.py
+          python3 -B tests/test-openvino-stream-cancel.py
+          python3 -B tests/test-openvino-transport.py
+          python3 -B tests/test-openvino-setup.py
+          bash tests/test-openvino-chat-package.sh
+          bash tests/test-ooonana-pdf.sh
           python3 -B tests/test-state-io-recovery.py
           python3 -B tests/test-ai-store-safety.py
+          python3 -B tests/test-ai-openai.py
+          python3 -B tests/test-desktop-package-caches.py
+          python3 -B tests/test-nemo-integration.py
           python3 -B tests/test-panel-session.py
+          python3 -B tests/test-tray-model.py
+          python3 -B tests/test-qt-portal.py
+          python3 -B tests/test-qt-package.py
+          python3 -B tests/test-pam-package.py
+          python3 -B tests/test-core-adoption.py
           python3 -B tests/test-installed-wsl-update.py
           python3 -B tests/test-pdf-runtime-reuse.py
+          python3 -B tests/test-native-pdf-probe.py
+          python3 -B tests/test-pdf-vm-harness.py
+          python3 -B tests/test-pdf-time-csr.py
+          python3 -B tests/test-cli-query-fast.py
+          python3 -B tests/test-browser-policy.py
           python3 -B tests/test-window-list.py
+          python3 -B tests/test-desktop-session-cwd.py
           python3 -B tests/test-wallpaper-selection.py
           python3 -B tests/test-firefox-package.py
           bash tests/test-backend-policy.sh
@@ -41,6 +64,44 @@ jobs:
           bash tests/test-version-order.sh
           bash tests/smoke-cli.sh
           python3 tests/test-release-repo.py
+          python3 tests/test-runtime-firmware.py
           python3 tests/test-update-safety.py
+          python3 -B tests/test-tar-modes.py
+          python3 -B tests/test-process-control-ipc.py
+          python3 -B tests/test-native-wrapper-modes.py
+          python3 -B tests/test-userland-migration.py
+          python3 -B tests/test-desktop-backend-polish.py
+          python3 -B tests/test-initial-dialog-placement.py
+          python3 -B tests/test-launcher-search.py
+          python3 -B tests/test-launcher-fallbacks.py
+          python3 -B tests/test-wireless-utils.py
+          python3 -B tests/test-wireless-actions.py
+          python3 -B tests/test-game-ui.py
+          python3 -B tests/test-dock-visibility.py
+          python3 -B tests/test-dock-model.py
+          python3 -B tests/test-window-control-scale.py
+          python3 -B tests/test-i3-controls.py
+          python3 -B tests/test-theme-selection.py
+          python3 -B tests/test-theme-watch.py
+          python3 -B tests/test-xsettings-session.py
+          python3 -B tests/test-lock-launch.py
+          python3 -B tests/test-session-control.py
+          python3 -B tests/test-session-services.py
+          python3 -B tests/test-input-method.py
+          python3 -B tests/test-font-cache.py
+          python3 -B tests/test-installed-mounts.py
+          python3 -B tests/test-installed-login-prompts.py
+          python3 -B tests/test-i3lock-visuals.py
+          python3 -B tests/test-desktop-frame-theme.py
+          python3 -B tests/test-media-metadata.py
+          python3 -B tests/test-audio-actions.py
+          python3 -B tests/test-notifications.py
+          python3 -B tests/test-shell-flyouts.py
+          python3 -B tests/test-editor-polish.py
+          python3 -B tests/test-chart-layout.py
+          python3 -B tests/test-health-summary.py
           python3 -B tests/test-update-interruption.py
+          bash tests/test-atomic-package-archive.sh
+          bash tests/test-import-apk-package.sh
+          bash tests/test-i3-package-set.sh
           bash tests/test-package-factory.sh

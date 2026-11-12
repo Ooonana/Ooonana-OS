@@ -74,6 +74,16 @@ def optimize(path):
         "  // OOONANA_PDF_DEFERRED_RENDER / OOONANA_TERMINAL_RENDER_BATCH: paint on tick.",
         write.group(), count=1,
     )
+    if "OOONANA_PDF_SERIAL_HANDOFF" not in body:
+        body, handoff_count = re.subn(r"(function terminal_write\([^\n]*\) \{[^\n]*\n)",
+            lambda match: match.group(1) + '''  // OOONANA_PDF_SERIAL_HANDOFF: do not leave an obsolete elapsed row.
+  if (serial_output && !vm_serial_seen && terminal_lines[1].startsWith("Booting kernel...")) {
+    terminal_lines[1] = "Kernel starting; live boot status above";
+    terminal_dirty++;
+  }
+''', body, count=1)
+        if handoff_count != 1:
+            raise ValueError("PDF serial handoff patch point missing")
     if count != 1 and "OOONANA_PDF_DEFERRED_RENDER" not in body:
         raise ValueError("PDF per-character render patch point missing")
     source = source[:write.start()] + body + source[write.end():]
@@ -98,7 +108,15 @@ def optimize(path):
     let k_ips = Math.round(total_instrs / (interval / 1000) / 1000);
     if (typeof speed_field === "undefined")
       speed_field = globalThis.getField("speed_indicator");
-    speed_field.value = `Speed: ${k_ips} kIPS`;
+    let elapsed = Math.max(0, Math.round((now-vm_started_at)/1000));
+    // Kernel warnings must not freeze perceived progress at first serial byte.
+    speed_field.value = vm_boot_complete ? `Speed: ${k_ips} kIPS`
+      : `Boot: ${elapsed}s | ${k_ips} kIPS`;
+    if (typeof boot_status_field === "undefined")
+      boot_status_field = globalThis.getField("key_status");
+    let status = vm_boot_complete ? "Keyboard ready"
+      : "Booting Linux; keep PDF tab visible";
+    if (boot_status_field.value !== status) boot_status_field.value = status;
     if (!vm_serial_seen) {
       terminal_lines[1] = `Booting kernel... ${Math.round((now-vm_started_at)/1000)}s | ${k_ips} kIPS`;
       terminal_dirty = terminal_width;

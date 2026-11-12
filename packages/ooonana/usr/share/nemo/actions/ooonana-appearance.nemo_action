@@ -1,0 +1,8 @@
+[Nemo Action]
+Name=Wallpaper settings
+Comment=Choose wallpaper and layout
+Exec=ooonana-settings --page appearance
+Selection=none
+Extensions=any;
+Dependencies=ooonana-settings;
+Icon-Name=preferences-desktop-wallpaper-symbolic

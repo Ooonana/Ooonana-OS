@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT/scripts/lib/common.sh"
 OUT_DIR=""
 VERSION="1.0.1"
 SOURCE_EXE="${OOONANA_OONANA_CHAT_WINDOWS_SOURCE:-$ROOT/packages/ooonana-chat-windows/source/OoonanaChat Setup 1.0.0.exe}"
@@ -63,9 +64,11 @@ staging="$(mktemp -d)"
 trap 'rm -rf "$staging"' EXIT
 cp -a "$PAYLOAD_DIR/." "$staging/"
 install -D -m 0644 "$SOURCE_EXE" "$staging/opt/ooonana-wine/OoonanaChat Setup 1.0.0.exe"
+find "$staging" -type d -exec chmod 0755 {} +
+find "$staging" -type f -exec chmod 0644 {} +
 chmod 0755 "$staging/usr/bin/ooonana-chat-windows"
 
-tar \
+ooonana_tar_gzip_atomic "$archive" \
   --sort=name \
   --mtime='UTC 1970-01-01' \
   --numeric-owner \
@@ -74,7 +77,7 @@ tar \
   --pax-option=delete=atime,delete=ctime \
   -C "$staging" \
   -cf - \
-  . | gzip -n > "$archive"
+  .
 
 archive_sha="$(sha256sum "$archive" | awk '{print $1}')"
 cat > "$metadata" <<EOF

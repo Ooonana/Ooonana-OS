@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="88" viewBox="0 0 256 176" role="img" aria-labelledby="title desc">
+  <title id="title">Ooonana boot mascot</title>
+  <desc id="desc">Existing smiling box mascot, with continuous strokes instead of disconnected font glyphs.</desc>
+  <g fill="none" stroke="#ffb21a" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="48" y="24" width="160" height="112" rx="12"/>
+    <path d="M80 65 L87 53 H97 L104 65 M152 65 L159 53 H169 L176 65"/>
+    <path d="M100 94 L111 106 H145 L156 94"/>
+    <path d="M48 78 L28 108 M208 78 L228 108 M92 136 V154 M164 136 V154"/>
+  </g>
+</svg>

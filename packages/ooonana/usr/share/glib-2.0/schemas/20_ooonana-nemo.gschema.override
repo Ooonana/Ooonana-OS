@@ -1,0 +1,10 @@
+# Factory defaults only. Explicit user preferences keep precedence.
+# Never mount unrelated storage merely because Files starts in a live session.
+[org.cinnamon.desktop.media-handling]
+automount=false
+automount-open=false
+autorun-never=true
+
+# Ooonana provides its own wallpaper actions; Cinnamon session helpers are absent.
+[org.nemo.plugins]
+disabled-actions=['90_new-launcher.nemo_action', '90_new-workspace.nemo_action', '91_delete-workspace.nemo_action', '92_show-expo.nemo_action', 'add-desklets.nemo_action', 'change-background.nemo_action', 'set-as-background.nemo_action', 'set-resolution.nemo_action']

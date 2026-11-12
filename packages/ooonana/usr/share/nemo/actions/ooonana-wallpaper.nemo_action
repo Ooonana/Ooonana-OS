@@ -1,0 +1,10 @@
+[Nemo Action]
+Name=Use as wallpaper
+Comment=Use this image on the Ooonana desktop
+Exec=ooonana-nemo-wallpaper %F
+Selection=s
+Mimetypes=image/*;
+UriScheme=file
+Quote=double
+Dependencies=ooonana-nemo-wallpaper;
+Icon-Name=preferences-desktop-wallpaper-symbolic

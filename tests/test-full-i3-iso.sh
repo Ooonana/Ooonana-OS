@@ -54,7 +54,7 @@ assert_contains "$script_src" "if terminal_output gfxterm serial; then"
 assert_contains "$script_src" "terminal_output console serial"
 assert_contains "$script_src" "set gfxpayload=keep"
 assert_contains "$script_src" "set theme=/boot/grub/theme.txt"
-assert_contains "$script_src" "+ progress_bar"
+assert_contains "$script_src" '$ROOT/packages/ooonana/usr/share/ooonana/grub.theme'
 assert_contains "$script_src" "ooonana_boot_hint"
 assert_not_contains "$script_src" "[#####-----]"
 verifier_src="$(<"$ROOT/scripts/verify-rufus-iso.sh")"
@@ -156,31 +156,35 @@ if command -v grub-script-check >/dev/null 2>&1; then
   grub-script-check "$tmp/build/full-i3-iso-tree/boot/grub/grub.cfg" || fail "invalid GRUB config"
 fi
 theme="$(<"$tmp/build/full-i3-iso-tree/boot/grub/theme.txt")"
-assert_contains "$theme" "+ progress_bar"
+cmp -s "$ROOT/packages/ooonana/usr/share/ooonana/grub.theme" "$tmp/build/full-i3-iso-tree/boot/grub/theme.txt" || fail 'live GRUB differs from shared installed theme'
+assert_contains "$theme" '+ label'
 assert_contains "$theme" 'id = "__timeout__"'
 assert_contains "$theme" 'desktop-image: "/boot/grub/background.png"'
 assert_contains "$theme" 'desktop-image-scale-method: "stretch"'
 assert_contains "$theme" 'item_color = "#b4bdc8"'
 assert_contains "$theme" 'selected_item_color = "#ffb21a"'
-logo_index=0
-while IFS= read -r logo_line || [[ -n "$logo_line" ]]; do
-  logo_index=$((logo_index + 1))
-  escaped_logo_line="${logo_line//\\/\\\\}"
-  escaped_logo_line="${escaped_logo_line//\"/\\\"}"
-  assert_contains "$theme" "id = \"ooonana-logo-$logo_index\""
-  assert_contains "$theme" "text = \"$escaped_logo_line\""
-done < "$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt"
-[[ "$logo_index" -eq 8 ]] || fail "GRUB logo must have eight canonical lines"
-[[ "$(grep -c 'id = \"ooonana-logo-' "$tmp/build/full-i3-iso-tree/boot/grub/theme.txt")" -eq 8 ]] ||
-  fail "GRUB theme must contain only eight logo labels"
-assert_contains "$theme" 'left = 50%-108'
-assert_contains "$theme" 'width = 216'
-assert_contains "$theme" 'align = "left"'
+assert_contains "$theme" 'id = "ooonana-brand-mark"'
+assert_contains "$theme" 'file = "boot-mark.png"'
+assert_contains "$theme" 'left = 50%-64'
+assert_contains "$theme" 'id = "ooonana-brand-name"'
+assert_contains "$theme" 'align = "center"'
+[[ "$theme" != *'id = "ooonana-logo-'* ]] || fail 'graphical theme still uses broken glyph mascot'
+cmp -s "$ROOT/branding/boot-mark.png" "$tmp/build/full-i3-iso-tree/boot/grub/boot-mark.png" || fail 'missing boot mark image'
+assert_contains "$theme" 'icon_width = 0'
+assert_contains "$theme" 'icon_height = 0'
+assert_contains "$theme" 'item_icon_space = 0'
 assert_contains "$theme" 'visible = true'
 assert_contains "$theme" 'item_font = "Unifont Regular 16"'
-assert_contains "$theme" "item_height = 30"
+assert_contains "$theme" "item_height = 24"
+assert_contains "$theme" "top = 11%+104"
+assert_contains "$theme" "top = 11%+136"
+assert_contains "$theme" "top = 11%+168"
+assert_contains "$theme" "height = 33%"
 assert_contains "$theme" "scrollbar = false"
-assert_contains "$theme" "STARTUP MODES"
+assert_contains "$theme" 'title-text: ""'
+assert_contains "$theme" "Choose how to start"
+assert_contains "$theme" 'text = "Starting in %d s"'
+[[ "$theme" != *'+ progress_bar'* ]] || fail 'GRUB progress bar minimum height defeats compact countdown'
 assert_contains "$theme" "ARROWS select  |  ENTER boot  |  ESC back"
 [[ -s "$tmp/build/full-i3-iso-tree/boot/grub/background.png" ]] || fail "missing GRUB background bitmap"
 cmp -s "$ROOT/branding/grub-background.png" "$tmp/build/full-i3-iso-tree/boot/grub/background.png" ||
