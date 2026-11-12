@@ -15,19 +15,14 @@ Ooonana OS is a custom Linux distribution built from scratch around its own boot
 
 Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Linux, BusyBox, GRUB, i3, and other open-source components. Ooonana package factory currently imports selected Alpine package payloads into Ooonana `.pkg` repositories while native packages replace them over time.
 
-November6: core **0.10.0 candidate**, stable unpromoted. Items17–21 authorize
-final UI review, candidate packages/CI/publication and Ooonana WSL sync. No ISO
-is built by the agent. OpenVINO overhaul and VM checks stay deferred; signing
-key stays local. Original code/artwork licensing remains undecided. Current
-[candidate receipt](docs/candidate-17-21-20261103.md) supersedes older dated
-hold statements below; historical checkpoints remain evidence of their own runs.
+**Core 0.10.0 candidate.** Runtime revision `36dbeb5` passed GitHub and GitLab
+CI. Local signed generation `82d298f4ebf5` contains 737 packages, including the
+Nemo integration fixes, graphical sign-in, and updated desktop flyouts.
+[Current checks and release gates](docs/release-readiness.md).
 
-November6: installed notification integration and frameless flyout/Escape checks
-pass. Nemo metadata/thumbnail/wallpaper fixes are committed, built and green in
-both CIs; complete signing and installation remain held by stalled F: I/O.
-Ooonana WSL already lives on F:, so its archive copy shares that device. Prior
-signed generation81a73840 stays installed; latest source is not ISO-ready.
-[Results, screenshot and remaining gates](docs/installed-ui-acceptance-20261106.md).
+Graphical sign-in after logout in an isolated candidate session.
+
+![Ooonana sign-in screen with username and password fields over the Ooonana wallpaper](docs/assets/ooonana-sign-in-20261112.png)
 
 Installed Ooonana nested desktop, November3:
 ![Ooonana installed desktop: compact panel, left-side music and flat application dock](docs/assets/ooonana-desktop-20261103.png)
@@ -35,7 +30,7 @@ Installed Ooonana nested desktop, November3:
 November5: signed candidate catalog **718 packages /637 dependency nodes** on F:
 now includes an independent OpenAI provider, safe quota/rate error handling
 and full key redaction. [Provider repair and current boundary](docs/ai-openai-provider-20261105.md).
-Latest signed generation81a73840 now matches installed Ooonana WSL after disk
+On November 5, signed generation `81a73840` matched installed Ooonana WSL after disk
 reserve was restored. Core/runtime/i3 and installed Graphite/Paper checks pass;
 65 protected authentication/configuration files remain unchanged.
 Custom-init login1/Polkit startup is already installed;
@@ -127,11 +122,11 @@ the current custom-init image lacks that service, so physical suspend remains
 pending. [Item10.5 evidence and limits](docs/lock-session-review-20261029.md).
 Installed WSL, remote publication and ISO remain held.
 
-![Control Center, normal text, November3 private packaged Graphite QA session](docs/assets/ooonana-controls-20261103.png)
+![Graphite Control Center with volume and mute above connection controls](docs/assets/ooonana-controls-20261112.png)
 
-This preview uses a private null audio device and an owned test parent
-window; backlight hardware is unavailable in the fixture. Full desktop capture
-below is an earlier checkpoint, not evidence of a fresh installed-session test.
+This November 12 preview uses a silent test output. The
+[empty Notifications flyout](docs/assets/ooonana-notifications-empty-20261112.png)
+shows the shorter layout. Full desktop capture below records an earlier session.
 November3 exact-package sweep passes18 normal/scaled desktop cases. The matching
 [Paper200% capture](docs/assets/ooonana-controls-paper-scaled-20261103.png) shows
 the fixed footer and scrollable body on a760×600 display. Current Ooonana WSL

@@ -48,11 +48,11 @@ with13's separate session-provider acceptance. "All11–15 done" is too broad.
 | 15 Installer / boot | Private actual checksum installation/reinstallation, BIOS/UEFI/login/sudo/storage and recovery proofs retained | Broader system/kernel upgrade timings, actual physical installation/persistence/power transitions |
 | 16 Bootable PDF | Runtime/source tests retained | Actual Chromium viewer boot, keyboard/Backspace/focus and measured command latency |
 | 17 Bounded UI acceptance | Earlier18 exact-package/installed restoration passes retained; installed notification flyout passed; Nemo integration source fixed with loader/private checks | Actual Nemo layout/thumbnail/menu/wallpaper tests after storage recovery; physical/mixed-display gates |
-| 18 Source / CI / packages | Freeze d9b4ae5 and both CIs passed; Nemo/core bundle built; prior signed718-package/637-node generation81a73840 retained | Finish complete signing/provenance/closure after F: read stalls resolve; stable separate |
-| 19 Candidate / WSL | Previous signed81a73840 installed; earlier65 protected-file/theme/input passes retained | New Nemo candidate not installed; Ooonana WSL shares stalled F: storage; publication/sync held |
+| 18 Source / CI / packages | Runtime `36dbeb5` passed both CIs. Signed generation `82d298f4ebf5` verified on F: with 737 packages and 656 dependency nodes | Stable promotion under25 |
+| 19 Candidate / WSL | Previous signed generation `81a73840` installed; protected-file, theme and input passes retained | Sync generation `82d298f4ebf5` and verify installed Nemo and flyouts |
 | 20 Documentation / cleanup | README/screenshots, field guide, receipts/list refreshed; disposable index scratch cleaned; latest C:/F:/both-WSL cache scan finds no additional confirmed junk | Final image/release-specific evidence after user build |
 | 21 Assets | Published708 archives/75,903 entries checked; personal cursor/private-key exclusion and public cursor/source match passed | Original code/artwork license decision and broader redistribution clearance remain pending |
-| 22 Final ISO | Prior signed catalog preserved | Latest source needs matching verified packages first; user fresh build and image/checksum/boot/service checks |
+| 22 Final ISO | Matching signed candidate packages verified | User fresh build and image/checksum/boot/service checks |
 | 23 Hardware | Private fixtures retained | Physical radios/GPU/RAM/zram/swap/thermals/fans/displays |
 | 24 Disposable USB | Private installed fixture recovery/rollback/ENOSPC proofs retained | Physical reboot/full-storage/power-loss/recovery/interrupted upgrade tests; reverify disposable target identity |
 | 25 Stable promotion | Private signing key remains local | Trust enrollment and stable channel/tag approval |
@@ -67,8 +67,14 @@ ended the session successfully and LightDM rendered a fresh greeter. Audio and
 first-run setup were disabled for this test. A run with audio startup enabled
 and no audio devices did not reach i3 within the 15-second check. Verify native
 boot, console fallback, seat registration and sign-in time on the final image.
+
+![Ooonana graphical sign-in after logout in the isolated candidate session](assets/ooonana-sign-in-20261112.png)
+
+[Control Center with volume and mute first](assets/ooonana-controls-20261112.png) ·
+[Compact empty Notifications flyout](assets/ooonana-notifications-empty-20261112.png).
+
 November6 [installed UI and storage receipt](installed-ui-acceptance-20261106.md)
-records notification acceptance and the blocker for further package/WSL work.
+records notification acceptance and the earlier F: I/O stalls.
 Item13's provider startup is now implemented; its real boot/session acceptance
 remains held rather than counted as completed. Remaining work includes16's
 viewer acceptance and17's Nemo gaps. Item11's live cloud acceptance needs
