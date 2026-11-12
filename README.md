@@ -18,6 +18,7 @@ Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Li
 **Core 0.10.0 candidate.** Runtime revision `36dbeb5` passed GitHub and GitLab
 CI. Local signed generation `82d298f4ebf5` contains 737 packages, including the
 Nemo integration fixes, graphical sign-in, and updated desktop flyouts.
+Ooonana WSL uses this generation with i3 bundle `0.1.7`.
 [Current checks and release gates](docs/release-readiness.md).
 
 Graphical sign-in after logout in an isolated candidate session.
