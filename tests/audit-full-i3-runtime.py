@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from configparser import ConfigParser, Error as ConfigError
 import os
 from pathlib import Path
 import re
@@ -11,6 +12,7 @@ import shlex
 import stat
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 
 
 PATH_DIRS = (
@@ -49,6 +51,46 @@ def firmware_exists(root: Path, name: str, kernel_options: set[str]) -> bool:
         except (OSError, RuntimeError):
             continue
     return False
+
+
+def dbus_identity_errors(root: Path, users: set[str], groups: set[str]) -> list[str]:
+    errors = []
+    identities = {"user": users, "group": groups}
+
+    def check(path, category, kind, name):
+        if name != "*" and name not in identities[kind]:
+            errors.append(f"D-Bus {category} {path.relative_to(root)} references missing {kind}: {name}")
+
+    for base in ("etc/dbus-1", "usr/share/dbus-1", "usr/local/share/dbus-1", "lib/dbus-1"):
+        directory = root / base
+        policies = [directory / "system.conf", directory / "system-local.conf"]
+        policies.extend(sorted((directory / "system.d").glob("*.conf")))
+        for path in policies:
+            if not path.is_file() or not path.resolve().is_relative_to(root):
+                continue
+            try:
+                for element in ET.parse(path).iter():
+                    if element.tag == "user" and element.text:
+                        check(path, "policy", "user", element.text.strip())
+                    for kind in identities:
+                        if kind in element.attrib:
+                            check(path, "policy", kind, element.attrib[kind])
+            except (OSError, ET.ParseError) as error:
+                errors.append(f"Cannot read D-Bus policy {path.relative_to(root)}: {error}")
+
+        for path in sorted((directory / "system-services").glob("*.service")):
+            if not path.is_file() or not path.resolve().is_relative_to(root):
+                continue
+            config = ConfigParser(interpolation=None)
+            try:
+                with path.open() as stream:
+                    config.read_file(stream)
+                user = config.get("D-BUS Service", "User", fallback=None)
+                if user is not None:
+                    check(path, "activation", "user", user)
+            except (OSError, ConfigError) as error:
+                errors.append(f"Cannot read D-Bus activation {path.relative_to(root)}: {error}")
+    return list(dict.fromkeys(errors))
 
 
 def main() -> int:
@@ -270,6 +312,17 @@ def main() -> int:
 
     passwd_lines = rooted("/etc/passwd").read_text(errors="replace").splitlines()
     group_lines = rooted("/etc/group").read_text(errors="replace").splitlines()
+    def account_ids(lines: list[str]) -> set[str]:
+        names_and_ids = set()
+        for line in lines:
+            fields = line.split(":")
+            if len(fields) >= 3 and fields[0] and fields[2].isdigit():
+                names_and_ids.update((fields[0], fields[2]))
+        return names_and_ids
+
+    users = account_ids(passwd_lines)
+    groups = account_ids(group_lines)
+    errors.extend(dbus_identity_errors(root, users, groups))
     user_line = next((line for line in passwd_lines if line.startswith("ooonana:")), "")
     if not user_line:
         fail("missing non-root desktop user")

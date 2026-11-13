@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Custom-init service ordering and refusal paths; never activates host services."""
+import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
 import subprocess
@@ -11,6 +12,10 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'packages/ooonana/usr/lib/ooonana'))
 import session_services as services
+
+audit_spec = importlib.util.spec_from_file_location('runtime_audit', ROOT / 'tests/audit-full-i3-runtime.py')
+runtime_audit = importlib.util.module_from_spec(audit_spec)
+audit_spec.loader.exec_module(runtime_audit)
 
 
 class ProviderStartup(unittest.TestCase):
@@ -139,6 +144,27 @@ class ProviderStartup(unittest.TestCase):
             self.assertEqual(account[3], group[2])
             self.assertEqual(account[5:], ['/var/empty', '/bin/false'])
             self.assertTrue(shadow[1].startswith('!'))
+
+    def test_rootfs_audit_reports_missing_dbus_policy_and_activation_identities(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            bus = root / 'usr/share/dbus-1'
+            (bus / 'system.d').mkdir(parents=True)
+            (bus / 'system-services').mkdir()
+            (bus / 'system.conf').write_text('<busconfig><user>messagebus</user></busconfig>')
+            (bus / 'system.d/polkit.conf').write_text(
+                '<busconfig><policy user="polkitd"/><policy group="82"/>'
+                '<policy context="default"><allow user="*"/></policy></busconfig>')
+            (bus / 'system-services/helper.service').write_text(
+                '[D-BUS Service]\nName=org.example.Helper\nUser=helper\n')
+            (bus / 'session.conf').write_text('<busconfig><user>session-only</user></busconfig>')
+            self.assertEqual(runtime_audit.dbus_identity_errors(root, {'messagebus'}, set()), [
+                'D-Bus policy usr/share/dbus-1/system.d/polkit.conf references missing user: polkitd',
+                'D-Bus policy usr/share/dbus-1/system.d/polkit.conf references missing group: 82',
+                'D-Bus activation usr/share/dbus-1/system-services/helper.service references missing user: helper',
+            ])
+            self.assertEqual(runtime_audit.dbus_identity_errors(
+                root, {'messagebus', 'polkitd', 'helper'}, {'polkitd', '82'}), [])
 
     def test_boot_and_policy_preserve_authentication_and_lock_contract(self):
         source = (ROOT/'scripts/build-full-i3-rootfs.sh').read_text()
