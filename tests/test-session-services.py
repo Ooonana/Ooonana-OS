@@ -2,7 +2,9 @@
 """Custom-init service ordering and refusal paths; never activates host services."""
 from pathlib import Path
 from types import SimpleNamespace
+import subprocess
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -110,6 +112,33 @@ class ProviderStartup(unittest.TestCase):
             with self.assertRaisesRegex(OSError,'policy preserved'):
                 services.prepare_polkit_rules(account)
             chown.assert_not_called()
+
+    def test_factory_provisions_polkit_identity_before_dbus(self):
+        builder = ROOT / 'scripts/build-full-i3-rootfs.sh'
+        source = builder.read_text()
+        groups = source.split('\nwrite_full_groups() {\n', 1)[1].split('\nwrite_tarball()', 1)[0]
+        with tempfile.TemporaryDirectory() as directory:
+            image = Path(directory)
+            etc = image / 'etc'
+            (etc / 'ooonana').mkdir(parents=True)
+            subprocess.run(['bash', '-e', '-c', 'write_full_groups() {\n' + groups +
+                            '\nROOTFS=$1\nOS_VERSION=0.10.0\n'
+                            'ooonana_alpine_branch() { echo v3.24; }\n'
+                            'write_full_groups\nwrite_full_groups', 'fixture', str(image)], check=True)
+
+            def account_file(name):
+                return [line.split(':') for line in (etc / name).read_text().splitlines()
+                        if line.startswith('polkitd:')]
+
+            self.assertEqual(len(account_file('passwd')), 1, 'D-Bus needs polkitd in the live rootfs')
+            account, = account_file('passwd')
+            group, = account_file('group')
+            shadow, = account_file('shadow')
+            self.assertTrue(0 < int(account[2]) < 1000)
+            self.assertTrue(0 < int(account[3]) < 1000)
+            self.assertEqual(account[3], group[2])
+            self.assertEqual(account[5:], ['/var/empty', '/bin/false'])
+            self.assertTrue(shadow[1].startswith('!'))
 
     def test_boot_and_policy_preserve_authentication_and_lock_contract(self):
         source = (ROOT/'scripts/build-full-i3-rootfs.sh').read_text()

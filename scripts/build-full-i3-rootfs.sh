@@ -4771,6 +4771,7 @@ write_full_groups() {
     'tape:x:26:' \
     'kvm:x:34:' \
     'messagebus:x:81:' \
+    'polkitd:x:82:' \
     'pulse:x:70:' \
     'pulse-access:x:71:'; do
     name="${entry%%:*}"
@@ -4783,6 +4784,9 @@ write_full_groups() {
     printf '%s\n' 'messagebus:x:81:81:DBus Message Bus:/run/dbus:/bin/false' >> "$passwd_file"
   grep -q '^pulse:' "$passwd_file" 2>/dev/null ||
     printf '%s\n' 'pulse:x:70:70:PulseAudio:/run/pulse:/bin/false' >> "$passwd_file"
+  # APK account hooks are not run. D-Bus resolves polkit's policy user at startup.
+  grep -q '^polkitd:' "$passwd_file" 2>/dev/null ||
+    printf '%s\n' 'polkitd:x:82:82:PolicyKit:/var/empty:/bin/false' >> "$passwd_file"
 
   mkdir -p "$ROOTFS/var" "$ROOTFS/run"
   rm -rf "$ROOTFS/var/run"
@@ -4824,6 +4828,8 @@ write_full_groups() {
   touch "$shadow_file"
   grep -q "^$live_user:" "$shadow_file" 2>/dev/null ||
     printf '%s:!:20000:0:99999:7:::\n' "$live_user" >> "$shadow_file"
+  grep -q '^polkitd:' "$shadow_file" 2>/dev/null ||
+    printf '%s\n' 'polkitd:!:20000:0:99999:7:::' >> "$shadow_file"
   chmod 0600 "$shadow_file"
 
   mkdir -p "$home_dir/.config/ooonana" "$home_dir/.cache" "$home_dir/.local/state/ooonana" "$home_dir/Desktop" "$home_dir/Downloads" "$home_dir/Pictures/Ooonana"
