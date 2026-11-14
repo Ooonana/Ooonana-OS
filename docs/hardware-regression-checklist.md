@@ -29,6 +29,11 @@ lsblk -o NAME,FSTYPE,MOUNTPOINTS,RO
 - [ ] Preview/right-click controls work; hidden windows stay minimized until clicked.
 - [ ] Overlapping/hidden-tab windows show no controls targeting covered clients.
 - [ ] Alt+F4 closes correct window; Alt+F10 enters/exits fullscreen.
+- [ ] From fullscreen, Alt+Space opens window actions, Super+M minimizes, and Super+R restores and starts resize.
+- [ ] Touchpad scrolls vertically and horizontally with two fingers. Two-finger tap opens the context menu and three-finger tap middle-clicks on supported pads.
+- [ ] Three-finger horizontal swipe switches workspaces when the app does not handle it. Pinch-zoom works in apps with X11 gesture support.
+- [ ] Brightness keys and Control Center change the internal display backlight. Check reported device with `brightnessctl --class=backlight -l`.
+- [ ] Normal and Persistent Live shut down from the Power menu. If shutdown stalls, record the last on-screen stage and boot mode.
 - [ ] Panel fits 1280, 1024 and 768 widths; AI and essential controls remain reachable.
 - [ ] Wi-Fi reconnect after suspend; enterprise profiles validate expected certificates.
 - [ ] Bluetooth controller, pairing, reconnect and suspend tested with real device.

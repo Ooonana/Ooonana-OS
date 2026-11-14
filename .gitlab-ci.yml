@@ -14,7 +14,6 @@ variables:
   OOONANA_REPO_NAME: "gitlab"
   OOONANA_PAGES_MAX_BYTES: "1073741824"
   OOONANA_KERNEL_VERSION: "6.18.37-3"
-  OOONANA_CORE_VERSION: "0.10.0"
   OOONANA_OPENVINO_CHAT_VERSION: "0.2.1"
   OOONANA_KERNEL_PACKAGE_URL: "https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/vmlinuz-ooonana-6.18.37-3"
   OOONANA_KERNEL_PACKAGE_SHA256: "bc30e38e0ff539ac3b573a03a15c763ee49c072224e2d4620ba2e2be910065a3"
@@ -35,6 +34,7 @@ ci-smoke:
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-release-repo.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-runtime-firmware.py
     - bash tests/test-version-order.sh
+    - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-update-safety.py
     - bash tests/test-atomic-package-archive.sh
     - bash tests/test-import-apk-package.sh
     - bash tests/test-i3-package-set.sh
@@ -197,7 +197,6 @@ deploy-package-repo:
         --packages "${PACKAGES:-}" \
         --cloud-url "$repo_url" \
         --repo-name "$OOONANA_REPO_NAME" \
-        --core-version "$OOONANA_CORE_VERSION" \
         --openvino-version "$OOONANA_OPENVINO_CHAT_VERSION" \
         --clean \
         $full_i3_arg \

@@ -4,6 +4,18 @@ Priority: reliability and data safety. No automatic partitioning, device
 formatting, fsck repair, or deletion of saved overlays. First persistent boot
 may create/format a new storage file after explicit size + `CREATE` confirmation.
 
+## Live storage and updates
+
+Normal Live provides writable RAM-backed storage for downloads, files, and
+package installs. Those changes disappear on reboot. Persistent Live saves
+userspace changes to the verified USB storage. Temporary recovery sessions
+also discard their session overlay. Run `ooonana-persistence status` to check
+the active mode and `ooonana update && ooonana upgrade --dry-run` to preview
+available package updates.
+
+Kernel, GRUB, and initramfs changes require a fresh image. Back up saved data
+before replacing the image and follow the base-ID recovery procedure below.
+
 ## Boot policy
 
 - GRUB probes its root filesystem UUID and passes `ooonana.live.boot_uuid`.
@@ -156,14 +168,16 @@ OOONANA_QEMU_ACCEL=kvm bash tests/qemu-live-iso-uuid.sh \
 ## Orderly shutdown
 
 Fresh full-i3 and minimal images run BusyBox init. `bunana --shutdown` and
-`--restart` signal init normally; no forced fallback. Its guarded shutdown action
-terminates writers, waits two seconds, kills remaining processes, syncs,
-disables swap and unmounts/remounts filesystems read-only before final sync.
+`--restart` signal init normally. The guarded shutdown action gives writers
+two seconds to exit, stops stragglers, disables disk-backed swap, and flushes
+and unmounts storage. Live shutdown can discard RAM-only zram on poweroff.
 Direct host/WSL invocation of cleanup is refused. QEMU persistence fixtures
 require the cleanup marker before successful save/reboot verification.
-File-backed live boots retain a small private RAM shutdown root and run PID1
-from its BusyBox/musl copy. Cleanup pivots there, releases the overlay, unmounts
-inner ext4, detaches its writable loop, then remounts/unmounts the outer USB.
+Live boots retain a small private RAM shutdown root and run PID1 from its
+BusyBox/musl copy. Cleanup pivots there, releases the overlay and unmounts verified
+boot media. With persistence, it flushes and remounts the ext4 storage read-only.
+File-backed persistence additionally detaches its writable loop and remounts
+the outer USB read-only before unmounting it.
 Original storage mounts are moved into the desktop instead of leaving hidden
 writable mounts behind. Ordinary unmounts only: no forced/lazy unmount or global
 emergency-remount workaround. An incomplete RAM cleanup stops for diagnosis;

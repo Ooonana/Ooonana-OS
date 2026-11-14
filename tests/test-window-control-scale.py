@@ -3,10 +3,35 @@
 import ast
 import math
 import re
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / "packages/ooonana/usr/lib/ooonana/ui"))
+from touchpad_gestures import SWIPE_BEGIN, SWIPE_END, SWIPE_UPDATE, SwipeEvent, WorkspaceSwipe
+
+swipe = WorkspaceSwipe()
+for fingers, x, y, cancelled, expected in (
+    (3, -95, 10, 0, "next_on_output"),
+    (3, 95, -10, 0, "prev_on_output"),
+    (2, -95, 0, 0, None),
+    (4, -95, 0, 0, None),
+    (3, -40, 0, 0, None),
+    (3, -95, 80, 0, None),
+    (3, -95, 0, 1, None),
+    (3, float("inf"), 0, 0, None),
+):
+    event = SwipeEvent(evtype=SWIPE_BEGIN, sourceid=9, fingers=fingers)
+    assert swipe.feed(event) is None
+    event.evtype = SWIPE_UPDATE
+    event.delta_x, event.delta_y = x, y
+    assert swipe.feed(event) is None
+    event.evtype = SWIPE_END
+    event.flags = cancelled
+    assert swipe.feed(event) == expected
+    assert swipe.feed(event) is None
+
 source = ast.parse((root / "packages/ooonana/usr/lib/ooonana/ui/window_controls.py").read_text())
 controls = next(node for node in source.body if isinstance(node, ast.ClassDef) and node.name == "Controls")
 position = next(node for node in controls.body if isinstance(node, ast.FunctionDef) and node.name == "position")

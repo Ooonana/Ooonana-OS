@@ -36,7 +36,7 @@ BUNANACHAT_SOURCE_DIR="${OOONANA_BUNANACHAT_LINUX_SOURCE:-$ROOT/packages/bunanac
 WINDOWS_CHAT_SOURCE="${OOONANA_OONANA_CHAT_WINDOWS_SOURCE:-$ROOT/packages/ooonana-chat-windows/source/OoonanaChat Setup 1.0.0.exe}"
 NATIVE_APK_PACKAGES="openssl glib nodejs flatpak xdg-desktop-portal xdg-desktop-portal-gtk xdg-document-portal bluez dbus dbus-daemon-launch-helper fontconfig freetype libx11 libice libsm mesa-gl icu-libs zlib libgcc libstdc++ libxscrnsaver fcitx5 fcitx5-hangul fcitx5-gtk3 fcitx5-qt lsblk findmnt blkid losetup mount umount coreutils"
 COMMON_PROFILE="$ROOT/configs/packages/common-tools.list"
-CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-0.10.0}"
+CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-$(sh "$ROOT/packages/ooonana/usr/bin/ooonana" version | awk '{print $2}')}"
 KERNEL_PACKAGE_PATH="${OOONANA_KERNEL_PACKAGE_PATH:-}"
 KERNEL_PACKAGE_URL="${OOONANA_KERNEL_PACKAGE_URL:-}"
 KERNEL_PACKAGE_SHA256="${OOONANA_KERNEL_SHA256:-}"
@@ -63,7 +63,7 @@ Options:
   --kernel-url URL        Add Ooonana kernel package from remote kernel image
   --kernel-sha256 SHA256  Require this SHA-256 for the kernel image
   --kernel-version VER    Kernel package version (default: 6.18.37-3)
-  --core-version VER      Ooonana system update package version (default: 0.10.0)
+  --core-version VER      Ooonana system update package version (default: source Core version)
   --openvino-version VER  OpenVINO Chat package version (default: 0.2.1)
   --devicechat-version VER Native DeviceChat package version (default: 0.1.1)
   --bunanachat-version VER Native BunanaChat Linux package version (default: 0.1.1)

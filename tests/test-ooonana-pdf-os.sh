@@ -113,7 +113,7 @@ assert_contains "$(<"$rootfs/sbin/init")" "stty cols 80 rows 30"
 assert_contains "$(<"$rootfs/sbin/init")" 'export OOONANA_SOURCES_DIR=/run/ooonana/sources.d'
 assert_contains "$(<"$rootfs/sbin/init")" 'export OOONANA_CACHE_DIR=/run/ooonana/cache'
 [[ -f "$rootfs/etc/ooonana/pdf-source-seeds" ]] || fail "missing source seed list"
-assert_contains "$(<"$rootfs/sbin/init")" "PDF Minimal 0.6 | pkg 0.10.0"
+assert_contains "$(<"$rootfs/sbin/init")" 'PDF Minimal 0.6 | pkg $OOONANA_PDF_PACKAGE_MANAGER'
 assert_contains "$(<"$rootfs/sbin/init")" "exec </dev/hvc0 >/dev/hvc0 2>&1"
 assert_contains "$(<"$rootfs/sbin/init")" "--- Ooonana userspace ready ---"
 assert_contains "$(<"$rootfs/root/.profile")" "ooonana help packages"
@@ -121,7 +121,8 @@ assert_contains "$(<"$rootfs/root/.profile")" "ooonana ai status"
 assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS PDF Minimal"'
 assert_contains "$(<"$rootfs/etc/os-release")" 'VERSION_ID="0.6-pdf"'
 [[ -f "$rootfs/etc/ooonana/pdf-release" ]] || fail "missing PDF release metadata"
-assert_contains "$(<"$rootfs/etc/ooonana/pdf-release")" 'OOONANA_PDF_PACKAGE_MANAGER="0.10.0"'
+core_version="$(sh "$ROOT/packages/ooonana/usr/bin/ooonana" version | awk '{print $2}')"
+assert_contains "$(<"$rootfs/etc/ooonana/pdf-release")" "OOONANA_PDF_PACKAGE_MANAGER=\"$core_version\""
 assert_contains "$(<"$rootfs/etc/ooonana/pdf-release")" 'OOONANA_PDF_VERSION="0.6"'
 
 if [[ -f "$PDF" ]]; then

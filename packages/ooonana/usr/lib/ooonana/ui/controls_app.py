@@ -178,6 +178,8 @@ class BrightnessWindow(ControlWindowState, Gtk.Window):
             return
         value = int(self.scale.get_value())
         device = self.backlight_device
+        command = ["brightnessctl", "--class=backlight", "--device=" + device,
+                   "--min-value=1", "set", f"{value}%"]
 
         def done(rc, output):
             if self.closed:
@@ -188,7 +190,16 @@ class BrightnessWindow(ControlWindowState, Gtk.Window):
             else:
                 self.refresh()
 
-        run_async(["brightnessctl", "--class=backlight", "--device=" + device, "set", f"{value}%"], done, admin=True, timeout=15)
+        def attempted(rc, output):
+            if self.closed:
+                return
+            if rc and "get write permissions for device files" in output:
+                self.feedback("Administrator authorization required for this backlight.")
+                run_async(command, done, admin=True, timeout=15)
+            else:
+                done(rc, output)
+
+        run_async(command, attempted, timeout=5)
 
 
 class AudioWindow(ControlWindowState, Gtk.Window):

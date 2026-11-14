@@ -408,8 +408,9 @@ elif [ "$persistence_mode" = "usb-temporary" ]; then
   mkdir -p /newroot/mnt/ooonana-live/persist || fail "cannot prepare persistence handoff"
   mount --move /persist /newroot/mnt/ooonana-live/persist 2>/dev/null || fail "cannot retain persistence filesystem"
 fi
-if [ -n "$persistence_file" ]; then
-  # PID1 and final cleanup must not pin overlay or its writable backing loop.
+# Every live mode has an overlay holding the boot-media mounts. Run PID1
+# from RAM so final cleanup can drop the overlay before unmounting them.
+prepare_shutdown_root() {
   shutdown_root=/newroot/mnt/ooonana-shutdown
   mkdir -p "$shutdown_root" || fail "cannot prepare RAM shutdown mountpoint"
   mount -t tmpfs -o mode=0700,nosuid,nodev,size=8m tmpfs "$shutdown_root" || fail "cannot prepare RAM shutdown root"
@@ -421,22 +422,20 @@ if [ -n "$persistence_file" ]; then
   cp /lib/ooonana-live-shutdown.sh "$shutdown_root/shutdown" || fail "cannot copy RAM shutdown"
   cp /lib/ooonana-console-ui.sh "$shutdown_root/console-ui.sh" || fail "cannot copy RAM console UI"
   [ ! -f /usr/share/ooonana/boot-logo.txt ] || cp /usr/share/ooonana/boot-logo.txt "$shutdown_root/boot-logo.txt" || fail "cannot copy RAM boot logo"
-  for applet in sh mount umount pivot_root losetup sync sleep cat grep awk sort readlink stty chvt; do
+  for applet in sh mount umount pivot_root losetup sync swapoff sleep cat grep awk sort readlink stty chvt timeout; do
     ln -s busybox "$shutdown_root/bin/$applet" || fail "cannot prepare RAM shutdown applets"
   done
-fi
+}
+prepare_shutdown_root
 ooonana_console_end
 mount --move /proc /newroot/proc 2>/dev/null || fail "cannot move proc mount"
 mount --move /sys /newroot/sys 2>/dev/null || fail "cannot move sys mount"
 mount --move /dev /newroot/dev 2>/dev/null || fail "cannot move dev mount"
 
-if [ -n "$persistence_file" ]; then
-  if [ -x /newroot/mnt/ooonana-shutdown/lib/ld-musl-x86_64.so.1 ]; then
-    exec switch_root /newroot /mnt/ooonana-shutdown/lib/ld-musl-x86_64.so.1 /mnt/ooonana-shutdown/bin/busybox init
-  fi
-  exec switch_root /newroot /mnt/ooonana-shutdown/bin/busybox init
+if [ -x /newroot/mnt/ooonana-shutdown/lib/ld-musl-x86_64.so.1 ]; then
+  exec switch_root /newroot /mnt/ooonana-shutdown/lib/ld-musl-x86_64.so.1 /mnt/ooonana-shutdown/bin/busybox init
 fi
-exec switch_root /newroot /sbin/init
+exec switch_root /newroot /mnt/ooonana-shutdown/bin/busybox init
 fail "switch_root failed"
 EOF
   chmod 0755 "$LIVE_INIT_TREE/init"

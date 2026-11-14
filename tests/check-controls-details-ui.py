@@ -204,7 +204,15 @@ with tempfile.TemporaryDirectory(prefix="ooonana-controls-details-") as temporar
         pending = jobs[-1][1]
         window.apply(action)
         check(len(jobs) == 1, "Brightness duplicate write allowed")
-        late_close(window, pending, "Brightness")
+        command, callback = jobs.pop()
+        check(callback is pending, "Brightness lost its pending write")
+        pending(1, "Get administrator help, or get write permissions for device files.")
+        check(len(jobs) == 1 and jobs[-1][0] == command,
+              "Brightness permission fallback changed the selected device")
+        if jobs:
+            late_close(window, jobs[-1][1], "Brightness")
+        else:
+            window.destroy()
 
         jobs.clear()
         window = controls.MediaWindow()

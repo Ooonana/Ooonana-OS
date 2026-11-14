@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$ROOT/scripts/lib/common.sh"
 OUT_DIR=""
-VERSION="0.10.0"
+VERSION="$(sh "$ROOT/packages/ooonana/usr/bin/ooonana" version | awk '{print $2}')"
 DRY_RUN=0
 
 usage() {
@@ -15,7 +15,7 @@ Usage:
   scripts/build-ooonana-core-package.sh --out-dir PATH [options]
 
 Options:
-  --version VER  Package version (default: 0.10.0)
+  --version VER  Package version (default: source Core version)
   --dry-run      Print resolved package details
   -h, --help     Show help
 USAGE
@@ -129,6 +129,7 @@ EOF
 for config in \
   etc/NetworkManager/NetworkManager.conf \
   etc/bluetooth/main.conf \
+  etc/X11/xorg.conf.d/10-ooonana-input.conf \
   etc/ooonana/xsettingsd.conf \
   etc/ooonana/polybar.ini \
   etc/ooonana/rofi.rasi \
@@ -154,7 +155,7 @@ cli="${prefix%/}/usr/bin/ooonana"
 [ -d "${prefix%/}/var/tmp" ] && [ "$(stat -c %a "${prefix%/}/var/tmp")" = 1777 ] || {
   echo 'core healthcheck: /var/tmp missing or unsafe permissions' >&2; exit 1;
 }
-"$cli" version | grep -q "ooonana ${OOONANA_PKG_VERSION}"
+[ "$("$cli" version)" = "ooonana ${OOONANA_PKG_VERSION}" ]
 for helper in ooonana-memory ooonana-panel-start ooonana-xsettings ooonana-lock ooonana-session ooonana-session-services ooonana-session-guard ooonana-input-method ooonana-tray ooonana-controls ooonana-shell ooonana-window-list ooonana-shutdown-cleanup ooonana-storage-watch ooonana-persistence gzip gdbus; do
   [ -x "${prefix%/}/usr/bin/$helper" ] || { echo "core healthcheck: missing $helper" >&2; exit 1; }
 done
@@ -203,7 +204,7 @@ cat >"$OUT_DIR/hooks/ooonana-core.healthcheck" <<'CHECK'
 set -eu
 prefix="${OOONANA_ROOT:-/}"
 state="${OOONANA_STATE_DIR:-${prefix%/}/var/lib/ooonana/packages}"
-"${prefix%/}/usr/bin/ooonana" version | grep -q "ooonana ${OOONANA_PKG_VERSION}"
+[ "$("${prefix%/}/usr/bin/ooonana" version)" = "ooonana ${OOONANA_PKG_VERSION}" ]
 mkdir -p "$state/files"
 : > "$state/files/ooonana-core.list"
 echo 'OOONANA_CORE_META_HEALTHCHECK_OK'

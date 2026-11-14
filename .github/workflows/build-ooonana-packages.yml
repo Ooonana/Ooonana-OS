@@ -18,7 +18,7 @@ on:
       release_tag:
         description: "GitHub Release tag for tarball backup"
         required: true
-        default: "candidate-core-0.10.0"
+        default: "candidate-core-0.10.1"
       publish_pages:
         description: "Deploy generated package repo to GitHub Pages"
         required: true

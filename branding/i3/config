@@ -74,10 +74,14 @@ bindsym $mod+Shift+u exec ooonana-ranger
 bindsym XF86TouchpadToggle exec ooonana-touchpad toggle
 bindsym XF86TouchpadOn exec ooonana-touchpad on
 bindsym XF86TouchpadOff exec ooonana-touchpad off
+bindsym XF86MonBrightnessUp exec --no-startup-id ooonana-brightness +5%
+bindsym XF86MonBrightnessDown exec --no-startup-id ooonana-brightness 5%-
 bindsym $mod+Shift+r restart
 bindsym $mod+Shift+q kill
 bindsym Mod1+F4 kill
 bindsym Mod1+F10 fullscreen toggle
+bindsym Mod1+space exec --no-startup-id ooonana-window-list --focused-actions --keyboard
+bindsym --whole-window Mod1+button3 exec --no-startup-id ooonana-window-list --focused-actions
 bindsym --release button3 exec ooonana-window-list --focused-actions
 bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'Exit Ooonana i3?' -b 'Exit' 'i3-msg exit'"
 bindsym $mod+Tab focus next
@@ -108,8 +112,8 @@ bindsym $mod+Control+Left workspace prev
 bindsym $mod+Control+Right workspace next
 
 bindsym $mod+minus scratchpad show
-bindsym $mod+Shift+minus move scratchpad
-bindsym $mod+m move scratchpad
+bindsym $mod+Shift+minus fullscreen disable, move scratchpad
+bindsym $mod+m fullscreen disable, move scratchpad
 bindsym $mod+Shift+space floating toggle
 bindsym $mod+space focus mode_toggle
 # floating_modifier supplies Super+left drag and Super+right resize. Bare
@@ -142,7 +146,7 @@ mode "resize" {
     bindsym Return mode "default"
     bindsym Escape mode "default"
 }
-bindsym $mod+r mode "resize"
+bindsym $mod+r fullscreen disable, mode "resize"
 
 # Blend frame edges into titlebar; rectangular accent outlines are clipped by
 # rounded corners. Keep focus/urgency accents in text and tiling indicators.

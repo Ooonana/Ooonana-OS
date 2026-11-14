@@ -56,7 +56,7 @@ export OOONANA_CACHE_DIR="$tmp/cache"
 export OOONANA_ROOT="$tmp/root"
 
 help="$("$CLI" help)"
-assert_contains "$help" "ooonana 0.10.0"
+assert_contains "$help" "$("$CLI" version)"
 assert_contains "$help" "Usage: ooonana [options] command"
 assert_contains "$help" "Most used commands:"
 assert_contains "$help" "  list - list packages based on names or installed state"
@@ -638,6 +638,17 @@ assert_contains "$offline_update" "source unavailable: cloud"
 assert_contains "$offline_update" "synced"
 assert_not_contains "$offline_update" "Traceback"
 assert_not_contains "$offline_update" "urllib.error"
+printf 'previous index\n' >"$offline_cache/index.tsv"
+if offline_update="$(PATH="$offline_bin" \
+  OOONANA_REPO_DIR="$empty_builtin" \
+  OOONANA_SOURCES_DIR="$offline_sources" \
+  OOONANA_STATE_DIR="$offline_state" \
+  OOONANA_CACHE_DIR="$offline_cache" \
+  "$CLI" update 2>&1)"; then
+  fail "offline cloud-only update reported success with no metadata"
+fi
+assert_contains "$offline_update" "no usable package metadata"
+[[ "$(<"$offline_cache/index.tsv")" == "previous index" ]] || fail "failed update cleared cached index"
 
 http_dry="$(OOONANA_SOURCES_DIR="$http_sources" \
   OOONANA_STATE_DIR="$http_state" \

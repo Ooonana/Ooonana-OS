@@ -21,7 +21,8 @@ Private migration journal pins complete repository checksum set; interrupted mig
 - Run `ooonana recover` after an interrupted replacement. Prepared journals restore old package-owned files, metadata and custom config; completed journals are retained without undoing a committed update. Recovery records remain under `backups/recovered-*`. Corrupt, incomplete/legacy or wrong-installation checkpoints are retained and refused, not guessed or deleted. Recovery is retryable after a restore failure. If the installed CLI/loader cannot run, recovery requires external rescue media with the correct mounted target/state paths. This does not guarantee whole-OS bootability after a power cut or undo arbitrary hook effects.
 - Remote metadata/archive downloads stage privately and check declared checksums before cache promotion. Interrupted/truncated transfers cannot poison the final cache; damaged older cached archives can be fetched again without changing the installed payload. GNU wget respects the configured retry budget instead of its default twenty attempts.
 - `ooonana upgrade --dry-run` reviews changes; `--allow-major` explicitly permits a core version jump. Pre-1.0 minor changes such as 0.9 to 0.10 count as major. `--security-only` requires `OOONANA_PKG_SECURITY=1`; unmarked changes are never guessed to be security fixes.
-- `ooonana update-status` reports pending update category and reboot requirements. Boot/kernel/core changes use `OOONANA_PKG_REBOOT=1`.
+- `ooonana update-status` reports storage mode, update category, and reboot requirements. Live upgrades leave ISO-booted kernel packages for a fresh image.
+- When no source has usable metadata, `ooonana update` fails and preserves the previous merged index. Offline refresh can still use validated cached metadata.
 
 ## Signing and enrollment
 
@@ -34,7 +35,7 @@ Public PEM SHA-256: `951dabde44988d9db87ed146f483322a5830c8ceaaad07dde4e75aeca42
 Existing installed clients must obtain the public key through a trusted channel, verify this fingerprint, then enroll it explicitly before using newly signed repositories:
 
 ```sh
-ooonana repo add cloud https://ooonana.gitlab.io/ooonana-repo --key /trusted/path/repository-20261002.pub
+ooonana repo add cloud https://ooonana.gitlab.io/ooonana-repo /trusted/path/repository-20261002.pub
 ```
 
 Set `OOONANA_REQUIRE_SIGNED_REPOS=1` once every configured source is signed. Legacy unsigned sources remain compatible by default; bundling a key alone does not prohibit signature stripping on an unsigned-compatible source. CI signing secrets were not uploaded by this pass. Public Pages deployment still needs signing-key configuration and successful CI verification. GitLab Pages replaces the whole deployment; retention of old remote generations depends on hosting/artifact retention, unlike append-only local/R2 publication.

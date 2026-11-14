@@ -3,7 +3,7 @@
 # shellcheck disable=SC1090,SC3043
 set -eu
 
-VERSION="0.10.0"
+VERSION="0.10.1"
 case "${1:-}" in
   version|--version|-v) printf 'ooonana %s\n' "$VERSION"; exit 0 ;;
 esac
@@ -1679,9 +1679,50 @@ major_os_update() {
   awk -v old="$2" -v new="$3" 'BEGIN { split(old,a,"[.+-]"); split(new,b,"[.+-]"); exit !((a[1]+0)!=(b[1]+0) || ((a[1]+0)==0 && (a[2]+0)!=(b[2]+0))) }'
 }
 
+live_package_mode() {
+  local marker mode
+  marker="$(root_join /mnt/ooonana-live/persistence-mode)"
+  if [ -f "$marker" ] && IFS= read -r mode <"$marker"; then
+    case "$mode" in
+      ram|usb|usb-temporary) printf '%s\n' "$mode"; return ;;
+    esac
+  fi
+  if [ -e "$marker" ] || { [ "$OOONANA_ROOT" = / ] &&
+    grep -Eq '(^| )ooonana\.live=1( |$)' /proc/cmdline; }; then
+    printf 'unknown\n'
+  else
+    printf 'installed\n'
+  fi
+}
+
+show_package_storage() {
+  case "$LIVE_PACKAGE_MODE" in
+    ram) printf 'Storage: Live RAM. Package changes disappear on reboot.\n' ;;
+    usb) printf 'Storage: Persistent Live USB. Package changes survive reboot.\n' ;;
+    usb-temporary) printf 'Storage: Temporary Live USB. Package changes disappear on reboot.\n' ;;
+    unknown) printf 'Storage: Live. Package persistence could not be verified.\n' ;;
+  esac
+}
+
+needs_new_live_image() {
+  [ "$LIVE_PACKAGE_MODE" != installed ] && [ "$OOONANA_PKG_KIND" = kernel ]
+}
+
+require_writable_boot_package() {
+  if needs_new_live_image; then
+    die "$OOONANA_PKG_ID needs a fresh USB image; Live boots the kernel from the ISO"
+  fi
+}
+
 mark_reboot_required() {
   local marker
   [ "${OOONANA_PKG_REBOOT:-0}" = 1 ] || [ "$OOONANA_PKG_KIND" = kernel ] || return 0
+  case "$LIVE_PACKAGE_MODE" in
+    ram|usb-temporary)
+      printf 'restart affected apps or sign out. Reboot discards this update: %s\n' "$OOONANA_PKG_ID"
+      return 0
+      ;;
+  esac
   marker="$(root_join /run/ooonana/reboot-required)"
   mkdir -p "$(dirname "$marker")"
   printf '%s %s\n' "$OOONANA_PKG_ID" "$OOONANA_PKG_VERSION" >>"$marker"
@@ -2000,24 +2041,26 @@ select_best_index_entries() {
   rm -f "$ordered"
 }
 
-cmd_update() {
+cmd_update() (
+  local stage tmp sources_tmp best_tmp
   ensure_pkg_dirs
-  tmp="$CACHE_DIR/index.tsv.tmp"
-  sources_tmp="$CACHE_DIR/sources.tsv.tmp"
+  stage="$(mktemp -d "$CACHE_DIR/.update.XXXXXX")"
+  trap 'rm -rf "$stage"' EXIT
+  tmp="$stage/index.tsv"
+  sources_tmp="$stage/sources.tsv"
   repo_count=0
   : > "$tmp"
   repo_sources > "$sources_tmp"
   while IFS='	' read -r repo_name repo_path repo_key; do
     [ -n "$repo_name" ] || continue
-    repo_count=$((repo_count + 1))
     if repo_is_tarball "$repo_path"; then
       repo_uri="$repo_path"
       if repo_path="$(sync_tarball_repo "$repo_name" "$repo_uri")"; then
         :
       else
-        cached_repo="$(resolve_repo_generation "$(repo_cache_dir "$repo_name")")"
+        cached_repo="$(resolve_repo_generation "$(repo_cache_dir "$repo_name")" || true)"
         printf 'ooonana repo: source unavailable: %s %s\n' "$repo_name" "$repo_uri" >&2
-        if [ -f "$cached_repo/index.tsv" ]; then
+        if [ -n "$cached_repo" ] && [ -f "$cached_repo/index.tsv" ]; then
           printf 'ooonana repo: using cached metadata for %s\n' "$repo_name" >&2
           repo_path="$cached_repo"
         else
@@ -2030,9 +2073,9 @@ cmd_update() {
       if repo_path="$(sync_remote_repo "$repo_name" "$repo_uri")"; then
         :
       else
-        cached_repo="$(resolve_repo_generation "$(repo_cache_dir "$repo_name")")"
+        cached_repo="$(resolve_repo_generation "$(repo_cache_dir "$repo_name")" || true)"
         printf 'ooonana repo: source unavailable: %s %s\n' "$repo_name" "$repo_uri" >&2
-        if [ -f "$cached_repo/index.tsv" ]; then
+        if [ -n "$cached_repo" ] && [ -f "$cached_repo/index.tsv" ]; then
           printf 'ooonana repo: using cached metadata for %s\n' "$repo_name" >&2
           repo_path="$cached_repo"
         else
@@ -2043,6 +2086,7 @@ cmd_update() {
     fi
     [ -d "$repo_path" ] || die "missing repo source: $repo_name $repo_path"
     verify_repo_signature "$repo_path" "${repo_key:-}"
+    repo_count=$((repo_count + 1))
     if [ -f "$repo_path/index.tsv" ]; then
       # Old unsigned repos may not list index checksum. Signed/declared indexes
       # must verify; preserve legacy unsigned metadata compatibility only.
@@ -2069,18 +2113,18 @@ cmd_update() {
       done
     fi
   done < "$sources_tmp"
-  best_tmp="$CACHE_DIR/index.tsv.best.$$"
+  best_tmp="$stage/index.best.tsv"
   select_best_index_entries "$tmp" "$best_tmp"
-  replace_file "$best_tmp" "$tmp"
+  [ -s "$best_tmp" ] || die 'no usable package metadata; cannot refresh index'
+  count="$(wc -l <"$best_tmp" | tr -d ' ')"
   replace_file "$sources_tmp" "$CACHE_DIR/sources.tsv"
-  replace_file "$tmp" "$CACHE_DIR/index.tsv"
-  count="$(wc -l < "$CACHE_DIR/index.tsv" | tr -d ' ')"
+  replace_file "$best_tmp" "$CACHE_DIR/index.tsv"
   printf 'ooonana repo: synced %s package(s) from %s source(s)\n' "$count" "$repo_count"
   printf 'ooonana repo: remote update is metadata-only; package archives download on install\n'
   if [ "${OOONANA_APT_UPDATE:-0}" = "1" ] && have apt-get; then
     apt-get update
   fi
-}
+)
 
 cmd_sources() {
   repo_sources | while IFS='	' read -r repo_name repo_path repo_key; do
@@ -2458,6 +2502,7 @@ install_one_pkg() {
     esac
   fi
   load_pkg "$id"
+  require_writable_boot_package
   check_pkg_userland
   check_pkg_conflicts "$id"
 
@@ -2581,6 +2626,7 @@ upgrade_one_pkg() {
     printf 'not security-marked: %s\n' "$id"
     return 0
   fi
+  require_writable_boot_package
   if major_os_update "$id" "$old_version" "$new_version" && [ "${OOONANA_ALLOW_MAJOR:-0}" != 1 ]; then
     if [ "$dry_run" -eq 1 ]; then
       printf 'major update needs --allow-major: %s %s -> %s\n' "$id" "$old_version" "$new_version"
@@ -2628,6 +2674,7 @@ upgrade_one_pkg() {
 }
 
 cmd_upgrade() {
+  local explicit selected check_major
   dry_run=0
   packages=""
   OOONANA_PLANNED=""
@@ -2645,7 +2692,10 @@ cmd_upgrade() {
     shift
   done
 
+  show_package_storage
+  explicit=1
   if [ -z "$packages" ]; then
+    explicit=0
     [ -d "$INSTALLED_DIR" ] || { printf 'no packages installed\n'; return 0; }
     for file in "$INSTALLED_DIR"/*.pkg; do
       [ -f "$file" ] || { printf 'no packages installed\n'; return 0; }
@@ -2670,16 +2720,30 @@ cmd_upgrade() {
     return 0
   fi
 
-  # Reject major OS plans before the first library changes, not halfway through
-  # an alphabetical world upgrade. Individual dependency guards stay in place.
+  # Check boot and major changes before touching any selected packages.
+  check_major=0
   if [ "$dry_run" -eq 0 ] && [ "$OOONANA_ALLOW_MAJOR" -ne 1 ]; then
+    check_major=1
+  fi
+  if [ "$LIVE_PACKAGE_MODE" != installed ] || [ "$check_major" -eq 1 ]; then
+    selected=""
     for id in $packages; do
+      safe_pkg_id "$id" || die "bad package id: $id"
       old_version="$(installed_pkg_version "$id")"
       load_pkg "$id"
-      if major_os_update "$id" "$old_version" "$OOONANA_PKG_VERSION"; then
+      if needs_new_live_image; then
+        [ "$explicit" -eq 0 ] || require_writable_boot_package
+        if [ "$OOONANA_SECURITY_ONLY" -eq 0 ] || [ "$OOONANA_PKG_SECURITY" = 1 ]; then
+          printf 'Fresh USB image required: %s %s -> %s\n' "$id" "$old_version" "$OOONANA_PKG_VERSION"
+        fi
+        continue
+      fi
+      if [ "$check_major" -eq 1 ] && major_os_update "$id" "$old_version" "$OOONANA_PKG_VERSION"; then
         die "major OS update requires explicit --allow-major before any package changes: $id"
       fi
+      selected="$selected $id"
     done
+    packages="$selected"
   fi
   for id in $packages; do
     safe_pkg_id "$id" || die "bad package id: $id"
@@ -2692,6 +2756,7 @@ cmd_upgrade() {
 
 cmd_update_status() {
   local file id old new category
+  show_package_storage
   printf 'update policy: major OS jumps require --allow-major; security-only requires repository markings\n'
   if [ -f "$(root_join /run/ooonana/reboot-required)" ]; then
     printf 'reboot_required: yes\n'
@@ -2711,6 +2776,7 @@ cmd_update_status() {
     if [ "$OOONANA_PKG_SECURITY" = 1 ]; then
       if [ "$category" = major ]; then category=major,security; else category=security; fi
     fi
+    if needs_new_live_image; then category="$category,fresh-USB-image"; fi
     printf '%s %s -> %s [%s]\n' "$id" "$old" "$new" "$category"
   done
 }
@@ -2803,13 +2869,18 @@ cmd_purge() {
 }
 
 fix_one_pkg() {
-  local id dry_run reinstall broken deps dep old_version
+  local id dry_run reinstall explicit broken deps dep old_version
   id="$1"
   dry_run="$2"
   reinstall="$3"
+  explicit="$4"
   safe_pkg_id "$id" || die "bad package id: $id"
   if ! pkg_installed "$id"; then
     if [ "$dry_run" -eq 1 ]; then
+      if [ "$LIVE_PACKAGE_MODE" != installed ]; then
+        load_pkg "$id"
+        require_writable_boot_package
+      fi
       printf 'would install missing %s\n' "$id"
     else
       install_one_pkg "$id" 0
@@ -2832,6 +2903,11 @@ fix_one_pkg() {
 
   old_version="$(installed_pkg_version "$id")"
   load_pkg "$id"
+  if needs_new_live_image; then
+    [ "$explicit" -eq 0 ] || require_writable_boot_package
+    printf 'Fresh USB image required: %s\n' "$id"
+    return
+  fi
   check_pkg_userland
   if major_os_update "$id" "$old_version" "$OOONANA_PKG_VERSION" && [ "${OOONANA_ALLOW_MAJOR:-0}" != 1 ]; then
     if [ "$dry_run" -eq 1 ]; then
@@ -3003,6 +3079,7 @@ replace_pkg_transaction() (
 )
 
 cmd_fix() {
+  local explicit
   dry_run=0
   reinstall=0
   packages=""
@@ -3025,7 +3102,9 @@ cmd_fix() {
     cmd_update
   fi
 
+  explicit=1
   if [ -z "$packages" ]; then
+    explicit=0
     for file in "$INSTALLED_DIR"/*.pkg; do
       [ -f "$file" ] || continue
       packages="$packages $(basename "$file" .pkg)"
@@ -3037,7 +3116,7 @@ cmd_fix() {
   fi
   for id in $packages; do
     safe_pkg_id "$id" || die "bad package id: $id"
-    fix_one_pkg "$id" "$dry_run" "$reinstall"
+    fix_one_pkg "$id" "$dry_run" "$reinstall" "$explicit"
   done
 }
 
@@ -3573,6 +3652,10 @@ main() {
   case "$cmd" in
     help|usage|--help|-h|me|ai|wine|wsl|setup) ;;
     *) initialize_checksum_cache ;;
+  esac
+
+  case "$cmd" in
+    get|install|add|upgrade|fix|reinstall|update-status) LIVE_PACKAGE_MODE="$(live_package_mode)" ;;
   esac
 
   case "$cmd" in

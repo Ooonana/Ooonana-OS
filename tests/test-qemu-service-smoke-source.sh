@@ -62,7 +62,8 @@ source_text="$(<"$SCRIPT")"
   fail "service smoke does not report init failure before missing success"
 [[ "$source_text" != *'exec switch_root /newroot /usr/bin/ooonana-service-smoke'* ]] ||
   fail "service smoke replaces real PID1 with a shell"
-[[ "$source_text" == *'exec switch_root /newroot /sbin/init'* &&
+[[ "$source_text" == *'prepare_shutdown_root'* &&
+   "$source_text" == *'/mnt/ooonana-shutdown/bin/busybox init '* &&
    "$source_text" == *'::once:/usr/bin/ooonana-service-smoke'* &&
    "$source_text" == *'packaged init shutdown hook missing'* ]] ||
   fail "service smoke does not retain verified init shutdown handling"

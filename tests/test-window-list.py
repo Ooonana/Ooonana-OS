@@ -95,7 +95,7 @@ module.menu(items, close=True)
 assert commands[-1] == ["i3-msg", "[con_id=4] kill"]
 selection = "1"
 module.actions_menu(items, 3)
-assert commands[-1] == ["i3-msg", "[con_id=3] move scratchpad"]
+assert commands[-1] == ["i3-msg", "[con_id=3] fullscreen disable, move scratchpad"]
 selection = "0"
 module.actions_menu(items, 4)
 assert commands[-1] == ["i3-msg", "[con_id=4] scratchpad show; [con_id=4] focus"]
@@ -111,10 +111,21 @@ assert commands[-1] == ["i3-msg", "[con_id=4] scratchpad show; [con_id=4] focus"
 module.sys.argv = ["ooonana-window-list", "--actions"]
 selection = "1"
 module.main()
-assert commands[-1] == ["i3-msg", "[con_id=4] move scratchpad"]
+assert commands[-1] == ["i3-msg", "[con_id=4] fullscreen disable, move scratchpad"]
 module.sys.argv = ["ooonana-window-list", "--focused-actions"]
 module.main()
-assert commands[-1] == ["i3-msg", "[con_id=3] move scratchpad"]
+assert commands[-1] == ["i3-msg", "[con_id=3] fullscreen disable, move scratchpad"]
+terminal = tree["nodes"][2]["floating_nodes"][0]
+terminal["fullscreen_mode"] = 1
+module.sys.argv.append("--keyboard")
+module.main()
+assert "Exit fullscreen" in menu_inputs[-1]
+terminal["focused"] = False
+before = len(commands)
+module.main()
+assert len(commands) == before, "A focused-window shortcut must only target a focused window"
+terminal["focused"] = True
+terminal.pop("fullscreen_mode")
 module.sys.argv = ["ooonana-window-list", "--window-action", "show", "4"]
 module.main()
 assert commands[-1] == ["i3-msg", "[con_id=4] scratchpad show; [con_id=4] focus"]
@@ -155,7 +166,7 @@ assert len(launches) == before_launch
 assert commands[-1] == ["i3-msg", "[con_id=8] scratchpad show; [con_id=8] focus"]
 selection = "1"
 module.dock_actions(items, "terminal")
-assert commands[-1] == ["i3-msg", "[con_id=3] move scratchpad"]
+assert commands[-1] == ["i3-msg", "[con_id=3] fullscreen disable, move scratchpad"]
 selection = "0"
 module.dock_actions(items, "music")
 assert launches[-1] == ("ooonana-music",)
@@ -168,7 +179,7 @@ module.dock_open(items + [music], "other", compact_pins)
 assert commands[-1] == ["i3-msg", "[con_id=20] scratchpad show; [con_id=20] focus"]
 selection = "1"
 module.dock_actions(items + [music], "other", compact_pins)
-assert commands[-1] == ["i3-msg", "[con_id=20] move scratchpad"]
+assert commands[-1] == ["i3-msg", "[con_id=20] fullscreen disable, move scratchpad"]
 module.tree = lambda: dict(nodes=[window(20, "Ooonana Music", window_properties={"class": "OoonanaApp"})])
 module.sys.argv = ["ooonana-window-list", "--dock-open", "other", "--visible-pins", ",".join(compact_pins)]
 module.main()

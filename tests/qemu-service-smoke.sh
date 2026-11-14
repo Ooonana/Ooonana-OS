@@ -156,7 +156,7 @@ awk '
     patched_init_failure=1
     next
   }
-  $0 == "exec switch_root /newroot /sbin/init" {
+  $0 == "prepare_shutdown_root" || $0 == "exec switch_root /newroot /sbin/init" {
     print "/bin/busybox cp -a /smoke-root/. /newroot/"
     print "/bin/busybox cp /ooonana-service-smoke /newroot/usr/bin/ooonana-service-smoke"
     print "/bin/busybox chmod 0755 /newroot/usr/bin/ooonana-service-smoke"
@@ -167,8 +167,6 @@ awk '
     print "  exit 1"
     print "fi"
     print "printf '\''%s\\n'\'' '\''::once:/usr/bin/ooonana-service-smoke'\'' '\''::shutdown:/usr/bin/ooonana-shutdown-cleanup --from-init'\'' >/newroot/etc/inittab"
-    print "exec switch_root /newroot /sbin/init"
-    next
   }
   { print }
 ' "$WORK/patch/init" >"$WORK/patch/init.new"
@@ -206,9 +204,12 @@ step() {
 
 echo OOONANA_SERVICE_SMOKE_BEGIN
 step command-audit
-[ "$(readlink /proc/1/exe)" = /bin/busybox ] || fail "PID1 is not BusyBox init"
+case "$(readlink /proc/1/exe)" in
+  /bin/busybox|/mnt/ooonana-shutdown/bin/busybox|/mnt/ooonana-shutdown/lib/ld-musl-x86_64.so.1) ;;
+  *) fail "PID1 is not BusyBox init" ;;
+esac
 case "$(tr '\000' ' ' </proc/1/cmdline)" in
-  '/bin/busybox init '|'/sbin/init '|'init ') ;;
+  '/bin/busybox init '|'/sbin/init '|'init '*|'/mnt/ooonana-shutdown/bin/busybox init '|'/mnt/ooonana-shutdown/lib/ld-musl-x86_64.so.1 /mnt/ooonana-shutdown/bin/busybox init ') ;;
   *) fail "PID1 is not an init command" ;;
 esac
 for command in \

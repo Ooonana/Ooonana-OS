@@ -16,7 +16,7 @@ shutdown_cleanup() {
   kill -TERM -1 2>/dev/null || true
   if [ -r /usr/lib/ooonana/console-ui.sh ]; then
     . /usr/lib/ooonana/console-ui.sh
-    chvt 1 2>/dev/null || true
+    timeout -k 1 2 chvt 1 2>/dev/null || true
     ooonana_console_begin
     ooonana_console_stage "Closing session"
     ooonana_console_wait 2
@@ -63,14 +63,14 @@ shutdown_context_allowed "${PPID:-0}" "$(readlink /proc/1/exe 2>/dev/null)" \
   exit 1
 }
 storage_file="$(cat /mnt/ooonana-live/persistence-file 2>/dev/null || true)"
-if [ "$storage_file" = /mnt/ooonana-live/iso/ooonana-persistence.ext4 ]; then
-  awk '$2 == "/mnt/ooonana-shutdown" && $3 == "tmpfs" { found=1 } END { exit !found }' /proc/mounts || {
-    echo OOONANA_SHUTDOWN_RAM_MISSING >&2
-    exit 1
-  }
+if awk '$2 == "/mnt/ooonana-shutdown" && $3 == "tmpfs" { found=1 } END { exit !found }' /proc/mounts; then
   if [ -x /mnt/ooonana-shutdown/lib/ld-musl-x86_64.so.1 ]; then
     exec /mnt/ooonana-shutdown/lib/ld-musl-x86_64.so.1 /mnt/ooonana-shutdown/bin/busybox sh /mnt/ooonana-shutdown/shutdown --from-init
   fi
   exec /mnt/ooonana-shutdown/bin/busybox sh /mnt/ooonana-shutdown/shutdown --from-init
+fi
+if [ "$storage_file" = /mnt/ooonana-live/iso/ooonana-persistence.ext4 ]; then
+  echo 'OOONANA_SHUTDOWN_RAM_MISSING: shutdown held to protect saved USB data' >&2
+  while :; do sleep 5; done
 fi
 shutdown_cleanup

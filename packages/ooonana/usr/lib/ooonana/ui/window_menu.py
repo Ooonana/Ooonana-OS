@@ -58,6 +58,8 @@ def main():
     parser.add_argument("--window", type=int, required=True)
     parser.add_argument("--title", default="Window")
     parser.add_argument("--hidden", action="store_true")
+    parser.add_argument("--fullscreen", action="store_true", default=None)
+    parser.add_argument("--expect-xid", type=int)
     parser.add_argument("--keyboard", action="store_true")
     args = parser.parse_args()
     if args.window <= 0:
@@ -73,9 +75,12 @@ def main():
     menu.append(Gtk.SeparatorMenuItem())
 
     def activate(action):
-        subprocess.Popen(["ooonana-window-list", "--window-action", action, str(args.window)], start_new_session=True)
+        command = ["ooonana-window-list", "--window-action", action, str(args.window)]
+        if args.expect_xid:
+            command.extend(("--expect-xid", str(args.expect_xid)))
+        subprocess.Popen(command, start_new_session=True)
 
-    append_actions(menu, args.hidden, activate)
+    append_actions(menu, args.hidden, activate, args.fullscreen)
     menu.connect("deactivate", lambda *_: Gtk.main_quit())
     popup(menu, keyboard=args.keyboard)
     Gtk.main()

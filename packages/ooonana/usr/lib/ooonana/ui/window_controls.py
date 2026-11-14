@@ -12,6 +12,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import i3_events
 from common import Gdk, GLib, Gtk, WINDOW_CONTROL_CSS, window_control_icon, run_async
+from touchpad_gestures import GENERIC_EVENT, WorkspaceSwipe, XEvent, subscribe, swipe_direction
 
 WIDTH = 66
 
@@ -180,7 +181,7 @@ class Controls(Gtk.Window):
         row.set_margin_right(4)
         row.set_valign(Gtk.Align.CENTER)
         row.connect_after("size-allocate", self.clip_controls)
-        for action, title, glyph in (("close", "Close window", "window-close-symbolic"), ("minimize", "Minimize window", "window-minimize-symbolic"), ("fullscreen", "Toggle fullscreen", "view-fullscreen-symbolic")):
+        for action, title, glyph in (("close", "Close window", "window-close-symbolic"), ("minimize", "Minimize window", "window-minimize-symbolic"), ("fullscreen", "Toggle fullscreen (Alt+F10)", "view-fullscreen-symbolic")):
             control = Gtk.Button()
             image = window_control_icon(glyph)
             image.set_pixel_size(10)
@@ -296,7 +297,10 @@ class Manager:
         self.display = self.xlib.XOpenDisplay(None)
         if not self.display:
             raise RuntimeError("X11 display unavailable")
-        self.xlib.XSelectInput(self.display, self.xlib.XDefaultRootWindow(self.display), (1 << 19))
+        root = self.xlib.XDefaultRootWindow(self.display)
+        self.xlib.XSelectInput(self.display, root, (1 << 19))
+        self.swipe_opcode = subscribe(self.xlib, self.display, root)
+        self.swipe = WorkspaceSwipe()
         # Xlib buffers this request. No i3 event is emitted for every drag step;
         # without flushing, root ConfigureNotify never reaches our idle socket.
         self.xlib.XFlush(self.display)
@@ -304,10 +308,16 @@ class Manager:
         threading.Thread(target=self.watch, daemon=True).start()
 
     def configured(self, _source, _condition):
-        event = ctypes.create_string_buffer(192)
+        event = XEvent()
         changed = False
         while self.xlib.XPending(self.display):
-            self.xlib.XNextEvent(self.display, event)
+            self.xlib.XNextEvent(self.display, ctypes.byref(event))
+            if event.type == GENERIC_EVENT:
+                if self.swipe_opcode and event.cookie.extension == self.swipe_opcode:
+                    direction = swipe_direction(self.xlib, self.display, event.cookie, self.swipe)
+                    if direction:
+                        run_async(["i3-msg", "workspace", direction], lambda *_: None)
+                continue
             # Root SubstructureNotify carries affected window after parent.
             identifier = ctypes.c_ulong.from_buffer(event, 40 if ctypes.sizeof(ctypes.c_void_p) == 8 else 20).value
             if identifier not in self.own_windows:

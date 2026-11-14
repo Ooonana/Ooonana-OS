@@ -65,7 +65,7 @@ assert_contains "$common" 'encoding="utf-8"'
 assert_contains "$common" 'command_env["LC_ALL"] = "C"'
 assert_contains "$common" 'command_env["LANG"] = "C"'
 assert_contains "$common" "Minimize window"
-assert_contains "$common" 'i3_window_action(window, "move scratchpad")'
+assert_contains "$common" 'i3_window_action(window, "fullscreen disable, move scratchpad")'
 assert_contains "$common" "Toggle fullscreen"
 assert_contains "$common" 'window-close-symbolic'
 assert_contains "$common" 'OoonanaApp'
@@ -253,6 +253,9 @@ assert_contains "$task_manager" "GObject.TYPE_UINT64"
 assert_not_contains "$task_manager" "signal.SIGKILL"
 assert_contains "$i3_config" 'bindsym Control+Shift+Escape exec ooonana-processes'
 assert_contains "$i3_config" 'focus_follows_mouse no'
+assert_contains "$i3_config" 'bindsym Mod1+space exec --no-startup-id ooonana-window-list --focused-actions --keyboard'
+assert_contains "$i3_config" 'bindsym $mod+m fullscreen disable, move scratchpad'
+assert_contains "$i3_config" 'bindsym $mod+r fullscreen disable, mode "resize"'
 assert_contains "$window_list" 'node.get("name") == "__i3_scratch"'
 assert_contains "$window_list" 'scratchpad show'
 assert_contains "$window_list" 'hidden_count'

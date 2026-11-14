@@ -110,7 +110,7 @@ assert_contains "$script_src" 'mount -t vfat -o ro "$candidate" /mnt/iso'
 assert_contains "$script_src" "losetup -r /dev/loop0"
 assert_contains "$script_src" 'mount -t ext4 -o ro,noload /dev/loop0'
 assert_contains "$script_src" "mount -t overlay overlay"
-assert_contains "$script_src" "switch_root /newroot /sbin/init"
+assert_contains "$script_src" $'\nprepare_shutdown_root\nooonana_console_end'
 assert_contains "$script_src" 'mount --move /mnt/iso'
 assert_contains "$script_src" 'mount --move /persist'
 assert_contains "$script_src" 'mode=0700,nosuid,nodev,size=8m'

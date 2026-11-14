@@ -65,7 +65,7 @@ python3 -B - "$root" "$stage" "$SOURCE" <<'PY'
 from pathlib import Path
 import hashlib, json, sys, tarfile
 root, stage, source = map(Path, sys.argv[1:])
-archive = stage/'archives/ooonana-core-runtime-0.10.0.tar.gz'
+archive, = (stage / 'archives').glob('ooonana-core-runtime-*.tar.gz')
 verified = {}
 with tarfile.open(archive) as bundle:
     members = {m.name.removeprefix('./'): m for m in bundle}

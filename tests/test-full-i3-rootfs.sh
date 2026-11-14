@@ -391,7 +391,8 @@ assert_contains "$(<"$rootfs/etc/doas.conf")" "permit nopass :wheel"
 assert_contains "$(<"$rootfs/etc/sudoers.d/ooonana")" '%wheel ALL=(ALL:ALL) NOPASSWD: ALL'
 assert_contains "$(<"$rootfs/etc/wsl.conf")" "default=ooonana"
 assert_contains "$(<"$rootfs/etc/wsl.conf")" "mountFsTab=false"
-assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS 0.10.0"'
+core_version="$(sh "$ROOT/packages/ooonana/usr/bin/ooonana" version | awk '{print $2}')"
+assert_contains "$(<"$rootfs/etc/os-release")" "PRETTY_NAME=\"Ooonana OS $core_version\""
 [[ -d "$rootfs/var/tmp" && "$(stat -c %a "$rootfs/var/tmp")" == 1777 ]] || fail "/var/tmp missing or unsafe"
 [[ "$(head -c 4 "$rootfs/usr/share/icons/OoonanaTailless/cursors/left_ptr")" == Xcur ]] || fail "tailless cursor missing or invalid"
 python3 - "$rootfs/usr/share/icons/OoonanaTailless/cursors/left_ptr" <<'PY'
@@ -548,11 +549,13 @@ assert_contains "$i3_config" 'bindsym XF86TouchpadToggle exec ooonana-touchpad t
 assert_contains "$i3_config" 'bindsym XF86TouchpadOn exec ooonana-touchpad on'
 assert_contains "$i3_config" 'bindsym XF86TouchpadOff exec ooonana-touchpad off'
 assert_contains "$i3_config" 'bindsym $mod+minus scratchpad show'
-assert_contains "$i3_config" 'bindsym $mod+Shift+minus move scratchpad'
+assert_contains "$i3_config" 'bindsym $mod+Shift+minus fullscreen disable, move scratchpad'
 assert_contains "$i3_config" 'default_border normal 1'
 assert_contains "$i3_config" 'tiling_drag modifier titlebar'
-assert_contains "$i3_config" 'bindsym $mod+r mode "resize"'
-assert_contains "$i3_config" 'bindsym $mod+m move scratchpad'
+assert_contains "$i3_config" 'bindsym $mod+r fullscreen disable, mode "resize"'
+assert_contains "$i3_config" 'bindsym $mod+m fullscreen disable, move scratchpad'
+assert_contains "$i3_config" 'bindsym XF86MonBrightnessUp exec --no-startup-id ooonana-brightness +5%'
+assert_contains "$i3_config" 'bindsym XF86MonBrightnessDown exec --no-startup-id ooonana-brightness 5%-'
 
 xorg_input="$(<"$rootfs/etc/X11/xorg.conf.d/10-ooonana-input.conf")"
 assert_contains "$xorg_input" 'Option "AutoAddDevices" "true"'
@@ -560,6 +563,8 @@ assert_contains "$xorg_input" 'MatchIsKeyboard "on"'
 assert_contains "$xorg_input" 'MatchIsPointer "on"'
 assert_contains "$xorg_input" 'MatchIsTouchpad "on"'
 assert_contains "$xorg_input" 'Option "Tapping" "on"'
+assert_contains "$xorg_input" 'Option "TappingButtonMap" "lrm"'
+assert_contains "$xorg_input" 'Option "ScrollMethod" "twofinger"'
 assert_contains "$xorg_input" 'Option "ClickMethod" "clickfinger"'
 assert_contains "$xorg_input" 'Driver "libinput"'
 
@@ -863,7 +868,8 @@ assert_contains "$processes_helper" "task_manager_app.py"
 ranger_helper="$(<"$rootfs/usr/bin/ooonana-ranger")"
 assert_contains "$ranger_helper" "ranger"
 brightness_helper="$(<"$rootfs/usr/bin/ooonana-brightness")"
-assert_contains "$brightness_helper" "brightnessctl"
+assert_contains "$brightness_helper" "brightnessctl --class=backlight --min-value=1 set"
+assert_contains "$(<"$rootfs/usr/lib/udev/rules.d/90-ooonana-backlight.rules")" 'SUBSYSTEM=="backlight"'
 brightness_panel="$(<"$rootfs/usr/bin/ooonana-brightness-panel")"
 assert_contains "$brightness_panel" 'yad --scale --title "Brightness"'
 assert_contains "$brightness_panel" "--min-value=0 --max-value=100"
@@ -884,9 +890,9 @@ assert_contains "$bt_status" '2>/dev/null | awk'
 brightness_status="$(<"$rootfs/usr/bin/ooonana-brightness-status")"
 no_backlight="$(bash -c 'brightnessctl() { return 1; }; . "$1"' bash "$rootfs/usr/bin/ooonana-brightness-status")"
 [[ "$no_backlight" == ' --' ]] || fail "missing backlight shown as zero brightness"
-backlight_ready="$(bash -c 'brightnessctl() { printf "backlight,intel,100,55%%\n"; }; . "$1"' bash "$rootfs/usr/bin/ooonana-brightness-status")"
+backlight_ready="$(bash -c 'brightnessctl() { printf "kbd,leds,100,100%%,100\nintel_backlight,backlight,100,55%%,180\n"; }; . "$1"' bash "$rootfs/usr/bin/ooonana-brightness-status")"
 [[ "$backlight_ready" == ' 55%' ]] || fail "real backlight level not shown"
-assert_contains "$brightness_status" "brightnessctl -m"
+assert_contains "$brightness_status" "brightnessctl --class=backlight -m"
 assert_contains "$brightness_status" ""
 assert_contains "$brightness_status" "#"
 assert_contains "$brightness_status" "-"
@@ -986,7 +992,7 @@ assert_contains "$polybar_cfg" "click-right = pavucontrol"
 assert_contains "$polybar_cfg" "[module/brightness]"
 assert_contains "$polybar_cfg" "exec = ooonana-brightness-status"
 assert_contains "$polybar_cfg" "click-left = ooonana-shell brightness"
-assert_contains "$polybar_cfg" "click-middle = brightnessctl set 50%"
+assert_contains "$polybar_cfg" "click-middle = ooonana-brightness 50%"
 assert_contains "$polybar_cfg" "[module/power]"
 assert_contains "$polybar_cfg" "content = "
 assert_contains "$polybar_cfg" "click-left = ooonana-shell power"

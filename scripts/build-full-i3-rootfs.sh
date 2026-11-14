@@ -12,7 +12,7 @@ TARBALL="$WORK_DIR/ooonana-full-i3-rootfs.tar.gz"
 REPO="$WORK_DIR/full-i3-repo"
 STAGED_REPO=""
 PACKAGE_PROFILE="$ROOT/configs/packages/full-i3.list"
-OS_VERSION="${OOONANA_OS_VERSION:-0.10.0}"
+OS_VERSION="${OOONANA_OS_VERSION:-$(sh "$ROOT/packages/ooonana/usr/bin/ooonana" version | awk '{print $2}')}"
 FORCE=0
 
 usage() {
@@ -1569,15 +1569,14 @@ action="${1:-status}"
 
 touchpad_ids() {
   command -v xinput >/dev/null 2>&1 || return 0
-  xinput list 2>/dev/null | awk '
-    BEGIN { IGNORECASE=1 }
-    /touchpad|trackpad|elan|syna/ && /id=/ {
-      line=$0
-      sub(/^.*id=/, "", line)
-      sub(/[[:space:]].*$/, "", line)
-      if (line ~ /^[0-9]+$/) print line
-    }
-  '
+  # XInput names are vendor-dependent. Tapping is a touchpad capability,
+  # including on pads which share their name with a mouse interface.
+  xinput list --id-only 2>/dev/null | while read -r id; do
+    case "$id" in ''|*[!0-9]*) continue ;; esac
+    if xinput list-props "$id" 2>/dev/null | grep -q 'libinput Tapping Enabled ('; then
+      printf '%s\n' "$id"
+    fi
+  done
 }
 
 set_enabled() {
@@ -1585,10 +1584,19 @@ set_enabled() {
   changed=0
   for id in $(touchpad_ids | sort -u); do
     [ -n "$id" ] || continue
-    xinput set-prop "$id" "Device Enabled" "$state" >/dev/null 2>&1 || true
-    changed=1
+    if xinput set-prop "$id" "Device Enabled" "$state" >/dev/null 2>&1; then
+      changed=1
+    fi
   done
-  return "$changed"
+  [ "$changed" = 1 ]
+}
+
+apply_enabled() {
+  if ! set_enabled "$1"; then
+    echo 'No libinput touchpad could be updated.' >&2
+    return 1
+  fi
+  command -v notify-send >/dev/null 2>&1 && notify-send 'Ooonana touchpad' "$2" || true
 }
 
 status() {
@@ -1598,7 +1606,9 @@ status() {
     xinput list || true
     printf '\nTouchpad properties\n'
     printf '===================\n'
-    for id in $(touchpad_ids | sort -u); do
+    ids="$(touchpad_ids | sort -u)"
+    [ -n "$ids" ] || printf 'No libinput touchpad detected.\n'
+    for id in $ids; do
       printf '\n[id %s]\n' "$id"
       xinput list-props "$id" 2>/dev/null || true
     done
@@ -1615,21 +1625,17 @@ status() {
 
 case "$action" in
   on|enable)
-    set_enabled 1 || true
-    command -v notify-send >/dev/null 2>&1 && notify-send 'Ooonana touchpad' 'enabled' || true
+    apply_enabled 1 enabled
     ;;
   off|disable)
-    set_enabled 0 || true
-    command -v notify-send >/dev/null 2>&1 && notify-send 'Ooonana touchpad' 'disabled' || true
+    apply_enabled 0 disabled
     ;;
   toggle)
     first="$(touchpad_ids | sort -u | head -n 1 || true)"
     if [ -n "$first" ] && xinput list-props "$first" 2>/dev/null | grep -q 'Device Enabled.*:[[:space:]]*1'; then
-      set_enabled 0 || true
-      command -v notify-send >/dev/null 2>&1 && notify-send 'Ooonana touchpad' 'disabled' || true
+      apply_enabled 0 disabled
     else
-      set_enabled 1 || true
-      command -v notify-send >/dev/null 2>&1 && notify-send 'Ooonana touchpad' 'enabled' || true
+      apply_enabled 1 enabled
     fi
     ;;
   status|doctor|diag)
@@ -1901,8 +1907,8 @@ fi
 if ! command -v brightnessctl >/dev/null 2>&1; then
   exec ooonana-theme-env xterm -e sh -lc 'echo "brightnessctl missing"; echo "run: ooonana get brightnessctl"; exec sh'
 fi
-current="$(brightnessctl -m 2>/dev/null | awk -F, '{gsub(/%/,"",$4); print $4; exit}')"
-[ -n "$current" ] || current=75
+current="$(brightnessctl --class=backlight -m 2>/dev/null | awk -F, '$2 == "backlight" { gsub(/%/,"",$4); print $4; exit }')"
+[ -n "$current" ] || exec ooonana-brightness
 if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
   set +e
   value="$(yad --scale --title "Brightness" --center --width=420 --height=120 \
@@ -1910,7 +1916,7 @@ if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
     --button=Cancel:1 --button=Apply:0 2>/dev/null)"
   rc="$?"
   set -e
-  [ "$rc" -eq 0 ] && [ -n "$value" ] && exec brightnessctl set "${value}%"
+  [ "$rc" -eq 0 ] && [ -n "$value" ] && exec ooonana-brightness "${value}%"
   exit 0
 fi
 exec ooonana-brightness
@@ -2183,15 +2189,18 @@ if ! command -v brightnessctl >/dev/null 2>&1; then
   exec ooonana-theme-env xterm -e sh -lc 'echo "brightnessctl missing"; echo "run: ooonana get brightnessctl"; exec sh'
 fi
 if [ "$#" -gt 0 ]; then
-  exec brightnessctl set "$1"
+  exec brightnessctl --class=backlight --min-value=1 set "$1"
 fi
 if [ -n "${DISPLAY:-}" ] && command -v yad >/dev/null 2>&1; then
-  current="$(brightnessctl -m 2>/dev/null | awk -F, '{gsub(/%/,"",$4); print $4; exit}')"
-  [ -n "$current" ] || current=75
-  value="$(yad --center --title "Ooonana Brightness" --scale --min-value=1 --max-value=100 --value="$current" --button=Apply:0 2>/dev/null || true)"
-  [ -n "$value" ] && exec brightnessctl set "${value}%"
+  current="$(brightnessctl --class=backlight -m 2>/dev/null | awk -F, '$2 == "backlight" { gsub(/%/,"",$4); print $4; exit }')"
+  if [ -n "$current" ]; then
+    [ "$current" -ge 1 ] || current=1
+    value="$(yad --center --title "Ooonana Brightness" --scale --min-value=1 --max-value=100 --value="$current" --button=Apply:0 2>/dev/null || true)"
+    [ -n "$value" ] && exec brightnessctl --class=backlight --min-value=1 set "${value}%"
+    exit 0
+  fi
 fi
-exec ooonana-theme-env xterm -e sh -lc 'brightnessctl; echo; echo "Usage: ooonana-brightness 75%"; exec sh'
+exec ooonana-theme-env xterm -e sh -lc 'brightnessctl --class=backlight; echo; echo "Usage: ooonana-brightness 75%"; exec sh'
 EOF
 
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-brightness-status" <<'EOF'
@@ -2199,7 +2208,7 @@ EOF
 set -eu
 value=""
 if command -v brightnessctl >/dev/null 2>&1; then
-  value="$(brightnessctl -m 2>/dev/null | awk -F, '{gsub(/%/,"",$4); print $4; exit}')"
+  value="$(brightnessctl --class=backlight -m 2>/dev/null | awk -F, '$2 == "backlight" { gsub(/%/,"",$4); print $4; exit }')"
 fi
 case "$value" in
   ''|*[!0-9]*) printf ' --\n'; exit 0 ;;
@@ -3015,10 +3024,10 @@ label-foreground = ${colors.accent}
 label-background = ${colors.background-alt}
 label-padding = 2
 click-left = ooonana-shell brightness
-click-middle = brightnessctl set 50%
+click-middle = ooonana-brightness 50%
 click-right = arandr
-scroll-up = brightnessctl set +5%
-scroll-down = brightnessctl set 5%-
+scroll-up = ooonana-brightness +5%
+scroll-down = ooonana-brightness 5%-
 
 [module/power]
 type = custom/text
@@ -4113,8 +4122,11 @@ EndSection
 Section "InputClass"
     Identifier "Ooonana touchpad"
     MatchIsTouchpad "on"
+    MatchDevicePath "/dev/input/event*"
     Driver "libinput"
     Option "Tapping" "on"
+    Option "TappingButtonMap" "lrm"
+    Option "ScrollMethod" "twofinger"
     Option "ClickMethod" "clickfinger"
     Option "NaturalScrolling" "true"
     Option "DisableWhileTyping" "true"
@@ -4141,9 +4153,11 @@ write_full_init_script() {
 #!/bin/sh
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 export PATH
-mount -t proc proc /proc 2>/dev/null || true
-mount -t sysfs sysfs /sys 2>/dev/null || true
-mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+# Live initramfs already moved these mounts into place. Do not stack another
+# mount over them, which would leave hidden copies under the shutdown root.
+mountpoint -q /proc || mount -t proc proc /proc 2>/dev/null || true
+mountpoint -q /sys || mount -t sysfs sysfs /sys 2>/dev/null || true
+mountpoint -q /dev || mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
 mkdir -p /dev/pts
 mount -t devpts devpts /dev/pts 2>/dev/null || true
 mkdir -p /dev/shm
@@ -4415,7 +4429,7 @@ if grep -q 'ooonana.smoke=1' /proc/cmdline 2>/dev/null; then
   version_output="$(/usr/bin/ooonana version 2>&1)" || cli_ok=0
   installed_output="$(/usr/bin/ooonana list --installed 2>&1)" || cli_ok=0
   if [ "$cli_ok" -eq 1 ] &&
-    printf '%s\n' "$version_output" | grep -q 'ooonana 0.10.0' &&
+    printf '%s\n' "$version_output" | grep -Eq '^ooonana 0\.10\.[0-9]+$' &&
     printf '%s\n' "$installed_output" | grep -q 'full-i3'; then
     echo "OOONANA_CLI_OK"
   else
@@ -4529,6 +4543,8 @@ install_current_backend_checks() {
     "$ROOTFS/etc/elogind/logind.conf.d/90-ooonana.conf"
   install -D -m 0644 "$ROOT/packages/ooonana/etc/chromium/zz-ooonana.conf" \
     "$ROOTFS/etc/chromium/zz-ooonana.conf"
+  install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/udev/rules.d/90-ooonana-backlight.rules" \
+    "$ROOTFS/usr/lib/udev/rules.d/90-ooonana-backlight.rules"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/cgroup_memory.py" \
     "$ROOTFS/usr/lib/ooonana/cgroup_memory.py"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/storage_health.py" \
@@ -4543,12 +4559,12 @@ install_current_backend_checks() {
     install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/$file" \
       "$ROOTFS/usr/lib/ooonana/$file"
   done
-  for file in chat_store.py common.py memory_status.py notification_utils.py task_manager_app.py theme_watch.py tray_app.py ui_preferences.py window_controls.py shell_flyout.py shell_pointer.py shell_client.py launcher_app.py notifications_app.py controls_app.py wifi_app.py bluetooth_app.py; do
+  for file in chat_store.py common.py memory_status.py notification_utils.py task_manager_app.py theme_watch.py tray_app.py ui_preferences.py window_controls.py window_menu.py touchpad_gestures.py shell_flyout.py shell_pointer.py shell_client.py launcher_app.py notifications_app.py controls_app.py wifi_app.py bluetooth_app.py; do
     install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ui/$file" \
       "$ROOTFS/usr/lib/ooonana/ui/$file"
   done
   install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana" "$ROOTFS/usr/bin/ooonana"
-  for file in ooonana-window-list ooonana-panel-start ooonana-media-status ooonana-notification-status ooonana-xsettings ooonana-lock ooonana-session ooonana-session-services ooonana-session-guard ooonana-input-method ooonana-tray ooonana-controls ooonana-shell ooonana-notifications ooonana-nemo-wallpaper; do
+  for file in ooonana-window-list ooonana-panel-start ooonana-media-status ooonana-notification-status ooonana-xsettings ooonana-lock ooonana-session ooonana-session-services ooonana-session-guard ooonana-input-method ooonana-tray ooonana-controls ooonana-shell ooonana-notifications ooonana-nemo-wallpaper ooonana-shutdown-cleanup; do
     install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/$file" "$ROOTFS/usr/bin/$file"
   done
   [[ -f "$app/APP-MANIFEST.sha256" ]] || return 0

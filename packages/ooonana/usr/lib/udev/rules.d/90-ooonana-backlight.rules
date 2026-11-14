@@ -1,0 +1,3 @@
+# brightnessctl is shipped without its optional udev permissions subpackage.
+# Grant display backlight writes only to the existing video group.
+ACTION=="add|change", SUBSYSTEM=="backlight", TEST=="brightness", RUN+="/bin/chgrp video $sys$devpath/brightness", RUN+="/bin/chmod g+w $sys$devpath/brightness"

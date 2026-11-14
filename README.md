@@ -15,8 +15,10 @@ Ooonana OS is a custom Linux distribution built from scratch around its own boot
 
 Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Linux, BusyBox, GRUB, i3, and other open-source components. Ooonana package factory currently imports selected Alpine package payloads into Ooonana `.pkg` repositories while native packages replace them over time.
 
-**Core 0.10.0 candidate.** Runtime revision `36dbeb5` passed GitHub and GitLab
-CI. Local signed generation `82d298f4ebf5` contains 737 packages, including the
+**Core 0.10.1 candidate.** Adds fullscreen recovery controls, touchpad scrolling
+and workspace gestures, display backlight fixes, and Live shutdown repair.
+The previous 0.10.0 runtime revision `36dbeb5` passed GitHub and GitLab CI.
+Its signed generation `82d298f4ebf5` contains 737 packages, including the
 Nemo integration fixes, graphical sign-in, and updated desktop flyouts.
 Ooonana WSL uses this generation with i3 bundle `0.1.7`.
 [Current checks and release gates](docs/release-readiness.md).
@@ -600,7 +602,7 @@ Working now:
 - GRUB uses an opaque graphite panel, orange selection and a continuous-stroke Ooonana mascot image, with a compact seconds countdown, BIOS/UEFI hybrid support, live/install/safe graphics menus, and a persistent USB boot entry. Text-only boot/shutdown uses a compact wordmark and real stage names, not broken-looking ASCII art or invented progress percentages. A lightweight console pulse uses existing media-retry and shutdown/reboot grace waits only; no background worker or extra cosmetic delay. Serial/small consoles and `ooonana.motion=off` use plain stage messages. Persistent USB setup still has text size/CREATE prompts, with explicit cancellation/error messages and no splash redraw over input. Full-i3 preserves the firmware framebuffer rather than forcing a fixed `gfxmode`. [Boot UI evidence and limits](docs/boot-ui-polish-20261015.md).
 - Kernel config is tuned for desktop responsiveness: performance compiler mode, full preemption, dynamic preemption, high-resolution timers, 1000 Hz scheduler tick, scheduler autogroup, zram, and CPU/NVMe temperature sensors.
 - Rufus support has an ISO-mode note inside the ISO, USB-friendly volume labels, and `scripts/verify-rufus-iso.sh`
-- Full-i3 live starts eudev before Xorg and ships libinput config for PS/2 keyboard, mouse, and touchpad discovery
+- Full-i3 starts eudev before Xorg. Compatible touchpads support two-finger scrolling and right-click, three-finger middle-click, and horizontal three-finger workspace swipes when the app leaves the gesture to i3.
 - Full-i3 live boot never formats internal disks. GRUB boot UUID and same-parent checks restrict writable overlays to the boot USB. Normal live uses a cleared temporary overlay there, with RAM fallback when no matching storage exists. Persistent live keeps its separate saved overlay; failed/missing storage stops in recovery instead of silently discarding changes. Only the confirmed installer target can be partitioned or formatted.
 - Full-i3 runs the desktop as the unprivileged `ooonana` user (UID 1000). Administrative commands use a validated wheel-only `doas` policy.
 - Full-i3 mounts `/run` and `/dev/shm` before desktop services, maps `/var/run` to `/run`, starts system D-Bus first, then starts NetworkManager and BlueZ. This runtime order supports Chromium, Wi-Fi, Bluetooth, and desktop applets from live USB and installed systems.
@@ -700,8 +702,9 @@ Desktop workspace/window shortcuts:
 - `Super+Ctrl+Left/Right`: previous/next workspace.
 - `Super+left-drag/right-drag`: move/resize floating window using native i3 handling.
 - `Super+Shift+Space`: floating/tiling; `Super+W/S/E`: tabbed/stacked/split.
-- `Super+R`: keyboard resize mode; `Escape` exits. `Super+F`: fullscreen/restore.
-- `Super+M`: minimize; dock actions restore specific sessions. `Alt+F4`: close.
+- `Alt+F10` or `Super+F` toggles fullscreen. `Alt+Space` or `Alt+right-click` opens window actions, including in fullscreen.
+- `Super+R` restores from fullscreen and opens keyboard resize mode. `Escape` exits resize mode.
+- `Super+M` minimizes, including from fullscreen. Dock actions restore the selected session. `Alt+F4` closes.
 
 Current local WSL installation uses an independently installed adapter for cold
 F: reads (60-second bounded Xephyr wait, nested X11/XCB). Existing privileged
@@ -1384,11 +1387,21 @@ https://github.com/Ooonana/Ooonana-OS/releases/download/packages-latest/ooonana-
 Inside Ooonana OS:
 
 ```sh
-ooonana update
+ooonana update && ooonana upgrade --dry-run
 ooonana upgrade
 ```
 
-That upgrades installed packages, including `ooonana-core` and `openvino-chat` when installed. Kernel upgrades are separate: on an installed disk, run `ooonana get ooonana-kernel` when a verified newer kernel package is available, then reboot. A live USB still boots kernel embedded in its ISO; package upgrades do not replace ISO boot files. Major boot-layout changes require a fresh ISO/reinstall or an explicitly tested migration.
+Installed systems and Persistent Live USB keep package changes across reboot.
+Normal Live has writable RAM-backed storage for files and packages. Its
+changes disappear on reboot. `ooonana-persistence status` shows the active mode.
+
+Live boots the kernel and shutdown initramfs from the flashed image. Use a
+fresh ISO for changes to those files or GRUB. On an installed disk, use
+`ooonana upgrade ooonana-kernel` when a verified newer package is available, or
+`ooonana get ooonana-kernel` for first install, then reboot.
+
+Core 0.10 candidates use a separate signed repository. The default 0.9.9
+feed cannot upgrade an existing 0.10 installation.
 
 The combined cloud build uses:
 
@@ -1502,7 +1515,7 @@ For prepared Windows/WSL release workspace, run in PowerShell:
 $workspace = 'F:\Ooonana\ooonana-os\build-storage\release-stage.ext4'
 $required = if (Test-Path -LiteralPath $workspace) { 8GB } else { 29GB }
 if ((Get-PSDrive F).Free -lt $required) { throw 'Insufficient F: space for build workspace/output.' }
-$repo = '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10-candidate-36dbeb5-signed'
+$repo = '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10.1-signed'
 & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo $repo --preflight-only
 if ($LASTEXITCODE -eq 0) {
     & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo $repo

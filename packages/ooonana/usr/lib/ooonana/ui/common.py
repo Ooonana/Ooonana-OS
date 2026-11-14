@@ -421,7 +421,7 @@ def header(window, title, subtitle="", icon_name="preferences-system-symbolic"):
     bar.set_subtitle(subtitle)
 
     def minimize(_widget):
-        if not i3_window_action(window, "move scratchpad"):
+        if not i3_window_action(window, "fullscreen disable, move scratchpad"):
             window.iconify()
 
     def maximize(_widget):
@@ -435,7 +435,7 @@ def header(window, title, subtitle="", icon_name="preferences-system-symbolic"):
     maximize_button = Gtk.Button()
     maximize_button.set_image(window_control_icon("view-fullscreen-symbolic"))
     maximize_button.set_valign(Gtk.Align.CENTER)
-    maximize_button.set_tooltip_text("Toggle fullscreen")
+    maximize_button.set_tooltip_text("Toggle fullscreen (Alt+F10)")
     maximize_button.set_name("ooonana-window-fullscreen")
     maximize_button.get_accessible().set_name("Toggle fullscreen")
     maximize_button.connect("clicked", maximize)

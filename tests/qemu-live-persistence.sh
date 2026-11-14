@@ -130,6 +130,10 @@ case " $(cat /proc/cmdline) " in
     sync
     echo FIXTURE_TEMP_RESET
     ;;
+  *' fixture.ram=1 '*)
+    [ "$(cat /mnt/ooonana-live/persistence-mode)" = ram ] || exit 1
+    echo FIXTURE_RAM_READY
+    ;;
   *)
     if [ -f /root/saved-fixture ]; then
       [ "$(cat /root/saved-fixture)" = 'saved across reboot' ] || { echo FIXTURE_DATA_BAD; poweroff -f; }
@@ -274,21 +278,23 @@ run_guest() {
   elif [[ "$expected" == FIXTURE_* ]]; then
     [[ "$qemu_status" = 0 ]] || fail "$name QEMU failed with $qemu_status"
     grep -q '^OOONANA_SHUTDOWN_CLEANUP_DONE[[:space:]]*$' "$tmp/$name.log" || fail "$name skipped orderly shutdown"
-    grep -q '^OOONANA_PERSISTENCE_READ_ONLY[[:space:]]*$' "$tmp/$name.log" || { tail -25 "$tmp/$name.log" >&2; fail "$name persistence not remounted read-only"; }
+    if [[ "$name" != ram ]]; then
+      grep -q '^OOONANA_PERSISTENCE_READ_ONLY[[:space:]]*$' "$tmp/$name.log" || { tail -25 "$tmp/$name.log" >&2; fail "$name persistence not remounted read-only"; }
+    fi
     grep -q 'reboot: Power down' "$tmp/$name.log" || fail "$name did not power down"
     if grep -Eq 'Volume was not properly unmounted|OOONANA_SHUTDOWN_.*(WARNING|FAILED)' "$tmp/$name.log"; then
       tail -30 "$tmp/$name.log" >&2
       fail "$name dirty filesystem or incomplete cleanup"
     fi
-    case "$name" in file-*)
-      grep -q '^OOONANA_BOOT_STORAGE_READ_ONLY[[:space:]]*$' "$tmp/$name.log" || fail "$name outer USB not remounted read-only"
-      ;;
-    esac
+    grep -q '^OOONANA_BOOT_STORAGE_READ_ONLY[[:space:]]*$' "$tmp/$name.log" || fail "$name boot USB not read-only"
   fi
   printf 'ok persistence-qemu-%s\n' "$name"
 }
 persistent_args="ooonana.live.boot_uuid=$boot_uuid ooonana.persistence=1"
 if [[ "$FILE_SPACE_ONLY" != 1 ]]; then
+if [[ "$UPGRADE_ONLY" != 1 ]]; then
+  run_guest ram FIXTURE_RAM_READY "fixture.ram=1" "$tmp/boot.ext4"
+fi
 cp --sparse=always "$tmp/usb.raw" "$tmp/upgrade-power-cut.raw"
 power_cut_marker=FIXTURE_UPGRADE_READY
 run_guest upgrade-power-cut FIXTURE_UPGRADE_READY "$persistent_args fixture.update-crash=1" "$tmp/upgrade-power-cut.raw"

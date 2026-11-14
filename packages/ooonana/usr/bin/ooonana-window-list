@@ -395,7 +395,7 @@ def task_view(items):
         subprocess.run(["i3-msg", f"workspace number {target}"], check=False)
 
 
-def actions_menu(items, con_id=None, keyboard=False):
+def actions_menu(items, con_id=None, keyboard=False, fullscreen=False, expected_xid=None):
     item = next((entry for entry in items if entry[0] == con_id), None) if con_id else choose(items, "Window actions")
     if item is None:
         return
@@ -404,6 +404,10 @@ def actions_menu(items, con_id=None, keyboard=False):
         command = ["python3", str(popup), "--window", str(item[0]), "--title", item[1]]
         if item[3]:
             command.append("--hidden")
+        if fullscreen:
+            command.append("--fullscreen")
+        if expected_xid:
+            command.extend(("--expect-xid", str(expected_xid)))
         if keyboard:
             command.append("--keyboard")
         try:
@@ -411,7 +415,8 @@ def actions_menu(items, con_id=None, keyboard=False):
             return
         except OSError:
             pass
-    choices = ("Open / focus", "Minimize / hide", "Fullscreen toggle", "Close window")
+    choices = ("Open / focus", "Minimize / hide",
+               "Exit fullscreen" if fullscreen else "Fullscreen toggle", "Close window")
     try:
         result = subprocess.run(
             ["rofi", "-dmenu", "-i", "-p", item[1][:20], "-format", "i"],
@@ -431,7 +436,7 @@ def window_action(item, action):
     if action == "show":
         focus(item)
     elif action == "minimize":
-        subprocess.run(["i3-msg", f"[con_id={item[0]}] move scratchpad"], check=False)
+        subprocess.run(["i3-msg", f"[con_id={item[0]}] fullscreen disable, move scratchpad"], check=False)
     elif action == "fullscreen":
         if item[3]:
             focus(item)
@@ -490,7 +495,10 @@ def main():
         return
     if len(sys.argv) > 1 and sys.argv[1] == "--focused-actions":
         focused = next((item for item in items if item[2]), None)
-        actions_menu(items, focused[0] if focused else None)
+        if focused:
+            node = next((node for node, _hidden in leaves(snapshot) if node.get("id") == focused[0]), {})
+            actions_menu(items, focused[0], keyboard="--keyboard" in sys.argv[2:],
+                         fullscreen=bool(node.get("fullscreen_mode")), expected_xid=node.get("window"))
         return
     if len(sys.argv) > 1 and sys.argv[1] == "--dock":
         print(dock(items))

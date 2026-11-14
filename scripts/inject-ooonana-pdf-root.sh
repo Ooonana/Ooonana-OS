@@ -120,7 +120,7 @@ cat > "$TARGET_ROOT/etc/ooonana/pdf-release" <<EOF
 OOONANA_PDF_EDITION="minimal-riscv"
 OOONANA_PDF_VERSION="0.6"
 OOONANA_PDF_BUILD_REF="$BUILD_REF"
-OOONANA_PDF_PACKAGE_MANAGER="0.10.0"
+OOONANA_PDF_PACKAGE_MANAGER="$CORE_VERSION"
 EOF
 
 cat > "$TARGET_ROOT/etc/hostname" <<'EOF'
@@ -194,7 +194,8 @@ while /bin/true; do
   else
     echo "Ooonana OS"
   fi
-  echo "PDF Minimal 0.6 | pkg 0.10.0"
+  . /etc/ooonana/pdf-release
+  echo "PDF Minimal 0.6 | pkg $OOONANA_PDF_PACKAGE_MANAGER"
   echo "OOONANA_PDF_BOOT_OK"
   echo "Run: ooonana help"
   if command -v cttyhack >/dev/null 2>&1; then
