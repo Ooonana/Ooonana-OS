@@ -2058,7 +2058,7 @@ cmd_update() (
     [ -n "$repo_name" ] || continue
     if repo_is_tarball "$repo_path"; then
       repo_uri="$repo_path"
-      if repo_path="$(sync_tarball_repo "$repo_name" "$repo_uri")"; then
+      if repo_path="$(OOONANA_REPO_KEY="${repo_key:-}" sync_tarball_repo "$repo_name" "$repo_uri")"; then
         :
       else
         cached_repo="$(resolve_repo_generation "$(repo_cache_dir "$repo_name")" || true)"
@@ -2073,7 +2073,7 @@ cmd_update() (
       fi
     elif repo_is_remote "$repo_path"; then
       repo_uri="$repo_path"
-      if repo_path="$(sync_remote_repo "$repo_name" "$repo_uri")"; then
+      if repo_path="$(OOONANA_REPO_KEY="${repo_key:-}" sync_remote_repo "$repo_name" "$repo_uri")"; then
         :
       else
         cached_repo="$(resolve_repo_generation "$(repo_cache_dir "$repo_name")" || true)"

@@ -714,6 +714,23 @@ assert_contains "$release_install" "unpacked archives/nano-1.0-r0.tar.gz"
 assert_contains "$release_install" "installed nano"
 [[ -x "$release_root/usr/bin/nano" ]] || fail "release tarball package did not install executable"
 
+if command -v openssl >/dev/null 2>&1; then
+  signed_release="$tmp/signed-release"
+  cp -a "$http_repo" "$signed_release"
+  "$CLI" repo index --sign-key "$tmp/repo.key" "$signed_release" >/dev/null
+  tar -C "$signed_release" -czf "$http_root/signed-release.tar.gz" .
+  cat >"$release_sources/signed.repo" <<EOF
+OOONANA_REPO_NAME="signed"
+OOONANA_REPO_URI="http://127.0.0.1:$http_port/signed-release.tar.gz"
+OOONANA_REPO_KEY="$tmp/repo.pub"
+EOF
+  signed_release_update="$(OOONANA_SOURCES_DIR="$release_sources" \
+    OOONANA_STATE_DIR="$release_state" OOONANA_CACHE_DIR="$release_cache" "$CLI" update)"
+  assert_contains "$signed_release_update" "from 3 source(s)"
+  signed_release_dir="$(cached_repo "$release_cache/repos/signed")"
+  [[ -f "$signed_release_dir/SHA256SUMS.sig" ]] || fail "signed release did not use configured key"
+fi
+
 rm -rf "$http_payload"
 mkdir -p "$http_payload/usr/bin"
 cat > "$http_payload/usr/bin/nano" <<'EOF'
