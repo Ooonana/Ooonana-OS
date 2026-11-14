@@ -910,30 +910,32 @@ validate_repo_tarball_entries() {
   done
 }
 
-sync_tarball_repo() {
+sync_tarball_repo() (
+  local repo_name repo_uri cache_dir parent_dir tmp_dir tarball
+  local repo_root first_dir generation final
+  set -eu
   require_archive_modes
   repo_name="$1"
   repo_uri="$2"
   cache_dir="$(repo_cache_dir "$repo_name")"
   parent_dir="$(dirname "$cache_dir")"
-  tmp_dir="$parent_dir/$repo_name.tmp.$$"
-  tarball="$tmp_dir/repo.tar.gz"
-
   assert_repo_cache_path "$cache_dir"
-  assert_repo_cache_path "$tmp_dir"
-  rm -rf "$tmp_dir"
-  mkdir -p "$tmp_dir/root" "$parent_dir"
+  mkdir -p "$parent_dir"
+  tmp_dir="$(mktemp -d "$parent_dir/$repo_name.tmp.XXXXXX")" || return 1
+  trap 'rm -rf "$tmp_dir"' EXIT
+  tarball="$tmp_dir/repo.tar.gz"
+  mkdir -p "$tmp_dir/root"
 
   if repo_is_remote "$repo_uri"; then
     download_file "$repo_uri" "$tarball" || return 1
   else
     [ -f "$repo_uri" ] || die "missing repo tarball: $repo_name $repo_uri"
-    cp "$repo_uri" "$tarball"
+    cp "$repo_uri" "$tarball" || return 1
   fi
-  validate_repo_tarball_entries "$repo_name" "$tarball"
-  tar -xzpf "$tarball" -C "$tmp_dir/root"
+  validate_repo_tarball_entries "$repo_name" "$tarball" || return 1
+  tar -xzpf "$tarball" -C "$tmp_dir/root" || return 1
 
-  repo_root="$(resolve_repo_generation "$tmp_dir/root")"
+  repo_root="$(resolve_repo_generation "$tmp_dir/root")" || return 1
   if [ ! -f "$repo_root/index.tsv" ]; then
     first_dir="$(find "$repo_root" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sed -n '1p')"
     if [ -n "$first_dir" ] && [ -f "$first_dir/index.tsv" ]; then
@@ -948,12 +950,13 @@ sync_tarball_repo() {
   generation="$( { cat "$repo_root/index.tsv" "$repo_root/SHA256SUMS"; [ ! -f "$repo_root/SHA256SUMS.sig" ] || cat "$repo_root/SHA256SUMS.sig"; } | sha256sum | awk '{print $1}')"
   mkdir -p "$cache_dir/generations"
   final="$cache_dir/generations/$generation"
-  if [ ! -d "$final" ]; then mv "$repo_root" "$final"; fi
-  printf '%s\n' "$generation" >"$cache_dir/CURRENT.tmp.$$"
-  replace_file "$cache_dir/CURRENT.tmp.$$" "$cache_dir/CURRENT"
-  rm -rf "$tmp_dir"
+  if [ ! -d "$final" ] && ! mv -T "$repo_root" "$final"; then
+    [ -d "$final" ] || return 1
+  fi
+  printf '%s\n' "$generation" >"$tmp_dir/CURRENT"
+  replace_file "$tmp_dir/CURRENT" "$cache_dir/CURRENT"
   printf '%s\n' "$final"
-}
+)
 
 remote_repo_cached_dir() {
   repo_name="$1"

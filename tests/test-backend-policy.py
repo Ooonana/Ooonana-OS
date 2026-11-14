@@ -22,7 +22,8 @@ publication = importlib.util.module_from_spec(loader)
 loader.loader.exec_module(publication)
 cli = root / "packages/ooonana/usr/bin/ooonana"
 workflow = (root / ".github/workflows/build-ooonana-packages.yml").read_text()
-assert 'default: "candidate-core-0.10.0"' in workflow
+core_version = subprocess.check_output(["sh", str(cli), "version"], text=True).split()[1]
+assert f'default: "candidate-core-{core_version}"' in workflow
 assert 'case "$RELEASE_TAG" in candidate-*)' in workflow
 assert '[ "$PUBLISH_PAGES" = true ]' in workflow and '[ "$PUBLISH_R2" = true ]' in workflow
 assert '$OOONANA_ALLOW_MAJOR_PUBLISH == "1"' in (root / ".gitlab-ci.yml").read_text()
