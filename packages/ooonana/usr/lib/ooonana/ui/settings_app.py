@@ -243,10 +243,10 @@ class SettingsWindow(Gtk.Window):
         grid.attach(
             self.status_card(
                 "repo",
-                "Package source",
-                "Cloud metadata downloads on update; archives download on install.",
-                "folder-download-symbolic",
-                button("Packages", "system-software-install-symbolic", lambda *_: launch(["ooonana-packages-app"])),
+                "Software updates",
+                "Check for system and app updates.",
+                "system-software-update-symbolic",
+                button("Open Updates", "system-software-update-symbolic", lambda *_: launch(["ooonana-updates"])),
             ),
             1,
             1,
@@ -460,13 +460,14 @@ class SettingsWindow(Gtk.Window):
         identity.pack_start(self.status_widgets["identity"], False, False, 0)
         page.pack_start(identity, False, False, 0)
 
-        source = card("Ooonana repository", "Primary GitLab Pages package source.", "folder-remote-symbolic")
+        source = card("Software", "System updates and configured package sources.", "system-software-update-symbolic")
         self.status_widgets["repo_detail"] = label("")
         source.pack_start(self.status_widgets["repo_detail"], False, False, 0)
         source.pack_start(
             self.actions(
+                button("Open Updates", "system-software-update-symbolic", lambda *_: launch(["ooonana-updates"])),
                 button("Refresh metadata", "view-refresh-symbolic", self.package_update),
-                button("Open packages", "system-software-install-symbolic", lambda *_: launch(["ooonana-packages-app"])),
+                button("Manage packages", "system-software-install-symbolic", lambda *_: launch(["ooonana-packages-app"])),
             ),
             False,
             False,

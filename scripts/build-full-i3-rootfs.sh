@@ -4688,6 +4688,15 @@ write_default_cloud_source() {
 OOONANA_REPO_NAME="gitlab"
 OOONANA_REPO_URI="https://ooonana.gitlab.io/ooonana-repo"
 EOF
+  case "$OS_VERSION" in
+    0.10.*)
+      cat >"$ROOTFS/etc/ooonana/sources.d/candidate-0.10.repo" <<'EOF'
+OOONANA_REPO_NAME="candidate-0.10"
+OOONANA_REPO_URI="https://gitlab.com/Ooonana/ooonana-repo/-/raw/codex/ooonana-updates-0.10"
+OOONANA_REPO_KEY="/etc/ooonana/trusted-keys/repository-20261002.pub"
+EOF
+      ;;
+  esac
   cat > "$ROOTFS/usr/lib/ooonana/repo/README.txt" <<'EOF'
 Ooonana full-i3 uses cloud packages by default.
 Run:

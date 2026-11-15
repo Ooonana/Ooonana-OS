@@ -15,8 +15,9 @@ Ooonana OS is a custom Linux distribution built from scratch around its own boot
 
 Ooonana is not a Debian, Ubuntu, Alpine, or Arch derivative. It uses upstream Linux, BusyBox, GRUB, i3, and other open-source components. Ooonana package factory currently imports selected Alpine package payloads into Ooonana `.pkg` repositories while native packages replace them over time.
 
-**Core 0.10.1 candidate.** Adds fullscreen recovery controls, touchpad scrolling
-and workspace gestures, display backlight fixes, and Live shutdown repair.
+**Core 0.10.2 candidate.** Updates in Settings and Packages can check, review,
+and install routine releases in place. This includes 0.10.1 fullscreen,
+touchpad, backlight, and Live shutdown fixes.
 The previous 0.10.0 runtime revision `36dbeb5` passed GitHub and GitLab CI.
 Its signed generation `82d298f4ebf5` contains 737 packages, including the
 Nemo integration fixes, graphical sign-in, and updated desktop flyouts.
@@ -1400,8 +1401,17 @@ fresh ISO for changes to those files or GRUB. On an installed disk, use
 `ooonana upgrade ooonana-kernel` when a verified newer package is available, or
 `ooonana get ooonana-kernel` for first install, then reboot.
 
-Core 0.10 candidates use a separate signed repository. The default 0.9.9
-feed cannot upgrade an existing 0.10 installation.
+Core 0.10 candidates use a dedicated signed update feed. New 0.10 images
+include it. Add the feed once on an older 0.10 image using its installed
+Ooonana repository public key:
+
+```sh
+ooonana repo add candidate-0.10 https://gitlab.com/Ooonana/ooonana-repo/-/raw/codex/ooonana-updates-0.10 /etc/ooonana/trusted-keys/repository-20261002.pub
+ooonana update && ooonana upgrade
+```
+
+Open **Settings → System → Open Updates** for the same workflow on the
+desktop. A major Core upgrade on Live requires a fresh ISO.
 
 The combined cloud build uses:
 
@@ -1515,7 +1525,7 @@ For prepared Windows/WSL release workspace, run in PowerShell:
 $workspace = 'F:\Ooonana\ooonana-os\build-storage\release-stage.ext4'
 $required = if (Test-Path -LiteralPath $workspace) { 8GB } else { 29GB }
 if ((Get-PSDrive F).Free -lt $required) { throw 'Insufficient F: space for build workspace/output.' }
-$repo = '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10.1-signed'
+$repo = '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10.2-signed'
 & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo $repo --preflight-only
 if ($LASTEXITCODE -eq 0) {
     & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo $repo

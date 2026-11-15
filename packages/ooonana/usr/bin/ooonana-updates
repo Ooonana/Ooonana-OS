@@ -1,2 +1,2 @@
 #!/bin/sh
-exec /usr/bin/python3 /usr/lib/ooonana/ui/health_app.py --updates "$@"
+exec /usr/bin/python3 /usr/lib/ooonana/ui/packages_app.py --updates "$@"

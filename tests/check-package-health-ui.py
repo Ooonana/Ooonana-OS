@@ -141,6 +141,53 @@ with tempfile.TemporaryDirectory(prefix="ooonana-package-ui-") as temporary:
         capture(window, "packages-final")
         window.destroy()
 
+        updates = packages.PackagesWindow(updates=True)
+        updates.show_all()
+        check(not updates.install_updates.get_sensitive(), "Updates enables install before checking")
+        updates.check_updates()
+        command, done, kwargs = jobs.pop()
+        check(command == ["ooonana", "update"] and kwargs.get("admin"), "Updates bypasses metadata refresh")
+        done(1, "Authorization denied")
+        check(not jobs and not updates.install_updates.get_sensitive(), "Failed refresh starts review or enables install")
+        check("Authorization denied" in text(updates.output), "Refresh failure lost details")
+        capture(updates, "updates-error")
+
+        def plan(output):
+            updates.check_updates()
+            jobs.pop()[1](0, "Metadata refreshed")
+            command, done, _kwargs = jobs.pop()
+            check(command == ["ooonana", "upgrade", "--dry-run"], "Update check modifies packages")
+            done(0, output)
+
+        plan("Storage: Persistent Live USB. Package changes survive reboot.\n"
+             "Fresh USB image required: ooonana-kernel 6.18.37 -> 6.18.38")
+        check(not updates.install_updates.get_sensitive(), "Boot image needs unsafe in-place upgrade")
+        capture(updates, "updates-image-only")
+        update_plan = ("Storage: Persistent Live USB. Package changes survive reboot.\n"
+                       "would upgrade ooonana-core 0.10.1 -> 0.10.2\n"
+                       "Fresh USB image required: ooonana-kernel 6.18.37 -> 6.18.38")
+        plan(update_plan)
+        check(updates.install_updates.get_sensitive(), "Package update alongside boot notice cannot be installed")
+        capture(updates, "updates-available")
+        for response in (Gtk.ResponseType.CANCEL, Gtk.ResponseType.OK):
+            updates.upgrade_system()
+            command, done, _kwargs = jobs.pop()
+            check(command[-1] == "--dry-run", "Install starts without current preview")
+            respond(response, "updates-review")
+            done(0, update_plan)
+            if response == Gtk.ResponseType.CANCEL:
+                check(not jobs, "Cancelled Updates review applies changes")
+                continue
+            command, done, kwargs = jobs.pop()
+            check(command == ["ooonana", "upgrade"] and kwargs.get("admin"), "Update bypasses transaction helper")
+            check(updates.before_close(), "Update transaction allowed normal close")
+            done(0, "upgraded ooonana-core 0.10.1 -> 0.10.2\nreboot required: ooonana-core-runtime")
+            check("Restart to finish" in updates.status.get_text(), "Update loses restart guidance")
+        plan("Storage: Live RAM. Package changes disappear on reboot.\nno upgrades")
+        check(not updates.install_updates.get_sensitive(), "No-op update enables install")
+        check("disappear on reboot" in text(updates.output), "RAM Live lost temporary-storage message")
+        updates.destroy()
+
         closing = packages.PackagesWindow()
         closing.show_all()
         closing.upgrade_system()

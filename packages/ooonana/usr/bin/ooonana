@@ -3,7 +3,7 @@
 # shellcheck disable=SC1090,SC3043
 set -eu
 
-VERSION="0.10.1"
+VERSION="0.10.2"
 case "${1:-}" in
   version|--version|-v) printf 'ooonana %s\n' "$VERSION"; exit 0 ;;
 esac
@@ -1708,12 +1708,14 @@ show_package_storage() {
 }
 
 needs_new_live_image() {
-  [ "$LIVE_PACKAGE_MODE" != installed ] && [ "$OOONANA_PKG_KIND" = kernel ]
+  [ "$LIVE_PACKAGE_MODE" != installed ] || return 1
+  [ "$OOONANA_PKG_KIND" = kernel ] ||
+    { [ "$#" -gt 0 ] && major_os_update "$OOONANA_PKG_ID" "$1" "$OOONANA_PKG_VERSION"; }
 }
 
 require_writable_boot_package() {
-  if needs_new_live_image; then
-    die "$OOONANA_PKG_ID needs a fresh USB image; Live boots the kernel from the ISO"
+  if needs_new_live_image "$@"; then
+    die "$OOONANA_PKG_ID needs a fresh USB image for this update"
   fi
 }
 
@@ -2513,6 +2515,7 @@ install_one_pkg() {
   # Apply the same major-version policy before installing its dependencies.
   if [ "$id" = ooonana-core-runtime ] && pkg_installed ooonana-core; then
     old_core_version="$(installed_pkg_version ooonana-core)"
+    require_writable_boot_package "$old_core_version"
     if major_os_update "$id" "$old_core_version" "$OOONANA_PKG_VERSION" && [ "${OOONANA_ALLOW_MAJOR:-0}" != 1 ]; then
       if [ "$dry_run" -eq 1 ]; then
         printf 'major update needs --allow-major: %s %s -> %s (legacy core adoption)\n' "$id" "$old_core_version" "$OOONANA_PKG_VERSION"
@@ -2629,7 +2632,7 @@ upgrade_one_pkg() {
     printf 'not security-marked: %s\n' "$id"
     return 0
   fi
-  require_writable_boot_package
+  require_writable_boot_package "$old_version"
   if major_os_update "$id" "$old_version" "$new_version" && [ "${OOONANA_ALLOW_MAJOR:-0}" != 1 ]; then
     if [ "$dry_run" -eq 1 ]; then
       printf 'major update needs --allow-major: %s %s -> %s\n' "$id" "$old_version" "$new_version"
@@ -2734,8 +2737,8 @@ cmd_upgrade() {
       safe_pkg_id "$id" || die "bad package id: $id"
       old_version="$(installed_pkg_version "$id")"
       load_pkg "$id"
-      if needs_new_live_image; then
-        [ "$explicit" -eq 0 ] || require_writable_boot_package
+      if needs_new_live_image "$old_version"; then
+        [ "$explicit" -eq 0 ] || require_writable_boot_package "$old_version"
         if [ "$OOONANA_SECURITY_ONLY" -eq 0 ] || [ "$OOONANA_PKG_SECURITY" = 1 ]; then
           printf 'Fresh USB image required: %s %s -> %s\n' "$id" "$old_version" "$OOONANA_PKG_VERSION"
         fi
@@ -2779,7 +2782,7 @@ cmd_update_status() {
     if [ "$OOONANA_PKG_SECURITY" = 1 ]; then
       if [ "$category" = major ]; then category=major,security; else category=security; fi
     fi
-    if needs_new_live_image; then category="$category,fresh-USB-image"; fi
+    if needs_new_live_image "$old"; then category="$category,fresh-USB-image"; fi
     printf '%s %s -> %s [%s]\n' "$id" "$old" "$new" "$category"
   done
 }
@@ -2906,8 +2909,8 @@ fix_one_pkg() {
 
   old_version="$(installed_pkg_version "$id")"
   load_pkg "$id"
-  if needs_new_live_image; then
-    [ "$explicit" -eq 0 ] || require_writable_boot_package
+  if needs_new_live_image "$old_version"; then
+    [ "$explicit" -eq 0 ] || require_writable_boot_package "$old_version"
     printf 'Fresh USB image required: %s\n' "$id"
     return
   fi

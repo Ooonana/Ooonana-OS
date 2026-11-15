@@ -126,4 +126,14 @@ with tempfile.TemporaryDirectory() as temporary:
     marker.unlink()
     command("upgrade", "ooonana-kernel")
     assert kernel_path.read_text() == "1.0.1"
+    marker.write_text("usb\n")
+    package("0.12.0")
+    assert "[major,fresh-USB-image]" in command("update-status")
+    assert "Fresh USB image required: ooonana-core-runtime" in command("upgrade", "--dry-run")
+    assert "needs a fresh USB image" in command("upgrade", "--allow-major", "ooonana-core-runtime", success=False)
+    command("upgrade", "--allow-major")
+    assert (root / "usr/share/fixture/version").read_text() == "0.11.3"
+    marker.unlink()
+    command("upgrade", "--allow-major")
+    assert (root / "usr/share/fixture/version").read_text() == "0.12.0"
 print("ok update-safety")
