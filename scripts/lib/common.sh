@@ -51,6 +51,35 @@ ooonana_require_commands() {
   done
 }
 
+ooonana_seed_guest_account() {
+  local root="$1" account_file
+  local etc="$1/etc"
+  # Public local-session password: ooonana. Fixed salt keeps builds reproducible.
+  local password_hash='$6$OoonanaLive$OTL/tcGVRQPotnVGwXDks6yk/fglCNdk96wY2s594jWP6.sTTZv0/8T3nvuFxZjGZ9PwK.jFMiVzatSomGv901'
+  mkdir -p "$etc/ooonana" "$root/home/ooonana"
+  for account_file in "$etc/passwd" "$etc/group" "$etc/shadow"; do
+    [[ ! -L "$account_file" && ( ! -e "$account_file" || -f "$account_file" ) ]] ||
+      ooonana_die "guest profile requires regular account files"
+  done
+  [[ -f "$etc/passwd" ]] || printf '%s\n' 'root:x:0:0:root:/root:/bin/sh' >"$etc/passwd"
+  [[ -f "$etc/group" ]] || printf '%s\n' 'root:x:0:' >"$etc/group"
+  grep -q '^ooonana:' "$etc/passwd" ||
+    printf '%s\n' 'ooonana:x:1000:1000:Ooonana Live User:/home/ooonana:/bin/sh' >>"$etc/passwd"
+  grep -q '^ooonana:' "$etc/group" || printf '%s\n' 'ooonana:x:1000:' >>"$etc/group"
+  chmod 0644 "$etc/passwd" "$etc/group"
+  (
+    umask 077
+    [[ -f "$etc/shadow" ]] || printf '%s\n' 'root:!:20000:0:99999:7:::' >"$etc/shadow"
+    grep -q '^ooonana:' "$etc/shadow" ||
+      printf 'ooonana:%s:20000:0:99999:7:::\n' "$password_hash" >>"$etc/shadow"
+    chmod 0600 "$etc/shadow"
+  )
+  if [[ "$(id -u)" -eq 0 ]]; then
+    chown 1000:1000 "$root/home/ooonana"
+  fi
+  printf '%s\n' ooonana >"$etc/ooonana/default-user"
+}
+
 # Capture a producer beside the destination, then replace without writing through
 # saved hardlinks. Producer failure must leave the previous file intact.
 ooonana_write_atomic() (

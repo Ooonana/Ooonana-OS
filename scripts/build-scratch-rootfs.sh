@@ -345,12 +345,7 @@ if [ -d /etc/profile.d ]; then
   done
 fi
 EOF
-  write_file "$ROOTFS/etc/passwd" 0644 <<'EOF'
-root:x:0:0:root:/root:/bin/sh
-EOF
-  write_file "$ROOTFS/etc/group" 0644 <<'EOF'
-root:x:0:
-EOF
+  ooonana_seed_guest_account "$ROOTFS"
   write_file "$ROOTFS/etc/wsl.conf" 0644 <<'EOF'
 [boot]
 systemd=false
@@ -359,7 +354,7 @@ systemd=false
 mountFsTab=false
 
 [user]
-default=root
+default=ooonana
 
 [interop]
 appendWindowsPath=false

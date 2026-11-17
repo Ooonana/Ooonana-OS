@@ -1392,11 +1392,14 @@ ooonana update && ooonana upgrade --dry-run
 ooonana upgrade
 ```
 
-Interactive commands show square progress and live download speed.
+Interactive commands show square progress and measured transfer speed
+while refreshing repositories and downloading packages.
 `ooonana update` lists available versions.
 `ooonana upgrade PACKAGE` shows selected candidates before applying them.
 
 Installed systems and Persistent Live USB keep package changes across reboot.
+Fresh Live, WSL, and Bootable PDF builds use the local `ooonana` profile
+with password `ooonana`. Disk installation requires a chosen username and password.
 Normal Live has writable RAM-backed storage for files and packages. Its
 changes disappear on reboot. `ooonana-persistence status` shows the active mode.
 

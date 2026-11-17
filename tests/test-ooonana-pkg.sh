@@ -815,6 +815,8 @@ http_candidates="$(OOONANA_SOURCES_DIR="$http_sources" \
   OOONANA_CACHE_DIR="$http_cache" \
   tty_package_command 34 "$CLI" update)"
 assert_contains "$http_candidates" "Refreshing cloud"
+printf '%s\n' "$http_candidates" | tr '\r' '\n' | grep -Eq 'Refreshing cloud.*KiB/s' || fail "refresh missing transfer speed"
+assert_contains "$http_candidates" "Fetched cloud"
 assert_contains "$http_candidates" "■□"
 assert_not_contains "$http_candidates" "■□□□□□□□□□"
 assert_contains "$http_candidates" "nano 1.0-r0 -> 2.0-r0"

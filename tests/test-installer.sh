@@ -265,7 +265,7 @@ cmp "$tmp/resume-source/etc/reproducible-file" "$tmp/resume-target/etc/reproduci
 [[ "$(<"$tmp/resume-target/home/retained")" == 'retained user data' ]] || fail 'resume removed unrelated user file'
 
 sed '/^while \[\[ \$# -gt 0 \]\]/,$d' "$INSTALLER" >"$tmp/root-policy.sh"
-printf '\nlock_installed_root "$1"\n' >>"$tmp/root-policy.sh"
+printf '\nUSER_NAME="${2:-}"\nlock_installed_root "$1"\n' >>"$tmp/root-policy.sh"
 mkdir -p "$tmp/root-policy/etc"
 printf 'root::0:0:root:/root:/bin/sh\nfixture:x:1000:1000:fixture:/home/fixture:/bin/sh\n' >"$tmp/root-policy/etc/passwd"
 printf 'fixture:fixture-hash:20000:0:99999:7:::\n' >"$tmp/root-policy/etc/shadow"
@@ -282,6 +282,18 @@ cp "$tmp/root-policy/etc/shadow" "$tmp/duplicate-root.before"
 if bash "$tmp/root-policy.sh" "$tmp/root-policy"; then fail 'duplicate root shadow records accepted'; fi
 cmp "$tmp/duplicate-root.before" "$tmp/root-policy/etc/shadow" || fail 'root policy replaced ambiguous shadow'
 ! compgen -G "$tmp/root-policy/etc/.*.install.*" >/dev/null || fail 'root policy leaked temporary files'
+
+# Installing under another name must not carry over the public Live login.
+mkdir -p "$tmp/guest-policy/etc"
+printf 'root:x:0:0:root:/root:/bin/sh\nooonana:x:1000:1000:Ooonana Live User:/home/ooonana:/bin/sh\n' >"$tmp/guest-policy/etc/passwd"
+printf 'root:!:::::::\nooonana:fixture-live-hash:20000:0:99999:7:::\n' >"$tmp/guest-policy/etc/shadow"
+cp "$tmp/guest-policy/etc/shadow" "$tmp/live-shadow"
+bash "$tmp/root-policy.sh" "$tmp/guest-policy" fixture
+grep -q '^ooonana:!:' "$tmp/guest-policy/etc/shadow" || fail 'installer kept Live password'
+cp "$tmp/live-shadow" "$tmp/guest-policy/etc/shadow"
+sed -i 's/fixture-live-hash/fixture-chosen-hash/' "$tmp/guest-policy/etc/shadow"
+bash "$tmp/root-policy.sh" "$tmp/guest-policy" ooonana
+grep -q '^ooonana:fixture-chosen-hash:' "$tmp/guest-policy/etc/shadow" || fail 'installer locked chosen ooonana login'
 
 # A missing inventory tool must fail before target discovery or any mutation.
 sed '/^while \[\[ \$# -gt 0 \]\]/,$d' "$INSTALLER" >"$tmp/missing-inventory.sh"

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT/scripts/lib/common.sh"
 TARGET_ROOT="${1:-}"
 
 usage() {
@@ -40,6 +41,8 @@ install -d \
   "$TARGET_ROOT/usr/share/ooonana" \
   "$TARGET_ROOT/var/cache/ooonana" \
   "$TARGET_ROOT/var/lib/ooonana/packages/installed"
+
+ooonana_seed_guest_account "$TARGET_ROOT"
 
 BUILD_REF="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || printf working-tree)"
 
@@ -148,7 +151,7 @@ cat > "$TARGET_ROOT/sbin/init" <<'EOF'
 #!/bin/sh
 
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin
-export HOME=/root
+export HOME=/run/ooonana/home/ooonana USER=ooonana LOGNAME=ooonana
 export TERM=linux
 export PS1='ooonana# '
 
@@ -173,10 +176,16 @@ export OOONANA_SOURCES_DIR=/run/ooonana/sources.d
 export OOONANA_CACHE_DIR=/run/ooonana/cache
 export OOONANA_STATE_DIR=/run/ooonana/state
 export OOONANA_REPO_DIR=/run/ooonana/usr/lib/ooonana/repo
-mkdir -p "$OOONANA_SOURCES_DIR" "$OOONANA_CACHE_DIR" "$OOONANA_STATE_DIR/installed"
+export OOONANA_ROOT=/run/ooonana/session
+mkdir -p "$OOONANA_SOURCES_DIR" "$OOONANA_CACHE_DIR" "$OOONANA_STATE_DIR/installed" "$OOONANA_ROOT" "$HOME"
 printf 'PDF boot: loading shell and package metadata into RAM\n'
 if ! tar -xf /usr/share/ooonana/pdf-seed.tar -C /run/ooonana; then
   printf 'PDF boot failed: RAM seed extraction; restart PDF\n'
+  exit 1
+fi
+if ! chown 1000:1000 "$HOME" "$OOONANA_ROOT" "$OOONANA_CACHE_DIR" "$OOONANA_SOURCES_DIR" \
+    "$OOONANA_STATE_DIR" "$OOONANA_STATE_DIR/installed"; then
+  printf 'PDF boot failed: cannot prepare guest session\n'
   exit 1
 fi
 export PATH=/run/ooonana/bin:/run/ooonana/usr/bin:$PATH
@@ -199,9 +208,9 @@ while /bin/true; do
   echo "OOONANA_PDF_BOOT_OK"
   echo "Run: ooonana help"
   if command -v cttyhack >/dev/null 2>&1; then
-    setsid cttyhack /run/ooonana/bin/sh
+    setsid cttyhack /run/ooonana/bin/busybox su -p -s /run/ooonana/bin/sh ooonana
   else
-    setsid /run/ooonana/bin/sh
+    setsid /run/ooonana/bin/busybox su -p -s /run/ooonana/bin/sh ooonana
   fi
 done
 EOF

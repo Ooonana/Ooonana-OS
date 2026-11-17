@@ -8,6 +8,9 @@ import time
 from pathlib import Path
 
 
+REPO_METADATA = ("current", "index.tsv", "SHA256SUMS", "SHA256SUMS.sig")
+
+
 def content_length(headers):
     """Read the current response length, ignoring redirects and chunked bodies."""
     try:
@@ -42,7 +45,7 @@ def file_size(path):
         return 0
 
 
-def draw(label, frame, *, size=None, total=None, speed=0):
+def draw(label, frame, *, size, total=None, speed=0):
     try:
         width = os.get_terminal_size(sys.stderr.fileno()).columns or 80
     except OSError:
@@ -51,20 +54,19 @@ def draw(label, frame, *, size=None, total=None, speed=0):
     utf8 = (sys.stderr.encoding or "").lower().replace("-", "") == "utf8"
     empty, full, cell_width = ("□", "■", 2) if utf8 else ("[ ]", "[#]", 3)
     details = ""
-    if size is not None:
+    if total:
+        percent = min(100, size * 100 // total)
+        details = f"{percent:3}%  "
+    if width >= max(68, len(label) + 49):
+        count = f"{size / 1024:.1f}"
         if total:
-            percent = min(100, size * 100 // total)
-            details = f"{percent:3}%  "
-        if width >= max(68, len(label) + 49):
-            count = f"{size / 1024:.1f}"
-            if total:
-                count += f"/{total / 1024:.1f}"
-            details += f"{count} KiB  "
-        details += f"{speed / 1024:.1f} KiB/s"
+            count += f"/{total / 1024:.1f}"
+        details += f"{count} KiB  "
+    details += f"{speed / 1024:.1f} KiB/s"
 
     # Keep the number of cells stable as speed changes on normal terminals.
-    reserved = max(17, len(details)) if details else 0
-    label_reserve = (13 if width >= 50 else 2) if details else len(label) + 2
+    reserved = max(17, len(details)) if total else len(details) + 2
+    label_reserve = (13 if width >= 50 else 2) if total else min(len(label), 25) + 2
     cells = min(10, max(0, (width - reserved - label_reserve) // cell_width))
     if cells and total:
         filled = cells * percent // 100
@@ -75,16 +77,10 @@ def draw(label, frame, *, size=None, total=None, speed=0):
     else:
         bar = ""
 
-    tail_width = cells * cell_width + (2 if bar and details else 0) + len(details)
+    tail = f"{bar}  {details}" if bar else details
+    tail_width = cells * cell_width + (2 if bar else 0) + len(details)
     label_width = width - tail_width - 2
-    if not details and not bar:
-        line = label[:width]
-    elif label_width >= 12:
-        line = f"{label[:label_width]}  {bar}{'  ' if bar and details else ''}{details}"
-    elif bar:
-        line = f"{bar}  {details}"
-    else:
-        line = details[:width]
+    line = f"{label[:label_width]}  {tail}" if label_width >= 12 else tail[:width]
     sys.stderr.write(f"\r\x1b[K{line}")
     sys.stderr.flush()
 
@@ -97,21 +93,22 @@ def main(label, filename, header_path, result_path):
     for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(signum, interrupted)
 
-    payload = Path(filename) if filename else None
+    payload = Path(filename)
     headers = Path(header_path) if header_path else None
+    paths = (payload,) if headers else tuple(payload / name for name in REPO_METADATA)
+    title = f"Downloading {label}" if headers else f"Refreshing {label}"
     start = previous_time = time.monotonic()
-    previous_size = frame = 0
+    previous_sizes = (0,) * len(paths)
+    frame = 0
     try:
         while True:
-            if payload:
-                now = time.monotonic()
-                size = file_size(payload)
-                received = size - previous_size if size >= previous_size else size
-                speed = received / max(0.01, now - previous_time)
-                draw(f"Downloading {label}", frame, size=size, total=content_length(headers), speed=speed)
-                previous_size, previous_time = size, now
-            else:
-                draw(label, frame)
+            now = time.monotonic()
+            sizes = tuple(file_size(path) for path in paths)
+            received = sum(size - old if size >= old else size for size, old in zip(sizes, previous_sizes))
+            speed = received / max(0.01, now - previous_time)
+            total = content_length(headers) if headers else None
+            draw(title, frame, size=sum(sizes), total=total, speed=speed)
+            previous_sizes, previous_time = sizes, now
             if select.select([sys.stdin], [], [], 0.25)[0]:
                 break
             frame += 1
@@ -119,10 +116,15 @@ def main(label, filename, header_path, result_path):
         sys.stderr.write("\r\x1b[K")
         sys.stderr.flush()
 
-    if payload and Path(result_path).is_file() and Path(result_path).read_text().strip() == "0":
-        size = file_size(payload)
-        draw(f"Downloaded {label}", frame, size=size, total=size or 1, speed=size / max(0.01, time.monotonic() - start))
-        sys.stderr.write("\n")
+    result = Path(result_path)
+    if result.is_file() and result.read_text().strip() == "0":
+        size = sum(file_size(path) for path in paths)
+        speed = size / max(0.01, time.monotonic() - start)
+        if headers:
+            draw(f"Downloaded {label}", frame, size=size, total=size or 1, speed=speed)
+            sys.stderr.write("\n")
+        else:
+            print(f"Fetched {label}  {size / 1024:.1f} KiB  {speed / 1024:.1f} KiB/s", file=sys.stderr)
 
 
 if __name__ == "__main__":

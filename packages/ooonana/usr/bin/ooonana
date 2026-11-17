@@ -3,7 +3,7 @@
 # shellcheck disable=SC1090,SC3043
 set -eu
 
-VERSION="0.10.4"
+VERSION="0.10.5"
 case "${1:-}" in
   version|--version|-v) printf 'ooonana %s\n' "$VERSION"; exit 0 ;;
 esac
@@ -785,7 +785,7 @@ with_package_progress() {
     fi
     result="$progress_log.status"
     TRANSFER_HEADERS=""
-    if [ -n "$progress_file" ]; then
+    if [ ! -d "$progress_file" ]; then
       TRANSFER_HEADERS="$progress_log.headers"
     fi
     trap 'rm -f "$progress_log" "$progress_log.headers" "$result"' EXIT
@@ -929,24 +929,33 @@ remote_repo_cache_file() {
   printf '%s\n' "$target"
 }
 
+fetch_remote_repo_metadata() {
+  local repo_uri stage generation
+  repo_uri="$1"
+  stage="$2"
+  if download_file "$(remote_repo_url "$repo_uri" CURRENT)" "$stage/current" 2>/dev/null; then
+    generation="$(tr -d '\r' <"$stage/current")"
+    case "$generation" in ''|*[!0-9a-f]*) return 1 ;; esac
+    [ "${#generation}" -eq 64 ] || return 1
+    repo_uri="${repo_uri%/}/generations/$generation"
+  fi
+  download_file "$(remote_repo_url "$repo_uri" index.tsv)" "$stage/index.tsv" || return 1
+  download_file "$(remote_repo_url "$repo_uri" SHA256SUMS)" "$stage/SHA256SUMS" || return 1
+  download_file "$(remote_repo_url "$repo_uri" SHA256SUMS.sig)" "$stage/SHA256SUMS.sig" 2>/dev/null || true
+  printf '%s\n' "$repo_uri"
+}
+
 sync_remote_repo() {
+  local repo_name repo_uri cache_dir stage generation final
   repo_name="$1"
   repo_uri="$2"
   cache_dir="$(repo_cache_dir "$repo_name")"
   mkdir -p "$cache_dir/generations"
-  stage="$(mktemp -d "$cache_dir/generations/.download.XXXXXX")"
-  if download_file "$(remote_repo_url "$repo_uri" CURRENT)" "$stage/current" 2>/dev/null; then
-    generation="$(tr -d '\r' <"$stage/current")"
-    case "$generation" in ''|*[!0-9a-f]*) rm -rf "$stage"; return 1 ;; esac
-    [ "${#generation}" -eq 64 ] || { rm -rf "$stage"; return 1; }
-    repo_uri="${repo_uri%/}/generations/$generation"
-  fi
-  if ! download_file "$(remote_repo_url "$repo_uri" index.tsv)" "$stage/index.tsv" ||
-     ! download_file "$(remote_repo_url "$repo_uri" SHA256SUMS)" "$stage/SHA256SUMS"; then
+  stage="$(mktemp -d "$cache_dir/generations/.download.XXXXXX")" || return 1
+  if ! repo_uri="$(with_package_progress "${3:-}" "$stage" fetch_remote_repo_metadata "$repo_uri" "$stage")"; then
     rm -rf "$stage"
     return 1
   fi
-  download_file "$(remote_repo_url "$repo_uri" SHA256SUMS.sig)" "$stage/SHA256SUMS.sig" 2>/dev/null || true
   if ! verify_repo_signature "$stage" "${OOONANA_REPO_KEY:-}"; then rm -rf "$stage"; return 1; fi
   if repo_checksum_expected "$stage/SHA256SUMS" index.tsv >/dev/null 2>&1; then
     if ! verify_repo_checksum "$stage" index.tsv "${OOONANA_REPO_KEY:-}"; then rm -rf "$stage"; return 1; fi
@@ -2199,8 +2208,7 @@ cmd_update() (
       fi
     elif repo_is_remote "$repo_path"; then
       repo_uri="$repo_path"
-      if repo_path="$(OOONANA_REPO_KEY="${repo_key:-}" with_package_progress \
-        "Refreshing $repo_name" "" sync_remote_repo "$repo_name" "$repo_uri")"; then
+      if repo_path="$(OOONANA_REPO_KEY="${repo_key:-}" sync_remote_repo "$repo_name" "$repo_uri" "$repo_name")"; then
         :
       else
         cached_repo="$(resolve_repo_generation "$(repo_cache_dir "$repo_name")" || true)"

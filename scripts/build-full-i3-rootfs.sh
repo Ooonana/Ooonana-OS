@@ -4823,12 +4823,7 @@ write_full_groups() {
   local live_uid="1000"
   local live_gid="1000"
   local home_dir="$ROOTFS/home/$live_user"
-  if ! grep -q "^$live_user:" "$group_file" 2>/dev/null; then
-    printf '%s:x:%s:\n' "$live_user" "$live_gid" >> "$group_file"
-  fi
-  if ! grep -q "^$live_user:" "$passwd_file" 2>/dev/null; then
-    printf '%s:x:%s:%s:Ooonana Live User:/home/%s:/bin/sh\n' "$live_user" "$live_uid" "$live_gid" "$live_user" >> "$passwd_file"
-  fi
+  ooonana_seed_guest_account "$ROOTFS"
 
   add_group_member() {
     local group_name="$1"
@@ -4850,9 +4845,6 @@ write_full_groups() {
   done
 
   local shadow_file="$ROOTFS/etc/shadow"
-  touch "$shadow_file"
-  grep -q "^$live_user:" "$shadow_file" 2>/dev/null ||
-    printf '%s:!:20000:0:99999:7:::\n' "$live_user" >> "$shadow_file"
   grep -q '^polkitd:' "$shadow_file" 2>/dev/null ||
     printf '%s\n' 'polkitd:!:20000:0:99999:7:::' >> "$shadow_file"
   chmod 0600 "$shadow_file"
@@ -4883,7 +4875,6 @@ OOONANA_USERLAND_BASE="alpine-$(ooonana_alpine_branch)"
 HOME_URL="https://github.com/Ooonana/Ooonana-OS"
 SUPPORT_URL="https://github.com/Ooonana/Ooonana-OS/issues"
 EOF
-  printf '%s\n' "$live_user" > "$ROOTFS/etc/ooonana/default-user"
   cat > "$ROOTFS/etc/wsl.conf" <<'WSL'
 [boot]
 systemd=false

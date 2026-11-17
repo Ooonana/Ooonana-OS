@@ -116,6 +116,10 @@ assert_contains "$(<"$rootfs/sbin/init")" 'export OOONANA_CACHE_DIR=/run/ooonana
 assert_contains "$(<"$rootfs/sbin/init")" 'PDF Minimal 0.6 | pkg $OOONANA_PDF_PACKAGE_MANAGER'
 assert_contains "$(<"$rootfs/sbin/init")" "exec </dev/hvc0 >/dev/hvc0 2>&1"
 assert_contains "$(<"$rootfs/sbin/init")" "--- Ooonana userspace ready ---"
+assert_contains "$(<"$rootfs/sbin/init")" "su -p -s /run/ooonana/bin/sh ooonana"
+grep -qx 'ooonana:x:1000:1000:Ooonana Live User:/home/ooonana:/bin/sh' "$rootfs/etc/passwd" ||
+  fail 'PDF guest profile missing'
+[[ "$(stat -c %a "$rootfs/etc/shadow")" == 600 ]] || fail 'PDF shadow mode incorrect'
 assert_contains "$(<"$rootfs/root/.profile")" "ooonana help packages"
 assert_contains "$(<"$rootfs/root/.profile")" "ooonana ai status"
 assert_contains "$(<"$rootfs/etc/os-release")" 'PRETTY_NAME="Ooonana OS PDF Minimal"'
