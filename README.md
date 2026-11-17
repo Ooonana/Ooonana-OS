@@ -1392,6 +1392,10 @@ ooonana update && ooonana upgrade --dry-run
 ooonana upgrade
 ```
 
+Interactive commands show square progress and live download speed.
+`ooonana update` lists available versions.
+`ooonana upgrade PACKAGE` shows selected candidates before applying them.
+
 Installed systems and Persistent Live USB keep package changes across reboot.
 Normal Live has writable RAM-backed storage for files and packages. Its
 changes disappear on reboot. `ooonana-persistence status` shows the active mode.

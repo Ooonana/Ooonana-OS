@@ -24,6 +24,40 @@ assert_not_contains() {
   [[ "$haystack" != *"$needle"* ]] || fail "unexpected: $needle"
 }
 
+tty_package_command() {
+  timeout 45 python3 - "$@" <<'PY'
+import errno
+import fcntl
+import os
+import pty
+import struct
+import subprocess
+import sys
+import termios
+
+master, slave = pty.openpty()
+width = int(sys.argv[1])
+fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 24, width, 0, 0))
+with subprocess.Popen(sys.argv[2:], stdout=slave, stderr=slave,
+                      env=dict(os.environ, TERM="xterm", PYTHONIOENCODING="utf-8")) as cli:
+    os.close(slave)
+    try:
+        while True:
+            try:
+                data = os.read(master, 8192)
+            except OSError as exc:
+                if exc.errno != errno.EIO:
+                    raise
+                break
+            if not data:
+                break
+            sys.stdout.buffer.write(data)
+    finally:
+        os.close(master)
+    sys.exit(cli.wait())
+PY
+}
+
 cached_repo() {
   local path="$1"
   if [[ -f "$path/CURRENT" ]]; then
@@ -501,7 +535,24 @@ print(s.getsockname()[1])
 s.close()
 PY
 )"
-python3 -m http.server "$http_port" --bind 127.0.0.1 --directory "$http_root" > "$tmp/http.log" 2>&1 &
+python3 - "$http_port" "$http_root" > "$tmp/http.log" 2>&1 <<'PY' &
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+import sys
+import time
+
+class Handler(SimpleHTTPRequestHandler):
+    def copyfile(self, source, outputfile):
+        if not self.path.endswith("/archives/nano-2.0-r0.tar.gz"):
+            return super().copyfile(source, outputfile)
+        while chunk := source.read(32 * 1024):
+            outputfile.write(chunk)
+            outputfile.flush()
+            time.sleep(0.35)
+
+with ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), partial(Handler, directory=sys.argv[2])) as server:
+    server.serve_forever()
+PY
 server_pid="$!"
 sleep 1
 cat > "$http_sources/cloud.repo" <<EOF
@@ -541,10 +592,11 @@ EOF
 http_update="$(OOONANA_SOURCES_DIR="$http_sources" \
   OOONANA_STATE_DIR="$http_state" \
   OOONANA_CACHE_DIR="$http_cache" \
-  "$CLI" update)"
+  "$CLI" update 2>&1)"
 assert_contains "$http_update" "from 2 source(s)"
 assert_contains "$http_update" "metadata-only"
 assert_contains "$http_update" "No newer versions found for installed packages."
+assert_not_contains "$http_update" $'\r'
 [[ -f "$(cached_repo "$http_cache/repos/cloud")/index.tsv" ]] || fail "missing remote cached index"
 [[ -f "$(cached_repo "$http_cache/repos/cloud")/SHA256SUMS" ]] || fail "missing remote cached checksums"
 [[ ! -f "$(cached_repo "$http_cache/repos/cloud")/archives/nano-1.0-r0.tar.gz" ]] || fail "update must not download archives"
@@ -739,6 +791,13 @@ cat > "$http_payload/usr/bin/nano" <<'EOF'
 echo fake nano v2
 EOF
 chmod +x "$http_payload/usr/bin/nano"
+python3 - "$http_payload" <<'PY'
+from pathlib import Path
+from random import Random
+import sys
+
+Path(sys.argv[1], "fixture-data").write_bytes(Random(21).randbytes(128 * 1024))
+PY
 tar -C "$http_payload" -czf "$http_repo/archives/nano-2.0-r0.tar.gz" .
 http_archive_sha="$(sha256sum "$http_repo/archives/nano-2.0-r0.tar.gz" | awk '{print $1}')"
 cat > "$http_repo/nano.pkg" <<EOF
@@ -754,7 +813,10 @@ EOF
 http_candidates="$(OOONANA_SOURCES_DIR="$http_sources" \
   OOONANA_STATE_DIR="$http_state" \
   OOONANA_CACHE_DIR="$http_cache" \
-  "$CLI" update)"
+  tty_package_command 34 "$CLI" update)"
+assert_contains "$http_candidates" "Refreshing cloud"
+assert_contains "$http_candidates" "■□"
+assert_not_contains "$http_candidates" "■□□□□□□□□□"
 assert_contains "$http_candidates" "nano 1.0-r0 -> 2.0-r0"
 assert_contains "$http_candidates" "Newer versions found for 1 installed package(s)"
 [[ "$("$http_install_root/usr/bin/nano")" = "fake nano" ]] || fail "update changed installed payload"
@@ -765,7 +827,12 @@ http_upgrade="$(OOONANA_SOURCES_DIR="$http_sources" \
   OOONANA_STATE_DIR="$http_state" \
   OOONANA_CACHE_DIR="$http_cache" \
   OOONANA_ROOT="$http_install_root" \
-  "$CLI" upgrade nano)"
+  tty_package_command 80 "$CLI" upgrade nano)"
+assert_contains "$http_upgrade" "Downloading nano"
+assert_contains "$http_upgrade" "KiB/s"
+[[ "$http_upgrade" =~ ■+□+[[:space:]]+[1-9][0-9]?% ]] || fail "missing measured intermediate download progress"
+assert_contains "$http_upgrade" "■■■■■■■■■■  100%"
+assert_contains "${http_upgrade%%Downloading nano*}" "nano 1.0-r0 -> 2.0-r0"
 assert_contains "$http_upgrade" "upgraded nano 1.0-r0 -> 2.0-r0"
 assert_contains "$($http_install_root/usr/bin/nano)" "fake nano v2"
 [[ -f "$(cached_repo "$http_cache/repos/cloud")/archives/nano-2.0-r0.tar.gz" ]] || fail "remote upgrade did not cache archive"

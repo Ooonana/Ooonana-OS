@@ -3,7 +3,7 @@
 # shellcheck disable=SC1090,SC3043
 set -eu
 
-VERSION="0.10.3"
+VERSION="0.10.4"
 case "${1:-}" in
   version|--version|-v) printf 'ooonana %s\n' "$VERSION"; exit 0 ;;
 esac
@@ -748,7 +748,9 @@ download_github_release_asset() {
   asset_api_url="$(extract_github_asset_api_url "$asset" "$meta")"
   rm -f "$meta"
   [ -n "$asset_api_url" ] || die "GitHub release asset missing: $owner/$repo $tag $asset"
-  curl -fsSL \
+  set --
+  if [ -n "${TRANSFER_HEADERS:-}" ]; then set -- -D "$TRANSFER_HEADERS"; fi
+  curl -fsSL "$@" \
     --connect-timeout "$DOWNLOAD_CONNECT_TIMEOUT" \
     --max-time "$DOWNLOAD_MAX_TIME" \
     --retry "$DOWNLOAD_RETRIES" \
@@ -760,17 +762,66 @@ download_github_release_asset() {
     -o "$out"
 }
 
+package_progress_enabled() {
+  [ -t 2 ] && [ "${TERM:-dumb}" != dumb ] && [ "${OOONANA_PROGRESS:-1}" != 0 ]
+}
+
+with_package_progress() {
+  local renderer
+  renderer="${SCRIPT_DIR%/bin}/lib/ooonana/package_progress.py"
+  if [ -z "$1" ] || ! package_progress_enabled || ! have python3 || [ ! -r "$renderer" ]; then
+    shift 2
+    "$@"
+    return
+  fi
+  (
+    local label progress_file progress_log result TRANSFER_HEADERS status
+    label="$1"
+    progress_file="$2"
+    shift 2
+    if ! progress_log="$(mktemp "$CHECKSUM_CACHE_DIR/progress.XXXXXX")"; then
+      "$@"
+      exit
+    fi
+    result="$progress_log.status"
+    TRANSFER_HEADERS=""
+    if [ -n "$progress_file" ]; then
+      TRANSFER_HEADERS="$progress_log.headers"
+    fi
+    trap 'rm -f "$progress_log" "$progress_log.headers" "$result"' EXIT
+    trap 'exit 129' HUP
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+
+    # The renderer stops at EOF. Its exit status cannot change the transfer
+    # result, and it must not inherit the package writer lock on fd 9.
+    exec 3>&1
+    {
+      status=0
+      ( "$@" >&3 2>"$progress_log" ) || status=$?
+      printf '%s\n' "$status" >"$result"
+    } | python3 -B "$renderer" "$label" "$progress_file" "$TRANSFER_HEADERS" "$result" 3>&- 9>&- || true
+    cat "$progress_log" >&2
+    IFS= read -r status <"$result" || exit 1
+    exit "$status"
+  )
+}
+
 download_file() {
+  local url out err headers wget_options wget_log reason
   url="$1"
   out="$2"
   err="$out.err.$$"
+  headers="${TRANSFER_HEADERS:-}"
   mkdir -p "$(dirname "$out")"
   rm -f "$err"
   if download_github_release_asset "$url" "$out"; then
     return 0
   fi
   if have curl; then
-    if curl -fsSL \
+    set --
+    if [ -n "$headers" ]; then set -- -D "$headers"; fi
+    if curl -fsSL "$@" \
       --connect-timeout "$DOWNLOAD_CONNECT_TIMEOUT" \
       --max-time "$DOWNLOAD_MAX_TIME" \
       --retry "$DOWNLOAD_RETRIES" \
@@ -784,25 +835,39 @@ download_file() {
     # GNU wget otherwise retries interrupted transfers twenty times, ignoring
     # this CLI's retry budget. BusyBox wget makes one attempt and lacks -t.
     set --
-    if wget --help 2>&1 | grep -q -- '--tries'; then
+    wget_options="$(wget --help 2>&1 || true)"
+    if printf '%s\n' "$wget_options" | grep -q -- '--tries'; then
       case "$DOWNLOAD_RETRIES" in ''|*[!0-9]*) return 1 ;; esac
       set -- -t "$((DOWNLOAD_RETRIES + 1))"
     fi
-    if wget -q -T "$DOWNLOAD_MAX_TIME" "$@" -O "$out" "$url" 2>"$err"; then
+    wget_log="$err"
+    if [ -n "$headers" ] && printf '%s\n' "$wget_options" | grep -q -e '-S[,[:space:]]' -e '--server-response'; then
+      wget_log="$headers"
+      set -- -S "$@"
+    elif [ -n "$headers" ]; then
+      : >"$headers"
+    fi
+    if wget -q -T "$DOWNLOAD_MAX_TIME" "$@" -O "$out" "$url" 2>"$wget_log"; then
       rm -f "$err"
       return 0
     fi
   fi
   if have python3; then
-    if python3 - "$url" "$out" 2>"$err" <<'PY'
+    if [ -n "$headers" ]; then : >"$headers"; fi
+    if python3 - "$url" "$out" "$headers" 2>"$err" <<'PY'
 import sys
+from contextlib import suppress
 import urllib.request
 
-url, out = sys.argv[1], sys.argv[2]
+url, out, headers = sys.argv[1:]
 try:
     request = urllib.request.Request(url, headers={"User-Agent": "ooonana"})
     timeout = float(__import__("os").environ.get("OOONANA_DOWNLOAD_MAX_TIME", "90"))
     with urllib.request.urlopen(request, timeout=timeout) as response:
+        length = response.getheader("Content-Length")
+        if headers and length and length.isascii() and length.isdigit() and not response.getheader("Transfer-Encoding"):
+            with suppress(OSError), open(headers, "w", encoding="ascii") as report:
+                report.write(f"HTTP/1.1 {response.status}\nContent-Length: {length}\n")
         with open(out, "wb") as handle:
             while True:
                 chunk = response.read(1024 * 1024)
@@ -849,7 +914,8 @@ remote_repo_cache_file() {
   target="$cache_dir/$rel"
   mkdir -p "$cache_dir" "$(dirname "$target")"
   staged="$(mktemp "$cache_dir/.fetch.XXXXXX")" || return 1
-  if ! download_file "$(remote_repo_url "$repo_uri" "$rel")" "$staged"; then
+  if ! with_package_progress "${5:-}" "$staged" \
+    download_file "$(remote_repo_url "$repo_uri" "$rel")" "$staged"; then
     rm -f "$staged"
     return 1
   fi
@@ -927,7 +993,7 @@ sync_tarball_repo() (
   mkdir -p "$tmp_dir/root"
 
   if repo_is_remote "$repo_uri"; then
-    download_file "$repo_uri" "$tarball" || return 1
+    with_package_progress "${3:-}" "$tarball" download_file "$repo_uri" "$tarball" || return 1
   else
     [ -f "$repo_uri" ] || die "missing repo tarball: $repo_name $repo_uri"
     cp "$repo_uri" "$tarball" || return 1
@@ -1896,7 +1962,8 @@ ensure_pkg_archive_available() {
         if [ ! -f "$archive_path" ] || { [ -n "$expected" ] && [ "$(sha256_file "$archive_path")" != "$expected" ]; }; then
           # Retry damaged older caches through verified staging, without
           # deleting their bytes until a complete replacement is available.
-          remote_repo_cache_file "$LOADED_REPO_NAME" "$LOADED_REPO_URI" "$OOONANA_PKG_ARCHIVE" "$LOADED_REPO_DIR" >/dev/null
+          remote_repo_cache_file "$LOADED_REPO_NAME" "$LOADED_REPO_URI" \
+            "$OOONANA_PKG_ARCHIVE" "$LOADED_REPO_DIR" "$OOONANA_PKG_ID" >/dev/null
         fi
         ;;
     esac
@@ -2117,7 +2184,7 @@ cmd_update() (
     [ -n "$repo_name" ] || continue
     if repo_is_tarball "$repo_path"; then
       repo_uri="$repo_path"
-      if repo_path="$(OOONANA_REPO_KEY="${repo_key:-}" sync_tarball_repo "$repo_name" "$repo_uri")"; then
+      if repo_path="$(OOONANA_REPO_KEY="${repo_key:-}" sync_tarball_repo "$repo_name" "$repo_uri" "$repo_name repository")"; then
         :
       else
         cached_repo="$(resolve_repo_generation "$(repo_cache_dir "$repo_name")" || true)"
@@ -2132,7 +2199,8 @@ cmd_update() (
       fi
     elif repo_is_remote "$repo_path"; then
       repo_uri="$repo_path"
-      if repo_path="$(OOONANA_REPO_KEY="${repo_key:-}" sync_remote_repo "$repo_name" "$repo_uri")"; then
+      if repo_path="$(OOONANA_REPO_KEY="${repo_key:-}" with_package_progress \
+        "Refreshing $repo_name" "" sync_remote_repo "$repo_name" "$repo_uri")"; then
         :
       else
         cached_repo="$(resolve_repo_generation "$(repo_cache_dir "$repo_name")" || true)"
@@ -2740,7 +2808,7 @@ upgrade_one_pkg() {
 }
 
 cmd_upgrade() {
-  local explicit selected check_major
+  local explicit selected check_major preview candidates
   dry_run=0
   packages=""
   OOONANA_PLANNED=""
@@ -2791,7 +2859,12 @@ cmd_upgrade() {
   if [ "$dry_run" -eq 0 ] && [ "$OOONANA_ALLOW_MAJOR" -ne 1 ]; then
     check_major=1
   fi
-  if [ "$LIVE_PACKAGE_MODE" != installed ] || [ "$check_major" -eq 1 ]; then
+  preview=0
+  if [ "$dry_run" -eq 0 ] && [ -t 2 ]; then
+    preview=1
+  fi
+  candidates=""
+  if [ "$LIVE_PACKAGE_MODE" != installed ] || [ "$check_major" -eq 1 ] || [ "$preview" -eq 1 ]; then
     selected=""
     for id in $packages; do
       safe_pkg_id "$id" || die "bad package id: $id"
@@ -2807,9 +2880,18 @@ cmd_upgrade() {
       if [ "$check_major" -eq 1 ] && major_os_update "$id" "$old_version" "$OOONANA_PKG_VERSION"; then
         die "major OS update requires explicit --allow-major before any package changes: $id"
       fi
+      if [ "$preview" -eq 1 ] &&
+        { [ "$OOONANA_SECURITY_ONLY" -eq 0 ] || [ "$OOONANA_PKG_SECURITY" -eq 1 ]; } &&
+        version_is_newer "$old_version" "$OOONANA_PKG_VERSION"; then
+        candidates="$candidates  $id $old_version -> $OOONANA_PKG_VERSION
+"
+      fi
       selected="$selected $id"
     done
     packages="$selected"
+  fi
+  if [ -n "$candidates" ]; then
+    printf 'Selected update candidates\n%s' "$candidates" >&2
   fi
   for id in $packages; do
     safe_pkg_id "$id" || die "bad package id: $id"
