@@ -544,6 +544,7 @@ http_update="$(OOONANA_SOURCES_DIR="$http_sources" \
   "$CLI" update)"
 assert_contains "$http_update" "from 2 source(s)"
 assert_contains "$http_update" "metadata-only"
+assert_contains "$http_update" "No newer versions found for installed packages."
 [[ -f "$(cached_repo "$http_cache/repos/cloud")/index.tsv" ]] || fail "missing remote cached index"
 [[ -f "$(cached_repo "$http_cache/repos/cloud")/SHA256SUMS" ]] || fail "missing remote cached checksums"
 [[ ! -f "$(cached_repo "$http_cache/repos/cloud")/archives/nano-1.0-r0.tar.gz" ]] || fail "update must not download archives"
@@ -750,10 +751,16 @@ OOONANA_PKG_ARCHIVE="archives/nano-2.0-r0.tar.gz"
 OOONANA_PKG_SHA256="$http_archive_sha"
 EOF
 "$CLI" repo index "$http_repo" >/dev/null
-OOONANA_SOURCES_DIR="$http_sources" \
+http_candidates="$(OOONANA_SOURCES_DIR="$http_sources" \
   OOONANA_STATE_DIR="$http_state" \
   OOONANA_CACHE_DIR="$http_cache" \
-  "$CLI" update >/dev/null
+  "$CLI" update)"
+assert_contains "$http_candidates" "nano 1.0-r0 -> 2.0-r0"
+assert_contains "$http_candidates" "Newer versions found for 1 installed package(s)"
+[[ "$("$http_install_root/usr/bin/nano")" = "fake nano" ]] || fail "update changed installed payload"
+http_candidate_repo="$(cached_repo "$http_cache/repos/cloud")"
+[[ ! -e "$http_candidate_repo/nano.pkg" ]] || fail "update downloaded candidate metadata"
+[[ ! -e "$http_candidate_repo/archives/nano-2.0-r0.tar.gz" ]] || fail "update downloaded candidate archive"
 http_upgrade="$(OOONANA_SOURCES_DIR="$http_sources" \
   OOONANA_STATE_DIR="$http_state" \
   OOONANA_CACHE_DIR="$http_cache" \

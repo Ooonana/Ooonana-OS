@@ -3,7 +3,7 @@
 # shellcheck disable=SC1090,SC3043
 set -eu
 
-VERSION="0.10.2"
+VERSION="0.10.3"
 case "${1:-}" in
   version|--version|-v) printf 'ooonana %s\n' "$VERSION"; exit 0 ;;
 esac
@@ -134,7 +134,7 @@ See 'ooonana help repo' for source and index details.
 See 'ooonana help ai' for AI commands.
 See 'ooonana help ui' for full-i3 shortcuts.
 
-This Ooonana has Super Ooonana Powers.
+Ooonana has Bunana defeating powers
 USAGE
 }
 
@@ -142,7 +142,7 @@ usage_packages() {
   cat <<'USAGE'
 Package flow:
   1. ooonana update
-     Sync Ooonana repo indexes into local cache.
+     Sync repo indexes and show newer versions for installed packages.
   2. ooonana search QUERY
      Find package names and summaries.
   3. ooonana get PACKAGE
@@ -231,7 +231,7 @@ Upgrade packages:
 
 Meaning:
   - no package names: check every installed package
-  - package names: upgrade only those packages
+  - package names: upgrade the selected packages and their needed dependencies
   - --dry-run: show changes, install nothing
   - --allow-major: explicit approval for breaking OS version jumps
   - --security-only: install only updates explicitly security-marked by repository
@@ -1593,10 +1593,13 @@ available_pkg_version_from_repo() {
 }
 
 available_pkg_version() {
+  local id repo_paths source_file repo_path best candidate
   id="$1"
-  best="$(available_pkg_version_from_repo "$REPO_DIR" "$id" 2>/dev/null || true)"
-
-  if [ -d "$SOURCES_DIR" ]; then
+  if [ "$#" -eq 2 ]; then
+    # A refresh supplies only verified directories it could actually read.
+    repo_paths="$2"
+  else
+    repo_paths="$REPO_DIR"
     for source_file in "$SOURCES_DIR"/*.repo; do
       [ -f "$source_file" ] || continue
       load_repo_source_file "$source_file"
@@ -1608,12 +1611,20 @@ available_pkg_version() {
         repo_path="$OOONANA_REPO_URI"
         [ -d "$repo_path" ] || die "missing repo source: $OOONANA_REPO_NAME $OOONANA_REPO_URI"
       fi
-      candidate="$(available_pkg_version_from_repo "$repo_path" "$id" 2>/dev/null || true)"
-      if [ -n "$candidate" ] && { [ -z "$best" ] || version_is_newer "$best" "$candidate"; }; then
-        best="$candidate"
-      fi
+      repo_paths="$repo_paths
+$repo_path"
     done
   fi
+  best=""
+  while IFS= read -r repo_path; do
+    [ -n "$repo_path" ] || continue
+    candidate="$(available_pkg_version_from_repo "$repo_path" "$id" 2>/dev/null || true)"
+    if [ -n "$candidate" ] && { [ -z "$best" ] || version_is_newer "$best" "$candidate"; }; then
+      best="$candidate"
+    fi
+  done <<EOF
+$repo_paths
+EOF
   [ -n "$best" ] || return 1
   printf '%s\n' "$best"
 }
@@ -2046,13 +2057,59 @@ select_best_index_entries() {
   rm -f "$ordered"
 }
 
+print_update_candidates() (
+  local index repo_paths stage installed differing candidates file id old_version new_version tab
+  index="$1"
+  repo_paths="$2"
+  stage="$3"
+  installed="$stage/installed.tsv"
+  differing="$stage/differing.tsv"
+  candidates="$stage/candidates.txt"
+  tab="$(printf '\t')"
+
+  for file in "$INSTALLED_DIR"/*.pkg; do
+    [ -f "$file" ] || continue
+    id="${file##*/}"
+    id="${id%.pkg}"
+    load_installed_pkg "$id"
+    printf '%s\t%s\n' "$id" "$OOONANA_PKG_VERSION"
+  done > "$installed"
+
+  if [ -s "$installed" ]; then
+    # Skip unchanged packages in one pass. Resolve differing versions with
+    # the same version and metadata checks that an upgrade uses.
+    awk -F '\t' -v OFS='\t' '
+      FNR == NR { installed[$1] = $2; next }
+      ($2 in installed) && ($3 "" != installed[$2] "") && !seen[$2]++ {
+        print $2, installed[$2]
+      }
+    ' "$installed" "$index" > "$differing"
+    while IFS="$tab" read -r id old_version; do
+      if new_version="$(available_pkg_version "$id" "$repo_paths")" &&
+         version_is_newer "$old_version" "$new_version"; then
+        printf '  %s %s -> %s\n' "$id" "$old_version" "$new_version"
+      fi
+    done < "$differing" > "$candidates"
+  fi
+
+  if [ ! -s "$candidates" ]; then
+    printf 'No newer versions found for installed packages.\n'
+    return 0
+  fi
+  printf 'Newer versions found for %s installed package(s)\n' "$(wc -l < "$candidates" | tr -d ' ')"
+  cat "$candidates"
+  printf '%s\n' "Preview with 'ooonana upgrade --dry-run'." \
+    "Apply with 'ooonana upgrade' or specify package names."
+)
+
 cmd_update() (
-  local stage tmp sources_tmp best_tmp
+  local stage tmp sources_tmp best_tmp repo_paths
   ensure_pkg_dirs
   stage="$(mktemp -d "$CACHE_DIR/.update.XXXXXX")"
   trap 'rm -rf "$stage"' EXIT
   tmp="$stage/index.tsv"
   sources_tmp="$stage/sources.tsv"
+  repo_paths=""
   repo_count=0
   : > "$tmp"
   repo_sources > "$sources_tmp"
@@ -2117,6 +2174,8 @@ cmd_update() (
         printf '%s\t%s\t%s\t%s\t%s\n' "$repo_name" "$OOONANA_PKG_ID" "$OOONANA_PKG_VERSION" "${OOONANA_PKG_KIND:-bundle}" "$OOONANA_PKG_SUMMARY" >> "$tmp"
       done
     fi
+    repo_paths="$repo_paths$repo_path
+"
   done < "$sources_tmp"
   best_tmp="$stage/index.best.tsv"
   select_best_index_entries "$tmp" "$best_tmp"
@@ -2125,7 +2184,8 @@ cmd_update() (
   replace_file "$sources_tmp" "$CACHE_DIR/sources.tsv"
   replace_file "$best_tmp" "$CACHE_DIR/index.tsv"
   printf 'ooonana repo: synced %s package(s) from %s source(s)\n' "$count" "$repo_count"
-  printf 'ooonana repo: remote update is metadata-only; package archives download on install\n'
+  printf 'ooonana repo: metadata-only refresh. Package archives download on install or upgrade.\n'
+  print_update_candidates "$tmp" "$repo_paths" "$stage"
   if [ "${OOONANA_APT_UPDATE:-0}" = "1" ] && have apt-get; then
     apt-get update
   fi
