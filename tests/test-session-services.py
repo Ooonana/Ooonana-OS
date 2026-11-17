@@ -127,9 +127,16 @@ class ProviderStartup(unittest.TestCase):
             etc = image / 'etc'
             (etc / 'ooonana').mkdir(parents=True)
             subprocess.run(['bash', '-e', '-c', 'write_full_groups() {\n' + groups +
-                            '\nROOTFS=$1\nOS_VERSION=0.10.0\n'
-                            'ooonana_alpine_branch() { echo v3.24; }\n'
-                            'write_full_groups\nwrite_full_groups', 'fixture', str(image)], check=True)
+                            '\nsource "$2"\nROOTFS=$1\nOS_VERSION=0.10.0\n'
+                            'OOONANA_ALPINE_BRANCH=v3.24\n'
+                            'write_full_groups\nwrite_full_groups', 'fixture', str(image),
+                            str(ROOT / 'scripts/lib/common.sh')], check=True)
+
+            guest, = [line.split(':') for line in (etc / 'shadow').read_text().splitlines()
+                      if line.startswith('ooonana:')]
+            expected = subprocess.run(['openssl', 'passwd', '-6', '-salt', 'OoonanaLive', '-stdin'],
+                                      input='ooonana\n', text=True, capture_output=True, check=True).stdout.strip()
+            self.assertEqual(guest[1], expected)
 
             def account_file(name):
                 return [line.split(':') for line in (etc / name).read_text().splitlines()
