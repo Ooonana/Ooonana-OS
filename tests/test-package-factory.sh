@@ -411,6 +411,10 @@ tar -xOzf "$core_runtime_archive" ./usr/bin/start-ooonana-i3 | grep -F 'Xephyr' 
 tar -xOzf "$core_runtime_archive" ./usr/share/icons/OoonanaTailless/cursors/left_ptr | python3 -c 'import sys; raise SystemExit(not sys.stdin.buffer.read().startswith(b"Xcur"))' || fail "core runtime missing tailless cursor"
 core_version="$(sh "$ROOT/packages/ooonana/usr/bin/ooonana" version | awk '{print $2}')"
 tar -xOzf "$core_runtime_archive" ./etc/os-release | grep -F "PRETTY_NAME=\"Ooonana OS $core_version\"" >/dev/null || fail "core runtime OS release stale"
+tar -xOzf "$core_runtime_archive" ./etc/ooonana/sources.d/extras1.repo |
+  cmp -s "$ROOT/packages/ooonana/etc/ooonana/sources.d/extras1.repo" - || fail "core runtime missing signed extras source"
+tar -tzf "$core_runtime_archive" ./etc/ooonana/trusted-keys/repository-20261002.pub >/dev/null ||
+  fail "core runtime missing the extras trust key"
 tar -tzf "$core_runtime_archive" | grep './usr/lib/ooonana/ui/task_manager_app.py' >/dev/null || fail "core runtime missing task manager"
 for native_file in usr/bin/ooonana-panel-start usr/bin/ooonana-notifications usr/bin/ooonana-notification-status usr/bin/ooonana-wallpaper-fit usr/bin/ooonana-shell usr/bin/ooonana-controls usr/lib/ooonana/ui/notifications_app.py usr/lib/ooonana/ui/shell_flyout.py usr/lib/ooonana/ui/shell_client.py usr/lib/ooonana/ui/shell_pointer.py; do
   [[ "$core_archive_files" == *"./$native_file"* ]] || fail "core runtime missing $native_file"

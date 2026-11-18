@@ -1,0 +1,3 @@
+OOONANA_REPO_NAME="extras1"
+OOONANA_REPO_URI="https://gitlab.com/Ooonana/ooonana-extras1/-/raw/main"
+OOONANA_REPO_KEY="/etc/ooonana/trusted-keys/repository-20261002.pub"

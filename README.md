@@ -1420,6 +1420,9 @@ ooonana update && ooonana upgrade
 Open **Settings → System → Open Updates** for the same workflow on the
 desktop. A major Core upgrade on Live requires a fresh ISO.
 
+Core 0.10.6 adds the signed `extras1` source on install or upgrade. Run
+`ooonana update` again after upgrading Core to load the extras index.
+
 The combined cloud build uses:
 
 ```text
