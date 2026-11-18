@@ -1,6 +1,11 @@
 #!/bin/sh
 set -eu
 
+backend="$(dirname -- "$0")/../lib/ooonana/neofetch"
+if [ -x "$backend" ]; then
+  exec "$backend" "$@"
+fi
+
 logo="/usr/share/ooonana/logo.txt"
 [ -f "$logo" ] || logo="/etc/motd"
 

@@ -395,7 +395,7 @@ firefox
 
 `firefox` package supplies launchers, not bundled Mozilla binaries. Browser/runtime download through the [Mozilla-documented Flatpak route](https://support.mozilla.org/en-US/kb/install-firefox-linux). Check persistent disk space first. Setup/update refuse RAM-only or temporary USB storage; unreadable/unknown live-mode metadata also refuses before Flatpak mutation. Explicit `OOONANA_FIREFOX_ALLOW_VOLATILE=1` permits known volatile modes with a warning, not a space guarantee. `ooonana-firefox update` updates that user-owned browser; OS package updates do not update its Flatpak runtime automatically.
 
-Stable 0.9.9 imported base targets Alpine 3.20, whose normal support ended April 1, 2026 ([upstream lifecycle](https://alpinelinux.org/releases/)). Candidate 0.10.0 uses one v3.24 branch and rejects mixed provenance. Never mix its libraries into live 0.9.9 systems. Candidate `neofetch` is a small native compatibility command, not the removed upstream APK; use `fastfetch` for richer reporting.
+Stable 0.9.9 imported base targets Alpine 3.20, whose normal support ended April 1, 2026 ([upstream lifecycle](https://alpinelinux.org/releases/)). Candidate 0.10.0 uses one v3.24 branch and rejects mixed provenance. Never mix its libraries into live 0.9.9 systems. Optional `neofetch` shows Ooonana’s logo with the active Graphite or Paper palette.
 
 ![Core 0.9.6 native app icon family](docs/assets/ooonana-native-icons.png)
 

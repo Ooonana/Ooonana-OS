@@ -34,7 +34,7 @@ WINDOWS_CHAT_PACKAGE_VERSION="${OOONANA_WINDOWS_CHAT_VERSION:-1.0.1}"
 DEVICECHAT_SOURCE="${OOONANA_DEVICECHAT_SOURCE:-$ROOT/packages/devicechat/source/devicechat-0.1.1.tgz}"
 BUNANACHAT_SOURCE_DIR="${OOONANA_BUNANACHAT_LINUX_SOURCE:-$ROOT/packages/bunanachat-linux/source/dist}"
 WINDOWS_CHAT_SOURCE="${OOONANA_OONANA_CHAT_WINDOWS_SOURCE:-$ROOT/packages/ooonana-chat-windows/source/OoonanaChat Setup 1.0.0.exe}"
-NATIVE_APK_PACKAGES="openssl glib nodejs flatpak xdg-desktop-portal xdg-desktop-portal-gtk xdg-document-portal bluez dbus dbus-daemon-launch-helper fontconfig freetype libx11 libice libsm mesa-gl icu-libs zlib libgcc libstdc++ libxscrnsaver fcitx5 fcitx5-hangul fcitx5-gtk3 fcitx5-qt lsblk findmnt blkid losetup mount umount coreutils"
+NATIVE_APK_PACKAGES="bash openssl glib nodejs flatpak xdg-desktop-portal xdg-desktop-portal-gtk xdg-document-portal bluez dbus dbus-daemon-launch-helper fontconfig freetype libx11 libice libsm mesa-gl icu-libs zlib libgcc libstdc++ libxscrnsaver fcitx5 fcitx5-hangul fcitx5-gtk3 fcitx5-qt lsblk findmnt blkid losetup mount umount coreutils"
 COMMON_PROFILE="$ROOT/configs/packages/common-tools.list"
 CORE_PACKAGE_VERSION="${OOONANA_CORE_VERSION:-$(sh "$ROOT/packages/ooonana/usr/bin/ooonana" version | awk '{print $2}')}"
 KERNEL_PACKAGE_PATH="${OOONANA_KERNEL_PACKAGE_PATH:-}"
@@ -292,7 +292,7 @@ main() {
     fi
     ooonana_print_command bash "$WINE_COMPAT_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$WINE_COMPAT_PACKAGE_VERSION"
     ooonana_print_command bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --no-index $common_apks
-    printf 'neofetch: native core runtime compatibility bundle %s\n' "$CORE_PACKAGE_VERSION"
+    ooonana_print_command bash "$ROOT/scripts/build-neofetch-package.sh" --out-dir "$OUT_DIR"
     ooonana_print_command bash "$ROOT/scripts/build-firefox-package.sh" --out-dir "$OUT_DIR"
     if [[ -f "$WINDOWS_CHAT_SOURCE" ]]; then
       ooonana_print_command bash "$WINDOWS_CHAT_PACKAGE_SCRIPT" --out-dir "$OUT_DIR" --version "$WINDOWS_CHAT_PACKAGE_VERSION" --source "$WINDOWS_CHAT_SOURCE"
@@ -321,16 +321,7 @@ main() {
   # Optional catalog, deliberately outside desktop install profile.
   # shellcheck disable=SC2086
   bash "$IMPORT_APK_SCRIPT" "${repo_args[@]}" --out-dir "$OUT_DIR" --no-index $common_apks
-  # Native lightweight neofetch already belongs to core runtime; upstream
-  # archived implementation is absent from the supported Alpine catalog.
-  cat > "$OUT_DIR/neofetch.pkg" <<EOF
-OOONANA_PKG_ID="neofetch"
-OOONANA_PKG_VERSION="$CORE_PACKAGE_VERSION"
-OOONANA_PKG_KIND="bundle"
-OOONANA_PKG_SUMMARY="Ooonana lightweight native system information command"
-OOONANA_PKG_DEPS="ooonana-core-runtime"
-OOONANA_PKG_NOTES="Native compatibility command, not archived upstream Neofetch; use fastfetch for richer reports"
-EOF
+  bash "$ROOT/scripts/build-neofetch-package.sh" --out-dir "$OUT_DIR"
   bash "$ROOT/scripts/build-firefox-package.sh" --out-dir "$OUT_DIR"
   if [[ -n "$KERNEL_PACKAGE_PATH" || -n "$KERNEL_PACKAGE_URL" ]]; then
     kernel_source="$KERNEL_PACKAGE_PATH"
