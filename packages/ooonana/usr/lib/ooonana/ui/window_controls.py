@@ -1,4 +1,4 @@
-"""Opaque, focus-neutral titlebar buttons for i3-decorated third-party windows."""
+"""Focus-neutral titlebar and fullscreen controls for third-party i3 windows."""
 import ctypes
 import cairo
 import fcntl
@@ -9,12 +9,22 @@ from pathlib import Path
 import threading
 import time
 import sys
+from typing import NamedTuple
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import i3_events
-from common import Gdk, GLib, Gtk, WINDOW_CONTROL_CSS, window_control_icon, run_async
+from common import Gdk, GLib, Gtk, Pango, WINDOW_CONTROL_CSS, window_control_icon, run_async
 from touchpad_gestures import GENERIC_EVENT, WorkspaceSwipe, XEvent, subscribe, swipe_direction
+from ui_preferences import resolved_theme
 
 WIDTH = 66
+FULLSCREEN_HEIGHT = 32
+
+
+class FullscreenTarget(NamedTuple):
+    identifier: int
+    xid: int
+    title: str
+    bounds: tuple[int, int, int, int]
 
 
 def native_control_scale(version):
@@ -143,14 +153,72 @@ def decoration_targets(tree, visible, native_scale=0):
     return result
 
 
+def fullscreen_targets(tree, visible):
+    """Find visible app windows and the physical top edges that can reveal them."""
+    outputs = []
+    local = []
+    global_active = False
+    global_target = None
+
+    def visit(node, workspace=None):
+        nonlocal global_active, global_target
+        if node.get("name") == "__i3":
+            return
+        kind = node.get("type")
+        rect = node.get("rect") or {}
+        bounds = tuple(rect.get(key, 0) for key in ("x", "y", "width", "height"))
+        has_bounds = bounds[2] > 0 and bounds[3] > 0
+        if kind == "output" and has_bounds:
+            outputs.append(bounds)
+        if kind == "workspace":
+            workspace = node.get("name")
+        elif workspace in visible and node.get("fullscreen_mode") in (1, 2):
+            global_mode = node["fullscreen_mode"] == 2
+            global_active |= global_mode
+            properties = node.get("window_properties") or {}
+            klass = str(properties.get("class", "")).casefold()
+            if node.get("window") and has_bounds and not klass.startswith(("ooonana", "oonana", "polybar")):
+                title = " ".join(str(node.get("name") or properties.get("class") or "Window").split())
+                target = FullscreenTarget(node["id"], node["window"], title, bounds)
+                if global_mode:
+                    global_target = target
+                else:
+                    local.append(target)
+        for child in node.get("nodes", []) + node.get("floating_nodes", []):
+            visit(child, workspace)
+
+    visit(tree)
+    if not global_active:
+        return local
+    if global_target is None:
+        return []
+    return [global_target._replace(bounds=bounds) for bounds in outputs or [global_target.bounds]]
+
+
+def fullscreen_at_pointer(targets, x, y, scale, revealed):
+    for target in targets:
+        left, top, width, _height = target.bounds
+        visible = (revealed is not None and target.identifier == revealed.identifier
+                   and target.xid == revealed.xid and target.bounds == revealed.bounds)
+        height = FULLSCREEN_HEIGHT if visible else 3
+        if left <= x < left + width and top <= y < top + height * scale:
+            return target
+    return None
+
+
 CSS = b"""
 .third-party-controls { background: #1b1f26; border: none; box-shadow: none; }
 .third-party-controls.inactive { background: #101317; }
+.fullscreen-titlebar { background: #1b1f26; border-bottom: 1px solid #414957; }
+.fullscreen-titlebar label { color: #f5f5f7; font-weight: 600; }
+.fullscreen-titlebar.paper { background: #ffffff; border-bottom-color: #adb7c2; }
+.fullscreen-titlebar.paper label { color: #1b1f26; }
+.fullscreen-titlebar.paper button.window-control:hover { border-color: #1b1f26; }
 """ + WINDOW_CONTROL_CSS
 
 
 class Controls(Gtk.Window):
-    def __init__(self, identifier, owner):
+    def __init__(self, identifier, owner, fullscreen=False):
         super().__init__(type=Gtk.WindowType.POPUP)
         # Compositor must not round/clip this tiny titlebar overlay again.
         self.set_wmclass("ooonana-window-controls", "OoonanaWindowControls")
@@ -167,8 +235,6 @@ class Controls(Gtk.Window):
         self.connect("destroy", self.unregister, owner)
         self.xid = None
         self.control_region = cairo.Region()
-        self.connect_after("size-allocate", self.clip_controls)
-        self.connect("map", self.clip_controls)
         self.set_decorated(False)
         self.set_accept_focus(False)
         self.set_focus_on_map(False)
@@ -180,15 +246,23 @@ class Controls(Gtk.Window):
         row.set_margin_left(4)
         row.set_margin_right(4)
         row.set_valign(Gtk.Align.CENTER)
-        row.connect_after("size-allocate", self.clip_controls)
-        for action, title, glyph in (("close", "Close window", "window-close-symbolic"), ("minimize", "Minimize window", "window-minimize-symbolic"), ("fullscreen", "Toggle fullscreen (Alt+F10)", "view-fullscreen-symbolic")):
+        if not fullscreen:
+            self.connect_after("size-allocate", self.clip_controls)
+            self.connect("map", self.clip_controls)
+            row.connect_after("size-allocate", self.clip_controls)
+        fullscreen_action = ("restore", "Restore window (Alt+F10)", "view-restore-symbolic") if fullscreen else (
+            "fullscreen", "Fullscreen (Alt+F10). Move to the top edge for controls.", "view-fullscreen-symbolic")
+        for action, title, glyph in (("close", "Close window", "window-close-symbolic"),
+                                     ("minimize", "Minimize window (Alt+F9)", "window-minimize-symbolic"),
+                                     fullscreen_action):
             control = Gtk.Button()
             image = window_control_icon(glyph)
-            image.set_pixel_size(10)
+            if not fullscreen:
+                image.set_pixel_size(10)
             control.set_image(image)
             control.set_can_focus(False)
             control.get_style_context().add_class("window-control")
-            control.get_style_context().add_class(action + "-control")
+            control.get_style_context().add_class(("fullscreen" if action == "restore" else action) + "-control")
             control.get_style_context().add_provider(self.scale_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER + 1)
             control.set_tooltip_text(title)
             control.get_accessible().set_name(title)
@@ -271,6 +345,67 @@ class Controls(Gtk.Window):
         self.show_all()
 
 
+class FullscreenControls(Controls):
+    def __init__(self, owner):
+        super().__init__(None, owner, fullscreen=True)
+        self.target = None
+        self.drag_start = None
+        self.get_style_context().add_class("fullscreen-titlebar")
+        self.set_size_request(-1, FULLSCREEN_HEIGHT)
+        row = self.get_child()
+        row.set_margin_start(14)
+        row.set_margin_end(14)
+        self.title = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        self.title.set_margin_start(10)
+        drag_area = Gtk.EventBox()
+        drag_area.add(self.title)
+        drag_area.set_tooltip_text("Drag to restore and move")
+        drag_area.connect("button-press-event", self.begin_drag)
+        drag_area.connect("button-release-event", self.end_drag)
+        drag_area.connect("grab-broken-event", self.cancel_drag)
+        drag_area.connect("realize", lambda widget: widget.get_window().set_cursor(
+            Gdk.Cursor.new_from_name(self.get_display(), "move")))
+        row.pack_start(drag_area, True, True, 0)
+
+    def reveal(self, target):
+        if self.target == target and self.get_visible():
+            return
+        self.target = target
+        self.identifier, self.target_xid = target.identifier, target.xid
+        self.title.set_text(target.title)
+        style = self.get_style_context()
+        (style.add_class if resolved_theme() == "light" else style.remove_class)("paper")
+        scale = max(1, self.get_scale_factor())
+        x, y, width, _height = target.bounds
+        self.move(x // scale, y // scale)
+        self.resize(math.ceil(width / scale), FULLSCREEN_HEIGHT)
+        self.show_all()
+        self.get_window().raise_()
+
+    def dismiss(self):
+        self.target = self.drag_start = self.target_xid = None
+        self.hide()
+
+    def begin_drag(self, _widget, event):
+        if event.button == 1 and self.target:
+            self.drag_start = (event.x_root, event.y_root)
+            return True
+        return False
+
+    def end_drag(self, widget, event):
+        if event.button != 1 or self.drag_start is None:
+            return False
+        x, y = self.drag_start
+        self.drag_start = None
+        if widget.drag_check_threshold(int(x), int(y), int(event.x_root), int(event.y_root)):
+            self.activate("restore-move")
+        return True
+
+    def cancel_drag(self, *_args):
+        self.drag_start = None
+        return False
+
+
 class Manager:
     def __init__(self):
         self.controls = {}
@@ -278,6 +413,9 @@ class Manager:
         self.placement_seen = None
         self.control_scale = 0
         self.capability_path = None
+        self.fullscreen_bar = None
+        self.fullscreen_windows = []
+        self.fullscreen_timer = 0
         provider = Gtk.CssProvider()
         provider.load_from_data(CSS)
         Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_USER + 1)
@@ -294,10 +432,16 @@ class Manager:
         self.xlib.XFlush.restype = ctypes.c_int
         self.xlib.XPending.argtypes = [ctypes.c_void_p]
         self.xlib.XNextEvent.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        window_pointer = ctypes.POINTER(ctypes.c_ulong)
+        coordinate = ctypes.POINTER(ctypes.c_int)
+        self.xlib.XQueryPointer.argtypes = [ctypes.c_void_p, ctypes.c_ulong, window_pointer, window_pointer,
+                                          coordinate, coordinate, coordinate, coordinate, ctypes.POINTER(ctypes.c_uint)]
+        self.xlib.XQueryPointer.restype = ctypes.c_int
         self.display = self.xlib.XOpenDisplay(None)
         if not self.display:
             raise RuntimeError("X11 display unavailable")
         root = self.xlib.XDefaultRootWindow(self.display)
+        self.root = root
         self.xlib.XSelectInput(self.display, root, (1 << 19))
         self.swipe_opcode = subscribe(self.xlib, self.display, root)
         self.swipe = WorkspaceSwipe()
@@ -347,10 +491,47 @@ class Manager:
         for window in self.controls.values():
             window.destroy()
         self.controls.clear()
+        self.set_fullscreen_targets([])
         self.placement_seen = None
         self.control_scale = 0
         self.capability_path = None
         return False
+
+    def set_fullscreen_targets(self, targets):
+        self.fullscreen_windows = targets
+        if not targets:
+            if self.fullscreen_timer:
+                GLib.source_remove(self.fullscreen_timer)
+                self.fullscreen_timer = 0
+                self.fullscreen_bar.dismiss()
+            return
+        if not self.fullscreen_timer:
+            self.fullscreen_bar = self.fullscreen_bar or FullscreenControls(self)
+            self.fullscreen_timer = GLib.timeout_add(50, self.follow_fullscreen_pointer)
+        self.follow_fullscreen_pointer()
+        if self.fullscreen_bar.get_visible():
+            self.fullscreen_bar.get_window().raise_()
+
+    def follow_fullscreen_pointer(self):
+        bar = self.fullscreen_bar
+        if bar.drag_start is not None:
+            if any(target[:2] == bar.target[:2] for target in self.fullscreen_windows):
+                return True
+            bar.dismiss()
+        root, child = ctypes.c_ulong(), ctypes.c_ulong()
+        x, y, local_x, local_y = (ctypes.c_int() for _ in range(4))
+        mask = ctypes.c_uint()
+        if self.xlib.XQueryPointer(self.display, self.root, ctypes.byref(root), ctypes.byref(child),
+                                  ctypes.byref(x), ctypes.byref(y), ctypes.byref(local_x),
+                                  ctypes.byref(local_y), ctypes.byref(mask)):
+            target = fullscreen_at_pointer(self.fullscreen_windows, x.value, y.value,
+                                           max(1, bar.get_scale_factor()), bar.target)
+            if target:
+                bar.reveal(target)
+                return True
+        if bar.get_visible():
+            bar.dismiss()
+        return True
 
     def place_initial_dialog(self, identifier, original):
         # Qt can reposition after i3's map rule. One deferred correction only;
@@ -397,6 +578,7 @@ class Manager:
             tree = i3_events.request(path, 4)
             visible = {workspace["name"] for workspace in i3_events.request(path, 1) if workspace.get("visible")}
             targets = decoration_targets(tree, visible, self.control_scale)
+            fullscreen = fullscreen_targets(tree, visible)
             focused = set()
             live = set()
             live_xids = {}
@@ -429,6 +611,7 @@ class Manager:
             (style.remove_class if identifier in focused else style.add_class)("inactive")
             self.controls[identifier].position(target, self.control_scale)
             self.controls[identifier].get_window().raise_()
+        self.set_fullscreen_targets(fullscreen)
         return False
 
 

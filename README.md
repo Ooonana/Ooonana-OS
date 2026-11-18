@@ -704,8 +704,9 @@ Desktop workspace/window shortcuts:
 - `Super+left-drag/right-drag`: move/resize floating window using native i3 handling.
 - `Super+Shift+Space`: floating/tiling; `Super+W/S/E`: tabbed/stacked/split.
 - `Alt+F10` or `Super+F` toggles fullscreen. `Alt+Space` or `Alt+right-click` opens window actions, including in fullscreen.
+- Move the pointer to the top edge of a fullscreen third-party window to reveal its titlebar. Use the buttons to close, minimize, or restore. Drag the title to restore and move the window.
 - `Super+R` restores from fullscreen and opens keyboard resize mode. `Escape` exits resize mode.
-- `Super+M` minimizes, including from fullscreen. Dock actions restore the selected session. `Alt+F4` closes.
+- `Alt+F9` or `Super+M` minimizes, including from fullscreen. Dock actions restore the selected session. `Alt+F4` closes.
 
 Current local WSL installation uses an independently installed adapter for cold
 F: reads (60-second bounded Xephyr wait, nested X11/XCB). Existing privileged

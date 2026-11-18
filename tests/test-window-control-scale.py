@@ -6,6 +6,7 @@ import re
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from typing import NamedTuple
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / "packages/ooonana/usr/lib/ooonana/ui"))
@@ -134,6 +135,35 @@ for scale in (1, 2, 4):
     assert namespace["decoration_targets"](tree, {"1"}, scale) == {}, "Never clip native controls into old WM frame"
 
 manager = next(node for node in source.body if isinstance(node, ast.ClassDef) and node.name == "Manager")
+fullscreen_helpers = [node for node in source.body if getattr(node, "name", "") in (
+    "FullscreenTarget", "fullscreen_targets", "fullscreen_at_pointer")]
+namespace.update(NamedTuple=NamedTuple, FULLSCREEN_HEIGHT=32)
+exec(compile(ast.Module(body=fullscreen_helpers, type_ignores=[]), "fullscreen-target-fixture", "exec"), namespace)
+select_fullscreen = namespace["fullscreen_targets"]
+at_pointer = namespace["fullscreen_at_pointer"]
+app = dict(id=42, window=101, type="con", name="Editor", fullscreen_mode=1,
+           rect=dict(x=-1280, y=-300, width=1280, height=800), window_properties={"class": "Geany"})
+workspace = dict(type="workspace", name="2", fullscreen_mode=1, nodes=[app])
+left = dict(type="output", name="left", rect=app["rect"], nodes=[workspace])
+right = dict(type="output", name="right", rect=dict(x=0, y=0, width=1600, height=1000))
+tree = dict(nodes=[left, right])
+assert select_fullscreen(tree, {"1"}) == [], "Hidden workspace exposed fullscreen actions"
+targets = select_fullscreen(tree, {"2"})
+assert len(targets) == 1
+assert at_pointer(targets, 150, 0, 2, None) is None, "Controls leaked onto the other output"
+assert at_pointer(targets, -300, -295, 2, None) == targets[0]
+assert at_pointer(targets, -300, -270, 2, None) is None, "Content hover revealed hidden controls"
+assert at_pointer(targets, -300, -270, 2, targets[0]) == targets[0]
+assert at_pointer(targets, -300, -236, 2, targets[0]) is None, "Controls stayed past the titlebar"
+app["fullscreen_mode"] = 2
+targets = select_fullscreen(tree, {"2"})
+assert at_pointer(targets, 150, 0, 1, None).identifier == 42
+app["window_properties"]["class"] = "OonanaGame"
+assert select_fullscreen(tree, {"2"}) == [], "Native fullscreen gained a third-party titlebar"
+workspace["name"] = "__i3_scratch"
+left["name"] = "__i3"
+assert select_fullscreen(tree, {"__i3_scratch"}) == [], "Scratchpad fullscreen exposed controls"
+
 methods = [node for node in manager.body if isinstance(node, ast.FunctionDef) and node.name in ("refresh", "clear")]
 exec(compile(ast.Module(body=methods, type_ignores=[]), "wm-capability-cache-fixture", "exec"), namespace)
 requests = []
@@ -143,7 +173,8 @@ def request(path, kind):
     return ({"ooonana_control_api": 1, "ooonana_control_scale": 2} if kind == 7 else {} if kind == 4 else [])
 namespace.update(i3_events=SimpleNamespace(socket_path=lambda: socket_name[0], request=request),
                  initial_dialog_targets=lambda *_: {}, initial_app_targets=lambda *_: {})
-owner = SimpleNamespace(controls={}, placement_seen=None, capability_path=None, control_scale=0)
+owner = SimpleNamespace(controls={}, placement_seen=None, capability_path=None, control_scale=0,
+                        set_fullscreen_targets=lambda _targets: None)
 owner.clear = lambda: namespace["clear"](owner)
 for _ in range(2):
     namespace["refresh"](owner)

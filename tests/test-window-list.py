@@ -135,7 +135,18 @@ module.main()
 assert len(commands) == before, "Stale/reused container must never close a different X11 window"
 module.sys.argv[-1] = "4"
 module.main()
-assert commands[-1] == ["i3-msg", "[con_id=4] kill"]
+assert commands[-1] == ["i3-msg", "[con_id=4 id=4] kill"]
+before = len(commands)
+module.sys.argv = ["ooonana-window-list", "--window-action", "restore-move", "3", "--expect-xid", "3"]
+module.main()
+assert len(commands) == before, "Moving by the fullscreen titlebar requires a fullscreen target"
+terminal["fullscreen_mode"] = 1
+module.main()
+assert commands[-1] == ["i3-msg", "[con_id=3 id=3] fullscreen disable, floating enable, move position mouse"]
+module.sys.argv[2] = "restore"
+module.main()
+assert commands[-1] == ["i3-msg", "[con_id=3 id=3] fullscreen disable"]
+terminal.pop("fullscreen_mode")
 module.sys.argv = ["ooonana-window-list", "--window-action", "close", "invalid"]
 before = len(commands)
 module.main()

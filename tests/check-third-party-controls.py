@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Isolated i3/Xvfb test; never touches user's desktop windows."""
+import ctypes
 import json
 import os
 from pathlib import Path
@@ -60,7 +61,8 @@ with tempfile.TemporaryDirectory() as temporary:
                 Gtk.main_iteration_do(False)
             time.sleep(0.02)
         print("CONTROL_GEOMETRY", targets[identifier], tuple(control.get_position()), tuple(control.get_size()), flush=True)
-        assert [widget.get_accessible().get_name() for widget in control.get_child().get_children()] == ["Close window", "Minimize window", "Toggle fullscreen"]
+        assert [widget.get_accessible().get_name() for widget in control.get_child().get_children()] == [
+            "Close window", "Minimize window (Alt+F9)", "Fullscreen (Alt+F10). Move to the top edge for controls."]
         assert control.get_size().width == (82 * manager.control_scale if manager.control_scale else WIDTH)
         assert control.get_size().height == targets[identifier][2], "Controls overlap client contents"
         assert not control.control_region.contains_point(0, 0), "Rectangular popup corner visible"
@@ -130,9 +132,89 @@ with tempfile.TemporaryDirectory() as temporary:
         assert peer_present()["focused"], "Minimize targeted/focused the wrong client"
         subprocess.run([str(root / "packages/ooonana/usr/bin/ooonana-window-list"), "--window-action", "show", str(identifier)], env=env, check=True, capture_output=True)
         wait(lambda: identifier in manager.controls)
+        xtest = ctypes.CDLL("libXtst.so.6")
+        xtest.XTestFakeButtonEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_int, ctypes.c_ulong]
+        xtest.XTestFakeKeyEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_int, ctypes.c_ulong]
+        manager.xlib.XKeysymToKeycode.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
+        manager.xlib.XKeysymToKeycode.restype = ctypes.c_ubyte
+
+        def move_pointer(x, y):
+            pointer.warp(Gdk.Screen.get_default(), x, y)
+            Gdk.Display.get_default().sync()
+
+        def button_event(pressed):
+            assert xtest.XTestFakeButtonEvent(manager.display, 1, pressed, 0)
+            manager.xlib.XFlush(manager.display)
+
+        def press_control(index):
+            popup = manager.fullscreen_bar
+            button = popup.get_child().get_children()[index]
+            x, y = button.translate_coordinates(popup, 0, 0)
+            left, top = popup.get_position()
+            move_pointer(left + x + button.get_allocated_width() // 2,
+                         top + y + button.get_allocated_height() // 2)
+            button_event(True)
+            button_event(False)
+
+        def reveal_fullscreen():
+            move_pointer(300, 200)
+            wait(lambda: manager.fullscreen_windows and not manager.fullscreen_bar.get_mapped())
+            move_pointer(300, 0)
+            wait(lambda: manager.fullscreen_bar.get_mapped())
+            assert manager.fullscreen_bar.target.identifier == identifier
+            assert manager.fullscreen_bar.get_size().height == 32
+
         manager.controls[identifier].get_child().get_children()[2].emit("clicked")
-        wait(lambda: identifier not in manager.controls)
-        subprocess.run([str(root / "packages/ooonana/usr/bin/ooonana-window-list"), "--window-action", "fullscreen", str(identifier)], env=env, check=True, capture_output=True)
+        reveal_fullscreen()
+        def painted_bar():
+            screen = Gdk.get_default_root_window()
+            pixel = Gdk.pixbuf_get_from_window(screen, screen.get_width() - 25, 12, 1, 1)
+            return pixel is not None and tuple(pixel.get_pixels()[:3]) == bar_color
+
+        bar_color = (255, 255, 255) if os.environ.get("OOONANA_THEME_OVERRIDE") == "light" else (27, 31, 38)
+        wait(painted_bar)
+        if len(sys.argv) > 1:
+            screen = Gdk.get_default_root_window()
+            image = Gdk.pixbuf_get_from_window(screen, 0, 0, screen.get_width(), 90)
+            capture = Path(sys.argv[1])
+            image.savev(str(capture.with_stem(capture.stem + "-fullscreen")), "png", [], [])
+        move_pointer(300, 200)
+        wait(lambda: not manager.fullscreen_bar.get_mapped())
+        move_pointer(300, 0)
+        wait(lambda: manager.fullscreen_bar.get_mapped())
+        press_control(1)
+        wait(lambda: not manager.fullscreen_windows and identifier not in manager.controls)
+        subprocess.run([str(root / "packages/ooonana/usr/bin/ooonana-window-list"), "--window-action", "show", str(identifier)],
+                       env=env, check=True, capture_output=True)
+        wait(lambda: identifier in manager.controls)
+
+        manager.controls[identifier].get_child().get_children()[2].emit("clicked")
+        reveal_fullscreen()
+        press_control(2)
+        wait(lambda: identifier in manager.controls and not manager.fullscreen_windows)
+
+        old_position = manager.controls[identifier].last_position
+        manager.controls[identifier].get_child().get_children()[2].emit("clicked")
+        reveal_fullscreen()
+        move_pointer(300, 16)
+        button_event(True)
+        wait(lambda: manager.fullscreen_bar.drag_start is not None)
+        move_pointer(930, 460)
+        button_event(False)
+        wait(lambda: identifier in manager.controls)
+        wait(lambda: manager.controls[identifier].last_position != old_position)
+        assert not manager.fullscreen_windows, "Titlebar drag did not leave fullscreen"
+        manager.controls[identifier].get_child().get_children()[2].emit("clicked")
+        wait(lambda: manager.fullscreen_windows)
+        alt = manager.xlib.XKeysymToKeycode(manager.display, 0xffe9)
+        f9 = manager.xlib.XKeysymToKeycode(manager.display, 0xffc6)
+        assert alt and f9
+        for keycode, pressed in ((alt, True), (f9, True), (f9, False), (alt, False)):
+            assert xtest.XTestFakeKeyEvent(manager.display, keycode, pressed, 0)
+        manager.xlib.XFlush(manager.display)
+        wait(lambda: not manager.fullscreen_windows and identifier not in manager.controls)
+        subprocess.run([str(root / "packages/ooonana/usr/bin/ooonana-window-list"), "--window-action", "show", str(identifier)],
+                       env=env, check=True, capture_output=True)
         wait(lambda: identifier in manager.controls)
         manager.controls[identifier].get_child().get_children()[0].emit("clicked")
         wait(lambda: terminal.poll() is not None)

@@ -432,17 +432,22 @@ def actions_menu(items, con_id=None, keyboard=False, fullscreen=False, expected_
         window_action(item, ("show", "minimize", "fullscreen", "close")[selected])
 
 
-def window_action(item, action):
+def window_action(item, action, expected_xid=None):
+    criterion = f"[con_id={item[0]} id={expected_xid}]" if expected_xid else f"[con_id={item[0]}]"
     if action == "show":
         focus(item)
     elif action == "minimize":
-        subprocess.run(["i3-msg", f"[con_id={item[0]}] fullscreen disable, move scratchpad"], check=False)
+        subprocess.run(["i3-msg", f"{criterion} fullscreen disable, move scratchpad"], check=False)
     elif action == "fullscreen":
         if item[3]:
             focus(item)
-        subprocess.run(["i3-msg", f"[con_id={item[0]}] fullscreen toggle"], check=False)
+        subprocess.run(["i3-msg", f"{criterion} fullscreen toggle"], check=False)
+    elif action == "restore":
+        subprocess.run(["i3-msg", f"{criterion} fullscreen disable"], check=False)
+    elif action == "restore-move":
+        subprocess.run(["i3-msg", f"{criterion} fullscreen disable, floating enable, move position mouse"], check=False)
     elif action == "close":
-        subprocess.run(["i3-msg", f"[con_id={item[0]}] kill"], check=False)
+        subprocess.run(["i3-msg", f"{criterion} kill"], check=False)
 
 
 def main():
@@ -478,6 +483,8 @@ def main():
         task_view(items)
         return
     if len(sys.argv) in (4, 6) and sys.argv[1] == "--window-action":
+        action = sys.argv[2]
+        expected = None
         try:
             identifier = int(sys.argv[3])
             if len(sys.argv) == 6:
@@ -490,8 +497,14 @@ def main():
         except ValueError:
             return
         item = next((entry for entry in items if entry[0] == identifier), None)
-        if item and sys.argv[2] in ("show", "minimize", "fullscreen", "close"):
-            window_action(item, sys.argv[2])
+        if not item:
+            return
+        if action in ("restore", "restore-move"):
+            if expected is None or item[3] or not node.get("fullscreen_mode"):
+                return
+        elif action not in ("show", "minimize", "fullscreen", "close"):
+            return
+        window_action(item, action, expected)
         return
     if len(sys.argv) > 1 and sys.argv[1] == "--focused-actions":
         focused = next((item for item in items if item[2]), None)

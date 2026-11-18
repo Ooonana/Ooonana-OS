@@ -79,6 +79,7 @@ bindsym XF86MonBrightnessDown exec --no-startup-id ooonana-brightness 5%-
 bindsym $mod+Shift+r restart
 bindsym $mod+Shift+q kill
 bindsym Mod1+F4 kill
+bindsym Mod1+F9 fullscreen disable, move scratchpad
 bindsym Mod1+F10 fullscreen toggle
 bindsym Mod1+space exec --no-startup-id ooonana-window-list --focused-actions --keyboard
 bindsym --whole-window Mod1+button3 exec --no-startup-id ooonana-window-list --focused-actions
