@@ -459,11 +459,14 @@ OOONANA_PKG_SHA256="legacy"
 EOF
 core_upgrade="$(umask 077; OOONANA_REPO_DIR="$tmp/repo" \
   OOONANA_CACHE_DIR="$tmp/core-upgrade-cache" \
+  OOONANA_SOURCES_DIR="$tmp/empty-sources" \
   OOONANA_ROOT="$core_upgrade_root" \
   "$ROOT/packages/ooonana/usr/bin/ooonana" upgrade --allow-major ooonana-core)"
 assert_contains "$core_upgrade" "installed ooonana-core-runtime"
 assert_contains "$core_upgrade" "upgraded ooonana-core 0.8.1"
 assert_contains "$core_upgrade" "OOONANA_CORE_META_HEALTHCHECK_OK"
+cmp -s "$core_upgrade_root/etc/ooonana/sources.d/extras1.repo" \
+  "$ROOT/packages/ooonana/etc/ooonana/sources.d/extras1.repo" || fail "upgrade did not enroll signed extras source"
 [[ "$(stat -c %a "$core_upgrade_root/var/tmp")" == 1777 ]] || fail "upgrade failed to create sticky /var/tmp"
 chmod 0700 "$core_upgrade_root/var/tmp"
 if OOONANA_ROOT="$core_upgrade_root" OOONANA_PKG_VERSION="$core_version" \
