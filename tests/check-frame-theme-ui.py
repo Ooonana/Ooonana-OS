@@ -164,18 +164,19 @@ with tempfile.TemporaryDirectory(prefix="ooonana-frame-theme-") as temporary:
                 kind, reply = i3_events.receive(connection)
             assert kind == 0 and isinstance(reply, list) and len(reply) == 1 and reply[0].get("success") is False, (payload, reply)
             assert state() == baseline and sample("FrameA") == color, payload
-        for selected in ("light", "dark"):
+        for selected in ("light", "glass", "dark"):
             result = subprocess.run(["ooonana-theme-env", "toggle"], env=env, capture_output=True, text=True, check=True, timeout=25)
             (output / (selected + "-apply.log")).write_text(result.stdout + result.stderr)
             assert "Theme:" not in result.stderr, result.stderr
             assert preference.read_text() == selected + "\n"
-            expected = tuple(bytes.fromhex(PALETTES[selected]["focused"][0][1:]))
+            palette = PALETTES["dark" if selected == "glass" else selected]
+            expected = tuple(bytes.fromhex(palette["focused"][0][1:]))
             wait(lambda: sample("FrameA") == expected, "Focused frame did not repaint " + selected + " " + str(sample("FrameA")))
             assert state() == baseline, "Theme update changed clients/focus/geometry/workspace/scratchpad"
             assert wm.poll() is None and sentinel.read_text().splitlines() == ["initial"], "Theme update restarted WM/autostarts"
             assert server.read("RESOURCE_MANAGER").startswith(custom), "Unrelated X resources changed"
             inactive = sample("FrameB")
-            candidates = [tuple(bytes.fromhex(PALETTES[selected][role][0][1:])) for role in ("unfocused", "focused_inactive")]
+            candidates = [tuple(bytes.fromhex(palette[role][0][1:])) for role in ("unfocused", "focused_inactive")]
             assert inactive in candidates, (selected, inactive, candidates)
             manager.refresh()
             capture(selected + "-live-frames")

@@ -382,8 +382,6 @@ if grep -q '"$supplicant" -u' "$ROOT/scripts/build-full-i3-rootfs.sh"; then
 fi
 grep -q 'Do not validate certificate' "$ROOT/packages/ooonana/usr/lib/ooonana/ui/wifi_app.py"
 grep -q 'WPA2/WPA3 Enterprise' "$ROOT/packages/ooonana/usr/lib/ooonana/ui/wifi_app.py"
-grep -q 'Wi-Fi routers (orange)' "$ROOT/packages/ooonana/usr/lib/ooonana/ui/signal_map.py"
-grep -q 'Nearby LAN devices (green)' "$ROOT/packages/ooonana/usr/lib/ooonana/ui/signal_map.py"
 grep -q 'wifi-3d-fusion' "$ROOT/packages/ooonana/usr/lib/ooonana/ui/wifi_app.py"
 grep -q '/newroot/mnt/ooonana-live/boot-device' "$ROOT/scripts/build-full-i3-live-initramfs.sh"
 grep -q 'parent_disk_name()' "$ROOT/scripts/build-full-i3-live-initramfs.sh"

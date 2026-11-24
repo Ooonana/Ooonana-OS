@@ -21,10 +21,10 @@ if len(sys.argv) > 1 and sys.argv[1] == "--paint":
     from controls_app import PowerWindow
     apply_theme()
     assert light_appearance() == (expected == "light")
-    assert os.environ["GTK_THEME"] == "Adwaita" + (":dark" if expected == "dark" else "")
+    assert os.environ["GTK_THEME"] == "Adwaita" + (":dark" if expected != "light" else "")
     settings = Gtk.Settings.get_default()
     settings.set_property("gtk-xft-dpi", round(96 * 1024 * float(os.environ["OOONANA_GUI_TEXT_SCALE"])))
-    assert settings.get_property("gtk-application-prefer-dark-theme") == (expected == "dark")
+    assert settings.get_property("gtk-application-prefer-dark-theme") == (expected != "light")
     window = PowerWindow()
     window.show_all()
     for _ in range(25):
@@ -36,7 +36,8 @@ if len(sys.argv) > 1 and sys.argv[1] == "--paint":
     assert bounds.x >= 0 and bounds.y >= 0 and bounds.x + bounds.width <= screen.get_width() and bounds.y + bounds.height <= screen.get_height(), bounds
     color = window.get_style_context().get_background_color(Gtk.StateFlags.NORMAL)
     rgb = tuple(round(channel * 255) for channel in (color.red, color.green, color.blue))
-    assert rgb == ((245, 245, 247) if expected == "light" else (16, 19, 23)), rgb
+    backgrounds = {"light": (245, 245, 247), "glass": (24, 27, 40), "dark": (16, 19, 23)}
+    assert rgb == backgrounds[expected], rgb
     Gdk.pixbuf_get_from_window(screen, 0, 0, screen.get_width(), screen.get_height()).savev(image, "png", [], [])
     print("NATIVE_THEME_PAINT_OK", expected, rgb, "gtk", os.environ["GTK_THEME"], flush=True)
     window.destroy()
@@ -101,14 +102,14 @@ try:
         assert inherited["OOONANA_THEME_INHERITED"] == "dark"
         assert "GTK_THEME" not in inherited
         inherited["GTK_THEME"] = "Adwaita:dark"  # Also model an older desktop parent.
-        for selected in ("light", "dark"):
+        for selected in ("light", "glass", "dark"):
             result = subprocess.run(["ooonana-theme-env", "toggle"], env=inherited, capture_output=True, text=True, check=True, timeout=25)
             (output / (selected + "-apply.log")).write_text(result.stdout + result.stderr)
             assert preference.read_text() == selected + "\n"
             assert preference.stat().st_mode & 0o777 == 0o600
             parser = configparser.ConfigParser()
             parser.read(base / "config/gtk-3.0/settings.ini")
-            assert parser["Settings"].getboolean("gtk-application-prefer-dark-theme") == (selected == "dark")
+            assert parser["Settings"].getboolean("gtk-application-prefer-dark-theme") == (selected != "light")
             assert inherited["GTK_THEME"] == "Adwaita:dark", "Fixture repaired stale parent environment"
             subprocess.run([sys.executable, __file__, "--paint", selected, str(output / (selected + "-native.png"))],
                            env=inherited, check=True, timeout=15)
@@ -148,7 +149,7 @@ try:
             assert result.returncode and preference.read_text() == "light\n"
         finally:
             preference.parent.chmod(0o700)
-    print("THEME_FLOW_UI_OK actual toggle both ways; stale session; native GTK/base chrome; real Geany/Nemo; explicit override; atomic/link/permission refusal", flush=True)
+    print("THEME_FLOW_UI_OK Paper/Glass/Graphite cycle; stale session; native GTK/base chrome; real Geany/Nemo; explicit override; atomic/link/permission refusal", flush=True)
 finally:
     for child in children:
         if child.poll() is None:
