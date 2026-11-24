@@ -150,7 +150,9 @@ assert_contains "$wifi" '"sensing-server", "--source", "wifi" if use_linux_rssi 
 assert_contains "$wifi" '"--tick-ms", "500"'
 assert_contains "$wifi" 'http://127.0.0.1:3000/ui/observatory.html'
 assert_not_contains "$wifi" 'ruview-pointcloud'
-assert_contains "$wifi" '"connection", "delete", "uuid", fields[1]'
+assert_contains "$wifi" '"connection", "delete", "uuid", previous_uuid'
+assert_contains "$wifi" '"connection.autoconnect", "no"'
+assert_contains "$wifi" "connect_with_profile"
 assert_contains "$wifi" 'NAME,UUID,TYPE'
 assert_contains "$wifi" "verify_profile_connected"
 assert_contains "$wifi" "IP4.ADDRESS,IP6.ADDRESS"
@@ -166,7 +168,7 @@ assert_contains "$bluetooth" "Bluetooth repair failed"
 assert_contains "$bluetooth" '"force-bluetooth"'
 assert_contains "$bluetooth" '"deep-bluetooth"'
 assert_contains "$bluetooth" "flow_row"
-assert_contains "$bluetooth" '"--agent", "KeyboardDisplay"'
+assert_contains "$bluetooth" 'launch(["blueman-manager"])'
 assert_contains "$bluetooth" "connect_with_retry"
 assert_contains "$bluetooth" "def collect_refresh_data"
 assert_contains "$bluetooth" "self.refresh_running"
@@ -174,15 +176,15 @@ assert_contains "$bluetooth" 'state["connected"]'
 assert_contains "$bluetooth" "parse_bluetooth_info"
 assert_contains "$bluetooth" "SignalMapWindow"
 assert_contains "$bluetooth" '"category": "device"'
-assert_contains "$bluetooth" '"signal_known": values["rssi"] is not None'
+assert_contains "$bluetooth" '"rssi": values["rssi"]'
 assert_contains "$bluetooth" "Services: D-Bus + BlueZ"
 assert_contains "$wireless" "split_nmcli_terse"
 assert_contains "$wireless" "group_wifi_access_points"
 assert_contains "$wireless" '"enterprise"'
-assert_contains "$signal_map" "Wi-Fi routers (orange)"
-assert_contains "$signal_map" "Nearby LAN devices (green)"
+assert_contains "$signal_map" "Access points"
+assert_contains "$signal_map" "LAN peers"
 assert_contains "$signal_map" "filtered_items"
-assert_contains "$signal_map" "PangoCairo.show_layout"
+assert_contains "$signal_map" "self.list.select_row"
 assert_contains "$wireless" "parse_ip_neighbors"
 assert_contains "$packages" '["ooonana", "update"]'
 assert_contains "$packages" '["ooonana", "upgrade"]'
