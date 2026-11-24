@@ -19,7 +19,7 @@ for_window [class="^(Pavucontrol|Blueman-manager|Arandr|Nm-connection-editor)$"]
 for_window [class="^(Nemo|Geany|Alacritty|XTerm)$"] floating enable, move position center
 # Browser's first-run default can exceed output height and hide its titlebar.
 # Set initial bounds only; later user resize/fullscreen remains unrestricted.
-for_window [class="^(Chromium|chromium|Chromium-browser|chromium-browser|Google-chrome)$"] floating enable, resize set 80 ppt 70 ppt, move position center
+for_window [class="^(Chromium|chromium|Chromium-browser|chromium-browser|Google-chrome)$" window_type="normal"] floating enable, border normal 1, resize set 80 ppt 70 ppt, move position center
 for_window [window_type="dialog"] floating enable
 # GTK file pickers can request more height than the output and hide both actions
 # and titlebar. Bound initial file-picker size only, not ordinary message dialogs.

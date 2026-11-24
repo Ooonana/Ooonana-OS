@@ -1,79 +1,78 @@
 #!/usr/bin/env python3
-"""Exact pinned i3lock2.16 presentation patch. Authentication/input unchanged."""
+"""Patch pinned i3lock presentation and reveal gating, preserving PAM and grabs."""
 import argparse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TICK = '''/* Ooonana clock: minute-aligned redraw only, no input/auth state changes. */
-static void ooonana_clock_tick(EV_P_ ev_periodic *watcher, int revents) {
-    (void)watcher;
-    (void)revents;
-    redraw_screen();
-}
-
-'''
-START = '''    const char *ooonana_visuals = getenv("OOONANA_LOCK_VISUALS");
-    if (ooonana_visuals && strcmp(ooonana_visuals, "1") == 0) {
-        static ev_periodic ooonana_clock;
-        ev_periodic_init(&ooonana_clock, ooonana_clock_tick, 0., 60., NULL);
-        ev_periodic_start(main_loop, &ooonana_clock);
-    }
-'''
+HEADERS = ("ooonana_lock_visuals.h", "ooonana_lock_interaction.h")
+INPUTS = ("scripts/patch-i3lock-visuals.py", *(f"packages/i3lock/{name}" for name in HEADERS))
 
 
 def replacements():
     return {
         "i3lock.c": [
-            ("static void input_done(void);\n", "static void input_done(void);\n" + TICK),
-            ("    ev_loop(main_loop, 0);\n", START + "    ev_loop(main_loop, 0);\n"),
+            ("\nstatic void discard_passwd_cb(", '\n#include "ooonana_lock_interaction.h"\n\nstatic void discard_passwd_cb('),
+            ("    ksym = xkb_state_key_get_one_sym(xkb_state, event->detail);\n",
+             "    ksym = xkb_state_key_get_one_sym(xkb_state, event->detail);\n"
+             "    if (ooonana_key_gate(event, ksym)) return;\n"),
+            ("                handle_key_press((xcb_key_press_event_t *)event);\n                break;\n",
+             "                handle_key_press((xcb_key_press_event_t *)event);\n                break;\n\n"
+             "            case XCB_KEY_RELEASE:\n"
+             "                ooonana_key_released((xcb_key_release_event_t *)event);\n"
+             "                break;\n\n"
+             "            case XCB_BUTTON_PRESS:\n"
+             "                ooonana_pointer_pressed((xcb_button_press_event_t *)event);\n"
+             "                break;\n\n"
+             "            case XCB_BUTTON_RELEASE:\n"
+             "                ooonana_pointer_released((xcb_button_release_event_t *)event);\n"
+             "                break;\n"),
+            ("    ev_invoke(main_loop, xcb_check, 0);\n",
+             "    ooonana_start_ui();\n    ev_invoke(main_loop, xcb_check, 0);\n"),
+            ("    if (image_raw_format != NULL && image_path != NULL) {",
+             "    const char *wallpaper = getenv(\"OOONANA_LOCK_WALLPAPER\");\n"
+             "    if (ooonana_active() && !image_path && wallpaper && *wallpaper) image_path = strdup(wallpaper);\n"
+             "    if (image_raw_format != NULL && image_path != NULL) {"),
+        ],
+        "xcb.c": [
+            ("XCB_NONE,            /* which events to let through */",
+             "getenv(\"OOONANA_LOCK_VISUALS\") ? XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE : XCB_NONE,"),
         ],
         "unlock_indicator.c": [
-            ("#define BUTTON_RADIUS 90", "#define BUTTON_RADIUS (ooonana_lock_visuals() ? 54 : 90)"),
             ("static void display_button_text(\n", '#include "ooonana_lock_visuals.h"\n\nstatic void display_button_text(\n'),
-            ("    if (use_dark_text) {", "    if (ooonana_lock_visuals()) {\n        ooonana_lock_ink(ctx);\n    } else if (use_dark_text) {"),
-            ("    if (unlock_indicator &&\n", "    ooonana_lock_heading(xcb_ctx, resolution, scaling_factor);\n    if (unlock_indicator && !ooonana_lock_visuals() &&\n"),
-            ("        cairo_set_line_width(ctx, 10.0);", "        cairo_set_line_width(ctx, ooonana_lock_visuals() ? 4.0 : 10.0);"),
-            ("        cairo_fill_preserve(ctx);", "        if (ooonana_lock_visuals()) ooonana_lock_fill(ctx);\n        cairo_fill_preserve(ctx);"),
-            ("        cairo_stroke(ctx);\n\n        /* Draw an inner seperator line. */", "        if (ooonana_lock_visuals()) ooonana_lock_stroke(ctx);\n        cairo_stroke(ctx);\n\n        /* Draw an inner seperator line. */"),
-            ("        cairo_set_line_width(ctx, 2.0);", "        cairo_set_line_width(ctx, ooonana_lock_visuals() ? 1.0 : 2.0);"),
-            ("        char buf[4];", "        char buf[16];"),
-            ("        cairo_set_font_size(ctx, 28.0);", "        cairo_set_font_size(ctx, ooonana_lock_visuals() ? 16.0 : 28.0);"),
-            ('                text = "Wrong!";', '                text = ooonana_lock_visuals() ? "Try again" : "Wrong!";'),
-            ('                        snprintf(buf, sizeof(buf), "%d", failed_attempts);', '                        snprintf(buf, sizeof(buf), ooonana_lock_visuals() ? "%d failed" : "%d", failed_attempts);'),
-            ("                    cairo_set_font_size(ctx, 32.0);", "                    cairo_set_font_size(ctx, ooonana_lock_visuals() ? 14.0 : 32.0);"),
-            ("            cairo_set_font_size(ctx, 14.0);", "            cairo_set_font_size(ctx, ooonana_lock_visuals() ? 12.0 : 14.0);"),
-            ("        if (modifier_string != NULL) {", "        if (!ooonana_lock_visuals() && modifier_string != NULL) {"),
-            ("        if (show_keyboard_layout && layout_string != NULL) {", "        if (!ooonana_lock_visuals() && show_keyboard_layout && layout_string != NULL) {"),
-            ("display_button_text(ctx, modifier_string, 28., use_dark_text);", "display_button_text(ctx, modifier_string, ooonana_lock_visuals() ? 20. : 28., use_dark_text);"),
-            ("display_button_text(ctx, layout_string, -28., use_dark_text);", "display_button_text(ctx, layout_string, ooonana_lock_visuals() ? -20. : -28., use_dark_text);"),
-            ("                cairo_set_source_rgb(ctx, 51.0 / 255, 219.0 / 255, 0);",
-             "                if (ooonana_lock_visuals()) ooonana_lock_rgb(ctx, ooonana_lock_paper() ? 0x805600 : 0xffb21a);\n                else cairo_set_source_rgb(ctx, 51.0 / 255, 219.0 / 255, 0);"),
-            ("                cairo_set_source_rgb(ctx, 219.0 / 255, 51.0 / 255, 0);",
-             "                if (ooonana_lock_visuals()) ooonana_lock_ink(ctx);\n                else cairo_set_source_rgb(ctx, 219.0 / 255, 51.0 / 255, 0);"),
+            ("    if (img) {\n", "    if (img && !ooonana_lock_visuals()) {\n"),
+            ("    if (unlock_indicator &&\n",
+             "    ooonana_lock_heading(xcb_ctx, resolution, scaling_factor);\n"
+             "    if (unlock_indicator && !ooonana_lock_visuals() &&\n"),
         ],
     }
+
+
+def revert_main(text):
+    for before, after in reversed(replacements()["i3lock.c"]):
+        if text.count(after) != 1:
+            raise ValueError("Missing or duplicated lock UI patch in pinned main source")
+        text = text.replace(after, before)
+    return text
 
 
 def patch(source):
     results = {}
     for name, changes in replacements().items():
         path = source / name
-        text = path.read_text()
-        if "ooonana_lock_visuals" in text or "ooonana_clock_tick" in text:
-            raise ValueError("Already patched i3lock source")
+        text = path.read_text(encoding="utf-8")
         for before, after in changes:
-            expected = 2 if before.strip() in ("cairo_set_line_width(ctx, 10.0);", "cairo_set_font_size(ctx, 14.0);") else 1
-            if text.count(before) != expected:
+            if after in text or text.count(before) != 1:
                 raise ValueError("Unexpected pinned source anchor in " + name + ": " + before[:70])
             text = text.replace(before, after)
         results[path] = text
-    header = source / "ooonana_lock_visuals.h"
-    if header.exists():
-        raise ValueError("Existing lock presentation header")
-    # Validate whole patch before writing any source file.
+    for name in HEADERS:
+        header = source / name
+        if header.exists():
+            raise ValueError("Existing lock presentation header")
+        results[header] = (ROOT / "packages/i3lock" / name).read_text(encoding="utf-8")
+    # Validate the whole patch before writing any source file.
     for path, text in results.items():
-        path.write_text(text)
-    header.write_text((ROOT / "packages/i3lock/ooonana_lock_visuals.h").read_text())
+        path.write_text(text, encoding="utf-8")
 
 
 if __name__ == "__main__":

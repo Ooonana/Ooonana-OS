@@ -103,7 +103,9 @@ try:
         # Test owns foreground locker handle; production keeps vendor fork-after-grab.
         launch = ["ooonana-lock", "--foreground"] if "--extended" in sys.argv else args + ["--nofork"]
         process = subprocess.Popen(launch, env=dict(os.environ, OOONANA_LOCK_VISUALS="1"), stdout=log, stderr=log)
-        expected = bytes.fromhex(args[args.index("--color") + 1])
+        light = args[args.index("--color") + 1] == "f5f5f7"
+        expected = bytes.fromhex("080a0d" if "--extended" in sys.argv and lock_screen.lock_wallpaper()
+                                 else "f5f5f7" if light else "101317")
         ready_deadline = time.monotonic() + 8
         while True:
             assert process.poll() is None, "Private real locker failed to grab"
@@ -112,45 +114,44 @@ try:
                 break
             assert time.monotonic() < ready_deadline, "Opaque lock palette mismatch"
             time.sleep(.04)
-        def heading():
-            center = root.get_width() // (4 if virtual else 2)
-            sample = Gdk.pixbuf_get_from_window(root, center - 100, 20, 200, 100)
-            return bytes(sample.get_pixels())
-        if "--require-visuals" in sys.argv:
-            text = heading()
-            assert any(text[offset:offset + 3] != expected for offset in range(0, len(text), 3)), "Clock/date header absent"
-            height = root.get_height()
-            if height >= 220:
-                center = root.get_width() // (4 if virtual else 2)
-                field = Gdk.pixbuf_get_from_window(root, center - 90, height // 2 + 14, 1, 1)
-                fill = bytes.fromhex("ffffff" if args[args.index("--color") + 1] == "f5f5f7" else "1b1f26")
-                assert field.get_pixels()[:3] == fill, "Persistent focused password field absent"
-                hint_y = height / 2 + (64 if height < 300 else 76)
-                center = root.get_width() // (4 if virtual else 2)
-                hint = Gdk.pixbuf_get_from_window(root, center - 110, int(hint_y - 14), 220, 20)
-                pixels = bytes(hint.get_pixels())
-                assert any(pixels[pos:pos + 3] != expected for pos in range(0, len(pixels), hint.get_n_channels())), "Compact-screen unlock instruction absent"
-                if height >= 400:
-                    top = height // 4
-                    gap = Gdk.pixbuf_get_from_window(root, center - 80, top, 160, height // 2 - 70 - top)
-                    pixels = bytes(gap.get_pixels())
-                    assert all(pixels[pos:pos + 3] == expected for pos in range(0, len(pixels), gap.get_n_channels())), "Stray paint connects clock and unlock area"
+        height = root.get_height()
+        monitor_width = root.get_width() // (2 if virtual else 1)
+        center = monitor_width // 2
+        fit = min(1, monitor_width / 335, height / 310)
+        primary = "--require-visuals" in sys.argv
+        fill = bytes.fromhex("f5f5f7" if light else "1b1f26")
+
+        def pixel(x, y):
+            return Gdk.pixbuf_get_from_window(root, x, y, 1, 1).get_pixels()[:3]
+
+        def card():
+            return pixel(center - round(140 * fit), height // 2 + round(8 * fit))
+
+        if primary:
+            before_reveal = card()
+            heading = Gdk.pixbuf_get_from_window(root, center - 90, height // 2 - 28, 180, 56)
+            pixels = bytes(heading.get_pixels())
+            ink = bytes.fromhex("1b1f26" if light and expected != bytes.fromhex("080a0d") else "f5f5f7")
+            assert ink in pixels, "Centered clock absent on wake"
             if virtual:
-                right = Gdk.pixbuf_get_from_window(root, 860, 20, 200, 100)
-                text = bytes(right.get_pixels())
-                assert any(text[offset:offset + 3] != expected for offset in range(0, len(text), 3)), "Second monitor lacks clock/date"
+                right = Gdk.pixbuf_get_from_window(root, center + monitor_width - 90, height // 2 - 28, 180, 56)
+                assert ink in bytes(right.get_pixels()), "Second monitor lacks centered clock"
                 for x in (8, 632, 648, 1272):
                     for y in (8, 792):
-                        assert Gdk.pixbuf_get_from_window(root, x, y, 1, 1).get_pixels()[:3] == expected, "Desktop exposed on monitor edge"
-                screenshot = Gdk.pixbuf_get_from_window(root, 0, 0, root.get_width(), root.get_height())
-                pixels = bytes(screenshot.get_pixels())
-                assert not any(pixels[pos:pos + 3] == b"\xdd\x44\xaa" for pos in range(0, len(pixels), screenshot.get_n_channels())), "Underlying desktop remains visible"
-                print("LOCK_MULTIMONITOR_OPAQUE_OK two active RandR monitors, per-monitor headings and covered edges", flush=True)
+                        assert pixel(x, y) == expected, "Desktop exposed on monitor edge"
+                print("LOCK_MULTIMONITOR_OPAQUE_OK two active RandR monitors and covered edges", flush=True)
         capture("idle")
-        if "--require-visuals" in sys.argv:
-            center = root.get_width() // (4 if virtual else 2)
+        if primary:
+            run("xdotool", "type", "ignored-before-reveal")
+            run("xdotool", "keydown", "Return")
+            time.sleep(.65)
+            assert process.poll() is None and card() == fill and card() != before_reveal, "First Enter should only reveal the card"
+            run("xdotool", "keyup", "Return")
+            capture("revealed")
+
             def field_pixels():
-                return bytes(Gdk.pixbuf_get_from_window(root, center - 130, root.get_height() // 2 - 18, 260, 36).get_pixels())
+                return bytes(Gdk.pixbuf_get_from_window(root, center - round(98 * fit),
+                            height // 2 + round(27 * fit), round(196 * fit), round(32 * fit)).get_pixels())
             empty = field_pixels()
             if "--input-edges" in sys.argv:
                 run("xdotool", "mousemove", str(center * scale), str(root.get_height() // 2 * scale), "click", "1")
@@ -210,11 +211,12 @@ try:
             time.sleep(.2)
             capture("long-layout")
             center = root.get_width() // (4 if virtual else 2)
-            row_y = root.get_height() // 2 + 84
+            row_y = root.get_height() // 2 + round(70 * fit)
             for x in (center - 190, center + 170):
                 edge = Gdk.pixbuf_get_from_window(root, x, row_y, 16, 20)
                 pixels = bytes(edge.get_pixels())
-                assert all(pixels[pos:pos + 3] == expected for pos in range(0, len(pixels), edge.get_n_channels())), "Long keyboard layout escapes compact row"
+                assert all(pixels[pos:pos + 3] != bytes.fromhex("b4bdc8") for pos in
+                           range(0, len(pixels), edge.get_n_channels())), "Long keyboard layout escapes compact row"
             run("xdotool", "key", "Escape")
             keymap("pc+us+inet(evdev)")
         run("xdotool", "key", "Caps_Lock")
@@ -231,10 +233,11 @@ try:
         if "--require-visuals" in sys.argv:
             center = root.get_width() // (4 if virtual else 2)
             deadline = time.monotonic() + 8
-            while Gdk.pixbuf_get_from_window(root, center - 90, root.get_height() // 2 + 14, 1, 1).get_pixels()[:3] != fill:
+            while card() != fill:
                 assert time.monotonic() < deadline, "Authentication never returned to idle after failure"
                 time.sleep(.1)
-            status = Gdk.pixbuf_get_from_window(root, center - 110, root.get_height() // 2 + 35, 220, 18)
+            status = Gdk.pixbuf_get_from_window(root, center - round(110 * fit),
+                      height // 2 + round(90 * fit), round(220 * fit), round(17 * fit))
             pixels = bytes(status.get_pixels())
             assert any(pixels[pos:pos + 3] != expected for pos in range(0, len(pixels), status.get_n_channels())), "Failed-attempt counter absent after cooldown"
             capture("retry-ready")

@@ -18,7 +18,8 @@ spec = importlib.util.spec_from_file_location("release", ROOT / "scripts/check-r
 release = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release)
 UPSTREAM_SHA = "a2ad4209c819bd7f416a4938a4990513ac667d6af9610803d2344f77113ab7c0"
-INPUTS = ("scripts/patch-i3lock-visuals.py", "packages/i3lock/ooonana_lock_visuals.h")
+INPUTS = ("scripts/patch-i3lock-visuals.py", "packages/i3lock/ooonana_lock_visuals.h",
+          "packages/i3lock/ooonana_lock_interaction.h")
 
 
 def sha(path):
@@ -40,7 +41,7 @@ def build(base, binary, out):
     elf = subprocess.check_output(["readelf", "-lW", str(binary)], text=True)
     if "Requesting program interpreter: /lib/ld-musl-x86_64.so.1" not in elf:
         raise ValueError("Expected native x86_64 musl locker")
-    version = "2.16-r0.ooonana8"
+    version = "2.16-r0.ooonana10"
     relative = f"archives/i3lock-{version}.tar.gz"
     target = out / relative
     if target.exists() or target.is_symlink() or (out / "i3lock.pkg").exists():
@@ -72,8 +73,7 @@ def build(base, binary, out):
             for name, data in (
                     ("build-manifest.json", json.dumps(manifest, sort_keys=True, indent=2).encode() + b"\n"),
                     ("source-pins.json", (ROOT / "packages/i3lock/source-pins.json").read_bytes()),
-                    ("patch-i3lock-visuals.py", (ROOT / INPUTS[0]).read_bytes()),
-                    ("ooonana_lock_visuals.h", (ROOT / INPUTS[1]).read_bytes())):
+                    *((Path(name).name, (ROOT / name).read_bytes()) for name in INPUTS)):
                 item = tarfile.TarInfo("usr/share/doc/i3lock/ooonana-visuals/" + name)
                 item.mode, item.size = 0o644, len(data)
                 destination.addfile(item, io.BytesIO(data))
@@ -83,7 +83,7 @@ def build(base, binary, out):
             os.unlink(temporary)
     package.update(VERSION=version, SHA256=sha(target), ARCHIVE=relative,
                    COMPONENTS="apk-import alpine x86_64 native-lock-visuals-v1",
-                   NOTES="Pinned i3lock 2.16; opt-in compact clock/feedback; vendor PAM authentication retained")
+                   NOTES="Pinned i3lock 2.16; clock-first reveal and wallpaper; vendor PAM authentication retained")
     (out / "i3lock.pkg").write_text("".join(f"OOONANA_PKG_{key}={json.dumps(value)}\n" for key, value in package.items()))
     release.validate_native_lock(out, package)
     print("LOCK_PACKAGE_OK", version, package["SHA256"], "; unpublished; integration/auth gates still required")

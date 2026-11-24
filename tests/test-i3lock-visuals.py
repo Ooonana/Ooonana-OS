@@ -19,36 +19,33 @@ class VisualPatch(unittest.TestCase):
     def fixture(self, root):
         values = {}
         for name, changes in patcher.replacements().items():
-            text = "\n".join(before * (2 if before.strip() in ("cairo_set_line_width(ctx, 10.0);", "cairo_set_font_size(ctx, 14.0);") else 1)
-                             for before, _after in changes)
+            text = "\n".join(before for before, _after in changes)
             (root / name).write_text(text)
             values[name] = text
         return values
 
-    def test_only_clock_redraws_added_to_main(self):
+    def test_only_reviewed_ui_hooks_added_to_main(self):
         with tempfile.TemporaryDirectory(prefix="ooonana-lock-patch-") as temporary:
             root = Path(temporary); originals = self.fixture(root)
             patcher.patch(root)
             patched = (root / "i3lock.c").read_text()
-            self.assertEqual(patched.replace(patcher.TICK, "").replace(patcher.START, ""), originals["i3lock.c"])
+            self.assertEqual(patcher.revert_main(patched), originals["i3lock.c"])
             with self.assertRaises(ValueError): patcher.patch(root)
-        timer = patcher.TICK + patcher.START
-        for forbidden in ("input_done(", "clear_password_memory(", "pam_", "xcb_grab_", "xcb_ungrab_", "ev_break(", "exit("):
-            self.assertNotIn(forbidden, timer)
-        self.assertIn('0., 60., NULL', timer)
-        self.assertIn('"OOONANA_LOCK_VISUALS"', timer)
+        interaction = (ROOT / "packages/i3lock/ooonana_lock_interaction.h").read_text(encoding="utf-8")
+        for forbidden in ("input_done(", "pam_", "xcb_grab_", "xcb_ungrab_", "ev_break(", "exit("):
+            self.assertNotIn(forbidden, interaction)
 
     def test_mismatched_late_anchor_writes_nothing(self):
         with tempfile.TemporaryDirectory(prefix="ooonana-lock-patch-") as temporary:
             root = Path(temporary); self.fixture(root)
             path = root / "unlock_indicator.c"
-            path.write_text(path.read_text().replace('modifier_string, 28.', 'modifier_string, 29.'))
+            path.write_text(path.read_text().replace("    if (img) {", "    if (img && tile) {"))
             originals = {path: path.read_bytes() for path in root.iterdir()}
             with self.assertRaises(ValueError): patcher.patch(root)
             self.assertEqual(originals, {path: path.read_bytes() for path in root.iterdir()})
 
     def test_header_is_opaque_paint_only_with_readable_palettes(self):
-        header = (ROOT / 'packages/i3lock/ooonana_lock_visuals.h').read_text()
+        header = (ROOT / 'packages/i3lock/ooonana_lock_visuals.h').read_text(encoding="utf-8")
         for forbidden in ('pam_', 'input_done(', 'clear_password_memory(', 'xcb_', 'password[', 'system(', 'popen(', 'exit('):
             self.assertNotIn(forbidden, header)
         self.assertIn('localtime_r', header)
@@ -73,7 +70,7 @@ class VisualPatch(unittest.TestCase):
                    "binary_sha256": hashlib.sha256(binary).hexdigest(), "auth_source_unchanged": True,
                    "auth_source_sha256": "a" * 64, "compile_network": "disabled",
                    "inputs": {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in
-                              ("scripts/patch-i3lock-visuals.py", "packages/i3lock/ooonana_lock_visuals.h")}}
+                              patcher.INPUTS}}
         gate.validate_lock_manifest(receipt, binary)
         for bad in (None, [], {**receipt, "auth_source_unchanged": False}, {**receipt, "lock_visual_api": 0},
                     {**receipt, "compile_network": "enabled"}, {**receipt, "inputs": {}},
@@ -102,6 +99,6 @@ if __name__ == "__main__":
             source = Path(temporary) / 'i3lock-2.16'
             main = (source / 'i3lock.c').read_bytes()
             patcher.patch(source)
-            assert (source / 'i3lock.c').read_text().replace(patcher.TICK, '').replace(patcher.START, '').encode() == main
+            assert patcher.revert_main((source / 'i3lock.c').read_text(encoding="utf-8")).encode() == main
             print('PINNED_LOCKER_AUTH_SOURCE_UNCHANGED')
     unittest.main()

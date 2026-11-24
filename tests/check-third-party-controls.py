@@ -199,11 +199,22 @@ with tempfile.TemporaryDirectory() as temporary:
         move_pointer(300, 16)
         button_event(True)
         wait(lambda: manager.fullscreen_bar.drag_start is not None)
-        move_pointer(930, 460)
+        screen = Gdk.get_default_root_window()
+        move_pointer(screen.get_width() - 1, screen.get_height() - 1)
         button_event(False)
         wait(lambda: identifier in manager.controls)
         wait(lambda: manager.controls[identifier].last_position != old_position)
         assert not manager.fullscreen_windows, "Titlebar drag did not leave fullscreen"
+        workspace = next(item for item in i3_events.request(path, 1) if item["focused"])
+        area = workspace["rect"]
+        def fitted(node):
+            if node.get("type") == "floating_con" and any(
+                    child.get("id") == identifier for child in node["nodes"]):
+                rect = node["rect"]
+                return (rect["x"] == area["x"] + area["width"] - rect["width"] and
+                        rect["y"] == area["y"] + area["height"] - rect["height"])
+            return any(fitted(child) for child in node["nodes"] + node["floating_nodes"])
+        wait(lambda: fitted(i3_events.request(path, 4)))
         manager.controls[identifier].get_child().get_children()[2].emit("clicked")
         wait(lambda: manager.fullscreen_windows)
         alt = manager.xlib.XKeysymToKeycode(manager.display, 0xffe9)

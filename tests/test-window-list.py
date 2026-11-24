@@ -142,11 +142,22 @@ module.main()
 assert len(commands) == before, "Moving by the fullscreen titlebar requires a fullscreen target"
 terminal["fullscreen_mode"] = 1
 module.main()
-assert commands[-1] == ["i3-msg", "[con_id=3 id=3] fullscreen disable, floating enable, move position mouse"]
+assert commands[-1] == ["i3-msg", "[con_id=3 id=3] fullscreen disable, floating enable"]
+module.sys.argv += ["--drop", "300", "-32; kill"]
+before = len(commands)
+module.main()
+assert len(commands) == before, "Malformed drop coordinates must not issue an i3 action"
+module.sys.argv = module.sys.argv[:6]
 module.sys.argv[2] = "restore"
 module.main()
 assert commands[-1] == ["i3-msg", "[con_id=3 id=3] fullscreen disable"]
 terminal.pop("fullscreen_mode")
+
+outputs = [dict(visible=True, rect=dict(x=-800, y=40, width=800, height=560)),
+           dict(visible=True, rect=dict(x=0, y=40, width=1280, height=760))]
+assert module.drag_destination(dict(width=1024, height=560), outputs, (1279, 799)) == (256, 240, 1024, 560)
+assert module.drag_destination(dict(width=1024, height=640), outputs, (-780, 25)) == (-800, 40, 800, 560)
+assert module.drag_destination(dict(width=520, height=330), [], (100, 100)) is None
 module.sys.argv = ["ooonana-window-list", "--window-action", "close", "invalid"]
 before = len(commands)
 module.main()

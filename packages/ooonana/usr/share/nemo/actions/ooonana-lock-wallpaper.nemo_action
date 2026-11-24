@@ -1,0 +1,10 @@
+[Nemo Action]
+Name=Set as lock screen
+Comment=Use this image on the Ooonana lock screen
+Exec=ooonana-lock --set-wallpaper %F
+Selection=s
+Mimetypes=image/*;
+UriScheme=file
+Quote=double
+Dependencies=ooonana-lock;
+Icon-Name=system-lock-screen-symbolic

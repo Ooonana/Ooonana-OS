@@ -68,14 +68,14 @@ patcher = importlib.util.module_from_spec(spec); spec.loader.exec_module(patcher
 with tarfile.open(archive) as original:
     main = original.extractfile('i3lock-2.16/i3lock.c').read()
 patched = (source / 'i3lock.c').read_text()
-restored = patched.replace(patcher.TICK, '').replace(patcher.START, '').encode()
-assert restored == main, 'Authentication/input main source changed beyond redraw additions'
+restored = patcher.revert_main(patched).encode()
+assert restored == main, 'Authentication/input main source changed beyond reviewed UI gates'
 digest = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
 manifest = {'format': 1, 'lock_visual_api': 1, 'source': json.loads((root / 'packages/i3lock/source-pins.json').read_text()),
     'binary_sha256': digest(output / 'i3lock'), 'auth_source_unchanged': True,
     'auth_source_sha256': hashlib.sha256(main).hexdigest(), 'compile_network': 'disabled', 'gui_verified': False,
     'dependencies': (output / 'dependencies.txt').read_text().splitlines(),
-    'inputs': {name: digest(root / name) for name in ('scripts/patch-i3lock-visuals.py', 'packages/i3lock/ooonana_lock_visuals.h')}}
+    'inputs': {name: digest(root / name) for name in patcher.INPUTS}}
 (output / 'build-manifest.json').write_text(json.dumps(manifest, sort_keys=True, indent=2) + '\n')
 print('LOCK_CANDIDATE_BUILT', manifest['binary_sha256'], 'unpublished; not installed')
 PY

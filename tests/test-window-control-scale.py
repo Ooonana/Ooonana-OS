@@ -151,7 +151,8 @@ assert select_fullscreen(tree, {"1"}) == [], "Hidden workspace exposed fullscree
 targets = select_fullscreen(tree, {"2"})
 assert len(targets) == 1
 assert at_pointer(targets, 150, 0, 2, None) is None, "Controls leaked onto the other output"
-assert at_pointer(targets, -300, -295, 2, None) == targets[0]
+assert at_pointer(targets, -300, -286, 2, None) == targets[0]
+assert at_pointer(targets, -300, -284, 2, None) is None, "Reveal zone must stop below the edge"
 assert at_pointer(targets, -300, -270, 2, None) is None, "Content hover revealed hidden controls"
 assert at_pointer(targets, -300, -270, 2, targets[0]) == targets[0]
 assert at_pointer(targets, -300, -236, 2, targets[0]) is None, "Controls stayed past the titlebar"

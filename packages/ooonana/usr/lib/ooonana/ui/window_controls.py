@@ -36,7 +36,7 @@ def native_control_scale(version):
 
 
 def initial_app_targets(tree, visible):
-    """Fit new editor/files frames; preserve fitting defaults and later user moves."""
+    """Fit new browser, editor and file windows while preserving later user moves."""
     result = {}
     def visit(node, output=None, workspace=None):
         if node.get("type") == "output":
@@ -45,7 +45,8 @@ def initial_app_targets(tree, visible):
             workspace = node.get("name")
         properties = node.get("window_properties") or {}
         if (output and node.get("window") and workspace in visible
-                and str(properties.get("class", "")).casefold() in ("geany", "nemo")
+                and str(properties.get("class", "")).casefold() in (
+                    "geany", "nemo", "chromium", "chromium-browser", "google-chrome")
                 and node.get("window_type") == "normal"
                 and node.get("floating") in ("auto_on", "user_on")
                 and not node.get("fullscreen_mode")):
@@ -200,7 +201,7 @@ def fullscreen_at_pointer(targets, x, y, scale, revealed):
         left, top, width, _height = target.bounds
         visible = (revealed is not None and target.identifier == revealed.identifier
                    and target.xid == revealed.xid and target.bounds == revealed.bounds)
-        height = FULLSCREEN_HEIGHT if visible else 3
+        height = FULLSCREEN_HEIGHT if visible else 8
         if left <= x < left + width and top <= y < top + height * scale:
             return target
     return None
@@ -311,10 +312,10 @@ class Controls(Gtk.Window):
     def unregister(self, _widget, owner):
         owner.own_windows.discard(self.xid)
 
-    def activate(self, action):
+    def activate(self, action, *arguments):
         if self.target_xid:
             run_async(["ooonana-window-list", "--window-action", action, str(self.identifier),
-                       "--expect-xid", str(self.target_xid)], lambda *_: None)
+                       "--expect-xid", str(self.target_xid), *arguments], lambda *_: None)
 
     def position(self, target, native_scale=0):
         scale = max(1, self.get_scale_factor())
@@ -398,7 +399,9 @@ class FullscreenControls(Controls):
         x, y = self.drag_start
         self.drag_start = None
         if widget.drag_check_threshold(int(x), int(y), int(event.x_root), int(event.y_root)):
-            self.activate("restore-move")
+            scale = max(1, self.get_scale_factor())
+            drop = (str(int(event.x_root * scale)), str(int(event.y_root * scale)))
+            self.activate("restore-move", "--drop", *drop)
         return True
 
     def cancel_drag(self, *_args):

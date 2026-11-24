@@ -80,7 +80,8 @@ def validate_lock_manifest(manifest, binary):
             or not re.fullmatch(r"[a-f0-9]{64}", str(manifest.get("auth_source_sha256", "")))
             or manifest.get("binary_sha256") != hashlib.sha256(binary).hexdigest()):
         raise ValueError("i3lock native authentication/source/binary provenance differs")
-    for name in ("scripts/patch-i3lock-visuals.py", "packages/i3lock/ooonana_lock_visuals.h"):
+    for name in ("scripts/patch-i3lock-visuals.py", "packages/i3lock/ooonana_lock_visuals.h",
+                 "packages/i3lock/ooonana_lock_interaction.h"):
         inputs = manifest.get("inputs")
         if not isinstance(inputs, dict) or inputs.get(name) != hashlib.sha256((ROOT / name).read_bytes()).hexdigest():
             raise ValueError("i3lock native build inputs stale: " + name)

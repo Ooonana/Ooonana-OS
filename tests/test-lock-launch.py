@@ -18,6 +18,9 @@ claim_display = lock_screen.claim_display
 
 class LockLaunch(unittest.TestCase):
     def setUp(self):
+        wallpaper_patch = patch.object(lock_screen, "lock_wallpaper", return_value=None)
+        wallpaper_patch.start()
+        self.addCleanup(wallpaper_patch.stop)
         self.stream_patch = patch.object(lock_screen, "quiet_background_streams")
         self.streams = self.stream_patch.start()
         self.addCleanup(self.stream_patch.stop)
@@ -54,6 +57,22 @@ class LockLaunch(unittest.TestCase):
             with patch.object(lock_screen, "live_account_status", return_value=0), patch.object(sys, "argv", ["ooonana-lock"]), patch.object(lock_screen.os, "execvpe", side_effect=FileNotFoundError):
                 self.assertEqual(lock_screen.main(), 127)
         self.assertIn("has not been secured", errors.getvalue())
+
+    def test_wallpaper_action_never_takes_a_lock_or_updates_desktop(self):
+        with tempfile.TemporaryDirectory(prefix="ooonana-lock-wallpaper-") as temporary:
+            directory = Path(temporary) / "ooonana"
+            directory.mkdir()
+            desktop = directory / "wallpaper"
+            desktop.write_text("/original-desktop.jpg\n")
+            with patch.dict(os.environ, {"XDG_CONFIG_HOME": temporary}), \
+                    patch.object(lock_screen, "prepare_wallpaper") as prepare, \
+                    patch.object(lock_screen.subprocess, "run"), \
+                    patch.object(lock_screen, "live_account_status") as status, \
+                    patch.object(sys, "argv", ["ooonana-lock", "--set-wallpaper", "picture.jpg"]):
+                self.assertEqual(lock_screen.main(), 0)
+                prepare.assert_called_once_with(Path("picture.jpg"), directory / "lock-wallpaper.png")
+                status.assert_not_called()
+            self.assertEqual(desktop.read_text(), "/original-desktop.jpg\n")
 
     def test_foreground_keeps_vendor_auth_and_ownership(self):
         with patch.object(lock_screen, "live_account_status", return_value=0), patch.object(sys, "argv", ["ooonana-lock", "--foreground"]), patch.object(lock_screen.os, "execvpe") as execute:
