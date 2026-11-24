@@ -193,7 +193,11 @@ with tempfile.TemporaryDirectory() as temporary:
     for asset in assets:
         target = prefix / asset
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(root / "packages/ooonana" / asset, target)
+        if asset == "etc/ooonana/picom-wsl-default.conf":
+            # The package build generates this policy from picom.conf.
+            target.write_text("use-damage = false;\n")
+        else:
+            shutil.copyfile(root / "packages/ooonana" / asset, target)
     environment = {**os.environ, "OOONANA_ROOT": str(prefix), "OOONANA_PKG_VERSION": "0.9.9"}
 
     def check_healthcheck(error=None):
