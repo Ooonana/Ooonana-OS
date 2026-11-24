@@ -117,7 +117,7 @@ try:
         height = root.get_height()
         monitor_width = root.get_width() // (2 if virtual else 1)
         center = monitor_width // 2
-        fit = min(1, monitor_width / 335, height / 310)
+        fit = min(1, monitor_width / 384, height / 380)
         primary = "--require-visuals" in sys.argv
         fill = bytes.fromhex("f5f5f7" if light else "1b1f26")
 
@@ -125,14 +125,32 @@ try:
             return Gdk.pixbuf_get_from_window(root, x, y, 1, 1).get_pixels()[:3]
 
         def card():
-            return pixel(center - round(140 * fit), height // 2 + round(8 * fit))
+            return pixel(center - round(163 * fit), height // 2 + round(8 * fit))
+
+        def heading(offset):
+            image = Gdk.pixbuf_get_from_window(root, center - round(125 * fit),
+                    height // 2 + round((offset - 36) * fit), round(250 * fit), round(72 * fit))
+            return bytes(image.get_pixels())
+
+        field_y = height // 2 + round(50 * fit)
+
+        def field_pixels():
+            return bytes(Gdk.pixbuf_get_from_window(root, center - round(124 * fit),
+                        field_y - round(21 * fit), round(248 * fit), round(42 * fit)).get_pixels())
+
+        def mask_dots():
+            image = Gdk.pixbuf_get_from_window(root, center - round(91 * fit),
+                    field_y, round(211 * fit), 1)
+            color = bytes.fromhex("1b1f26" if light else "f5f5f7")
+            step = image.get_n_channels()
+            data = image.get_pixels()
+            occupied = [data[i:i + 3] == color for i in range(0, image.get_width() * step, step)]
+            return sum(on and (i == 0 or not occupied[i - 1]) for i, on in enumerate(occupied))
 
         if primary:
-            before_reveal = card()
-            heading = Gdk.pixbuf_get_from_window(root, center - 90, height // 2 - 28, 180, 56)
-            pixels = bytes(heading.get_pixels())
+            before_reveal = field_pixels()
             ink = bytes.fromhex("1b1f26" if light and expected != bytes.fromhex("080a0d") else "f5f5f7")
-            assert ink in pixels, "Centered clock absent on wake"
+            assert ink in heading(0), "Centered clock absent on wake"
             if virtual:
                 right = Gdk.pixbuf_get_from_window(root, center + monitor_width - 90, height // 2 - 28, 180, 56)
                 assert ink in bytes(right.get_pixels()), "Second monitor lacks centered clock"
@@ -145,13 +163,10 @@ try:
             run("xdotool", "type", "ignored-before-reveal")
             run("xdotool", "keydown", "Return")
             time.sleep(.65)
-            assert process.poll() is None and card() == fill and card() != before_reveal, "First Enter should only reveal the card"
+            assert process.poll() is None and card() == fill and field_pixels() != before_reveal, "First Enter should only reveal the card"
             run("xdotool", "keyup", "Return")
             capture("revealed")
 
-            def field_pixels():
-                return bytes(Gdk.pixbuf_get_from_window(root, center - round(98 * fit),
-                            height // 2 + round(27 * fit), round(196 * fit), round(32 * fit)).get_pixels())
             empty = field_pixels()
             if "--input-edges" in sys.argv:
                 run("xdotool", "mousemove", str(center * scale), str(root.get_height() // 2 * scale), "click", "1")
@@ -161,7 +176,7 @@ try:
             run("xdotool", "type", "x")
             time.sleep(.2)
             masked = field_pixels()
-            assert masked != empty, "Password field gives no typing feedback"
+            assert masked != empty and mask_dots() == 1, "One character should paint one dot"
             if "--input-edges" in sys.argv:
                 run("xdotool", "click", "1")
                 time.sleep(.2)
@@ -174,10 +189,20 @@ try:
             capture("password-entry")
             run("xdotool", "type", "yyyyyyyy")
             time.sleep(.2)
-            assert field_pixels() == masked, "Mask exposes password length or characters"
+            assert mask_dots() == 9, "Mask dots should match typed characters"
+            run("xdotool", "key", "BackSpace")
+            time.sleep(.2)
+            assert mask_dots() == 8, "Backspace should remove one dot"
+            run("xdotool", "type", "y" * 25)
+            time.sleep(.2)
+            assert mask_dots() == 17, "Long passwords should stay inside the field"
             run("xdotool", "key", "ctrl+u")
             time.sleep(.2)
             assert field_pixels() == empty, "Clear leaves stale password mask"
+            run("xdotool", "type", "y")
+            time.sleep(.2)
+            assert field_pixels() == masked, "Equal-length passwords should display identically"
+            run("xdotool", "key", "ctrl+u")
         if "--extended" in sys.argv:
             import ctypes as C
             x = C.CDLL("libX11.so.6")
@@ -211,8 +236,8 @@ try:
             time.sleep(.2)
             capture("long-layout")
             center = root.get_width() // (4 if virtual else 2)
-            row_y = root.get_height() // 2 + round(70 * fit)
-            for x in (center - 190, center + 170):
+            row_y = root.get_height() // 2 + round(82 * fit)
+            for x in (center - round(185 * fit) - 16, center + round(185 * fit)):
                 edge = Gdk.pixbuf_get_from_window(root, x, row_y, 16, 20)
                 pixels = bytes(edge.get_pixels())
                 assert all(pixels[pos:pos + 3] != bytes.fromhex("b4bdc8") for pos in
@@ -237,7 +262,7 @@ try:
                 assert time.monotonic() < deadline, "Authentication never returned to idle after failure"
                 time.sleep(.1)
             status = Gdk.pixbuf_get_from_window(root, center - round(110 * fit),
-                      height // 2 + round(90 * fit), round(220 * fit), round(17 * fit))
+                      height // 2 + round(105 * fit), round(220 * fit), round(17 * fit))
             pixels = bytes(status.get_pixels())
             assert any(pixels[pos:pos + 3] != expected for pos in range(0, len(pixels), status.get_n_channels())), "Failed-attempt counter absent after cooldown"
             capture("retry-ready")
@@ -250,9 +275,9 @@ try:
             run("xdotool", "key", "BackSpace")
         if "--clock-wait" in sys.argv:
             assert "--require-visuals" in sys.argv
-            before = hashlib.sha256(heading()).digest()
+            before = hashlib.sha256(heading(-128)).digest()
             until = time.monotonic() + 65
-            while hashlib.sha256(heading()).digest() == before:
+            while hashlib.sha256(heading(-128)).digest() == before:
                 assert time.monotonic() < until, "Real minute clock failed to redraw"
                 assert process.poll() is None, "Clock timer released lock"
                 time.sleep(.2)

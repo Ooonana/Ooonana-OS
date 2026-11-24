@@ -3,6 +3,7 @@
 
 extern double ooonana_reveal;
 extern int ooonana_power_menu, ooonana_battery;
+extern int ooonana_mask_length(void);
 extern bool ooonana_power_error, ooonana_caps_lock(void);
 extern char ooonana_account[64];
 
@@ -47,7 +48,7 @@ static void ooonana_center(cairo_t *ctx, const char *text, double x, double base
         memcpy(visible, text, length);
         strcpy(visible + length, truncated ? "..." : "");
         cairo_text_extents(ctx, visible, &extents);
-        if (extents.width <= 280 || !length) break;
+        if (extents.width <= 328 || !length) break;
         truncated = true;
         do { length--; } while (length && ((unsigned char)text[length] & 0xc0) == 0x80);
     }
@@ -161,7 +162,8 @@ struct ooonana_monitor {
 static struct ooonana_monitor ooonana_monitor_at(int index, uint32_t *resolution, double scale) {
     double width = xr_screens > 0 ? xr_resolutions[index].width : resolution[0];
     double height = xr_screens > 0 ? xr_resolutions[index].height : resolution[1];
-    scale = fmax(.1, fmin(scale, fmin(width / 335, height / 310)));
+    /* Nested X11 can report a low DPI even at ordinary desktop scale. */
+    scale = fmax(.1, fmin(fmax(scale, 1), fmin(width / 384, height / 380)));
     return (struct ooonana_monitor){
         xr_screens > 0 ? xr_resolutions[index].x : 0,
         xr_screens > 0 ? xr_resolutions[index].y : 0,
@@ -191,29 +193,43 @@ static void ooonana_password(cairo_t *ctx, double x, double y, unsigned int ink,
     bool wrong = auth_state == STATE_AUTH_WRONG;
     unsigned int accent = wrong ? (ooonana_light_mode() ? 0x9e2929 : 0xff8178)
                                 : (ooonana_light_mode() ? 0x805600 : 0xffb21a);
-    double left = x - 101;
-    ooonana_rounded_rect(ctx, left, y - 18, 202, 36, 8);
+    const double field_width = 252, text_inset = 44, dot_spacing = 11;
+    double left = x - field_width / 2;
+    ooonana_rounded_rect(ctx, left, y - 22, field_width, 44, 10);
     ooonana_rgb(ctx, ooonana_light_mode() ? 0xf0f1f3 : 0x101317);
     cairo_fill_preserve(ctx);
     ooonana_rgb(ctx, accent);
     cairo_set_line_width(ctx, 1.5);
     cairo_stroke(ctx);
-    cairo_rectangle(ctx, left + 14, y - 1, 10, 8);
+    cairo_rectangle(ctx, left + 16, y - 1, 12, 10);
     cairo_new_sub_path(ctx);
-    cairo_arc(ctx, left + 19, y - 1, 4, M_PI, 2 * M_PI);
+    cairo_arc(ctx, left + 22, y - 1, 5, M_PI, 2 * M_PI);
     cairo_stroke(ctx);
 
-    ooonana_rgb(ctx, ink);
-    if (input_position > 0) {
-        /* Keep the fixed mask and never expose even the number of typed characters. */
-        for (int dot = 0; dot < 4; dot++) {
-            cairo_arc(ctx, left + 38 + dot * 11, y, 2.4, 0, 2 * M_PI);
+    int characters = ooonana_mask_length();
+    if (characters > 0) {
+        int capacity = 1 + (int)((field_width - text_inset - 16) / dot_spacing);
+        int start = 0;
+        double text_left = left + text_inset;
+        if (characters > capacity) {
+            /* Reserve the first slot for a small overflow indicator. */
+            ooonana_rgb(ctx, muted);
+            for (int dot = -1; dot <= 1; dot++) {
+                cairo_arc(ctx, text_left + dot * 3, y, 1, 0, 2 * M_PI);
+                cairo_fill(ctx);
+            }
+            start = 1;
+            characters = capacity;
+        }
+        ooonana_rgb(ctx, ink);
+        for (int dot = start; dot < characters; dot++) {
+            cairo_arc(ctx, text_left + dot * dot_spacing, y, 2.8, 0, 2 * M_PI);
             cairo_fill(ctx);
         }
     } else {
         ooonana_rgb(ctx, muted);
-        cairo_set_font_size(ctx, 13);
-        cairo_move_to(ctx, left + 36, y + 5);
+        cairo_set_font_size(ctx, 16);
+        cairo_move_to(ctx, left + text_inset - 2, y + 6);
         cairo_show_text(ctx, "Password");
     }
 }
@@ -223,38 +239,39 @@ static void ooonana_card(cairo_t *ctx, double width, double y, struct tm local) 
     bool light = ooonana_light_mode();
     unsigned int ink = light ? 0x1b1f26 : 0xf5f5f7;
     unsigned int muted = light ? 0x55616e : 0xb4bdc8;
-    ooonana_rounded_rect(ctx, x - 153, y, 306, 156, 12);
+    ooonana_rounded_rect(ctx, x - 180, y, 360, 190, 14);
     ooonana_rgb(ctx, light ? 0xf5f5f7 : 0x1b1f26);
     cairo_fill_preserve(ctx);
     ooonana_rgb(ctx, light ? 0xadb7c2 : 0x596474);
     cairo_set_line_width(ctx, 1);
     cairo_stroke(ctx);
     ooonana_rgb(ctx, light ? 0x805600 : 0xffb21a);
-    cairo_arc(ctx, x, y + 22, 12, 0, 2 * M_PI);
+    cairo_arc(ctx, x, y + 27, 14, 0, 2 * M_PI);
     cairo_fill(ctx);
     ooonana_rgb(ctx, light ? 0xffffff : 0x101317);
     char initial[] = {ooonana_account[0] >= 'a' && ooonana_account[0] <= 'z'
                        ? ooonana_account[0] - 'a' + 'A' : 'O', 0};
-    ooonana_center(ctx, initial, x, y + 27, 13);
+    ooonana_center(ctx, initial, x, y + 32, 15);
     ooonana_rgb(ctx, ink);
     const char *period = local.tm_hour < 12 ? "morning" : local.tm_hour < 18 ? "afternoon" : "evening";
     char greeting[128];
     snprintf(greeting, sizeof(greeting), "Good %s%s%s", period,
              ooonana_account[0] ? ", " : "", ooonana_account);
-    ooonana_center(ctx, greeting, x, y + 53, 15);
-    ooonana_password(ctx, x, y + 81, ink, muted);
+    ooonana_center(ctx, greeting, x, y + 64, 19);
+    ooonana_password(ctx, x, y + 101, ink, muted);
 
     ooonana_rgb(ctx, muted);
-    if (ooonana_caps_lock()) {
+    bool caps = ooonana_caps_lock();
+    if (caps) {
         ooonana_rgb(ctx, light ? 0x805600 : 0xffb21a);
-        ooonana_center(ctx, "Caps Lock", x + 94, y + 121, 12);
+        ooonana_center(ctx, "Caps Lock", x + 111, y + 145, 14);
     }
     if (show_keyboard_layout && layout_string) {
         cairo_save(ctx);
-        cairo_rectangle(ctx, x - 141, y + 106, ooonana_caps_lock() ? 190 : 282, 18);
+        cairo_rectangle(ctx, x - 167, y + 128, caps ? 222 : 334, 21);
         cairo_clip(ctx);
         ooonana_rgb(ctx, muted);
-        ooonana_center(ctx, layout_string, x - (ooonana_caps_lock() ? 46 : 0), y + 121, 12);
+        ooonana_center(ctx, layout_string, x - (caps ? 56 : 0), y + 145, 14);
         cairo_restore(ctx);
     }
     const char *status = "Press Enter to unlock";
@@ -269,7 +286,7 @@ static void ooonana_card(cairo_t *ctx, double width, double y, struct tm local) 
                  failed_attempts == 1 ? "" : "s");
         status = attempts;
     }
-    ooonana_center(ctx, status, x, y + 141, 12);
+    ooonana_center(ctx, status, x, y + 168, 14);
 }
 
 static void ooonana_power(cairo_t *ctx, double width, double height) {
@@ -359,13 +376,13 @@ static void ooonana_lock_heading(cairo_t *ctx, uint32_t *resolution, double scal
         ooonana_rgb(ctx, clock_ink);
         double middle = height / 2;
         double progress = index == 0 ? ooonana_reveal : 0;
-        ooonana_clock(ctx, clock, width / 2, middle - 104 * progress, 58);
+        ooonana_clock(ctx, clock, width / 2, middle - 128 * progress, 74);
         if (progress > 0) {
             cairo_push_group(ctx);
             cairo_select_font_face(ctx, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
             ooonana_rgb(ctx, clock_ink);
-            ooonana_center(ctx, date, width / 2, middle - 58, 16);
-            ooonana_card(ctx, width, middle - 38, local);
+            ooonana_center(ctx, date, width / 2, middle - 72, 19);
+            ooonana_card(ctx, width, middle - 51, local);
             ooonana_power(ctx, width, height);
             cairo_pop_group_to_source(ctx);
             cairo_paint_with_alpha(ctx, progress);

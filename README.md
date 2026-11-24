@@ -1421,8 +1421,9 @@ ooonana update && ooonana upgrade
 Open **Settings → System → Open Updates** for the same workflow on the
 desktop. A major Core upgrade on Live requires a fresh ISO.
 
-Core 0.10.8 and i3lock 2.16-r0.ooonana10 add the clock-first lock screen,
-independent lock wallpaper through Nemo, and fullscreen titlebar controls.
+Core 0.10.8 includes fullscreen titlebar controls. i3lock 2.16-r0.ooonana11
+adds a larger clock and unlock prompt with one masking dot per character.
+Set an independent lock-screen wallpaper through Nemo.
 Run the update commands above and start a fresh desktop session to load both.
 
 Core 0.10.6 adds the signed `extras1` source on install or upgrade. Run

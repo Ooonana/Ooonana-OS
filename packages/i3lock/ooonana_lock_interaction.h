@@ -32,6 +32,15 @@ bool ooonana_caps_lock(void) {
     return xkb_state && xkb_state_mod_name_is_active(xkb_state, XKB_MOD_NAME_CAPS, XKB_STATE_MODS_LOCKED) == 1;
 }
 
+int ooonana_mask_length(void) {
+    int characters = 0;
+    for (int index = 0; index < input_position; index++) {
+        /* i3lock stores a UTF-8 byte offset. Only count the leading bytes. */
+        if (((unsigned char)password[index] & 0xc0) != 0x80) characters++;
+    }
+    return characters;
+}
+
 static void ooonana_reset_prompt(void) {
     ev_timer_stop(main_loop, &ooonana_animation);
     ooonana_prompt = false;
