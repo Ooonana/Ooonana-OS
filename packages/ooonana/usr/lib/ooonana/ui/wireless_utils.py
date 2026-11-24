@@ -78,16 +78,19 @@ def parse_nmcli_wifi(output):
         # SSID is connection identity, not display text. Do not trim or normalize.
         if not ssid:
             continue
+        signal_known = True
         try:
             strength = max(0, min(100, int(signal)))
         except ValueError:
             strength = 0
+            signal_known = False
         access_points.append(
             {
                 "connected": in_use == "*",
                 "bssid": bssid.upper(),
                 "ssid": ssid,
                 "signal": strength,
+                "signal_known": signal_known,
                 "security": security,
                 "security_kind": security_kind(security),
                 "device": device,
@@ -112,6 +115,7 @@ def parse_iw_wifi(output, device=""):
                 "bssid": current.get("bssid", "").upper(),
                 "ssid": current["ssid"],
                 "signal": signal_percent(current.get("signal", -100)),
+                "signal_known": "signal" in current,
                 "security": security,
                 "security_kind": security_kind(security),
                 "device": device,
@@ -195,6 +199,12 @@ def group_wifi_access_points(access_points):
     return sorted(result, key=lambda item: (item["connected"], item["signal"]), reverse=True)
 
 
+def bluetooth_rssi(value):
+    # bluetoothctl prints the signed decimal value after its hex rendering.
+    match = re.fullmatch(r"(?:0x[0-9a-f]+ \((-?\d+)\)|(-?\d+))", value.strip(), re.IGNORECASE)
+    return int(match.group(1) or match.group(2)) if match else None
+
+
 def parse_bluetooth_info(output):
     values = {
         "paired": False,
@@ -216,10 +226,7 @@ def parse_bluetooth_info(output):
             normalized = "services_resolved" if key == "ServicesResolved" else key.lower()
             values[normalized] = lowered == "yes"
         elif key == "RSSI":
-            try:
-                values["rssi"] = int(value)
-            except ValueError:
-                pass
+            values["rssi"] = bluetooth_rssi(value)
         elif key.lower() in ("name", "alias", "icon"):
             values[key.lower()] = clean_display_name(value)
     values["signal"] = signal_percent(values["rssi"]) if values["rssi"] is not None else 0
@@ -231,25 +238,28 @@ def parse_bluetooth_scan(output):
     devices = {}
     ansi = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
     event = re.compile(
-        r"^\[(?:NEW|CHG)\]\s+Device\s+([0-9A-Fa-f:]{17})(?:\s+(.*))?$"
+        r"^\[(NEW|CHG|DEL)\]\s+Device\s+([0-9A-Fa-f:]{17})(?:\s+(.*))?$"
     )
     for raw_line in output.splitlines():
         line = ansi.sub("", raw_line).strip()
         match = event.match(line)
         if not match:
             continue
-        address = match.group(1).upper()
-        detail = (match.group(2) or "").strip()
+        event_type, address, detail = match.groups()
+        address = address.upper()
+        if event_type == "DEL":
+            devices.pop(address, None)
+            continue
+        detail = (detail or "").strip()
         values = devices.setdefault(
             address,
             {"address": address, "name": address, "rssi": None, "signal": 0},
         )
         if detail.startswith("RSSI:"):
-            try:
-                values["rssi"] = int(detail.split(":", 1)[1].strip())
+            rssi = bluetooth_rssi(detail.split(":", 1)[1])
+            if rssi is not None:
+                values["rssi"] = rssi
                 values["signal"] = signal_percent(values["rssi"])
-            except ValueError:
-                pass
         elif detail.startswith(("Name:", "Alias:")):
             values["name"] = clean_display_name(detail.split(":", 1)[1]) or address
         elif detail and ":" not in detail:
@@ -257,7 +267,7 @@ def parse_bluetooth_scan(output):
     return devices
 
 
-def parse_ip_neighbors(output):
+def parse_ip_neighbors(output, interfaces=None):
     """Return usable LAN peers from `ip neigh show` output."""
     neighbors = []
     seen = set()
@@ -272,11 +282,14 @@ def parse_ip_neighbors(output):
         mac_index = fields.index("lladdr") + 1
         if mac_index >= len(fields):
             continue
+        device_index = fields.index("dev") + 1 if "dev" in fields else len(fields)
+        interface = fields[device_index] if device_index < len(fields) else ""
+        if interfaces is not None and interface not in interfaces:
+            continue
         address = fields[mac_index].upper()
         if address in seen:
             continue
         seen.add(address)
-        interface = fields[fields.index("dev") + 1] if "dev" in fields else ""
         neighbors.append(
             {
                 "address": address,

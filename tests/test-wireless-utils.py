@@ -72,12 +72,20 @@ neighbors = parse_ip_neighbors(
 )
 check(len(neighbors) == 1, "reachable neighbor parsing")
 check(neighbors[0]["address"] == "AA:BB:CC:DD:EE:FF", "neighbor address normalization")
+neighbors = parse_ip_neighbors(
+    "192.0.2.2 dev eth0 lladdr aa:bb:cc:dd:ee:ff STALE\n"
+    "192.0.2.3 dev wlan0 lladdr aa:bb:cc:dd:ee:ff REACHABLE",
+    ["wlan0"],
+)
+check(len(neighbors) == 1 and "wlan0" in neighbors[0]["name"], "Wi-Fi map peers scoped to Wi-Fi")
 
 bluetooth = parse_bluetooth_info(
     "Alias: Headphones\nPaired: yes\nTrusted: yes\nConnected: no\nServicesResolved: yes\nRSSI: -45\n"
 )
 check(bluetooth["paired"] and bluetooth["trusted"], "Bluetooth state parsing")
 check(not bluetooth["connected"] and bluetooth["signal"] > 0, "Bluetooth RSSI parsing")
+check(parse_bluetooth_info("RSSI: 0xffffffb4 (-76)")["rssi"] == -76,
+      "signed hex and decimal RSSI from BlueZ")
 check(bluetooth["services_resolved"], "Bluetooth service resolution parsing")
 
 scan = parse_bluetooth_scan(
@@ -89,6 +97,14 @@ scan = parse_bluetooth_scan(
 check(scan["AA:BB:CC:DD:EE:01"]["name"] == "Lab Headphones", "Bluetooth scan alias")
 check(scan["AA:BB:CC:DD:EE:01"]["signal"] > 0, "Bluetooth scan RSSI")
 check(scan["AA:BB:CC:DD:EE:02"]["rssi"] is None, "Bluetooth unknown RSSI retained")
+scan = parse_bluetooth_scan(
+    "[CHG] Device AA:BB:CC:DD:EE:01 RSSI: 0xff9b (-101)\n"
+    "[NEW] Device AA:BB:CC:DD:EE:02 Fixture\n"
+    "[DEL] Device AA:BB:CC:DD:EE:02 Fixture"
+)
+check(scan["AA:BB:CC:DD:EE:01"]["rssi"] == -101 and scan["AA:BB:CC:DD:EE:01"]["signal"] == 0,
+      "weak Bluetooth readings are still measured")
+check("AA:BB:CC:DD:EE:02" not in scan, "removed discovery entries stay out of the map")
 
 korean = parse_bluetooth_info("Alias: \ud5e4\ub4dc\ud3f0\nConnected: yes\n")
 check(korean["alias"] == "\ud5e4\ub4dc\ud3f0", "Korean Bluetooth name preserved")

@@ -33,6 +33,20 @@ stage() {
   fi
   echo "OOONANA_SHUTDOWN_STAGE: $1"
 }
+
+release_mount() {
+  # SIGKILL queues termination. A process can still hold a mount while its
+  # kernel I/O unwinds. Retry ordinary unmounts before holding shutdown.
+  attempt=1
+  until umount "$1"; do
+    if [ "$attempt" -ge 5 ]; then
+      echo "OOONANA_SHUTDOWN_UNMOUNT_FAILED: $1" >&2
+      return 1
+    fi
+    attempt=$((attempt + 1))
+    sleep 1
+  done
+}
 mode="$(cat /mnt/ooonana-live/persistence-mode)"
 storage_file="$(cat /mnt/ooonana-live/persistence-file)"
 case "$mode:$storage_file" in
@@ -55,6 +69,9 @@ kill -KILL -1 2>/dev/null || true
 # RAM-only zram can be discarded on poweroff. Swapping it back into RAM here
 # can exhaust memory. Explicit disk/file swaps must still be deactivated.
 disk_swaps="$(awk 'NR > 1 && $1 !~ /^\/dev\/zram[0-9]+$/ { print $1 }' /proc/swaps)"
+if [ -n "$disk_swaps" ]; then
+  stage "Closing disk swap"
+fi
 for swap in $disk_swaps; do
   swapoff "$(printf '%b' "$swap")"
 done
@@ -79,15 +96,15 @@ fi
 awk '$2 ~ /^\/oldroot\// { print length($2), $2 }' /proc/mounts |
   sort -rn | while read -r _length escaped_target; do
     target="$(printf '%b' "$escaped_target")"
-    umount "$target" || exit 1
+    release_mount "$target" || exit 1
   done
-umount /oldroot
+release_mount /oldroot
 if [ "$mode" != ram ]; then
   stage "Saving persistent changes"
   sync -f /persist
   mount -o remount,ro /persist
   echo OOONANA_PERSISTENCE_READ_ONLY
-  umount /persist
+  release_mount /persist
 fi
 if [ -n "$storage_file" ]; then
   losetup -d /dev/loop1
@@ -96,7 +113,7 @@ if [ -n "$storage_file" ]; then
     exit 1
   fi
 fi
-umount /root-ro
+release_mount /root-ro
 losetup -d /dev/loop0
 if [ -n "$storage_file" ]; then
   stage "Flushing USB storage"
@@ -107,7 +124,7 @@ else
 fi
 echo OOONANA_BOOT_STORAGE_READ_ONLY
 stage "Ejecting boot storage"
-umount /iso
+release_mount /iso
 if command -v ooonana_console_end >/dev/null 2>&1; then
   ooonana_console_end
 fi

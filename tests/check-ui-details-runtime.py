@@ -3,6 +3,7 @@
 import argparse
 import os
 from pathlib import Path
+from types import SimpleNamespace
 import sys
 import time
 
@@ -123,29 +124,44 @@ callback = pending.pop()[1]
 window.destroy()
 callback(0, "Late callback must be ignored")
 
-window = SignalMapWindow("Nearby signal map")
-items = [dict(name="Long network / 장치 이름 " + str(index) + " extended", key=str(index),
-              signal=20 + index * 10, category="router" if index % 2 else "device") for index in range(7)]
-window.update_items(items)
-capture(window, "signal-map-populated")
-assert "router(s)" not in window.legend.get_text()
-assert "Long network" in window.area.get_accessible().get_description()
-assert len(window.node_positions) == len(items)
-
-
 class Tooltip:
     def set_text(self, text):
         self.text = text
 
 
-tooltip = Tooltip()
-x, y, _radius, item = window.node_positions[-1]
-assert window.query_tooltip(window.area, x, y, False, tooltip)
-assert window.item_text(item) == tooltip.text
-assert window.query_tooltip(window.area, 0, 0, True, tooltip) and "Long network" in tooltip.text
-window.update_items([])
-capture(window, "signal-map-empty")
-window.destroy()
+for kind, title, width in (("wireless", "Wi-Fi signal map", 740), ("bluetooth", "Bluetooth signal map", 444)):
+    window = SignalMapWindow(title, kind)
+    window.set_default_size(width, 434)
+    items = [
+        dict(name="Connected / 실행 중인 장치", key="active", signal=86,
+             rssi=-57 if kind == "bluetooth" else None, connected=True, detail="Connected"),
+    ]
+    items.extend(dict(name="Long network / 장치 이름 " + str(index) + " extended", key=str(index),
+                      signal=20 + index * 10, rssi=-90 + index * 5 if kind == "bluetooth" else None,
+                      detail="Nearby", category="device" if kind == "bluetooth" else "router")
+                 for index in range(4))
+    items.append(dict(name="No signal reading", key="unknown", category="device",
+                      lan_peer=kind == "wireless", detail="Paired" if kind == "bluetooth" else "wlan0"))
+    window.update_items(items)
+    capture(window, f"signal-map-{kind}")
+    assert window.layout.get_orientation() == (Gtk.Orientation.HORIZONTAL if width >= 610 else Gtk.Orientation.VERTICAL)
+    assert len(window.node_positions) == len(items) - 1
+    assert window.list.get_row_at_index(0).key == "active"
+
+    tooltip = Tooltip()
+    x, y, _radius, item = window.node_positions[-1]
+    assert window.query_tooltip(window.area, x, y, False, tooltip)
+    assert window.item_text(item) == tooltip.text
+    assert window.select_node(window.area, SimpleNamespace(x=x, y=y, button=1))
+    window.update_items(items)
+    assert window.list.get_selected_row().key == item["key"]
+    if kind == "wireless":
+        window.router_toggle.set_active(False)
+        settle()
+        assert not window.node_positions and set(window.rows) == {"unknown"}
+    window.update_items([])
+    capture(window, f"signal-map-{kind}-empty")
+    window.destroy()
 
 window = Gtk.Window(title="Chart roles - isolated fixture")
 window.set_default_size(440, 200)

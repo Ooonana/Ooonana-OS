@@ -41,25 +41,15 @@ class PairDialog(Gtk.Dialog):
     def __init__(self, parent, device):
         super().__init__(title=f"Pair {device['name']}", transient_for=parent, modal=True)
         self.set_destroy_with_parent(True)
-        self.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Pair", Gtk.ResponseType.OK)
+        self.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Open Blueman", Gtk.ResponseType.OK)
         fit_dialog(self, 500)
         area = self.get_content_area()
         area.set_border_width(16)
         area.set_spacing(10)
-        area.pack_start(label("Enter a PIN only when the device requires one."), False, False, 0)
-        self.entry = Gtk.Entry()
-        self.entry.set_visibility(False)
-        self.entry.set_input_purpose(Gtk.InputPurpose.PASSWORD)
-        self.entry.get_accessible().set_name("PIN (optional)")
-        self.entry.set_placeholder_text("Automatic confirmation")
-        area.pack_start(self.entry, False, False, 0)
+        area.pack_start(label("Put the device in pairing mode, then select it in Blueman. "
+                              "Compare any displayed passkey before confirming."), False, False, 0)
         self.show_all()
-        self.entry.grab_focus()
-        self.entry.set_activates_default(True)
         self.set_default_response(Gtk.ResponseType.OK)
-
-    def pin(self):
-        return self.entry.get_text()
 
 
 class BluetoothWindow(WirelessWindowState, Gtk.Window):
@@ -112,7 +102,7 @@ class BluetoothWindow(WirelessWindowState, Gtk.Window):
         self.toolbar = flow_row([self.power_button, self.scan_button, self.more_button], max_children=3)
         root.pack_start(self.toolbar, False, False, 0)
 
-        self.store = Gtk.ListStore(str, str, int, str, str, str)
+        self.store = Gtk.ListStore(str, str, str, str, str, str)
         self.tree = Gtk.TreeView(model=self.store)
         for title, index in (("Device", 0), ("Address", 1), ("Signal", 2), ("Paired", 3), ("Trusted", 4), ("Connected", 5)):
             renderer = Gtk.CellRendererText()
@@ -165,8 +155,8 @@ class BluetoothWindow(WirelessWindowState, Gtk.Window):
         self.tree.get_column(1).set_visible(allocation.width >= 760)
 
     @staticmethod
-    def btctl(*args, timeout=12, input_text=None):
-        return run(["bluetoothctl", *args], admin=True, timeout=timeout, input_text=input_text)
+    def btctl(*args, timeout=12):
+        return run(["bluetoothctl", *args], admin=True, timeout=timeout, utf8=True)
 
     @staticmethod
     def set_state(widget, text, state):
@@ -283,7 +273,7 @@ class BluetoothWindow(WirelessWindowState, Gtk.Window):
                 elif clean.startswith("Powered:"):
                     powered = clean.split(":", 1)[1].strip()
         discovered = {}
-        observations = dict(self.scan_observations)
+        observations = dict(self.scan_observations) if powered == "yes" else {}
         devices_rc, devices = self.btctl("devices", timeout=8)
         if devices_rc == 0:
             for line in devices.splitlines():
@@ -329,6 +319,8 @@ class BluetoothWindow(WirelessWindowState, Gtk.Window):
         self.services_ready = services_ready
         self.has_controller = data["has_controller"]
         self.powered = data["powered"] == "yes"
+        if not self.powered:
+            self.scan_observations.clear()
         if services_ready:
             service_text = "Services: D-Bus + BlueZ"
         elif not data["dbus_ok"]:
@@ -348,7 +340,7 @@ class BluetoothWindow(WirelessWindowState, Gtk.Window):
         self.devices = discovered
         for mac, values in sorted(discovered.items(), key=lambda item: (item[1]["connected"], item[1]["paired"], item[1]["signal"]), reverse=True):
             self.store.append([
-                values["name"], mac, values["signal"],
+                values["name"], mac, f"{values['rssi']} dBm" if values["rssi"] is not None else "—",
                 "yes" if values["paired"] else "no",
                 "yes" if values["trusted"] else "no",
                 "yes" if values["connected"] else "no",
@@ -396,7 +388,6 @@ class BluetoothWindow(WirelessWindowState, Gtk.Window):
 
         def task():
             self.btctl("power", "on", timeout=8)
-            self.btctl("pairable", "on", timeout=8)
             return self.btctl("--timeout", "12", "scan", "on", timeout=18)
 
         def done(rc, output):
@@ -447,49 +438,15 @@ class BluetoothWindow(WirelessWindowState, Gtk.Window):
         self.dialog_open = True
         dialog = PairDialog(self, device)
         response = dialog.run()
-        pin = dialog.pin()
         dialog.destroy()
         self.dialog_open = False
         if response == Gtk.ResponseType.OK and not self.closed:
-            self.pair_device(device, pin)
-
-    def pair_device(self, device, pin):
-        if not self.can_act():
-            return
-        self.set_busy(True, f"Pairing {device['name']}")
-
-        def task():
-            mac = device["address"]
-            self.btctl("power", "on", timeout=8)
-            self.btctl("pairable", "on", timeout=8)
-            self.btctl("--timeout", "8", "scan", "on", timeout=14)
-            answers = ""
-            if pin:
-                answers += pin + "\n"
-            answers += "yes\n"
-            rc, output = self.btctl("--timeout", "40", "--agent", "KeyboardDisplay", "pair", mac, timeout=48, input_text=answers)
-            state = {}
-            info = ""
-            for _attempt in range(5):
-                info_rc, info = self.btctl("info", mac, timeout=8)
-                state = parse_bluetooth_info(info if info_rc == 0 else "")
-                if state["paired"]:
-                    break
-                time.sleep(1)
-            if not state["paired"]:
-                return rc or 1, (
-                    output + "\n" + info
-                    + "\nBlueZ did not confirm pairing. Try Blueman for device-specific passkey entry."
-                ).strip()
-            self.btctl("trust", mac, timeout=12)
-            if state["connected"]:
-                return 0, output or "BlueZ confirmed pairing and connection."
-            connect_rc, connect_output = self.connect_with_retry(mac)
-            if connect_rc != 0:
-                return connect_rc, (output + "\nPaired and trusted, but connection failed:\n" + connect_output).strip()
-            return 0, (output + "\n" + connect_output).strip()
-
-        self.finish_device_task(task)
+            # bluetoothctl's one-shot mode cannot answer interactive PIN or
+            # passkey prompts. Blueman provides the graphical BlueZ agent.
+            if launch(["blueman-manager"]):
+                self.show_detail("Finish pairing in Blueman, then refresh this window.")
+            else:
+                message(self, "Pairing unavailable", "Install Blueman with ooonana get blueman.", Gtk.MessageType.ERROR)
 
     def connect_device(self, device):
         if not self.can_act():
@@ -505,11 +462,9 @@ class BluetoothWindow(WirelessWindowState, Gtk.Window):
     def connect_with_retry(self, mac):
         errors = []
         run(["rfkill", "unblock", "bluetooth"], admin=True, timeout=8)
-        self.btctl("power", "on", timeout=8)
-        self.btctl("pairable", "on", timeout=8)
-        trust_rc, trust_output = self.btctl("trust", mac, timeout=12)
-        if trust_rc != 0:
-            return trust_rc, trust_output
+        power_rc, power_output = self.btctl("power", "on", timeout=8)
+        if power_rc != 0:
+            return power_rc, power_output
 
         for attempt in range(3):
             rc, output = self.btctl("--timeout", "30", "connect", mac, timeout=38)
@@ -530,11 +485,12 @@ class BluetoothWindow(WirelessWindowState, Gtk.Window):
         state = parse_bluetooth_info("")
         info = ""
         while time.monotonic() < deadline:
-            info_rc, info = self.btctl("info", mac, timeout=8)
+            remaining = deadline - time.monotonic()
+            info_rc, info = self.btctl("info", mac, timeout=max(0.1, min(8, remaining)))
             state = parse_bluetooth_info(info if info_rc == 0 else "")
             if state["connected"]:
                 return state, info
-            time.sleep(1)
+            time.sleep(max(0, min(1, deadline - time.monotonic())))
         return state, info
 
     def finish_device_task(self, task):
@@ -559,13 +515,18 @@ class BluetoothWindow(WirelessWindowState, Gtk.Window):
             self.set_busy(False)
             if rc != 0:
                 message(self, "Bluetooth action failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)
+            elif args[0] == "remove":
+                self.scan_observations.pop(args[1], None)
             self.refresh()
 
         run_async(["bluetoothctl", *args], done, admin=True, timeout=35)
 
     def show_signal_map(self, _widget):
-        if self.signal_window is None or not self.signal_window.get_visible():
+        if self.signal_window is None:
             self.signal_window = SignalMapWindow("Bluetooth signal map", "bluetooth")
+            self.signal_window.set_transient_for(self)
+            self.signal_window.set_destroy_with_parent(True)
+            self.signal_window.connect("destroy", lambda *_: setattr(self, "signal_window", None))
         self.update_signal_map()
         self.signal_window.show_all()
         self.signal_window.present()
@@ -577,9 +538,11 @@ class BluetoothWindow(WirelessWindowState, Gtk.Window):
             {
                 "key": mac,
                 "name": values["name"],
-                "signal": values["signal"] if values["signal"] > 0 else 12,
-                "signal_known": values["rssi"] is not None,
+                "signal": values["signal"] if self.powered and values["rssi"] is not None else None,
+                "rssi": values["rssi"],
                 "category": "device",
+                "connected": values["connected"],
+                "detail": "Connected" if values["connected"] else "Paired" if values["paired"] else mac,
             }
             for mac, values in self.devices.items()
         ])

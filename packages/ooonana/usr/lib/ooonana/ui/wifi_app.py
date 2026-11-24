@@ -5,6 +5,7 @@ import os
 import re
 import sys
 import time
+import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -35,6 +36,7 @@ from common import (  # noqa: E402
 from signal_map import SignalMapWindow  # noqa: E402
 from wireless_ui import LocalFileButton, WirelessWindowState  # noqa: E402
 from wireless_utils import (  # noqa: E402
+    clean_display_name,
     group_wifi_access_points,
     parse_ip_neighbors,
     parse_iw_wifi,
@@ -480,6 +482,7 @@ class WifiWindow(WirelessWindowState, Gtk.Window):
         self.networks = {}
         self.access_points = []
         self.wifi_devices = []
+        self.neighbors = []
         self.ready_wifi_devices = []
         self.device_states = {}
         self.signal_window = None
@@ -577,7 +580,7 @@ class WifiWindow(WirelessWindowState, Gtk.Window):
 
     @staticmethod
     def nmcli(*args, timeout=12):
-        return run(["nmcli", *args], admin=True, timeout=timeout)
+        return run(["nmcli", *args], admin=True, timeout=timeout, utf8=True)
 
     @staticmethod
     def set_state(widget, text, state):
@@ -770,6 +773,11 @@ class WifiWindow(WirelessWindowState, Gtk.Window):
                 elif iw_output:
                     scan_errors.append(f"{device}: {iw_output.splitlines()[-1]}")
         grouped = group_wifi_access_points(access_points)
+        neighbors = []
+        if connected_devices:
+            neigh_rc, output = run(["ip", "neigh", "show"], timeout=4)
+            if neigh_rc == 0:
+                neighbors = parse_ip_neighbors(output, connected_devices)
         return {
             "dbus_ok": dbus_ok,
             "daemon_ok": daemon_rc == 0,
@@ -782,6 +790,7 @@ class WifiWindow(WirelessWindowState, Gtk.Window):
             "connected_device": connected_devices[0] if connected_devices else "",
             "snapshot": snapshot,
             "access_points": access_points,
+            "neighbors": neighbors,
             "grouped": grouped,
             "scan_errors": scan_errors,
             "list_rc": list_rc,
@@ -793,6 +802,7 @@ class WifiWindow(WirelessWindowState, Gtk.Window):
         self.ready_wifi_devices = data["ready_wifi_devices"]
         self.device_states = data["device_states"]
         self.access_points = data["access_points"]
+        self.neighbors = data.get("neighbors", [])
         services_ready = data["dbus_ok"] and data["daemon_ok"] and data["supplicant_ok"]
         self.services_ready = services_ready
         self.radio_enabled = data["radio"] == "enabled"
@@ -1162,7 +1172,7 @@ class WifiWindow(WirelessWindowState, Gtk.Window):
         return output.splitlines()[0].strip() if rc == 0 and output.strip() else ""
 
     @staticmethod
-    def delete_wifi_profiles(profile):
+    def wifi_profile_ids(profile):
         rc, output = run(
             [
                 "nmcli", "-t", "--escape", "yes", "-f", "NAME,UUID,TYPE",
@@ -1170,34 +1180,27 @@ class WifiWindow(WirelessWindowState, Gtk.Window):
             ],
             admin=True,
             timeout=12,
+            utf8=True,
         )
         if rc != 0:
             return rc, output
-        errors = []
+        profiles = []
         for line in output.splitlines():
             fields = split_nmcli_terse(line)
             if len(fields) != 3 or fields[0] != profile:
                 continue
             if fields[2] not in ("802-11-wireless", "wifi"):
                 continue
-            delete_rc, delete_output = run(
-                ["nmcli", "connection", "delete", "uuid", fields[1]],
-                admin=True,
-                timeout=12,
-            )
-            if delete_rc != 0:
-                errors.append(delete_output or f"Could not remove stale profile {fields[1]}")
-        return (1, "\n".join(errors)) if errors else (0, "")
+            profiles.append(fields[1])
+        return 0, profiles
 
     @staticmethod
     def add_wifi_profile(profile, ssid, device, hidden=False, credentials=None):
         credentials = credentials or {}
-        rc, output = WifiWindow.delete_wifi_profiles(profile)
-        if rc != 0:
-            return rc, output
         command = [
             "nmcli", "connection", "add", "type", "wifi",
             "con-name", profile, "ssid", ssid,
+            "connection.autoconnect", "no",
         ]
         rc, output = run(command, admin=True, timeout=20)
         if rc != 0:
@@ -1205,7 +1208,6 @@ class WifiWindow(WirelessWindowState, Gtk.Window):
         ipv4_mode = credentials.get("ipv4_mode", "auto")
         proxy_mode = credentials.get("proxy_mode", "none")
         properties = [
-            "connection.autoconnect", "yes",
             "connection.permissions", "",
             "connection.interface-name", "",
             "connection.metered", credentials.get("metered", "unknown"),
@@ -1239,13 +1241,6 @@ class WifiWindow(WirelessWindowState, Gtk.Window):
         )
 
     def connect_standard(self, network, credentials, device):
-        profile = self.profile_name(network["ssid"])
-        rc, output = self.add_wifi_profile(
-            profile, network["ssid"], device, network.get("hidden", False), credentials,
-        )
-        if rc != 0:
-            return rc, output
-
         properties = []
         secrets = {}
         password = credentials.get("password", "")
@@ -1272,49 +1267,70 @@ class WifiWindow(WirelessWindowState, Gtk.Window):
                 "802-11-wireless-security.wep-key-flags", "0",
             ]
             secrets = {"wep-key0": password}
-        if properties:
-            rc, output = run(
-                ["nmcli", "connection", "modify", profile, *properties],
-                admin=True,
-                timeout=20,
-            )
-            if rc != 0:
-                return rc, output
-        if secrets:
-            rc, output = WifiWindow.save_secrets(profile, {"802-11-wireless-security": secrets})
-            if rc != 0:
-                return rc, output
-        return self.activate_profile(profile, network, device, network["security_kind"])
+        return self.connect_with_profile(
+            network, credentials, device, properties,
+            {"802-11-wireless-security": secrets} if secrets else {},
+        )
 
     @staticmethod
-    def save_secrets(profile, secrets):
-        profile_uuid = WifiWindow.profile_uuid(profile)
-        if not profile_uuid:
-            return 1, "Could not identify Wi-Fi profile for credential storage."
+    def save_secrets(profile_uuid, secrets):
         return run(
             ["python3", str(Path(__file__).with_name("wifi_secrets.py")), profile_uuid],
             admin=True, timeout=40, input_text=json.dumps(secrets),
         )
 
     def connect_owe(self, network, credentials, device):
-        profile = self.profile_name(network["ssid"])
-        rc, output = self.add_wifi_profile(
-            profile, network["ssid"], device, network.get("hidden", False), credentials,
+        return self.connect_with_profile(
+            network, credentials, device, ["802-11-wireless-security.key-mgmt", "owe"], {},
         )
+
+    def connect_with_profile(self, network, credentials, device, properties, secrets):
+        ssid = network["ssid"]
+        saved_name = self.profile_name(ssid)
+        rc, previous = self.wifi_profile_ids(saved_name)
         if rc != 0:
-            return rc, output
-        rc, output = run(
-            [
-                "nmcli", "connection", "modify", profile,
-                "connection.autoconnect", "yes",
-                "802-11-wireless-security.key-mgmt", "owe",
-            ],
-            admin=True,
-            timeout=20,
-        )
-        if rc != 0:
-            return rc, output
-        return self.activate_profile(profile, network, device, "owe")
+            return rc, previous
+        profile = f"Ooonana pending Wi-Fi {uuid.uuid4().hex}"
+        # Keep saved credentials until this replacement actually connects.
+        rc, output = self.add_wifi_profile(profile, ssid, device, network.get("hidden", False), credentials)
+        saved = False
+        try:
+            if rc != 0:
+                return rc, output
+            profile_uuid = self.profile_uuid(profile)
+            if not profile_uuid:
+                return 1, "Could not identify the new Wi-Fi profile."
+            if properties:
+                rc, output = run(
+                    ["nmcli", "connection", "modify", "uuid", profile_uuid, *properties],
+                    admin=True, timeout=25,
+                )
+                if rc != 0:
+                    return rc, output
+            if secrets:
+                rc, output = self.save_secrets(profile_uuid, secrets)
+                if rc != 0:
+                    return rc, output
+            rc, output = self.activate_profile(profile, network, device, network["security_kind"])
+            if rc != 0:
+                return rc, output
+            rc, save_output = run(
+                ["nmcli", "connection", "modify", "uuid", profile_uuid,
+                 "connection.id", saved_name, "connection.autoconnect", "yes"],
+                admin=True, timeout=20,
+            )
+            if rc != 0:
+                return rc, f"Could not save Wi-Fi profile: {save_output}"
+            saved = True
+        finally:
+            if not saved:
+                run(["nmcli", "connection", "delete", "id", profile], admin=True, timeout=12)
+
+        # Remove only profiles present before this attempt. Other windows or
+        # clients may have saved a new profile during the activation.
+        for previous_uuid in previous:
+            run(["nmcli", "connection", "delete", "uuid", previous_uuid], admin=True, timeout=12)
+        return 0, output
 
     def activate_profile(self, profile, network, device, security, passwd_file=""):
         uuid = self.profile_uuid(profile)
@@ -1496,16 +1512,8 @@ class WifiWindow(WirelessWindowState, Gtk.Window):
         return "\n\n".join(sections)
 
     def connect_enterprise(self, network, credentials, device):
-        profile = self.profile_name(network["ssid"])
-        rc, output = self.add_wifi_profile(
-            profile, network["ssid"], device, network.get("hidden", False), credentials,
-        )
-        if rc != 0:
-            return rc, output
-
         secrets = {}
         properties = [
-            "connection.autoconnect", "yes",
             "802-11-wireless-security.key-mgmt", "wpa-eap",
             "802-1x.eap", credentials["eap"],
             "802-1x.identity", credentials["identity"],
@@ -1546,16 +1554,9 @@ class WifiWindow(WirelessWindowState, Gtk.Window):
             secrets["password"] = credentials["password"]
         else:
             secrets["password"] = credentials["password"]
-        rc, output = run(["nmcli", "connection", "modify", profile, *properties], admin=True, timeout=25)
-        if rc != 0:
-            return rc, output
-
-        if secrets:
-            rc, output = WifiWindow.save_secrets(profile, {"802-1x": secrets})
-            if rc != 0:
-                return rc, output
-
-        return self.activate_profile(profile, network, device, "enterprise")
+        return self.connect_with_profile(
+            network, credentials, device, properties, {"802-1x": secrets} if secrets else {},
+        )
 
     def disconnect_active(self):
         if not self.can_act():
@@ -1582,8 +1583,11 @@ class WifiWindow(WirelessWindowState, Gtk.Window):
         run_async_task(task, done)
 
     def show_signal_map(self, _widget):
-        if self.signal_window is None or not self.signal_window.get_visible():
+        if self.signal_window is None:
             self.signal_window = SignalMapWindow("Wi-Fi signal map", "wireless")
+            self.signal_window.set_transient_for(self)
+            self.signal_window.set_destroy_with_parent(True)
+            self.signal_window.connect("destroy", lambda *_: setattr(self, "signal_window", None))
         self.update_signal_map()
         self.signal_window.show_all()
         self.signal_window.present()
@@ -1593,25 +1597,24 @@ class WifiWindow(WirelessWindowState, Gtk.Window):
             return
         items = [
             {
-                "key": item.get("bssid") or f"{item['ssid']}-{index}",
-                "name": f"{item['ssid']} {item.get('bssid', '')[-5:]}",
-                "signal": item.get("signal", 0),
+                "key": f"ap:{item.get('bssid') or index}:{item.get('device')}",
+                "name": clean_display_name(item["ssid"]) or "Unnamed network",
+                "signal": item.get("signal"),
+                "signal_known": item.get("signal_known", True),
                 "category": "router",
+                "connected": item.get("connected", False),
+                "detail": " · ".join(part for part in (
+                    "Connected" if item.get("connected") else "",
+                    item.get("bssid"),
+                    item.get("device"),
+                ) if part),
             }
             for index, item in enumerate(self.access_points)
         ]
-        neigh_rc, neighbors = run(["ip", "neigh", "show"], timeout=5)
-        if neigh_rc == 0:
-            items.extend(
-                {
-                    "key": item["address"],
-                    "name": item["name"],
-                    "signal": 35,
-                    "category": "device",
-                    "signal_known": False,
-                }
-                for item in parse_ip_neighbors(neighbors)
-            )
+        items.extend(
+            {"key": f"lan:{item['address']}", "name": item["name"], "category": "device", "lan_peer": True}
+            for item in self.neighbors
+        )
         self.signal_window.update_items(items)
 
     def launch_csi_3d(self, _widget):

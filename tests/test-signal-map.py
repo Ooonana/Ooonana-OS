@@ -14,6 +14,7 @@ class DummyWindow:
 
 sys.modules.setdefault("cairo", SimpleNamespace())
 sys.modules["common"] = SimpleNamespace(
+    Gdk=SimpleNamespace(),
     Gtk=SimpleNamespace(Window=DummyWindow),
     Pango=SimpleNamespace(FontDescription=lambda *_args: None),
     PangoCairo=SimpleNamespace(),
@@ -54,5 +55,13 @@ check([item["name"] for item in window.filtered_items()] == ["device"], "router 
 window.router_toggle.active = True
 window.device_toggle.active = False
 check([item["name"] for item in window.filtered_items()] == ["router"], "device toggle hides devices")
+
+weak = {"name": "Weak", "signal": 0, "rssi": -104}
+unknown = {"name": "Unknown", "signal": None}
+peer = {"name": "Peer", "lan_peer": True}
+check(window.signal_text(weak) == "-104 dBm" and window.strength(weak) == 0, "weak reading kept")
+check(window.signal_text(unknown) == "No reading" and window.strength(unknown) is None, "Bluetooth unknown")
+check(window.signal_text(peer) == "LAN peer" and window.strength(peer) is None, "LAN peer has no RSSI")
+check(sorted([unknown, weak], key=window.reading_order) == [weak, unknown], "measured first")
 
 print("ok signal-map")

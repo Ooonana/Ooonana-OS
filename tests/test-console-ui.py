@@ -108,7 +108,7 @@ assert 'cp /lib/ooonana-console-ui.sh "$shutdown_root/console-ui.sh"' in init
 shutdown = (ROOT / "scripts/lib/live-shutdown.sh").read_text()
 assert shutdown.index('[ "${1:-}" = --from-init ]') < shutdown.index("ooonana_console_begin")
 assert shutdown.index("kill -TERM -1") < shutdown.index("ooonana_console_wait 2") < shutdown.index("kill -KILL -1")
-assert "umount /oldroot" in shutdown and "trap 'shutdown_failed" in shutdown
+assert "release_mount /oldroot" in shutdown and "trap 'shutdown_failed" in shutdown
 normal_shutdown = (ROOT / "packages/ooonana/usr/bin/ooonana-shutdown-cleanup").read_text()
 assert normal_shutdown.index("&& ooonana_console_end") < normal_shutdown.index("umount -a -r")
 print("CONSOLE_UI_OK POSIX/BusyBox; motion-off/serial/small-console; exact waits; no worker/trap; guarded RAM shutdown")

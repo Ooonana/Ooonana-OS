@@ -479,7 +479,7 @@ if [[ -n "$FORMAT_ROOTFS" ]]; then
   # Force ordinary unmount failure in a private copy. Repeated rescue-shell
   # exits must not return the shutdown action to PID1 or trigger power-down.
   cp "$tmp/init.original" "$tmp/fault-init/init"
-  sed -i 's|^umount /oldroot$|echo FIXTURE_SHUTDOWN_FAULT; false|' "$tmp/fault-init/lib/ooonana-live-shutdown.sh"
+  sed -i 's|^release_mount /oldroot$|echo FIXTURE_SHUTDOWN_FAULT; false|' "$tmp/fault-init/lib/ooonana-live-shutdown.sh"
   (cd "$tmp/fault-init"; find . -print0 | cpio --null -o --format=newc 2>/dev/null | gzip -n >"$tmp/live.cpio.gz")
   cp --sparse=always "$tmp/setup.raw" "$tmp/shutdown-fault.raw"
   mkfifo "$tmp/shutdown-fault.input"

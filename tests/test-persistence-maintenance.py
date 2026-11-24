@@ -255,11 +255,29 @@ for parent, executable, command, hook, allowed in (
     result = subprocess.run(["sh", "-c", predicate, "fixture", parent, executable, command, hook])
     assert (result.returncode == 0) == allowed
 ram_cleanup = (root / "scripts/lib/live-shutdown.sh").read_text()
-steps = ("pivot_root . oldroot", "umount /oldroot", "umount /persist",
-         "losetup -d /dev/loop1", "mount -o remount,ro /iso", "umount /iso")
+steps = ("pivot_root . oldroot", "release_mount /oldroot", "release_mount /persist",
+         "losetup -d /dev/loop1", "mount -o remount,ro /iso", "release_mount /iso")
 assert [ram_cleanup.index(step) for step in steps] == sorted(ram_cleanup.index(step) for step in steps)
 assert "umount -l" not in ram_cleanup and "umount -f" not in ram_cleanup
 assert "OOONANA_SHUTDOWN_CLEANUP_FAILED" in ram_cleanup
+release = ram_cleanup.split("release_mount() {\n", 1)[1].split("\n}\n", 1)[0]
+mount_fixture = """
+calls=0
+umount() {
+  [ "$#" = 1 ] && [ "$1" = /oldroot ] || exit 77
+  calls=$((calls + 1))
+  [ "$calls" -ge "$succeeds_on" ]
+}
+sleep() { :; }
+"""
+for succeeds_on, expected, calls in ((1, 0, 1), (3, 0, 3), (6, 1, 5)):
+    result = subprocess.run(
+        ["sh", "-c", f"succeeds_on={succeeds_on}\n{mount_fixture}\nrelease_mount() {{\n{release}\n}}\n"
+         'release_mount /oldroot; rc=$?; echo "$calls"; exit "$rc"'],
+        capture_output=True, text=True, timeout=5,
+    )
+    assert result.returncode == expected and int(result.stdout) == calls
+    assert ("OOONANA_SHUTDOWN_UNMOUNT_FAILED: /oldroot" in result.stderr) == bool(expected)
 # Two closed rescue children must leave PID1's shutdown action running.
 hold = ram_cleanup.split("shutdown_failed() {\n", 1)[1].split("\n}\n", 1)[0]
 assert "exec " not in "\n".join(line for line in hold.splitlines() if not line.lstrip().startswith("#"))

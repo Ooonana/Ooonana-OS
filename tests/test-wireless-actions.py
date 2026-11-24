@@ -57,6 +57,7 @@ def harness():
         "connect_standard",
         "connect_owe",
         "connect_enterprise",
+        "connect_with_profile",
         "activate_profile",
     ):
         setattr(value, name, MethodType(getattr(wifi_app.WifiWindow, name), value))
@@ -64,8 +65,9 @@ def harness():
         "prepare_device",
         "scan_access_points",
         "profile_uuid",
-        "delete_wifi_profiles",
+        "wifi_profile_ids",
         "add_wifi_profile",
+        "save_secrets",
         "connection_diagnostics",
         "device_is_unavailable",
         "verify_profile_connected",
@@ -113,7 +115,9 @@ def fake_run(command, **_kwargs):
     if "GENERAL.TYPE,GENERAL.NM-MANAGED,GENERAL.STATE,GENERAL.REASON" in command:
         return 0, "wifi\nyes\n30 (disconnected)\n42 (supplicant available)"
     if "GENERAL.STATE,GENERAL.CONNECTION" in command:
-        return 0, "100 (connected)\nOoonana Wi-Fi - School WiFi"
+        latest_profile = next((item[item.index("con-name") + 1] for item in reversed(commands)
+                               if item[1:3] == ["connection", "add"]), "")
+        return 0, f"100 (connected)\n{latest_profile}"
     if "IP4.ADDRESS,IP6.ADDRESS" in command:
         return 0, "192.0.2.20/24"
     if "CONNECTIVITY" in command and "general" in command:
@@ -147,7 +151,7 @@ try:
     connects = [command for command in commands if "connection" in command and "up" in command]
     deletes = [command for command in commands if command[1:3] == ["connection", "delete"]]
     check(len(connects) == 3, "generic activation plus two BSSID retries")
-    check(len(deletes) == 2, "all stale profile UUIDs removed before profile creation")
+    check(len(deletes) == 2, "all stale profile UUIDs retired after activation")
     check(all(command[3] == "uuid" for command in deletes), "stale profiles removed without ambiguous names")
     check("ap" not in connects[0], "generic activation has no BSSID lock")
     check(connects[1][-2:] == ["ap", "AA:BB:CC:DD:EE:01"], "first BSSID retry")
@@ -157,7 +161,11 @@ try:
     check(not any(command[1:3] == ["device", "set"] for command in commands), "managed adapter is not reset")
     add = next(command for command in commands if command[1:4] == ["connection", "add", "type"])
     check("School WiFi" in add and "ifname" not in add, "profile allows compatible adapters")
+    check(add[-2:] == ["connection.autoconnect", "no"], "staged profile cannot autoconnect")
     modify = [command for command in commands if command[1:3] == ["connection", "modify"]]
+    promotion = next(command for command in modify if "connection.id" in command)
+    check(commands.index(connects[-1]) < commands.index(promotion) < commands.index(deletes[0]),
+          "activation precedes promotion and retirement")
     check(any("802-11-wireless.hidden" in command and "no" in command for command in modify), "visible profile enabled")
     check(any("connection.interface-name" in command and "802-11-wireless.bssid" in command for command in modify), "stale hardware binding cleared")
     check(any("wpa-psk" in command for command in modify), "personal security profile")
@@ -165,6 +173,15 @@ try:
     check(saved_secrets[-1] == {"802-11-wireless-security": {"psk": "school-secret"}}, "PSK transferred through stdin")
     check(any("802-11-wireless-security.psk-flags" in command and "0" in command for command in modify), "personal secret saved")
     check(all("uuid" in command for command in connects), "profile activated by UUID")
+
+    commands.clear()
+    failed = harness()
+    failed.activate_profile = lambda *_args: (7, "fixture: association failed")
+    rc, _output = failed.connect_task(network("personal"), {"password": "wrong-password"})
+    check(rc == 7, "failed replacement reports association failure")
+    deletes = [command for command in commands if command[1:3] == ["connection", "delete"]]
+    check(len(deletes) == 1 and deletes[0][3] == "id" and deletes[0][4].startswith("Ooonana pending Wi-Fi "),
+          "failed replacement removes only its own pending profile")
 
     commands.clear()
     renamed = network("personal")
@@ -425,6 +442,8 @@ finally:
 check(rc == 0, "Bluetooth retry reaches confirmed connection")
 check(bluetooth_target.connect_attempts == 2, "Bluetooth retries unconfirmed connection")
 check(any("scan" in call for call in bluetooth_target.calls), "Bluetooth rescans before retry")
+check(not any(call[0] in ("trust", "pairable") for call in bluetooth_target.calls),
+      "Bluetooth reconnect leaves trust and pairability alone")
 check("Connection successful" in output, "Bluetooth returns successful output")
 check(radio_commands == [["rfkill", "unblock", "bluetooth"]], "Bluetooth unblock stays an isolated command contract")
 

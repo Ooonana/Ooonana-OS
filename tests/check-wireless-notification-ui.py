@@ -153,8 +153,9 @@ with tempfile.TemporaryDirectory(prefix="ooonana-wireless-ui-") as temporary:
         check(cell.get_property("ellipsize") == Pango.EllipsizeMode.END, "Bluetooth device column is unbounded")
         exercise_more(window, {"Signal map", "Blueman", "Repair service", "Reset adapter"}, "bluetooth")
         dialog = bluetooth.PairDialog(window, device)
-        capture(dialog, "bluetooth-pin")
-        check(bool(dialog.entry.get_accessible().get_name()), "Bluetooth PIN has no accessible label")
+        capture(dialog, "bluetooth-pairing")
+        check(dialog.get_widget_for_response(Gtk.ResponseType.OK).get_label() == "Open Blueman",
+              "Bluetooth pairing clearly names the passkey dialog provider")
         dialog.destroy()
         window.destroy()
 

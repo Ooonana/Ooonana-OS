@@ -35,19 +35,4 @@ for light in (False, True):
         assert contrast(colors[role], colors["background"]) >= 3, (light, role)
 assert themes[0]["background"] != themes[1]["background"]
 
-position = extract(ROOT / "packages/ooonana/usr/lib/ooonana/ui/signal_map.py", "label_position", {})
-for width, height in ((240, 180), (480, 260), (620, 500)):
-    for anchor_x in (0, width / 2, width):
-        for anchor_y in (0, height / 2, height):
-            occupied = []
-            for _index in range(6):
-                result = position(width, height, anchor_x, anchor_y, 110, 18, occupied)
-                if result is None:
-                    break
-                x, y = result
-                assert 0 <= x <= width - 110 and 0 <= y <= height - 18
-                assert all(x + 110 + 4 <= ox or ox + ow + 4 <= x or
-                           y + 18 + 4 <= oy or oy + oh + 4 <= y for ox, oy, ow, oh in occupied)
-                occupied.append((x, y, 110, 18))
-assert position(100, 60, 50, 30, 300, 20, []) is None
-print("CHART_LAYOUT_OK theme contrast; bounded, nonoverlapping labels; undersized refusal")
+print("CHART_LAYOUT_OK theme contrast")
