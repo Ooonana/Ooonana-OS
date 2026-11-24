@@ -17,17 +17,27 @@ if [[ "$(findmnt -n -o SOURCE --target "$MOUNT_DIR")" != "F:" ]]; then
   exit 1
 fi
 public_cursor=0
+use_personal_cursor=0
 release_args=()
 for argument in "$@"; do
   case "$argument" in
     --public-cursor) public_cursor=1 ;;
+    --personal-cursor) use_personal_cursor=1 ;;
     *) release_args+=("$argument") ;;
   esac
 done
-personal_cursor="$MOUNT_DIR/Ooonana/ooonana-os/build/personal-cursor/WindowsCursorConceptPersonal"
-if [[ "$public_cursor" -eq 1 ]]; then
+for argument in "${release_args[@]}"; do
+  if [[ "$argument" == --help || "$argument" == -h ]]; then
+    printf 'WSL cursor options\n  --public-cursor    Use official OoonanaTailless (default)\n  --personal-cursor  Use local personal cursor\n\n'
+    exec bash "$SCRIPT_DIR/rebuild-full-i3-release.sh" "${release_args[@]}"
+  fi
+done
+
+if [[ "$public_cursor" -eq 1 || ( "$use_personal_cursor" -eq 0 && -z "${OOONANA_PERSONAL_CURSOR_DIR:-}" ) ]]; then
   unset OOONANA_PERSONAL_CURSOR_DIR OOONANA_PERSONAL_CURSOR_SIZE
-elif [[ -z "${OOONANA_PERSONAL_CURSOR_DIR:-}" && -d "$personal_cursor" ]]; then
+  printf '[cursor] official OoonanaTailless cursor\n'
+else
+  personal_cursor="${OOONANA_PERSONAL_CURSOR_DIR:-$MOUNT_DIR/Ooonana/ooonana-os/build/personal-cursor/WindowsCursorConceptPersonal}"
   [[ -s "$personal_cursor/index.theme" && -s "$personal_cursor/cursors/left_ptr" ]] || {
     printf 'run-iso-build-wsl: incomplete personal cursor theme\n' >&2
     exit 1
@@ -37,13 +47,8 @@ elif [[ -z "${OOONANA_PERSONAL_CURSOR_DIR:-}" && -d "$personal_cursor" ]]; then
     IFS= read -r OOONANA_PERSONAL_CURSOR_SIZE <"$personal_cursor/cursor-size" || true
   fi
   export OOONANA_PERSONAL_CURSOR_SIZE="${OOONANA_PERSONAL_CURSOR_SIZE:-32}"
-  printf '[cursor] default Ooonana local cursor included; resulting ISO is for personal use only\n'
+  printf '[cursor] optional personal cursor included; resulting ISO is for personal use only\n'
 fi
 
-for argument in "${release_args[@]}"; do
-  if [[ "$argument" == --help || "$argument" == -h ]]; then
-    exec bash "$SCRIPT_DIR/rebuild-full-i3-release.sh" "${release_args[@]}"
-  fi
-done
 exec bash "$SCRIPT_DIR/with-f-build-storage.sh" \
   bash "$SCRIPT_DIR/rebuild-full-i3-release.sh" "${release_args[@]}"

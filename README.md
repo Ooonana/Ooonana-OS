@@ -608,7 +608,7 @@ Working now:
 - Full-i3 runs the desktop as the unprivileged `ooonana` user (UID 1000). Administrative commands use a validated wheel-only `doas` policy.
 - Full-i3 mounts `/run` and `/dev/shm` before desktop services, maps `/var/run` to `/run`, starts system D-Bus first, then starts NetworkManager and BlueZ. This runtime order supports Chromium, Wi-Fi, Bluetooth, and desktop applets from live USB and installed systems.
 - Full-i3 ships an Ooonana i3 desktop: solid rounded top panel with music status, RAM gauge and compact Task View; centered flat opaque app dock with persistent left-side pins, right-side running apps, drag ordering, running dots and direct window actions; Spotlight-style launcher; opaque rounded GTK windows; dunst notifications; Chromium, Nemo, and editor/media shortcuts. Window actions belong in dock/titlebars, not top panel. Focus changes on click, not cursor hover. Notes is the default wallpaper again; the graphite wallpaper remains selectable. Fit mode preserves aspect ratio rather than stretching.
-- Added Windows cursor conversion is the default for this machine's Ooonana builds (21px, original proportions/hotspot). Public builds use the separately drawn OoonanaTailless fallback (19px); third-party cursor-pack files remain private and are not redistributed.
+- OoonanaTailless is the official default cursor for Ooonana builds. Its 19px pointer and hotspot are shared by GTK and Xsettings.
 - Setup, Settings, Wi-Fi, Bluetooth, Packages, AI, Task Manager, controls, and application launcher are native GTK3 apps with shared graphite/orange design and short slide transitions. Picom keeps windows opaque; shadows and fades are disabled. Panel status scripts degrade cleanly when a VM has no battery, radio, audio, or backlight hardware.
 - Wi-Fi groups repeated school/campus access points by exact SSID, shows real security instead of treating missing metadata as open, retries secured BSSIDs during roaming, and supports WPA/WPA2/WPA3 Personal, OWE, WEP, and 802.1X enterprise identity/password/CA/client-certificate profiles. Wi-Fi and Bluetooth include an RSSI proximity map. Optional `3D mode` launches RuView when its CSI point-cloud runtime is installed; normal laptop adapters remain RSSI-only.
 - Installed disk boots in QEMU
@@ -1167,7 +1167,10 @@ Centered flat bottom dock groups windows by app, with running counts and hollow 
 
 Native GTK window controls now sit on the left as red/yellow/green circles with visible symbols and accessible names. Appearance offers reduced motion; default page slides last 180ms without window transparency. The offline AI dialog separates app, runtime, model files, and API status without claiming that an active API proves successful model loading. Setup presents a review before applying settings; installer text clarifies erase/custom modes, target partitions, and disk swap. Formatter logic is unchanged. Third-party controls attach to visible i3 decorations and target their own window; hidden tabs, occluded and fullscreen-covered controls are excluded. Native dialog headers do not receive a second i3 titlebar. Dock/titlebar action menus provide restore/minimize/fullscreen/close.
 
-The added Windows cursor conversion is now the default for this machine's Ooonana builds: a real 21px frame (+10% from 19px, rounded), retaining original proportions and scaled hotspot. The separately drawn public tailless fallback uses a real 19px frame (+10% from 17px, rounded), consistent between GTK and Xsettings. Private assets stay outside tracked sources and must not be redistributed. The normal ISO wrapper selects the private theme when present and reads its `cursor-size` file; `--public-cursor` explicitly selects the public fallback. Existing user cursor preferences remain intact.
+OoonanaTailless is the official default cursor. The tailless pointer uses a
+19px frame with a consistent hotspot across GTK and Xsettings. Choose
+`--personal-cursor` when building for personal use with the local Windows
+cursor conversion. The wrapper reads that variant's `cursor-size` file.
 
 ```bash
 ooonana help ui
@@ -1547,9 +1550,9 @@ docs/jarvis-agi-research.md
 
 ## Build From Source
 
-Build a fresh ISO to include the November 12 candidate packages and graphical
-sign-in. The launcher verifies the signed repository and the F: workspace
-before building. It replaces the previous release ISO after verification.
+Build a fresh ISO with the Core 0.10.11 candidate packages. The launcher verifies
+the signed repository and the F: workspace before building. It replaces the
+previous release ISO after verification.
 
 For prepared Windows/WSL release workspace, run in PowerShell:
 
@@ -1558,7 +1561,7 @@ For prepared Windows/WSL release workspace, run in PowerShell:
 $workspace = 'F:\Ooonana\ooonana-os\build-storage\release-stage.ext4'
 $required = if (Test-Path -LiteralPath $workspace) { 8GB } else { 29GB }
 if ((Get-PSDrive F).Free -lt $required) { throw 'Insufficient F: space for build workspace/output.' }
-$repo = '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10.2-signed'
+$repo = '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10.11-signed'
 & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo $repo --preflight-only
 if ($LASTEXITCODE -eq 0) {
     & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo $repo
@@ -1566,8 +1569,10 @@ if ($LASTEXITCODE -eq 0) {
 ```
 
 Output: `F:\Ooonana\ooonana-os\release-current\ooonana-full-i3.iso`.
-The launcher uses the local cursor for personal builds. Add `--public-cursor`
-to both commands to use the packaged public cursor.
+The launcher defaults to OoonanaTailless. Add `--personal-cursor` to both
+commands to select the local Windows cursor for personal use.
+`--public-cursor` explicitly selects OoonanaTailless, including when
+`OOONANA_PERSONAL_CURSOR_DIR` is set.
 Core 0.10 source needs its separate, verified candidate package repository.
 The default `build/full-i3-repo` still contains stable 0.9.9 packages; the release
 guard correctly refuses that ABI/version mismatch. This is not an Ooonana
