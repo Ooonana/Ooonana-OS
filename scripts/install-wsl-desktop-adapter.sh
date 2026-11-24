@@ -71,21 +71,7 @@ install -m 0755 "$work/launcher" "$prefix/usr/local/bin/start-ooonana-i3"
 # until full repaint. Keep this workaround outside packaged/physical defaults.
 compositor="$prefix/usr/local/bin/picom"
 wsl_config="$prefix/etc/ooonana/picom-wsl.conf"
-if [ -L "$compositor" ] || { [ -e "$compositor" ] &&
-   ! grep -qx '# Ooonana WSL compositor adapter.' "$compositor"; }; then
-  echo 'WSL compositor: custom local wrapper retained; full-repaint adaptation skipped' >&2
-elif [ -L "$wsl_config" ] || { [ -e "$wsl_config" ] &&
-   ! grep -qx '# Ooonana WSL compositor adapter.' "$wsl_config"; }; then
-  echo 'WSL compositor: custom local config retained; adaptation skipped' >&2
-else
-  # CLI-only no-use-damage did not reliably repaint the themed Nemo fixture.
-  # Derive a WSL-only config; keep redirection as well as full redraw enabled.
-  # Refuse unfamiliar layouts instead of changing a user's custom settings.
-  if ! awk -f "$(dirname "$0")/lib/picom-wsl.awk" "$prefix/etc/ooonana/picom.conf" >"$work/compositor.conf"; then
-    echo 'WSL compositor: unknown config layout; existing override retained' >&2
-    exit 1
-  fi
-  cat >"$work/picom" <<'COMPOSITOR'
+cat >"$work/picom" <<'COMPOSITOR'
 #!/bin/sh
 # Ooonana WSL compositor adapter.
 if [ "$#" -eq 4 ] && [ "$1" = --backend ] &&
@@ -96,8 +82,43 @@ fi
 # Preserve custom invocation/configuration rather than forcing desktop defaults.
 exec /usr/bin/picom --no-use-damage "$@"
 COMPOSITOR
-  sh -n "$work/picom"
-  install -m 0644 "$work/compositor.conf" "$wsl_config"
-  install -m 0755 "$work/picom" "$compositor"
+sh -n "$work/picom"
+
+file_digest() {
+  checksum="$(sha256sum "$1")" || return 1
+  printf '%s\n' "${checksum%% *}"
+}
+
+stock_wsl_policy() {
+  if [ ! -e "$wsl_config" ]; then
+    return 0
+  fi
+  generated_digest="$(file_digest "$work/compositor.conf")" || return 1
+  # Earlier stock copies are recognized by their complete contents.
+  case "$(file_digest "$wsl_config")" in
+    "$generated_digest"|3e7cdda75f620c17217a9dc9f7d618e4e340f3c75306da64e8942c54786f2d6c|e2b0e8eab098497506299102e309a889d5f7faf8d9a109616e34a8a30739315c)
+      return 0 ;;
+  esac
+  return 1
+}
+
+wrapper_digest="$(file_digest "$work/picom")"
+if [ -L "$compositor" ] || { [ -e "$compositor" ] &&
+   { [ ! -f "$compositor" ] || [ "$(file_digest "$compositor")" != "$wrapper_digest" ]; }; }; then
+  echo 'WSL compositor: custom local wrapper retained; full-repaint adaptation skipped' >&2
+elif [ -L "$wsl_config" ] || { [ -e "$wsl_config" ] && [ ! -f "$wsl_config" ]; }; then
+  echo 'WSL compositor: custom local config retained; adaptation skipped' >&2
+else
+  # Xephyr needs full redraw and continuous redirection.
+  if ! awk -f "$(dirname "$0")/lib/picom-wsl.awk" "$prefix/etc/ooonana/picom.conf" >"$work/compositor.conf"; then
+    echo 'WSL compositor: unknown config layout; existing override retained' >&2
+    exit 1
+  fi
+  if stock_wsl_policy; then
+    install -m 0644 "$work/compositor.conf" "$wsl_config"
+    install -m 0755 "$work/picom" "$compositor"
+  else
+    echo 'WSL compositor: custom local config retained; adaptation skipped' >&2
+  fi
 fi
 echo 'WSL desktop adapter installed: /usr/local/bin/start-ooonana-i3'

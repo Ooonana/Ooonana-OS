@@ -161,6 +161,13 @@ mv -- "$work/previous-glass.conf" "$policy/picom-wsl.conf"
 [ "$(PATH="${compositor%/*}:$PATH" sh -e "$work/compositor-route")" = "$policy/picom-wsl-default.conf" ]
 printf '# User preference\n' >>"$policy/picom-wsl.conf"
 [ "$(PATH="${compositor%/*}:$PATH" sh -e "$work/compositor-route")" = "$policy/picom.conf" ]
+custom_config_before="$(sha256sum "$policy/picom-wsl.conf" | cut -d' ' -f1)"
+OOONANA_ROOT="$work/root" sh "$ROOT/scripts/install-wsl-desktop-adapter.sh" >/dev/null 2>&1
+[ "$custom_config_before" = "$(sha256sum "$policy/picom-wsl.conf" | cut -d' ' -f1)" ]
+printf '# User wrapper adjustment\n' >>"$compositor"
+custom_wrapper_before="$(sha256sum "$compositor" | cut -d' ' -f1)"
+OOONANA_ROOT="$work/root" sh "$ROOT/scripts/install-wsl-desktop-adapter.sh" >/dev/null 2>&1
+[ "$custom_wrapper_before" = "$(sha256sum "$compositor" | cut -d' ' -f1)" ]
 printf '#!/bin/sh\n# custom compositor\nexit 0\n' >"$compositor"
 custom_before="$(sha256sum "$compositor" | cut -d' ' -f1)"
 OOONANA_ROOT="$work/root" sh "$ROOT/scripts/install-wsl-desktop-adapter.sh" >/dev/null 2>&1
