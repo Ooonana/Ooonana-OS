@@ -89,6 +89,19 @@ def frame_color(node):
     return tuple(pixbuf.get_pixels()[:3])
 
 
+def matches_frame(actual, expected, theme):
+    if theme != "glass":
+        return actual == expected
+    # App glass mixes 12% of the current backdrop into the managed frame.
+    return all(round(channel * .88) - 1 <= pixel <= round(channel * .88 + 255 * .12) + 1
+               for pixel, channel in zip(actual, expected))
+
+
+def has_app_glass(window):
+    value = subprocess.check_output(["xprop", "-id", str(window), "_OOONANA_GLASS_APP"], text=True)
+    return value.rstrip().endswith(' = "1"')
+
+
 def capture(name):
     settle(.25)
     root = Gdk.get_default_root_window()
@@ -169,15 +182,18 @@ with tempfile.TemporaryDirectory(prefix="ooonana-frame-theme-") as temporary:
             (output / (selected + "-apply.log")).write_text(result.stdout + result.stderr)
             assert "Theme:" not in result.stderr, result.stderr
             assert preference.read_text() == selected + "\n"
+            wait(lambda: all(has_app_glass(node["window"]) == (selected == "glass")
+                             for node, _workspace in leaves().values()), "Glass policy did not follow " + selected)
             palette = PALETTES["dark" if selected == "glass" else selected]
             expected = tuple(bytes.fromhex(palette["focused"][0][1:]))
-            wait(lambda: sample("FrameA") == expected, "Focused frame did not repaint " + selected + " " + str(sample("FrameA")))
+            wait(lambda: matches_frame(sample("FrameA"), expected, selected),
+                 "Focused frame did not repaint " + selected + " " + str(sample("FrameA")))
             assert state() == baseline, "Theme update changed clients/focus/geometry/workspace/scratchpad"
             assert wm.poll() is None and sentinel.read_text().splitlines() == ["initial"], "Theme update restarted WM/autostarts"
             assert server.read("RESOURCE_MANAGER").startswith(custom), "Unrelated X resources changed"
             inactive = sample("FrameB")
             candidates = [tuple(bytes.fromhex(palette[role][0][1:])) for role in ("unfocused", "focused_inactive")]
-            assert inactive in candidates, (selected, inactive, candidates)
+            assert any(matches_frame(inactive, candidate, selected) for candidate in candidates), (selected, inactive, candidates)
             manager.refresh()
             capture(selected + "-live-frames")
             print("FRAME_THEME_LIVE_OK", selected, expected, "inactive", inactive, "wm-scale", manager.control_scale, flush=True)

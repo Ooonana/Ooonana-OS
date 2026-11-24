@@ -143,6 +143,22 @@ awk -v wrapper="$compositor" -v policy="$policy" '
   }
 ' "$ROOT/scripts/build-full-i3-rootfs.sh" >"$work/compositor-route"
 [ "$(PATH="${compositor%/*}:$PATH" sh -e "$work/compositor-route")" = "$policy/picom-wsl-default.conf" ]
+# A WSL import on Core 0.10.10 copied this earlier Glass policy.
+awk '
+  /^corner-radius/ {
+    print "# Separable convolution works with both GLX and the WSL XRender backend."
+    print "blur-method = \"kernel\";"
+    print "blur-kern = \"13,1,1,1,1,1,1,1,1,1,1,1,1,1;1,13,1,1,1,1,1,1,1,1,1,1,1,1\";"
+    print "blur-background = true;"
+    print "blur-background-fixed = true;"
+    print "blur-background-exclude = ["
+    print "  \"!(_OOONANA_GLASS@ = '\''1'\'' || name = '\''ooonana-glass-panel'\'' || name = '\''ooonana-glass-dock'\'')\""
+    print "];"
+  }
+  { print }
+' "$policy/picom-wsl.conf" >"$work/previous-glass.conf"
+mv -- "$work/previous-glass.conf" "$policy/picom-wsl.conf"
+[ "$(PATH="${compositor%/*}:$PATH" sh -e "$work/compositor-route")" = "$policy/picom-wsl-default.conf" ]
 printf '# User preference\n' >>"$policy/picom-wsl.conf"
 [ "$(PATH="${compositor%/*}:$PATH" sh -e "$work/compositor-route")" = "$policy/picom.conf" ]
 printf '#!/bin/sh\n# custom compositor\nexit 0\n' >"$compositor"

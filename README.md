@@ -1177,9 +1177,9 @@ OOONANA_THEME=light ooonana setup --first-boot --gui
 ```
 
 New desktops use Glass. In **Settings → Appearance → Color theme**, choose
-Glass, Graphite, or Paper. Picom blurs the backdrop under the Glass panel,
-dock, launcher, and flyouts. When compositing is unavailable, those surfaces
-use a solid tint.
+Glass, Graphite, or Paper. Picom blurs the backdrop under app windows, the panel,
+dock, launcher, and flyouts. Windows use a lighter effect for legibility,
+with solid fullscreen rendering and an opaque fallback without compositing.
 
 The installer saves the chosen theme in `/etc/ooonana/theme`. i3 reads it through
 `ooonana-theme-env` on boot. Inside i3, `Mod+Shift+T` cycles themes, `Mod+Shift+A`
@@ -1429,9 +1429,9 @@ ooonana update && ooonana upgrade
 Open **Settings → System → Open Updates** for the same workflow on the
 desktop. A major Core upgrade on Live requires a fresh ISO.
 
-Core 0.10.10 adds Clear Glass. Restart the i3 desktop after upgrading to load
-the new compositor policy. Choose **Glass** under **Settings → Appearance**.
-Fresh desktops start in Glass.
+Core 0.10.11 extends Clear Glass to regular app windows and dialogs.
+Restart the i3 desktop after upgrading to load the new compositor policy.
+Choose **Glass** under **Settings → Appearance**. Fresh desktops start in Glass.
 
 Core 0.10.9 adds selectable Wi-Fi and Bluetooth signal maps and preserves saved
 Wi-Fi profiles until a replacement connects. Confirm Bluetooth pairing in

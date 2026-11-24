@@ -356,7 +356,7 @@ class SettingsWindow(Gtk.Window):
         page = self.page("Appearance", "Choose your theme and wallpaper.")
         page.set_spacing(16)
         page.set_border_width(20)
-        theme = section("Color theme", "Glass softens the desktop behind panels and menus.", "preferences-desktop-theme-symbolic")
+        theme = section("Color theme", "Glass blurs the backdrop behind app windows, panels and menus.", "preferences-desktop-theme-symbolic")
         row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         self.theme_combo = Gtk.ComboBoxText()
         self.theme_combo.get_accessible().set_name("Color theme")

@@ -630,9 +630,11 @@ PY_QTERMINAL_DEFAULTS
     # Use the current packaged policy for that copy and honor edited adapters.
     if [ "$compositor" = /usr/local/bin/picom ] && [ ! -L "$compositor" ] &&
        [ ! -L "$legacy" ] && [ -f "$legacy" ] && [ -s "$packaged" ] &&
-       [ "$(sha256sum "$compositor" | cut -d' ' -f1)" = 119c7b014d2d4851c9163ddb3b53ea448583b1318f4e79c40abb04e66e2d0675 ] &&
-       [ "$(sha256sum "$legacy" | cut -d' ' -f1)" = 3e7cdda75f620c17217a9dc9f7d618e4e340f3c75306da64e8942c54786f2d6c ]; then
-      config="$packaged"
+       [ "$(sha256sum "$compositor" | cut -d' ' -f1)" = 119c7b014d2d4851c9163ddb3b53ea448583b1318f4e79c40abb04e66e2d0675 ]; then
+      case "$(sha256sum "$legacy" | cut -d' ' -f1)" in
+        3e7cdda75f620c17217a9dc9f7d618e4e340f3c75306da64e8942c54786f2d6c|e2b0e8eab098497506299102e309a889d5f7faf8d9a109616e34a8a30739315c)
+          config="$packaged" ;;
+      esac
     fi
     exec "$compositor" --backend xrender --config "$config"
     ;;
@@ -3233,22 +3235,28 @@ use-damage = true;
 unredir-if-possible = true;
 shadow = false;
 fading = false;
-inactive-opacity = 1.0;
-active-opacity = 1.0;
 # Separable convolution works with both GLX and the WSL XRender backend.
 blur-method = "kernel";
 blur-kern = "13,1,1,1,1,1,1,1,1,1,1,1,1,1;1,13,1,1,1,1,1,1,1,1,1,1,1,1";
-blur-background = true;
-blur-background-fixed = true;
-blur-background-exclude = [
-  "!(_OOONANA_GLASS@ = '1' || name = 'ooonana-glass-panel' || name = 'ooonana-glass-dock')"
-];
+detect-client-opacity = true;
 corner-radius = 14;
-rounded-corners-exclude = [
-  "window_type = 'dock'",
-  "window_type = 'desktop'",
-  "class_g = 'OoonanaWindowControls'"
-];
+rules = (
+  {
+    match = "fullscreen || window_type = 'dock' || window_type = 'desktop' || class_g = 'OoonanaWindowControls'";
+    corner-radius = 0;
+  },
+  {
+    match = "!fullscreen && (_OOONANA_GLASS@ = '1' || name = 'ooonana-glass-panel' || name = 'ooonana-glass-dock')";
+    blur-background = true;
+  },
+  {
+    match = "_OOONANA_GLASS_APP@ = '1' && !fullscreen && !override_redirect"
+            " && (window_type = 'normal' || window_type = 'dialog')"
+            " && !(_OOONANA_GLASS@ = '1' || _NET_WM_WINDOW_OPACITY || _NET_WM_WINDOW_OPACITY@)";
+    opacity = 0.88;
+    blur-background = true;
+  }
+);
 EOF
   awk -f "$ROOT/scripts/lib/picom-wsl.awk" "$ROOTFS/etc/ooonana/picom.conf" >"$ROOTFS/etc/ooonana/picom-wsl-default.conf"
 

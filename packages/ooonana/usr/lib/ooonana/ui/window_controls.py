@@ -6,18 +6,24 @@ import hashlib
 import math
 import os
 from pathlib import Path
+import signal
 import threading
 import time
 import sys
 from typing import NamedTuple
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import i3_events
-from common import Gdk, GLib, Gtk, Pango, WINDOW_CONTROL_CSS, window_control_icon, run_async
+from common import Gdk, Gio, GLib, Gtk, Pango, WINDOW_CONTROL_CSS, window_control_icon, run_async
+from theme_watch import AppearanceWatch
 from touchpad_gestures import GENERIC_EVENT, WorkspaceSwipe, XEvent, subscribe, swipe_direction
-from ui_preferences import resolved_theme
+from ui_preferences import config_path, resolved_theme
 
 WIDTH = 66
 FULLSCREEN_HEIGHT = 32
+
+
+class XcbCookie(ctypes.Structure):
+    _fields_ = [("sequence", ctypes.c_uint)]
 
 
 class FullscreenTarget(NamedTuple):
@@ -419,6 +425,12 @@ class Manager:
         self.fullscreen_bar = None
         self.fullscreen_windows = []
         self.fullscreen_timer = 0
+        self.glass_clients = None
+        self.glass_enabled = resolved_theme() == "glass"
+        self.appearance_watch = AppearanceWatch(
+            Gio, GLib, (config_path().with_name("theme"), Path("/etc/ooonana/theme")),
+            resolved_theme, self.appearance_changed,
+        )
         provider = Gtk.CssProvider()
         provider.load_from_data(CSS)
         Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_USER + 1)
@@ -443,6 +455,11 @@ class Manager:
         self.display = self.xlib.XOpenDisplay(None)
         if not self.display:
             raise RuntimeError("X11 display unavailable")
+        self.glass_connection = None
+        try:
+            self.setup_glass_properties()
+        except OSError as error:
+            print(f"App Glass: {error}", file=sys.stderr)
         root = self.xlib.XDefaultRootWindow(self.display)
         self.root = root
         self.xlib.XSelectInput(self.display, root, (1 << 19))
@@ -495,10 +512,59 @@ class Manager:
             window.destroy()
         self.controls.clear()
         self.set_fullscreen_targets([])
+        self.sync_glass({})
         self.placement_seen = None
         self.control_scale = 0
         self.capability_path = None
         return False
+
+    def appearance_changed(self):
+        self.glass_enabled = resolved_theme() == "glass"
+        self.schedule()
+
+    def setup_glass_properties(self):
+        pointer, atom, integer = ctypes.c_void_p, ctypes.c_uint32, ctypes.c_int
+        bridge = ctypes.CDLL("libX11-xcb.so.1")
+        self.xcb = ctypes.CDLL("libxcb.so.1")
+        bridge.XGetXCBConnection.argtypes = [pointer]
+        bridge.XGetXCBConnection.restype = pointer
+        self.xlib.XInternAtom.argtypes = [pointer, ctypes.c_char_p, integer]
+        self.xlib.XInternAtom.restype = ctypes.c_ulong
+        self.glass_property = self.xlib.XInternAtom(self.display, b"_OOONANA_GLASS_APP", 0)
+        self.utf8_string = self.xlib.XInternAtom(self.display, b"UTF8_STRING", 0)
+        self.xcb.xcb_change_property_checked.argtypes = [pointer, ctypes.c_uint8, atom, atom, atom,
+                                                       ctypes.c_uint8, atom, ctypes.c_char_p]
+        self.xcb.xcb_change_property_checked.restype = XcbCookie
+        self.xcb.xcb_delete_property_checked.argtypes = [pointer, atom, atom]
+        self.xcb.xcb_delete_property_checked.restype = XcbCookie
+        self.xcb.xcb_discard_reply.argtypes = [pointer, ctypes.c_uint]
+        self.xcb.xcb_discard_reply.restype = None
+        self.xcb.xcb_flush.argtypes = [pointer]
+        self.xcb.xcb_flush.restype = integer
+        self.glass_connection = bridge.XGetXCBConnection(self.display)
+
+    def sync_glass(self, live_clients):
+        if not self.glass_connection:
+            return
+        clients = live_clients if self.glass_enabled else {}
+        if clients == self.glass_clients:
+            return
+        # Reconcile properties from a previous service instance on first run.
+        previous = live_clients if self.glass_clients is None else self.glass_clients
+        removed = previous.items() - clients.items()
+        added = clients.items() - (self.glass_clients or {}).items()
+        connection = self.glass_connection
+        # Discard checked replies: a client may close after the i3 snapshot.
+        for _identifier, xid in removed:
+            cookie = self.xcb.xcb_delete_property_checked(connection, xid, self.glass_property)
+            self.xcb.xcb_discard_reply(connection, cookie.sequence)
+        for _identifier, xid in added:
+            cookie = self.xcb.xcb_change_property_checked(
+                connection, 0, xid, self.glass_property, self.utf8_string, 8, 1, b"1",
+            )
+            self.xcb.xcb_discard_reply(connection, cookie.sequence)
+        self.xcb.xcb_flush(connection)
+        self.glass_clients = clients
 
     def set_fullscreen_targets(self, targets):
         self.fullscreen_windows = targets
@@ -604,6 +670,7 @@ class Manager:
             self.placement_seen = live
         except (OSError, ValueError, EOFError):
             return self.clear()
+        self.sync_glass(live_xids)
         for identifier in set(self.controls) - set(targets):
             self.controls.pop(identifier).destroy()
         for identifier, target in targets.items():
@@ -628,7 +695,12 @@ def main():
         except BlockingIOError:
             return 0
         manager = Manager()
-        Gtk.main()
+        GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGTERM, Gtk.main_quit)
+        try:
+            Gtk.main()
+        finally:
+            manager.appearance_watch.close()
+            manager.sync_glass({})
     return 0
 
 

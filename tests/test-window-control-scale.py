@@ -175,7 +175,7 @@ def request(path, kind):
 namespace.update(i3_events=SimpleNamespace(socket_path=lambda: socket_name[0], request=request),
                  initial_dialog_targets=lambda *_: {}, initial_app_targets=lambda *_: {})
 owner = SimpleNamespace(controls={}, placement_seen=None, capability_path=None, control_scale=0,
-                        set_fullscreen_targets=lambda _targets: None)
+                        set_fullscreen_targets=lambda _targets: None, sync_glass=lambda _clients: None)
 owner.clear = lambda: namespace["clear"](owner)
 for _ in range(2):
     namespace["refresh"](owner)

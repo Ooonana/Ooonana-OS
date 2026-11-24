@@ -1034,16 +1034,16 @@ assert_contains "$picom_cfg" "use-damage = true"
 assert_contains "$picom_cfg" "unredir-if-possible = true"
 assert_contains "$picom_cfg" "shadow = false"
 assert_contains "$picom_cfg" "fading = false"
-assert_contains "$picom_cfg" "inactive-opacity = 1.0"
-assert_contains "$picom_cfg" "active-opacity = 1.0"
 assert_contains "$picom_cfg" 'blur-method = "kernel"'
 assert_contains "$picom_cfg" "_OOONANA_GLASS@ = '1'"
+assert_contains "$picom_cfg" "_OOONANA_GLASS_APP@ = '1' && !fullscreen && !override_redirect"
+assert_contains "$picom_cfg" "_NET_WM_WINDOW_OPACITY || _NET_WM_WINDOW_OPACITY@"
 picom_wsl_cfg="$(<"$rootfs/etc/ooonana/picom-wsl-default.conf")"
 assert_contains "$picom_wsl_cfg" "use-damage = false"
 assert_contains "$picom_wsl_cfg" "unredir-if-possible = false"
 assert_contains "$picom_wsl_cfg" 'blur-method = "kernel"'
 assert_contains "$picom_cfg" "corner-radius = 14"
-assert_contains "$picom_cfg" "rounded-corners-exclude"
+assert_contains "$picom_cfg" "corner-radius = 0"
 assert_contains "$picom_cfg" "class_g = 'OoonanaWindowControls'"
 assert_contains "$i3_config" 'set_from_resource $of_bg ooonana.i3.focused.background #1b1f26'
 assert_contains "$i3_config" 'client.focused $of_bg $of_bg $of_text $of_indicator $of_bg'
