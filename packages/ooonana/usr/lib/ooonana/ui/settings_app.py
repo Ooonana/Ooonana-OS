@@ -8,7 +8,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from ui_preferences import IDLE_LOCK_MINUTES, config_path, load_preferences, resolved_theme, save_preferences, transition_ms
+from ui_preferences import (
+    DEFAULT_THEME, IDLE_LOCK_MINUTES, THEMES, config_path, load_preferences,
+    resolved_theme, save_preferences, transition_ms,
+)
 from storage_health import storage_health
 from common import (  # noqa: E402
     Gdk,
@@ -350,19 +353,18 @@ class SettingsWindow(Gtk.Window):
         return page
 
     def build_appearance(self):
-        page = self.page("Appearance", "Ooonana dark mode, light mode, wallpaper, and desktop refresh.")
+        page = self.page("Appearance", "Choose your theme and wallpaper.")
         page.set_spacing(16)
         page.set_border_width(20)
-        theme = section("Color theme", "Dark uses black surfaces and sunset-orange focus.", "preferences-desktop-theme-symbolic")
+        theme = section("Color theme", "Glass softens the desktop behind panels and menus.", "preferences-desktop-theme-symbolic")
         row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         self.theme_combo = Gtk.ComboBoxText()
         self.theme_combo.get_accessible().set_name("Color theme")
         self.appearance_actions.append(self.theme_combo)
         self.appearance_rows.append(row)
-        self.theme_combo.append("dark", "Dark")
-        self.theme_combo.append("light", "Light")
-        current = self.current_theme()
-        self.theme_combo.set_active_id(current if current in ("dark", "light") else "dark")
+        for mode, name in THEMES.items():
+            self.theme_combo.append(mode, name)
+        self.theme_combo.set_active_id(self.current_theme())
         row.pack_start(self.theme_combo, True, True, 0)
         theme_apply = button("Apply", "object-select-symbolic", self.apply_selected_theme, "suggested-action")
         self.appearance_actions.append(theme_apply)
@@ -370,7 +372,7 @@ class SettingsWindow(Gtk.Window):
         theme.pack_start(row, False, False, 0)
         page.pack_start(theme, False, False, 0)
 
-        motion = section("Motion", "Short slide transitions; solid backgrounds throughout.", "media-playback-start-symbolic")
+        motion = section("Motion", "Control animations across the desktop.", "media-playback-start-symbolic")
         self.reduce_motion = Gtk.CheckButton.new_with_label("Reduce motion")
         self.reduce_motion.set_active(load_preferences()["reduce_motion"])
         self.reduce_motion.connect("toggled", self.motion_changed)
@@ -696,7 +698,7 @@ class SettingsWindow(Gtk.Window):
 
     @staticmethod
     def current_theme():
-        return resolved_theme() or "dark"
+        return resolved_theme() or DEFAULT_THEME
 
     @staticmethod
     def current_wallpaper():
@@ -751,7 +753,7 @@ class SettingsWindow(Gtk.Window):
             message(self, title + " failed", output or f"Exit status {rc}", Gtk.MessageType.ERROR)
 
     def apply_selected_theme(self, *_args):
-        selected = self.theme_combo.get_active_id() or "dark"
+        selected = self.theme_combo.get_active_id() or DEFAULT_THEME
         if not self.appearance_busy("Applying theme..."):
             return
         path = config_path().with_name("theme")

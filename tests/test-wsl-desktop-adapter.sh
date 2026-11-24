@@ -112,6 +112,39 @@ grep -qx 'unredir-if-possible = false;' "$work/root/etc/ooonana/picom-wsl.conf"
 grep -qx 'corner-radius = 14;' "$work/root/etc/ooonana/picom-wsl.conf"
 [ "$config_before" = "$(sha256sum "$work/root/etc/ooonana/picom.conf" | cut -d' ' -f1)" ]
 [ -x "$compositor" ]
+# Run the packaged startup decision against the exact old WSL adapter and a
+# changed override. Print its choice in place of launching an X11 compositor.
+policy="$work/root/etc/ooonana"
+cat >"$policy/picom-wsl.conf" <<'LEGACY'
+# Ooonana WSL compositor adapter.
+vsync = true;
+use-damage = false;
+unredir-if-possible = false;
+shadow = false;
+fading = false;
+inactive-opacity = 1.0;
+active-opacity = 1.0;
+corner-radius = 14;
+rounded-corners-exclude = [
+  "window_type = 'dock'",
+  "window_type = 'desktop'",
+  "class_g = 'OoonanaWindowControls'"
+];
+LEGACY
+printf 'blur-method = "kernel";\n' >"$policy/picom-wsl-default.conf"
+awk -v wrapper="$compositor" -v policy="$policy" '
+  /^  wsl-compositor\)$/ { inside = 1; next }
+  inside && /^    ;;/ { exit }
+  inside {
+    gsub(/\/usr\/local\/bin\/picom/, wrapper)
+    gsub(/\/etc\/ooonana/, policy)
+    if ($1 == "exec") print "printf %s \"$config\""
+    else print
+  }
+' "$ROOT/scripts/build-full-i3-rootfs.sh" >"$work/compositor-route"
+[ "$(PATH="${compositor%/*}:$PATH" sh -e "$work/compositor-route")" = "$policy/picom-wsl-default.conf" ]
+printf '# User preference\n' >>"$policy/picom-wsl.conf"
+[ "$(PATH="${compositor%/*}:$PATH" sh -e "$work/compositor-route")" = "$policy/picom.conf" ]
 printf '#!/bin/sh\n# custom compositor\nexit 0\n' >"$compositor"
 custom_before="$(sha256sum "$compositor" | cut -d' ' -f1)"
 OOONANA_ROOT="$work/root" sh "$ROOT/scripts/install-wsl-desktop-adapter.sh" >/dev/null 2>&1

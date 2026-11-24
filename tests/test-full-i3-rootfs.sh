@@ -523,6 +523,7 @@ assert_contains "$i3_config" 'bindsym $mod+Shift+o exec ooonana-packages-app'
 assert_contains "$i3_config" "ooonana-panel-start"
 assert_contains "$i3_config" "picom --backend glx --config /etc/ooonana/picom.conf"
 assert_contains "$i3_config" "picom --backend xrender --config /etc/ooonana/picom.conf"
+assert_contains "$i3_config" "ooonana-theme-env wsl-compositor"
 assert_contains "$i3_config" "--backend glx"
 assert_contains "$i3_config" "--backend xrender"
 assert_contains "$i3_config" "dunst -config /etc/ooonana/dunstrc"
@@ -916,7 +917,7 @@ assert_contains "$(<"$rootfs/usr/share/applications/oonana.desktop")" "Exec=ooon
 polybar_cfg="$(<"$rootfs/etc/ooonana/polybar.ini")"
 assert_contains "$polybar_cfg" "Ooonana OS"
 assert_contains "$polybar_cfg" "#ffb21a"
-assert_contains "$polybar_cfg" 'background = ${env:OOONANA_BAR_BACKGROUND:#1b1f26}'
+assert_contains "$polybar_cfg" 'background = ${env:OOONANA_BAR_BACKGROUND:#282e40}'
 assert_contains "$polybar_cfg" "width = 98%"
 assert_contains "$polybar_cfg" "radius = 12"
 assert_contains "$polybar_cfg" "OOONANA_PANEL_LEFT:brand task-view"
@@ -1035,6 +1036,12 @@ assert_contains "$picom_cfg" "shadow = false"
 assert_contains "$picom_cfg" "fading = false"
 assert_contains "$picom_cfg" "inactive-opacity = 1.0"
 assert_contains "$picom_cfg" "active-opacity = 1.0"
+assert_contains "$picom_cfg" 'blur-method = "kernel"'
+assert_contains "$picom_cfg" "_OOONANA_GLASS@ = '1'"
+picom_wsl_cfg="$(<"$rootfs/etc/ooonana/picom-wsl-default.conf")"
+assert_contains "$picom_wsl_cfg" "use-damage = false"
+assert_contains "$picom_wsl_cfg" "unredir-if-possible = false"
+assert_contains "$picom_wsl_cfg" 'blur-method = "kernel"'
 assert_contains "$picom_cfg" "corner-radius = 14"
 assert_contains "$picom_cfg" "rounded-corners-exclude"
 assert_contains "$picom_cfg" "class_g = 'OoonanaWindowControls'"
@@ -1123,7 +1130,7 @@ assert_contains "$wizard_no_target" "Step 1/8 choose target disk: TARGET_REQUIRE
 gui_dry="$("$rootfs/usr/bin/ooonana-gui-installer" --dry-run)"
 assert_contains "$gui_dry" "ooonana-installer-gui --dry-run"
 assert_contains "$gui_dry" "xterm -title Ooonana Installer"
-assert_contains "$gui_dry" "default theme: dark background, orange cursor"
+assert_contains "$gui_dry" "default theme: Glass, orange cursor"
 assert_contains "$gui_dry" "ooonana-install-wizard --dry-run"
 assert_contains "$gui_dry" "OOONANA_GUI_INSTALLER_OK"
 

@@ -138,6 +138,7 @@ for config in \
   mkdir -p "$staging/$(dirname "$config")"
   extract_config "ROOTFS/$config" "$staging/$config"
 done
+awk -f "$ROOT/scripts/lib/picom-wsl.awk" "$staging/etc/ooonana/picom.conf" >"$staging/etc/ooonana/picom-wsl-default.conf"
 mkdir -p "$staging/var/lib/ooonana/packages/files"
 mkdir -p "$staging/var/tmp"
 chmod 1777 "$staging/var/tmp"
@@ -164,6 +165,8 @@ for asset in usr/lib/ooonana/xsettings_session.py usr/lib/ooonana/legacy_gtk_sty
   usr/lib/ooonana/session_control.py usr/lib/ooonana/input_method.py usr/share/ooonana/input-method-profile \
   usr/lib/ooonana/tray_model.py usr/lib/ooonana/tray_service.py usr/lib/ooonana/legacy_tray.py usr/lib/ooonana/ui/tray_app.py \
   usr/lib/ooonana/ui/shell_flyout.py usr/lib/ooonana/ui/shell_pointer.py usr/lib/ooonana/ui/shell_client.py \
+  etc/ooonana/picom-wsl-default.conf \
+  usr/share/themes/OoonanaGlass/gtk-3.0/gtk.css usr/share/themes/OoonanaGlass/gtk-3.0/gtk-dark.css \
   usr/share/themes/OoonanaGraphite/gtk-3.0/gtk.css \
   usr/share/themes/OoonanaPaper/gtk-3.0/gtk.css \
   usr/share/themes/Ooonana/gtk-3.0/common.css; do

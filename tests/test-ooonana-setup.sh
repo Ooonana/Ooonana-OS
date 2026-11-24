@@ -43,7 +43,7 @@ assert_contains "$help" "--network dhcp|static"
 assert_contains "$help" "--interface DEVICE"
 assert_contains "$help" "--user NAME"
 assert_contains "$help" "--password"
-assert_contains "$help" "--theme dark|light"
+assert_contains "$help" "--theme glass|dark|light"
 assert_contains "$help" "--zram-percent N"
 assert_contains "$help" "--disk-swap on|off"
 

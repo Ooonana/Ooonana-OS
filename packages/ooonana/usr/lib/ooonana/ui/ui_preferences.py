@@ -6,6 +6,8 @@ from pathlib import Path
 import tempfile
 
 IDLE_LOCK_MINUTES = (0, 1, 5, 10, 15, 30)
+THEMES = {"glass": "Glass", "dark": "Graphite", "light": "Paper"}
+DEFAULT_THEME = "glass"
 DEFAULTS = {"reduce_motion": False, "remember_notifications": False, "idle_lock_minutes": 0}
 
 
@@ -15,29 +17,30 @@ def config_path():
 
 def resolved_theme():
     """Saved appearance wins over automatic session exports, not explicit pins."""
-    valid = ("dark", "light")
     override = os.environ.get("OOONANA_THEME_OVERRIDE")
-    if override in valid:
+    if override in THEMES:
         return override
     requested = os.environ.get("OOONANA_THEME")
-    if requested in valid and requested != os.environ.get("OOONANA_THEME_INHERITED"):
+    if requested in THEMES and requested != os.environ.get("OOONANA_THEME_INHERITED"):
         return requested
     for path in (config_path().with_name("theme"), Path("/etc/ooonana/theme")):
         try:
             with path.open("rb") as stream:
                 saved = stream.readline(16).decode("ascii").rstrip("\n")
-            if saved in valid:
+            if saved in THEMES:
                 return saved
         except (OSError, UnicodeError):
             pass
-    return requested if requested in valid else None
+    return requested if requested in THEMES else None
 
 
 def refresh_gtk_theme():
     """Refresh owned GTK selection before toolkit initialization; retain custom themes."""
     selected = resolved_theme()
-    if selected and os.environ.get("GTK_THEME", "") in ("", "Adwaita", "Adwaita:dark", "Adwaita-dark", "OoonanaGraphite", "OoonanaPaper"):
-        os.environ["GTK_THEME"] = "Adwaita" + (":dark" if selected == "dark" else "")
+    if selected and os.environ.get("GTK_THEME", "") in (
+        "", "Adwaita", "Adwaita:dark", "Adwaita-dark", "OoonanaGraphite", "OoonanaPaper", "OoonanaGlass"
+    ):
+        os.environ["GTK_THEME"] = "Adwaita" + ("" if selected == "light" else ":dark")
         return selected
     return None
 

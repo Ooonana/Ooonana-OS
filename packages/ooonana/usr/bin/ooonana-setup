@@ -37,7 +37,7 @@ Options:
   --address CIDR        Static address, for example 10.0.2.15/24
   --gateway IP          Static gateway
   --dns LIST            Comma-separated DNS servers
-  --theme dark|light    Write Ooonana UI theme
+  --theme glass|dark|light    Write Ooonana UI theme
   --zram-percent N      Compressed swap: 0, 25, 50, 75, or 100 percent of RAM
   --disk-swap on|off    Activate only swap already listed in installed /etc/fstab
   --cloud-repo URI      Add Ooonana cloud package repo (default: https://ooonana.gitlab.io/ooonana-repo)
@@ -102,7 +102,7 @@ run_gui_setup() {
 
   default_user="${USER_NAME:-ooonana}"
   default_network="${NETWORK_MODE:-dhcp}"
-  default_theme="${THEME:-dark}"
+  default_theme="${THEME:-glass}"
   default_done="TRUE"
   [ "$DONE" -eq 0 ] && default_done="FALSE"
 
@@ -116,7 +116,7 @@ run_gui_setup() {
     --field="Address" "$ADDRESS" \
     --field="Gateway" "$GATEWAY" \
     --field="DNS" "$DNS_SERVERS" \
-    --field="Theme:CB" "$default_theme!dark!light" \
+    --field="Theme:CB" "$default_theme!glass!dark!light" \
     --field="Cloud repo" "$CLOUD_REPO" \
     --field="Mark done:CHK" "$default_done" \
     --button=Cancel:1 --button=Preview:2 --button=Run:0 2>/dev/null)" || rc="$?"
@@ -358,8 +358,8 @@ write_network() {
 write_theme() {
   [ -n "$THEME" ] || return 0
   case "$THEME" in
-    dark|light) ;;
-    *) die "theme must be dark or light" ;;
+    glass|dark|light) ;;
+    *) die "theme must be glass, dark or light" ;;
   esac
   if [ "$DRY_RUN" -eq 1 ]; then
     printf 'would write theme %s\n' "$THEME"
@@ -475,9 +475,9 @@ prompt_first_boot() {
     [ -n "$DNS_SERVERS" ] || { printf 'DNS servers comma-separated [1.1.1.1]: '; read -r answer; DNS_SERVERS="${answer:-1.1.1.1}"; }
   fi
   if [ -z "$THEME" ]; then
-    printf 'Theme dark/light [dark]: '
+    printf 'Theme glass/dark/light [glass]: '
     read -r answer
-    THEME="${answer:-dark}"
+    THEME="${answer:-glass}"
   fi
   if [ -z "$ZRAM_PERCENT" ]; then
     printf 'Compressed swap percent 0/25/50/75/100 [50]: '

@@ -30,7 +30,7 @@ assert_contains "$installer_help" "--yes"
 assert_contains "$installer_help" "--dry-run"
 assert_contains "$installer_help" "--hostname NAME"
 assert_contains "$installer_help" "--user NAME"
-assert_contains "$installer_help" "--theme dark|light"
+assert_contains "$installer_help" "--theme glass|dark|light"
 assert_contains "$installer_help" "--cloud-repo URI"
 assert_contains "$installer_help" "--password-stdin"
 assert_contains "$installer_help" "--kernel PATH"
@@ -212,7 +212,7 @@ for option in user hostname theme; do
   case "$option" in
     user) bad_value=bad/name; expected_error='bad user name' ;;
     hostname) bad_value=bad/name; expected_error='bad hostname' ;;
-    theme) bad_value=unknown; expected_error='theme must be dark or light' ;;
+    theme) bad_value=unknown; expected_error='theme must be glass, dark or light' ;;
   esac
   identity_failure="$(printf 'fixture-password\n' | PATH="$tmp/mutation-bin:$PATH" bash "$INSTALLER" \
     --yes --target "$tmp/identity-target.raw" --source "$tmp/identity-source" \

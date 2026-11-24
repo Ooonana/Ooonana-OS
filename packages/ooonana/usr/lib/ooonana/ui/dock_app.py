@@ -1,4 +1,4 @@
-"""Opaque event-driven dock. Hover previews stay in RAM and never focus windows."""
+"""Event-driven dock. Hover previews stay in RAM and never focus windows."""
 import cairo
 import fcntl
 from importlib.machinery import SourceFileLoader
@@ -13,7 +13,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import i3_events
-from common import Gdk, GLib, Gtk, Pango, apply_theme, light_appearance, run_async
+from common import Gdk, GLib, Gtk, Pango, apply_theme, light_appearance, run_async, use_glass_surface
 from dock_model import PinStore, app_groups, click_target, stable_key, visible_groups
 from ui_preferences import config_path
 import window_menu
@@ -43,6 +43,24 @@ CSS = b"""
 tooltip { background: #1b1f26; color: #f5f5f7; border: 1px solid #414957; border-radius: 12px; padding: 4px; }
 .dock-preview-title { font-size: 10.5pt; font-weight: 700; color: #f5f5f7; }
 .dock-preview-caption { font-size: 9.5pt; color: #b4bdc8; }
+.ooonana-dock.glass-theme { background-color: #282d3e; border-color: #646d86; }
+.ooonana-dock.glass-theme.composited-surface {
+  background-color: transparent;
+  background-image: linear-gradient(to bottom, rgba(28, 30, 35, 0.40), rgba(8, 10, 14, 0.30));
+  border-color: rgba(232, 237, 246, 0.46);
+  border-top-color: rgba(247, 249, 255, 0.72);
+}
+.ooonana-dock.glass-theme button, .ooonana-dock.glass-theme button.active { background-color: transparent; }
+.ooonana-dock.glass-theme button:hover, .ooonana-dock.glass-theme button.active:hover { background-color: #414960; }
+.ooonana-dock.glass-theme button:active, .ooonana-dock.glass-theme button.active:active { background-color: #2a2f41; }
+.ooonana-dock.glass-theme button.drop-target { background-color: #414960; }
+.ooonana-dock.glass-theme separator { background: #72809a; }
+.ooonana-dock.glass-theme.composited-surface button.active label {
+  min-width: 11px;
+  border-radius: 6px;
+  background-color: rgba(8, 10, 14, 0.85);
+  color: #ffe9c4;
+}
 """
 
 LIGHT_CSS = b"""
@@ -127,6 +145,7 @@ class Dock(Gtk.Window):
         self.set_skip_pager_hint(True)
         self.set_type_hint(Gdk.WindowTypeHint.DOCK)
         self.get_style_context().add_class("ooonana-dock")
+        use_glass_surface(self)
         self.theme_provider = Gtk.CssProvider()
         self.theme_settings = Gtk.Settings.get_default()
         self.theme_handler = self.theme_settings.connect("notify::gtk-application-prefer-dark-theme", self.refresh_theme)
@@ -249,7 +268,7 @@ class Dock(Gtk.Window):
         area = self.monitor_geometry()
         width, height = self.get_size()
         self.move(area.x + max(0, (area.width - width) // 2), area.y + area.height - height - 12)
-        # Clip corners without translucent surfaces or compositor dependence.
+        # Match the shaped outline on composited and solid desktops.
         radius = min(DOCK_RADIUS, height // 2, width // 2)
         shape = cairo.Region()
         for y in range(height):

@@ -15,9 +15,10 @@ import gi
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
+gi.require_version("GdkX11", "3.0")
 gi.require_version("Pango", "1.0")
 gi.require_version("PangoCairo", "1.0")
-from gi.repository import Gdk, Gio, GLib, Gtk, Pango, PangoCairo  # noqa: E402
+from gi.repository import Gdk, GdkX11, Gio, GLib, Gtk, Pango, PangoCairo  # noqa: E402
 
 
 CSS = b"""
@@ -181,6 +182,76 @@ separator { background: #adb7c2; }
 """
 
 
+GLASS_CSS = b"""
+window, dialog, .background, .settings-section {
+  background-color: #181b28;
+}
+decoration {
+  background-color: #181b28;
+  border-color: #555c71;
+}
+headerbar {
+  background: linear-gradient(to bottom, #34394c, #262a39);
+  color: #ffcf82;
+  border-bottom-color: #4b5367;
+}
+headerbar .title { color: #ffcf82; }
+.sidebar, menu, tooltip, .card {
+  background-color: #252938;
+  border-color: #4b5367;
+}
+entry, list, treeview, textview, textview text {
+  background-color: #202434;
+  border-color: #555d73;
+}
+.muted, .page-subtitle, .status-neutral, headerbar .subtitle { color: #c4cada; }
+.sidebar row:hover, .sidebar row:selected, .spotlight-results row:selected {
+  background-color: #383e53;
+}
+window.glass-surface {
+  background-color: #282d3e;
+  border-color: #646d86;
+}
+window.glass-surface.composited-surface {
+  background-color: transparent;
+  background-image: linear-gradient(to bottom, rgba(22, 24, 28, 0.66), rgba(8, 10, 14, 0.62));
+  border-color: rgba(232, 237, 246, 0.42);
+  border-top-color: rgba(247, 249, 255, 0.70);
+}
+window.glass-surface.composited-surface decoration {
+  background-color: transparent;
+  border-color: rgba(232, 237, 246, 0.42);
+  border-top-color: rgba(247, 249, 255, 0.70);
+}
+window.glass-surface.composited-surface headerbar {
+  background: rgba(8, 10, 14, 0.12);
+}
+window.glass-surface.composited-surface headerbar .title,
+window.glass-surface.composited-surface .status-warn { color: #ffe9c4; }
+window.glass-surface.composited-surface .muted,
+window.glass-surface.composited-surface .status-neutral,
+window.glass-surface.composited-surface headerbar .subtitle { color: #e9edf4; }
+window.glass-surface.composited-surface .status-good { color: #cef7df; }
+window.glass-surface.composited-surface .status-bad { color: #ffdfdf; }
+window.glass-surface.composited-surface .spotlight-results row {
+  border-top-color: rgba(234, 239, 248, 0.14);
+}
+window.glass-surface .spotlight, window.glass-surface list,
+window.glass-surface viewport, window.glass-surface scrolledwindow {
+  background-color: transparent;
+}
+window.glass-surface .spotlight { border-color: transparent; }
+window.glass-surface scrollbar trough { background-color: rgba(105, 117, 145, 0.16); }
+window.glass-surface scrollbar slider {
+  min-width: 6px;
+  min-height: 6px;
+  margin: 2px;
+  border-radius: 8px;
+  background-color: #6b7690;
+}
+"""
+
+
 def light_appearance():
     selected = resolved_theme()
     if selected:
@@ -208,12 +279,42 @@ _theme_screen = None
 _appearance_watch = None
 
 
+def refresh_glass_surface(window):
+    style = window.get_style_context()
+    if not style.has_class("glass-surface"):
+        return
+    glass = resolved_theme() == "glass"
+    rgba = window.get_screen().get_rgba_visual()
+    composited = rgba is not None and window.get_visual() == rgba and window.is_composited()
+    (style.add_class if glass else style.remove_class)("glass-theme")
+    (style.add_class if composited else style.remove_class)("composited-surface")
+    native = window.get_window()
+    if isinstance(native, GdkX11.X11Window):
+        native.set_utf8_property("_OOONANA_GLASS", "1" if glass and composited else None)
+
+
+def use_glass_surface(window):
+    """Opt owned shell windows into per-pixel alpha before X11 realizes them."""
+    style = window.get_style_context()
+    if style.has_class("glass-surface"):
+        return
+    visual = window.get_screen().get_rgba_visual()
+    if visual is not None:
+        window.set_visual(visual)
+        window.connect("composited-changed", refresh_glass_surface)
+        window.connect_after("realize", refresh_glass_surface)
+    style.add_class("glass-surface")
+    refresh_glass_surface(window)
+
+
 def apply_theme():
     global _theme_provider, _theme_screen, _appearance_watch
     managed = refresh_gtk_theme()
     if _theme_provider is None:
         _theme_provider = Gtk.CssProvider()
-    _theme_provider.load_from_data(CSS + (LIGHT_CSS if light_appearance() else b""))
+    theme = resolved_theme()
+    variant = GLASS_CSS if theme == "glass" else LIGHT_CSS if light_appearance() else b""
+    _theme_provider.load_from_data(CSS + variant)
     screen = Gdk.Screen.get_default()
     if screen and screen != _theme_screen:
         if _theme_screen:
@@ -225,7 +326,7 @@ def apply_theme():
     settings = Gtk.Settings.get_default()
     if settings:
         if managed:
-            settings.set_property("gtk-application-prefer-dark-theme", managed == "dark")
+            settings.set_property("gtk-application-prefer-dark-theme", managed != "light")
         settings.set_property("gtk-enable-animations", not load_preferences()["reduce_motion"])
     paths = (config_path().with_name("theme"), config_path(), Path("/etc/ooonana/theme"))
     if _appearance_watch is None:
@@ -235,6 +336,7 @@ def apply_theme():
         _appearance_watch.set_paths(paths)
     # Drawing areas read semantic colors while painting; preserve window state.
     for window in Gtk.Window.list_toplevels():
+        refresh_glass_surface(window)
         window.queue_draw()
 
 

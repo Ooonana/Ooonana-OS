@@ -259,12 +259,12 @@ client_gtk_theme="${GTK_THEME:-}"
 
 load_theme() {
   inherited="${OOONANA_THEME_INHERITED:-}"
-  case "$inherited" in dark|light) ;; *) inherited="" ;; esac
+  case "$inherited" in glass|dark|light) ;; *) inherited="" ;; esac
   theme="${OOONANA_THEME_OVERRIDE:-}"
   explicit=1
-  case "$theme" in dark|light) ;; *)
+  case "$theme" in glass|dark|light) ;; *)
     theme="${OOONANA_THEME:-}"
-    case "$theme" in dark|light) ;; *) theme="" ;; esac
+    case "$theme" in glass|dark|light) ;; *) theme="" ;; esac
     if [ -z "$theme" ] || [ "$theme" = "$inherited" ]; then explicit=0; fi
     ;;
   esac
@@ -275,7 +275,7 @@ load_theme() {
       [ -f "$theme_file" ] || continue
       candidate=""
       IFS= read -r candidate <"$theme_file" || true
-      case "$candidate" in dark|light) theme="$candidate"; break ;; esac
+      case "$candidate" in glass|dark|light) theme="$candidate"; break ;; esac
     done
     [ -n "$theme" ] || theme="$fallback"
   fi
@@ -294,8 +294,9 @@ load_theme() {
       OOONANA_TEXT_ACCENT="#805600"
       OOONANA_GTK_THEME="Adwaita"
       OOONANA_GTK_DARK="false"
+      xsettings_theme=OoonanaPaper
       ;;
-    *)
+    dark)
       OOONANA_THEME="dark"
       OOONANA_BG="#101317"
       OOONANA_FG="#f5f5f7"
@@ -308,6 +309,22 @@ load_theme() {
       OOONANA_TEXT_ACCENT="#ffb21a"
       OOONANA_GTK_THEME="Adwaita:dark"
       OOONANA_GTK_DARK="true"
+      xsettings_theme=OoonanaGraphite
+      ;;
+    *)
+      OOONANA_THEME="glass"
+      OOONANA_BG="#181b28"
+      OOONANA_FG="#f6f7fb"
+      OOONANA_PANEL="#282e40"
+      OOONANA_PANEL_ALT="#30364a"
+      OOONANA_BORDER="#555d73"
+      OOONANA_MUTED="#c4cada"
+      OOONANA_ENTRY="#202434"
+      OOONANA_HOVER="#414960"
+      OOONANA_TEXT_ACCENT="#ffcf82"
+      OOONANA_GTK_THEME="Adwaita:dark"
+      OOONANA_GTK_DARK="true"
+      xsettings_theme=OoonanaGlass
       ;;
   esac
   if [ "$explicit" = 0 ]; then inherited="$OOONANA_THEME"; fi
@@ -336,9 +353,9 @@ load_theme() {
   # GTK_THEME is a process pin, not a live desktop preference. Preserve custom
   # themes and explicit Ooonana pins; automatic clients follow Xsettings.
   case "$client_gtk_theme" in
-    ""|Adwaita|Adwaita:dark|Adwaita-dark|OoonanaGraphite|OoonanaPaper)
+    ""|Adwaita|Adwaita:dark|Adwaita-dark|OoonanaGlass|OoonanaGraphite|OoonanaPaper)
       if [ "$explicit" = 1 ]; then
-        case "$OOONANA_THEME" in light) GTK_THEME=OoonanaPaper ;; *) GTK_THEME=OoonanaGraphite ;; esac
+        GTK_THEME="$xsettings_theme"
         export GTK_THEME
       else unset GTK_THEME; fi
       ;;
@@ -398,7 +415,7 @@ case "${1:-env}" in
     printf 'OOONANA_GTK_THEME="%s"\n' "$OOONANA_GTK_THEME"
     printf 'OOONANA_GTK_DARK="%s"\n' "$OOONANA_GTK_DARK"
     case "$client_gtk_theme" in
-      ""|Adwaita|Adwaita:dark|Adwaita-dark|OoonanaGraphite|OoonanaPaper)
+      ""|Adwaita|Adwaita:dark|Adwaita-dark|OoonanaGlass|OoonanaGraphite|OoonanaPaper)
         if [ "$explicit" = 1 ]; then printf 'GTK_THEME="%s"\n' "$GTK_THEME"
         else printf 'unset GTK_THEME\n'; fi ;;
     esac
@@ -413,7 +430,6 @@ case "${1:-env}" in
     config_home="${XDG_CONFIG_HOME:-${HOME:-/root}/.config}"
     mkdir -p "$config_home/gtk-3.0"
     mkdir -p "$config_home/ooonana"
-    case "$OOONANA_THEME" in light) xsettings_theme=OoonanaPaper ;; *) xsettings_theme=OoonanaGraphite ;; esac
     # Merge presentation-owned values; retain user fonts, DPI and unknown keys.
     python3 - "$config_home" "$OOONANA_GTK_DARK" "$xsettings_theme" "$XCURSOR_THEME" "$XCURSOR_SIZE" <<'PY_GTK_SETTINGS'
 import configparser
@@ -605,9 +621,25 @@ PY_QTERMINAL_DEFAULTS
       esac
     fi
     ;;
+  wsl-compositor)
+    compositor="$(command -v picom)" || exit 0
+    config=/etc/ooonana/picom.conf
+    legacy=/etc/ooonana/picom-wsl.conf
+    packaged=/etc/ooonana/picom-wsl-default.conf
+    # Prior WSL installs generated an exact private copy of the stock config.
+    # Use the current packaged policy for that copy and honor edited adapters.
+    if [ "$compositor" = /usr/local/bin/picom ] && [ ! -L "$compositor" ] &&
+       [ ! -L "$legacy" ] && [ -f "$legacy" ] && [ -s "$packaged" ] &&
+       [ "$(sha256sum "$compositor" | cut -d' ' -f1)" = 119c7b014d2d4851c9163ddb3b53ea448583b1318f4e79c40abb04e66e2d0675 ] &&
+       [ "$(sha256sum "$legacy" | cut -d' ' -f1)" = 3e7cdda75f620c17217a9dc9f7d618e4e340f3c75306da64e8942c54786f2d6c ]; then
+      config="$packaged"
+    fi
+    exec "$compositor" --backend xrender --config "$config"
+    ;;
   toggle)
     case "$OOONANA_THEME" in
       dark) write_theme light ;;
+      light) write_theme glass ;;
       *) write_theme dark ;;
     esac
     unset OOONANA_THEME OOONANA_THEME_OVERRIDE
@@ -644,7 +676,7 @@ EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/gtk-3.0/settings.ini" <<'EOF'
 [Settings]
-gtk-theme-name=OoonanaGraphite
+gtk-theme-name=OoonanaGlass
 gtk-application-prefer-dark-theme=true
 gtk-icon-theme-name=Adwaita
 gtk-cursor-theme-name=OoonanaTailless
@@ -657,7 +689,7 @@ EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/root/.config/gtk-3.0/settings.ini" <<'EOF'
 [Settings]
-gtk-theme-name=OoonanaGraphite
+gtk-theme-name=OoonanaGlass
 gtk-application-prefer-dark-theme=true
 gtk-icon-theme-name=Adwaita
 gtk-cursor-theme-name=OoonanaTailless
@@ -2357,7 +2389,7 @@ theme_status() {
   else
     theme="${OOONANA_THEME:-dark}"
   fi
-  [ -n "$theme" ] || theme="dark"
+  [ -n "$theme" ] || theme="glass"
   printf '%s\n' "$theme"
 }
 
@@ -2434,7 +2466,7 @@ show_category() {
         --text "category screen: System" \
         --list --print-column=2 --column Icon --column Action --column Name --column Description \
         "" overview "Overview" "Status cards and system summary" \
-        "" theme "Theme" "Dark/light theme and apply now" \
+        "" theme "Theme" "Choose Glass, Graphite or Paper" \
         "" power "Power" "Shutdown, restart, logout" 2>/dev/null || true
       ;;
     Hardware)
@@ -2457,7 +2489,7 @@ show_category() {
       yad --center --title "Ooonana Settings - Appearance" --width=820 --height=560 \
         --text "category screen: Appearance" \
         --list --print-column=2 --column Icon --column Action --column Name --column Description \
-        "" theme "Theme" "Dark/light theme" \
+        "" theme "Theme" "Choose Glass, Graphite or Paper" \
         "" wallpaper "Wallpaper" "Choose desktop wallpaper" 2>/dev/null || true
       ;;
     Apps|Applications)
@@ -2506,9 +2538,9 @@ $(settings_status_text)" \
 }
 
 set_theme_action() {
-  theme="$(yad --center --title "Ooonana Theme" --form --field "Theme:CB" "dark!light" 2>/dev/null | cut -d'|' -f1 || true)"
+  theme="$(yad --center --title "Ooonana Theme" --form --field "Theme:CB" "glass!dark!light" 2>/dev/null | cut -d'|' -f1 || true)"
   case "$theme" in
-    dark|light)
+    glass|dark|light)
       if [ "$(id -u 2>/dev/null || echo 1)" = "0" ]; then
         mkdir -p /etc/ooonana
         printf '%s\n' "$theme" >/etc/ooonana/theme
@@ -2698,7 +2730,7 @@ AutoEnable = true
 EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/xsettingsd.conf" <<'EOF'
-Net/ThemeName "OoonanaGraphite"
+Net/ThemeName "OoonanaGlass"
 Net/IconThemeName "Adwaita"
 Gtk/FontName "Sans 10"
 Gtk/CursorThemeName "OoonanaTailless"
@@ -2709,8 +2741,8 @@ EOF
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/polybar.ini" <<'EOF'
 [colors]
-background = ${env:OOONANA_BAR_BACKGROUND:#1b1f26}
-background-alt = ${env:OOONANA_BAR_BACKGROUND:#1b1f26}
+background = ${env:OOONANA_BAR_BACKGROUND:#282e40}
+background-alt = ${colors.background}
 foreground = ${env:OOONANA_BAR_FOREGROUND:#f5f5f7}
 accent = ${env:OOONANA_BAR_ACCENT:#ffb21a}
 muted = ${env:OOONANA_BAR_MUTED:#b4bdc8}
@@ -2719,6 +2751,7 @@ cool = ${env:OOONANA_BAR_COOL:#9ec3ff}
 border = ${env:OOONANA_BAR_BORDER:#46505c}
 
 [bar/ooonana]
+wm-name = ${env:OOONANA_PANEL_WINDOW:polybar-ooonana}
 width = 98%
 height = 36
 offset-x = 1%
@@ -2749,6 +2782,7 @@ override-redirect = true
 enable-ipc = true
 
 [bar/ooonana-dock]
+wm-name = ${env:OOONANA_DOCK_WINDOW:polybar-ooonana-dock}
 width = ${env:OOONANA_DOCK_WIDTH:524}
 height = 58
 offset-x = ${env:OOONANA_DOCK_OFFSET:378}
@@ -3201,6 +3235,14 @@ shadow = false;
 fading = false;
 inactive-opacity = 1.0;
 active-opacity = 1.0;
+# Separable convolution works with both GLX and the WSL XRender backend.
+blur-method = "kernel";
+blur-kern = "13,1,1,1,1,1,1,1,1,1,1,1,1,1;1,13,1,1,1,1,1,1,1,1,1,1,1,1";
+blur-background = true;
+blur-background-fixed = true;
+blur-background-exclude = [
+  "!(_OOONANA_GLASS@ = '1' || name = 'ooonana-glass-panel' || name = 'ooonana-glass-dock')"
+];
 corner-radius = 14;
 rounded-corners-exclude = [
   "window_type = 'dock'",
@@ -3208,6 +3250,7 @@ rounded-corners-exclude = [
   "class_g = 'OoonanaWindowControls'"
 ];
 EOF
+  awk -f "$ROOT/scripts/lib/picom-wsl.awk" "$ROOTFS/etc/ooonana/picom.conf" >"$ROOTFS/etc/ooonana/picom-wsl-default.conf"
 
   install -D -m 0644 /dev/stdin "$ROOTFS/etc/ooonana/dunstrc" <<'EOF'
 [global]
@@ -3346,7 +3389,7 @@ form="$(yad --center --title "Install Ooonana OS" --width="$form_width" --height
   --field "User" "ooonana" \
   --field "Password:H" "" \
   --field "Hostname" "ooonana" \
-  --field "Theme:CB" "dark!light" \
+  --field "Theme:CB" "glass!dark!light" \
   --field "Cloud repo" "https://ooonana.gitlab.io/ooonana-repo" \
   --field "Source root" "/" \
   --field "Erase swap MiB!Erase mode only; 0 disables disk swap" "0" 2>/dev/null || true)"
@@ -3483,7 +3526,7 @@ set -eu
 if [ "${1:-}" = "--dry-run" ]; then
   echo "ooonana-installer-gui --dry-run"
   echo "xterm -title Ooonana Installer"
-  echo "default theme: dark background, orange cursor"
+  echo "default theme: Glass, orange cursor"
   echo "ooonana-install-wizard --dry-run"
   echo "OOONANA_GUI_INSTALLER_OK"
   exit 0
@@ -3534,7 +3577,7 @@ SOURCE="/"
 SWAP_SIZE_MIB=0
 USER_NAME="ooonana"
 HOSTNAME_VALUE="ooonana"
-THEME="${OOONANA_THEME:-dark}"
+THEME="${OOONANA_THEME:-glass}"
 CLOUD_REPO="${OOONANA_CLOUD_REPO:-}"
 DEFAULT_CLOUD_REPO="${OOONANA_DEFAULT_CLOUD_REPO:-https://ooonana.gitlab.io/ooonana-repo}"
 PASSWORD_VALUE=""
@@ -3559,7 +3602,7 @@ Options:
   --source PATH   Source root (default: /)
   --user NAME     Installed user (default: ooonana)
   --hostname NAME Installed hostname (default: ooonana)
-  --theme dark|light
+  --theme glass|dark|light
   --cloud-repo URI
   --yes           Skip wizard prompts
   --dry-run       Print installer command only
@@ -3611,7 +3654,7 @@ read_hidden() {
 
 valid_theme() {
   case "$1" in
-    dark|light) return 0 ;;
+    glass|dark|light) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -3807,10 +3850,10 @@ if [ "$YES" -eq 0 ]; then
   HOSTNAME_VALUE="${answer:-$HOSTNAME_VALUE}"
 
   screen "Step 4/8: Theme"
-  printf 'Theme dark/light [%s]: ' "$THEME"
+  printf 'Theme glass/dark/light [%s]: ' "$THEME"
   read -r answer
   THEME="${answer:-$THEME}"
-  valid_theme "$THEME" || die "theme must be dark or light"
+  valid_theme "$THEME" || die "theme must be glass, dark or light"
 
   screen "Step 5/8: Package repo"
   printf 'Repo picker:\n'
@@ -3842,7 +3885,7 @@ fi
 [ -n "$SOURCE" ] || die "source required"
 [ -n "$USER_NAME" ] || die "user required"
 [ -n "$HOSTNAME_VALUE" ] || die "hostname required"
-valid_theme "$THEME" || die "theme must be dark or light"
+valid_theme "$THEME" || die "theme must be glass, dark or light"
 valid_repo_uri "$CLOUD_REPO" || die "bad cloud repo URI: $CLOUD_REPO"
 confirm_root_target
 

@@ -145,6 +145,9 @@ def refresh_frames(path, theme):
 def apply_frames(theme):
     if not os.environ.get("DISPLAY"):
         return False
+    # Glass uses the dark i3 palette. Client decorations own their backgrounds.
+    if theme == "glass":
+        theme = "dark"
     server = XResources()
     try:
         previous = server.read("RESOURCE_MANAGER")
@@ -174,8 +177,8 @@ def apply_frames(theme):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2 or sys.argv[1] not in PALETTES:
-        raise SystemExit("Expected dark or light")
+    if len(sys.argv) != 2 or sys.argv[1] not in (*PALETTES, "glass"):
+        raise SystemExit("Expected glass, dark or light")
     try:
         apply_frames(sys.argv[1])
     except (OSError, ValueError, EOFError) as error:

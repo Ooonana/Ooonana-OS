@@ -26,7 +26,7 @@ from common import (  # noqa: E402
     run,
     transition_ms,
 )
-from ui_preferences import load_preferences
+from ui_preferences import DEFAULT_THEME, THEMES, load_preferences, resolved_theme
 
 
 DEFAULT_REPO = "https://ooonana.gitlab.io/ooonana-repo"
@@ -178,9 +178,9 @@ class SetupWindow(Gtk.Window):
         )
         defaults_grid = self.form_grid()
         self.theme_combo = Gtk.ComboBoxText()
-        self.theme_combo.append("dark", "Dark - graphite and orange")
-        self.theme_combo.append("light", "Light - paper and ink")
-        self.theme_combo.set_active_id("dark")
+        for mode, name in THEMES.items():
+            self.theme_combo.append(mode, name)
+        self.theme_combo.set_active_id(resolved_theme() or DEFAULT_THEME)
         row = field_row(defaults_grid, 0, "Theme", self.theme_combo)
         self.repo_entry = Gtk.Entry()
         self.repo_entry.set_text(DEFAULT_REPO)
@@ -317,7 +317,7 @@ class SetupWindow(Gtk.Window):
             "address": address,
             "gateway": gateway,
             "dns": dns,
-            "theme": self.theme_combo.get_active_id() or "dark",
+            "theme": self.theme_combo.get_active_id() or DEFAULT_THEME,
             "zram_percent": self.zram_combo.get_active_id() or "50",
             "disk_swap": "on" if self.disk_swap_check.get_active() else "off",
             "repo": repo,

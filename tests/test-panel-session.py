@@ -16,12 +16,17 @@ ROOT = Path(__file__).resolve().parents[1]
 SUPERVISOR = ROOT / "packages/ooonana/usr/lib/ooonana/panel_session.py"
 spec = importlib.util.spec_from_file_location("panel_palette", SUPERVISOR)
 palette = importlib.util.module_from_spec(spec); spec.loader.exec_module(palette)
-for theme, expected in (("dark", "#1b1f26"), ("light", "#ffffff")):
+for theme, expected in (("dark", "#1b1f26"), ("light", "#ffffff"), ("glass", "#282e40")):
     with patch.object(palette, "resolved_theme", return_value=theme):
         colors = palette.palette_environment()
+        composited = palette.palette_environment(composited=True)
     assert colors["OOONANA_BAR_BACKGROUND"] == expected
-    assert len(colors) == 7 and all(len(value) == 7 and value.startswith("#") for value in colors.values())
-    assert set(colors) == {"OOONANA_BAR_" + name for name in ("BACKGROUND", "FOREGROUND", "ACCENT", "MUTED", "URGENT", "COOL", "BORDER")}
+    assert colors["OOONANA_PANEL_WINDOW"] == "polybar-ooonana"
+    if theme == "glass":
+        assert composited["OOONANA_BAR_BACKGROUND"] == "#a40d1015"
+        assert composited["OOONANA_PANEL_WINDOW"] == "ooonana-glass-panel"
+    else:
+        assert colors == composited
 
 
 def wait(predicate, message, seconds=8):

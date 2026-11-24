@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "packages/ooonana/usr/lib/ooonana/ui"))
-from ui_preferences import resolved_theme
+from ui_preferences import DEFAULT_THEME, resolved_theme
 
 SOURCE = (ROOT / "scripts/build-full-i3-rootfs.sh").read_text()
 HELPER = SOURCE.split('"$ROOTFS/usr/bin/ooonana-theme-env" <<\'EOF\'\n', 1)[1].split("\nEOF", 1)[0]
@@ -35,7 +35,7 @@ class SettingsThemeStorage(unittest.TestCase):
 
     def test_regular_theme_is_private_and_replaceable(self):
         path = self.base / "config/ooonana/theme"
-        for theme in (b"light\n", b"dark\n"):
+        for theme in (b"glass\n", b"light\n", b"dark\n"):
             self.write(path, theme)
             self.assertEqual(path.read_bytes(), theme)
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
@@ -97,11 +97,19 @@ class ThemeSelection(unittest.TestCase):
             if line.startswith(("OOONANA_THEME=", "OOONANA_THEME_INHERITED=", "GTK_THEME=")):
                 name, value = line.split("=", 1)
                 shell[name] = shlex.split(value)[0]
-        self.assertEqual(shell["OOONANA_THEME"], native or "dark")
+        self.assertEqual(shell["OOONANA_THEME"], native or DEFAULT_THEME)
         return native, shell
 
+    def test_glass_default_and_explicit_pin(self):
+        _, shell = self.select()
+        self.assertEqual(shell["OOONANA_THEME"], "glass")
+        self.assertEqual(shell["OOONANA_THEME_INHERITED"], "glass")
+        self.assertNotIn("GTK_THEME", shell)
+        _, shell = self.select(OOONANA_THEME_OVERRIDE="glass")
+        self.assertEqual(shell["GTK_THEME"], "OoonanaGlass")
+
     def test_saved_theme_supersedes_automatic_session_export(self):
-        for saved, inherited in (("light", "dark"), ("dark", "light")):
+        for saved, inherited in (("light", "dark"), ("dark", "glass"), ("glass", "light")):
             self.user.write_text(saved + "\n")
             native, shell = self.select(OOONANA_THEME=inherited, OOONANA_THEME_INHERITED=inherited)
             self.assertEqual(native, saved)

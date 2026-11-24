@@ -44,7 +44,7 @@ Options:
   --mount-point PATH  Temporary mount point (default: /run/ooonana-target)
   --hostname NAME     Write installed hostname
   --user NAME         Create installed user
-  --theme dark|light  Write installed UI theme
+  --theme glass|dark|light  Write installed UI theme
   --cloud-repo URI    Write Ooonana cloud package repo
   --password-stdin    Read password for --user from stdin
   --kernel PATH       Kernel to install as /boot/vmlinuz
@@ -286,8 +286,8 @@ validate_identity_options() {
   fi
   [[ -z "$HOSTNAME_VALUE" ]] || valid_hostname "$HOSTNAME_VALUE" || die "bad hostname: $HOSTNAME_VALUE"
   case "$THEME" in
-    ''|dark|light) ;;
-    *) die 'theme must be dark or light' ;;
+    ''|glass|dark|light) ;;
+    *) die 'theme must be glass, dark or light' ;;
   esac
 }
 
@@ -686,8 +686,8 @@ write_theme() {
   local root="$1"
   [[ -n "$THEME" ]] || return 0
   case "$THEME" in
-    dark|light) ;;
-    *) die "theme must be dark or light" ;;
+    glass|dark|light) ;;
+    *) die "theme must be glass, dark or light" ;;
   esac
   mkdir -p "$root/etc/ooonana"
   printf '%s\n' "$THEME" > "$root/etc/ooonana/theme"

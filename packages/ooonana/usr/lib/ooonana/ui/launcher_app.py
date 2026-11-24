@@ -6,7 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 if __name__ == "__main__" and sys.argv[1:] in ([], ["--panel"]):
     from shell_client import main as shell_main
     raise SystemExit(shell_main("apps", panel="--panel" in sys.argv))
-from common import Gdk, Gtk, Pango, apply_theme, header, icon, label, launch, message  # noqa: E402
+from common import Gdk, Gtk, Pango, apply_theme, header, icon, label, launch, message, use_glass_surface  # noqa: E402
 from gi.repository import Gio  # noqa: E402
 
 
@@ -47,6 +47,7 @@ class LauncherWindow(Gtk.Window):
             "system-search-symbolic",
         )
         self.set_wmclass("ooonana-spotlight", "OoonanaSpotlight")
+        use_glass_surface(self)
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         root.get_style_context().add_class("spotlight")

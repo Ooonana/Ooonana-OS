@@ -1176,7 +1176,15 @@ OOONANA_THEME=light ooonana-gui-installer
 OOONANA_THEME=light ooonana setup --first-boot --gui
 ```
 
-The installer persists the chosen theme in `/etc/ooonana/theme`; i3 reads it through `ooonana-theme-env` on boot. Inside i3, `Mod+Shift+T` toggles dark/light, `Mod+Shift+A` opens the Ooonana AI app through `ooonana-ai-launch`, `Mod+Shift+S` opens settings through `ooonana-settings-launch`, `Mod+Shift+O` opens the package manager app, and `Mod+Shift+I` opens the installer.
+New desktops use Glass. In **Settings → Appearance → Color theme**, choose
+Glass, Graphite, or Paper. Picom blurs the backdrop under the Glass panel,
+dock, launcher, and flyouts. When compositing is unavailable, those surfaces
+use a solid tint.
+
+The installer saves the chosen theme in `/etc/ooonana/theme`. i3 reads it through
+`ooonana-theme-env` on boot. Inside i3, `Mod+Shift+T` cycles themes, `Mod+Shift+A`
+opens Ooonana AI, `Mod+Shift+S` opens Settings, `Mod+Shift+O` opens Packages,
+and `Mod+Shift+I` opens the installer.
 Saved user appearance (`$XDG_CONFIG_HOME/ooonana/theme`, normally `~/.config/ooonana/theme`) takes priority over automatic session exports. Newly opened native apps and preferred browser/files/editor wrappers refresh their theme; custom GTK themes, caller PATH and existing editor color choices remain untouched. `OOONANA_THEME=light command` still overrides a different inherited value. Use `OOONANA_THEME_OVERRIDE=light command` to force a value even when it matches an inherited session value. Sessions started before this provenance fix need a normal manual desktop relaunch; installing this patch does not restart i3 or promise to recolor every already-open app. Paper-mode third-party outer frames remain under review.
 Extra i3 keys:
 
@@ -1420,6 +1428,10 @@ ooonana update && ooonana upgrade
 
 Open **Settings → System → Open Updates** for the same workflow on the
 desktop. A major Core upgrade on Live requires a fresh ISO.
+
+Core 0.10.10 adds Clear Glass. Restart the i3 desktop after upgrading to load
+the new compositor policy. Choose **Glass** under **Settings → Appearance**.
+Fresh desktops start in Glass.
 
 Core 0.10.9 adds selectable Wi-Fi and Bluetooth signal maps and preserves saved
 Wi-Fi profiles until a replacement connects. Confirm Bluetooth pairing in

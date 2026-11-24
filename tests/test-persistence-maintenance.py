@@ -184,7 +184,9 @@ with tempfile.TemporaryDirectory() as temporary:
         "usr/lib/ooonana/session_services.py", "etc/elogind/logind.conf.d/90-ooonana.conf",
         "usr/lib/ooonana/input_method.py", "usr/share/ooonana/input-method-profile",
         "usr/lib/ooonana/tray_model.py", "usr/lib/ooonana/tray_service.py", "usr/lib/ooonana/legacy_tray.py",
-        "usr/lib/ooonana/ui/tray_app.py", "usr/share/themes/OoonanaGraphite/gtk-3.0/gtk.css",
+        "usr/lib/ooonana/ui/tray_app.py", "etc/ooonana/picom-wsl-default.conf",
+        "usr/share/themes/OoonanaGraphite/gtk-3.0/gtk.css",
+        "usr/share/themes/OoonanaGlass/gtk-3.0/gtk.css", "usr/share/themes/OoonanaGlass/gtk-3.0/gtk-dark.css",
         "usr/lib/ooonana/ui/shell_flyout.py", "usr/lib/ooonana/ui/shell_pointer.py", "usr/lib/ooonana/ui/shell_client.py",
         "usr/share/themes/OoonanaPaper/gtk-3.0/gtk.css", "usr/share/themes/Ooonana/gtk-3.0/common.css",
     )

@@ -36,7 +36,8 @@ class Protocol(unittest.TestCase):
                 settings.parse(text)
 
     def test_named_palettes_and_opaque_shared_styles(self):
-        for name, background in (("OoonanaGraphite", "#101317"), ("OoonanaPaper", "#f5f5f7")):
+        for name, background in (("OoonanaGraphite", "#101317"), ("OoonanaPaper", "#f5f5f7"),
+                                 ("OoonanaGlass", "#181b28")):
             source = (ROOT / f"packages/ooonana/usr/share/themes/{name}/gtk-3.0/gtk.css").read_text()
             self.assertIn('@define-color ooonana_bg ' + background, source)
             self.assertIn('Ooonana/gtk-3.0/common.css', source)

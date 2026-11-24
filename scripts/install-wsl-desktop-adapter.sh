@@ -81,17 +81,7 @@ else
   # CLI-only no-use-damage did not reliably repaint the themed Nemo fixture.
   # Derive a WSL-only config; keep redirection as well as full redraw enabled.
   # Refuse unfamiliar layouts instead of changing a user's custom settings.
-  if ! awk '
-    BEGIN { print "# Ooonana WSL compositor adapter." }
-    /^[[:space:]]*use-damage[[:space:]]*=[[:space:]]*(true|false);[[:space:]]*$/ {
-      print "use-damage = false;"; damage++; next
-    }
-    /^[[:space:]]*unredir-if-possible[[:space:]]*=[[:space:]]*(true|false);[[:space:]]*$/ {
-      print "unredir-if-possible = false;"; redirect++; next
-    }
-    { print }
-    END { if (damage != 1 || redirect != 1) exit 1 }
-  ' "$prefix/etc/ooonana/picom.conf" >"$work/compositor.conf"; then
+  if ! awk -f "$(dirname "$0")/lib/picom-wsl.awk" "$prefix/etc/ooonana/picom.conf" >"$work/compositor.conf"; then
     echo 'WSL compositor: unknown config layout; existing override retained' >&2
     exit 1
   fi

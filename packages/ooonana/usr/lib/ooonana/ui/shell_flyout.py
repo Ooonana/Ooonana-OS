@@ -6,7 +6,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import i3_events
 from shell_client import application_id
-from common import Gdk, Gio, GLib, Gtk, Pango, apply_theme, button, flow_row, header, icon, label, launch, run
+from common import Gdk, Gio, GLib, Gtk, Pango, apply_theme, button, flow_row, header, icon, label, launch, run, use_glass_surface
 
 SPECS = {
     "apps": ("Applications", 560, 520, "bottom"),
@@ -119,6 +119,7 @@ class Flyout:
         window.add(frame)
         window.get_style_context().add_class("shell-flyout")
         window.set_wmclass("ooonana-flyout", "OoonanaFlyout")
+        use_glass_surface(window)
         window.set_role("ooonana-flyout")
         window.set_type_hint(Gdk.WindowTypeHint.UTILITY)
         window.set_skip_taskbar_hint(True)

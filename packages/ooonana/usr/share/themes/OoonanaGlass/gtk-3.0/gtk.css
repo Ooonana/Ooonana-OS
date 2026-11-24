@@ -1,0 +1,17 @@
+/* Named GTK theme for regular client windows. Shell windows own their alpha. */
+@import url("resource:///org/gtk/libgtk/theme/Adwaita/gtk-contained-dark.css");
+@define-color ooonana_bg #181b28;
+@define-color ooonana_fg #f6f7fb;
+@define-color ooonana_accent #ffb21a;
+@define-color ooonana_panel #282e40;
+@define-color ooonana_panel_alt #30364a;
+@define-color ooonana_border #555d73;
+@define-color ooonana_muted #c4cada;
+@define-color ooonana_entry #202434;
+@define-color ooonana_hover #414960;
+@define-color ooonana_text_accent #ffcf82;
+@import url("../../Ooonana/gtk-3.0/common.css");
+
+headerbar {
+  background: linear-gradient(to bottom, #34394c, #262a39);
+}
