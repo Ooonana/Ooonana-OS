@@ -131,8 +131,10 @@ from pathlib import Path
 from types import SimpleNamespace
 source, proof = map(Path, sys.argv[1:])
 function = next(node for node in ast.parse(source.read_text()).body if isinstance(node, ast.FunctionDef) and node.name == "main")
-namespace = dict(fcntl=fcntl, hashlib=hashlib, os=os, Path=Path,
-                 Manager=lambda: proof.write_text("ready"), Gtk=SimpleNamespace(main=signal.pause))
+namespace = dict(fcntl=fcntl, hashlib=hashlib, os=os, Path=Path, signal=signal,
+                 Manager=lambda: proof.write_text("ready"),
+                 Gtk=SimpleNamespace(main=signal.pause, main_quit=lambda: None),
+                 GLib=SimpleNamespace(PRIORITY_DEFAULT=0, unix_signal_add=lambda *_: None))
 exec(compile(ast.Module(body=[function], type_ignores=[]), str(source), "exec"), namespace)
 raise SystemExit(namespace["main"]())
 '''

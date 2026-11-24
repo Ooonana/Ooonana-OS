@@ -119,7 +119,8 @@ with tempfile.TemporaryDirectory(prefix="ooonana-frame-theme-") as temporary:
     preference = base / "config/ooonana/theme"
     preference.parent.mkdir(parents=True)
     preference.write_text("dark\n")
-    env = dict(os.environ, XDG_CONFIG_HOME=str(base / "config"), OOONANA_THEME="dark", OOONANA_THEME_INHERITED="dark")
+    os.environ["XDG_CONFIG_HOME"] = str(base / "config")
+    env = dict(os.environ, OOONANA_THEME="dark", OOONANA_THEME_INHERITED="dark")
     env.pop("OOONANA_THEME_OVERRIDE", None)
     server = XResources()
     original = server.read("RESOURCE_MANAGER")
