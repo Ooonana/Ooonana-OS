@@ -38,8 +38,12 @@ import termios
 master, slave = pty.openpty()
 width = int(sys.argv[1])
 fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 24, width, 0, 0))
-with subprocess.Popen(sys.argv[2:], stdout=slave, stderr=slave,
-                      env=dict(os.environ, TERM="xterm", PYTHONIOENCODING="utf-8")) as cli:
+answer = os.environ.get("OOONANA_TEST_ANSWER")
+prompt = b"Continue? [y/N]"
+recent = b""
+with subprocess.Popen(sys.argv[2:], stdin=slave if answer is not None else subprocess.DEVNULL,
+                      stdout=slave, stderr=slave,
+                      env=dict(os.environ, TERM="xterm-256color", PYTHONIOENCODING="utf-8")) as cli:
     os.close(slave)
     try:
         while True:
@@ -52,6 +56,12 @@ with subprocess.Popen(sys.argv[2:], stdout=slave, stderr=slave,
             if not data:
                 break
             sys.stdout.buffer.write(data)
+            if answer is not None:
+                recent += data
+                if prompt in recent:
+                    os.write(master, (answer + "\n").encode())
+                    answer = None
+                recent = recent[-len(prompt):]
     finally:
         os.close(master)
     sys.exit(cli.wait())
@@ -237,6 +247,10 @@ assert_contains "$sources" "$REPO"
 search="$("$CLI" search graphical)"
 assert_contains "$search" "gui"
 assert_contains "$search" "graphical"
+orange="$(printf '\033[38;5;214m')"
+assert_contains "$(tty_package_command 80 "$CLI" search gui)" "$orange"
+assert_not_contains "$(NO_COLOR=1 tty_package_command 80 "$CLI" search gui)" "$orange"
+assert_not_contains "$search" "$orange"
 
 show="$("$CLI" show gui)"
 assert_contains "$show" "id: gui"
@@ -255,7 +269,15 @@ assert_contains "$install_alias" "would install gui"
 add_alias="$("$CLI" add gui --dry-run)"
 assert_contains "$add_alias" "would install gui"
 
-install="$("$CLI" get ai)"
+declined="$(OOONANA_TEST_ANSWER=n tty_package_command 80 "$CLI" get ai || true)"
+assert_contains "$declined" "Continue? [y/N]"
+assert_contains "$declined" "Cancelled."
+[[ ! -e "$OOONANA_STATE_DIR/installed/ai.pkg" ]] || fail "declined install changed package state"
+install="$(OOONANA_TEST_ANSWER=y tty_package_command 80 "$CLI" get ai)"
+assert_contains "$install" "Continue? [y/N]"
+assert_contains "$install" "Applying 100%"
+assert_contains "$install" "$(printf '\033[24;1H')"
+assert_contains "$install" "$(printf '\033[r')"
 assert_contains "$install" "installed ai"
 assert_contains "$("$CLI" list --installed)" "ai"
 [[ -f "$OOONANA_STATE_DIR/installed/ai.pkg" ]] || fail "missing installed marker"
@@ -263,7 +285,12 @@ assert_contains "$("$CLI" list --installed)" "ai"
 repeat="$("$CLI" get ai)"
 assert_contains "$repeat" "already installed ai"
 
-remove="$("$CLI" remove ai)"
+declined="$(OOONANA_TEST_ANSWER= tty_package_command 80 "$CLI" remove ai || true)"
+assert_contains "$declined" "Cancelled."
+[[ -f "$OOONANA_STATE_DIR/installed/ai.pkg" ]] || fail "default No removed an installed package"
+remove="$(OOONANA_TEST_ANSWER=n tty_package_command 80 "$CLI" remove ai ai --yes)"
+assert_not_contains "$remove" "Continue? [y/N]"
+assert_contains "$remove" "Applying 100%"
 assert_contains "$remove" "removed ai"
 assert_not_contains "$("$CLI" list --installed)" "ai"
 
@@ -836,6 +863,7 @@ assert_contains "$http_upgrade" "KiB/s"
 assert_contains "$http_upgrade" "■■■■■■■■■■  100%"
 assert_contains "${http_upgrade%%Downloading nano*}" "nano 1.0-r0 -> 2.0-r0"
 assert_contains "$http_upgrade" "upgraded nano 1.0-r0 -> 2.0-r0"
+assert_contains "$http_upgrade" "Applying 100%"
 assert_contains "$($http_install_root/usr/bin/nano)" "fake nano v2"
 [[ -f "$(cached_repo "$http_cache/repos/cloud")/archives/nano-2.0-r0.tar.gz" ]] || fail "remote upgrade did not cache archive"
 

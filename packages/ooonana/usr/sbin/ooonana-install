@@ -20,6 +20,8 @@ LOOP_DEV=""
 TARGET_PART=""
 INSTALL_DEVICE=""
 TARGET_MODE=""
+EXPECTED_MODE=""
+EXPECTED_TARGET_TOKEN=""
 TARGET_PARTUUID=""
 HOME_PART=""
 SWAP_PART=""
@@ -30,6 +32,9 @@ FORMAT_HOME=1
 FORMAT_SWAP=1
 FORMAT_EFI=0
 ALLOW_CURRENT_ROOT=0
+ROOT_MOUNTED=0
+HOME_MOUNTED=0
+EFI_MOUNTED=0
 
 usage() {
   cat <<'USAGE'
@@ -40,6 +45,8 @@ Usage:
 
 Options:
   --target PATH       Target disk or ext4 image
+  --target-mode disk|partition  Verify the selected mode against real storage
+  --target-token HEX  Require the same targets as a verified dry-run
   --source PATH       Source root (default: /)
   --mount-point PATH  Temporary mount point (default: /run/ooonana-target)
   --hostname NAME     Write installed hostname
@@ -89,9 +96,13 @@ run_cmd() {
   fi
 }
 
+verify_live_target() {
+  [[ "$DRY_RUN" -eq 0 || -n "$EXPECTED_MODE" ]]
+}
+
 require_commands() {
   local cmd
-  [[ "$DRY_RUN" -eq 0 ]] || return 0
+  verify_live_target || return 0
   for cmd in "$@"; do
     command -v "$cmd" >/dev/null 2>&1 || die "missing command: $cmd"
   done
@@ -131,7 +142,7 @@ detect_target_mode() {
     printf 'partition\n'
     return 0
   fi
-  if [[ "$DRY_RUN" -eq 1 ]]; then
+  if ! verify_live_target; then
     case "$TARGET" in
       /dev/*)
         if looks_like_partition "$TARGET"; then
@@ -149,18 +160,11 @@ detect_target_mode() {
     return 0
   fi
   if [[ -b "$TARGET" ]]; then
-    if command -v lsblk >/dev/null 2>&1; then
-      case "$(lsblk -dn -o TYPE "$TARGET" 2>/dev/null || true)" in
-        disk|loop) printf 'disk\n'; return 0 ;;
-        part) printf 'partition\n'; return 0 ;;
-      esac
-    fi
-    if looks_like_partition "$TARGET"; then
-      printf 'partition\n'
-    else
-      printf 'disk\n'
-    fi
-    return 0
+    case "$(lsblk -dn -o TYPE -- "$TARGET" 2>/dev/null)" in
+      disk|loop) printf 'disk\n'; return 0 ;;
+      part) printf 'partition\n'; return 0 ;;
+    esac
+    die "cannot identify a supported disk or partition: $TARGET"
   fi
   die "target must be block device or existing raw file: $TARGET"
 }
@@ -203,9 +207,13 @@ write_grub_config() {
     run_cmd install -m 0644 "$theme_dir/grub.theme" "$root/boot/grub/theme.txt"
     run_cmd install -m 0644 "$theme_dir/boot-mark.png" "$root/boot/grub/boot-mark.png"
     run_cmd install -m 0644 "$theme_dir/grub-background.png" "$root/boot/grub/background.png"
+    if [[ -d "$theme_dir/grub-ui" ]]; then
+      run_cmd cp -a "$theme_dir/grub-ui" "$root/boot/grub/"
+    fi
     theme_ready=1
   fi
   cat > "$root/boot/grub/grub.cfg" <<EOF
+set enable_progress_indicator=0
 insmod all_video
 serial --unit=0 --speed=115200
 terminal_input console serial
@@ -213,12 +221,18 @@ terminal_output console serial
 set color_normal=yellow/black
 set color_highlight=black/yellow
 set theme=
+set ooonana_gfx_ready=0
 set ooonana_theme_ready=$theme_ready
 if [ "\$ooonana_theme_ready" = 1 ]; then
   if loadfont /boot/grub/fonts/ooonana.pf2; then
     insmod gfxterm
     insmod png
     if terminal_output gfxterm serial; then
+      set ooonana_gfx_ready=1
+    elif terminal_output gfxterm; then
+      set ooonana_gfx_ready=1
+    fi
+    if [ "\$ooonana_gfx_ready" = 1 ]; then
       set theme=/boot/grub/theme.txt
       export theme
     fi
@@ -234,19 +248,22 @@ fi
 set timeout=5
 set default=0
 
-menuentry 'Ooonana OS Full i3' {
+menuentry 'Start Ooonana' --class=ooonana-live {
   linux /boot/vmlinuz $append
 }
 
-submenu 'Audio compatibility' {
-  menuentry 'Full i3 - force Intel SOF audio' {
+submenu 'Audio compatibility' --class=ooonana-audio {
+  menuentry 'Intel SOF' --class=ooonana-audio {
     linux /boot/vmlinuz $append snd_intel_dspcfg.dsp_driver=3
   }
 
-  menuentry 'Full i3 - force legacy Intel HDA audio' {
+  menuentry 'Legacy Intel HDA' --class=ooonana-audio {
     linux /boot/vmlinuz $append snd_intel_dspcfg.dsp_driver=1
   }
 }
+if [ -f /boot/grub/grub-ui/enable.cfg ]; then
+  source /boot/grub/grub-ui/enable.cfg
+fi
 EOF
 }
 
@@ -302,14 +319,15 @@ require_block_or_dry() {
   local path="$1"
   local label="$2"
   [[ -n "$path" ]] || return 0
-  [[ "$DRY_RUN" -eq 1 ]] && return 0
-  [[ -b "$path" ]] || die "$label must be a block device: $path"
+  verify_live_target || return 0
+  [[ -b "$path" && "$(lsblk -dn -o TYPE -- "$path" 2>/dev/null)" == part ]] ||
+    die "$label must be an existing partition: $path"
 }
 
 partition_owner_disk() {
   local path="$1"
   local pkname="" resolved
-  if [[ "$DRY_RUN" -eq 0 ]] && command -v lsblk >/dev/null 2>&1; then
+  if verify_live_target && [[ -b "$path" ]]; then
     pkname="$(lsblk -no PKNAME "$path" 2>/dev/null | sed -n '1p' || true)"
     if [[ -n "$pkname" ]]; then
       printf '/dev/%s\n' "$pkname"
@@ -441,23 +459,70 @@ validate_current_root_safety() {
   fi
 }
 
-validate_target_unmounted() {
-  local mounts
-  [[ "$TARGET_MODE" == "disk" && "$DRY_RUN" -eq 0 && -b "$TARGET" ]] || return 0
-  command -v lsblk >/dev/null 2>&1 || return 0
-  mounts="$(lsblk -nr -o MOUNTPOINTS "$TARGET" 2>/dev/null | sed '/^[[:space:]]*$/d' || true)"
-  [[ -z "$mounts" ]] || die "target disk or child partition is mounted: $TARGET"
+require_writable_unmounted() {
+  local path="$1" mounted_error="$2" mounts readonly
+  mounts="$(lsblk -nr -o MOUNTPOINTS -- "$path" 2>/dev/null)" ||
+    die "cannot check target mounts: $path"
+  [[ "$mounts" != *[![:space:]]* ]] || die "$mounted_error: $path"
+  readonly="$(lsblk -dn -o RO -- "$path" 2>/dev/null)" ||
+    die "cannot check target write access: $path"
+  [[ "$readonly" == 0 ]] || die "target is read-only or unavailable: $path"
 }
 
-validate_install_partitions_unmounted() {
-  local part mounts
-  [[ "$TARGET_MODE" == "partition" && "$DRY_RUN" -eq 0 ]] || return 0
-  command -v lsblk >/dev/null 2>&1 || return 0
-  for part in "$TARGET_PART" "$HOME_PART" "$SWAP_PART" "$EFI_PART"; do
-    [[ -n "$part" ]] || continue
-    mounts="$(lsblk -nr -o MOUNTPOINTS "$part" 2>/dev/null | sed '/^[[:space:]]*$/d' || true)"
-    [[ -z "$mounts" ]] || die "install partition is mounted: $part"
+validate_target_unmounted() {
+  local part mount_path
+  verify_live_target || return 0
+  for mount_path in "$MOUNT_POINT" "$MOUNT_POINT/home" "$MOUNT_POINT/boot/efi"; do
+    if mountpoint -q -- "$mount_path"; then
+      die "installer mount point already in use: $mount_path"
+    fi
   done
+  if [[ "$TARGET_MODE" == disk && -b "$TARGET" ]]; then
+    require_writable_unmounted "$TARGET" 'target disk or child partition is mounted'
+  fi
+  for part in "$TARGET_PART" "$HOME_PART" "$SWAP_PART" "$EFI_PART"; do
+    [[ -b "$part" ]] || continue
+    require_writable_unmounted "$part" 'install partition is mounted'
+  done
+}
+
+target_snapshot() {
+  local path details disk diskseq
+  for path in "$TARGET" "$HOME_PART" "$SWAP_PART" "$EFI_PART"; do
+    [[ -n "$path" ]] || continue
+    diskseq=""
+    if [[ -b "$path" ]]; then
+      details="$(lsblk -bdnr -o KNAME,TYPE,MAJ:MIN,SIZE,START,PARTUUID -- "$path")" &&
+        [[ -n "$details" ]] || die "cannot identify target: $path"
+      disk="$(partition_owner_disk "$path" || printf '%s\n' "$path")"
+      disk="$(readlink -f -- "$disk")" || die "cannot resolve target disk: $path"
+      if [[ -r "/sys/class/block/${disk##*/}/diskseq" ]]; then
+        read -r diskseq <"/sys/class/block/${disk##*/}/diskseq" || die "cannot read target disk sequence: $path"
+      fi
+    else
+      details="$(stat -Lc '%d:%i:%s:%Y:%Z' -- "$path")" || die "cannot identify image: $path"
+    fi
+    printf '%s\t%s\t%s\n' "$path" "$details" "$diskseq"
+  done
+}
+
+verify_target_snapshot() {
+  local snapshot token
+  [[ -n "$EXPECTED_MODE" ]] || return 0
+  require_commands sha256sum
+  snapshot="$(target_snapshot)" || exit 1
+  token="$(printf '%s\n' "$snapshot" | sha256sum)"
+  token="${token%% *}"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'OOONANA_INSTALL_TARGET_TOKEN=%s\n' "$token"
+    printf 'Target: %s\n' "$TARGET"
+    if [[ -b "$TARGET" ]]; then
+      lsblk -dn -o SIZE,MODEL -- "$TARGET" || die "cannot describe target: $TARGET"
+    fi
+    return 0
+  fi
+  [[ -z "$EXPECTED_TARGET_TOKEN" || "$token" == "$EXPECTED_TARGET_TOKEN" ]] ||
+    die 'storage changed since review. Open the installer and review it again.'
 }
 
 mount_extra_partitions() {
@@ -469,6 +534,7 @@ mount_extra_partitions() {
     fi
     run_cmd mkdir -p "$MOUNT_POINT/home"
     run_cmd mount "$HOME_PART" "$MOUNT_POINT/home"
+    [[ "$DRY_RUN" -eq 1 ]] || HOME_MOUNTED=1
   fi
 
   if [[ -n "$EFI_PART" ]]; then
@@ -479,6 +545,7 @@ mount_extra_partitions() {
     fi
     run_cmd mkdir -p "$MOUNT_POINT/boot/efi"
     run_cmd mount "$EFI_PART" "$MOUNT_POINT/boot/efi"
+    [[ "$DRY_RUN" -eq 1 ]] || EFI_MOUNTED=1
   fi
 
   if [[ -n "$SWAP_PART" ]]; then
@@ -559,11 +626,14 @@ write_fstab() {
 unmount_targets() {
   if [[ -n "$EFI_PART" ]]; then
     run_cmd umount "$MOUNT_POINT/boot/efi"
+    EFI_MOUNTED=0
   fi
   if [[ -n "$HOME_PART" ]]; then
     run_cmd umount "$MOUNT_POINT/home"
+    HOME_MOUNTED=0
   fi
   run_cmd umount "$MOUNT_POINT"
+  ROOT_MOUNTED=0
 }
 
 next_uid() {
@@ -860,6 +930,8 @@ prepare_target() {
   # Never skip those guards merely because a split util-linux tool is absent.
   require_commands lsblk
   TARGET_MODE="$(detect_target_mode)"
+  [[ -z "$EXPECTED_MODE" || "$TARGET_MODE" == "$EXPECTED_MODE" ]] ||
+    die "selected mode requires a $EXPECTED_MODE target: $TARGET"
   require_block_or_dry "$HOME_PART" "--home-part"
   require_block_or_dry "$SWAP_PART" "--swap-part"
   require_block_or_dry "$EFI_PART" "--efi-part"
@@ -873,9 +945,13 @@ prepare_target() {
   validate_current_root_safety
   validate_live_media_safety
   validate_target_unmounted
-  validate_install_partitions_unmounted
   validate_disk_extra_parts
   validate_partition_roles_same_disk
+  validate_unique_install_parts
+  if verify_live_target && [[ "$BOOTLOADER" != none && ( "$TARGET_MODE" == disk || -n "$EFI_PART" ) ]]; then
+    [[ -n "$KERNEL_PATH" || -f "$SOURCE/boot/vmlinuz" ]] || die 'source is missing /boot/vmlinuz; pass --kernel PATH'
+  fi
+  verify_target_snapshot
   if [[ "$TARGET_MODE" == "partition" && "$SWAP_SIZE_MIB" -ne 0 ]]; then
     die "--swap-size-mib requires a whole-disk target"
   fi
@@ -938,8 +1014,6 @@ prepare_target() {
       ;;
     *) die "unknown target mode: $TARGET_MODE" ;;
   esac
-  validate_unique_install_parts
-
   if [[ "$TARGET_MODE" == "partition" && "$FORMAT_ROOT" -eq 0 ]]; then
     printf 'keep root filesystem: %s\n' "$TARGET_PART"
   else
@@ -954,6 +1028,7 @@ prepare_target() {
   fi
   run_cmd mkdir -p "$MOUNT_POINT"
   run_cmd mount "$TARGET_PART" "$MOUNT_POINT"
+  [[ "$DRY_RUN" -eq 1 ]] || ROOT_MOUNTED=1
   mount_extra_partitions
 }
 
@@ -993,6 +1068,8 @@ install_bootloader() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --target) TARGET="$2"; shift 2 ;;
+    --target-mode) EXPECTED_MODE="$2"; shift 2 ;;
+    --target-token) EXPECTED_TARGET_TOKEN="$2"; shift 2 ;;
     --source) SOURCE="$2"; shift 2 ;;
     --mount-point) MOUNT_POINT="$2"; shift 2 ;;
     --hostname) HOSTNAME_VALUE="$2"; shift 2 ;;
@@ -1023,7 +1100,16 @@ done
 
 [[ -n "$TARGET" ]] || die "--target required"
 [[ "$YES" -eq 1 ]] || die "--yes required because install formats target"
-[[ "$SWAP_SIZE_MIB" =~ ^[0-9]+$ ]] || die "--swap-size-mib must be a nonnegative integer"
+case "$EXPECTED_MODE" in
+  ''|disk|partition) ;;
+  *) die '--target-mode must be disk or partition' ;;
+esac
+if [[ -n "$EXPECTED_TARGET_TOKEN" ]]; then
+  [[ -n "$EXPECTED_MODE" && "$DRY_RUN" -eq 0 && "$EXPECTED_TARGET_TOKEN" =~ ^[a-f0-9]{64}$ ]] ||
+    die '--target-token requires a verified target mode and a valid token for installation'
+fi
+[[ "$SWAP_SIZE_MIB" =~ ^0*([0-9]{1,6})$ ]] || die "--swap-size-mib must be a nonnegative integer up to 131072"
+SWAP_SIZE_MIB="$((10#${BASH_REMATCH[1]}))"
 if (( SWAP_SIZE_MIB != 0 && (SWAP_SIZE_MIB < 512 || SWAP_SIZE_MIB > 131072) )); then
   die "--swap-size-mib must be 0 or 512..131072"
 fi
@@ -1036,11 +1122,11 @@ case "$BOOTLOADER" in
 esac
 [[ -z "$CLOUD_REPO" ]] || valid_repo_uri "$CLOUD_REPO" || die "bad cloud repo URI: $CLOUD_REPO"
 validate_identity_options
-if [[ "$PASSWORD_STDIN" -eq 1 && "$DRY_RUN" -eq 0 ]]; then
+if [[ "$PASSWORD_STDIN" -eq 1 ]] && verify_live_target; then
   IFS= read -r PASSWORD_VALUE || true
 fi
 
-if [[ "$DRY_RUN" -eq 0 ]]; then
+if verify_live_target; then
   [[ -n "$USER_NAME" && "$PASSWORD_STDIN" -eq 1 && -n "$PASSWORD_VALUE" ]] ||
     die "installed system requires --user NAME and nonempty --password-stdin before formatting"
   [[ "${EUID:-$(id -u)}" -eq 0 ]] || die "run as root"
@@ -1050,14 +1136,14 @@ if [[ "$DRY_RUN" -eq 0 ]]; then
 fi
 
 cleanup() {
-  if [[ "$DRY_RUN" -eq 0 ]] && mountpoint -q "$MOUNT_POINT/boot/efi" 2>/dev/null; then
-    umount "$MOUNT_POINT/boot/efi"
+  if [[ "$EFI_MOUNTED" -eq 1 ]]; then
+    umount "$MOUNT_POINT/boot/efi" || true
   fi
-  if [[ "$DRY_RUN" -eq 0 ]] && mountpoint -q "$MOUNT_POINT/home" 2>/dev/null; then
-    umount "$MOUNT_POINT/home"
+  if [[ "$HOME_MOUNTED" -eq 1 ]]; then
+    umount "$MOUNT_POINT/home" || true
   fi
-  if [[ "$DRY_RUN" -eq 0 ]] && mountpoint -q "$MOUNT_POINT"; then
-    umount "$MOUNT_POINT"
+  if [[ "$ROOT_MOUNTED" -eq 1 ]]; then
+    umount "$MOUNT_POINT" || true
   fi
   if [[ "$DRY_RUN" -eq 0 && -n "$LOOP_DEV" ]]; then
     losetup -d "$LOOP_DEV" 2>/dev/null || true

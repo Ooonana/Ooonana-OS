@@ -106,6 +106,8 @@ write_grub_config() {
   elif [[ -f "$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt" ]]; then
     install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt" "$target/boot/grub/ooonana-logo.txt"
   fi
+  cp -a "$ROOT/packages/ooonana/usr/share/ooonana/grub-ui" "$target/boot/grub/"
+  install -m 0644 "$ROOT/branding/boot-mark.png" "$target/boot/grub/boot-mark.png"
   cat > "$target/boot/grub/theme.txt" <<'EOF'
 title-text: "Ooonana OS"
 title-color: "#f5f5f7"
@@ -114,6 +116,7 @@ terminal-font: "Unifont Regular 16"
 message-color: "#f5f5f7"
 EOF
   cat > "$target/boot/grub/grub.cfg" <<EOF
+set enable_progress_indicator=0
 insmod all_video
 if loadfont /boot/grub/fonts/unicode.pf2; then
   insmod gfxterm
@@ -123,31 +126,40 @@ terminal_input console serial
 terminal_output console serial
 set color_normal=yellow/black
 set color_highlight=black/yellow
+set theme=
+set ooonana_gfx_ready=0
 if terminal_output gfxterm serial; then
-  true
+  set ooonana_gfx_ready=1
+elif terminal_output gfxterm; then
+  set ooonana_gfx_ready=1
 fi
-clear
-echo 'Ooonana OS'
-if [ -f /boot/grub/ooonana-logo.txt ]; then
-  cat /boot/grub/ooonana-logo.txt
-fi
-echo 'Arrows choose a mode. Enter boots.'
 set timeout=5
 set default=0
 
-menuentry 'Ooonana OS Full i3' {
+menuentry 'Start Ooonana' --class=ooonana-live {
   linux /boot/vmlinuz $append
 }
 
-submenu 'Audio compatibility' {
-  menuentry 'Ooonana OS Full i3 - force Intel SOF audio' {
+submenu 'Audio compatibility' --class=ooonana-audio {
+  menuentry 'Intel SOF' --class=ooonana-audio {
     linux /boot/vmlinuz $append snd_intel_dspcfg.dsp_driver=3
   }
 
-  menuentry 'Ooonana OS Full i3 - force legacy Intel HDA audio' {
+  menuentry 'Legacy Intel HDA' --class=ooonana-audio {
     linux /boot/vmlinuz $append snd_intel_dspcfg.dsp_driver=1
   }
 }
+if [ -f /boot/grub/grub-ui/enable.cfg ]; then
+  source /boot/grub/grub-ui/enable.cfg
+fi
+if [ -z "\$theme" ]; then
+  clear
+  echo 'Ooonana OS'
+  if [ -f /boot/grub/ooonana-logo.txt ]; then
+    cat /boot/grub/ooonana-logo.txt
+  fi
+  echo 'Arrows choose a mode. Enter boots.'
+fi
 EOF
 }
 

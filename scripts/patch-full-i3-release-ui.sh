@@ -422,7 +422,7 @@ EOF
   install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana-ai-app" "$payload/ooonana-ai-app"
   install -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana-ai-launch" "$payload/ooonana-ai-launch"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ui/__init__.py" "$payload/root/usr/lib/ooonana/ui/__init__.py"
-  for app in common wireless_utils signal_map setup_app settings_app wifi_app bluetooth_app packages_app ai_app controls_app launcher_app; do
+  for app in common wireless_utils signal_map setup_app installer_app installer_backend settings_app wifi_app bluetooth_app packages_app ai_app controls_app launcher_app; do
     install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ui/$app.py" "$payload/root/usr/lib/ooonana/ui/$app.py"
   done
   install -D -m 0644 /dev/stdin "$payload/root/usr/share/applications/ooonana-apps.desktop" <<'EOF'

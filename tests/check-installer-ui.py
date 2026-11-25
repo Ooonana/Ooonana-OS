@@ -185,12 +185,12 @@ def cancel_dialog(process, default=False):
     if default:
         key("Return")
         settle()
-        check(process.poll() is None or process.returncode != 0,
+        check(process.poll() is None or process.returncode != 10,
               "Enter in read-only preview approved installation")
     if process.poll() is None:
         key("Escape")
     output, _ = process.communicate(timeout=4)
-    check(process.returncode != 0 and not output.strip(), "Default/escape did not cancel review")
+    check(process.returncode not in (0, 10) and not output.strip(), "Default/escape did not cancel review")
 
 
 preview = args.output / "preview.txt"
@@ -220,7 +220,7 @@ with tempfile.TemporaryDirectory(prefix="ooonana-installer-ui-") as temporary:
             time.sleep(.03)
         run_window(command, "installer-form", fill_form)
         review = dialog_command("Ooonana Install Preview", preview)
-        check("--default-button=1" in review, "Final review lacks explicit default Cancel")
+        check("--response=1" in review, "Final review lacks explicit default Cancel")
         run_window(review, "installer-preview", lambda process: cancel_dialog(process, default=True))
         blocked = dialog_command("Ooonana Install Blocked", preview)
         run_window(blocked, "installer-blocked", cancel_dialog)

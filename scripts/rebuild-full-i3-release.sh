@@ -393,7 +393,15 @@ fi
 grep -q 'class MediaWindow' "$ROOT/packages/ooonana/usr/lib/ooonana/ui/controls_app.py"
 grep -q 'exec = ooonana-media-status' "$ROOT/scripts/build-full-i3-rootfs.sh"
 bash "$ROOT/tests/test-logo-sync.sh"
-PYTHONDONTWRITEBYTECODE=1 bash "$ROOT/tests/test-native-ui.sh"
+PYTHONDONTWRITEBYTECODE=1 bash "$ROOT/tests/test-installer.sh"
+bash "$ROOT/tests/test-gui-installer.sh"
+bash "$ROOT/tests/test-ooonana-setup.sh"
+# Small UI fixtures include bounded fsync tests. Keep them off the F: loopback.
+native_ui_tmp="${TMPDIR:-/tmp}"
+if [[ -n "${OOONANA_STAGE_BACKING_IMAGE:-}" ]]; then
+  native_ui_tmp=/tmp
+fi
+TMPDIR="$native_ui_tmp" PYTHONDONTWRITEBYTECODE=1 bash "$ROOT/tests/test-native-ui.sh"
 bash "$ROOT/tests/test-full-i3-live-initramfs.sh"
 bash "$ROOT/tests/test-qemu-service-smoke-source.sh"
 
@@ -462,28 +470,32 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
     die "dbus-daemon-launch-helper has unsafe mode"
   [[ "$(stat -c %g "$ROOTFS/usr/libexec/dbus-daemon-launch-helper")" == "81" ]] ||
     die "dbus-daemon-launch-helper has wrong group"
-  grep -q 'GENERAL.NM-MANAGED' "$ROOTFS/usr/lib/ooonana/ui/wifi_app.py"
+  require_rootfs_text() {
+    grep -Fq -- "$2" "$ROOTFS/$1" || die "generated rootfs check failed: $1 needs $2"
+  }
+  require_rootfs_text usr/lib/ooonana/ui/wifi_app.py 'GENERAL.NM-MANAGED'
   if grep -q 'GENERAL.MANAGED' "$ROOTFS/usr/lib/ooonana/ui/wifi_app.py"; then
     die "generated Wi-Fi UI uses invalid GENERAL.MANAGED field"
   fi
   if grep -q '"device", "set", device, "managed"' "$ROOTFS/usr/lib/ooonana/ui/wifi_app.py"; then
     die "generated Wi-Fi UI changes NetworkManager ownership directly"
   fi
-  grep -q 'WPA2/WPA3 Enterprise' "$ROOTFS/usr/lib/ooonana/ui/wifi_app.py"
-  grep -q 'Nearby LAN devices (green)' "$ROOTFS/usr/lib/ooonana/ui/signal_map.py"
-  grep -q 'wifi.backend=wpa_supplicant' "$ROOTFS/etc/NetworkManager/NetworkManager.conf"
-  grep -q 'auth-polkit=false' "$ROOTFS/etc/NetworkManager/NetworkManager.conf"
-  grep -q 'managed=1' "$ROOTFS/etc/NetworkManager/NetworkManager.conf"
-  grep -q 'start_wpa_supplicant' "$ROOTFS/usr/bin/ooonana-service-repair"
-  grep -q 'org.freedesktop.DBus.StartServiceByName' "$ROOTFS/usr/bin/ooonana-service-repair"
+  require_rootfs_text usr/lib/ooonana/ui/wifi_app.py 'WPA2/WPA3 Enterprise'
+  cmp -s "$ROOT/packages/ooonana/usr/lib/ooonana/ui/signal_map.py" "$ROOTFS/usr/lib/ooonana/ui/signal_map.py" ||
+    die "generated rootfs signal map differs from current source"
+  require_rootfs_text etc/NetworkManager/NetworkManager.conf 'wifi.backend=wpa_supplicant'
+  require_rootfs_text etc/NetworkManager/NetworkManager.conf 'auth-polkit=false'
+  require_rootfs_text etc/NetworkManager/NetworkManager.conf 'managed=1'
+  require_rootfs_text usr/bin/ooonana-service-repair 'start_wpa_supplicant'
+  require_rootfs_text usr/bin/ooonana-service-repair 'org.freedesktop.DBus.StartServiceByName'
   [[ -x "$ROOTFS/usr/bin/ooonana-service-watchdog" ]] ||
     die "generated rootfs missing: ooonana-service-watchdog"
   [[ -x "$ROOTFS/usr/bin/ooonana-media-control" ]] ||
     die "generated rootfs missing: ooonana-media-control"
   [[ -x "$ROOTFS/usr/bin/ooonana-media-status" ]] ||
     die "generated rootfs missing: ooonana-media-status"
-  grep -q 'ooonana-service-repair force-wifi' "$ROOTFS/usr/bin/ooonana-service-watchdog"
-  grep -q 'ooonana-service-repair force-bluetooth' "$ROOTFS/usr/bin/ooonana-service-watchdog"
+  require_rootfs_text usr/bin/ooonana-service-watchdog 'ooonana-service-repair force-wifi'
+  require_rootfs_text usr/bin/ooonana-service-watchdog 'ooonana-service-repair force-bluetooth'
   if grep -q ' -f /var/log/wpa_supplicant.log' "$ROOTFS/usr/bin/ooonana-service-repair"; then
     die "generated supplicant daemon uses foreground logging option"
   fi
@@ -492,10 +504,10 @@ if [[ "$RESUME_AFTER_ISO" -eq 0 ]]; then
   fi
   cmp -s "$ROOTFS/usr/share/ooonana/logo.txt" "$ROOTFS/usr/share/ooonana/boot-logo.txt" ||
     die "generated rootfs boot logo differs from canonical logo"
-  grep -q 'shadow = false' "$ROOTFS/etc/ooonana/picom.conf"
-  grep -q 'governor="schedutil"' "$ROOTFS/etc/init.d/rcS"
-  grep -q '/mnt/ooonana-live/persistence-mode' "$ROOTFS/etc/init.d/rcS"
-  grep -q 'mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /tmp' "$ROOTFS/etc/init.d/rcS"
+  require_rootfs_text etc/ooonana/picom.conf 'shadow = false'
+  require_rootfs_text etc/init.d/rcS 'governor="schedutil"'
+  require_rootfs_text etc/init.d/rcS '/mnt/ooonana-live/persistence-mode'
+  require_rootfs_text etc/init.d/rcS 'mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /tmp'
   python3 "$ROOT/tests/audit-full-i3-runtime.py" "$ROOTFS" --kernel-config "$KERNEL_CONFIG"
   : >"$STAGE_DIR/.ooonana-rootfs-complete"
   if [[ -s "$STAGE_DIR/ooonana-full-i3-rootfs.tar.gz" ]]; then

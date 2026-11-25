@@ -728,6 +728,8 @@ not the still-0.9.9 stable cloud channel. No removable-drive mount is needed.
 
 ## Ooonana Command
 
+Interactive installs, upgrades, removals and purges show the package plan and ask `Continue? [y/N]`. Use `-y` or `--yes` after the command to accept it automatically. `ooonana update` refreshes metadata and lists candidates. Terminal output uses orange highlights, transfer speeds and a bottom progress bar during package changes.
+
 ```bash
 ooonana me
 ooonana setup
@@ -1126,7 +1128,7 @@ ooonana-gui-installer
 ooonana-install-wizard
 ```
 
-`ooonana-installer-gui` uses `yad` windows for install mode, explicit target/root partition, optional `/home`, swap, EFI, format/keep toggles, user/password, hostname, theme, cloud repo, and source root. Erase-disk mode offers an optional disk swap size in MiB (`0` keeps zram only). It requires a successful `ooonana-install --dry-run` preview before enabling installation, writes logs, and offers a fallback shell if install fails. No disk is preselected.
+`ooonana-installer-gui` opens the native desktop wizard. The GRUB install entry opens the same wizard full-screen. Choose a destination, create an account, set system preferences, then review the plan. Custom partition mode offers root, optional `/home` and swap, and EFI with format/keep choices. Erase-disk mode offers optional disk swap in MiB (`0` keeps zram only). Installation requires a successful `ooonana-install --dry-run` preview and rechecks the target identity before writing. The wizard starts with no disk selected. The YAD form remains available through `ooonana-installer-gui --legacy`.
 
 Inside full-i3, the GUI package manager launcher is:
 
@@ -1215,7 +1217,7 @@ Ooonana Task Manager shows searchable/sortable processes and CPU, GPU, RAM, disk
 Persistent live USB:
 
 ```text
-GRUB entry: Ooonana OS Full i3 Live (persistent USB)
+GRUB entry: Persistent USB
 Kernel arg: ooonana.persistence=1
 Persistence label: OOONANA_PERSIST
 ```
@@ -1277,7 +1279,7 @@ The ISO includes `RUFUS.md` at the USB root with the same notes.
 Persistent live mode:
 
 ```text
-GRUB entry: Ooonana OS Full i3 Live (persistent USB)
+GRUB entry: Persistent USB
 Kernel arg: ooonana.persistence=1
 Storage: ooonana-persistence.ext4 on writable boot USB, OR OOONANA_PERSIST partition
 Inner filesystem: ext4
@@ -1304,7 +1306,7 @@ sudo mkfs.ext4 -L OOONANA_PERSIST /dev/sdX3
 Use the second GRUB entry:
 
 ```text
-Ooonana OS Full i3 Live (persistent USB)
+Persistent USB
 ```
 
 Installed-system boot matrix helper:
@@ -1432,6 +1434,11 @@ ooonana update && ooonana upgrade
 Open **Settings → System → Open Updates** for the same workflow on the
 desktop. A major Core upgrade on Live requires a fresh ISO.
 
+Core 0.10.12 adds the native desktop installer, full-screen install wizard,
+and orange package progress with interactive confirmation. Use
+`ooonana update && ooonana upgrade ooonana-core` for the package update.
+Use a fresh ISO for the new GRUB menu and installer boot entry.
+
 Core 0.10.11 extends Clear Glass to regular app windows and dialogs.
 Restart the i3 desktop after upgrading to load the new compositor policy.
 Choose **Glass** under **Settings → Appearance**. Fresh desktops start in Glass.
@@ -1550,7 +1557,7 @@ docs/jarvis-agi-research.md
 
 ## Build From Source
 
-Build a fresh ISO with the Core 0.10.11 candidate packages. The launcher verifies
+Build a fresh ISO with the Core 0.10.12 candidate packages. The launcher verifies
 the signed repository and the F: workspace before building. It replaces the
 previous release ISO after verification.
 
@@ -1561,7 +1568,7 @@ For prepared Windows/WSL release workspace, run in PowerShell:
 $workspace = 'F:\Ooonana\ooonana-os\build-storage\release-stage.ext4'
 $required = if (Test-Path -LiteralPath $workspace) { 8GB } else { 29GB }
 if ((Get-PSDrive F).Free -lt $required) { throw 'Insufficient F: space for build workspace/output.' }
-$repo = '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10.11-signed'
+$repo = '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10.12-signed'
 & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo $repo --preflight-only
 if ($LASTEXITCODE -eq 0) {
     & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo $repo

@@ -38,6 +38,9 @@ packages/ooonana/usr/lib/ooonana/repo/SHA256SUMS text eol=lf
 docs/*.example text eol=lf
 docs/*.txt text eol=lf
 packages/ooonana/usr/share/ooonana/*.txt text eol=lf
+packages/ooonana/usr/share/ooonana/grub-ui/*.cfg text eol=lf
+packages/ooonana/usr/share/ooonana/grub-ui/*.txt text eol=lf
+packages/ooonana/usr/share/ooonana/grub-ui/*.pf2 binary
 configs/packages/*.list text eol=lf
 configs/kernel/*.fragment text eol=lf
 *.md text eol=lf

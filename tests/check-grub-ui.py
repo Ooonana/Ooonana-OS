@@ -17,7 +17,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("output", type=Path)
 parser.add_argument("--geometry", choices=("640x480", "1280x800"), help="Focused geometry regression")
 parser.add_argument("--variant", choices=("full", "minimal", "installed"), default="full")
-parser.add_argument("--installed-fallback", choices=("missing-font", "missing-mark"),
+parser.add_argument("--installed-fallback", choices=("missing-font", "missing-mark", "missing-menu-font"),
                     help="Installed-menu recovery fixture; no real installation")
 args = parser.parse_args()
 work = args.output.resolve()
@@ -51,6 +51,7 @@ if args.variant == "installed":
 mkdir -p "$ISO_TREE/usr/share/ooonana" "$ISO_TREE/boot"
 install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt" "$ISO_TREE/usr/share/ooonana/grub-logo.txt"
 install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/grub.theme" "$ISO_TREE/usr/share/ooonana/grub.theme"
+cp -a "$ROOT/packages/ooonana/usr/share/ooonana/grub-ui" "$ISO_TREE/usr/share/ooonana/"
 install -m 0644 "$ROOT/branding/boot-mark.png" "$ISO_TREE/usr/share/ooonana/boot-mark.png"
 install -m 0644 "$ROOT/branding/grub-background.png" "$ISO_TREE/usr/share/ooonana/grub-background.png"
 install -m 0644 "$KERNEL" "$ISO_TREE/boot/vmlinuz"
@@ -60,6 +61,8 @@ install -m 0644 "$KERNEL" "$ISO_TREE/boot/vmlinuz"
     if args.installed_fallback == "missing-mark":
         # Only this newly created fixture asset is omitted.
         script += 'rm "$ISO_TREE/usr/share/ooonana/boot-mark.png"\n'
+    if args.installed_fallback == "missing-menu-font":
+        script += 'rm "$ISO_TREE/usr/share/ooonana/grub-ui/menu.pf2"\n'
     script += 'write_grub_config "$ISO_TREE" PARTUUID=FIXTURE_NEVER_BOOT\n'
 else:
     script += "\n".join(function(name) for name in ("write_grub_config", "write_rufus_note", "file_size_bytes", "check_iso_mode_file_sizes", "stage_iso_tree")) + "\nstage_iso_tree\n"
@@ -86,6 +89,9 @@ for geometry in (args.geometry,) if args.geometry else ("640x480", "1280x800"):
         asset = volume / "boot/grub" / filename
         if asset.is_file():
             embedded.append("boot/grub/" + filename + "=" + str(asset))
+    for asset in (volume / "boot/grub/grub-ui").rglob("*"):
+        if asset.is_file():
+            embedded.append(asset.relative_to(volume).as_posix() + "=" + str(asset))
     subprocess.run(["grub-mkstandalone", "-O", "x86_64-efi", "-o", str(binary), *embedded], check=True, timeout=45)
     variables = case / "OVMF_VARS.fd"
     shutil.copyfile("/usr/share/OVMF/OVMF_VARS_4M.fd", variables)
@@ -127,12 +133,13 @@ for geometry in (args.geometry,) if args.geometry else ("640x480", "1280x800"):
                     return result["return"]
         command("qmp_capabilities")
         time.sleep(12)
-        def capture(name):
+        def capture(name, modern=True):
             ppm = case / (name + ".ppm")
             command("screendump", {"filename": str(ppm)})
             with Image.open(ppm) as picture:
                 assert picture.size == tuple(map(int, geometry.split("x"))), picture.size
-                if args.variant == "minimal":
+                picture.save(case / (name + ".png"))
+                if args.variant == "minimal" or not modern:
                     # Both selected and ordinary entries must actually render
                     # with readable roles, not merely appear in theme source.
                     width, height = picture.size
@@ -141,23 +148,48 @@ for geometry in (args.geometry,) if args.geometry else ("640x480", "1280x800"):
                     pixels = list(menu.getdata())
                     for role in ((180, 189, 200), (255, 178, 26)):
                         assert sum(pixel == role for pixel in pixels) >= 40, (name, geometry, role)
-                elif args.variant == "installed" and not args.installed_fallback:
+                elif not args.installed_fallback:
                     width, height = picture.size
-                    pixels = list(picture.convert("RGB").crop((int(width * .16),
-                        int(height * .11) + 168, int(width * .84), int(height * .78))).getdata())
-                    for role in ((180, 189, 200), (255, 178, 26)):
+                    left, top = width * 46 // 100 - 40, height * 46 // 100 - 204
+                    right = left + width * 28 // 100 + 190
+                    menu = picture.convert("RGB").crop((left, top + 66, right, top + 372))
+                    pixels = list(menu.getdata())
+                    for role in ((228, 230, 233), (255, 220, 154), (64, 52, 41)):
                         assert sum(pixel == role for pixel in pixels) >= 40, (name, geometry, role)
-                picture.save(case / (name + ".png"))
+                    if args.variant == "full" and name in ("menu", "persistent"):
+                        # All six rows render, including Classic on the shortest framebuffer.
+                        selected = 1 if name == "persistent" else 0
+                        for row in range(6):
+                            text_color = (255, 220, 154) if row == selected else (228, 230, 233)
+                            item = menu.crop((70, row * 51, menu.width - 20, row * 51 + 48))
+                            assert sum(pixel == text_color for pixel in item.getdata()) >= 16, (name, geometry, row)
+                        status_left = width * 74 // 100 + 3
+                        status = picture.convert("RGB").crop((status_left, top + 411, status_left + 121, top + 431))
+                        status_pixels = sum(pixel == (186, 190, 201) for pixel in status.getdata())
+                        assert status_pixels >= 40 if name == "menu" else status_pixels == 0, (name, geometry, "countdown")
             results.append(str(case / (name + ".png")))
-        capture("menu")
-        for _ in range(4 if args.variant == "full" else 1):
-            command("human-monitor-command", {"command-line": "sendkey down"})
-            time.sleep(0.15)
-        if args.variant != "minimal":
-            # Only enter known submenu; never enter a kernel/menu boot entry.
-            command("human-monitor-command", {"command-line": "sendkey ret"})
-        time.sleep(1)
-        capture("install-entry" if args.variant == "minimal" else "audio-submenu")
+
+        def press(key):
+            command("human-monitor-command", {"command-line": "sendkey " + key})
+            time.sleep(0.22)
+
+        capture("menu", modern=args.installed_fallback != "missing-menu-font")
+        if args.variant == "minimal":
+            press("down")
+            capture("install-entry")
+        elif not args.installed_fallback:
+            press("down")
+            if args.variant == "full":
+                capture("persistent")
+                for _ in range(3):
+                    press("down")
+            # Audio and Classic are config-only choices. Never start a kernel fixture.
+            press("ret")
+            capture("audio-submenu")
+            press("esc")
+            press("l")
+            time.sleep(1)
+            capture("classic", modern=False)
         command("quit")
         process.wait(timeout=5)
     finally:

@@ -12,11 +12,15 @@ INITRAMFS="$WORK_DIR/ooonana-full-i3-live-initramfs.cpio.gz"
 ROOTFS_IMAGE="$WORK_DIR/ooonana-full-i3-live-rootfs.ext4"
 FORCE=0
 LIVE_INIT_TREE=""
+ROOTFS_IMAGE_STAGE=""
+INITRAMFS_STAGE=""
 
 cleanup() {
   if [[ -n "${LIVE_INIT_TREE:-}" ]]; then
     rm -rf "$LIVE_INIT_TREE"
   fi
+  [[ -z "$ROOTFS_IMAGE_STAGE" ]] || rm -f -- "$ROOTFS_IMAGE_STAGE"
+  [[ -z "$INITRAMFS_STAGE" ]] || rm -f -- "$INITRAMFS_STAGE"
 }
 trap cleanup EXIT
 
@@ -52,9 +56,15 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+write_live_rootfs_image() {
+  truncate -s 0 "$ROOTFS_IMAGE_STAGE" &&
+    truncate -s "${1}K" "$ROOTFS_IMAGE_STAGE" &&
+    mke2fs -q -t ext4 -m 0 -O '^has_journal' -L OOONANA_LIVE -d "$ROOTFS" "$ROOTFS_IMAGE_STAGE"
+}
+
 main() {
   ooonana_require_linux
-  ooonana_require_commands cp cpio dirname du find gzip install ln mkdir mke2fs rm truncate
+  ooonana_require_commands cp cpio dirname du e2fsck find gzip install ln mkdir mke2fs mktemp mv rm truncate
   [[ -d "$ROOTFS" ]] || ooonana_die "missing full-i3 rootfs: $ROOTFS"
   [[ -f "$ROOTFS/etc/ooonana/edition" ]] || ooonana_die "missing full-i3 edition marker: $ROOTFS"
   grep -qx 'full-i3' "$ROOTFS/etc/ooonana/edition" || ooonana_die "rootfs is not full-i3: $ROOTFS"
@@ -68,18 +78,25 @@ main() {
   if [[ -e "$ROOTFS_IMAGE" && "$FORCE" -ne 1 ]]; then
     ooonana_die "live rootfs image exists: $ROOTFS_IMAGE (use --force)"
   fi
+  [[ ! -d "$INITRAMFS" && ! -d "$ROOTFS_IMAGE" ]] || ooonana_die 'live output paths must be files'
 
   mkdir -p "$(dirname "$INITRAMFS")" "$(dirname "$ROOTFS_IMAGE")" "$ROOTFS/boot" "$ROOTFS/dev" "$ROOTFS/proc" "$ROOTFS/sys" "$ROOTFS/run" "$ROOTFS/tmp" "$ROOTFS/mnt"
   install -m 0644 "$KERNEL" "$ROOTFS/boot/vmlinuz"
   rm -rf "${ROOTFS:?}/dev/"* "${ROOTFS:?}/proc/"* "${ROOTFS:?}/sys/"* "${ROOTFS:?}/run/"* "${ROOTFS:?}/tmp/"* 2>/dev/null || true
-  rm -f "$INITRAMFS" "$ROOTFS_IMAGE"
+  ROOTFS_IMAGE_STAGE="$(mktemp "${ROOTFS_IMAGE}.building.XXXXXXXX")"
+  INITRAMFS_STAGE="$(mktemp "${INITRAMFS}.building.XXXXXXXX")"
 
-  local used_kb image_kb
+  local used_kb check_log
   read -r used_kb _ < <(du -sk "$ROOTFS")
   # Live writes go to overlayfs, so root image needs metadata headroom only.
-  image_kb=$((used_kb + used_kb / 8 + 131072))
-  truncate -s "${image_kb}K" "$ROOTFS_IMAGE"
-  mke2fs -q -t ext4 -m 0 -O '^has_journal' -L OOONANA_LIVE -d "$ROOTFS" "$ROOTFS_IMAGE"
+  if ! write_live_rootfs_image "$((used_kb + used_kb / 16 + 65536))"; then
+    ooonana_log 'Retrying live rootfs creation with the original headroom'
+    write_live_rootfs_image "$((used_kb + used_kb / 8 + 131072))" || ooonana_die 'could not create live rootfs image'
+  fi
+  if ! check_log="$(e2fsck -fn "$ROOTFS_IMAGE_STAGE" 2>&1)"; then
+    printf '%s\n' "$check_log" >&2
+    ooonana_die 'live rootfs image failed filesystem verification'
+  fi
 
   LIVE_INIT_TREE="$(mktemp -d)"
   mkdir -p "$LIVE_INIT_TREE/bin" "$LIVE_INIT_TREE/sbin" "$LIVE_INIT_TREE/lib" "$LIVE_INIT_TREE/dev" "$LIVE_INIT_TREE/proc" "$LIVE_INIT_TREE/sys" "$LIVE_INIT_TREE/mnt/iso" "$LIVE_INIT_TREE/mnt/root-ro" "$LIVE_INIT_TREE/cow" "$LIVE_INIT_TREE/newroot" "$LIVE_INIT_TREE/usr/share/ooonana"
@@ -442,10 +459,11 @@ EOF
 
   (
     cd "$LIVE_INIT_TREE"
-    find . -print0 | cpio --null -ov --format=newc 2>/dev/null | gzip -n > "$INITRAMFS"
-  )
-  chmod a+rw "$INITRAMFS"
-  chmod a+rw "$ROOTFS_IMAGE"
+    find . -print0 | cpio --null -ov --format=newc 2>/dev/null | gzip -n
+  ) > "$INITRAMFS_STAGE"
+  chmod a+rw "$INITRAMFS_STAGE" "$ROOTFS_IMAGE_STAGE"
+  mv -fT -- "$ROOTFS_IMAGE_STAGE" "$ROOTFS_IMAGE"
+  mv -fT -- "$INITRAMFS_STAGE" "$INITRAMFS"
   ooonana_log "full-i3 live initramfs ready: $INITRAMFS"
   ooonana_log "full-i3 live rootfs image ready: $ROOTFS_IMAGE"
 }

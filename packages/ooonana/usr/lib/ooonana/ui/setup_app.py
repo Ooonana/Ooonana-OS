@@ -60,42 +60,27 @@ class SetupWindow(Gtk.Window):
         self.first_boot = first_boot
         self.set_default_size(800, 600)
         self.set_position(Gtk.WindowPosition.CENTER)
-        header(self, "Ooonana Setup", "First boot and system defaults", "system-run-symbolic")
+        header(self, "Ooonana Setup", icon_name="system-run-symbolic")
         self.stack_fields = self.create_pango_layout("Compressed swap").get_pixel_size()[0] > self.get_default_size().width * .28
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.add(root)
-
-        hero = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        hero.get_style_context().add_class("hero")
-        hero.set_border_width(0)
-        hero.pack_start(label("Welcome to Ooonana OS", "hero-title"), False, False, 0)
-        hero.pack_start(
-            label(
-                "Create your everyday account, choose network defaults, and connect the cloud package repository.",
-                "page-subtitle",
-            ),
-            False,
-            False,
-            0,
-        )
 
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scroll.set_kinetic_scrolling(True)
         scroll.set_overlay_scrolling(False)
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
-        content.set_border_width(20)
+        content.set_border_width(18)
         self.content = content
         scroll.add(content)
         content.set_focus_vadjustment(scroll.get_vadjustment())
         content.set_focus_hadjustment(scroll.get_hadjustment())
-        content.pack_start(hero, False, False, 0)
         root.pack_start(scroll, True, True, 0)
 
         identity = card(
             "Account",
-            "Desktop runs without root privileges. Administrative tasks use the wheel policy.",
+            "Use your current account or create another.",
             "avatar-default-symbolic",
         )
         identity_grid = self.form_grid()
@@ -173,7 +158,7 @@ class SetupWindow(Gtk.Window):
 
         defaults = card(
             "Desktop and updates",
-            "Dark mode uses solid graphite and warm orange. Repository metadata stays small.",
+            "Choose a theme and package source.",
             "preferences-desktop-theme-symbolic",
         )
         defaults_grid = self.form_grid()
@@ -214,13 +199,13 @@ class SetupWindow(Gtk.Window):
         footer.set_border_width(14)
         self.spinner = Gtk.Spinner()
         footer.pack_start(self.spinner, False, False, 0)
-        self.status = label("Scroll for memory, theme, and package repo ↓", "muted", wrap=False)
+        self.status = label("", "muted", wrap=False)
         self.status.set_ellipsize(Pango.EllipsizeMode.END)
         self.status.set_max_width_chars(28)
         self.status.set_hexpand(True)
         self.status.set_tooltip_text(self.status.get_text())
         footer.pack_start(self.status, True, True, 0)
-        self.apply_button = button("Apply setup", "object-select-symbolic", self.apply, "suggested-action")
+        self.apply_button = button("Review setup", "object-select-symbolic", self.apply, "suggested-action")
         self.cancel_button = button("Not now", "window-close-symbolic", lambda *_: self.destroy())
         footer.pack_end(self.apply_button, False, False, 0)
         footer.pack_end(self.cancel_button, False, False, 0)
@@ -337,31 +322,40 @@ class SetupWindow(Gtk.Window):
         review.set_destroy_with_parent(True)
         review.set_icon_name("ooonana-setup")
         fit_dialog(review, 620, 480)
-        summary = label(
-            f'Account: {values["user"]}\nNetwork: {values["mode"]}\nTheme: {values["theme"]}\n'
-            + (f'Address: {values["address"]}\nGateway: {values["gateway"]}\nDNS: {values["dns"] or "Not specified"}\n' if values["mode"] == "static" else "")
-            + f'Package repository: {values["repo"]}\n'
-            + f'Password: {"Supplied" if values["password"] else "Not supplied"}\n'
-            +
-            f'Compressed swap: {values["zram_percent"]}% of RAM, subject to system cap\n'
-            f'Existing installer disk swap: {values["disk_swap"]}\n\n'
-            "Setup does not create or format disk partitions. Memory policy applies next boot."
-        )
-        summary.set_selectable(True)
-        summary.set_valign(Gtk.Align.START)
+        account = f'{values["user"]} · {"Set password" if values["password"] else "No password change"}'
+        network = "Automatic (DHCP)"
+        if values["mode"] == "static":
+            network = f'{values["address"]}\nGateway {values["gateway"]}\nDNS {values["dns"] or "automatic"}'
+        zram_percent = values["zram_percent"]
+        zram = f"{zram_percent}% of RAM, subject to system cap" if zram_percent != "0" else "Off"
+        disk_swap = "Use existing swap partition" if values["disk_swap"] == "on" else "Disk swap off"
+        summary = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        for title, text in (
+            ("Account", account),
+            ("Network", network),
+            ("Desktop and updates", f'{THEMES[values["theme"]]}\n{values["repo"]}'),
+            ("Memory on next boot", f"Compressed swap · {zram}\n{disk_swap}"),
+        ):
+            section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+            section.pack_start(label(title, "card-title"), False, False, 0)
+            value = label(text)
+            value.set_selectable(True)
+            section.pack_start(value, False, False, 0)
+            summary.pack_start(section, False, False, 0)
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scroll.add(summary)
         area = review.get_content_area()
         area.set_border_width(16)
         area.set_spacing(10)
-        area.pack_start(label("Review setup", "card-title"), False, False, 0)
         area.pack_start(scroll, True, True, 0)
-        review.add_button("Back", Gtk.ResponseType.CANCEL)
+        back = review.add_button("Back", Gtk.ResponseType.CANCEL)
         review.add_button("Apply setup", Gtk.ResponseType.OK).get_style_context().add_class("suggested-action")
         review.set_default_response(Gtk.ResponseType.CANCEL)
         self.review_dialog = review
         review.show_all()
+        back.grab_focus()
+        GLib.idle_add(scroll.get_vadjustment().set_value, 0)
         try:
             response = review.run()
         finally:
@@ -432,7 +426,14 @@ class SetupWindow(Gtk.Window):
         self.content.set_sensitive(True)
         self.spinner.stop()
         if rc != 0:
-            self.feedback("Setup failed; changes may be partial. " + (output or f"Exit status {rc}") + " Check details, then retry.", "bad")
+            self.feedback("Setup incomplete. Review and retry.", "bad")
+            message(
+                self,
+                "Setup could not finish",
+                "Some changes may already be applied. Review the error before retrying.\n\n"
+                + (output or f"Exit status {rc}"),
+                Gtk.MessageType.ERROR,
+            )
             return False
         self.feedback("Setup complete", "good")
         message(

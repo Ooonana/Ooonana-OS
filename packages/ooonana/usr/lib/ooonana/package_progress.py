@@ -81,6 +81,10 @@ def draw(label, frame, *, size, total=None, speed=0):
     tail_width = cells * cell_width + (2 if bar else 0) + len(details)
     label_width = width - tail_width - 2
     line = f"{label[:label_width]}  {tail}" if label_width >= 12 else tail[:width]
+    if "NO_COLOR" not in os.environ:
+        term = os.environ.get("TERM", "")
+        orange = "\x1b[38;5;214m" if "256color" in term or "direct" in term else "\x1b[33m"
+        line = f"{orange}{line}\x1b[0m"
     sys.stderr.write(f"\r\x1b[K{line}")
     sys.stderr.flush()
 
@@ -105,7 +109,7 @@ def main(label, filename, header_path, result_path):
             now = time.monotonic()
             sizes = tuple(file_size(path) for path in paths)
             received = sum(size - old if size >= old else size for size, old in zip(sizes, previous_sizes))
-            speed = received / max(0.01, now - previous_time)
+            speed = received / max(0.01, now - previous_time) if frame else 0
             total = content_length(headers) if headers else None
             draw(title, frame, size=sum(sizes), total=total, speed=speed)
             previous_sizes, previous_time = sizes, now

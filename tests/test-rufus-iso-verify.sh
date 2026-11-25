@@ -154,6 +154,10 @@ REPORT
           printf '%s\n' /images/ooonana-full-i3-live-rootfs.ext4
         fi
         printf '%s\n' /images/ooonana-full-i3-disk.raw.gz
+        if [ -n "${OOONANA_FAKE_GRUB_UI:-}" ]; then
+          find "$OOONANA_FAKE_GRUB_UI" -type f -printf '/boot/grub/grub-ui/%P\n' |
+            grep -vxF "${OOONANA_FAKE_MISSING_UI:-none}"
+        fi
         ;;
     esac
     ;;
@@ -229,5 +233,18 @@ if OOONANA_FAKE_ROOT="$tmp" OOONANA_FAKE_EDITION=full-i3 OOONANA_FAKE_MISSING_PA
 fi
 grep -qF "ISO payload missing: /images/ooonana-full-i3-live-rootfs.ext4" "$tmp/missing.log" ||
   fail "missing-payload failure was unclear"
+
+# The refreshed labels and theme assets are checked without dropping old ISO support.
+sed -i "s/Ooonana OS Full i3 Live (persistent USB)/Persistent USB/; s/Ooonana OS Full i3 Live/Try Ooonana/;
+  s/Install Ooonana OS Full i3 (safe graphics)/Install with safe graphics/; s/Install Ooonana OS Full i3/Install Ooonana/" "$tmp/full-grub.cfg"
+printf '%s\n' 'source /boot/grub/grub-ui/enable.cfg' >>"$tmp/full-grub.cfg"
+export OOONANA_FAKE_GRUB_UI="$ROOT/packages/ooonana/usr/share/ooonana/grub-ui"
+modern_out="$(OOONANA_FAKE_ROOT="$tmp" OOONANA_FAKE_EDITION=full-i3 PATH="$tmp/bin:$PATH" bash "$SCRIPT" --iso "$tmp/full.iso")"
+assert_contains "$modern_out" "OOONANA_RUFUS_ISO_OK"
+if OOONANA_FAKE_ROOT="$tmp" OOONANA_FAKE_EDITION=full-i3 OOONANA_FAKE_MISSING_UI=/boot/grub/grub-ui/menu.pf2 \
+  PATH="$tmp/bin:$PATH" bash "$SCRIPT" --iso "$tmp/full.iso" >"$tmp/missing-ui.log" 2>&1; then
+  fail 'verifier accepted new menu with missing font'
+fi
+grep -qF 'ISO payload missing: /boot/grub/grub-ui/menu.pf2' "$tmp/missing-ui.log" || fail 'missing menu font failure unclear'
 
 printf 'ok rufus-iso-verify\n'

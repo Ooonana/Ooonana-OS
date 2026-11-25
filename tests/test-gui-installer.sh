@@ -24,6 +24,9 @@ assert_contains "$builder" "/usr/bin/ooonana-gui-installer"
 assert_contains "$builder" "/usr/bin/ooonana-installer-gui"
 assert_contains "$builder" "/usr/bin/ooonana-install-wizard"
 assert_contains "$builder" "/usr/share/applications/ooonana-installer.desktop"
+assert_contains "$builder" 'export OOONANA_INSTALLER_BOOT=1'
+assert_contains "$builder" 'python3 /usr/lib/ooonana/ui/installer_app.py'
+assert_contains "$builder" '[ "$native_status" -eq 78 ]'
 assert_contains "$builder" 'yad --center --title "Install Ooonana OS"'
 assert_contains "$builder" "custom-existing-partitions"
 assert_contains "$builder" "--home-part"
@@ -34,7 +37,7 @@ assert_contains "$builder" 'preview_ok=0'
 assert_contains "$builder" '--form --scroll --focus-field=2 --selectable-labels'
 assert_contains "$builder" '--field "$disk_field:LBL"'
 assert_contains "$builder" 'cut -d"$separator" -f"$(($1 + 1))"'
-assert_contains "$builder" '--default-button=1'
+assert_contains "$builder" '--response=1 --no-markup'
 assert_contains "$builder" 'mktemp -d "${TMPDIR:-/tmp}/ooonana-installer-gui.XXXXXXXX"'
 assert_contains "$builder" '--button=Cancel:1 --button="Review installation":0'
 assert_contains "$builder" '--width="$review_width" --height="$review_height"'

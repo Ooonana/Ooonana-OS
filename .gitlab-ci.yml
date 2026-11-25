@@ -29,11 +29,15 @@ ci-smoke:
   script:
     - echo "Ooonana GitLab CI active"
     - bash tests/test-iso-launcher.sh
+    - bash tests/test-full-i3-iso.sh
+    - PYTHONDONTWRITEBYTECODE=1 bash tests/test-installer.sh
+    - bash tests/test-gui-installer.sh
     - bash tests/test-wsl-distro.sh
     - PYTHONDONTWRITEBYTECODE=1 bash tests/test-rebuild-full-i3-release.sh
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-release-repo.py
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-runtime-firmware.py
     - bash tests/test-version-order.sh
+    - bash tests/test-ooonana-pkg.sh
     - PYTHONDONTWRITEBYTECODE=1 python3 tests/test-update-safety.py
     - bash tests/test-atomic-package-archive.sh
     - bash tests/test-import-apk-package.sh

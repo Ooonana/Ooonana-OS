@@ -92,6 +92,7 @@ write_grub_config() {
   safe_install_append="$install_append nomodeset"
 
   cat > "$ISO_TREE/boot/grub/grub.cfg" <<EOF
+set enable_progress_indicator=0
 insmod all_video
 insmod png
 insmod probe
@@ -104,8 +105,11 @@ fi
 serial --unit=0 --speed=115200
 terminal_input console serial
 terminal_output console serial
+set ooonana_gfx_ready=0
 if terminal_output gfxterm serial; then
-  true
+  set ooonana_gfx_ready=1
+elif terminal_output gfxterm; then
+  set ooonana_gfx_ready=1
 else
   terminal_output console serial
 fi
@@ -127,12 +131,8 @@ function ooonana_show_logo {
   fi
   echo ''
 }
-ooonana_show_logo
-if [ -f /boot/grub/ooonana-logo.txt ]; then
-  true
-fi
-ooonana_boot_hint
-if [ -f /boot/grub/theme.txt ]; then
+set theme=
+if [ "\$ooonana_gfx_ready" = 1 -a -f /boot/grub/theme.txt ]; then
   set theme=/boot/grub/theme.txt
   export theme
 fi
@@ -141,47 +141,54 @@ set timeout_style=menu
 set timeout=5
 set default=$default_entry
 
-menuentry 'Ooonana OS Full i3 Live' {
+menuentry 'Try Ooonana' --class=ooonana-live {
   linux /boot/vmlinuz $live_append
   initrd /boot/live-initramfs.cpio.gz
 }
 
-menuentry 'Ooonana OS Full i3 Live (persistent USB)' {
+menuentry 'Persistent USB' --class=ooonana-persistent {
   linux /boot/vmlinuz $persistent_append
   initrd /boot/live-initramfs.cpio.gz
 }
 
-menuentry 'Install Ooonana OS Full i3' {
+menuentry 'Install Ooonana' --class=ooonana-install {
   linux /boot/vmlinuz $install_append
   initrd $install_initrd
 }
 
-menuentry 'Install Ooonana OS Full i3 (safe graphics)' {
+menuentry 'Install with safe graphics' --class=ooonana-safe {
   linux /boot/vmlinuz $safe_install_append
   initrd $install_initrd
 }
 
-submenu 'Audio compatibility' {
-  menuentry 'Live - force Intel SOF audio' {
+submenu 'Audio compatibility' --class=ooonana-audio {
+  menuentry 'Live (Intel SOF)' --class=ooonana-audio {
     linux /boot/vmlinuz $live_append snd_intel_dspcfg.dsp_driver=3
     initrd /boot/live-initramfs.cpio.gz
   }
 
-  menuentry 'Persistent USB - force Intel SOF audio' {
+  menuentry 'Persistent USB (SOF)' --class=ooonana-audio {
     linux /boot/vmlinuz $persistent_append snd_intel_dspcfg.dsp_driver=3
     initrd /boot/live-initramfs.cpio.gz
   }
 
-  menuentry 'Live - force legacy Intel HDA audio' {
+  menuentry 'Live (legacy HDA)' --class=ooonana-audio {
     linux /boot/vmlinuz $live_append snd_intel_dspcfg.dsp_driver=1
     initrd /boot/live-initramfs.cpio.gz
   }
 
-  menuentry 'Persistent USB - force legacy Intel HDA audio' {
+  menuentry 'Persistent USB (HDA)' --class=ooonana-audio {
     linux /boot/vmlinuz $persistent_append snd_intel_dspcfg.dsp_driver=1
     initrd /boot/live-initramfs.cpio.gz
   }
 }
+if [ -f /boot/grub/grub-ui/enable.cfg ]; then
+  source /boot/grub/grub-ui/enable.cfg
+fi
+if [ -z "\$theme" ]; then
+  ooonana_show_logo
+  ooonana_boot_hint
+fi
 EOF
 }
 
@@ -201,14 +208,14 @@ Boot support:
 
 - UEFI: needs the ISO built with GRUB EFI modules.
 - Legacy BIOS/CSM: GRUB BIOS path is included.
-- Installer: use `Install Ooonana OS Full i3`.
-- Safe graphics: use `Install Ooonana OS Full i3 (safe graphics)`.
+- Installer: use `Install Ooonana`.
+- Safe graphics: use `Install with safe graphics`.
 - live rootfs is stored outside initramfs, so 2GB VMs and USB boots avoid giant initramfs unpack failures.
 - ISO mode copies files to USB, so each payload file must stay under the FAT32 4GiB limit.
 
 Persistence:
 
-Use `Ooonana OS Full i3 Live (persistent USB)`.
+Use `Persistent USB`.
 On writable FAT32/ext4 ISO-mode USB labeled `OOONANAUSB`, first persistent boot asks for size in MiB and exact CREATE confirmation, then creates `ooonana-persistence.ext4`. Later boots reuse it. No manual ext4 partition needed.
 Storage writes directly to USB, including user files, settings and packages; no shutdown-only RAM snapshot.
 FAT32 caps the storage file at 4095 MiB. Setup fully allocates it and reserves 256 MiB outside it. For larger models, use larger ext4-backed storage or install to disk.
@@ -277,6 +284,7 @@ stage_iso_tree() {
   install -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/grub.theme" "$ISO_TREE/boot/grub/theme.txt"
   install -m 0644 "$ROOT/branding/grub-background.png" "$ISO_TREE/boot/grub/background.png"
   install -m 0644 "$ROOT/branding/boot-mark.png" "$ISO_TREE/boot/grub/boot-mark.png"
+  cp -a "$ROOT/packages/ooonana/usr/share/ooonana/grub-ui" "$ISO_TREE/boot/grub/"
   write_grub_config
   check_iso_mode_file_sizes
   chmod -R a+rwX "$ISO_TREE" 2>/dev/null || true

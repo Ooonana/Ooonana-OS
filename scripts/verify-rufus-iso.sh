@@ -167,10 +167,23 @@ done_item "Rufus ISO-mode note and orange GRUB"
 
 case "$EDITION" in
   full-i3)
-    need_contains "$tmp/grub.cfg" "Ooonana OS Full i3 Live"
-    need_contains "$tmp/grub.cfg" "Ooonana OS Full i3 Live (persistent USB)"
-    need_contains "$tmp/grub.cfg" "Install Ooonana OS Full i3"
-    need_contains "$tmp/grub.cfg" "Install Ooonana OS Full i3 (safe graphics)"
+    if grep -qF "menuentry 'Try Ooonana'" "$tmp/grub.cfg"; then
+      need_contains "$tmp/grub.cfg" "menuentry 'Persistent USB'"
+      need_contains "$tmp/grub.cfg" "menuentry 'Install Ooonana'"
+      need_contains "$tmp/grub.cfg" "menuentry 'Install with safe graphics'"
+      need_contains "$tmp/grub.cfg" "source /boot/grub/grub-ui/enable.cfg"
+      for asset in enable.cfg theme.txt backdrop.png panel.png brand.png heading.png divider.png controls.png \
+          menu.pf2 menu-selected.pf2 status.pf2 font-license.txt \
+          {item,selection}_{nw,n,ne,w,c,e,sw,s,se}.png \
+          icons/ooonana-{live,persistent,install,safe,audio,classic}.png; do
+        need_iso_file "/boot/grub/grub-ui/$asset"
+      done
+    else
+      need_contains "$tmp/grub.cfg" "Ooonana OS Full i3 Live"
+      need_contains "$tmp/grub.cfg" "Ooonana OS Full i3 Live (persistent USB)"
+      need_contains "$tmp/grub.cfg" "Install Ooonana OS Full i3"
+      need_contains "$tmp/grub.cfg" "Install Ooonana OS Full i3 (safe graphics)"
+    fi
     need_contains "$tmp/grub.cfg" "ooonana.persistence=1"
     need_contains "$tmp/grub.cfg" "ooonana.install=1 ooonana.edition=full-i3"
     need_contains "$tmp/grub.cfg" "initrd /boot/live-initramfs.cpio.gz"

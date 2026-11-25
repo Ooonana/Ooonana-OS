@@ -19,6 +19,9 @@ jobs:
           set -eu
           bash tests/test-backend-regressions.sh
           bash tests/test-iso-launcher.sh
+          bash tests/test-full-i3-iso.sh
+          bash tests/test-installer.sh
+          bash tests/test-gui-installer.sh
           bash tests/test-wsl-distro.sh
           PYTHONDONTWRITEBYTECODE=1 bash tests/test-rebuild-full-i3-release.sh
           python3 -B tests/test-service-watchdog.py
@@ -62,6 +65,7 @@ jobs:
           bash tests/test-kernel-source.sh
           bash tests/test-qemu-live-kernel-smoke.sh
           bash tests/test-version-order.sh
+          bash tests/test-ooonana-pkg.sh
           bash tests/smoke-cli.sh
           python3 tests/test-release-repo.py
           python3 tests/test-runtime-firmware.py

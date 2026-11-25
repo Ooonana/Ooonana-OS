@@ -27,7 +27,7 @@ Payload limit: every copied file stays below the FAT32 4GiB limit
 Persistence:
 
 ```text
-GRUB entry: Ooonana OS Full i3 Live (persistent USB)
+GRUB entry: Persistent USB
 Writable ISO-mode USB: ooonana-persistence.ext4 (first-boot size + CREATE prompt)
 DD-mode USB / partition alternative: OOONANA_PERSIST ext4 partition
 ```

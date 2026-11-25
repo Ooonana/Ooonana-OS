@@ -19,7 +19,7 @@ Gtk.Settings.get_default().set_property("gtk-xft-dpi", round(96 * 1024 * float(o
 apply_theme()
 findings, workers, notices = [], [], []
 setup.run = setup.launch = lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("Unexpected Setup command"))
-setup.message = lambda _parent, title, *_args: notices.append(title)
+setup.message = lambda _parent, title, text, *_args: notices.append((title, text))
 setup.load_preferences = lambda: {"reduce_motion": True}
 real_thread = setup.threading.Thread
 
@@ -68,6 +68,8 @@ def review_response(window, inspect, response=Gtk.ResponseType.CANCEL):
         try:
             capture(dialog, "setup-review")
             check(dialog.get_default_widget() == dialog.get_widget_for_response(Gtk.ResponseType.CANCEL), "Review does not default to Back")
+            review_scroll = next(item for item in descendants(dialog) if isinstance(item, Gtk.ScrolledWindow))
+            check(review_scroll.get_vadjustment().get_value() == 0, "Review opens below the Account section")
             inspect(dialog)
         finally:
             if not window.closed:
@@ -137,6 +139,8 @@ with tempfile.TemporaryDirectory(prefix="ooonana-setup-details-") as temporary:
             check(dialog.get_destroy_with_parent(), "Review outlives Setup parent")
             text = "\n".join(item.get_text() for item in descendants(dialog) if isinstance(item, Gtk.Label))
             check(secret not in text and "file:///fixture/repository" in text and "192.0.2.10/24" in text, "Review omits routing/source or exposes password")
+            check("Memory on next boot" in text and "Use existing swap partition" in text, "Review omits swap policy")
+            capture(dialog, "setup-review")
             window.apply(window.apply_button)
             check(sum(isinstance(item, Gtk.Dialog) and item.get_visible() for item in Gtk.Window.list_toplevels()) == 1, "Reentrant Apply opens duplicate review")
 
@@ -150,7 +154,8 @@ with tempfile.TemporaryDirectory(prefix="ooonana-setup-details-") as temporary:
         window.apply(window.apply_button)
         check(len(workers) == 1 and window.before_close(), "Pending Setup allows duplicate dispatch/close")
         window.finished(window.apply_button, 1, "Fixture permission denied")
-        check(not window.pending and window.content.get_sensitive() and "permission denied" in window.status.get_text() and "partial" in window.status.get_text(), "Setup failure has no persistent partial-change/retry feedback")
+        check(not window.pending and window.content.get_sensitive() and "retry" in window.status.get_text(), "Setup failure has no persistent retry feedback")
+        check(notices and "permission denied" in notices[-1][1] and "may already be applied" in notices[-1][1], "Setup failure hides details or partial-change notice")
         check(window.password_entry.get_text() == secret, "Setup failure loses draft")
         capture(window, "setup-error")
         workers.clear()

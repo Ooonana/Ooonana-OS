@@ -3,7 +3,7 @@
 # shellcheck disable=SC1090,SC3043
 set -eu
 
-VERSION="0.10.11"
+VERSION="0.10.12"
 case "${1:-}" in
   version|--version|-v) printf 'ooonana %s\n' "$VERSION"; exit 0 ;;
 esac
@@ -73,6 +73,13 @@ DOWNLOAD_CONNECT_TIMEOUT="${OOONANA_DOWNLOAD_CONNECT_TIMEOUT:-10}"
 DOWNLOAD_MAX_TIME="${OOONANA_DOWNLOAD_MAX_TIME:-90}"
 DOWNLOAD_RETRIES="${OOONANA_DOWNLOAD_RETRIES:-1}"
 CHECKSUM_CACHE_DIR=""
+PKG_ASSUME_YES=0
+PKG_APPLY_ROWS=0
+PKG_APPLY_TOTAL=0
+PKG_APPLY_DONE=0
+PKG_MIGRATION_DIGEST=""
+CLI_ORANGE=""
+CLI_RESET=""
 # Queries may run as root. Never follow a pre-created PID directory/symlink.
 # Help/version need no cache; package operations share one private allocation
 # inherited by subshells, so the parent can reliably remove it on exit.
@@ -84,6 +91,7 @@ initialize_checksum_cache() {
 }
 
 cleanup_checksum_cache() {
+  finish_apply_progress || true
   case "$CHECKSUM_CACHE_DIR" in
     "${TMPDIR:-/tmp}"/ooonana-checksums.*) rm -rf "$CHECKSUM_CACHE_DIR" ;;
   esac
@@ -233,6 +241,7 @@ Meaning:
   - no package names: check every installed package
   - package names: upgrade the selected packages and their needed dependencies
   - --dry-run: show changes, install nothing
+  - -y, --yes: accept the package plan without prompting
   - --allow-major: explicit approval for breaking OS version jumps
   - --security-only: install only updates explicitly security-marked by repository
 
@@ -764,6 +773,136 @@ download_github_release_asset() {
 
 package_progress_enabled() {
   [ -t 2 ] && [ "${TERM:-dumb}" != dumb ] && [ "${OOONANA_PROGRESS:-1}" != 0 ]
+}
+
+terminal_orange() {
+  if [ "${TERM:-dumb}" != dumb ] && [ -z "${NO_COLOR+x}" ]; then
+    case "${TERM:-}" in
+      *256color*|*direct*) printf '\033[38;5;214m' ;;
+      *) printf '\033[33m' ;;
+    esac
+  fi
+}
+
+finish_apply_progress() {
+  [ "$PKG_APPLY_ROWS" -gt 0 ] || return 0
+  printf '\0337\033[%s;1H\033[2K\033[r\0338' "$PKG_APPLY_ROWS" >&2
+  PKG_APPLY_ROWS=0
+}
+
+draw_apply_progress() {
+  local size rows cols percent status cells filled bar position solid empty color reset
+  [ "$PKG_APPLY_TOTAL" -gt 0 ] && [ -t 1 ] && package_progress_enabled || return 0
+  case "${TERM:-}" in
+    xterm*|screen*|tmux*|rxvt*|linux|foot*|alacritty*|wezterm*) ;;
+    *) return 0 ;;
+  esac
+  size="$(stty size <&2 2>/dev/null)" || return 0
+  rows="${size% *}"; cols="${size#* }"
+  case "$rows:$cols" in *[!0-9:]*|:*|*:) return 0 ;; esac
+  if [ "$rows" -lt 4 ] || [ "$cols" -lt 26 ]; then
+    finish_apply_progress
+    return 0
+  fi
+  if [ "$rows" -ne "$PKG_APPLY_ROWS" ]; then
+    finish_apply_progress
+    # Keep one row below normal output, including the live transfer meter.
+    printf '\n\033[1A\0337\033[1;%sr\0338' "$((rows - 1))" >&2
+    PKG_APPLY_ROWS="$rows"
+  fi
+  percent="$((PKG_APPLY_DONE * 100 / PKG_APPLY_TOTAL))"
+  [ "$percent" -le 100 ] || percent=100
+  status="Applying $percent%  $PKG_APPLY_DONE/$PKG_APPLY_TOTAL"
+  case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
+    *UTF-8*|*utf8*|*utf-8*) solid=■; empty=□ ;;
+    *) solid='#'; empty='.' ;;
+  esac
+  # Count Unicode squares conservatively on terminals with wide ambiguous glyphs.
+  cells="$(((cols - ${#status} - 3) / 2))"
+  [ "$cells" -le 10 ] || cells=10
+  filled="$((cells * percent / 100))"
+  bar=""; position=0
+  while [ "$position" -lt "$cells" ]; do
+    if [ "$position" -lt "$filled" ]; then bar="$bar$solid"; else bar="$bar$empty"; fi
+    position="$((position + 1))"
+  done
+  color="$(terminal_orange)"; reset=""
+  [ -z "$color" ] || reset="$(printf '\033[0m')"
+  printf '\0337\033[%s;1H\033[2K%s%s  %s%s\0338' "$rows" "$color" "$status" "$bar" "$reset" >&2
+}
+
+package_applied() {
+  [ "$PKG_APPLY_TOTAL" -gt 0 ] || return 0
+  PKG_APPLY_DONE="$((PKG_APPLY_DONE + 1))"
+  draw_apply_progress
+}
+
+confirm_package_changes() {
+  local answer color reset
+  [ "$PKG_ASSUME_YES" -eq 0 ] && [ -t 0 ] && [ -t 2 ] || return 0
+  color="$(terminal_orange)"; reset=""
+  [ -z "$color" ] || reset="$(printf '\033[0m')"
+  while :; do
+    printf '%sContinue? [y/N]%s ' "$color" "$reset" >&2
+    IFS= read -r answer || answer=""
+    case "$answer" in
+      y|Y|yes|Yes|YES) return 0 ;;
+      ''|n|N|no|No|NO) printf 'Cancelled.\n' >&2; return 1 ;;
+      *) printf 'Enter y or n.\n' >&2 ;;
+    esac
+  done
+}
+
+walk_package_changes() {
+  local action mode targets force id
+  action="$1"; mode="$2"; targets="$3"; force="$4"
+  for id in $targets; do
+    safe_pkg_id "$id" || die "bad package id: $id"
+    case "$action" in
+      install) install_one_pkg "$id" "$mode" ;;
+      upgrade) upgrade_one_pkg "$id" "$mode" ;;
+      remove) remove_one_pkg "$id" "$mode" 0 "$force" "$targets" ;;
+      purge) remove_one_pkg "$id" "$mode" 1 "$force" "$targets" ;;
+    esac
+  done
+}
+
+apply_package_changes() {
+  local action mode targets force plan changes color reset heading
+  action="$1"; mode="$2"; targets="$3"; force="${4:-0}"
+  if [ "$mode" -eq 1 ]; then
+    walk_package_changes "$action" 1 "$targets" "$force"
+    return
+  fi
+  if [ -t 1 ] && [ -t 2 ] && { [ -t 0 ] || package_progress_enabled; }; then
+    # The existing dry run includes dependencies and uses the same policy checks.
+    plan="$(walk_package_changes "$action" 1 "$targets" "$force")"
+    changes="$(printf '%s\n' "$plan" | awk '
+      $1 == "would" && ($2 == "install" || $2 == "upgrade" ||
+      (($2 == "remove" || $2 == "purge") && NF == 3)) {
+        if (!seen[$2, $3]++) { sub(/^would /, ""); print }
+      }
+    ')"
+    if [ -n "$changes" ]; then
+      PKG_APPLY_TOTAL="$(printf '%s\n' "$changes" | wc -l | tr -d ' ')"
+      color="$(terminal_orange)"; reset=""
+      [ -z "$color" ] || reset="$(printf '\033[0m')"
+      heading="Selected package changes"
+      [ "$action" != upgrade ] || heading="Selected update candidates"
+      printf '%s%s%s\n' "$color" "$heading" "$reset" >&2
+      printf '%s\n' "$changes" | sed 's/^/  /' >&2
+      printf '%s package change(s)\n' "$PKG_APPLY_TOTAL" >&2
+      confirm_package_changes || return 1
+      PKG_APPLY_DONE=0
+    fi
+  fi
+  if [ "$action" = upgrade ]; then
+    begin_userland_transition
+  fi
+  draw_apply_progress
+  walk_package_changes "$action" 0 "$targets" "$force"
+  finish_apply_progress
+  PKG_APPLY_TOTAL=0
 }
 
 with_package_progress() {
@@ -2020,7 +2159,7 @@ print_pkg_fields_line() {
   version="$2"
   state="$3"
   summary="$4"
-  printf '%-14s %-8s %-10s %s\n' "$id" "$version" "$state" "$summary"
+  printf '%s%-14s%s %-8s %-10s %s\n' "$CLI_ORANGE" "$id" "$CLI_RESET" "$version" "$state" "$summary"
 }
 
 cmd_version() {
@@ -2695,6 +2834,7 @@ install_one_pkg() {
   if [ "$id" = ooonana-core-runtime ] && pkg_installed ooonana-core; then
     replace_pkg_transaction "$id"
     printf 'installed %s %s\n' "$id" "$OOONANA_PKG_VERSION"
+    package_applied
     return 0
   fi
   [ -n "$OOONANA_PKG_ARCHIVE" ] && install_pkg_archive "$id"
@@ -2703,6 +2843,7 @@ install_one_pkg() {
   cp "$LOADED_PKG_FILE" "$INSTALLED_DIR/$id.pkg"
   record_config_baseline "$id"
   printf 'installed %s %s\n' "$id" "$OOONANA_PKG_VERSION"
+  package_applied
 }
 
 cmd_get() {
@@ -2712,16 +2853,13 @@ cmd_get() {
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --dry-run) dry_run=1 ;;
+      -y|--yes) PKG_ASSUME_YES=1 ;;
       *) packages="$packages ${1}" ;;
     esac
     shift
   done
-  [ -n "$packages" ] || die "usage: ooonana get PACKAGE [--dry-run]"
-
-  for id in $packages; do
-    safe_pkg_id "$id" || die "bad package id: $id"
-    install_one_pkg "$id" "$dry_run"
-  done
+  [ -n "$packages" ] || die "usage: ooonana get PACKAGE... [--dry-run] [-y]"
+  apply_package_changes install "$dry_run" "$packages"
 }
 
 upgrade_one_pkg() {
@@ -2813,10 +2951,11 @@ upgrade_one_pkg() {
   ensure_pkg_dirs
   replace_pkg_transaction "$id"
   printf 'upgraded %s %s -> %s\n' "$id" "$old_version" "$new_version"
+  package_applied
 }
 
 cmd_upgrade() {
-  local explicit selected check_major preview candidates
+  local explicit selected check_major
   dry_run=0
   packages=""
   OOONANA_PLANNED=""
@@ -2826,9 +2965,10 @@ cmd_upgrade() {
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --dry-run) dry_run=1 ;;
+      -y|--yes) PKG_ASSUME_YES=1 ;;
       --allow-major) OOONANA_ALLOW_MAJOR=1 ;;
       --security-only) OOONANA_SECURITY_ONLY=1 ;;
-      -*) die "usage: ooonana upgrade [--dry-run] [--allow-major] [--security-only] [PACKAGE...]" ;;
+      -*) die "usage: ooonana upgrade [--dry-run] [-y] [--allow-major] [--security-only] [PACKAGE...]" ;;
       *) packages="$packages ${1}" ;;
     esac
     shift
@@ -2867,12 +3007,7 @@ cmd_upgrade() {
   if [ "$dry_run" -eq 0 ] && [ "$OOONANA_ALLOW_MAJOR" -ne 1 ]; then
     check_major=1
   fi
-  preview=0
-  if [ "$dry_run" -eq 0 ] && [ -t 2 ]; then
-    preview=1
-  fi
-  candidates=""
-  if [ "$LIVE_PACKAGE_MODE" != installed ] || [ "$check_major" -eq 1 ] || [ "$preview" -eq 1 ]; then
+  if [ "$LIVE_PACKAGE_MODE" != installed ] || [ "$check_major" -eq 1 ]; then
     selected=""
     for id in $packages; do
       safe_pkg_id "$id" || die "bad package id: $id"
@@ -2888,23 +3023,11 @@ cmd_upgrade() {
       if [ "$check_major" -eq 1 ] && major_os_update "$id" "$old_version" "$OOONANA_PKG_VERSION"; then
         die "major OS update requires explicit --allow-major before any package changes: $id"
       fi
-      if [ "$preview" -eq 1 ] &&
-        { [ "$OOONANA_SECURITY_ONLY" -eq 0 ] || [ "$OOONANA_PKG_SECURITY" -eq 1 ]; } &&
-        version_is_newer "$old_version" "$OOONANA_PKG_VERSION"; then
-        candidates="$candidates  $id $old_version -> $OOONANA_PKG_VERSION
-"
-      fi
       selected="$selected $id"
     done
     packages="$selected"
   fi
-  if [ -n "$candidates" ]; then
-    printf 'Selected update candidates\n%s' "$candidates" >&2
-  fi
-  for id in $packages; do
-    safe_pkg_id "$id" || die "bad package id: $id"
-    upgrade_one_pkg "$id" "$dry_run"
-  done
+  apply_package_changes upgrade "$dry_run" "$packages"
   if [ "$dry_run" -eq 0 ] && [ -n "${OOONANA_MIGRATION_BASE:-}" ]; then
     finish_userland_transition
   fi
@@ -2980,48 +3103,29 @@ remove_one_pkg() {
   else
     printf 'removed %s\n' "$id"
   fi
+  package_applied
 }
 
-cmd_remove() {
+cmd_delete_packages() {
+  local action
+  action="$1"; shift
   dry_run=0
   force=0
   packages=""
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --dry-run) dry_run=1 ;;
+      -y|--yes) PKG_ASSUME_YES=1 ;;
       --force) force=1 ;;
       *) packages="$packages ${1}" ;;
     esac
     shift
   done
-  [ -n "$packages" ] || die "usage: ooonana remove PACKAGE... [--dry-run] [--force]"
+  [ -n "$packages" ] || die "usage: ooonana $action PACKAGE... [--dry-run] [-y] [--force]"
   for id in $packages; do
     safe_pkg_id "$id" || die "bad package id: $id"
   done
-  for id in $packages; do
-    remove_one_pkg "$id" "$dry_run" 0 "$force" "$packages"
-  done
-}
-
-cmd_purge() {
-  dry_run=0
-  force=0
-  packages=""
-  while [ "$#" -gt 0 ]; do
-    case "$1" in
-      --dry-run) dry_run=1 ;;
-      --force) force=1 ;;
-      *) packages="$packages ${1}" ;;
-    esac
-    shift
-  done
-  [ -n "$packages" ] || die "usage: ooonana purge PACKAGE... [--dry-run] [--force]"
-  for id in $packages; do
-    safe_pkg_id "$id" || die "bad package id: $id"
-  done
-  for id in $packages; do
-    remove_one_pkg "$id" "$dry_run" 1 "$force" "$packages"
-  done
+  apply_package_changes "$action" "$dry_run" "$packages" "$force"
 }
 
 fix_one_pkg() {
@@ -3678,7 +3782,7 @@ check_pkg_userland() {
 }
 
 check_userland_transition() {
-  local action candidate installed release manifest dry allow whole argument journal digest pending_base pending_digest file id old_kind staging
+  local action candidate installed release manifest dry allow whole argument journal digest pending_base pending_digest file id old_kind
   action="$1"; shift
   [ "$action" != recover ] || return 0
   journal="$STATE_DIR/.userland-migration"
@@ -3712,7 +3816,7 @@ check_userland_transition() {
   [ "$candidate" != "$installed" ] || [ -f "$journal" ] || return 0
   dry=0; allow=0; whole=1
   for argument in "$@"; do
-    case "$argument" in --dry-run) dry=1 ;; --allow-major) allow=1 ;; --security-only) whole=0 ;; --*) ;; *) whole=0 ;; esac
+    case "$argument" in --dry-run) dry=1 ;; --allow-major) allow=1 ;; --security-only) whole=0 ;; -y|--*) ;; *) whole=0 ;; esac
   done
   [ "$action" = upgrade ] && [ "$whole" -eq 1 ] ||
     die "userland migration requires whole-world upgrade --allow-major: $installed -> $candidate"
@@ -3738,10 +3842,17 @@ check_userland_transition() {
   # Execute from an independent host against an offline, backed-up target root.
   [ "$(readlink -f "$OOONANA_ROOT")" != / ] ||
     die 'userland migration requires offline target root and verified backup; live replacement refused'
+  PKG_MIGRATION_DIGEST="$digest"
+}
+
+begin_userland_transition() {
+  local journal staging
+  [ -n "$PKG_MIGRATION_DIGEST" ] || return 0
+  journal="$STATE_DIR/.userland-migration"
   if [ ! -f "$journal" ]; then
     umask 077
     staging="$(mktemp "$STATE_DIR/.userland-prepared.XXXXXX")"
-    printf '%s\n%s\n' "$candidate" "$digest" >"$staging"
+    printf '%s\n%s\n' "$OOONANA_MIGRATION_BASE" "$PKG_MIGRATION_DIGEST" >"$staging"
     sync
     mv "$staging" "$journal"
     sync
@@ -3772,6 +3883,10 @@ main() {
   cmd="${1:-}"
   [ -n "$cmd" ] || { usage; exit 0; }
   shift || true
+  if [ -t 1 ]; then
+    CLI_ORANGE="$(terminal_orange)"
+    [ -z "$CLI_ORANGE" ] || CLI_RESET="$(printf '\033[0m')"
+  fi
 
   # Queries may fetch metadata, but must never write a root-owned system cache.
   # Installed package state stays read-only; use caller's private query cache.
@@ -3850,8 +3965,8 @@ main() {
     get|install|add) cmd_get "$@" ;;
     upgrade) cmd_upgrade "$@" ;;
     update-status) cmd_update_status ;;
-    remove|uninstall) cmd_remove "$@" ;;
-    purge) cmd_purge "$@" ;;
+    remove|uninstall) cmd_delete_packages remove "$@" ;;
+    purge) cmd_delete_packages purge "$@" ;;
     fix) cmd_fix "$@" ;;
     reinstall) cmd_fix --reinstall "$@" ;;
     recover) cmd_recover "$@" ;;

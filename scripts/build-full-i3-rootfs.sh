@@ -3289,7 +3289,7 @@ write_gui_installer() {
 set -eu
 
 if [ "${1:-}" = "--dry-run" ]; then
-  echo "yad installer gui"
+  echo "GTK installer wizard; yad installer gui fallback"
   echo "modes: erase-disk custom-existing-partitions"
   echo "fields: target home swap efi format-root format-home format-swap format-efi user password hostname theme repo source swap-size-mib"
   echo "custom bootloader: UEFI GRUB requires an EFI partition"
@@ -3298,16 +3298,25 @@ if [ "${1:-}" = "--dry-run" ]; then
 fi
 
 fallback() {
-  exec /usr/bin/ooonana-install-wizard "$@"
+  OOONANA_INSTALL_FORCE_WIZARD=1 exec /usr/bin/ooonana-gui-installer "$@"
 }
+
+if [ "${1:-}" = "--legacy" ]; then
+  shift
+elif [ -n "${DISPLAY:-}" ] && [ -r /usr/lib/ooonana/ui/installer_app.py ] &&
+    command -v python3 >/dev/null 2>&1; then
+  native_status=0
+  python3 /usr/lib/ooonana/ui/installer_app.py || native_status="$?"
+  [ "$native_status" -eq 78 ] || exit "$native_status"
+fi
 
 if [ -z "${DISPLAY:-}" ] || ! command -v yad >/dev/null 2>&1; then
   fallback "$@"
 fi
 
 default_target=""
-disk_summary="$(lsblk -dn -o PATH,SIZE,MODEL,TRAN 2>/dev/null || true)"
-[ -n "$disk_summary" ] || disk_summary="Disk list unavailable; run lsblk in a terminal."
+disk_summary="$(lsblk -dn -o PATH,SIZE,TYPE,TRAN 2>/dev/null | awk '$3 == "disk" { print $1, $2, $4 }')"
+[ -n "$disk_summary" ] || disk_summary="No disks listed. Check with lsblk."
 
 parent_disk() {
   if command -v lsblk >/dev/null 2>&1 && [ -b "$1" ]; then
@@ -3376,20 +3385,33 @@ review_text_width="$(((review_width - 64) / glyph_width))"
 [ "$review_text_width" -ge 12 ] || review_text_width=12
 # Read-only disk details belong inside the scrolling form. Escape YAD's field
 # syntax after wrapping, so model names cannot become tooltips/field types.
-disk_field="$(printf '%s' "$disk_summary" | python3 -c 'import sys,textwrap; width=int(sys.argv[1]); text="Detected disks:\n"+"\n".join(textwrap.fill(line,width=width) for line in sys.stdin.read().splitlines()); print(text.replace("\\", "\\\\").replace("!", "\\041").replace(":", "\\072"))' "$form_text_width")"
+disk_field="$(printf '%s' "$disk_summary" | python3 -c '
+import sys
+import textwrap
+
+width = int(sys.argv[1])
+disks = sys.stdin.read().splitlines()
+lines = ["Detected disks:"]
+for disk in disks[:3]:
+    lines.append(textwrap.fill(disk, width=width, max_lines=2, placeholder=" …"))
+if len(disks) > 3:
+    lines.append("More disks available")
+text = "\n".join(lines)
+print(text.replace("\\", "\\\\").replace("!", "\\041").replace(":", "\\072"))
+' "$form_text_width")"
 separator="$(printf '\037')"
 
 form="$(yad --center --title "Install Ooonana OS" --width="$form_width" --height="$form_height" \
   --window-icon=ooonana-installer --borders=16 --text-width="$form_text_width" --no-markup \
-  --text "Erase disk deletes all target data. Custom partitions uses only selected partitions. Verify target before continuing." \
+  --text "Choose an install mode and target. Erase disk deletes all data on the target disk." \
   --form --scroll --focus-field=2 --selectable-labels --separator="$separator" \
   --button=Cancel:1 --button="Review installation":0 \
   --field "$disk_field:LBL" "" \
   --field "_Mode:CB" "Erase disk!Custom partitions" \
-  --field "Target disk/root" "$default_target" \
-  --field "Home partition" "" \
-  --field "Swap partition" "" \
-  --field "EFI partition" "" \
+  --field "Target path!Disk in Erase disk mode, root partition in Custom partitions mode" "$default_target" \
+  --field "Home partition!Optional in Custom partitions mode" "" \
+  --field "Swap partition!Optional in Custom partitions mode" "" \
+  --field "EFI partition!Required in Custom partitions mode" "" \
   --field "Format root:CHK" TRUE \
   --field "Format home:CHK" TRUE \
   --field "Format swap:CHK" TRUE \
@@ -3400,7 +3422,7 @@ form="$(yad --center --title "Install Ooonana OS" --width="$form_width" --height
   --field "Theme:CB" "glass!dark!light" \
   --field "Cloud repo" "https://ooonana.gitlab.io/ooonana-repo" \
   --field "Source root" "/" \
-  --field "Erase swap MiB!Erase mode only; 0 disables disk swap" "0" 2>/dev/null || true)"
+  --field "Disk swap (MiB)!Erase disk mode only; 0 uses compressed swap only" "0" 2>/dev/null || true)"
 [ -n "$form" ] || exit 0
 # One read-only prefix + 16 values, each followed by YAD's separator. Refuse
 # embedded control separators rather than silently shifting disk/password data.
@@ -3415,8 +3437,8 @@ field() {
 }
 
 case "$(field 1)" in
-  "Erase disk") mode=erase-disk ;;
-  "Custom partitions") mode=custom-existing-partitions ;;
+  "Erase disk") target_mode=disk ;;
+  "Custom partitions") target_mode=partition ;;
   *) exit 1 ;;
 esac
 target="$(field 2)"
@@ -3434,6 +3456,7 @@ theme="$(field 13)"
 cloud_repo="$(field 14)"
 source_root="$(field 15)"
 swap_size_mib="$(field 16)"
+unset form
 
 [ -n "$target" ] || { yad --center --title "Install Ooonana OS" --text "Target required"; exit 1; }
 [ -n "$user_name" ] && [ -n "$password" ] || { yad --center --title "Install Ooonana OS" --text "Username and password required for installed system login and administration."; exit 1; }
@@ -3441,19 +3464,18 @@ swap_size_mib="$(field 16)"
 root="$(root_disk)"
 if [ -n "$root" ] && { [ "$target" = "$root" ] || [ "$(parent_disk "$target")" = "$root" ]; } &&
   [ "${OOONANA_INSTALL_ALLOW_ROOT_TARGET:-0}" != "1" ]; then
-  yad --center --title "Install Ooonana OS" --text "Target looks like the current root disk: $target"
+  yad --center --title "Install Ooonana OS" --no-markup --text "This target is on the current system disk: $target"
   exit 1
 fi
 
-set -- /usr/sbin/ooonana-install --target "$target" --source "$source_root" --hostname "$host_name" --user "$user_name" --theme "$theme"
+set -- /usr/sbin/ooonana-install --target "$target" --target-mode "$target_mode" --source "$source_root" --hostname "$host_name" --user "$user_name" --theme "$theme" --password-stdin
 [ -n "$cloud_repo" ] && set -- "$@" --cloud-repo "$cloud_repo"
-[ -n "$password" ] && set -- "$@" --password-stdin
 
-case "$mode" in
-  custom-existing-partitions)
-    if [ -z "$efi_part" ]; then
+case "$target_mode" in
+  partition)
+    if [ -z "$efi_part" ] || [ "$swap_size_mib" != "0" ]; then
       yad --center --title "Install Ooonana OS" \
-        --text "Custom partition mode needs an EFI partition for a bootable install. Use erase-disk mode for automatic BIOS and UEFI setup."
+        --text "Custom partitions requires an EFI partition. To add disk swap, select a swap partition and leave Disk swap (MiB) at 0."
       exit 1
     fi
     set -- "$@" --bootloader grub
@@ -3465,7 +3487,11 @@ case "$mode" in
     [ "$format_swap" = "TRUE" ] || set -- "$@" --keep-swap
     [ "$format_efi" = "TRUE" ] && set -- "$@" --format-efi || set -- "$@" --keep-efi
     ;;
-  *)
+  disk)
+    if [ -n "$home_part$swap_part$efi_part" ]; then
+      yad --center --title "Install Ooonana OS" --text "Erase disk creates its own partitions. Clear Home, Swap, and EFI partition paths."
+      exit 1
+    fi
     [ "$swap_size_mib" = "0" ] || set -- "$@" --swap-size-mib "$swap_size_mib"
     ;;
 esac
@@ -3477,13 +3503,18 @@ fi
 tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/ooonana-installer-gui.XXXXXXXX")"
 preview="$tmp_dir/preview.txt"
 log="$tmp_dir/install.log"
-status_file="$tmp_dir/status"
+trap 'rm -f -- "$preview" "$log"; rmdir -- "$tmp_dir"' EXIT
 
 preview_ok=0
-if [ -n "$password" ]; then
-  printf '%s\n' "$password" | "$@" --dry-run --yes >"$preview" 2>&1 && preview_ok=1
-else
-  "$@" --dry-run --yes >"$preview" 2>&1 && preview_ok=1
+printf '%s\n' "$password" | "$@" --dry-run --yes >"$preview" 2>&1 && preview_ok=1
+target_token="$(sed -n 's/^OOONANA_INSTALL_TARGET_TOKEN=//p' "$preview")"
+sed -i '/^OOONANA_INSTALL_TARGET_TOKEN=/d' "$preview"
+case "$target_token" in
+  *[!0-9a-f]*) target_token="" ;;
+esac
+if [ "$preview_ok" -eq 1 ] && [ "${#target_token}" -ne 64 ]; then
+  printf '\nCould not verify the target. Close and reopen the installer before retrying.\n' >>"$preview"
+  preview_ok=0
 fi
 if [ "$preview_ok" -ne 1 ]; then
   yad --center --title "Ooonana Install Blocked" --width="$review_width" --height="$review_height" \
@@ -3491,37 +3522,39 @@ if [ "$preview_ok" -ne 1 ]; then
   exit 1
 fi
 
+review_status=0
 yad --center --title "Ooonana Install Preview" --width="$review_width" --height="$review_height" \
   --window-icon=ooonana-installer --text-width="$review_text_width" \
-  --default-button=1 \
-  --text "Final review. Installation changes only listed target/partitions. Verify sizes and format flags below before continuing." \
+  --response=1 --no-markup \
+  --text "Check $target and the format steps below. Choose Install target to apply these changes." \
   --text-info --wrap --filename="$preview" \
-  --button=Cancel:1 --button="Install target":0 2>/dev/null || exit 0
+  --button="Install target":10 --button=Cancel:1 2>/dev/null || review_status="$?"
+[ "$review_status" -eq 10 ] || exit 0
 
 : >"$log"
-(
-  set +e
-  if [ -n "$password" ]; then
-    printf '%s\n' "$password" | "$@" --yes >"$log" 2>&1
-  else
-    "$@" --yes >"$log" 2>&1
-  fi
-  rc="$?"
-  printf '%s\n' "$rc" >"$status_file"
-) &
-pid="$!"
-
 yad --center --title "Ooonana Install Log" --width="$review_width" --height="$review_height" \
   --window-icon=ooonana-installer --text-width="$review_text_width" \
-  --text "Installation continues if this log closes. Wait for completion before rebooting." \
-  --text-info --wrap --tail --filename="$log" --button="Hide log":0 2>/dev/null || true
-wait "$pid" 2>/dev/null || true
-status="$(cat "$status_file" 2>/dev/null || echo 1)"
+  --text "Installation continues if you hide this log. Wait for the result before rebooting." \
+  --text-info --wrap --tail --filename="$log" --button="Hide log":0 2>/dev/null &
+viewer="$!"
+status=0
+printf '%s\n' "$password" | "$@" --target-token "$target_token" --yes >"$log" 2>&1 || status="$?"
+unset password
+# Use the owned shell job, even if the viewer closed and its PID was reused.
+kill -TERM %1 2>/dev/null || true
+wait "$viewer" 2>/dev/null || true
 if [ "$status" = "0" ]; then
-  yad --center --title "Ooonana OS" --text "Install complete. Reboot when ready." 2>/dev/null || true
+  yad --center --title "Ooonana OS" --no-markup \
+    --text "Installation complete. Restart when ready and boot from the installed disk." \
+    --button=Close:0 2>/dev/null || true
 else
-  if yad --center --title "Ooonana Install Failed" --default-button=1 --text "Install failed. Open fallback shell?" --button=No:1 --button=Shell:0 2>/dev/null; then
-    exec ooonana-theme-env xterm -e /bin/sh -l
+  failure_response=0
+  yad --center --title "Ooonana Install Failed" --width="$review_width" --height="$review_height" \
+    --window-icon=ooonana-installer --text-width="$review_text_width" --response=1 \
+    --text "Installation could not finish. Review the error before retrying." \
+    --text-info --wrap --filename="$log" --button="Open shell":10 --button=Close:1 2>/dev/null || failure_response="$?"
+  if [ "$failure_response" -eq 10 ]; then
+    ooonana-theme-env xterm -e /bin/sh -l
   fi
 fi
 exit "$status"
@@ -3542,7 +3575,6 @@ fi
 
 if [ "${OOONANA_INSTALL_FORCE_WIZARD:-0}" != "1" ] &&
   [ -n "${DISPLAY:-}" ] &&
-  command -v yad >/dev/null 2>&1 &&
   [ -x /usr/bin/ooonana-installer-gui ]; then
   exec /usr/bin/ooonana-installer-gui "$@"
 fi
@@ -3723,7 +3755,7 @@ confirm_root_target() {
 
 run_installer() {
   mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
-  set -- /usr/sbin/ooonana-install --target "$TARGET" --source "$SOURCE" --hostname "$HOSTNAME_VALUE" --user "$USER_NAME" --theme "$THEME" --yes
+  set -- /usr/sbin/ooonana-install --target "$TARGET" --target-mode disk --source "$SOURCE" --hostname "$HOSTNAME_VALUE" --user "$USER_NAME" --theme "$THEME" --yes
   [ "$SWAP_SIZE_MIB" = 0 ] || set -- "$@" --swap-size-mib "$SWAP_SIZE_MIB"
   if [ -n "$CLOUD_REPO" ]; then
     set -- "$@" --cloud-repo "$CLOUD_REPO"
@@ -4070,6 +4102,7 @@ EOF
   install -D -m 0755 /dev/stdin "$ROOTFS/usr/bin/ooonana-i3-installer-session" <<'EOF'
 #!/bin/sh
 set -eu
+export OOONANA_INSTALLER_BOOT=1
 export OOONANA_WINDOW_CONTROLS="${OOONANA_WINDOW_CONTROLS:-left}"
 
 if [ -z "${OOONANA_DBUS_SESSION:-}" ] &&
@@ -4606,15 +4639,18 @@ install_current_backend_checks() {
     "$ROOTFS/usr/lib/ooonana/desktop_theme.py"
   install -D -m 0644 "$ROOT/packages/ooonana/usr/share/ooonana/input-method-profile" \
     "$ROOTFS/usr/share/ooonana/input-method-profile"
-  for file in xsettings_session.py legacy_gtk_style.py lock_screen.py lock_readiness.py session_control.py session_services.py input_method.py tray_model.py tray_service.py legacy_tray.py; do
+  install -D -m 0755 "$ROOT/packages/ooonana/usr/sbin/ooonana-install" "$ROOTFS/usr/sbin/ooonana-install"
+  for file in xsettings_session.py legacy_gtk_style.py lock_screen.py lock_readiness.py session_control.py session_services.py input_method.py tray_model.py tray_service.py legacy_tray.py package_progress.py; do
     install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/$file" \
       "$ROOTFS/usr/lib/ooonana/$file"
   done
-  for file in chat_store.py common.py memory_status.py notification_utils.py task_manager_app.py theme_watch.py tray_app.py ui_preferences.py window_controls.py window_menu.py touchpad_gestures.py shell_flyout.py shell_pointer.py shell_client.py launcher_app.py notifications_app.py controls_app.py wifi_app.py bluetooth_app.py; do
+  for file in chat_store.py common.py installer_app.py installer_backend.py memory_status.py notification_utils.py signal_map.py task_manager_app.py theme_watch.py tray_app.py ui_preferences.py window_controls.py window_menu.py touchpad_gestures.py shell_flyout.py shell_pointer.py shell_client.py launcher_app.py notifications_app.py controls_app.py wifi_app.py bluetooth_app.py setup_app.py; do
     install -D -m 0644 "$ROOT/packages/ooonana/usr/lib/ooonana/ui/$file" \
       "$ROOTFS/usr/lib/ooonana/ui/$file"
   done
   install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/ooonana" "$ROOTFS/usr/bin/ooonana"
+  install -D -m 0644 "$ROOT/packages/ooonana/etc/profile.d/ooonana-terminal.sh" \
+    "$ROOTFS/etc/profile.d/ooonana-terminal.sh"
   for file in ooonana-window-list ooonana-panel-start ooonana-media-status ooonana-notification-status ooonana-xsettings ooonana-lock ooonana-session ooonana-session-services ooonana-session-guard ooonana-input-method ooonana-tray ooonana-controls ooonana-shell ooonana-notifications ooonana-nemo-wallpaper ooonana-shutdown-cleanup; do
     install -D -m 0755 "$ROOT/packages/ooonana/usr/bin/$file" "$ROOTFS/usr/bin/$file"
   done

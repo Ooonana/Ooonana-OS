@@ -26,6 +26,8 @@ INSTALLER="$ROOT/packages/ooonana/usr/sbin/ooonana-install"
 installer_help="$(bash "$INSTALLER" --help)"
 assert_contains "$installer_help" "Install Ooonana OS"
 assert_contains "$installer_help" "--target"
+assert_contains "$installer_help" "--target-mode disk|partition"
+assert_contains "$installer_help" "--target-token HEX"
 assert_contains "$installer_help" "--yes"
 assert_contains "$installer_help" "--dry-run"
 assert_contains "$installer_help" "--hostname NAME"
@@ -150,8 +152,8 @@ assert_contains "$bad_swap_size" "--swap-size-mib must be a nonnegative integer"
 installer_src="$(<"$INSTALLER")"
 assert_not_contains "$installer_src" "750XGK"
 assert_contains "$installer_src" "submenu 'Audio compatibility'"
-assert_contains "$installer_src" "force Intel SOF audio"
-assert_contains "$installer_src" "force legacy Intel HDA audio"
+assert_contains "$installer_src" "menuentry 'Intel SOF'"
+assert_contains "$installer_src" "menuentry 'Legacy Intel HDA'"
 assert_contains "$installer_src" "snd_intel_dspcfg.dsp_driver=1"
 assert_contains "$installer_src" "snd_intel_dspcfg.dsp_driver=3"
 assert_contains "$installer_src" "refusing current root partition target"
@@ -251,6 +253,50 @@ assert_contains "$boundary_preview" "write hostname $boundary_host"
 [[ "$(<"$tmp/identity-target.raw")" == 'inert QA target' ]] || fail 'identity bounds changed target'
 
 sed '/^while \[\[ \$# -gt 0 \]\]/,$d' "$INSTALLER" >"$tmp/resume-copy.sh"
+(
+  source "$tmp/resume-copy.sh"
+  TARGET="$tmp/identity-target.raw"
+  EXPECTED_MODE=disk
+  DRY_RUN=1
+  [[ "$(detect_target_mode)" == disk ]] || fail 'raw image did not resolve to a disk'
+  preview="$(verify_target_snapshot)"
+  EXPECTED_TARGET_TOKEN="$(sed -n 's/^OOONANA_INSTALL_TARGET_TOKEN=//p' <<<"$preview")"
+  [[ "$EXPECTED_TARGET_TOKEN" =~ ^[a-f0-9]{64}$ ]] || fail 'missing verified target token'
+  DRY_RUN=0
+  verify_target_snapshot
+  mv -- "$TARGET" "$TARGET.before"
+  printf 'replacement raw image\n' >"$TARGET"
+  if result="$(verify_target_snapshot 2>&1)"; then
+    fail 'accepted a replacement target after review'
+  fi
+  assert_contains "$result" 'storage changed since review'
+  DRY_RUN=1
+  TARGET="$tmp/missing-target.raw"
+  if result="$(detect_target_mode 2>&1)"; then
+    fail 'verified preview accepted a missing target'
+  fi
+  assert_contains "$result" 'target must be block device or existing raw file'
+  lsblk() { return 1; }
+  if result="$(require_writable_unmounted /dev/fixture 'mounted partition' 2>&1)"; then
+    fail 'accepted target after mount inventory failed'
+  fi
+  assert_contains "$result" 'cannot check target mounts'
+  lsblk() { printf '[SWAP]\n'; }
+  if result="$(require_writable_unmounted /dev/fixture 'mounted partition' 2>&1)"; then
+    fail 'accepted active swap partition'
+  fi
+  assert_contains "$result" 'mounted partition'
+  lsblk() { [[ "$3" != RO ]] || printf '1\n'; }
+  if result="$(require_writable_unmounted /dev/fixture 'mounted partition' 2>&1)"; then
+    fail 'accepted read-only partition'
+  fi
+  assert_contains "$result" 'target is read-only or unavailable'
+  mountpoint() { return 0; }
+  if result="$(validate_target_unmounted 2>&1)"; then
+    fail 'accepted an occupied installer mount point'
+  fi
+  assert_contains "$result" 'installer mount point already in use'
+)
 cat >>"$tmp/resume-copy.sh" <<'CHECK'
 SOURCE="$1" MOUNT_POINT="$2" TARGET_MODE=partition FORMAT_ROOT=0 DRY_RUN=0
 copy_rootfs
@@ -398,6 +444,8 @@ truncate -s 6G "$tmp/too-small.raw"
 too_small="$(bash "$INSTALLER" --dry-run --yes \
   --target "$tmp/too-small.raw" --swap-size-mib 4096 2>&1 || true)"
 assert_contains "$too_small" "target too small for root plus 4096 MiB swap"
+zero_padded_swap="$(bash "$INSTALLER" --dry-run --yes --target "$tmp/swap-disk.raw" --swap-size-mib 0004096)"
+[[ "$zero_padded_swap" == "$swap_preview" ]] || fail 'swap size interpreted as octal'
 mkdir -p "$tmp/rootfs/boot"
 touch "$tmp/rootfs/boot/vmlinuz-6.1.0-ooonana"
 touch "$tmp/rootfs/boot/initrd.img-6.1.0-ooonana"

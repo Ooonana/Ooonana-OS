@@ -3,6 +3,7 @@
 from pathlib import Path
 import re
 import shlex
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -26,6 +27,7 @@ class InstalledGrub(unittest.TestCase):
         self.assets.mkdir(parents=True)
         for name in ("grub.theme", "grub-logo.txt"):
             (self.assets / name).write_bytes((ROOT / "packages/ooonana/usr/share/ooonana" / name).read_bytes())
+        shutil.copytree(ROOT / "packages/ooonana/usr/share/ooonana/grub-ui", self.assets / "grub-ui")
         for source, name in (("boot-mark.png", "boot-mark.png"), ("grub-background.png", "grub-background.png")):
             (self.assets / name).write_bytes((ROOT / "branding" / source).read_bytes())
         self.font = self.root / "usr/share/grub/unicode.pf2"
@@ -51,6 +53,12 @@ class InstalledGrub(unittest.TestCase):
         self.assertIn('if [ "$ooonana_theme_ready" = 1 ]; then', config)
         self.assertLess(config.index("if loadfont"), config.index("set theme=/boot/grub/theme.txt"))
         self.assertIn('if [ -z "$theme" ]; then', config)
+        modern = self.root / "boot/grub/grub-ui"
+        for asset in (self.assets / "grub-ui").rglob("*"):
+            if asset.is_file():
+                self.assertEqual((modern / asset.relative_to(self.assets / "grub-ui")).read_bytes(), asset.read_bytes())
+        self.assertIn('source /boot/grub/grub-ui/enable.cfg', config)
+        self.assertIn("configfile /boot/grub/grub.cfg", (modern / "enable.cfg").read_text())
 
     def test_missing_assets_keep_console_and_serial_fallback(self):
         for missing in (self.font, self.assets / "boot-mark.png", self.assets / "grub.theme"):
@@ -64,6 +72,7 @@ class InstalledGrub(unittest.TestCase):
                     self.assertIn("terminal_output console serial", config)
                     self.assertIn("set color_normal=yellow/black", config)
                     self.assertFalse((self.root / "boot/grub/theme.txt").exists())
+                    self.assertFalse((self.root / "boot/grub/grub-ui").exists())
                 finally:
                     missing.write_bytes(original)
 

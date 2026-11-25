@@ -1,0 +1,81 @@
+title-text: ""
+desktop-color: "#0c0e12"
+desktop-image: "backdrop.png"
+desktop-image-scale-method: "stretch"
+terminal-font: "Unifont Regular 16"
+message-color: "#f6f1e9"
+message-bg-color: "#12151b"
+
++ image {
+  file = "brand.png"
+  left = 30%-181
+  top = 50%-99
+  width = 240
+  height = 140
+}
+
+# Screen-relative bounds let GRUB repaint selection and countdown separately.
++ image {
+  file = "heading.png"
+  left = 46%-8
+  top = 46%-180
+  width = 280
+  height = 32
+}
+
++ boot_menu {
+  left = 46%-20
+  top = 46%-136
+  width = 28%+150
+  height = 302
+  item_font = "Ooonana Menu Regular 19"
+  selected_item_font = "Ooonana Menu Bold 19"
+  item_color = "#e4e6e9"
+  selected_item_color = "#ffdc9a"
+  item_pixmap_style = "item_*.png"
+  selected_item_pixmap_style = "selection_*.png"
+  item_height = 28
+  item_padding = 0
+  item_spacing = 23
+  icon_width = 20
+  icon_height = 20
+  item_icon_space = 17
+  scrollbar = false
+}
+
++ image {
+  file = "divider.png"
+  left = 46%-16
+  top = 46%+178
+  width = 28%+142
+  height = 1
+}
+
++ image {
+  file = "controls.png"
+  left = 46%-14
+  top = 46%+201
+  width = 203
+  height = 29
+}
+
++ label {
+  id = "__timeout__"
+  text = "Starting in %d s"
+  align = "right"
+  left = 74%+3
+  top = 46%+207
+  width = 121
+  height = 20
+  font = "Ooonana Status Regular 15"
+  color = "#babec9"
+}
+
+# GRUB paints later components first. Keep the glass behind the controls.
++ image {
+  file = "panel.png"
+  left = 46%-40
+  top = 46%-204
+  width = 28%+190
+  height = 6%+424
+}

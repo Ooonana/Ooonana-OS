@@ -95,11 +95,11 @@ def fill():
     key(*(['Tab']*7), 'space')
 
 
-def action_button(xid):
-    # The review text view owns initial focus. Click the real bottom-right
-    # action of this exact owned dialog; Enter inside text must not approve.
+def action_button(xid, *, review=False):
+    # Review places Cancel at the right, where YAD initially puts its default.
     geometry = dict(line.split('=', 1) for line in run('xdotool', 'getwindowgeometry', '--shell', xid).stdout.splitlines())
-    run('xdotool', 'mousemove', '--window', xid, str(int(geometry['WIDTH'])-65), str(int(geometry['HEIGHT'])-24))
+    offset = max(180, round(110 * float(os.environ.get('OOONANA_GUI_TEXT_SCALE', '1')))) if review else 65
+    run('xdotool', 'mousemove', '--window', xid, str(int(geometry['WIDTH'])-offset), str(int(geometry['HEIGHT'])-24))
     run('xdotool', 'click', '1'); drain()
 
 
@@ -115,7 +115,7 @@ with tempfile.TemporaryDirectory(prefix='ooonana-installer-lifecycle-') as tempo
             (output/'scenario').write_text(scenario)
             before = len(prompts)
             with (output/(scenario+'.log')).open('w') as log:
-                process = subprocess.Popen(['sh', str(script)], stdout=log, stderr=log, env=env)
+                process = subprocess.Popen(['sh', str(script), '--legacy'], stdout=log, stderr=log, env=env)
                 window('Install Ooonana OS', scenario+'-form'); fill()
                 if scenario == 'blocked':
                     xid = window('Ooonana Install Blocked', 'blocked'); action_button(xid)
@@ -128,14 +128,18 @@ with tempfile.TemporaryDirectory(prefix='ooonana-installer-lifecycle-') as tempo
                         if process.poll() is None: key('Escape')
                         assert process.wait(timeout=8) == 0
                     else:
-                        action_button(xid)
+                        action_button(xid, review=True)
                         xid = window('Ooonana Install Log', scenario+'-log')
                         wait(lambda: (output/(scenario+'.started')).exists(), 'Backend never started')
-                        action_button(xid)  # Hide log; worker must survive.
-                        drain(.2); assert process.poll() is None, 'Closing log abandoned installation'
+                        if scenario == 'failure':
+                            action_button(xid)  # Hide log; worker must survive.
+                            drain(.2); assert process.poll() is None, 'Closing log abandoned installation'
                         (output/(scenario+'.release')).touch()
                         window('Ooonana OS' if scenario == 'success' else 'Ooonana Install Failed', scenario+'-result')
-                        key('Return')  # Failure default must refuse fallback shell.
+                        assert not find('Ooonana Install Log'), 'Log obscures finished result'
+                        key('Return')
+                        if scenario == 'failure' and find('Ooonana Install Failed'):
+                            key('Escape')  # The read-only log can consume Enter.
                         assert process.wait(timeout=8) == (0 if scenario == 'success' else 7)
                 records = [json.loads(line) for line in (output/(scenario+'.jsonl')).read_text().splitlines()]
                 expected = 1 if scenario in ('cancel','blocked') else 2

@@ -48,9 +48,22 @@ last=""
 for arg in "$@"; do
   last="$arg"
 done
+if [ -n "${OOONANA_TEST_RETRY_MARKER:-}" ] && [ ! -e "$OOONANA_TEST_RETRY_MARKER" ]; then
+  wc -c <"$last" >"$OOONANA_TEST_RETRY_MARKER"
+  printf 'fixture could not fit\n' >&2
+  exit 1
+fi
+if [ -n "${OOONANA_TEST_RETRY_MARKER:-}" ]; then
+  [ "$(wc -c <"$last")" -gt "$(cat "$OOONANA_TEST_RETRY_MARKER")" ] || exit 2
+fi
 printf 'fake ext4 rootfs\n' > "$last"
 EOF
 chmod +x "$tmp/bin/mke2fs"
+cat > "$tmp/bin/e2fsck" <<'EOF'
+#!/bin/sh
+[ "$1" = -fn ] && [ "${OOONANA_TEST_BAD_EXT4:-0}" = 0 ] && grep -q 'fake ext4 rootfs' "$2"
+EOF
+chmod +x "$tmp/bin/e2fsck"
 printf 'kernel\n' > "$tmp/vmlinuz"
 cat > "$tmp/rootfs/bin/busybox" <<'EOF'
 #!/bin/sh
@@ -85,12 +98,16 @@ echo start
 EOF
 chmod +x "$tmp/rootfs/usr/bin/start-ooonana-i3"
 
-OOONANA_EXPECT_DMC="$tmp/rootfs/lib/firmware/i915/adlp_dmc.bin.zst" PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
-  --rootfs "$tmp/rootfs" \
-  --rootfs-image "$tmp/live-rootfs.ext4" \
-  --kernel "$tmp/vmlinuz" \
-  --initramfs "$tmp/live.cpio.gz" \
-  --force >/dev/null
+build_fixture() {
+  OOONANA_EXPECT_DMC="$tmp/rootfs/lib/firmware/i915/adlp_dmc.bin.zst" PATH="$tmp/bin:$PATH" bash "$SCRIPT" \
+    --rootfs "$tmp/rootfs" \
+    --rootfs-image "$tmp/live-rootfs.ext4" \
+    --kernel "$tmp/vmlinuz" \
+    --initramfs "$tmp/live.cpio.gz" \
+    --force
+}
+
+build_fixture >/dev/null
 
 [[ -s "$tmp/live.cpio.gz" ]] || fail "missing live initramfs"
 [[ -s "$tmp/live-rootfs.ext4" ]] || fail "missing live rootfs image"
@@ -99,6 +116,20 @@ gzip -dc "$tmp/live.cpio.gz" | grep -q "fake cpio" || fail "cpio output not comp
 [[ -f "$tmp/rootfs/boot/vmlinuz" ]] || fail "kernel not staged in live rootfs"
 [[ -d "$tmp/rootfs/dev" ]] || fail "dev dir removed"
 [[ -d "$tmp/rootfs/proc" ]] || fail "proc dir removed"
+OOONANA_TEST_RETRY_MARKER="$tmp/compact-size" build_fixture >"$tmp/retry.log" 2>&1
+[[ -s "$tmp/compact-size" ]] || fail "compact image attempt missing"
+grep -q 'Retrying live rootfs creation' "$tmp/retry.log" || fail "fallback size was not tried"
+printf 'retained rootfs image\n' >"$tmp/live-rootfs.ext4"
+printf 'retained initramfs\n' >"$tmp/live.cpio.gz"
+if OOONANA_TEST_BAD_EXT4=1 build_fixture >"$tmp/failed-check.log" 2>&1; then
+  fail "filesystem check failure accepted"
+fi
+grep -q 'failed filesystem verification' "$tmp/failed-check.log" || fail "wrong image verification error"
+grep -qx 'retained rootfs image' "$tmp/live-rootfs.ext4" || fail "failed build overwrote rootfs image"
+grep -qx 'retained initramfs' "$tmp/live.cpio.gz" || fail "failed build overwrote initramfs"
+if compgen -G "$tmp/*.building.*" >/dev/null; then
+  fail "image staging files leaked"
+fi
 
 script_src="$(<"$SCRIPT")"
 assert_contains "$script_src" "/images/ooonana-full-i3-live-rootfs.ext4"
