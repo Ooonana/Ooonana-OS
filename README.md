@@ -1434,6 +1434,8 @@ ooonana update && ooonana upgrade
 Open **Settings → System → Open Updates** for the same workflow on the
 desktop. A major Core upgrade on Live requires a fresh ISO.
 
+Core 0.10.12.1 shows package-check progress at the start of `ooonana upgrade`.
+
 Core 0.10.12 adds the native desktop installer, full-screen install wizard,
 and orange package progress with interactive confirmation. Use
 `ooonana update && ooonana upgrade ooonana-core` for the package update.
@@ -1557,7 +1559,7 @@ docs/jarvis-agi-research.md
 
 ## Build From Source
 
-Build a fresh ISO with the Core 0.10.12 candidate packages. The launcher verifies
+Build a fresh ISO with the Core 0.10.12.1 candidate packages. The launcher verifies
 the signed repository and the F: workspace before building. It replaces the
 previous release ISO after verification.
 
@@ -1568,7 +1570,7 @@ For prepared Windows/WSL release workspace, run in PowerShell:
 $workspace = 'F:\Ooonana\ooonana-os\build-storage\release-stage.ext4'
 $required = if (Test-Path -LiteralPath $workspace) { 8GB } else { 29GB }
 if ((Get-PSDrive F).Free -lt $required) { throw 'Insufficient F: space for build workspace/output.' }
-$repo = '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10.12-signed'
+$repo = '/mnt/winf/Ooonana/ooonana-os/build/full-i3-repo-0.10.12.1-signed'
 & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo $repo --preflight-only
 if ($LASTEXITCODE -eq 0) {
     & 'F:\Ooonana\ooonana-os\Build-ISO.ps1' --repo $repo

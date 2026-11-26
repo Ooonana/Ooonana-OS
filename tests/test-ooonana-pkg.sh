@@ -607,7 +607,26 @@ current_upgrade="$(OOONANA_SOURCES_DIR="$http_sources" \
   "$CLI" upgrade --dry-run 2>&1 || true)"
 assert_contains "$current_upgrade" "no upgrades"
 assert_not_contains "$current_upgrade" "download failed"
+assert_not_contains "$current_upgrade" "Checking"
 [[ ! -e "$current_cache/repos/cloud/current.pkg" ]] || fail "upgrade scan downloaded current.pkg metadata"
+cp "$REPO/ai.pkg" "$current_state/installed/ai.pkg"
+current_upgrade_tty="$(OOONANA_SOURCES_DIR="$http_sources" \
+  OOONANA_STATE_DIR="$current_state" \
+  OOONANA_CACHE_DIR="$current_cache" \
+  tty_package_command 80 "$CLI" upgrade)"
+assert_contains "$current_upgrade_tty" "$orange"
+assert_contains "$current_upgrade_tty" "Checking 0%  0/2"
+assert_contains "$current_upgrade_tty" "Checking 50%  1/2"
+assert_contains "$current_upgrade_tty" "Checking 100%  2/2"
+assert_contains "${current_upgrade_tty%%no upgrades*}" "$(printf '\033[r')"
+assert_contains "$current_upgrade_tty" "no upgrades"
+assert_not_contains "$current_upgrade_tty" "Applying"
+current_upgrade_compact="$(OOONANA_SOURCES_DIR="$http_sources" \
+  OOONANA_STATE_DIR="$current_state" \
+  OOONANA_CACHE_DIR="$current_cache" \
+  NO_COLOR=1 LC_ALL=C tty_package_command 18 "$CLI" upgrade)"
+assert_contains "$current_upgrade_compact" "Checking 100%  #"
+assert_not_contains "$current_upgrade_compact" "$orange"
 cat > "$http_repo/current.pkg" <<'EOF'
 OOONANA_PKG_ID="current"
 OOONANA_PKG_VERSION="1.0-r0"
@@ -1456,7 +1475,9 @@ upgrade_run="$(OOONANA_REPO_DIR="$upgrade_repo" \
   OOONANA_STATE_DIR="$upgrade_state" \
   OOONANA_CACHE_DIR="$upgrade_cache" \
   OOONANA_ROOT="$upgrade_root" \
-  "$CLI" upgrade)"
+  tty_package_command 80 "$CLI" upgrade)"
+assert_contains "${upgrade_run%%Selected update candidates*}" "Checking 100%  1/1"
+assert_contains "$upgrade_run" "Applying 100%"
 assert_contains "$upgrade_run" "upgraded updemo 1.0.0 -> 2.0.0"
 [[ "$(cat "$upgrade_root/usr/share/updemo/version.txt")" == "two" ]] || fail "upgrade did not replace package files"
 assert_contains "$(<"$upgrade_state/installed/updemo.pkg")" 'OOONANA_PKG_VERSION="2.0.0"'

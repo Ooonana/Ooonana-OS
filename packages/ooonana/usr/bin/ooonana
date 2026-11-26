@@ -3,7 +3,7 @@
 # shellcheck disable=SC1090,SC3043
 set -eu
 
-VERSION="0.10.12"
+VERSION="0.10.12.1"
 case "${1:-}" in
   version|--version|-v) printf 'ooonana %s\n' "$VERSION"; exit 0 ;;
 esac
@@ -74,7 +74,7 @@ DOWNLOAD_MAX_TIME="${OOONANA_DOWNLOAD_MAX_TIME:-90}"
 DOWNLOAD_RETRIES="${OOONANA_DOWNLOAD_RETRIES:-1}"
 CHECKSUM_CACHE_DIR=""
 PKG_ASSUME_YES=0
-PKG_APPLY_ROWS=0
+PKG_PROGRESS_ROWS=0
 PKG_APPLY_TOTAL=0
 PKG_APPLY_DONE=0
 PKG_MIGRATION_DIGEST=""
@@ -91,7 +91,7 @@ initialize_checksum_cache() {
 }
 
 cleanup_checksum_cache() {
-  finish_apply_progress || true
+  finish_package_progress || true
   case "$CHECKSUM_CACHE_DIR" in
     "${TMPDIR:-/tmp}"/ooonana-checksums.*) rm -rf "$CHECKSUM_CACHE_DIR" ;;
   esac
@@ -784,15 +784,16 @@ terminal_orange() {
   fi
 }
 
-finish_apply_progress() {
-  [ "$PKG_APPLY_ROWS" -gt 0 ] || return 0
-  printf '\0337\033[%s;1H\033[2K\033[r\0338' "$PKG_APPLY_ROWS" >&2
-  PKG_APPLY_ROWS=0
+finish_package_progress() {
+  [ "$PKG_PROGRESS_ROWS" -gt 0 ] || return 0
+  printf '\0337\033[%s;1H\033[2K\033[r\0338' "$PKG_PROGRESS_ROWS" >&2
+  PKG_PROGRESS_ROWS=0
 }
 
-draw_apply_progress() {
-  local size rows cols percent status cells filled bar position solid empty color reset
-  [ "$PKG_APPLY_TOTAL" -gt 0 ] && [ -t 1 ] && package_progress_enabled || return 0
+draw_package_progress() {
+  local phase completed total size rows cols percent status cells filled bar position solid empty color reset
+  phase="$1"; completed="$2"; total="$3"
+  [ "$total" -gt 0 ] && [ -t 1 ] && package_progress_enabled || return 0
   case "${TERM:-}" in
     xterm*|screen*|tmux*|rxvt*|linux|foot*|alacritty*|wezterm*) ;;
     *) return 0 ;;
@@ -800,19 +801,22 @@ draw_apply_progress() {
   size="$(stty size <&2 2>/dev/null)" || return 0
   rows="${size% *}"; cols="${size#* }"
   case "$rows:$cols" in *[!0-9:]*|:*|*:) return 0 ;; esac
-  if [ "$rows" -lt 4 ] || [ "$cols" -lt 26 ]; then
-    finish_apply_progress
+  if [ "$rows" -lt 4 ] || [ "$cols" -lt 18 ]; then
+    finish_package_progress
     return 0
   fi
-  if [ "$rows" -ne "$PKG_APPLY_ROWS" ]; then
-    finish_apply_progress
+  if [ "$rows" -ne "$PKG_PROGRESS_ROWS" ]; then
+    finish_package_progress
     # Keep one row below normal output, including the live transfer meter.
     printf '\n\033[1A\0337\033[1;%sr\0338' "$((rows - 1))" >&2
-    PKG_APPLY_ROWS="$rows"
+    PKG_PROGRESS_ROWS="$rows"
   fi
-  percent="$((PKG_APPLY_DONE * 100 / PKG_APPLY_TOTAL))"
+  percent="$((completed * 100 / total))"
   [ "$percent" -le 100 ] || percent=100
-  status="Applying $percent%  $PKG_APPLY_DONE/$PKG_APPLY_TOTAL"
+  status="$phase $percent%  $completed/$total"
+  if [ "$cols" -lt "$((${#status} + 5))" ]; then
+    status="$phase $percent%"
+  fi
   case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
     *UTF-8*|*utf8*|*utf-8*) solid=■; empty=□ ;;
     *) solid='#'; empty='.' ;;
@@ -834,7 +838,7 @@ draw_apply_progress() {
 package_applied() {
   [ "$PKG_APPLY_TOTAL" -gt 0 ] || return 0
   PKG_APPLY_DONE="$((PKG_APPLY_DONE + 1))"
-  draw_apply_progress
+  draw_package_progress Applying "$PKG_APPLY_DONE" "$PKG_APPLY_TOTAL"
 }
 
 confirm_package_changes() {
@@ -899,9 +903,9 @@ apply_package_changes() {
   if [ "$action" = upgrade ]; then
     begin_userland_transition
   fi
-  draw_apply_progress
+  draw_package_progress Applying "$PKG_APPLY_DONE" "$PKG_APPLY_TOTAL"
   walk_package_changes "$action" 0 "$targets" "$force"
-  finish_apply_progress
+  finish_package_progress
   PKG_APPLY_TOTAL=0
 }
 
@@ -2955,7 +2959,7 @@ upgrade_one_pkg() {
 }
 
 cmd_upgrade() {
-  local explicit selected check_major
+  local explicit selected check_major file checked percent shown_percent
   dry_run=0
   packages=""
   OOONANA_PLANNED=""
@@ -2978,10 +2982,19 @@ cmd_upgrade() {
   explicit=1
   if [ -z "$packages" ]; then
     explicit=0
-    [ -d "$INSTALLED_DIR" ] || { printf 'no packages installed\n'; return 0; }
-    for file in "$INSTALLED_DIR"/*.pkg; do
-      [ -f "$file" ] || { printf 'no packages installed\n'; return 0; }
-      id="$(basename "$file" .pkg)"
+    set -- "$INSTALLED_DIR"/*.pkg
+    [ -f "$1" ] || { printf 'no packages installed\n'; return 0; }
+    checked=0
+    shown_percent=0
+    draw_package_progress Checking "$checked" "$#"
+    for file do
+      if [ ! -f "$file" ]; then
+        finish_package_progress
+        printf 'no packages installed\n'
+        return 0
+      fi
+      id="${file##*/}"
+      id="${id%.pkg}"
       old_version="$(installed_pkg_version "$id")"
       if [ -n "${OOONANA_MIGRATION_BASE:-}" ]; then
         load_pkg "$id"
@@ -2994,7 +3007,14 @@ cmd_upgrade() {
       elif new_version="$(available_pkg_version "$id")" && version_is_newer "$old_version" "$new_version"; then
         packages="$packages $id"
       fi
+      checked="$((checked + 1))"
+      percent="$((checked * 100 / $#))"
+      if [ "$percent" -gt "$shown_percent" ]; then
+        draw_package_progress Checking "$checked" "$#"
+        shown_percent="$percent"
+      fi
     done
+    finish_package_progress
   fi
 
   if [ -z "$packages" ]; then
