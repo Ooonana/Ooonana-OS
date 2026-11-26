@@ -320,7 +320,8 @@ build_payload() {
     END {
       pad = int((80 - width) / 2)
       if (pad < 0) pad = 0
-      for (line = 1; line <= NR; line++) printf "%*s%s\n", pad, "", lines[line]
+      for (i = 0; i < pad; i++) indent = indent " "
+      for (line = 1; line <= NR; line++) printf "%s%s\n", indent, lines[line]
     }
   ' "$ROOT/packages/ooonana/usr/share/ooonana/grub-logo.txt" > "$payload/grub-logo.txt"
   chmod 0644 "$payload/grub-logo.txt"
