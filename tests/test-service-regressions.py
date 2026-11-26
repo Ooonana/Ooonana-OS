@@ -55,7 +55,8 @@ for password_rc in [0, 1]:
         set_border_width=lambda *_: None, set_spacing=lambda *_: None,
         pack_start=lambda *_: None, add_class=lambda *_: None,
         set_default_response=lambda *_: None, show_all=lambda: None,
-        run=lambda: 1, destroy=lambda: None)
+        run=lambda: 1, destroy=lambda: None, grab_focus=lambda: None,
+        get_vadjustment=lambda: SimpleNamespace(set_value=lambda _: None))
     review_widget.get_content_area = review_widget.get_style_context = lambda: review_widget
     review_widget.add_button = lambda *_: review_widget
     password_inputs = []
@@ -65,16 +66,19 @@ for password_rc in [0, 1]:
     namespace = dict(run=run, command_exists=lambda _: True, admin_command=lambda x: x,
                      load_preferences=lambda: {'reduce_motion': False},
                      fit_dialog=lambda *_args: None, label=lambda *_args: review_widget,
+                     THEMES={'dark': 'Graphite'},
                      Gtk=SimpleNamespace(
+                         Box=lambda **_kwargs: review_widget,
                          Dialog=lambda **_kwargs: review_widget,
                          ScrolledWindow=lambda: review_widget,
+                         Orientation=SimpleNamespace(VERTICAL=0),
                          PolicyType=SimpleNamespace(NEVER=0, AUTOMATIC=1),
                          Align=SimpleNamespace(START=0),
                          ResponseType=SimpleNamespace(OK=1, CANCEL=0)),
                      subprocess=SimpleNamespace(run=change_password,
                                                 PIPE=-1, STDOUT=-2, TimeoutExpired=subprocess.TimeoutExpired),
                      threading=SimpleNamespace(Thread=thread),
-                     GLib=SimpleNamespace(idle_add=lambda callback, *args: completion.append(args)))
+                     GLib=SimpleNamespace(idle_add=lambda callback, *args: callback(*args)))
     exec(compile(ast.Module(body=[method], type_ignores=[]), 'setup-test', 'exec'), namespace)
     values = dict(user='test', password=' secret ', mode='dhcp', theme='dark',
                   zram_percent='50', disk_swap='on', repo='file:///repo')
@@ -85,7 +89,7 @@ for password_rc in [0, 1]:
                              spinner=SimpleNamespace(start=lambda: None),
                              status=SimpleNamespace(set_text=lambda _: None, get_text=lambda: '',
                                                     set_tooltip_text=lambda _: None),
-                             finished=lambda *args: None)
+                             finished=lambda *args: completion.append(args))
     namespace['apply'](target, SimpleNamespace(set_sensitive=lambda _: None))
     assert '--done' not in commands[0]
     assert any('--done' in command for command in commands) == (password_rc == 0)

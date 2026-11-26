@@ -23,7 +23,7 @@ ci-smoke:
   stage: check
   before_script:
     # Verification fixtures use findmnt; BusyBox does not provide it.
-    - apk add --no-cache bash python3 diffutils findutils tar gzip xz coreutils binutils git openssl util-linux nodejs gcc musl-dev glib
+    - apk add --no-cache bash python3 diffutils findutils tar gzip xz coreutils binutils git openssl util-linux nodejs gcc musl-dev glib grub-bios grub-efi
     - command -v findmnt && command -v mountpoint
     - command -v node && command -v cc
   script:

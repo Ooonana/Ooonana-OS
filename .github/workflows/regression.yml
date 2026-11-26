@@ -12,6 +12,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
+      - name: Install GRUB modules for ISO checks
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends grub-pc-bin grub-efi-amd64-bin
       - name: Backend, boot policy, kernel configuration, package safety
         env:
           PYTHONDONTWRITEBYTECODE: '1'
