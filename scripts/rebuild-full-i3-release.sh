@@ -41,7 +41,7 @@ Options:
   --resume-after-rootfs  Reuse completed scratch and full rootfs
   --resume-after-iso     Reuse completed .iso.new and continue verification
   --verify-in-ram        Mirror verification media in guarded nonswappable RAM
-  --verify-on-disk PATH  Temporary fast-disk ISO copy (WSL: C: directory)
+  --verify-on-disk PATH  Temporary ISO copy (F-backed WSL default: Windows temp on C:)
   -h, --help             Show help
 
 Environment:
@@ -106,9 +106,15 @@ done
 
 ensure_default_build_mount
 
-for command_name in awk cmp cp dd df du find flock grep install mv python3 qemu-system-x86_64 realpath sha256sum sort stat sync timeout xargs; do
+for command_name in awk cmp cp dd df du find flock grep install mv python3 qemu-system-x86_64 realpath sha256sum sort stat sync tee timeout xargs; do
   command -v "$command_name" >/dev/null 2>&1 || die "missing command: $command_name"
 done
+
+if [[ -n "${OOONANA_STAGE_BACKING_IMAGE:-}" && "$VERIFY_IN_RAM" -eq 0 && -z "$VERIFY_DISK_DIR" ]]; then
+  VERIFY_DISK_DIR="$(wsl_default_verification_dir)" ||
+    die "cannot use Windows temp on C:; specify --verify-on-disk PATH or --verify-in-ram"
+  printf '[verify] QEMU will use a temporary C: disk mirror\n'
+fi
 
 mkdir -p /var/lock
 exec 9>/var/lock/ooonana-full-i3-release.lock

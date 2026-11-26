@@ -1,11 +1,12 @@
 #!/bin/sh
-# Optional verification mirror only. Never creates/rebuilds the source ISO.
+# Verification mirrors reuse completed ISO media.
 RAM_MEDIA_DIR=''
 RAM_MEDIA_ISO=''
 DISK_MEDIA_ROOT=''
 DISK_MEDIA_DIR=''
 DISK_MEDIA_ISO=''
 DISK_MEDIA_SOURCE=''
+VERIFICATION_WINDOWS_PS=/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe
 
 wsl_resident_reuse_kb() {
   # Total/available Linux KiB, resident WSL VM KiB. Never credit its virtual cap.
@@ -30,12 +31,11 @@ verification_available_memory() {
   windows_kb=0
   windows_free_kb=0
   wsl_reuse_kb=0
-  windows_ps=/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe
   if grep -qi microsoft /proc/sys/kernel/osrelease; then
-    [ -x "$windows_ps" ] || { echo 'FAIL: cannot check Windows RAM headroom' >&2; return 1; }
+    [ -x "$VERIFICATION_WINDOWS_PS" ] || { echo 'FAIL: cannot check Windows RAM headroom' >&2; return 1; }
     # PowerShell variables must stay literal until Windows interprets them.
     # shellcheck disable=SC2016
-    memory_reading="$("$windows_ps" -NoProfile -NonInteractive -Command \
+    memory_reading="$("$VERIFICATION_WINDOWS_PS" -NoProfile -NonInteractive -Command \
       '$ErrorActionPreference="Stop"; $m=Get-CimInstance Win32_OperatingSystem; $v=@(Get-Process -Name vmmemWSL -ErrorAction SilentlyContinue); $r=0; if($v.Count -eq 1){$v[0].Refresh(); $r=[math]::Floor($v[0].WorkingSet64/1024)}; $m2=Get-CimInstance Win32_OperatingSystem; if($v.Count -eq 1){$v[0].Refresh(); $r=[math]::Min($r,[math]::Floor($v[0].WorkingSet64/1024))}; "free=$([math]::Min($m.FreePhysicalMemory,$m2.FreePhysicalMemory))"; "resident=$r"' \
       </dev/null | tr -d '\r')" || return 1
     windows_free_kb="$(printf '%s\n' "$memory_reading" | awk -F= '$1=="free" {print $2}')"
@@ -113,7 +113,26 @@ disk_media_space_ok() {
   [ "$3" -eq 0 ] || [ "$3" -ge "$disk_required_kb" ]
 }
 
+wsl_disk_media_on_c() {
+  case "$(findmnt -n -o SOURCE --target "$1")" in
+    'C:'|C:\\) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+wsl_default_verification_dir() {
+  local windows_temp linux_temp
+  windows_temp="$("$VERIFICATION_WINDOWS_PS" -NoProfile -NonInteractive -Command \
+    '[IO.Path]::GetTempPath()' </dev/null | tr -d '\r')" || return 1
+  [ -n "$windows_temp" ] || return 1
+  linux_temp="$(wslpath -u "$windows_temp")" || return 1
+  linux_temp="$(realpath -e "$linux_temp")" || return 1
+  [ -d "$linux_temp" ] && wsl_disk_media_on_c "$linux_temp" || return 1
+  printf '%s\n' "$linux_temp"
+}
+
 prepare_disk_media() {
+  local source_digest mirror_digest
   source_iso="$1"
   guest_mib="$2"
   disk_root="$3"
@@ -129,11 +148,10 @@ prepare_disk_media() {
   destination_kb="$(df -Pk "$disk_root" | awk 'NR == 2 {print $4}')"
   windows_disk_kb=0
   if grep -qi microsoft /proc/sys/kernel/osrelease; then
-    case "$(findmnt -n -o SOURCE --target "$disk_root")" in
-      'C:'|C:\\) ;;
-      *) echo 'FAIL: WSL disk verification needs C: DrvFS; no distro VHD growth or F: remirroring' >&2; return 1 ;;
-    esac
-    windows_disk_bytes="$("$windows_ps" -NoProfile -NonInteractive -Command \
+    wsl_disk_media_on_c "$disk_root" || {
+      echo 'FAIL: WSL disk verification needs C: DrvFS; no distro VHD growth or F: remirroring' >&2; return 1;
+    }
+    windows_disk_bytes="$("$VERIFICATION_WINDOWS_PS" -NoProfile -NonInteractive -Command \
       '(Get-PSDrive -Name C).Free' </dev/null | tr -d '[:space:]')" || return 1
     case "$windows_disk_bytes" in ''|0|*[!0-9]*|0[0-9]*) return 1 ;; esac
     windows_disk_kb=$((windows_disk_bytes / 1024))
@@ -146,10 +164,15 @@ prepare_disk_media() {
   DISK_MEDIA_DIR="$(mktemp -d "$disk_root/ooonana-verify-disk.XXXXXXXX")" || return 1
   DISK_MEDIA_ISO="$DISK_MEDIA_DIR/verification.iso"
   printf '[verify] Temporary disk mirror: %s (guest=%s MiB, 2 GiB RAM/disk reserves)\n' "$DISK_MEDIA_ISO" "$guest_mib"
-  cp "$source_iso" "$DISK_MEDIA_ISO" || return 1
-  printf '[verify] Comparing copied media; reading F: source may take several minutes\n'
-  cmp -s "$source_iso" "$DISK_MEDIA_ISO" || { echo 'FAIL: verification media copy differs' >&2; return 1; }
-  printf '[verify] Disk mirror copy verified\n'
+  printf '[verify] Copying and hashing staged media in one pass\n'
+  source_digest="$(tee "$DISK_MEDIA_ISO" <"$source_iso" | sha256sum)" || return 1
+  [ "$(stat -c %s "$DISK_MEDIA_ISO")" = "$media_bytes" ] || {
+    echo 'FAIL: verification media copy is incomplete' >&2; return 1;
+  }
+  sync "$DISK_MEDIA_ISO" || return 1
+  mirror_digest="$(sha256sum <"$DISK_MEDIA_ISO")" || return 1
+  [ "$source_digest" = "$mirror_digest" ] || { echo 'FAIL: verification media copy differs' >&2; return 1; }
+  printf '[verify] Disk mirror checksum verified\n'
 }
 
 cleanup_disk_media() {

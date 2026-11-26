@@ -1624,30 +1624,23 @@ input fingerprint, signed repository and mounted-child safety before proceeding.
 The release script validates package checksums and kernel config, builds in WSL,
 and verifies the ISO before replacing the previous release.
 
-For slow F-backed QEMU media, optional `--verify-in-ram` mirrors existing media
-in guarded nonswappable tmpfs; it does not rebuild the ISO or move a WSL disk.
-Both Linux and Windows available RAM must cover the ISO, the largest test guest
-(at least 2 GiB), and a 2 GiB reserve. A 2.90 GB ISO therefore needs approximately
-6.7 GiB available on both sides while WSL is running; larger service-memory
-overrides increase the budget. Insufficient RAM refuses before copying.
-Service and BIOS/UEFI success markers cannot override guest I/O, filesystem,
-kernel-panic, OOM or network Tx-hang/watchdog errors. [Completed existing-image verification and limits](docs/build-verification-recheck-20261014.md).
+F-backed Windows builds make a temporary ISO copy in the Windows temp
+directory on C: and check its SHA-256 before QEMU boots it. The copy is removed
+after use. To resume after an interrupted verification, add
+`--resume-after-iso` to the same build command. Use `--verify-on-disk PATH` to
+select another C: directory, such as `/mnt/c/Users/7ryan/AppData/Local/Temp`.
+Destination disk headroom must cover the ISO plus 2 GiB. Verification also
+needs guest RAM plus a 2 GiB reserve. The default 1536 MiB guest requires about
+3.5 GiB available, with `OOONANA_QEMU_MEMORY` overrides counted. The Windows RAM
+check includes conservatively estimated reusable WSL memory and requires at
+least 1 GiB immediately free physical RAM. Linux availability is checked
+separately.
 
-If RAM mirroring cannot fit, `--verify-on-disk PATH` instead makes a temporary,
-byte-compared ISO copy on a fast disk. On this Windows workspace use
-`/mnt/c/Users/7ryan/AppData/Local/Temp`: only the plain ISO goes on C:, not rootfs
-trees, build staging or a relocated/growing WSL distro VHD. Copy cleanup removes
-only its owned ISO and empty directory. Both destination and Windows C: must
-have ISO-size-plus-2-GiB disk headroom. RAM still needs guest-size-plus-2-GiB;
-the disk-backed service and BIOS/UEFI probes use 1536 MiB VMs by default (~3.5 GiB
-budget required), with `OOONANA_QEMU_MEMORY` overrides counted. On WSL, that
-host budget includes conservatively estimated reusable RAM already resident in
-the VM, not only Windows free RAM; virtual VM capacity alone is never credited.
-Linux availability and the 2 GiB reserve still must pass independently.
-Windows must also retain at least 1 GiB immediately free physical RAM.
-This changes
-test VM allocation only, never physical/live OS RAM. RAM and disk flags are
-mutually exclusive; neither bypasses boot/service/error checks.
+`--verify-in-ram` uses guarded nonswappable tmpfs with an additional RAM budget
+for the whole ISO. A 2.90 GB ISO and a 2 GiB guest need about 6.7 GiB available
+on both Linux and Windows. The disk and RAM flags are mutually exclusive.
+Guest I/O, filesystem, kernel, memory, and network watchdog errors fail
+verification. [Completed existing-image verification and limits](docs/build-verification-recheck-20261014.md).
 
 After upgrading `openvino-chat`, run `openvino setup` to update its separate
 runtime. Model downloads require Internet and enough USB storage; inference

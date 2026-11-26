@@ -29,6 +29,40 @@ ram_media_memory_ok 1 1536 3670017 3670017
 if ram_media_memory_ok 1 1536 3670016 3670017; then exit 1; fi
 fixture="$(mktemp -d)"
 trap 'rm -rf -- "$fixture"' EXIT
+mkdir "$fixture/Windows Temp"
+VERIFICATION_WINDOWS_PS="$fixture/powershell"
+cat >"$VERIFICATION_WINDOWS_PS" <<'PS'
+#!/bin/sh
+printf '%s\r\n' 'C:\Users\Build User\AppData\Local\Temp\'
+PS
+chmod 0755 "$VERIFICATION_WINDOWS_PS"
+wslpath() {
+  [ "$1" = '-u' ] && [ "$2" = 'C:\Users\Build User\AppData\Local\Temp\' ] || return 1
+  printf '%s\n' "$fixture/Windows Temp"
+}
+findmnt() { printf '%s\n' 'C:\'; }
+[ "$(wsl_default_verification_dir)" = "$fixture/Windows Temp" ]
+findmnt() { printf '%s\n' 'F:'; }
+if wsl_default_verification_dir; then exit 1; fi
+unset -f wslpath findmnt
+(
+  id() { printf '0\n'; }
+  grep() {
+    [ "$*" != '-qi microsoft /proc/sys/kernel/osrelease' ] || return 1
+    command grep "$@"
+  }
+  verification_available_memory() { linux_kb=8000000; windows_kb=0; }
+  disk_media_space_ok() { return 0; }
+  printf 'test media\n' >"$fixture/source.iso"
+  prepare_disk_media "$fixture/source.iso" 1536 "$fixture" >/dev/null
+  cmp -s "$fixture/source.iso" "$DISK_MEDIA_ISO"
+  cleanup_disk_media
+  tee() { command tee "$1" && printf 'bad media!\n' >"$1"; }
+  if prepare_disk_media "$fixture/source.iso" 1536 "$fixture" >/dev/null 2>&1; then
+    exit 1
+  fi
+  cleanup_disk_media
+)
 printf '%s\n' 'Ooonana full i3 rootfs' >"$fixture/boot.log"
 verification_guest_log_ok "$fixture/boot.log"
 for fault in 'I/O error, dev sr0' 'Buffer I/O error' 'EXT4-fs error' \
