@@ -77,7 +77,15 @@ assert_contains "$installer_dry_run" "OOONANA_INSTALL_OK"
 installer_dry_run_normal="$(bash "$INSTALLER" --dry-run --yes --target /tmp/ooonana-test-disk.raw --source /tmp/ooonana-source --kernel /tmp/vmlinuz-ooonana)"
 assert_contains "$installer_dry_run_normal" "grub.cfg: linux /boot/vmlinuz root=PARTUUID=TARGET_PARTUUID rw console=ttyS0 console=tty0 panic=1 init=/sbin/init ooonana.edition=full-i3"
 
-for whole_disk in /dev/nvme0n1 /dev/mmcblk0 /dev/loop0; do
+# Layout-only previews must not select an existing block device on a runner.
+fixture_number=4096
+while [[ -e "/dev/nvme${fixture_number}n1" || -e "/dev/nvme${fixture_number}n1p3" ||
+         -e "/dev/mmcblk$fixture_number" || -e "/dev/loop$fixture_number" ]]; do
+  fixture_number=$((fixture_number + 1))
+done
+nvme_disk="/dev/nvme${fixture_number}n1"
+nvme_root="${nvme_disk}p3"
+for whole_disk in "$nvme_disk" "/dev/mmcblk$fixture_number" "/dev/loop$fixture_number"; do
   whole_disk_dry_run="$(bash "$INSTALLER" --dry-run --yes --target "$whole_disk" --source /tmp/ooonana-source --kernel /tmp/vmlinuz-ooonana)"
   assert_contains "$whole_disk_dry_run" "parted -s $whole_disk mklabel gpt"
 done
@@ -86,16 +94,22 @@ by_id_dry_run="$(bash "$INSTALLER" --dry-run --yes --target /dev/disk/by-id/ooon
 assert_contains "$by_id_dry_run" "mount /dev/disk/by-id/ooonana-test-part3 /run/ooonana-target"
 assert_contains "$by_id_dry_run" "mount /dev/disk/by-id/ooonana-test-part2 /run/ooonana-target/boot/efi"
 
-nvme_partition_dry_run="$(bash "$INSTALLER" --dry-run --yes --target /dev/nvme0n1p3 --source /tmp/ooonana-source --bootloader none --keep-root)"
-assert_contains "$nvme_partition_dry_run" "keep root filesystem: /dev/nvme0n1p3"
-assert_not_contains "$nvme_partition_dry_run" "parted -s /dev/nvme0n1p3"
+nvme_partition_dry_run="$(bash "$INSTALLER" --dry-run --yes --target "$nvme_root" --source /tmp/ooonana-source --bootloader none --keep-root)"
+assert_contains "$nvme_partition_dry_run" "keep root filesystem: $nvme_root"
+assert_not_contains "$nvme_partition_dry_run" "parted -s $nvme_root"
 
+fixture_disk="/dev/disk/by-id/ooonana-installer-preview-$$"
+fixture_root="$fixture_disk-part2"
+fixture_efi="$fixture_disk-part1"
+fixture_home="$fixture_disk-part3"
+fixture_swap="$fixture_disk-part4"
+other_swap="$fixture_disk-other-part3"
 custom_dry_run="$(bash "$INSTALLER" --dry-run --yes \
-  --target /dev/sda2 \
+  --target "$fixture_root" \
   --source /tmp/ooonana-source \
-  --home-part /dev/sda3 \
-  --swap-part /dev/sda4 \
-  --efi-part /dev/sda1 \
+  --home-part "$fixture_home" \
+  --swap-part "$fixture_swap" \
+  --efi-part "$fixture_efi" \
   --keep-root \
   --keep-home \
   --keep-efi \
@@ -103,48 +117,48 @@ custom_dry_run="$(bash "$INSTALLER" --dry-run --yes \
   --hostname custom-lab \
   --user ryan \
   --theme light)"
-assert_contains "$custom_dry_run" "keep root filesystem: /dev/sda2"
-assert_contains "$custom_dry_run" "mount /dev/sda2 /run/ooonana-target"
-assert_contains "$custom_dry_run" "mount /dev/sda3 /run/ooonana-target/home"
-assert_contains "$custom_dry_run" "mkswap -L OOONANA_SWAP /dev/sda4"
-assert_contains "$custom_dry_run" "mount /dev/sda1 /run/ooonana-target/boot/efi"
+assert_contains "$custom_dry_run" "keep root filesystem: $fixture_root"
+assert_contains "$custom_dry_run" "mount $fixture_root /run/ooonana-target"
+assert_contains "$custom_dry_run" "mount $fixture_home /run/ooonana-target/home"
+assert_contains "$custom_dry_run" "mkswap -L OOONANA_SWAP $fixture_swap"
+assert_contains "$custom_dry_run" "mount $fixture_efi /run/ooonana-target/boot/efi"
 assert_contains "$custom_dry_run" "fstab:"
-assert_contains "$custom_dry_run" "/dev/sda3 /home ext4 defaults 0 2"
-assert_contains "$custom_dry_run" "/dev/sda1 /boot/efi vfat umask=0077 0 1"
+assert_contains "$custom_dry_run" "$fixture_home /home ext4 defaults 0 2"
+assert_contains "$custom_dry_run" "$fixture_efi /boot/efi vfat umask=0077 0 1"
 assert_contains "$custom_dry_run" "LABEL=OOONANA_SWAP none swap sw 0 0"
 assert_contains "$custom_dry_run" "umount /run/ooonana-target/boot/efi"
 assert_contains "$custom_dry_run" "umount /run/ooonana-target/home"
 assert_not_contains "$custom_dry_run" "grub-install"
 
 uefi_partition_dry_run="$(bash "$INSTALLER" --dry-run --yes \
-  --target /dev/sda2 \
+  --target "$fixture_root" \
   --source /tmp/ooonana-source \
-  --efi-part /dev/sda1 \
+  --efi-part "$fixture_efi" \
   --keep-root \
   --keep-efi \
   --bootloader grub)"
 assert_contains "$uefi_partition_dry_run" "grub-install --target=x86_64-efi"
 assert_contains "$uefi_partition_dry_run" "--efi-directory=/run/ooonana-target/boot/efi"
 assert_contains "$uefi_partition_dry_run" "grub.cfg: linux /boot/vmlinuz root=PARTUUID=TARGET_PARTUUID"
-assert_contains "$uefi_partition_dry_run" "/dev/sda2 / ext4 defaults 0 1"
+assert_contains "$uefi_partition_dry_run" "$fixture_root / ext4 defaults 0 1"
 assert_not_contains "$uefi_partition_dry_run" "grub-install --target=i386-pc"
 assert_contains "$uefi_partition_dry_run" '--checksum'
 assert_not_contains "$installer_dry_run_normal" '--checksum'
 
 duplicate_part="$(bash "$INSTALLER" --dry-run --yes \
-  --target /dev/sda2 \
+  --target "$fixture_root" \
   --bootloader none \
-  --home-part /dev/sda2 \
+  --home-part "$fixture_root" \
   --keep-root 2>&1 || true)"
-assert_contains "$duplicate_part" "partition reused for install roles: /dev/sda2"
+assert_contains "$duplicate_part" "partition reused for install roles: $fixture_root"
 
 wiped_extra="$(bash "$INSTALLER" --dry-run --yes \
-  --target /dev/sda \
-  --home-part /dev/sda3 2>&1 || true)"
+  --target "$fixture_disk" \
+  --home-part "$fixture_home" 2>&1 || true)"
 assert_contains "$wiped_extra" "whole-disk mode creates its own partitions; do not name extra partitions"
 cross_disk_swap="$(bash "$INSTALLER" --dry-run --yes \
-  --target /dev/sda2 --bootloader none --swap-part /dev/sdb3 2>&1 || true)"
-assert_contains "$cross_disk_swap" "refusing cross-disk install partition: /dev/sdb3"
+  --target "$fixture_root" --bootloader none --swap-part "$other_swap" 2>&1 || true)"
+assert_contains "$cross_disk_swap" "refusing cross-disk install partition: $other_swap"
 bad_swap_size="$(bash "$INSTALLER" --dry-run --yes \
   --target /dev/sda --swap-size-mib nope 2>&1 || true)"
 assert_contains "$bad_swap_size" "--swap-size-mib must be a nonnegative integer"
